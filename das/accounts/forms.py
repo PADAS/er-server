@@ -15,7 +15,6 @@ from core.common import TIMEZONE_USED
 from core.forms_utils import JSONFieldFormMixin
 from observations import kmlutils
 from observations.models import Subject
-from utils.features import features
 from utils.tenant import get_tenant_settings
 
 from .mixins import UserFormValidatorMixin
@@ -213,12 +212,7 @@ class PermissionSetAdminForm(forms.ModelForm):
             self.fields["user_set"].initial = self.instance.user_set.all()
             self.fields["acquire_from"].initial = self.instance._parents.all()
 
-        if features.tms.is_on():
-            patrol_enabled = get_tenant_settings().env_settings.patrol_enabled
-        else:
-            patrol_enabled = settings.PATROL_ENABLED
-
-        if not patrol_enabled:
+        if not get_tenant_settings().env_settings.patrol_enabled:
             self.fields["children"].queryset = self.fields["children"].queryset.exclude(
                 permissions__in=patrol_mgmt_permissions()
             )

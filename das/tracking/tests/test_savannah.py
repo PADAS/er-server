@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timedelta
-from unittest import mock
 
+import pytest
 import pytz
 import requests_mock
 
@@ -9,7 +9,6 @@ from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase, override_settings
 
-from conftest import TENANT_RESPONSE
 from observations.models import (
     Source,
     SourceProvider,
@@ -219,13 +218,12 @@ class SavannahPluginTest(TestCase):
         self.henry = Subject.objects.create(name="Henry", subject_subtype=subject_subtype)
         SubjectSource.objects.create(source=self.source, subject=self.henry)
 
-    @mock.patch("utils.tenant.managers.TenantData.get")
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     @requests_mock.Mocker()
-    def test_savannah(self, tenant_data, request_mock):
+    @pytest.mark.usefixtures("tenant_settings")
+    def test_savannah(self, request_mock):
         make_data_download(request_mock, self.api_host)
         make_exceptions_download(request_mock, self.api_host)
-        tenant_data.return_value = TENANT_RESPONSE
         plugin_class = apps.get_model("tracking", "SavannahPlugin")
 
         # run plugin to fetch observations and alert type data

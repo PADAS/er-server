@@ -1,14 +1,14 @@
 import json
 import logging
-from copy import deepcopy
 from datetime import datetime, timedelta
 from unittest import mock
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import jsonschema
 import pytest
 import pytz
 from business_rules import actions, export_rule_data, fields, run_all, variables
+from django_multitenant.utils import set_current_tenant
 
 from django.contrib.auth.models import Permission
 from django.core import mail
@@ -42,9 +42,8 @@ from activity.tasks import (
     evaluate_conditions_for_sending_alerts,
     send_alert_to_notificationmethod,
 )
-from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest
-from core.utils import NonHttpRequest, OneWeekSchedule
+from core.utils import DASTenantManagement, NonHttpRequest, OneWeekSchedule
 from observations.models import CommonName, Subject, SubjectGroup
 
 logger = logging.getLogger(__name__)
@@ -62,11 +61,15 @@ power_user_permissions = [
 ]
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class BusinessRulesTestCase(BaseAPITest):
     def setUp(self):
         super().setUp()
+        das_tenant_management = DASTenantManagement(domain="domain.com")
+        tenant = das_tenant_management.get_or_create_tenant()
+        set_current_tenant(tenant)
         call_command("loaddata", "initial_eventdata")
-        call_command("loaddata", "event_data_model")
+        call_command("loaddata_with_tenant", "event_data_model")
         call_command("loaddata", "test_events_schema")
         call_command("loaddata", "initial_choices")
         call_command("loaddata", "initial_common_name")
@@ -274,11 +277,7 @@ class BusinessRulesTestCase(BaseAPITest):
 
         self.assertEqual(len(alert_actions), 1)
 
-    @pytest.mark.usefixtures("tenant_response_for_test_case")
-    @patch("accounts.views.get_tenant_settings")
-    def test_create_eventtype_variables_class(self, get_tenant_settings):
-        get_tenant_settings.return_value = deepcopy(self.tenant_response)
-
+    def test_create_eventtype_variables_class(self):
         snare_et = EventType.objects.get(value="snare_rep")
         variables_class, applies_to = _generate_aggregate_event_variables_class(
             [
@@ -1061,10 +1060,7 @@ class BusinessRulesTestCase(BaseAPITest):
 
         print(action_list)
 
-    @patch("utils.tenant.providers.TenantData.get")
-    def test_sending_a_message_for_an_event_alert(self, mock_tenant_data):
-        mock_tenant_data.return_value = TENANT_RESPONSE
-
+    def test_sending_a_message_for_an_event_alert(self):
         # Create a carcass event with some details
         carcass_eventtype = EventType.objects.get(value="carcass_rep")
 
@@ -1193,10 +1189,7 @@ class BusinessRulesTestCase(BaseAPITest):
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for invalid schedule_type."):
             jsonschema.validate(invalid_document_4, OneWeekSchedule.json_schema)
 
-    @patch("utils.tenant.providers.TenantData.get")
-    def test_notification_triggered_for_subject_group(self, mock_tenant_data):
-        mock_tenant_data.return_value = TENANT_RESPONSE
-
+    def test_notification_triggered_for_subject_group(self):
         NOTIFICATION_METHOD_EMAIL_ADDRESS = "phillip@email.com"
         notification_method = NotificationMethod.objects.create(
             title="test", owner=self.admin_user, method="email", value=NOTIFICATION_METHOD_EMAIL_ADDRESS

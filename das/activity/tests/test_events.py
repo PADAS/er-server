@@ -15,6 +15,7 @@ from urllib.parse import urlencode
 
 import pytest
 import pytz
+from django_multitenant.utils import set_current_tenant
 from drf_extra_fields.geo_fields import PointField
 from kombu import Connection
 from psycopg2.extras import DateTimeTZRange
@@ -51,6 +52,7 @@ from activity.tests import schema_examples
 from choices.models import Choice, DynamicChoice
 from client_http import HTTPClient
 from core.tests import BaseAPITest
+from core.utils import DASTenantManagement
 from observations.models import Subject, SubjectSubType, SubjectType
 from observations.serializers import SubjectSerializer
 from utils.categories import get_categories_and_geo_categories
@@ -127,14 +129,19 @@ def fake_get_pool():
     return Connection("memory://").Pool(20)
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventView(BaseTestToolMixin, BaseAPITest):
     user_const = dict(last_name="last", first_name="first")
 
     def setUp(self):
         super().setUp()
-        call_command("loaddata", "initial_eventdata")
-        call_command("loaddata", "event_data_model")
-        call_command("loaddata", "test_events_schema")
+        das_tenant_management = DASTenantManagement(domain="domain.com")
+        tenant = das_tenant_management.get_or_create_tenant()
+        set_current_tenant(tenant)
+
+        call_command("loaddata_with_tenant", "initial_eventdata")
+        call_command("loaddata_with_tenant", "event_data_model")
+        call_command("loaddata_with_tenant", "test_events_schema")
 
         self.no_perms_user = User.objects.create_user(
             "no_perms_user", "das_no_perms@vulcan.com", "noperms", **self.user_const
@@ -3360,6 +3367,7 @@ class TestEventFilterQueryset:
         "b97e67c4-350e-412c-9ef7-cd1e54ed205a",
     ]
 
+    @pytest.mark.usefixtures("tenant_settings")
     def test_by_text_filter_method_for_serial_number(self, five_events_with_details):
         event = Event.objects.last()
 
@@ -3368,6 +3376,7 @@ class TestEventFilterQueryset:
         assert events.count() == 1
 
     @pytest.mark.parametrize("term", ["2", "24", "248"])
+    @pytest.mark.usefixtures("tenant_settings")
     def test_by_text_filter_method_using_numbers_for_ids_in_event_details_data(self, five_events_with_details, term):
         event_details = EventDetails.objects.all()
         for idx, event_detail in enumerate(event_details, 0):
@@ -3383,6 +3392,7 @@ class TestEventFilterQueryset:
         assert events.count() >= 1
 
     @pytest.mark.parametrize("term", ["d", "d6", "d6e"])
+    @pytest.mark.usefixtures("tenant_settings")
     def test_by_text_filter_method_using_letters_for_ids_in_event_details_data(self, five_events_with_details, term):
         event_details = EventDetails.objects.all()
         for idx, event_detail in enumerate(event_details, 0):
@@ -3447,11 +3457,12 @@ class TestEventFilterQueryset:
         settings,
         rf,
         monkeypatch,
+        tenant_settings,
     ):
         is_banned = MagicMock(return_value=False)
         monkeypatch.setattr("activity.models.is_banned", is_banned)
 
-        settings.GEO_PERMISSION_RADIUS_METERS = 1000
+        tenant_settings.env_settings.geo_permission_radius_meters = 1000
         event = events_with_category[-1]
         user_location = "-103.517015,20.672398"
 
@@ -3471,6 +3482,7 @@ class TestEventFilterQueryset:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventFilterQuerysetByBbox:
     @pytest.fixture
     def _events_with_geometries(self, five_events, five_event_geometries):
@@ -3553,6 +3565,7 @@ class TestEventFilterQuerysetByBbox:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventView2(BaseTestToolMixin):
     api_path = "activity/events/"
     view = views.EventsView

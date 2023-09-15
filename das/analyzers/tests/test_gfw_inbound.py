@@ -45,6 +45,7 @@ def send_task(name, args=(), kwargs={}, **opts):
     return task(*args, **kwargs)
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class GFWAlertHandlerTest(BaseAPITest):
     sensor_type = "gfw-alert"
     provider = "gfw"

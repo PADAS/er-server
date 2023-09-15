@@ -29,7 +29,6 @@ from accounts.utils import patrol_mgmt_permissions
 from core.common import TIMEZONE_USED
 from observations.models import Subject
 from utils.admin import DefaultFilterMixin, FieldSetElementMixin
-from utils.features import features
 from utils.html import make_html_list
 from utils.tenant import get_tenant_settings
 
@@ -73,10 +72,7 @@ class PermissionSetAdmin(DjangoGroupAdmin):
 
     def get_queryset(self, request):
         queryset = super(PermissionSetAdmin, self).get_queryset(request)
-        patrol_enabled = (
-            get_tenant_settings().env_settings.patrol_enabled if features.tms.is_on() else settings.PATROL_ENABLED
-        )
-        if not patrol_enabled:
+        if not get_tenant_settings().env_settings.patrol_enabled:
             return queryset.exclude(permissions__in=patrol_mgmt_permissions())
         return queryset
 
@@ -171,13 +167,7 @@ class UserAdmin(DefaultFilterMixin, FieldSetElementMixin, DjangoUserAdmin):
         ),
     )
 
-    list_display = (
-        "display_name",
-        "username",
-        "_last_login",
-        "member_permission_sets",
-        "is_active",
-    )
+    list_display = ("display_name", "username", "_last_login", "member_permission_sets", "is_active", "das_tenant")
     list_editable = ("is_active",)
     list_display_links = ("display_name",)
     list_filter = ("is_active", "is_staff", "is_superuser", "permission_sets")

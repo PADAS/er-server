@@ -5,12 +5,12 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import celery.exceptions
+import pytest
 
 from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 
-from conftest import TENANT_RESPONSE
 from core.tests import fake_get_pool
 from observations.models import Source, Subject
 from tracking.models import SourcePlugin
@@ -47,10 +47,9 @@ class AwtPluginTest(TestCase):
         data = open(TESTDATA_FILENAME).read()
         self.data = ast.literal_eval(data)
 
-    @patch("utils.tenant.managers.TenantData.get")
     @patch("das_server.pubsub.get_pool", fake_get_pool)
-    def test_name(self, tenant_data):
-        tenant_data.return_value = TENANT_RESPONSE
+    @pytest.mark.usefixtures("tenant_settings")
+    def test_name(self):
         with patch("tracking.models.awt.AwtClient.fetch_data") as mock_fetch_data:
             mock_fetch_data.return_value = self.awt_client.decrypt_response(self.data)
             plugin_class = apps.get_model("tracking", "AwtPlugin")
@@ -65,11 +64,9 @@ class AwtPluginTest(TestCase):
         source_plugin = SourcePlugin.objects.get(source=self.source)
         self.assertTrue(len(self.henry.observations()) > 0)
 
-    @patch("utils.tenant.managers.TenantData.get")
     @patch("das_server.pubsub.get_pool", fake_get_pool)
-    def test_retry_lock(self, tenant_data):
-        tenant_data.return_value = TENANT_RESPONSE
-
+    @pytest.mark.usefixtures("tenant_settings")
+    def test_retry_lock(self):
         def cache_get(key=""):
             ttl = datetime.now(tz=timezone.utc) + timedelta(seconds=100)
             logger.info(f"requesting cache key {key}")

@@ -115,6 +115,7 @@ class TestPatrolSerializer(TestCase):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventSerializer:
     feature = {
         "type": "Feature",
@@ -494,6 +495,7 @@ class TestEventSerializer:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventGeometrySerializer:
     def test_serialized_event_geometry_updates_format(self, event_geometry_with_polygon):
         serialized_event_geometry_revision = EventGeometryRevisionSerializer(

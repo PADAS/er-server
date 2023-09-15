@@ -9,11 +9,12 @@ from dateutil import parser as dateparser
 
 import django.contrib.auth
 from django.db import transaction
-from django.test import Client, override_settings
+from django.test import Client
 from django.urls import reverse
 from django.utils import lorem_ipsum
 from rest_framework import status
 
+from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest, fake_get_pool
 from observations.models import (
     SEX_MALE,
@@ -25,6 +26,7 @@ from observations.models import (
     SubjectSubType,
 )
 from sensors.views import GenericSensorHandlerView
+from utils.tenant import Tenant
 
 User = django.contrib.auth.get_user_model()
 
@@ -94,6 +96,9 @@ class GenericSensorHandlerTest(BaseAPITest):
         )
 
         self.api_path = "/".join((self.api_base, "sensors", self.sensor_type, self.provider, "status/"))
+        self.tenant = Tenant.from_dict(TENANT_RESPONSE)
+        self.thread = mock.MagicMock()
+        self.thread.tenant_object = self.tenant
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def run_transaction_hooks(self):
@@ -132,8 +137,10 @@ class GenericSensorHandlerTest(BaseAPITest):
         response = self._post_data(json.dumps(local_obs))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    @override_settings(SHOW_TRACK_DAYS=365)
-    def test_post_one(self):
+    @mock.patch("utils.tenant.thread._get_main_thread")
+    def test_post_one(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        self.tenant.env_settings.show_track_days = 365
         """If the subject has only a couple of observations and they are over a year old
         we shouldn't see tracks available and we shouldn't see the last_position field
         filled out with the default SubjectStatus placeholder record.
@@ -394,7 +401,9 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(1, Observation.objects.filter(source=new_source).count())
         self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
 
-    def test_request_with_varying_provider_key_lengths(self):
+    @mock.patch("utils.tenant.thread._get_main_thread")
+    def test_request_with_varying_provider_key_lengths(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         client = Client()
         client.force_login(self.super_user)
 

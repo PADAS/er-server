@@ -466,6 +466,8 @@ locals {
     "scorpionreef"              = "prod1"
     "echinococcus"              = "prod1"
     "ezemvelo-turtlemonitoring" = "prod1"
+    "mtblackbearmonitoring"     = "prod1"
+    "zimbali"                   = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -690,6 +692,7 @@ locals {
     "parquemetropolitano"       = 1
     "scorpionreef"              = 1
     "ezemvelo-turtlemonitoring" = 1
+    "zimbali"                   = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)

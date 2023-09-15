@@ -10,7 +10,6 @@ import pytz
 from kombu import exceptions
 
 import django
-from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import F, Q, Window
@@ -70,22 +69,11 @@ logger = logging.getLogger(__name__)
 
 
 def get_track_days():
-    if features.tms.is_on():
-        show_track_days = get_tenant_settings().env_settings.show_track_days or 16
-    else:
-        show_track_days = getattr(settings, "SHOW_TRACK_DAYS", 16)
-
+    show_track_days = get_tenant_settings().env_settings.show_track_days
     return datetime.timedelta(days=int(show_track_days))
 
 
 ONE_YEAR = datetime.timedelta(days=365)
-
-
-def include_stationary_subjects_on_map():
-    if features.tms.is_on():
-        return get_tenant_settings().env_settings.show_stationary_subjects_on_map
-
-    return parse_bool(getattr(settings, "SHOW_STATIONARY_SUBJECTS_ON_MAP", True))
 
 
 current_tz_name = timezone.get_current_timezone_name()
@@ -502,11 +490,12 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
             bbox = [float(v) for v in bbox]
             if len(bbox) != 4:
                 raise ValueError("invalid bbox param")
+            show_stationary_subjects_on_map = get_tenant_settings().env_settings.show_stationary_subjects_on_map
             if use_last_known_location:
                 queryset = queryset.by_bbox_last_known_locations(
                     bbox,
                     last_days=get_track_days(),
-                    include_stationary_subjects=include_stationary_subjects_on_map(),
+                    include_stationary_subjects=show_stationary_subjects_on_map,
                     updated_since=updated_since,
                     updated_until=updated_until,
                 )
@@ -514,7 +503,7 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
                 queryset = queryset.by_bbox(
                     bbox,
                     last_days=get_track_days(),
-                    include_stationary_subjects=include_stationary_subjects_on_map(),
+                    include_stationary_subjects=show_stationary_subjects_on_map,
                     updated_since=updated_since,
                     updated_until=updated_until,
                 )
@@ -969,14 +958,9 @@ class KmlRootView(APIView):
             self.request.user.username, datetime.datetime.now(tz=pytz.utc).strftime("%Y%M%d%H%M")
         )
 
-        if features.tms.is_on():
-            kml_feed_title = get_tenant_settings().env_settings.kml_feed_title
-        else:
-            kml_feed_title = settings.KML_FEED_TITLE
-
         context = {
             "network_link": {
-                "name": kml_feed_title,
+                "name": get_tenant_settings().env_settings.kml_feed_title,
                 "visibility": 0,
                 "open": 1,
                 "href": self.build_link_for_user(start, end),
@@ -1173,10 +1157,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
             re.sub("[^a-zA-Z0-9]", "_", subject.name), datetime.datetime.now(tz=pytz.utc).strftime("%Y%M%d%H%M")
         )
 
-        if features.tms.is_on():
-            kml_overlay_image = get_tenant_settings().env_settings.kml_overlay_image
-        else:
-            kml_overlay_image = getattr(settings, "KML_OVERLAY_IMAGE", None)
+        kml_overlay_image = get_tenant_settings().env_settings.kml_overlay_image
 
         color = self.get_subject_color(subject)
         context = {
@@ -1700,10 +1681,8 @@ class GPXFileUploadView(generics.CreateAPIView):
     @staticmethod
     def get_async_result(file, source_id):
         try:
-            domain = None
-            if features.tms.is_on():
-                domain = get_tenant_settings().domain
-            async_result = process_gpxdata_api.apply_async(args=(file, source_id), kwargs={"domain": domain})
+            kwargs = {"domain": get_tenant_settings().domain} if features.tms.is_on() else {}
+            async_result = process_gpxdata_api.apply_async(args=(file, source_id), kwargs=kwargs)
         except exceptions.OperationalError as exc:
             raise ValidationError({"error_message": exc})
         else:
@@ -1901,10 +1880,8 @@ class MessagesView(generics.ListCreateAPIView):
             ser_data = self.save_message(request, data)
 
             message_id, user_email = ser_data.get("id"), request.user.email
-            domain = None
-            if features.tms.is_on():
-                domain = get_tenant_settings().domain
-            handle_outbox_message.apply_async(args=(message_id, user_email), kwargs={"domain": domain})
+            kwargs = {"domain": get_tenant_settings().domain} if features.tms.is_on() else {}
+            handle_outbox_message.apply_async(args=(message_id, user_email), kwargs=kwargs)
 
         headers = self.get_success_headers(ser_data)
         return Response(ser_data, status=status.HTTP_201_CREATED, headers=headers)

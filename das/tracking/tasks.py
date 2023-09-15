@@ -27,13 +27,10 @@ EXPIRE_SUBTASKS = 300
 def run_plugins(self, expire_subtasks=EXPIRE_SUBTASKS):
     for plugin_class in runnable_plugins:
         if issubclass(plugin_class, (TrackingPlugin,)):
-            domain = None
-            if features.tms.is_on():
-                domain = get_tenant_settings().domain
             execute_run_plugin_class(
                 plugin_class.__name__,
                 expire_subtasks=expire_subtasks,
-                domain=domain,
+                domain=get_tenant_settings().domain if features.tms.is_on() else None,
                 expires=expire_subtasks,
             )
         else:
@@ -63,13 +60,10 @@ def run_plugin_class(plugin_class, expire_subtasks=EXPIRE_SUBTASKS, **kwargs):
                         # Expire in N seconds where N is the same as the period for the scheduled task.
                         # This is to avoid letting our task queue get jammed with
                         # redundant tasks.
-                        domain = None
-                        if features.tms.is_on():
-                            domain = get_tenant_settings().domain
                         execute_run_source_plugin(
                             str(sp.id),
                             expires=expire_subtasks,
-                            domain=domain,
+                            domain=get_tenant_settings().domain if features.tms.is_on() else None,
                         )
         else:
             plugin.execute()
@@ -85,15 +79,11 @@ def schedule_firms_plugins():
     This task is intended to run as a scheduled job.
     It delegates work to 'run_firms_plugin' which, when run using apply_async, will reject redundant/concurrent tasks.
     """
-    plugins = FirmsPlugin.objects.filter(status=FirmsPlugin.STATUS_ENABLED).values(
-        "id",
-    )
+    plugins = FirmsPlugin.objects.filter(status=FirmsPlugin.STATUS_ENABLED).values("id")
+    kwargs = {"domain": get_tenant_settings().domain} if features.tms.is_on() else {}
     for plugin in plugins:
         plugin_id = str(plugin["id"])
-        domain = None
-        if features.tms.is_on():
-            domain = get_tenant_settings().domain
-        run_firms_plugin.apply_async(args=(plugin_id,), kwargs={"domain": domain})
+        run_firms_plugin.apply_async(args=(plugin_id,), kwargs=kwargs)
 
 
 @celery.app.task(

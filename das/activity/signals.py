@@ -38,6 +38,7 @@ def event_post_save(sender, instance, created, **kwargs):
             "das.event.new" if created else "das.event.update",
         )
     )
+
     if features.tms.is_on():
         transaction.on_commit(
             lambda: celery.app.send_task(

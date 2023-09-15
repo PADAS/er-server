@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 import urllib.parse
 from collections import namedtuple
@@ -10,11 +11,17 @@ import pytz
 
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
+from django.core.exceptions import ValidationError
 from django.http.request import HttpRequest
 from django.utils import timezone
 from django.utils.dateparse import parse_duration
 
+from core import tms_api_client
+from core.models import DASTenant
 from utils.constants import regex
+from utils.tenant import TenantNotFoundException
+
+logger = logging.getLogger(__name__)
 
 
 class StaticImageFinder(object):
@@ -214,7 +221,7 @@ def get_site_name():
 
     if hasattr(settings, "UI_SITE_URL"):
         parts = urllib.parse.urlsplit(settings.UI_SITE_URL)
-        sitename = parts.hostname.split(".")[0]
+        sitename = parts.netloc.split(".")[0]
         return sitename
     return "unknown"
 
@@ -224,3 +231,31 @@ def is_uuid(string: str) -> bool:
         pattern = re.compile(rf"{regex.UUID}$", re.IGNORECASE)
         return bool(re.match(pattern, string))
     return False
+
+
+class DASTenantManagement:
+    def __init__(self, domain: str):
+        self.domain = domain
+
+    def get_or_create_tenant(self):
+        tenant = self._get_existing_tenant()
+        if not tenant:
+            tenant_data = self._get_tenant_from_tms(domain=self.domain)
+            try:
+                return DASTenant.objects.create(id=tenant_data["id"], domain=tenant_data["domain"])
+            except ValidationError:
+                raise TenantNotFoundException(domain=self.domain)
+        return tenant
+
+    def _get_existing_tenant(self):
+        return DASTenant.objects.first()
+
+    def _get_tenant_from_tms(self, domain: str):
+        return tms_api_client.get_tenant_data(domain=domain)
+
+
+def update_tenant_models(models: list, tenant) -> None:
+    # INFO Deprecated this function after all tenant will be consolidated in a one single database.
+    for class_model in models:
+        updated_objects = class_model.objects.all().update(das_tenant=tenant)
+        logger.info("%d objects updated of model %s.", updated_objects, class_model._meta.object_name)
