@@ -12,13 +12,6 @@ from utils.tenant.commands import TenantBaseCommand
 def print_immobility_test_set():
     # This is a hand-curated list with a subject name, and end-time and a window size in hours.
     IMMOBILITY_TEST_SUBJECTS = [  # (name, window-end-time, window hours)
-        # ('Ishango', pytz.utc.localize(datetime(2017, 4, 5, 14, 58)), 24),
-        # ('Courtney', pytz.utc.localize(datetime(2017, 4, 30, 2, 10)), 48),
-        # ('Wasiwasi', pytz.utc.localize(datetime(2017, 5, 13, 2, 10)), 25),
-        # ('Ishango', pytz.utc.localize(datetime(2017, 5, 25, 20, 00)), 24),
-        # ('Olchoda', pytz.utc.localize(datetime(2017, 7, 26, 6, 00)), 24),
-        # ('Heritage', pytz.utc.localize(datetime(2012, 6, 15, 12, 00)), 17520),
-        # ('Habiba', pytz.utc.localize(datetime(2014, 2, 8, 12, 00)), 14*24),
         ("Jolie", pytz.utc.localize(datetime(2017, 11, 2, 15, 00)), 36)
     ]
 
