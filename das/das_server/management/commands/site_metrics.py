@@ -7,7 +7,6 @@ import pytz
 from storages.backends.s3boto3 import S3Boto3Storage
 
 from django.conf import settings
-from django.core.management.base import BaseCommand
 
 import utils.json as json
 import utils.schema_utils as schema_utils
@@ -19,6 +18,7 @@ from observations.models import Source, UserSession
 from tracking.models.plugin_base import SourcePlugin
 from utils.features import features
 from utils.tenant import get_tenant_settings
+from utils.tenant.commands import TenantBaseCommand
 
 
 class SiteMetrics(NamedTuple):
@@ -38,7 +38,7 @@ REPORT_TYPE = "daily_aggregate"
 REPORT_VERSION = "v1"
 
 
-class Command(BaseCommand):
+class Command(TenantBaseCommand):
     help = "Generate the site metrics, default is by day"
 
     def add_arguments(self, parser):

@@ -1,9 +1,10 @@
 from cProfile import Profile
 
 import django.contrib.auth
-from django.core.management.base import BaseCommand
 from django.http.request import HttpRequest
 from django.utils.module_loading import import_string
+
+from utils.tenant.commands import TenantBaseCommand
 
 User = django.contrib.auth.get_user_model()
 
@@ -16,7 +17,7 @@ OPENAPI_MODE = "openapi"
 COREAPI_MODE = "coreapi"
 
 
-class Command(BaseCommand):
+class Command(TenantBaseCommand):
     help = "Generates configured API schema for project."
 
     def get_mode(self):
