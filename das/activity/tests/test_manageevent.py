@@ -1,16 +1,17 @@
-import logging
 import copy
-
+import logging
 from datetime import datetime
+
+from drf_extra_fields.geo_fields import PointField
+
 from django.core.management import call_command
 from django.db.models import Count
 from django.test import TestCase
-from drf_extra_fields.geo_fields import PointField
 from rest_framework.fields import DateTimeField
 
 from activity.management.commands.manageevent import Command
-from activity.models import Event, EventType, EventCategory, EventDetails
-from choices.models import Color, Choice
+from activity.models import Event, EventDetails, EventType
+from choices.models import Choice, Color
 from utils import schema_utils
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ migration_doc = [
         "category_value": "security",
         "category_id": "61d279a3-95fd-421f-bdb0-604ae8731761",
         "ordernum": 270,
-        "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"EventType Data\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n           \"post\": {\r\n               \"type\":\"string\",\r\n               \"title\": \"Line 1: Post\",\r\n               \"enum\": {{table___color___values}},\r\n               \"enumNames\": {{table___color___names}}\r\n           }\r\n       }\r\n   },\r\n \"definition\": [\r\n  \"post\"\r\n ]\r\n}",
+        "schema": '{\r\n   "schema": \r\n   {\r\n       "$schema": "http://json-schema.org/draft-04/schema#",\r\n       "title": "EventType Data",\r\n     \r\n       "type": "object",\r\n\r\n       "properties": \r\n       {\r\n           "post": {\r\n               "type":"string",\r\n               "title": "Line 1: Post",\r\n               "enum": {{table___color___values}},\r\n               "enumNames": {{table___color___names}}\r\n           }\r\n       }\r\n   },\r\n "definition": [\r\n  "post"\r\n ]\r\n}',
         "is_collection": False,
         "count": 0,
         "rendered_schema": {
@@ -38,34 +39,20 @@ migration_doc = [
                     "post": {
                         "type": "string",
                         "title": "Line 1: Post",
-                        "enum": [
-                            "753dbb6f-8b39-49c4-8d95-36d1f711f6a2",
-                            "b97b6d03-f669-4a1a-9024-479fa973c711"
-                        ],
+                        "enum": ["753dbb6f-8b39-49c4-8d95-36d1f711f6a2", "b97b6d03-f669-4a1a-9024-479fa973c711"],
                         "enumNames": {
                             "753dbb6f-8b39-49c4-8d95-36d1f711f6a2": "Black",
-                            "b97b6d03-f669-4a1a-9024-479fa973c711": "White"
-                        }
+                            "b97b6d03-f669-4a1a-9024-479fa973c711": "White",
+                        },
                     }
-                }
+                },
             },
-            "definition": [
-                "post"
-            ]
+            "definition": ["post"],
         },
-        "fields": [
-            "post"
-        ],
-        "tables": [
-            {
-                "table_name": "color"
-            },
-            {
-                "table_name": "color"
-            }
-        ],
+        "fields": ["post"],
+        "tables": [{"table_name": "color"}, {"table_name": "color"}],
         "queries": [],
-        "enums": []
+        "enums": [],
     }
 ]
 
@@ -75,9 +62,9 @@ class TestManageEvent(TestCase):
         message="Something worth recording happened",
         time=DateTimeField().to_representation(datetime.now()),
         provenance=Event.PC_SYSTEM,
-        event_type='other',
+        event_type="other",
         priority=Event.PRI_REFERENCE,
-        location=dict(longitude='40.1353', latitude='-1.891517')
+        location=dict(longitude="40.1353", latitude="-1.891517"),
     )
 
     migrate_ran = False
@@ -85,38 +72,40 @@ class TestManageEvent(TestCase):
 
     def setUp(self):
         super().setUp()
-        call_command('loaddata', 'initial_eventdata')
-        call_command('loaddata', 'event_data_model')
-        call_command('loaddata', 'test_events_schema')
+        call_command("loaddata", "initial_eventdata")
+        call_command("loaddata_with_tenant", "event_data_model")
+        call_command("loaddata_with_tenant", "test_events_schema")
 
         self.sample_event = self.create_event(self.event_data)
         Color.objects.bulk_create(
-            [Color(id=item_id, name=item) for (item_id, item) in [
-                ("753dbb6f-8b39-49c4-8d95-36d1f711f6a2", "Black"),
-                ("b97b6d03-f669-4a1a-9024-479fa973c711", "White")]])
-        self.schema = "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"EventType Data\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n           \"post\": {\r\n               \"type\":\"string\",\r\n               \"title\": \"Line 1: Post\",\r\n               \"enum\": {{table___color___values}},\r\n               \"enumNames\": {{table___color___names}}\r\n           }\r\n       }\r\n   },\r\n \"definition\": [\r\n  \"post\"\r\n ]\r\n}"
+            [
+                Color(id=item_id, name=item)
+                for (item_id, item) in [
+                    ("753dbb6f-8b39-49c4-8d95-36d1f711f6a2", "Black"),
+                    ("b97b6d03-f669-4a1a-9024-479fa973c711", "White"),
+                ]
+            ]
+        )
+        self.schema = '{\r\n   "schema": \r\n   {\r\n       "$schema": "http://json-schema.org/draft-04/schema#",\r\n       "title": "EventType Data",\r\n     \r\n       "type": "object",\r\n\r\n       "properties": \r\n       {\r\n           "post": {\r\n               "type":"string",\r\n               "title": "Line 1: Post",\r\n               "enum": {{table___color___values}},\r\n               "enumNames": {{table___color___names}}\r\n           }\r\n       }\r\n   },\r\n "definition": [\r\n  "post"\r\n ]\r\n}'
 
         self.event_type = EventType.objects.get(id="74941f0d-4b89-48be-a62a-a74c78db8383")
         self.event_type.schema = self.schema
         self.event_type.save()
 
         EventDetails.objects.create(
-            data={"event_details": {"name": "Ndovu", "geofence": "Lewa"}},
-            event=self.sample_event)
+            data={"event_details": {"name": "Ndovu", "geofence": "Lewa"}}, event=self.sample_event
+        )
 
     def create_event(self, event_data):
         data = copy.deepcopy(event_data)
-        if 'time' in event_data:
-            data['event_time'] = DateTimeField().to_internal_value(
-                event_data['time'])
-            del data['time']
-        if isinstance(event_data.get('event_type', None), str):
-            data['event_type'] = EventType.objects.get_by_value(
-                event_data['event_type'])
+        if "time" in event_data:
+            data["event_time"] = DateTimeField().to_internal_value(event_data["time"])
+            del data["time"]
+        if isinstance(event_data.get("event_type", None), str):
+            data["event_type"] = EventType.objects.get_by_value(event_data["event_type"])
 
-        if 'location' in data:
-            data['location'] = PointField().to_internal_value(
-                data['location'])
+        if "location" in data:
+            data["location"] = PointField().to_internal_value(data["location"])
         return Event.objects.create_event(**data)
 
     def test_dump_data(self):
@@ -131,9 +120,12 @@ class TestManageEvent(TestCase):
         records = command_under_test.get_unused_event_types()
 
         def get_event_type_count(event_type):
-            for row in Event.objects.filter(event_type_id=event_type.id).values(
-                'event_type_id').annotate(ecount=Count('event_type_id')):
-                return row['ecount']
+            for row in (
+                Event.objects.filter(event_type_id=event_type.id)
+                .values("event_type_id")
+                .annotate(ecount=Count("event_type_id"))
+            ):
+                return row["ecount"]
             return 0
 
         unused_event_types = []
@@ -175,15 +167,14 @@ class TestManageEvent(TestCase):
         post_schema_properties = schema_utils.get_rendered_schema(ev_type.schema)["properties"]
 
         # Check display values on rendered schema
-        self.assertEqual(list(pre_schema_properties["post"]["enumNames"].values()), list(post_schema_properties["post"]["enumNames"].values()))
+        self.assertEqual(
+            list(pre_schema_properties["post"]["enumNames"].values()),
+            list(post_schema_properties["post"]["enumNames"].values()),
+        )
 
     def test_event_details_after_migration(self):
         # Add event details update to migration doc
-        event_details_update = {
-            "previous_property_name": "name",
-            "property_name": "species",
-            "property_value": "fatu"
-        }
+        event_details_update = {"previous_property_name": "name", "property_name": "species", "property_value": "fatu"}
         migration_doc[0].get("fields").append(event_details_update)
         self.sample_event.event_type = self.event_type
         self.sample_event.save()

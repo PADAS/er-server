@@ -38,6 +38,7 @@ FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fixture
 
 
 @override_settings(DEFAULT_FILE_STORAGE="django.core.files.storage.FileSystemStorage")
+@pytest.mark.usefixtures("tenant_settings")
 class TestGeofenceAnalyzer(TestCase):
     @classmethod
     def event_schema_json(cls):
@@ -498,6 +499,7 @@ class TestGeofenceAnalyzer(TestCase):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestGeofenceAnalyzerQuietPeriod:
     OBSERVATIONS = [
         {

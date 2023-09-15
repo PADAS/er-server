@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fixtures")
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class TestProximityAnalyzer(TestCase):
     @classmethod
     def event_schema_json(cls):
@@ -297,6 +298,7 @@ class TestProximityAnalyzer(TestCase):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestFeatureProximityAnalyzerQuietPeriod:
     OBSERVATIONS = [
         {

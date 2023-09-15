@@ -2,6 +2,7 @@ import logging
 import uuid
 
 import dateutil.parser
+from django_multitenant.mixins import TenantModelMixin
 from sendsms import api
 
 from django.apps import apps
@@ -15,6 +16,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from accounts.mixins import PermissionsMixin
+from core.models import DASTenant
 
 logger = logging.getLogger(__name__)
 
@@ -170,8 +172,9 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
     )
     accepted_eula = models.BooleanField(default=False)
     pin = models.CharField(max_length=4, blank=True, null=True)
-
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     objects = UserManager()
+    tenant_id = "das_tenant_id"
 
     USERNAME_FIELD = "username"
     REQUIRED_FIELDS = []
@@ -245,7 +248,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         return self.additional.get("role") or ""
 
 
-class User(AccountsAbstractUser):
+class User(TenantModelMixin, AccountsAbstractUser):
     user_perms = {"accounts.view_user", "accounts.change_user"}
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
@@ -253,6 +256,7 @@ class User(AccountsAbstractUser):
         swappable = "AUTH_USER_MODEL"
         verbose_name = _("user")
         verbose_name_plural = _("users")
+        unique_together = ["id", "das_tenant"]
 
     def get_user_permissions(self, obj=None):
         """

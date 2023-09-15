@@ -42,7 +42,6 @@ from activity.models import (
 from activity.signals import event_post_save
 from activity.tasks import execute_evaluate_alert_rules
 from choices.models import DynamicChoice
-from conftest import TENANT_RESPONSE
 from observations.models import SEX_FEMALE, Subject, SubjectSubType, SubjectType
 from utils.tenant import Tenant
 
@@ -52,9 +51,10 @@ user_permissions = ["security_read", "security_create", "security_update", "secu
 
 
 @patch("redis.StrictRedis", MockRedis)
+@pytest.mark.usefixtures("tenant_settings")
 class TestAlerts(TestCase):
     def setUp(self) -> None:
-        call_command("loaddata", "event_data_model")
+        call_command("loaddata_with_tenant", "event_data_model")
         self.states = [
             {"name": "New", "value": "new"},
             {"name": "Active", "value": "active"},
@@ -118,9 +118,7 @@ class TestAlerts(TestCase):
             self.assertEqual(state.get("name"), coerce_state_value(val=state.get("value")))
 
     @patch("activity.alerting.message.send_report")
-    @patch("activity.alerting.rate_limit.get_tenant_settings")
-    def test_sending_email_alert(self, get_tenant_settings, mock_send_report):
-        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
+    def test_sending_email_alert(self, mock_send_report):
         post_save.disconnect(event_post_save, sender=Event)
 
         event = Event.objects.create(title="test event", event_type=self.event_type, created_by_user=self.owner)
@@ -140,10 +138,7 @@ class TestAlerts(TestCase):
         self.assertIn("updated", kwargs.get("subject"))
         self.assertIn("Active", kwargs.get("html_content"))
 
-    @patch("utils.tenant.providers.TenantData.get")
-    def test_only_sending_notifications_when_the_condition_value_changes(self, mock_tenant_data):
-        mock_tenant_data.return_value = TENANT_RESPONSE
-
+    def test_only_sending_notifications_when_the_condition_value_changes(self):
         with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
             notification_method = NotificationMethod.objects.create(
                 owner=self.owner, title="Email", method="email", value="test@test.com"
@@ -180,9 +175,7 @@ class TestAlerts(TestCase):
             # no email sent so outbox should still have 1 email
             self.assertEqual(len(mail.outbox), 1)
 
-    def test_checkbox_event_details_returned_with_correct_titles_on_alert(
-        self,
-    ):
+    def test_checkbox_event_details_returned_with_correct_titles_on_alert(self):
         DynamicChoice.objects.create(
             choice_name="queens",
             model_name="observations.subject",
@@ -245,6 +238,7 @@ class TestAlerts(TestCase):
 
 @pytest.mark.django_db
 class TestAlertsLimit:
+    @pytest.mark.usefixtures("tenant_settings")
     def test_set_alert_counter(self, superuser, monkeypatch):
         mock = MagicMock(return_value=0)
         monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.insert_key", mock)
@@ -256,6 +250,7 @@ class TestAlertsLimit:
         assert counter == 0
 
     @pytest.mark.parametrize("value", [0, None])
+    @pytest.mark.usefixtures("tenant_settings")
     def test_get_alert_counter(self, value, superuser, monkeypatch):
         mock = MagicMock(return_value=value)
         monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.get_key", mock)
@@ -266,6 +261,7 @@ class TestAlertsLimit:
         mock.assert_called_once_with(key)
         assert counter == 0
 
+    @pytest.mark.usefixtures("tenant_settings")
     def test_get_or_set_user_alerts_counter_with_existing_value(self, superuser, monkeypatch):
         mock = MagicMock(return_value=10)
         monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.get_key", mock)
@@ -276,6 +272,7 @@ class TestAlertsLimit:
         mock.assert_called_once_with(key)
         assert counter == 10
 
+    @pytest.mark.usefixtures("tenant_settings")
     def test_get_or_set_user_alerts_counter_without_existing_value(self, superuser, monkeypatch):
         mock_get_key = MagicMock(return_value=None)
         monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.get_key", mock_get_key)
@@ -291,6 +288,7 @@ class TestAlertsLimit:
         assert counter == 0
 
     @override_settings(SERVER_FQDN="http://zoo.com")
+    @pytest.mark.usefixtures("tenant_settings")
     def test_increment_alert_counter(self, superuser, monkeypatch, caplog, tenant_response):
         caplog.set_level(logging.INFO)
         mock = MagicMock(return_value=1)
@@ -305,6 +303,7 @@ class TestAlertsLimit:
         assert f"Site http://zoo.com message sent {NOTIFICATION_METHOD_EMAIL} alert" in caplog.text
 
     @override_settings(ALERTS_RATE_LIMIT=20)
+    @pytest.mark.usefixtures("tenant_settings")
     def test_allow_send_event_alert_allowed(self, superuser, monkeypatch):
         mock = MagicMock(return_value=1)
         monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.get_key", mock)
@@ -314,30 +313,28 @@ class TestAlertsLimit:
         assert allow_send_event_alert(superuser)
         mock.assert_called_once_with(key)
 
-    @override_settings(ALERTS_RATE_LIMIT=20)
-    def test_allow_send_event_alert_not_allowed(self, superuser, monkeypatch, tenant_response):
+    def test_allow_send_event_alert_not_allowed(self, superuser, monkeypatch, tenant_settings):
         mock = MagicMock(return_value=20)
         monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.get_key", mock)
-        tenant_settings = Tenant.from_dict(tenant_response)
-        monkeypatch.setattr("activity.alerting.rate_limit.get_tenant_settings", MagicMock(return_value=tenant_settings))
+        tenant_settings.env_settings.alert_rate_limit = 20
 
         key = KEY_ALERT_LIMIT.format(superuser.id)
 
         assert not allow_send_event_alert(superuser)
         mock.assert_called_once_with(key)
 
-    @override_settings(ALERTS_RATE_LIMIT=20)
     @pytest.mark.parametrize("counter,percentage", [[10, ""], [18, "90.0"]])
-    def test_publish_user_alert_quota_percentage(self, counter, percentage, superuser, caplog):
+    def test_publish_user_alert_quota_percentage(self, counter, percentage, superuser, caplog, tenant_settings):
+        tenant_settings.env_settings.alert_rate_limit = 20
         caplog.set_level(logging.INFO)
 
         publish_user_alert_quota_percentage(superuser, counter)
 
         assert percentage in caplog.text
 
-    @override_settings(ALERTS_RATE_LIMIT=20)
     @pytest.mark.parametrize("counter,exp_remaining", [[0, 19], [5, 14], [10, 9], [15, 4], [20, -1]])
-    def test_get_remaining_alert_count(self, superuser, counter, exp_remaining, monkeypatch):
+    def test_get_remaining_alert_count(self, superuser, counter, exp_remaining, monkeypatch, tenant_settings):
+        tenant_settings.env_settings.alert_rate_limit = 20
         mock = MagicMock(return_value=counter)
         monkeypatch.setattr("activity.alerting.rate_limit.get_or_set_user_alerts_counter", mock)
 
@@ -346,12 +343,13 @@ class TestAlertsLimit:
         mock.assert_called_once_with(superuser)
         assert remaining == exp_remaining
 
-    @override_settings(ALERTS_RATE_LIMIT=20, ALERTS_REMAINING_COUNTER_FOR_WARNING=3)
+    @override_settings(ALERTS_REMAINING_COUNTER_FOR_WARNING=3)
     @pytest.mark.parametrize(
         "counter,expected",
         [[5, False], [4, False], [3, True], [2, True], [1, True], [0, True]],
     )
-    def test_prepend_alert_warning_message(self, counter, expected, superuser, monkeypatch):
+    def test_prepend_alert_warning_message(self, counter, expected, superuser, monkeypatch, tenant_settings):
+        tenant_settings.env_settings.alert_rate_limit = 20
         mock = MagicMock(return_value=counter)
         monkeypatch.setattr("activity.alerting.rate_limit.get_remaining_alert_count", mock)
 

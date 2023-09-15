@@ -2,6 +2,7 @@ import datetime
 import uuid
 
 import pytest
+from django_multitenant.utils import set_current_tenant
 from kombu import Connection
 from oauth2_provider.models import get_access_token_model, get_application_model
 
@@ -9,6 +10,8 @@ import django.contrib.auth
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
+
+from core.models import DASTenant
 
 pytestmark = pytest.mark.django_db
 
@@ -35,7 +38,8 @@ class BaseAPITest(TestCase):
 
     def setUp(self):
         user_const = dict(last_name="last", first_name="first")
-
+        tenant = DASTenant.objects.first()
+        set_current_tenant(tenant)
         self.app_user = User.objects.create_user(
             "app-user", "app-user@test.com", "app-user", is_superuser=False, is_staff=True, **user_const
         )

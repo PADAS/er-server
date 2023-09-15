@@ -24,6 +24,7 @@ import pymet
 import pytz
 from bitfield import BitField
 from dateutil.parser import parse as parse_date
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from psycopg2.extras import DateTimeTZRange
 
 from django.contrib.auth import get_user_model
@@ -55,7 +56,13 @@ from django.utils.translation import gettext_lazy as _
 
 from accounts.mixins import PermissionSetGroupMixin, PermissionSetHierarchyMixin
 from accounts.models import PermissionSet
-from core.models import HierarchyManager, HierarchyModel, TimestampedModel, UUIDModel
+from core.models import (
+    DASTenant,
+    HierarchyManager,
+    HierarchyModel,
+    TimestampedModel,
+    UUIDModel,
+)
 from core.utils import static_image_finder
 from das_server import settings
 from observations.mixins import FilterMixin
@@ -1123,7 +1130,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             return None
 
 
-class SubjectManager(models.Manager):
+class SubjectManager(TenantManagerMixin, models.Manager):
     def create_subject(self, **kwargs):
         # all subjects are added to the default subject group
         subject_groups = kwargs.pop("subject_groups", []) or []
@@ -1184,13 +1191,9 @@ SEX_CHOICES = (
 )
 
 
-class Subject(TimestampedModel, PermissionSetGroupMixin):
-    def clean_fields(self, exclude=None):
-        return super().clean_fields(exclude)
-
+class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_("name"), max_length=100)
-
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -1199,7 +1202,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         related_name="subjects",
         related_query_name="subject",
     )
-
     linked_user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -1207,7 +1209,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         blank=True,
         related_name="linked_subject",
     )
-
     additional = models.JSONField("additional data", default=dict, blank=True)
     is_active = models.BooleanField(
         _("active"),
@@ -1215,10 +1216,11 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         help_text=_("This subject is actively shown in visualizations."),
     )
     common_name = models.ForeignKey("CommonName", on_delete=models.PROTECT, blank=True, null=True)
-    objects = SubjectManager.from_queryset(SubjectQuerySet)()
-
     subject_subtype = models.ForeignKey(SubjectSubType, default=get_default_subject_subtype, on_delete=models.PROTECT)
     import_gpx_data = models.ForeignKey("GPXTrackFile", on_delete=models.SET_NULL, null=True, blank=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    objects = SubjectManager.from_queryset(SubjectQuerySet)()
+    tenant_id = "das_tenant_id"
 
     @property
     def subject_type(self):
@@ -1229,6 +1231,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         return self.subject_type == STATIONARY_SUBJECT_VALUE
 
     class Meta:
+        unique_together = ["id", "das_tenant"]
         permissions = (
             ("view_last_position", "Permission to view the last reported position of a Subject only."),
             ("view_real_time", "Access to real-time observations."),
@@ -1256,6 +1259,9 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         if color:
             color = to_rgb(color)
         return color
+
+    def clean_fields(self, exclude=None):
+        return super().clean_fields(exclude)
 
     @cached_property
     def source(self):

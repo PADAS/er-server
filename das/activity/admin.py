@@ -80,6 +80,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
         "title",
         "_latitude",
         "_longitude",
+        "das_tenant",
     )
     ordering = ("serial_number",)
     sortable_by = (
@@ -189,6 +190,7 @@ class EventTypeAdmin(admin.ModelAdmin):
         "_icon_display",
         "default_state",
         "is_active",
+        "das_tenant",
     )
     list_editable = (
         "ordernum",
@@ -286,12 +288,7 @@ class EventTypeAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventSource)
 class EventSourceAdmin(admin.ModelAdmin):
-    list_display = (
-        "display",
-        "eventprovider",
-        "event_type",
-        "is_active",
-    )
+    list_display = ("display", "eventprovider", "event_type", "is_active", "das_tenant")
     ordering = list_display
     readonly_fields = (
         "external_event_type",
@@ -360,11 +357,7 @@ class EventSourceInline(InlineExtraDynamicMixin, admin.TabularInline):
 
 @admin.register(models.EventProvider)
 class EventProviderAdmin(admin.ModelAdmin):
-    list_display = (
-        "display",
-        "owner",
-        "is_active",
-    )
+    list_display = ("display", "owner", "is_active", "das_tenant")
     ordering = list_display
     readonly_fields = ("id",)
 
@@ -420,27 +413,16 @@ class EventProviderAdmin(admin.ModelAdmin):
     form = EventProviderForm
 
 
-# @admin.register(models.EventsourceEvent)
-# class EventsourceEventAdmin(admin.ModelAdmin):
-#     pass
-#
-
-
 @admin.register(models.EventCategory)
 class EventCategoryAdmin(admin.ModelAdmin):
-    list_display = ("display", "value", "ordernum", "flag", "is_active")
+    list_display = ("display", "value", "ordernum", "flag", "is_active", "das_tenant")
     ordering = ("display", "value", "ordernum", "flag", "is_active")
 
 
 @admin.register(models.AlertRule)
 class AlertRuleAdmin(admin.ModelAdmin):
     readonly_fields = ("id",)  # 'conditions', 'schedule',)
-    list_display = (
-        "owner_username",
-        "title",
-        "is_active",
-        "ordernum",
-    )
+    list_display = ("owner_username", "title", "is_active", "ordernum", "das_tenant")
     ordering = (
         "owner",
         "title",
@@ -500,12 +482,7 @@ class AlertRuleAdmin(admin.ModelAdmin):
 @admin.register(models.NotificationMethod)
 class NotificationMethodAdmin(admin.ModelAdmin):
     readonly_fields = ("id",)
-    list_display = (
-        "owner_username",
-        "method",
-        "value",
-        "is_active",
-    )
+    list_display = ("owner_username", "method", "value", "is_active", "das_tenant")
     ordering = ("owner", "method", "value", "is_active")
 
     def owner_username(self, instance):
@@ -519,7 +496,7 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
     # NOTE: This class relies on celery.
 
     change_list_template = "admin/activity/eventtype/event_detail_change_list.html"
-    list_display = ("performed_by", "task_mode", "started_at", "ended_at", "maintenance_status")
+    list_display = ("performed_by", "task_mode", "started_at", "ended_at", "maintenance_status", "das_tenant")
     fields = ("id", "performed_by", "task_mode", "started_at", "ended_at", "error_details")
     ordering = ("-started_at",)
 
@@ -567,12 +544,9 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 
     def refresh_view(self, request):
         try:
-            if features.tms.is_on():
-                task = refresh_event_details_view.apply_async(
-                    args=("Admin",), kwargs={"domain": get_tenant_settings().domain}
-                )
-            else:
-                task = refresh_event_details_view.apply_async(args=("Admin",))
+            domain = get_tenant_settings().domain if features.tms.is_on() else None
+            kwargs = {"domain": domain} if domain else {}
+            task = refresh_event_details_view.apply_async(args=("Admin",), kwargs=kwargs)
         except AlreadyQueued:
             self.message_user(request, f"Task to refresh event_detail view is already queued", messages.WARNING)
             return HttpResponseRedirect("../")
@@ -584,10 +558,8 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 
     def recreate_view(self, request):
         try:
-            if features.tms.is_on():
-                task = recreate_event_details_view.apply_async(kwargs={"domain": get_tenant_settings().domain})
-            else:
-                task = recreate_event_details_view.apply_async()
+            kwargs = {"domain": get_tenant_settings().domain} if features.tms.is_on() else {}
+            task = recreate_event_details_view.apply_async(kwargs=kwargs)
         except AlreadyQueued:
             self.message_user(request, f"Task to recreate event_detail view is already queued", messages.WARNING)
             return HttpResponseRedirect("../")
@@ -603,7 +575,7 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 class PatrolTypeAdmin(admin.ModelAdmin):
     form = PatrolTypeForm
     readonly_fields = ("id",)
-    list_display = ("display", "value", "ordernum", "_icon_display", "is_active")
+    list_display = ("display", "value", "ordernum", "_icon_display", "is_active", "das_tenant")
     search_fields = ("display", "value")
     list_editable = (
         "ordernum",
@@ -729,6 +701,7 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
         "scheduled_end_date",
         "actual_end_date",
         "end_location",
+        "das_tenant",
     )
 
     fields = ("serial_number", "title", "priority", "patrol_status")

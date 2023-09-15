@@ -1,8 +1,11 @@
 import json
 import logging
 import time
+from typing import Callable
 
 from core import memory_store_client, tms_api_client
+from utils.features import features
+from utils.tenant.builder import DjangoSettingsTenantBuilder
 from utils.tenant.exceptions import TenantNotFoundException
 
 logger = logging.getLogger(__name__)
@@ -13,11 +16,18 @@ EXPIRATION_TIME_IN_SECONDS = 604800
 
 class TenantData:
     domain: str
+    get_tenant_data: Callable = None
 
     def __init__(self, domain: str) -> None:
         self.domain = domain.split(":")[0]
 
-    def get(self):
+    def get_tenant_data(self):
+        if features.tms.is_on():
+            return self._get_from_cache_or_tms()
+        else:
+            return self._get_from_django()
+
+    def _get_from_cache_or_tms(self):
         tenant_data = self._get_from_cache()
         if not tenant_data:
             tenant_data = self._fetch_from_tms()
@@ -44,6 +54,10 @@ class TenantData:
             logger.info("Tenant not found at TMS for domain %s", self.domain)
             raise TenantNotFoundException(domain=self.domain)
         return tenant_data
+
+    def _get_from_django(self):
+        tenant = DjangoSettingsTenantBuilder().build()
+        return tenant.to_dict()
 
     @classmethod
     def get_all_tenant_domains(cls):

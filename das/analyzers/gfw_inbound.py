@@ -165,9 +165,7 @@ def process_alert_for_subscription(layer_slug, subscription_id, validated_data, 
             download_url, GlobalForestWatchSubscription.objects.get(subscription_id=subscription_id)
         )
 
-    kwargs = {}
-    if features.tms.is_on():
-        kwargs["domain"] = get_tenant_settings().domain
+    kwargs = {"domain": get_tenant_settings().domain} if features.tms.is_on() else {}
 
     result = celery.app.send_task(
         "analyzers.tasks.download_gfw_alerts",

@@ -37,12 +37,10 @@ from activity.models import (
 from activity.serializers import PatrolSerializer
 from activity.tasks import execute_maintain_patrol_state
 from client_http import HTTPClient
-from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest
 from das_server.celery import app
 from observations.materialized_views import patrols_view
 from observations.models import Source, Subject, SubjectSource
-from utils.tenant import Tenant
 
 pytestmark = pytest.mark.django_db
 User = django.contrib.auth.get_user_model()
@@ -60,11 +58,12 @@ def send_task(name, args=(), kwargs={}, **opts):
     return task(*args, **kwargs)
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class TestPatrol(BaseAPITest):
     def setUp(self):
         super().setUp()
-        call_command("loaddata", "test_patroltype")
-        call_command("loaddata", "event_data_model")
+        call_command("loaddata_with_tenant", "test_patroltype")
+        call_command("loaddata_with_tenant", "event_data_model")
 
         user_const = dict(last_name="last", first_name="first")
         self.user = User.objects.create_superuser(
@@ -1351,9 +1350,7 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertTrue("End Time" in response.data["patrol_segments"][0]["updates"][0].get("message"))
 
-    @patch("activity.signals.get_tenant_settings")
-    def test_patrolsegment_history_autoendtime(self, get_tenant_settings):
-        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
+    def test_patrolsegment_history_autoendtime(self):
         PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
         now = datetime.datetime.now(tz=pytz.utc)
@@ -1406,9 +1403,7 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertTrue("End Time" in response.data["patrol_segments"][0]["updates"][0].get("message"))
 
-    @patch("utils.tenant.providers.TenantData.get")
-    def test_maintain_patrol_state(self, mock_tenant_data):
-        mock_tenant_data.return_value = TENANT_RESPONSE
+    def test_maintain_patrol_state(self):
         # Monkey-patch send_task to execute task by blocking; because task_always_eager has no effect on send_task.
         app.send_task = send_task
 
@@ -1517,6 +1512,7 @@ class TestPatrol(BaseAPITest):
 
     @patch("utils.tenant.providers.memory_store_client")
     def test_view_patrol_permission_can_view_patroltype(self, memory_store_client):
+        memory_store_client.get_key.return_value = None
         view_patrol_permissionset = PermissionSet.objects.get(name="View Patrols Permissions")
         self.radio_room_user.permission_sets.add(view_patrol_permissionset)
         client = Client()
@@ -1576,6 +1572,7 @@ class TestPatrol(BaseAPITest):
         assert response.data["results"] == []
 
 
+@pytest.mark.usefixtures("tenant_settings")
 def test_patrol_admin_page(django_assert_max_num_queries, client, memory_store_client_mock, tenant_response):
     user_const = dict(last_name="last", first_name="first")
     user = User.objects.create_user(
@@ -1584,10 +1581,11 @@ def test_patrol_admin_page(django_assert_max_num_queries, client, memory_store_c
 
     client.force_login(user)
     url = reverse("admin:activity_patrol_changelist")
-    with django_assert_max_num_queries(15):
+    with django_assert_max_num_queries(18):
         client.get(url)
 
 
+@pytest.mark.usefixtures("tenant_settings")
 def test_patrols(django_assert_max_num_queries, client, memory_store_client_mock, tenant_response):
     user_const = dict(last_name="last", first_name="first")
     user = User.objects.create_user(
@@ -1599,6 +1597,7 @@ def test_patrols(django_assert_max_num_queries, client, memory_store_client_mock
         client.get(url)
 
 
+@pytest.mark.usefixtures("tenant_settings")
 def test_patrolsegments(django_assert_max_num_queries, client, memory_store_client_mock, tenant_response):
     user_const = dict(last_name="last", first_name="first")
     user = User.objects.create_user(
@@ -2191,6 +2190,7 @@ class TestPatrolFilter:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestPatrolView:
     def test_create_patrol_with_past_end_date(self):
         now = datetime.datetime.now(tz=pytz.utc)
@@ -2261,7 +2261,8 @@ class TestPatrolView:
 
 
 @pytest.mark.django_db
-class TestPatroslView:
+@pytest.mark.usefixtures("tenant_settings")
+class TestPatrolsView:
     def test_response_contains_etag_and_last_modified_headers(
         self, superuser_client, five_patrol_segment, memory_store_client_mock
     ):

@@ -13,7 +13,6 @@ from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import error_reporting
 from oauth2_provider.models import get_access_token_model
 
-from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -30,7 +29,6 @@ from observations.utils import (
 )
 from utils import add_base_url, stats
 from utils.categories import should_apply_geographic_features
-from utils.features import features
 from utils.gis import convert_to_point
 from utils.tenant import get_tenant_settings, set_tenant_settings
 from utils.tenant.exceptions import TenantNotFoundException
@@ -204,12 +202,9 @@ class EULARedirectMiddleware:
 
     def process_response(self, request, response):
         user = request.user
-        if features.tms.is_on():
-            ACCEPT_EULA = get_tenant_settings().env_settings.accept_eula
-        else:
-            ACCEPT_EULA = settings.ACCEPT_EULA
+        accept_eula = get_tenant_settings().env_settings.accept_eula
 
-        if ACCEPT_EULA and is_check_eula_path(request.path) and user.is_authenticated and not user.accepted_eula:
+        if accept_eula and is_check_eula_path(request.path) and user.is_authenticated and not user.accepted_eula:
             response = redirect(add_base_url(request, "/#eula"))
             response.set_cookie("routeAfterEulaAccepted", "/admin/")
             AccessToken = get_access_token_model()
@@ -261,18 +256,17 @@ class TenantSettingsMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if features.tms.is_on():
-            try:
-                instance = TenantData(domain=request.get_host())
-                tenant_data = instance.get()
-            except TenantNotFoundException as ex:
-                return JsonResponse(
-                    data={
-                        "message": f"Your site configuration appears to be invalid: {ex}. Contact EarthRanger technical support for assistance."
-                    },
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-            set_tenant_settings(value=tenant_data)
+        try:
+            instance = TenantData(domain=request.get_host())
+            tenant_data = instance.get_tenant_data()
+        except TenantNotFoundException as ex:
+            return JsonResponse(
+                data={
+                    "message": f"Your site configuration appears to be invalid: {ex}. Contact EarthRanger technical support for assistance."
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        set_tenant_settings(value=tenant_data)
         response = self.get_response(request)
         return response
 
@@ -282,11 +276,10 @@ class MultiTenantMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if features.tms.is_on():
-            if request.user and not request.user.is_anonymous:
-                tenant = self._get_tenant()
-                logger.info("Setting tenant %s object at request." % tenant.domain)
-                set_current_tenant(tenant=tenant)
+        if request.user and not request.user.is_anonymous:
+            tenant = self._get_tenant()
+            logger.info("Setting tenant %s object at request." % tenant.domain)
+            set_current_tenant(tenant=tenant)
         return self.get_response(request)
 
     def _get_tenant(self):

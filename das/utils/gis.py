@@ -2,10 +2,8 @@ import logging
 import math
 from typing import Union
 
-from django.conf import settings
 from django.contrib.gis.geos import GEOSGeometry, MultiPolygon, Point, Polygon
 
-from utils.features import features
 from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
@@ -86,11 +84,7 @@ def convert_to_point(location):
 
 
 def get_circle_polygon_from_point(location: Union[str, dict], quadsegs: int = 8):
-    if features.tms.is_on():
-        geo_permission_radius_meters = get_tenant_settings().env_settings.geo_permission_radius_meters
-    else:
-        geo_permission_radius_meters = settings.GEO_PERMISSION_RADIUS_METERS
-
+    geo_permission_radius_meters = get_tenant_settings().env_settings.geo_permission_radius_meters
     degrees = geo_permission_radius_meters / 40000000 * 360
 
     try:

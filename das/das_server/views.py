@@ -27,7 +27,6 @@ from das_server import __version__
 from das_server.serializers import VersionSerializer
 from observations import servicesutils
 from observations.servicesutils import has_message_view_permission
-from utils.features import features
 from utils.json import parse_bool
 from utils.tenant import get_tenant_settings
 
@@ -124,41 +123,24 @@ class StatusView(generics.RetrieveAPIView):
     def get_object(self):
         resp = {"version": __version__}  # request.version}
 
-        if features.tms.is_on():
-            tenant = get_tenant_settings()
-            resp["alerts_enabled"] = tenant.feature_flags.alerts_enabled and has_alerts_permissionset(self.request.user)
-            resp["daily_report_enabled"] = tenant.feature_flags.daily_report_enabled
-            resp["eula_enabled"] = tenant.env_settings.accept_eula
-            resp["export_kml_enabled"] = tenant.feature_flags.kml_export
-            resp["patrol_enabled"] = tenant.env_settings.patrol_enabled and has_patrol_view_permission(
-                self.request.user
-            )
-            resp["show_stationary_subjects_on_map"] = tenant.env_settings.show_stationary_subjects_on_map
-            resp["show_track_days"] = tenant.env_settings.show_track_days
-            resp["tableau_enabled"] = self.request.user.is_superuser and tenant.feature_flags.tableau_enabled
-            resp["track_length"] = tenant.env_settings.track_length
+        tenant = get_tenant_settings()
+        resp["alerts_enabled"] = tenant.feature_flags.alerts_enabled and has_alerts_permissionset(self.request.user)
+        resp["daily_report_enabled"] = tenant.feature_flags.daily_report_enabled
+        resp["eula_enabled"] = tenant.env_settings.accept_eula
+        resp["export_kml_enabled"] = tenant.feature_flags.kml_export
+        resp["patrol_enabled"] = tenant.env_settings.patrol_enabled and has_patrol_view_permission(self.request.user)
+        resp["show_stationary_subjects_on_map"] = tenant.env_settings.show_stationary_subjects_on_map
+        resp["show_track_days"] = tenant.env_settings.show_track_days
+        resp["tableau_enabled"] = self.request.user.is_superuser and tenant.feature_flags.tableau_enabled
+        resp["track_length"] = tenant.env_settings.track_length
 
-            default_event_filter_from_days = tenant.env_settings.default_event_filter_from_days
-            if default_event_filter_from_days and default_event_filter_from_days >= 0:
-                resp["default_event_filter_from_days"] = tenant.env_settings.default_event_filter_from_days
+        default_event_filter_from_days = tenant.env_settings.default_event_filter_from_days
+        if default_event_filter_from_days and default_event_filter_from_days >= 0:
+            resp["default_event_filter_from_days"] = tenant.env_settings.default_event_filter_from_days
 
-            default_patrol_filter_from_days = tenant.env_settings.default_patrol_filter_from_days
-            if default_patrol_filter_from_days and default_patrol_filter_from_days >= 0:
-                resp["default_patrol_filter_from_days"] = tenant.env_settings.default_patrol_filter_from_days
-        else:
-            resp["alerts_enabled"] = settings.ALERTS_ENABLED and has_alerts_permissionset(self.request.user)
-            resp["daily_report_enabled"] = settings.DAILY_REPORT_ENABLED
-            resp["eula_enabled"] = settings.ACCEPT_EULA
-            resp["export_kml_enabled"] = settings.EXPORT_KML_ENABLED
-            resp["patrol_enabled"] = settings.PATROL_ENABLED and has_patrol_view_permission(self.request.user)
-            resp["show_stationary_subjects_on_map"] = settings.SHOW_STATIONARY_SUBJECTS_ON_MAP
-            resp["show_track_days"] = settings.SHOW_TRACK_DAYS
-            resp["tableau_enabled"] = self.request.user.is_superuser and settings.TABLEAU_ENABLED
-            resp["track_length"] = settings.TRACK_LENGTH
-            if settings.DEFAULT_EVENT_FILTER_FROM_DAYS >= 0:
-                resp["default_event_filter_from_days"] = settings.DEFAULT_EVENT_FILTER_FROM_DAYS
-            if settings.DEFAULT_PATROL_FILTER_FROM_DAYS >= 0:
-                resp["default_patrol_filter_from_days"] = settings.DEFAULT_PATROL_FILTER_FROM_DAYS
+        default_patrol_filter_from_days = tenant.env_settings.default_patrol_filter_from_days
+        if default_patrol_filter_from_days and default_patrol_filter_from_days >= 0:
+            resp["default_patrol_filter_from_days"] = tenant.env_settings.default_patrol_filter_from_days
 
         resp["event_matrix_enabled"] = settings.EVENT_MATRIX_ENABLED
         resp["event_search_enabled"] = True

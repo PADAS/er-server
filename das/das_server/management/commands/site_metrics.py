@@ -16,7 +16,6 @@ from activity.views import generate_event_type_cache
 from core.utils import get_site_name
 from observations.models import Source, UserSession
 from tracking.models.plugin_base import SourcePlugin
-from utils.features import features
 from utils.tenant import get_tenant_settings
 from utils.tenant.commands import TenantBaseCommand
 
@@ -283,13 +282,9 @@ def get_user_session_time(starttime, endtime):
 
 
 def get_eula_compliance_list():
-    if features.tms.is_on():
-        accept_eula = get_tenant_settings().env_settings.accept_eula
-    else:
-        accept_eula = settings.ACCEPT_EULA
-
-    if not accept_eula:
+    if not get_tenant_settings().env_settings.accept_eula:
         return []
+
     qs = UserAgreement.objects.all().filter(user__accepted_eula=True, user__is_active=True, eula__active=True)
     return [
         dict(

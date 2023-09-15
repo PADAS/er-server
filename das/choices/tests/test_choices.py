@@ -37,7 +37,8 @@ def choices_fixture(db, django_user_model):
     return ChoiceDetails(choices=Choice.objects.all(), user=user)
 
 
-def test_get_all_choices(choices_fixture, client):
+@pytest.mark.usefixtures("tenant_settings")
+def test_get_all_choices(choices_fixture, client, memory_store_client_mock):
     choices, user = choices_fixture.choices, choices_fixture.user
 
     client.force_login(user)
@@ -47,7 +48,8 @@ def test_get_all_choices(choices_fixture, client):
     assert len(response.data["results"]) == 2
 
 
-def test_single_choice(choices_fixture, client):
+@pytest.mark.usefixtures("tenant_settings")
+def test_single_choice(choices_fixture, client, memory_store_client_mock):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
 
@@ -58,7 +60,8 @@ def test_single_choice(choices_fixture, client):
     assert response.data.get("id") == choice_id
 
 
-def test_add_choice(choices_fixture, client):
+@pytest.mark.usefixtures("tenant_settings")
+def test_add_choice(choices_fixture, client, memory_store_client_mock):
     choices, user = choices_fixture.choices, choices_fixture.user
 
     client.force_login(user)
@@ -76,7 +79,8 @@ def test_add_choice(choices_fixture, client):
     assert qcount == 3
 
 
-def test_update_choice(choices_fixture, client):
+@pytest.mark.usefixtures("tenant_settings")
+def test_update_choice(choices_fixture, client, memory_store_client_mock):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
 
@@ -87,7 +91,8 @@ def test_update_choice(choices_fixture, client):
     assert response.status_code == 200
 
 
-def test_softdelete_choice(choices_fixture, client):
+@pytest.mark.usefixtures("tenant_settings")
+def test_softdelete_choice(choices_fixture, client, memory_store_client_mock):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
 
@@ -104,12 +109,13 @@ def test_softdelete_choice(choices_fixture, client):
 
 
 @pytest.mark.django_db()
+@pytest.mark.usefixtures("tenant_settings")
 class TestChoicesViews:
     def test_url_resolving(self, choice):
         api_path = f"choices/{choice.pk}/"
         assert is_url_resolved(api_path=api_path, view=ChoiceView)
 
-    def test_read_inactive_choice(self, choices_fixture, client):
+    def test_read_inactive_choice(self, choices_fixture, client, memory_store_client_mock):
         choices, user = choices_fixture.choices, choices_fixture.user
         inactive_choice = choices.filter(value="rhino").update(is_active=False)
 

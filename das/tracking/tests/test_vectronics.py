@@ -1,11 +1,12 @@
 import json
 from unittest.mock import Mock, patch
 
+import pytest
+
 from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 
-from conftest import TENANT_RESPONSE
 from observations.models import (
     Observation,
     Source,
@@ -72,11 +73,10 @@ class VectronicsPluginTest(TestCase):
                 plugin.execute()
         self.assertTrue(len(self.henry.observations()) > 0)
 
-    @patch("utils.tenant.managers.TenantData.get")
+    @pytest.mark.usefixtures("tenant_settings")
     @patch("requests.get")
-    def test_DAS_6875_bug(self, mock_request, tenant_data):
+    def test_DAS_6875_bug(self, mock_request):
         """https://vulcan.atlassian.net/browse/DAS-6875"""
-        tenant_data.return_value = TENANT_RESPONSE
         Observation.objects.all().delete()
         mock_request.return_value = Mock(status_code=200, text=json.dumps(positions))
         cursor_data = {"latest_timestamp": "2021-06-28T10:00:39+00:00"}

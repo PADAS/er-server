@@ -5,6 +5,7 @@ from urllib.parse import urlencode
 import pytz
 from dateutil import parser, tz
 
+from django.core.management import call_command
 from django.db.models import F
 from django.utils import timezone
 
@@ -28,14 +29,11 @@ tz_offset = (
 
 
 class TrackingMetaDataExportViewTest(BaseAPITest):
-    fixtures = [
-        "new_permission_sets.yaml",
-        "subject_types.yaml",
-        "test/observations_subject_meta_and_track_data.json",
-    ]
-
     def setUp(self):
         super().setUp()
+        call_command("loaddata_with_tenant", "new_permission_sets.yaml")
+        call_command("loaddata_with_tenant", "subject_types.yaml")
+        call_command("loaddata_with_tenant", "test/observations_subject_meta_and_track_data.json")
         user_const = dict(last_name="last", first_name="first")
         self.superuser = User.objects.create_user(
             "super", "super@test.com", "super", is_superuser=True, is_staff=True, **user_const
@@ -102,14 +100,11 @@ class TrackingMetaDataExportViewTest(BaseAPITest):
 
 
 class TrackingDataCsvViewTest(BaseAPITest):
-    fixtures = [
-        "new_permission_sets.yaml",
-        "subject_types.yaml",
-        "test/observations_subject_meta_and_track_data.json",
-    ]
-
     def setUp(self):
         super().setUp()
+        call_command("loaddata_with_tenant", "new_permission_sets.yaml")
+        call_command("loaddata_with_tenant", "subject_types.yaml")
+        call_command("loaddata_with_tenant", "test/observations_subject_meta_and_track_data.json")
         user_const = dict(last_name="last", first_name="first")
         self.superuser = User.objects.create_user(
             "super", "super@test.com", "super", is_superuser=True, is_staff=True, **user_const

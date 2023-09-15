@@ -1,13 +1,12 @@
 import pytest
 from django_multitenant.utils import set_current_tenant
 
-from activity.models import Community
+from activity.models import Community, EventCategory
 from observations.models import Source, SourceProvider
 
 
 @pytest.mark.django_db
 class TestDASTenant:
-    @pytest.mark.skip(reason="The TenantModelMixin needs to be inherit into Community model")
     def test_filter_objects_by_tenant(self, five_tenants, five_communities):
         tenant_a = five_tenants[0]
         tenant_b = five_tenants[1]
@@ -25,6 +24,19 @@ class TestDASTenant:
         communities = Community.objects.all()
         assert communities.count() == 2
         assert set(community.id for community in two_communities) == set(communities.values_list("id", flat=True))
+
+    def test_filter_event_categories_by_tenant(self, five_tenants):
+        tenant_a, tenant_b, *tenants = five_tenants
+        for count in enumerate(range(2)):
+            EventCategory.objects.create(value=f"value_{count}", display=f"value_{count}", das_tenant=tenant_a)
+        for count in enumerate(range(2, 4)):
+            EventCategory.objects.create(value=f"value_{count}", display=f"value_{count}", das_tenant=tenant_b)
+
+        set_current_tenant(tenant_a)
+
+        event_categories = EventCategory.objects.all()
+        assert event_categories.count() == 2
+        assert set(community.id for community in event_categories) == set(event_categories.values_list("id", flat=True))
 
     @pytest.mark.skip(reason="The TenantModelMixin needs to be inherit into Source and SourceProvider models")
     def test_filter_source_objects_by_tenant(self, five_tenants):

@@ -5,6 +5,7 @@ from django.urls import reverse
 pytestmark = pytest.mark.django_db
 
 
+@pytest.mark.usefixtures("tenant_settings")
 def test_schema_builder(client, django_user_model, memory_store_client_mock):
     password = django_user_model.objects.make_random_password()
     user_const = dict(last_name="last", first_name="first")
