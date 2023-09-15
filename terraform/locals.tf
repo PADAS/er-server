@@ -468,6 +468,7 @@ locals {
     "ezemvelo-turtlemonitoring" = "prod1"
     "mtblackbearmonitoring"     = "prod1"
     "zimbali"                   = "prod1"
+    "iirr"                      = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
