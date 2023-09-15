@@ -1,4 +1,3 @@
-from io import StringIO
 from unittest.mock import patch
 
 import pytest
@@ -22,18 +21,19 @@ class TestTenantBaseCommand:
         tenant_data_mock,
         tenant_model_instance,
         tenant_response,
+        capsys,
     ):
         tenant_data_mock.return_value.get_tenant_data.return_value = tenant_response
 
-        out = StringIO()
-        call_command("dummy_tenant_command", tenant_domain=tenant_model_instance.domain, stdout=out)
+        call_command("dummy_tenant_command", tenant_domain=tenant_model_instance.domain)
 
         assert set_current_tenant_mock.called
         set_current_tenant_mock.assert_called_with(tenant=tenant_model_instance)
         assert tenant_data_mock.return_value.get_tenant_data.called
         assert set_tenant_settings_mock.called
         set_tenant_settings_mock.assert_called_with(value=tenant_response)
-        assert "dummy tenant-aware command executed." in out.getvalue()
+        captured = capsys.readouterr()
+        assert "dummy tenant-aware command executed." in captured.out
 
     @patch("core.management.commands.dummy_tenant_command.get_tenant_settings")
     @patch("utils.tenant.commands.TenantData")
@@ -48,16 +48,20 @@ class TestTenantBaseCommand:
         tenant_model_instance,
         tenant_response,
         tenant,
+        capsys,
     ):
         tenant_data_mock.return_value.get_tenant_data.return_value = tenant_response
         get_tenant_settings_mock.return_value = tenant
-        out = StringIO()
 
-        call_command("dummy_tenant_command", tenant_domain=tenant_model_instance.domain, verbosity=2, stdout=out)
+        call_command("dummy_tenant_command", tenant_domain=tenant_model_instance.domain, verbosity=2)
 
         assert get_tenant_settings_mock.called
-        assert f"Executing command with tenant id {tenant_model_instance.id} and tenant settings {tenant_response}..."
-        assert "dummy tenant-aware command executed." in out.getvalue()
+        captured = capsys.readouterr()
+        expected_extra_details = (
+            f"Executing command with tenant id {tenant_model_instance.id} and tenant settings {tenant_response}..."
+        )
+        assert expected_extra_details in captured.out
+        assert "dummy tenant-aware command executed." in captured.out
 
     @patch("utils.tenant.commands.TenantData")
     @patch("utils.tenant.commands.set_current_tenant")
