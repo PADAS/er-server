@@ -278,7 +278,7 @@ jobs:
       - run:
           name: Save test results
           command: |
-            mkdir -p ~/unittest-output
+            mkdir -p /testresults
           when: always
       - run:
           name: Install Docker Compose
@@ -296,6 +296,9 @@ jobs:
             docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull api
             TEST_EXIT_STATUS=$(docker inspect api --format='{{.State.ExitCode}}')
             exit ${TEST_EXIT_STATUS}
+      - store_test_results:
+          path: /testresults
+
   docker_build_image:
     executor: 'default'
     steps:

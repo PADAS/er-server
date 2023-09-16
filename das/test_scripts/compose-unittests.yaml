@@ -23,7 +23,7 @@ services:
       - dbserver
           #condition: service_healthy
     volumes:
-      - testresults:/testresults
+      - /testresults:/testresults
 
   dbserver:
     image: gcr.io/padas-app/postgis
@@ -39,8 +39,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    volumes:
-      - testresults:/testresults
 
   redis:
     image: redis:6.0.6
@@ -54,7 +52,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-volumes:
-    # Using testresults to capture unit test output.
-    testresults:
