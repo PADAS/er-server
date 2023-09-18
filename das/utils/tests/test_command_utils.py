@@ -132,6 +132,7 @@ class TestTenantBaseCommand:
         set_current_tenant_mock,
         das_tenant,
         tenant,
+        capsys,
     ):
         get_tenant_settings_mock.return_value = tenant
         get_current_tenant_mock.return_value = None
