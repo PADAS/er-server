@@ -469,6 +469,9 @@ locals {
     "mtblackbearmonitoring"     = "prod1"
     "zimbali"                   = "prod1"
     "iirr"                      = "prod-asia"
+    "virunga"                   = "prod1"
+    "uwahq"                     = "prod1"
+    "whitebelliedheron"         = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
