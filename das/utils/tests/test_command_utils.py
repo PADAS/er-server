@@ -67,7 +67,6 @@ class TestTenantBaseCommand:
     def test_tenant_domain_is_required(
         self, set_tenant_settings_mock, set_current_tenant_mock, das_tenant, tenant_response
     ):
-        # Check that CommandError is raised if --tenant_domain isn't set
         with pytest.raises(CommandError):
             call_command("dummy_tenant_command")
 
@@ -77,6 +76,5 @@ class TestTenantBaseCommand:
     def test_raise_error_on_tenant_not_found(
         self, set_tenant_settings_mock, set_current_tenant_mock, das_tenant, tenant_response
     ):
-        # Check that CommandError is raised if the domain doesn't match with a tenant
         with pytest.raises(CommandError):
             call_command("dummy_tenant_command", tenant_domain="notatenantdomain")
