@@ -4,10 +4,10 @@ from django.core.management.base import BaseCommand, CommandError
 
 from core.models import DASTenant
 
-from ..features import features
-from .exceptions import TenantNotFoundException
-from .providers import TenantData
-from .thread import set_tenant_settings
+from utils.features import features
+from utils.tenant.exceptions import TenantNotFoundException
+from utils.tenant.providers import TenantData
+from utils.tenant.thread import set_tenant_settings
 
 
 class TenantBaseCommand(BaseCommand):
@@ -46,29 +46,6 @@ class TenantBaseCommand(BaseCommand):
 
     help = "Base command for tenant-aware commands"
 
-    def _set_tenant_settings(self, domain):
-        try:  # Get tenant settings from TMS/Cache/Django settings
-            tenant_data = TenantData(domain=domain)
-            tenant_settings = tenant_data.get_tenant_data()
-        except TenantNotFoundException:
-            raise CommandError(f"Tenant settings for domain '{domain}' not found.")
-        except Exception as e:
-            raise CommandError(f"Error getting tenant settings with domain '{domain}': {e}")
-        else:
-            set_tenant_settings(value=tenant_settings)
-            return tenant_settings
-
-    def _set_tenant_instance(self, domain):
-        try:
-            tenant = DASTenant.objects.get(domain=domain)
-        except DASTenant.DoesNotExist:
-            raise CommandError(f"Tenant for domain '{domain}' not found.")
-        except Exception as e:
-            raise CommandError(f"Error getting tenant with domain '{domain}': {e}")
-        else:
-            set_current_tenant(tenant=tenant)
-            return tenant
-
     def create_parser(self, prog_name, subcommand, **kwargs):
         """
         Overriden to add tenant_domain as a mandatory argument for tenant-aware commands
@@ -86,8 +63,29 @@ class TenantBaseCommand(BaseCommand):
         if features.tms.is_on():
             domain = options.get("tenant_domain")
             tenant = self._set_tenant_instance(domain=domain)
-            settings = self._set_tenant_settings(domain=domain)
+            self._set_tenant_settings(domain=domain)
             # Verbose mode
             if options.get("verbosity", 0) >= 2:
-                self.stdout.write(f"Executing command with tenant id {tenant.id} and tenant settings {settings}...")
+                self.stdout.write(f"Executing command with tenant id {tenant.id}...")
         super().execute(*args, **options)
+
+    def _set_tenant_settings(self, domain):
+        try:
+            tenant_data = TenantData(domain=domain)
+            tenant_settings = tenant_data.get_tenant_data()
+            set_tenant_settings(value=tenant_settings)
+            return tenant_settings
+        except TenantNotFoundException:
+            raise CommandError(f"Tenant settings for domain '{domain}' not found.")
+        except Exception as e:
+            raise CommandError(f"Error resolving tenant settings with domain '{domain}': {e}")
+
+    def _set_tenant_instance(self, domain):
+        try:
+            tenant = DASTenant.objects.get(domain=domain)
+            set_current_tenant(tenant=tenant)
+            return tenant
+        except DASTenant.DoesNotExist:
+            raise CommandError(f"Tenant for domain '{domain}' not found.")
+        except Exception as e:
+            raise CommandError(f"Error resolving tenant with domain '{domain}': {e}")
