@@ -3,14 +3,14 @@ from datetime import datetime, timezone
 
 from oauth2_provider.models import get_access_token_model
 
-from django.core.management.base import BaseCommand
+from utils.tenant.commands import TenantBaseCommand
 
 AccessToken = get_access_token_model()
 
 logger = logging.getLogger(__name__)
 
 
-class Command(BaseCommand):
+class Command(TenantBaseCommand):
     help = """
     Set expiration for an Access Token matching the provided prefix.
     If more than one prefix is found to match, this will do nothing.

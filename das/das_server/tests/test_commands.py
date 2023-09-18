@@ -1,16 +1,30 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from django.core.management import call_command
 
+from das.utils.features import features
+
 
 @pytest.mark.django_db
+@pytest.mark.skipif(not features.tms.is_on(), reason="TMS feature flag is off")
 class TestCommands:
-    def test_call_site_metrics(self, monkeypatch):
+    @patch("utils.tenant.commands.TenantData")
+    @patch("utils.tenant.commands.set_current_tenant")
+    @patch("utils.tenant.commands.set_tenant_settings")
+    def test_call_site_metrics(
+        self,
+        set_tenant_settings_mock,
+        set_current_tenant_mock,
+        tenant_data_mock,
+        tenant_model_instance,
+        tenant_response,
+        monkeypatch,
+    ):
         site_metrics_mock = MagicMock(return_value=None)
         monkeypatch.setattr("das_server.management.commands.site_metrics.Command.handle", site_metrics_mock)
 
-        call_command("site_metrics")
+        call_command("site_metrics", tenant_domain=tenant_model_instance.domain)
 
         site_metrics_mock.assert_called_once()
