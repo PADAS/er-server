@@ -5,7 +5,7 @@ import pytest
 from django.core.management import call_command
 from django.core.management.base import CommandError
 
-from ..features import features
+from utils.features import features
 
 
 @pytest.mark.django_db
@@ -26,13 +26,13 @@ class TestTenantBaseCommand:
         tenant_data_mock.return_value.get_tenant_data.return_value = tenant_response
 
         call_command("dummy_tenant_command", tenant_domain=tenant_model_instance.domain)
-
-        assert set_current_tenant_mock.called
-        set_current_tenant_mock.assert_called_with(tenant=tenant_model_instance)
-        assert tenant_data_mock.return_value.get_tenant_data.called
-        assert set_tenant_settings_mock.called
-        set_tenant_settings_mock.assert_called_with(value=tenant_response)
         captured = capsys.readouterr()
+
+        assert set_current_tenant_mock.assert_called_once
+        set_current_tenant_mock.assert_called_with(tenant=tenant_model_instance)
+        assert tenant_data_mock.return_value.get_tenant_data.assert_called_once
+        assert set_tenant_settings_mock.assert_called_once
+        set_tenant_settings_mock.assert_called_with(value=tenant_response)
         assert "dummy tenant-aware command executed." in captured.out
 
     @patch("core.management.commands.dummy_tenant_command.get_tenant_settings")
@@ -54,12 +54,12 @@ class TestTenantBaseCommand:
         get_tenant_settings_mock.return_value = tenant
 
         call_command("dummy_tenant_command", tenant_domain=tenant_model_instance.domain, verbosity=2)
-
-        assert get_tenant_settings_mock.called
         captured = capsys.readouterr()
         expected_extra_details = (
-            f"Executing command with tenant id {tenant_model_instance.id} and tenant settings {tenant_response}..."
+            f"Executing command with tenant id {tenant_model_instance.id}..."
         )
+
+        assert get_tenant_settings_mock.assert_called_once
         assert expected_extra_details in captured.out
         assert "dummy tenant-aware command executed." in captured.out
 
