@@ -19,17 +19,17 @@ class TestTenantBaseCommand:
         set_tenant_settings_mock,
         set_current_tenant_mock,
         tenant_data_mock,
-        tenant_model_instance,
+        das_tenant,
         tenant_response,
         capsys,
     ):
         tenant_data_mock.return_value.get_tenant_data.return_value = tenant_response
 
-        call_command("dummy_tenant_command", tenant_domain=tenant_model_instance.domain)
+        call_command("dummy_tenant_command", tenant_domain=das_tenant.domain)
         captured = capsys.readouterr()
 
         assert set_current_tenant_mock.assert_called_once
-        set_current_tenant_mock.assert_called_with(tenant=tenant_model_instance)
+        set_current_tenant_mock.assert_called_with(tenant=das_tenant)
         assert tenant_data_mock.return_value.get_tenant_data.assert_called_once
         assert set_tenant_settings_mock.assert_called_once
         set_tenant_settings_mock.assert_called_with(value=tenant_response)
@@ -45,7 +45,7 @@ class TestTenantBaseCommand:
         set_current_tenant_mock,
         tenant_data_mock,
         get_tenant_settings_mock,
-        tenant_model_instance,
+        das_tenant,
         tenant_response,
         tenant,
         capsys,
@@ -53,10 +53,10 @@ class TestTenantBaseCommand:
         tenant_data_mock.return_value.get_tenant_data.return_value = tenant_response
         get_tenant_settings_mock.return_value = tenant
 
-        call_command("dummy_tenant_command", tenant_domain=tenant_model_instance.domain, verbosity=2)
+        call_command("dummy_tenant_command", tenant_domain=das_tenant.domain, verbosity=2)
         captured = capsys.readouterr()
         expected_extra_details = (
-            f"Executing command with tenant id {tenant_model_instance.id}..."
+            f"Executing command with tenant id {das_tenant.id}..."
         )
 
         assert get_tenant_settings_mock.assert_called_once
@@ -67,7 +67,7 @@ class TestTenantBaseCommand:
     @patch("utils.tenant.commands.set_current_tenant")
     @patch("utils.tenant.commands.set_tenant_settings")
     def test_tenant_domain_is_required(
-        self, set_tenant_settings_mock, set_current_tenant_mock, tenant_model_instance, tenant_settings
+        self, set_tenant_settings_mock, set_current_tenant_mock, das_tenant, tenant_response
     ):
         # Check that CommandError is raised if --tenant_domain isn't set
         with pytest.raises(CommandError):
@@ -77,7 +77,7 @@ class TestTenantBaseCommand:
     @patch("utils.tenant.commands.set_current_tenant")
     @patch("utils.tenant.commands.set_tenant_settings")
     def test_raise_error_on_tenant_not_found(
-        self, set_tenant_settings_mock, set_current_tenant_mock, tenant_model_instance, tenant_settings
+        self, set_tenant_settings_mock, set_current_tenant_mock, das_tenant, tenant_response
     ):
         # Check that CommandError is raised if the domain doesn't match with a tenant
         with pytest.raises(CommandError):

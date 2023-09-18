@@ -444,9 +444,8 @@ def tenant(tenant_response):
 
 
 @pytest.fixture
-def tenant_model_instance(tenant):
-    tenant, _ = DASTenant.objects.get_or_create(domain=tenant.domain)
-    return tenant
+def das_tenant(tenant):
+    return TenantFactory.create(domain=tenant.domain)
 
 
 @pytest.fixture
