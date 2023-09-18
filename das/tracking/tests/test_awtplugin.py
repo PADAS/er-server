@@ -9,6 +9,7 @@ import pytest
 
 from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
+from django.core.management import call_command
 from django.test import TestCase
 
 from core.tests import fake_get_pool
@@ -24,9 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 class AwtPluginTest(TestCase):
-    fixtures = ["awt_plugin.json"]
-
     def setUp(self):
+        call_command("loaddata_with_tenant", "awt_plugin.json")
         latest_timestamp = "2018-07-25T12:00:09+00:00"
         cursor_data = {"latest_timestamp": latest_timestamp}
         awt_plugin = AwtPlugin.objects.get(username="random")
