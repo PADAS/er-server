@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import pytz
 import requests
 from dateutil.parser import parse as parse_date
+from django_multitenant.fields import TenantForeignKey
 from shapely.ops import unary_union
 
 from django.contrib.contenttypes.fields import GenericRelation
@@ -94,7 +95,6 @@ FIRMS_FTP_REGIONS = zip(FIRMS_FTP_REGIONS, FIRMS_FTP_REGIONS)
 
 
 class FirmsClient:
-
     host = "nrt3.modaps.eosdis.nasa.gov"
     data_type_and_name = "VNP14IMGTDL_NRT"
     filename_prefix = "SUOMI_VIIRS_C2"
@@ -115,10 +115,8 @@ class FirmsClient:
         return (d.tm_year * 1000) + d.tm_yday
 
     def extract_date_index(self, from_headers=None):
-
         if "content-disposition" in from_headers:
             for elem in from_headers["content-disposition"].split(";"):
-
                 try:
                     elem = elem.strip(" ")
                     if elem.startswith("filename="):
@@ -168,7 +166,6 @@ class FirmsClient:
             yield from data
 
     def fetch_new_day_records(self, date_index, stored_headers=None):
-
         stored_headers = stored_headers or {}
 
         # The filename is a pattern that includes the "region" and a "date index".
@@ -224,7 +221,6 @@ class FirmsClient:
 
     @staticmethod
     def generate_records(lines):
-
         for s in lines:
             # Skip header
             if s.startswith("latitude") or not s:
@@ -244,7 +240,6 @@ class FirmsClient:
 
 
 class FirmsPlugin(TrackingPlugin):
-
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=120)
     SOURCE_TYPE = "firms"
     DEFAULT_CONFIDENCE_ALERT_LEVELS = [
@@ -262,7 +257,7 @@ class FirmsPlugin(TrackingPlugin):
     """
     firms_region_name = models.CharField(max_length=100, help_text=ht, choices=FIRMS_FTP_REGIONS)
 
-    spatial_feature_group = models.ForeignKey(
+    spatial_feature_group = TenantForeignKey(
         SpatialFeatureGroupStatic,
         related_name="+",
         on_delete=models.PROTECT,
@@ -287,7 +282,6 @@ class FirmsPlugin(TrackingPlugin):
         super().__init__(*args, **kwargs)
 
     def execute(self):
-
         self.logger.info("Running FIRMS Plugin. region-name=%s", self.firms_region_name)
         with DasFireEventTarget() as t:
             for observation in self.fetch():
@@ -357,7 +351,6 @@ class FirmsPlugin(TrackingPlugin):
         try:
             for observation in self.client.fetch_data(stored_headers=stored_headers):
                 if self.pass_filter(observation):
-
                     # Pop-off side-data from observation dict.
                     additional_data = dict((k, observation.pop(k)) for k in additional_fields)
                     obs = Obs(
@@ -383,7 +376,6 @@ class FirmsPlugin(TrackingPlugin):
                 self.additional["stored_headers"] = self.client.last_storable_headers
 
     def create_event(self, observation):
-
         event_details = dict(
             (k, v)
             for k, v in observation.additional.items()
@@ -412,7 +404,6 @@ class FirmsPlugin(TrackingPlugin):
                 EventDetails.objects.create(event=event, data={"event_details": event_details})
 
     def pass_filter(self, observation):
-
         if self._geo_filter:
             p = Point(y=observation["latitude"], x=observation["longitude"])
             return self._geo_filter.contains(p)
