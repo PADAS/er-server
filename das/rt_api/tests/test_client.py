@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from dateutil.parser import ParserError
-from django_fakeredis import FakeRedis
 from psycopg2._range import DateTimeTZRange
 
 from django.utils import timezone
@@ -26,11 +25,11 @@ from rt_api.client import (
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("multitenant_cache_client", "tenant_settings")
 class TestClient:
     sid = "e85ae638fe904b6fa1e018c5c401c11c"
     mock_datetime_now = datetime.datetime(2010, 10, 2, 14, 10, tzinfo=timezone.utc)
 
-    @FakeRedis("rt_api.client.redis_client")
     def test_save_session_timestamp(self, subject):
         save_session_timestamp(self.sid, str(subject.id))
         result = redis_client.get(SID_SESSION_TIMESTAMP_KEY.format(self.sid))
@@ -39,7 +38,6 @@ class TestClient:
         assert isinstance(result.decode(), str)
         assert isinstance(dateparse(result), datetime.datetime)
 
-    @FakeRedis("rt_api.client.redis_client")
     def test_get_sid_subject_timestamp_with_date_as_iso_format(self, subject):
         redis_client.set(
             SID_SESSION_TIMESTAMP_KEY.format(self.sid),
@@ -50,7 +48,7 @@ class TestClient:
         assert isinstance(result, str)
         assert dateparse(result)
 
-    @FakeRedis("rt_api.client.redis_client")
+    @pytest.mark.usefixtures("multitenant_cache_client", "tenant_settings")
     def test_get_sid_subject_timestamp_with_date_as_timestamp(self, subject):
         redis_client.set(
             SID_SESSION_TIMESTAMP_KEY.format(self.sid),
@@ -237,7 +235,6 @@ class TestClient:
         assert user_session.time_range.upper == self.mock_datetime_now
         assert not user_session.time_range.lower
 
-    @FakeRedis("rt_api.client.redis_client")
     @patch("rt_api.client.get_client_list_key")
     def test_remove_invalid_rt_services(self, mocked_client_list):
         current_service = "rt_api.172.18.0.8"

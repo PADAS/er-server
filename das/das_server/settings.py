@@ -615,14 +615,14 @@ GEO_PERMISSION_SPEED_KM_H = 75
 GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN = 10
 
 PERSISTENT_STORAGE = {
-    "CLIENT": "utils.persistent.RedisStorage",
+    "CLIENT": "utils.persistent.MultitenantRedisStorage",
     "HOST": "redis",
     "PORT": "6379",
     "DATABASE": 0,
 }
 
 ALERTS_STORAGE = {
-    "CLIENT": "utils.persistent.RedisStorage",
+    "CLIENT": "utils.persistent.MultitenantRedisStorage",
     "HOST": "redis",
     "PORT": "6379",
     "DATABASE": 3,

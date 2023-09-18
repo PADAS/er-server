@@ -1,14 +1,17 @@
 from unittest import mock
-from socketio import server
+
+import pytest
 from mockredis import MockRedis
+from socketio import server
 
 from django.test import TestCase
-from rt_api.views import cleanup_disconnected_clients
+
 from rt_api import client
+from rt_api.views import cleanup_disconnected_clients
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class TestRTServer(TestCase):
-
     @staticmethod
     def _get_mock_socket():
         mock_socket = mock.MagicMock()
@@ -20,9 +23,7 @@ class TestRTServer(TestCase):
 
     @staticmethod
     def add_client():
-        testdata = client.ClientData(username='x-user',
-                                     sid='e8ef807c2bbe4418b32de45786d82a52',
-                                     bbox=None)
+        testdata = client.ClientData(username="x-user", sid="e8ef807c2bbe4418b32de45786d82a52", bbox=None)
         client.add_client(testdata.sid, testdata)
 
     @mock.patch("redis.Redis", MockRedis)
@@ -31,14 +32,12 @@ class TestRTServer(TestCase):
         sios = server.Server(client_manager=mgr)
         handler = mock.MagicMock()
         mock_socket = self._get_mock_socket()
-        sios.eio.sockets['sid'] = mock_socket
-        sios.on('connect', handler)
-        sios._handle_eio_connect('sid', 'e8ef807c2bbe4418b32de45786d82a52')
-        #sios._handle_connect('sid', '/', None)
-        handler.assert_called_once_with('sid', 'e8ef807c2bbe4418b32de45786d82a52')
+        sios.eio.sockets["sid"] = mock_socket
+        sios.on("connect", handler)
+        sios._handle_eio_connect("sid", "e8ef807c2bbe4418b32de45786d82a52")
+        handler.assert_called_once_with("sid", "e8ef807c2bbe4418b32de45786d82a52")
         self.add_client()
-        client.redis_client.hset(client.EXPIRED_CLIENT_TRACES_LIST, 'e8ef807c2bbe4418b32de45786d82a52',
-                                 'message')
+        client.redis_client.hset(client.EXPIRED_CLIENT_TRACES_LIST, "e8ef807c2bbe4418b32de45786d82a52", "message")
         num_sockets = len(sios.eio.sockets)
         len_environ = len(sios.environ)
         self.assertEqual(num_sockets, 1)

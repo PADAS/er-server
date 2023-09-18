@@ -2,6 +2,9 @@ from abc import ABC, abstractmethod
 
 import redis
 
+from utils.decorator import apply_decorator_to_public_methods
+from utils.tenant.cache import use_multitenant_cache_key
+
 
 class PersistentStorage(ABC):
     """Interface for implementation of key, value engines like Redis, MongoDB."""
@@ -42,7 +45,8 @@ class PersistentStorageWithSortedSet(PersistentStorage):
         raise NotImplementedError
 
 
-class RedisStorage(PersistentStorageWithSortedSet):
+@apply_decorator_to_public_methods(use_multitenant_cache_key)
+class MultitenantRedisStorage(PersistentStorageWithSortedSet):
     def __init__(self, config):
         self.host = config["HOST"]
         self.port = config["PORT"]
