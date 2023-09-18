@@ -2,6 +2,7 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
+from django_fakeredis.fakeredis import get_fake_redis
 from oauth2_provider.models import get_application_model
 from pytest_factoryboy import register
 
@@ -449,6 +450,16 @@ def tenant_settings(monkeypatch, tenant):
     monkeypatch.setattr("utils.tenant.thread._get_main_thread", MagicMock(return_value=thread))
 
     return tenant
+
+
+@pytest.fixture
+def multitenant_cache_client(monkeypatch):
+    redis_module = MagicMock()
+    cache_client = get_fake_redis()
+    redis_module.from_url.return_value = cache_client
+    monkeypatch.setattr("utils.tenant.cache.redis", redis_module)
+
+    return cache_client
 
 
 @pytest.fixture(scope="function")

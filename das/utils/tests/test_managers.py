@@ -1,4 +1,3 @@
-import json
 import threading
 
 import pytest
@@ -11,8 +10,7 @@ from utils.tenant.thread import TENANT_DEFAULT_KEY
 
 @pytest.mark.skipif(features.tms.is_on() is False, reason="TMS feature flag is off")
 class TestTenantContextManager:
-    def test_tenant_context_manager(self, memory_store_client_mock, tenant_response):
-        memory_store_client_mock.get_key.return_value = json.dumps(tenant_response)
+    def test_tenant_context_manager(self, memory_store_client_mock):
         main_thread = threading.main_thread()
 
         with TenantContextManager(domain="zoo.com"):

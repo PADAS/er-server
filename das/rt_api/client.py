@@ -5,7 +5,6 @@ import signal
 import socket
 
 import pytz
-import redis
 from psycopg2.extras import DateTimeTZRange
 
 from django.conf import settings
@@ -13,9 +12,10 @@ from django.contrib.gis.geos import MultiPolygon, Polygon
 
 from observations.models import SocketClient, UserSession
 from utils import json
+from utils.tenant.cache import MultitenantRedisClient
 
 logger = logging.getLogger(__name__)
-redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
+redis_client = MultitenantRedisClient(settings.REALTIME_BROKER_URL)
 
 
 EXPIRED_CLIENT_TRACES_LIST = "rt_api.expired_traces"

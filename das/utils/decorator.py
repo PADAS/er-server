@@ -110,3 +110,14 @@ def use_shared_resource(method: Callable):
         return result
 
     return method_using_shared_resource
+
+
+def apply_decorator_to_public_methods(decorator):
+    @functools.wraps(decorator)
+    def class_decorator(cls):
+        for attr_name, attr_value in vars(cls).items():
+            if callable(attr_value) and not attr_name.startswith('_'):
+                setattr(cls, attr_name, decorator(attr_value))
+        return cls
+
+    return class_decorator
