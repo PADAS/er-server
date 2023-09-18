@@ -55,9 +55,7 @@ class TestTenantBaseCommand:
 
         call_command("dummy_tenant_command", tenant_domain=das_tenant.domain, verbosity=2)
         captured = capsys.readouterr()
-        expected_extra_details = (
-            f"Executing command with tenant id {das_tenant.id}..."
-        )
+        expected_extra_details = f"Executing command with tenant id {das_tenant.id}..."
 
         assert get_tenant_settings_mock.assert_called_once
         assert expected_extra_details in captured.out

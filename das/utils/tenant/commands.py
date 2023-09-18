@@ -3,7 +3,6 @@ from django_multitenant.utils import set_current_tenant
 from django.core.management.base import BaseCommand, CommandError
 
 from core.models import DASTenant
-
 from utils.features import features
 from utils.tenant.exceptions import TenantNotFoundException
 from utils.tenant.providers import TenantData
