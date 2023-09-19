@@ -7,6 +7,7 @@ from core import memory_store_client, tms_api_client
 from utils.features import features
 from utils.tenant.builder import DjangoSettingsTenantBuilder
 from utils.tenant.exceptions import TenantNotFoundException
+from utils.tenant.thread import set_tenant_settings
 
 logger = logging.getLogger(__name__)
 
@@ -62,3 +63,9 @@ class TenantData:
     @classmethod
     def get_all_tenant_domains(cls):
         return [domain.decode("utf-8") for domain in memory_store_client.get_all_keys()]
+
+
+def post_tenant_to_thread(domain):
+    instance = TenantData(domain=domain)
+    tenant_data = instance.get_tenant_data()
+    set_tenant_settings(value=tenant_data)
