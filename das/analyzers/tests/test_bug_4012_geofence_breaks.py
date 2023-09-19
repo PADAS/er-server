@@ -4,6 +4,8 @@ import logging
 import pytest
 import yaml
 
+from django.core.management import call_command
+
 # Use python unit test here to persist results in test DB
 # from unittest import TestCase
 from django.test import TestCase
@@ -34,13 +36,11 @@ class TestBug4012(TestCase):
     This is a special test case that validates a fix for a missed geofence breaks in a production site.
     """
 
-    fixtures = [
-        "bug4012/displaycategories.yaml",
-        "bug4012/featuretypes.yaml",
-        "bug4012/spatialfeatures.yaml",
-    ]
-
     def setUp(self):
+        call_command("loaddata_with_tenant", "bug4012/displaycategories.yaml")
+        call_command("loaddata_with_tenant", "bug4012/featuretypes.yaml")
+        call_command("loaddata_with_tenant", "bug4012/spatialfeatures.yaml")
+
         ec, created = EventCategory.objects.get_or_create(
             value="analyzer_event", defaults=dict(display="Analyzer Events")
         )
@@ -52,7 +52,6 @@ class TestBug4012(TestCase):
         )
 
     def test_geofence_bug4012(self):
-        # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(name="Kimbizwa", subject_subtype_id="elephant")
         source = Source.objects.create(manufacturer_id="006")
         SubjectSource.objects.create(subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)

@@ -4,6 +4,8 @@ import logging
 import os
 import uuid
 
+from django_multitenant.fields import TenantForeignKey
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from model_utils.managers import InheritanceManager
 from pytz import timezone
 from tagulous.models import TagField, TagModel
@@ -17,7 +19,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils.deconstruct import deconstructible
 from django.utils.translation import gettext_lazy as _
 
-from core.models import TimestampedModel, UUIDModel
+from core.models import DASTenant, TimestampedModel, UUIDModel
 from mapping.app_settings import MBTILES
 from mapping.mbtiles import (
     ExtractionError,
@@ -39,19 +41,18 @@ FILE_TYPES = (
 )
 
 
-class Map(TimestampedModel):
-    """
-    A Map defines the center location, zoom level
-    """
-
-    class Meta:
-        verbose_name = "Map Quicklink"
-
+class Map(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
     attributes = models.JSONField(default=dict, blank=True)
     center = models.PointField(srid=4326)
     zoom = models.IntegerField()
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        verbose_name = "Map Quicklink"
+        unique_together = ["id", "das_tenant"]
 
     def __str__(self):
         return self.name
@@ -62,32 +63,30 @@ class TileLayerQuerySet(models.QuerySet):
         return self.order_by("ordernum", "name")
 
 
-class TileLayer(TimestampedModel):
-    """
-    External
-    """
-
-    class Meta:
-        verbose_name = "Basemap"
-        ordering = ["name"]
-
+class TileLayer(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
     attributes = models.JSONField(default=dict, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
-
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     objects = TileLayerQuerySet.as_manager()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        verbose_name = "Basemap"
+        ordering = ["name"]
+        unique_together = ["id", "das_tenant"]
 
     def __str__(self):
         return self.name
 
 
-class FeatureTypeManager(models.Manager):
+class FeatureTypeManager(TenantManagerMixin, models.Manager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
 
-class FeatureType(TimestampedModel):
+class FeatureType(TenantModelMixin, TimestampedModel):
     """
     If the clients wish to group layers in a control or for ease of administration
 
@@ -100,10 +99,13 @@ class FeatureType(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
     presentation = models.JSONField(default=dict, blank=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     objects = FeatureTypeManager()
+    tenant_id = "das_tenant_id"
 
     class Meta:
         ordering = ["name"]
+        unique_together = ["id", "das_tenant"]
 
     def __str__(self):
         return self.name
@@ -120,12 +122,12 @@ class FeatureType(TimestampedModel):
         )
 
 
-class FeatureSetManager(models.Manager):
+class FeatureSetManager(TenantManagerMixin, models.Manager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
 
-class FeatureSet(TimestampedModel):
+class FeatureSet(TenantModelMixin, TimestampedModel):
     """
     A grouping of features that should be toggled together on the map,
       e.g. a set of camps or a system of rivers
@@ -135,13 +137,14 @@ class FeatureSet(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
     types = models.ManyToManyField(to=FeatureType, related_name="featuresets")
-
     description = models.TextField(null=True, blank=True)
-
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     objects = FeatureSetManager()
+    tenant_id = "das_tenant_id"
 
     class Meta:
         ordering = ["name"]
+        unique_together = ["id", "das_tenant"]
 
     def __str__(self):
         return self.name
@@ -177,7 +180,7 @@ def upload_to(instance, filename):
     return file_path
 
 
-class SpatialFilesBase(TimestampedModel):
+class SpatialFilesBase(TenantModelMixin, TimestampedModel):
     """
     Base model for uploading Spatial files such as shapefile
     """
@@ -190,9 +193,12 @@ class SpatialFilesBase(TimestampedModel):
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
     status = models.CharField(max_length=1000, blank=True, null=True, verbose_name="Feature Load Status")
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    tenant_id = "das_tenant_id"
 
     class Meta:
         abstract = True
+        unique_together = ["id", "das_tenant"]
 
     # Clean method is used for better error handling within the admin form
     # itself. To have the file data available, save method needs to be invoked.
@@ -219,38 +225,37 @@ class SpatialFilesBase(TimestampedModel):
 class SpatialFile(SpatialFilesBase):
     """
     Geometry type [polygon, line, point] loaded from uploaded shapefile
+    INFO TenantModelMixin covered by abstract class
     """
 
-    feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
-    feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
+    feature_set = TenantForeignKey(to=FeatureSet, on_delete=models.PROTECT)
+    feature_type = TenantForeignKey(to=FeatureType, on_delete=models.PROTECT)
 
     class Meta:
         verbose_name = "Spatial File"
 
 
-class Feature(TimestampedModel):
+class Feature(TenantModelMixin, TimestampedModel):
     """
     A vector feature, e.g. a boundary, a hut, a village, a river ...
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255)
-    type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
-
+    type = TenantForeignKey(to=FeatureType, on_delete=models.PROTECT)
     description = models.TextField(null=True, blank=True)
-
     # attributes for presentation
     presentation = models.JSONField(default=dict, blank=True)
     fields = models.JSONField(default=dict, blank=True)
     external_id = models.CharField(max_length=255, blank=True, null=True)
-
     # the feature set with which this feature is being grouped.
     # todo:  evaluate whether many-to-many might be a better approach or stick
     # with this simple approach
     # probably should be spelled feature_set
-    featureset = models.ForeignKey(to=FeatureSet, null=True, on_delete=models.PROTECT)
-
-    spatialfile = models.ForeignKey(to=SpatialFile, null=True, blank=True, on_delete=models.SET_NULL)
+    featureset = TenantForeignKey(to=FeatureSet, null=True, on_delete=models.PROTECT)
+    spatialfile = TenantForeignKey(to=SpatialFile, null=True, blank=True, on_delete=models.SET_NULL)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    tenant_id = "das_tenant_id"
 
     @property
     def default_presentation(self):
@@ -504,7 +509,7 @@ class SpatialFeatureGroupManager(InheritanceManager):
         return self.get(name=name)
 
 
-class SpatialFeatureGroup(TimestampedModel):
+class SpatialFeatureGroup(TenantModelMixin, TimestampedModel):
     """
     A grouping of features that should be toggled together on the map,
       e.g. a set of camps or a system of rivers
@@ -512,15 +517,17 @@ class SpatialFeatureGroup(TimestampedModel):
        to be controlled in db?
     """
 
-    class Meta:
-        verbose_name = "Base Feature Group"
-        ordering = ["name"]
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True)
-
     objects = SpatialFeatureGroupManager()
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        verbose_name = "Base Feature Group"
+        ordering = ["name"]
+        unique_together = ["id", "das_tenant"]
 
     def __str__(self):
         return self.name
@@ -548,27 +555,29 @@ class SpatialFeatureGroupStatic(SpatialFeatureGroup):
     )
 
 
-class DisplayCategoryManager(models.Manager):
+class DisplayCategoryManager(TenantManagerMixin, models.Manager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
 
-class DisplayCategory(TimestampedModel):
+class DisplayCategory(TenantModelMixin, TimestampedModel):
     """
     If the clients wish to group layers in a control or for ease of administration
     Boundaries, Water, Security etc.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=255, unique=True)
+    description = models.TextField(null=True, blank=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    objects = DisplayCategoryManager()
+    tenant_id = "das_tenant_id"
+
     class Meta:
         verbose_name = "Display Category"
         verbose_name_plural = "Display Categories"
         ordering = ["name"]
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
-    description = models.TextField(null=True, blank=True)
-
-    objects = DisplayCategoryManager()
+        unique_together = ["id", "das_tenant"]
 
     def __str__(self):
         return self.name
@@ -582,39 +591,38 @@ class SpatialFeatureTypeTag(TagModel):
         pass
 
 
-class SpatialFeatureTypeManager(models.Manager):
+class SpatialFeatureTypeManager(TenantManagerMixin, models.Manager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
 
-class SpatialFeatureType(TimestampedModel):
-    class Meta:
-        verbose_name = "Feature Class"
-        verbose_name_plural = "Feature Classes"
-        ordering = ["name"]
-
-    objects = SpatialFeatureTypeManager()
-
+class SpatialFeatureType(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = models.JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
     tags = TagField(to=SpatialFeatureTypeTag, blank=True)
-
     # presentation fields
     # Boundaries, Water, Security etc.
-    display_category = models.ForeignKey(to="DisplayCategory", on_delete=models.PROTECT, blank=True, null=True)
+    display_category = TenantForeignKey(to="DisplayCategory", on_delete=models.PROTECT, blank=True, null=True)
     # JSON Field for defining the basic presentation of the feature
     presentation = models.JSONField(default=dict, blank=True)
     provenance = models.JSONField(default=dict, blank=True)
     external_id = models.CharField(max_length=255, unique=True, blank=True, null=True)
     external_source = models.CharField(max_length=100, blank=True)
     is_visible = models.BooleanField(_("visible"), default=True)
-
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    objects = SpatialFeatureTypeManager()
+    tenant_id = "das_tenant_id"
     # Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
     # Lines: https://www.mapbox.com/mapbox-gl-style-spec/#layers-line
     # Polygons: https://www.mapbox.com/mapbox-gl-style-spec/#layers-fill
+
+    class Meta:
+        verbose_name = "Feature Class"
+        verbose_name_plural = "Feature Classes"
+        ordering = ["name"]
 
     @property
     def default_presentation(self):
@@ -647,10 +655,11 @@ class SpatialFeatureType(TimestampedModel):
 class SpatialFeatureFile(SpatialFilesBase):
     """
     Special Feature loaded from uploaded shapefile
+    INFO TenantModelMixin covered by abstract class
     """
 
     file_type = models.CharField(max_length=100, default="shapefile", choices=FILE_TYPES)
-    feature_type = models.ForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
+    feature_type = TenantForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
     feature_types_file = models.FileField(upload_to=upload_to, blank=True, null=True)
 
     class Meta:
@@ -662,7 +671,7 @@ class SpatialFeatureManager(models.Manager):
         return self.create(**values)
 
 
-class SpatialFeature(RevisionMixin, TimestampedModel):
+class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
     """
     A vector feature, e.g. a boundary, a hut, a village, a river ...
 
@@ -694,14 +703,9 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
 
     """
 
-    class Meta:
-        verbose_name = "Feature"
-        ordering = ["name"]
-
-    objects = SpatialFeatureManager()
     revision_ignore_fields = ("updated_at",)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    feature_type = models.ForeignKey(SpatialFeatureType, on_delete=models.PROTECT)
+    feature_type = TenantForeignKey(SpatialFeatureType, on_delete=models.PROTECT)
     name = models.CharField(max_length=255, blank=True)
     # A shorter name used for cartographic display
     short_name = models.CharField(max_length=25, blank=True)
@@ -713,9 +717,16 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     attributes = models.JSONField(default=dict, blank=True)
     provenance = models.JSONField(default=dict, blank=True)
     feature_geometry = models.GeometryField(geography=True, srid=4326)
-    spatialfile = models.ForeignKey(to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
-    arcgis_item = models.ForeignKey(to="ArcgisItem", null=True, blank=True, on_delete=models.CASCADE)
+    spatialfile = TenantForeignKey(to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
+    arcgis_item = TenantForeignKey(to="ArcgisItem", null=True, blank=True, on_delete=models.CASCADE)
     revision = Revision()
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    objects = SpatialFeatureManager()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        verbose_name = "Feature"
+        ordering = ["name"]
 
     @property
     def default_presentation(self):
@@ -747,17 +758,21 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
         return "{0}-{1}-{2}".format(self.name, self.feature_type.name, self.id)
 
 
-class ArcgisGroup(TimestampedModel, UUIDModel):
+class ArcgisGroup(TenantModelMixin, TimestampedModel, UUIDModel):
     name = models.CharField(max_length=100, blank=True, null=True)
     group_id = models.CharField(max_length=100, blank=False)
-    # todo: this should be the FK
     config_id = models.CharField(max_length=100, blank=False)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = ["id", "das_tenant"]
 
     def __str__(self):
         return self.name
 
 
-class ArcgisConfiguration(TimestampedModel, UUIDModel):
+class ArcgisConfiguration(TenantModelMixin, TimestampedModel, UUIDModel):
     disable_import_feature_class_presentation = models.BooleanField(default=False)
     service_url = models.CharField(
         max_length=2000,
@@ -774,7 +789,7 @@ class ArcgisConfiguration(TimestampedModel, UUIDModel):
         "or enter text for groups to search for outside your ArdGIS org",
     )
     # todo: the FK should be on the other end of the relationship, i.e., in ArcgisConfiguration
-    groups = models.ForeignKey(ArcgisGroup, blank=True, on_delete=models.SET_NULL, null=True)
+    groups = TenantForeignKey(ArcgisGroup, blank=True, on_delete=models.SET_NULL, null=True)
     username = models.CharField(max_length=100, blank=False, help_text="ArcGIS account username")
     password = models.CharField(max_length=100, blank=False)
     source = models.CharField(max_length=100, blank=True, null=True, default="ArcGis")
@@ -801,6 +816,8 @@ class ArcgisConfiguration(TimestampedModel, UUIDModel):
         help_text="Name of field in your GIS data that has the feature type. Defaults are type and FeatureType",
     )
     last_download = models.DateTimeField(blank=True, null=True, verbose_name="Last Download Time")
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    tenant_id = "das_tenant_id"
 
     class Meta:
         verbose_name = "Feature Service Configuration"
@@ -816,10 +833,15 @@ class ArcgisConfiguration(TimestampedModel, UUIDModel):
 
 
 # Minimal model for an arcgis.gis.Item
-class ArcgisItem(TimestampedModel):
+class ArcgisItem(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True)
     name = models.CharField(max_length=50)
-    arcgis_config = models.ForeignKey(to=ArcgisConfiguration, on_delete=models.SET_NULL, null=True)
+    arcgis_config = TenantForeignKey(to=ArcgisConfiguration, on_delete=models.SET_NULL, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = ["id", "das_tenant"]
 
     @property
     def features(self):
