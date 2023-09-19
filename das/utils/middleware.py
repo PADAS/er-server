@@ -30,9 +30,9 @@ from observations.utils import (
 from utils import add_base_url, stats
 from utils.categories import should_apply_geographic_features
 from utils.gis import convert_to_point
-from utils.tenant import get_tenant_settings, set_tenant_settings
+from utils.tenant import get_tenant_settings
 from utils.tenant.exceptions import TenantNotFoundException
-from utils.tenant.providers import TenantData
+from utils.tenant.providers import post_tenant_to_thread
 
 logger = logging.getLogger(__name__)
 
@@ -257,8 +257,7 @@ class TenantSettingsMiddleware:
 
     def __call__(self, request):
         try:
-            instance = TenantData(domain=request.get_host())
-            tenant_data = instance.get_tenant_data()
+            post_tenant_to_thread(domain=request.get_host())
         except TenantNotFoundException as ex:
             return JsonResponse(
                 data={
@@ -266,7 +265,6 @@ class TenantSettingsMiddleware:
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        set_tenant_settings(value=tenant_data)
         response = self.get_response(request)
         return response
 
