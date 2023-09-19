@@ -63,7 +63,12 @@ class MapAdmin(OSMGeoExtendedAdmin):
 @admin.register(models.TileLayer)
 class TileLayerAdmin(admin.ModelAdmin):
     ordering = ("ordernum", "name")
-    list_display = ("name", "ordernum", "get_attributes")
+    list_display = (
+        "name",
+        "ordernum",
+        "get_attributes",
+        "das_tenant",
+    )
     list_editable = ("ordernum",)
     form = TileLayerFormWithAttributes
     fieldsets = (

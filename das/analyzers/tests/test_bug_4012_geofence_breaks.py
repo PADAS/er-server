@@ -7,6 +7,8 @@ from django_multitenant.utils import set_current_tenant
 
 from django.core.management import call_command
 
+from django.core.management import call_command
+
 # Use python unit test here to persist results in test DB
 # from unittest import TestCase
 from django.test import TestCase
