@@ -1,6 +1,7 @@
 import json
 from unittest.mock import MagicMock
 
+import django_multitenant
 import pytest
 from django_fakeredis.fakeredis import get_fake_redis
 from oauth2_provider.models import get_application_model
@@ -11,6 +12,7 @@ from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from rest_framework.test import APIClient
 
+from core.models import DASTenant
 from factories import (
     AccessTokenFactory,
     ChoiceFactory,
@@ -45,7 +47,6 @@ from factories import (
 )
 from utils.features import features
 from utils.tenant import Tenant
-from utils.tenant.thread import clear_tenant_settings, set_tenant_settings
 
 Application = get_application_model()
 User = apps.get_model(app_label="accounts", model_name="User")
@@ -66,7 +67,7 @@ TENANT_RESPONSE = {
         "defaultEventFilterFromDays": None,
         "defaultPatrolFilterFromDays": None,
         "eusOrg": None,
-        "fqdn": "http://zoo.com",
+        "fqdn": "zoo.com",
         "geoPermissionSpeedKmH": 75,
         "geoPermissionRadiusMeters": 3704,
         "geoPermissionViolationBanDurationMin": 10,
@@ -353,9 +354,8 @@ def application():
 
 
 @pytest.fixture
-def superuser():
-    tenant = TenantFactory(domain="localhost")
-    return UserFactory(is_superuser=True, das_tenant=tenant)
+def superuser(das_tenant):
+    return UserFactory(is_superuser=True, das_tenant=das_tenant)
 
 
 @pytest.fixture
@@ -409,13 +409,6 @@ def tenant_response():
 
 
 @pytest.fixture
-def tenant_thread(tenant_response):
-    set_tenant_settings(tenant_response)
-    yield None
-    clear_tenant_settings()
-
-
-@pytest.fixture
 def feature_tms(monkeypatch):
     feature_tms_mock = MagicMock()
     feature_tms_mock.is_on.return_value = True
@@ -445,16 +438,40 @@ def tenant(tenant_response):
 
 @pytest.fixture
 def das_tenant(tenant):
-    return TenantFactory.create(domain=tenant.domain)
+    return TenantFactory.create(id=tenant.id, domain=tenant.domain)
 
 
 @pytest.fixture
-def tenant_settings(monkeypatch, tenant):
+def tenant_settings(request, monkeypatch, tenant):
+    """This fixture is used to monkeypath tenant_settings on the thread.
+     Secondly it injects the tenant settings into a Django UnitTest class
+    so that individual tests can access tenant_settings.
+    For example self.tenant_settings.domain="test.com" """
     thread = MagicMock()
     thread.tenant_object = tenant
     monkeypatch.setattr("utils.tenant.thread._get_main_thread", MagicMock(return_value=thread))
-
+    request.cls.tenant_settings = tenant
     return tenant
+
+
+@pytest.fixture
+def das_tenant_monkeypatch(request, monkeypatch, das_tenant):
+    """This fixture is used to monkeypath the das_tenant on the thread.
+     Secondly it injects the das_tenant into a Django UnitTest class
+    so that individual tests can access the tenant object.
+    For example self.das_tenant.id"""
+    thread_locals = MagicMock()
+    thread_locals.tenant = das_tenant
+    monkeypatch.setattr(django_multitenant.utils, "_thread_locals", thread_locals)
+    request.cls.das_tenant = das_tenant
+    return das_tenant
+
+
+@pytest.fixture(autouse=True, scope="session")
+def tenant_post_db_setup(django_db_setup, django_db_blocker):
+    """This session-scoped fixture creates the primary unit test tenant in the database."""
+    with django_db_blocker.unblock():
+        DASTenant.objects.get_or_create(id=TENANT_RESPONSE["id"], defaults=dict(domain=TENANT_RESPONSE["domain"]))
 
 
 @pytest.fixture

@@ -1,6 +1,8 @@
 import os
 import warnings
 
+from django_multitenant.utils import get_current_tenant
+
 from django.conf import settings
 from django.core import serializers
 from django.core.management.base import CommandError
@@ -11,7 +13,11 @@ from core.utils import DASTenantManagement
 
 
 class Command(LoadDataCommand):
-    das_tenant_management = DASTenantManagement(domain=settings.SERVER_FQDN)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.das_tenant = get_current_tenant()
+        if self.das_tenant is None:
+            self.das_tenant = DASTenantManagement(domain=settings.SERVER_FQDN).get_or_create_tenant()
 
     def load_label(self, fixture_label):
         """Load fixtures files for a given label."""
@@ -46,7 +52,7 @@ class Command(LoadDataCommand):
                         self.models.add(obj.object.__class__)
                         try:
                             if hasattr(obj.object, "das_tenant"):
-                                obj.object.das_tenant = self.das_tenant_management.get_or_create_tenant()
+                                obj.object.das_tenant = self.das_tenant
                             obj.save(using=self.using)
                             if show_progress:
                                 self.stdout.write("\rProcessed %i object(s)." % loaded_objects_in_fixture, ending="")
