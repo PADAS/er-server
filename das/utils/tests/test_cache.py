@@ -45,7 +45,7 @@ class TestCache:
             cache_mock.insert_key("test-key", "test-value", ttl=60)
 
         assert not redis_connection_mock.set.called
-        assert "Could not add tenant ID as chache key prefix" in caplog.text
+        assert "Could not add tenant ID as cache key prefix" in caplog.text
 
 
 class TestMultitenantRedisClient:

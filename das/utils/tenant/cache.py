@@ -23,7 +23,7 @@ def use_multitenant_cache_key(method):
             tenant_aware_key = make_cache_key(key, None, None)
             return method(self, tenant_aware_key, *args, **kwargs)
         except TenantNotFoundInLocalThreadException:
-            logger.exception("Could not add tenant ID as chache key prefix")
+            logger.exception("Could not add tenant ID as cache key prefix")
             raise
 
     return tenant_id_prefix_wrapper
@@ -41,7 +41,7 @@ def append_tenant_id_to_cache_key(function):
             tenant_aware_key = make_cache_key(key, None, None)
             return function(tenant_aware_key, *other_args, **kwargs)
         except TenantNotFoundInLocalThreadException:
-            logger.exception("Could not add tenant ID as chache key prefix")
+            logger.exception("Could not add tenant ID as cache key prefix")
             raise
 
     return tenant_id_prefix_wrapper
