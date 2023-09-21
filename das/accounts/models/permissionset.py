@@ -4,14 +4,13 @@ import django.db.models as models
 from django.contrib.auth.models import Permission
 from django.utils.translation import gettext_lazy as _
 
-from core.models import HierarchyManager, HierarchyModel, TimestampedModel, UUIDModel
+from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 
 
 class PermissionSetManager(HierarchyManager):
     """
     The manager for the accounts PermissionSet model.
     """
-
     use_in_migrations = True
 
     def get_by_natural_key(self, name):
@@ -35,11 +34,12 @@ class PermissionSet(HierarchyModel, TimestampedModel):
     members-only portion of your site, or sending them members-only email
     messages.
     """
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(_("name"), max_length=80, unique=True)
+    name = models.CharField(_('name'), max_length=80, unique=True)
     permissions = models.ManyToManyField(
-        Permission, blank=True, related_name="permission_sets", through="accounts.PermissionSetPermission"
+        Permission,
+        blank=True,
+        related_name='permission_sets',
     )
 
     objects = PermissionSetManager()
@@ -48,20 +48,8 @@ class PermissionSet(HierarchyModel, TimestampedModel):
         return (self.name,)
 
     class Meta:
-        verbose_name = _("permission set")
-        verbose_name_plural = _("permission sets")
+        verbose_name = _('permission set')
+        verbose_name_plural = _('permission sets')
 
     def __str__(self):
         return self.name
-
-
-class PermissionSetPermission(UUIDModel):
-    class Meta:
-        auto_created = True  # This flag is to bypass the auth.E013 check of Django
-
-    permissionset = models.ForeignKey(
-        default=uuid.uuid4, on_delete=models.CASCADE, related_name="permissionset", to="accounts.permissionset"
-    )
-    permission = models.ForeignKey(
-        blank=True, on_delete=models.CASCADE, related_name="permission", to="auth.permission"
-    )
