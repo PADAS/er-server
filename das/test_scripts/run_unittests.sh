@@ -8,7 +8,7 @@ function echo_b() {
 }
 
 function review_results() {
-  if grep -i 'failures="0"' /testresults/junit/result_suite_*.xml; then
+  if grep -i 'failures="0"' /testresults/junit/result_suite_*.xml | grep -i 'errors="0"'; then
     echo "Suite executed successfully"
   else
     exit 1
