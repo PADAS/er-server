@@ -16,10 +16,10 @@ from django.http.request import HttpRequest
 from django.utils import timezone
 from django.utils.dateparse import parse_duration
 
-from core import tms_api_client
 from core.models import DASTenant
 from utils.constants import regex
 from utils.tenant import TenantNotFoundException
+from utils.tenant.providers import TenantData
 
 logger = logging.getLogger(__name__)
 
@@ -235,7 +235,7 @@ def is_uuid(string: str) -> bool:
 
 class DASTenantManagement:
     def __init__(self, domain: str):
-        self.domain = domain
+        self.domain = domain.split(":")[0]
 
     def get_or_create_tenant(self):
         tenant = self._get_existing_tenant()
@@ -248,10 +248,11 @@ class DASTenantManagement:
         return tenant
 
     def _get_existing_tenant(self):
-        return DASTenant.objects.first()
+        return DASTenant.objects.filter(domain=self.domain).first()
 
     def _get_tenant_from_tms(self, domain: str):
-        return tms_api_client.get_tenant_data(domain=domain)
+        instance = TenantData(domain=domain)
+        return instance.get_tenant_data()
 
 
 def update_tenant_models(models: list, tenant) -> None:

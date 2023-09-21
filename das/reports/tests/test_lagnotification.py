@@ -59,7 +59,7 @@ def generate_random_positions(
 class TestSubjectSourceReport(TestCase):
     def setUp(self):
         super().setUp()
-        call_command("loaddata", "initial_groups")
+        call_command("loaddata_with_tenant", "initial_groups")
 
         # Setup Users
 
@@ -200,7 +200,7 @@ class TestSubjectSourceReport(TestCase):
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestReportByTask:
     def test_two_sources_with_same_provider_reach_the_provider_threshold(self, five_subject_sources):
         provider = five_subject_sources[0].source.provider

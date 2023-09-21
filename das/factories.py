@@ -343,7 +343,7 @@ class SourceGroupFactory(factory.django.DjangoModelFactory):
 class TenantFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = DASTenant
-        django_get_or_create = ("domain",)
+        django_get_or_create = ("id",)
 
     id = factory.Faker("uuid4")
     domain = factory.Faker("domain_name")
