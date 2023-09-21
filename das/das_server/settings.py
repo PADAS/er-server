@@ -68,7 +68,6 @@ INSTALLED_APPS = (
     "activity.apps.ActivityConfig",
     "rt_api.apps.RTAPIConfig",
     "core.apps.CoreConfig",
-    "vectronics",
     "choices",
     "reports.apps.ReportsConfig",
     "django_readonly_field",
@@ -224,8 +223,6 @@ DATABASES = {
         "PASSWORD": "password",
     },
 }
-
-DATABASE_ROUTERS = ["vectronics.db_routing.routers.PositionRouter", "vectronics.db_routing.routers.MigrationRouter"]
 
 # To enable or disable subject regions view on admin dashboard
 SUBJECT_REGION_ENABLED = True

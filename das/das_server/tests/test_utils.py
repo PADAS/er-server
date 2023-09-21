@@ -36,7 +36,7 @@ class TestAppendDomainToMessage:
 
 
 class TestTenantContextFromMessage:
-    def test_pubsub_message_contains_tenant(self, tenant_thread, memory_store_client_mock):
+    def test_pubsub_message_contains_tenant(self, tenant_settings, memory_store_client_mock):
         def tenant_callback(*args, **kwargs):
             assert get_tenant_settings() is not None
 
@@ -45,7 +45,7 @@ class TestTenantContextFromMessage:
         message = {"domain": tenant.domain}
         wrapped(message)
 
-    def test_pubsub_message_does_not_contain_tenant(self, tenant_thread, feature_tms, caplog):
+    def test_pubsub_message_does_not_contain_tenant(self, tenant_settings, feature_tms, caplog):
         def tenant_callback(*args, **kwargs):
             assert "Tenant Domain not found in PubSub message" not in caplog.text
             assert False, "Tenant not found message changed, this test needs updating"

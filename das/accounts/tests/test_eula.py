@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+import pytest
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError
@@ -7,11 +7,10 @@ from django.test import TestCase
 from accounts import views
 from accounts.models import User
 from accounts.models.eula import EULA, UserAgreement
-from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest
-from utils.tenant import Tenant
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class EulaModelTestCase(TestCase):
     def setUp(self) -> None:
         self.user1 = User.objects.create_user(username="user1", password="asdfo9823sfiu23$", email="user1user@user.org")
@@ -61,6 +60,7 @@ class EulaModelTestCase(TestCase):
         self.assertEqual(EULA.objects.get_users_that_have_not_accepted_latest_eula().count(), User.objects.count() - 1)
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class EulaViewsTestCase(BaseAPITest):
     user_const = dict(last_name="last", first_name="first")
 
@@ -69,14 +69,9 @@ class EulaViewsTestCase(BaseAPITest):
         self.api_base = "/api/v1.0"
         self.user = User.objects.create_user("user", "das_user@vulcan.com", "user", **self.user_const)
         self.user2 = User.objects.create_user(username="user2", password="asdfo9823sfiu23$", email="user2user@user.org")
-        self.tenant = Tenant.from_dict(TENANT_RESPONSE)
-        self.thread = MagicMock()
-        self.thread.tenant_object = self.tenant
 
-    @patch("utils.tenant.thread._get_main_thread")
-    def test_getting_active_eula(self, get_main_thread):
-        self.tenant.env_settings.accept_eula = True
-        get_main_thread.return_value = self.thread
+    def test_getting_active_eula(self):
+        self.tenant_settings.env_settings.accept_eula = True
 
         EULA.objects.create(eula_url="http://some.com/eula.pdf", version="EarthRanger_EULA_ver2025-02-12", active=True)
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf", version="EarthRanger_EULA_ver2025-03-12")
@@ -91,10 +86,9 @@ class EulaViewsTestCase(BaseAPITest):
         self.assertEqual(eula.version, data.get("version", "0.0"))
         self.assertEqual(str(eula.id), data.get("id"))
 
-    @patch("utils.tenant.thread._get_main_thread")
-    def test_accept_eula_view(self, get_main_thread):
-        self.tenant.env_settings.accept_eula = True
-        get_main_thread.return_value = self.thread
+    def test_accept_eula_view(self):
+        self.tenant_settings.env_settings.accept_eula = True
+
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf", version="EarthRanger_EULA_ver2025-03-12")
         data = {"eula": eula.id, "user": self.user.id}
         request = self.factory.post(self.api_base + "/eula/accept/", data)
@@ -107,10 +101,9 @@ class EulaViewsTestCase(BaseAPITest):
         self.assertTrue(response_data.get("accept"))
         self.assertEqual(response_data.get("eula"), eula.id)
 
-    @patch("utils.tenant.thread._get_main_thread")
-    def test_revoke_eula_acceptance_view(self, get_main_thread):
-        self.tenant.env_settings.accept_eula = True
-        get_main_thread.return_value = self.thread
+    def test_revoke_eula_acceptance_view(self):
+        self.tenant_settings.env_settings.accept_eula = True
+
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf", version="EarthRanger_EULA_ver2025-03-12")
         data = {"eula": eula.id, "user": self.user.id, "accept": True}
         request = self.factory.post(self.api_base + "/eula/accept/", data)
@@ -143,10 +136,8 @@ class EulaViewsTestCase(BaseAPITest):
         user = User.objects.get(id=self.user.id)
         self.assertTrue(user.accepted_eula)
 
-    @patch("utils.tenant.thread._get_main_thread")
-    def test_get_eula_returns_200_for_sites_that_dont_accept_eula(self, get_main_thread):
-        self.tenant.env_settings.accept_eula = False
-        get_main_thread.return_value = self.thread
+    def test_get_eula_returns_200_for_sites_that_dont_accept_eula(self):
+        self.tenant_settings.env_settings.accept_eula = False
 
         request = self.factory.get(self.api_base + "/eula/")
         self.force_authenticate(request, self.user)
@@ -155,10 +146,8 @@ class EulaViewsTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("version", response.data)
 
-    @patch("utils.tenant.thread._get_main_thread")
-    def test_accepted_eula_not_returned_for_sites_not_using_eula(self, get_main_thread):
-        self.tenant.env_settings.accept_eula = False
-        get_main_thread.return_value = self.thread
+    def test_accepted_eula_not_returned_for_sites_not_using_eula(self):
+        self.tenant_settings.env_settings.accept_eula = False
 
         request = self.factory.get(self.api_base + "/user/me")
         self.force_authenticate(request, self.user)
@@ -168,10 +157,9 @@ class EulaViewsTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("accepted_eula", response_data)
 
-    @patch("utils.tenant.thread._get_main_thread")
-    def test_user_cannot_accept_eula_for_another_user(self, get_main_thread):
-        self.tenant.env_settings.accept_eula = True
-        get_main_thread.return_value = self.thread
+    def test_user_cannot_accept_eula_for_another_user(self):
+        self.tenant_settings.env_settings.accept_eula = True
+
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf", version="EarthRanger_EULA_ver2025-03-12")
         data = {"eula": eula.id, "user": self.user.id}
         request = self.factory.post(self.api_base + "/eula/accept/", data)
@@ -179,10 +167,9 @@ class EulaViewsTestCase(BaseAPITest):
         response = views.AcceptEulaAPIView.as_view()(request)
         self.assertEqual(response.status_code, 403)
 
-    @patch("utils.tenant.thread._get_main_thread")
-    def test_sending_same_data_twice_returns_200_ok(self, get_main_thread):
-        self.tenant.env_settings.accept_eula = True
-        get_main_thread.return_value = self.thread
+    def test_sending_same_data_twice_returns_200_ok(self):
+        self.tenant_settings.env_settings.accept_eula = True
+
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf", version="EarthRanger_EULA_ver2025-03-12")
         data = {"eula": eula.id, "user": self.user.id}
         request = self.factory.post(self.api_base + "/eula/accept/", data)
