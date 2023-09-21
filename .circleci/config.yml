@@ -296,6 +296,8 @@ jobs:
             docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull api
             TEST_EXIT_STATUS=$(docker inspect api --format='{{.State.ExitCode}}')
             exit ${TEST_EXIT_STATUS}
+      - store_artifacts:
+          path: /testresults
       - store_test_results:
           path: /testresults
 

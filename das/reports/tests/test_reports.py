@@ -16,13 +16,14 @@ from reports.reports import get_conservancies, get_daily_report_data
 from utils.tests_tools import is_url_resolved
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestReportUtils(TestCase):
     def setUp(self):
         super().setUp()
-        call_command("loaddata", "initial_eventdata")
-        call_command("loaddata", "event_data_model")
-        call_command("loaddata", "test_events_schema")
-        call_command("loaddata", "test_daily_reports")
+        call_command("loaddata_with_tenant", "initial_eventdata")
+        call_command("loaddata_with_tenant", "event_data_model")
+        call_command("loaddata_with_tenant", "test_events_schema")
+        call_command("loaddata_with_tenant", "test_daily_reports")
 
         self.user = User.objects.create(
             username="reportuser",
@@ -40,7 +41,6 @@ class TestReportUtils(TestCase):
         assert is_url_resolved("reports/tableau-views/", views.TableauAPIView)
         assert is_url_resolved(f"reports/tableau-views/{uuid.uuid4()}/", views.TableauView)
 
-    @pytest.mark.usefixtures("tenant_settings")
     def test_render_eventdetails(self):
         edetails = {
             "beginning_of_incident": "Monday",
@@ -73,7 +73,6 @@ class TestReportUtils(TestCase):
         for item in schema_utils.generate_details(e, schema):
             logger.debug("Event details rendered: %s", item)
 
-    @pytest.mark.usefixtures("tenant_settings")
     def test_daily_report_context(self):
         edetails = {
             "beginning_of_incident": "Monday",

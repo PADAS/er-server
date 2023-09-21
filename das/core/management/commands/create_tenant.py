@@ -1,8 +1,8 @@
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from core import tms_api_client
 from core.models import DASTenant
+from utils.tenant.providers import TenantData
 
 
 class Command(BaseCommand):
@@ -21,5 +21,5 @@ class Command(BaseCommand):
             raise CommandError("Error creating DAS tenant object")
 
     def _get_tenant_data(self):
-        domain = settings.SERVER_FQDN
-        return tms_api_client.get_tenant_data(domain=domain)
+        instance = TenantData(domain=settings.SERVER_FQDN)
+        return instance.get_tenant_data()
