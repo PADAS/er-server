@@ -52,7 +52,7 @@ def handle_subject(subject_id, *args, **kwargs):
 
 
 @celery.app.task(base=TenantTask)
-def handle_source(source_id):
+def handle_source(source_id, *args, **kwargs):
     logger.info("Handling source %s", str(source_id))
 
     subjects = Subject.objects.get_current_subjects_from_source_id(source_id=source_id, values=("id", "name"))
@@ -67,7 +67,7 @@ def handle_source(source_id):
 
 
 @celery.app.task(base=TenantQueueOnceTask)
-def analyze_subject(subject_id):
+def analyze_subject(subject_id, *args, **kwargs):
     _analyze_subject(subject_id)
 
 
@@ -117,7 +117,7 @@ def annotate_observations_for_subject(subject_id):
 
 
 @celery.app.task(base=TenantTask)
-def handle_observation(observation_id):
+def handle_observation(observation_id, *arg, **kwargs):
     logger.debug("Handling observation: %s", observation_id)
 
     subjects = Subject.objects.get_subjects_from_observation_id(observation_id, values=("id", "name"))
