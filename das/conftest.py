@@ -443,27 +443,33 @@ def das_tenant(tenant):
 
 @pytest.fixture
 def tenant_settings(request, monkeypatch, tenant):
-    """This fixture is used to monkeypath tenant_settings on the thread.
-     Secondly it injects the tenant settings into a Django UnitTest class
+    """This fixture is used to monkeypatch the get/set of tenant_settings on the current thread.
+    Secondly if used as a class fixture, it injects the tenant settings into that class
     so that individual tests can access tenant_settings.
     For example self.tenant_settings.domain="test.com" """
     thread = MagicMock()
     thread.tenant_object = tenant
     monkeypatch.setattr("utils.tenant.thread._get_main_thread", MagicMock(return_value=thread))
-    request.cls.tenant_settings = tenant
+    monkeypatch.setattr("utils.tenant.thread.set_tenant_settings", MagicMock(return_value=None))
+    monkeypatch.setattr("utils.tenant.thread.clear_tenant_settings", MagicMock(return_value=None))
+    if getattr(request, "cls", None):
+        request.cls.tenant_settings = tenant
     return tenant
 
 
 @pytest.fixture
 def das_tenant_monkeypatch(request, monkeypatch, das_tenant):
-    """This fixture is used to monkeypath the das_tenant on the thread.
-     Secondly it injects the das_tenant into a Django UnitTest class
-    so that individual tests can access the tenant object.
+    """This fixture is used to monkeypatch the get/set of das_tenant on the current thread.
+    Secondly if used as a class fixture, it injects the das_tenant into that class
+    so that individual tests can access the das_tenant object.
     For example self.das_tenant.id"""
     thread_locals = MagicMock()
     thread_locals.tenant = das_tenant
     monkeypatch.setattr(django_multitenant.utils, "_thread_locals", thread_locals)
-    request.cls.das_tenant = das_tenant
+    monkeypatch.setattr("django_multitenant.utils.set_current_tenant", MagicMock(return_value=None))
+    monkeypatch.setattr("django_multitenant.utils.unset_current_tenant", MagicMock(return_value=None))
+    if getattr(request, "cls", None):
+        request.cls.das_tenant = das_tenant
     return das_tenant
 
 
