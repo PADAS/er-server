@@ -8,6 +8,7 @@ from utils.tenant.managers import TenantContextManager
 from utils.tenant.thread import TENANT_DEFAULT_KEY
 
 
+@pytest.mark.django_db
 @pytest.mark.skipif(features.tms.is_on() is False, reason="TMS feature flag is off")
 class TestTenantContextManager:
     def test_tenant_context_manager(self, memory_store_client_mock):

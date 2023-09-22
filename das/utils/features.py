@@ -26,7 +26,7 @@ class Feature:
 
 class FeatureFlags:
     def __init__(self):
-        self._features = {Features.FEATURE_TMS.value: Feature(self._get_flag(Features.FEATURE_TMS.value))}
+        self._features = {Features.FEATURE_TMS.value: Feature(True)}
 
     def __getattr__(self, feature_name):
         try:
