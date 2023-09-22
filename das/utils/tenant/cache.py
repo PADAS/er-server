@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 def make_cache_key(key, key_prefix, version):
     tenant = get_tenant_settings()
     key_tokens = (tenant.id, key_prefix, version, key)
+    logger.info("Accessing to key %s of tenant %s", key, tenant.id)
 
     return ":".join(map(str, key_tokens))
 

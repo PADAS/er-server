@@ -1,0 +1,45 @@
+{
+    "id": "c0973be2-8e11-4cb8-8463-897fb96391d0",
+    "createdAt": "2022-11-14T21:09:02.519164+00:00",
+    "updatedAt": "2022-11-14T21:09:02.519165+00:00",
+    "name": "Frank test1",
+    "slugName": "frank-test1",
+    "url": "http://zoo.com",
+    "domain": "zoo.com",
+    "status": "PROVISIONING",
+    "envSettings": {
+        "acceptEula": false,
+        "alertRateLimit": 40,
+        "allServerNames": null,
+        "defaultEventFilterFromDays": null,
+        "defaultPatrolFilterFromDays": null,
+        "eusOrg": null,
+        "fqdn": "zoo.com",
+        "geoPermissionSpeedKmH": 75,
+        "geoPermissionRadiusMeters": 3704,
+        "geoPermissionViolationBanDurationMin": 10,
+        "gsBucketName": null,
+        "kmlOverlayImage": null,
+        "kmlFeedTitle": "EarthRanger KML service",
+        "patrolEnabled": false,
+        "showStationarySubjectsOnMap": true,
+        "showTrackDays": 16,
+        "subjectRegionEnabled": false,
+        "tableauDefaultDashboard": false,
+        "tableauSiteId": false,
+        "trackLength": false
+    },
+    "featureFlags": {
+        "alertsEnabled": false,
+        "dailyReportEnabled": false,
+        "kmlExport": false,
+        "mappingFeaturesV2": true,
+        "tableauEnabled": false,
+        "tableauSiteId": false,
+        "trackLength": false
+    },
+    "services": {
+        "auth": {"status": "PROVISIONING", "statusMessage": null, "updatedAt": ""},
+        "media": {"status": "PROVISIONING", "statusMessage": null, "updatedAt": ""}
+    }
+}

@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import django_multitenant
@@ -51,51 +52,8 @@ from utils.tenant import Tenant
 Application = get_application_model()
 User = apps.get_model(app_label="accounts", model_name="User")
 
-TENANT_RESPONSE = {
-    "id": "c0973be2-8e11-4cb8-8463-897fb96391d0",
-    "createdAt": "2022-11-14T21:09:02.519164+00:00",
-    "updatedAt": "2022-11-14T21:09:02.519165+00:00",
-    "name": "Frank test1",
-    "slugName": "frank-test1",
-    "url": "http://zoo.com",
-    "domain": "zoo.com",
-    "status": "PROVISIONING",
-    "envSettings": {
-        "acceptEula": False,
-        "alertRateLimit": 40,
-        "allServerNames": None,
-        "defaultEventFilterFromDays": None,
-        "defaultPatrolFilterFromDays": None,
-        "eusOrg": None,
-        "fqdn": "zoo.com",
-        "geoPermissionSpeedKmH": 75,
-        "geoPermissionRadiusMeters": 3704,
-        "geoPermissionViolationBanDurationMin": 10,
-        "gsBucketName": None,
-        "kmlOverlayImage": None,
-        "kmlFeedTitle": "EarthRanger KML service",
-        "patrolEnabled": False,
-        "showStationarySubjectsOnMap": True,
-        "showTrackDays": 16,
-        "subjectRegionEnabled": False,
-        "tableauDefaultDashboard": False,
-        "tableauSiteId": False,
-        "trackLength": False,
-    },
-    "featureFlags": {
-        "alertsEnabled": False,
-        "dailyReportEnabled": False,
-        "kmlExport": False,
-        "mappingFeaturesV2": True,
-        "tableauEnabled": False,
-        "tableauSiteId": False,
-        "trackLength": False,
-    },
-    "services": {
-        "auth": {"status": "PROVISIONING", "statusMessage": None, "updatedAt": ""},
-        "media": {"status": "PROVISIONING", "statusMessage": None, "updatedAt": ""},
-    },
-}
+with open(Path(__name__).parent / "core/fixtures/tenant-response.json") as tenant_response:
+    TENANT_RESPONSE = json.load(tenant_response)
 
 
 class APIClientWithUser(APIClient):

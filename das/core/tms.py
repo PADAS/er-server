@@ -1,4 +1,6 @@
+import json
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 import requests
 from requests import RequestException
@@ -15,12 +17,12 @@ class BaseClient(ABC):
 
 class TestClient(BaseClient):
     def __init__(self, config):
-        pass
+        das_core = Path(__file__).parent
+        with open(das_core / "fixtures/tenant-response.json") as tenant_response:
+            self.tenant_response = json.load(tenant_response)
 
     def get_tenant_data(self, domain: str):
-        from conftest import TENANT_RESPONSE
-
-        return TENANT_RESPONSE
+        return self.tenant_response
 
 
 class HTTPClient(BaseClient):

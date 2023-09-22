@@ -22,14 +22,14 @@ def set_tenant_settings(value: dict) -> None:
     except KeyError as error:
         raise TenantDataclassException(f"Missing key in tenant data: {error}")
     setattr(local_thread, TENANT_DEFAULT_KEY, tenant_settings)
-    logger.info(f"Setting tenant settings for host: {tenant_settings.domain}")
+    logger.info("Setting tenant settings for host: %s", tenant_settings.domain)
 
 
 def get_tenant_settings() -> Tenant:
     local_thread = _get_main_thread()
     try:
         tenant_settings = getattr(local_thread, TENANT_DEFAULT_KEY)
-        logger.debug(f"Getting tenant settings for host: {tenant_settings.domain}")
+        logger.debug("Getting tenant settings for host: %s", tenant_settings.domain)
 
         return tenant_settings
     except AttributeError:
@@ -39,4 +39,6 @@ def get_tenant_settings() -> Tenant:
 def clear_tenant_settings():
     local_thread = _get_main_thread()
     if hasattr(local_thread, TENANT_DEFAULT_KEY):
+        tenant_domain = getattr(local_thread, TENANT_DEFAULT_KEY).domain
         delattr(local_thread, TENANT_DEFAULT_KEY)
+        logger.debug("Clearing tenant settings from thread for host: %s", tenant_domain)
