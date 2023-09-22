@@ -100,8 +100,6 @@ class TestMutateErTrackSubjectAssignment:
     ):
         subject = subject_source.subject
         source = subject_source.source
-        subject.subject_subtype.subject_type.value = "person"
-        subject.subject_subtype.subject_type.save()
         superuser.act_as_profiles.add(ops_user)
         observation = OrderedDict()
         observation["user_id"] = str(ops_user.id)

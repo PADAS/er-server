@@ -72,7 +72,7 @@ class BusinessRulesTestCase(BaseAPITest):
         call_command("loaddata_with_tenant", "event_data_model")
         call_command("loaddata", "test_events_schema")
         call_command("loaddata", "initial_choices")
-        call_command("loaddata", "initial_common_name")
+        call_command("loaddata_with_tenant", "initial_common_name")
 
         self.alerts_perms_user = User.objects.create_user(
             username="alertsuser", password="asdfo9823sfiu23$", email="alertsuser@tempuri.org"
@@ -915,12 +915,9 @@ class BusinessRulesTestCase(BaseAPITest):
             event = Event.objects.get(id=event.id)
 
         render_event(event, self.power_user)
-        # print(json.dumps(eventdata, indent=2, default=str))
 
         # Create a notification method
         notification_method_id = self.create_notification_method().data["id"]
-
-        # print(f'NotificationMethod.id: {notification_method_id}')
 
         # Create an alert rule
         alert_rule_1 = dict(
@@ -937,11 +934,6 @@ class BusinessRulesTestCase(BaseAPITest):
                         "value": ["senapa", "iggr", "wma", "grumetireserves"],
                         "operator": "shares_at_least_one_element_with",
                     },
-                    # {
-                    #     "name": "arrestrep_zapnumberofarrestingscout",
-                    #     "value": [],
-                    #     "operator": "shares_at_least_one_element_with"
-                    # },
                     {
                         "name": "arrestrep_reasonforarrest",
                         "value": [
@@ -957,16 +949,6 @@ class BusinessRulesTestCase(BaseAPITest):
                         ],
                         "operator": "shares_at_least_one_element_with",
                     },
-                    # {
-                    #     "name": "arrestrep_location",
-                    #     "value": None,
-                    #     "operator": "contains"
-                    # },
-                    # {
-                    #     "name": "arrestrep_asset",
-                    #     "value": None,
-                    #     "operator": "contains"
-                    # }
                 ]
             },
             schedule=self._create_a_period_from_datetime(including_time=True),

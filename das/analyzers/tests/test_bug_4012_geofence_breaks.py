@@ -3,6 +3,7 @@ import logging
 
 import pytest
 import yaml
+from django_multitenant.utils import set_current_tenant
 
 from django.core.management import call_command
 
@@ -14,6 +15,7 @@ from activity.models import Event, EventCategory, EventType
 from analyzers.geofence import GeofenceAnalyzerConfig
 from analyzers.models import SubjectAnalyzerResult
 from analyzers.tasks import analyze_subject_
+from core.models import DASTenant
 from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
 from observations.models import (
     DEFAULT_ASSIGNED_RANGE,
@@ -40,6 +42,9 @@ class TestBug4012(TestCase):
         call_command("loaddata_with_tenant", "bug4012/displaycategories.yaml")
         call_command("loaddata_with_tenant", "bug4012/featuretypes.yaml")
         call_command("loaddata_with_tenant", "bug4012/spatialfeatures.yaml")
+
+        tenant = DASTenant.objects.first()
+        set_current_tenant(tenant)
 
         ec, created = EventCategory.objects.get_or_create(
             value="analyzer_event", defaults=dict(display="Analyzer Events")

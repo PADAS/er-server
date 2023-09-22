@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import pytest
 import pytz
 import requests_mock
+from django_multitenant.utils import set_current_tenant
 
 from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
@@ -181,10 +182,13 @@ def make_exceptions_download(request_mock, host):
     )
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class SavannahPluginTest(TestCase):
     api_host = "http://random"
 
     def setUp(self):
+        set_current_tenant(self.das_tenant)
+
         latest_timestamp = datetime.now(tz=pytz.utc) - timedelta(days=20)
         latest_timestamp = latest_timestamp.isoformat()
         cursor_data = {"latest_timestamp": latest_timestamp}

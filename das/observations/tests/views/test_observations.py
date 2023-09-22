@@ -5,6 +5,7 @@ from urllib.parse import urlencode
 import dateutil.parser
 import pytest
 import pytz
+from django_multitenant.utils import set_current_tenant
 
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
@@ -13,6 +14,7 @@ from rest_framework import status
 
 from accounts.models import PermissionSet, User
 from core.tests import BaseAPITest
+from core.utils import DASTenantManagement
 from observations.models import (
     Observation,
     Source,
@@ -22,12 +24,17 @@ from observations.models import (
 )
 from observations.views import ObservationsView
 
+das_tenant_management = DASTenantManagement(domain="domain.com")
 
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class ObservationViewTestCase(BaseAPITest):
     user_const = dict(last_name="last", first_name="first")
 
     def setUp(self):
         super().setUp()
+        set_current_tenant(self.das_tenant)
+
         user_const = dict(last_name="last", first_name="first")
 
         self.user = User.objects.create_user(
@@ -238,6 +245,9 @@ class ObservationViewTestCase(BaseAPITest):
 
         response = ObservationsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
+
+    def _get_tenant(self):
+        return das_tenant_management.get_or_create_tenant()
 
 
 @pytest.mark.django_db

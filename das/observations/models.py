@@ -24,6 +24,7 @@ import pymet
 import pytz
 from bitfield import BitField
 from dateutil.parser import parse as parse_date
+from django_multitenant.fields import TenantForeignKey
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from psycopg2.extras import DateTimeTZRange
 
@@ -120,7 +121,7 @@ def Condition(*args, **kwargs):
     return ExpressionWrapper(Q(*args, **kwargs), output_field=BooleanField())
 
 
-class SourceGroupManager(HierarchyManager):
+class SourceGroupManager(TenantManagerMixin, HierarchyManager):
     def get_default(self):
         return self.get(id=DEFAULT_SOURCE_GROUP_ID)
 
@@ -128,7 +129,7 @@ class SourceGroupManager(HierarchyManager):
         return self.get(**{name: name})
 
 
-class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
+class SourceGroup(TenantModelMixin, HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
     """
     Manage Groups of sources so that we can easily set permissions on a group
     rather than each individual Source. Additionally there are requests to
@@ -140,7 +141,18 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_("name"), max_length=80, unique=True)
     sources = models.ManyToManyField("Source", related_name="groups", blank=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
     objects = SourceGroupManager()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        verbose_name = _("source group")
+        verbose_name_plural = _("source groups")
+        unique_together = (("id", "das_tenant"),)
+
+    def __str__(self):
+        return self.name
 
     def get_all_sources(self, user=None, active=None, include_from_subgroups=True, **kwargs):
         """Including descendant group sources"""
@@ -164,15 +176,8 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
     def natural_key(self):
         return (self.name,)
 
-    class Meta:
-        verbose_name = _("source group")
-        verbose_name_plural = _("source groups")
 
-    def __str__(self):
-        return self.name
-
-
-class SourceManager(models.Manager):
+class SourceManager(TenantManagerMixin, models.Manager):
     # Helper functions for hydrating Source and Subject for the given message.
     def ensure_source(self, *args, **kwargs):
         subject_info = kwargs.get("subject")
@@ -221,7 +226,7 @@ class SourceManager(models.Manager):
         return Source.objects.get_or_create(defaults=defaults, **searchkey)
 
 
-class SourceProviderManager(models.Manager):
+class SourceProviderManager(TenantManagerMixin, models.Manager):
     def create_provider(self, **kwargs):
         provider_key = kwargs.get("provider_key")
         if provider_key:
@@ -242,7 +247,7 @@ def get_default_source_provider_id():
     return uuid.UUID(DEFAULT_SOURCE_PROVIDER_ID)
 
 
-class SourceProvider(TimestampedModel):
+class SourceProvider(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     provider_key = models.CharField("Natural key for source provider", max_length=100, null="False", unique=True)
     display_name = models.CharField(
@@ -253,23 +258,28 @@ class SourceProvider(TimestampedModel):
     notes = models.TextField(blank=True, null=True)
     additional = models.JSONField("additional data", default=dict, blank=True)
     transforms = models.JSONField(name="transforms", default=list, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
     objects = SourceProviderManager()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = (("id", "das_tenant"),)
 
     def __str__(self):
         return "{} ({})".format(self.display_name, self.provider_key)
 
 
-class Source(TimestampedModel):
-    objects = SourceManager()
-
+class Source(TenantModelMixin, TimestampedModel):
     """Collar, MotoTrbo, sensor, etc"""
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     source_type = models.CharField("type of data expected", max_length=100, null=True, choices=SOURCE_TYPES)
 
     # # Delete this after migration occurs for provider attribute.
     # provider_name = models.CharField('unique name for data provider', max_length=100, null='False', default='default')
 
-    provider = models.ForeignKey(
+    provider = TenantForeignKey(
         SourceProvider,
         related_name="sources",
         related_query_name="source",
@@ -281,7 +291,7 @@ class Source(TimestampedModel):
     manufacturer_id = models.CharField("device manufacturer id", max_length=100, null=True)
     model_name = models.CharField("device model name", max_length=201, null=True)
     additional = models.JSONField("additional data", default=dict, blank=True)
-    owner = models.ForeignKey(
+    owner = TenantForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
@@ -289,9 +299,16 @@ class Source(TimestampedModel):
         related_name="sources",
         related_query_name="source",
     )
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
+    objects = SourceManager()
+    tenant_id = "das_tenant_id"
 
     class Meta:
-        unique_together = ("provider", "manufacturer_id")
+        unique_together = (
+            ("id", "das_tenant"),
+            ("provider", "manufacturer_id"),
+        )
 
     def __str__(self):
         return f"{self.manufacturer_id} ({self.provider.provider_key})"
@@ -355,7 +372,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return self.annotate(source_transforms=F("source__provider__transforms"))
 
 
-class ObservationManager(models.Manager):
+class ObservationManager(TenantManagerMixin, models.Manager):
     def get_subjectsource_observations(
         self, subjectsource, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
     ):
@@ -499,7 +516,7 @@ class ObservationManager(models.Manager):
             pass
 
 
-class Observation(models.Model):
+class Observation(TenantModelMixin, models.Model):
     # Constants for filter bit-map.
     DEFAULT = 0
     EXCLUDED_MANUALLY = 1
@@ -520,17 +537,22 @@ class Observation(models.Model):
     # via a migration script
     recorded_at = models.DateTimeField("recorded at", db_index=False)
     created_at = models.DateTimeField("row created at", auto_now_add=True, db_index=True)  # date/time this row created
-    source = models.ForeignKey("Source", on_delete=models.CASCADE)
+    source = TenantForeignKey("Source", on_delete=models.CASCADE)
     additional = models.JSONField(null=True, blank=True)
-
     exclusion_flags = BitField(flags=BITMAP_FILTER_CHOICES, default=0)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
     objects = ObservationManager.from_queryset(ObservationQuerySet)()
+    tenant_id = "das_tenant_id"
 
     def __str__(self):
         return "{}:{}:{:08b}".format(self.recorded_at.isoformat(), self.location, self.exclusion_flags.mask)
 
     class Meta:
-        unique_together = [("source", "recorded_at")]
+        unique_together = [
+            ("id", "das_tenant"),
+            ("source", "recorded_at"),
+        ]
         ordering = ["-recorded_at"]
 
 
@@ -556,7 +578,7 @@ class SubjectSourceQuerySet(models.QuerySet, FilterMixin):
         )
 
 
-class SubjectSourceManager(models.Manager):
+class SubjectSourceManager(TenantManagerMixin, models.Manager):
     def get_subject_sources(self, subject):
         sds = SubjectSource.objects.filter(subject_id=subject.id)
         return sds
@@ -644,30 +666,33 @@ class AssignedRangeBounds(NamedTuple):
     upper: datetime
 
 
-class SubjectSource(models.Model):
+class SubjectSource(TenantModelMixin, models.Model):
     """A Subject is associated with a Source device for a specific time period
     For example a Ranger carries a specific radio between 1/1/2015 and 1/2/2015
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     assigned_range = DateTimeRangeField("time assigned to subject", default=DEFAULT_ASSIGNED_RANGE)
-    source = models.ForeignKey("Source", on_delete=models.CASCADE)
-    subject = models.ForeignKey(
+    source = TenantForeignKey("Source", on_delete=models.CASCADE)
+    subject = TenantForeignKey(
         "Subject", on_delete=models.CASCADE, related_name="subjectsources", related_query_name="subjectsource"
     )
     additional = models.JSONField("additional", default=dict, blank=True)
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
     location = models.PointField(verbose_name="Assigned location", blank=True, null=True)
-    objects = SubjectSourceManager.from_queryset(SubjectSourceQuerySet)()
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
-    def __str__(self):
-        ind = " (expired)" if datetime.now(tz=pytz.utc) not in self.assigned_range else ""
-        return f"{self.subject.name} <-> {self.source.manufacturer_id}{ind}"
+    objects = SubjectSourceManager.from_queryset(SubjectSourceQuerySet)()
+    tenant_id = "das_tenant_id"
 
     class Meta:
         verbose_name = _("Subject Source Assignment")
         verbose_name_plural = _("Subject Source Assignments")
-        # ordering = ["subject", "source"]
+        unique_together = (("id", "das_tenant"),)
+
+    def __str__(self):
+        ind = " (expired)" if datetime.now(tz=pytz.utc) not in self.assigned_range else ""
+        return f"{self.subject.name} <-> {self.source.manufacturer_id}{ind}"
 
     @property
     def safe_assigned_range(self):
@@ -737,7 +762,7 @@ def get_default_subject_type():
     return subject_type.value
 
 
-class SubjectType(TimestampedModel):
+class SubjectType(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(default=uuid.uuid4)
     value = models.CharField(
         primary_key=True,
@@ -750,15 +775,21 @@ class SubjectType(TimestampedModel):
         max_length=100, blank=True, verbose_name="Subject Type", help_text=_("Subject Type description")
     )
     ordernum = models.SmallIntegerField(blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
-    def natural_key(self):
-        return self.value
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = (("id", "das_tenant"),)
 
     def __str__(self):
         return self.display
 
+    def natural_key(self):
+        return self.value
 
-class SubjectSubType(TimestampedModel):
+
+class SubjectSubType(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(default=uuid.uuid4)
     value = models.CharField(
         primary_key=True,
@@ -771,29 +802,34 @@ class SubjectSubType(TimestampedModel):
     display = models.CharField(
         help_text=_("Subject Sub-Type description"), max_length=100, blank=True, verbose_name="Subject Sub-Type"
     )
-    subject_type = models.ForeignKey(
-        SubjectType, null=False, on_delete=models.PROTECT, default=get_default_subject_type
-    )
-    ordernum = models.SmallIntegerField(blank=True, null=True)
+    subject_type = TenantForeignKey(SubjectType, null=False, on_delete=models.PROTECT, default=get_default_subject_type)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
-    def natural_key(self):
-        return self.value
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = (("id", "das_tenant"),)
 
     def __str__(self):
         return str(self.value)
 
+    def natural_key(self):
+        return self.value
 
-class SubjectTrackSegmentFilterManager(models.Manager):
-    pass
 
-
-class SubjectTrackSegmentFilter(TimestampedModel):
+class SubjectTrackSegmentFilter(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     # TODO Should reference SubjectSubTypes model if it gets created...
-    subject_subtype = models.ForeignKey(SubjectSubType, on_delete=models.PROTECT)
+    subject_subtype = TenantForeignKey(SubjectSubType, on_delete=models.PROTECT)
     speed_KmHr = models.FloatField(default=7.0)
     additional = models.JSONField(default=dict, blank=True)
-    objects = SubjectTrackSegmentFilterManager()
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = (("id", "das_tenant"),)
 
 
 DEFAULT_SOURCE_GROUP_ID = "654e592c-fc5a-436d-98dd-fd1b36436a85"
@@ -804,7 +840,7 @@ class SubjectGroupQuerySet(models.QuerySet, FilterMixin):
         return self.filter(name__exact=value)
 
 
-class SubjectGroupManager(HierarchyManager):
+class SubjectGroupManager(TenantManagerMixin, HierarchyManager):
     def get_default(self):
         return self.get(is_default=True)
 
@@ -828,7 +864,7 @@ class SubjectGroupManager(HierarchyManager):
         return queryset
 
 
-class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
+class SubjectGroup(TenantModelMixin, HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
     """
     Manage Groups of subjects so that we can easily set permissions on a group
     rather than each individual Subject. Additionally there are requests to
@@ -851,8 +887,10 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
         default=False,
         help_text=_("This Subject group is the default for new subjects."),
     )
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
     objects = SubjectGroupManager.from_queryset(SubjectGroupQuerySet)()
+    tenant_id = "das_tenant_id"
 
     def get_all_subjects(self, user=None, active=None, include_from_subgroups=True, mou_expiry_date=None):
         min_age_days = get_minimum_allowed_age(user) or 0 if user else 0
@@ -867,11 +905,7 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
 
         if include_from_subgroups:
             """Including descendant group subjects"""
-            sg_all = set(
-                [
-                    self,
-                ]
-            )
+            sg_all = {self}
             sg_all.update(set(self.get_descendants()))
             queryset = queryset.filter(groups__in=sg_all)
         else:
@@ -886,7 +920,8 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
         verbose_name = _("subject group")
         verbose_name_plural = _("subject groups")
         constraints = [
-            UniqueConstraint(fields=["is_default"], condition=Q(is_default=True), name="default_subject_group")
+            UniqueConstraint(fields=["is_default"], condition=Q(is_default=True), name="default_subject_group"),
+            UniqueConstraint(fields=["id", "das_tenant"], name="id_and_das_tenant_unique"),
         ]
 
     def __str__(self):
@@ -1194,7 +1229,7 @@ SEX_CHOICES = (
 class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_("name"), max_length=100)
-    owner = models.ForeignKey(
+    owner = TenantForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
@@ -1215,9 +1250,10 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
         default=True,
         help_text=_("This subject is actively shown in visualizations."),
     )
-    common_name = models.ForeignKey("CommonName", on_delete=models.PROTECT, blank=True, null=True)
-    subject_subtype = models.ForeignKey(SubjectSubType, default=get_default_subject_subtype, on_delete=models.PROTECT)
-    import_gpx_data = models.ForeignKey("GPXTrackFile", on_delete=models.SET_NULL, null=True, blank=True)
+    common_name = TenantForeignKey("observations.CommonName", on_delete=models.PROTECT, blank=True, null=True)
+    subject_subtype = TenantForeignKey(SubjectSubType, default=get_default_subject_subtype, on_delete=models.PROTECT)
+    import_gpx_data = TenantForeignKey("observations.GPXTrackFile", on_delete=models.SET_NULL, null=True, blank=True)
+
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     objects = SubjectManager.from_queryset(SubjectQuerySet)()
     tenant_id = "das_tenant_id"
@@ -1448,7 +1484,7 @@ DEFAULT_STATUS_VALUE_DATE = datetime(1970, 1, 1, tzinfo=pytz.utc)
 DEFAULT_STATUS_VALUE_LOCATION = EMPTY_POINT
 
 
-class SubjectStatusManager(models.Manager):
+class SubjectStatusManager(TenantManagerMixin, models.Manager):
     DEFAULT_STATUS_VALUES = {
         "location": DEFAULT_STATUS_VALUE_LOCATION,
         "recorded_at": DEFAULT_STATUS_VALUE_DATE,
@@ -1777,19 +1813,24 @@ def notify_all_subjectstatus_updates(source, recorded_at):
         notify_subjectstatus_update(subject.id)
 
 
-class CommonNameManager(models.Manager):
+class CommonNameManager(TenantManagerMixin, models.Manager):
     def get_by_natural_key(self, value):
         return self.get(**{value: value})
 
 
-class CommonName(TimestampedModel):
+class CommonName(TenantModelMixin, TimestampedModel):
     """Common name for an animal, could stretch this to other subtypes as well."""
 
-    subject_subtype = models.ForeignKey(SubjectSubType, on_delete=models.PROTECT, default=get_default_subject_subtype)
-
+    subject_subtype = TenantForeignKey(SubjectSubType, on_delete=models.PROTECT, default=get_default_subject_subtype)
     value = models.CharField(primary_key=True, max_length=100)
     display = models.CharField(max_length=100)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
     objects = CommonNameManager()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = (("value", "das_tenant"),)
 
     def __str__(self):
         return self.display
@@ -1799,7 +1840,7 @@ def generate_subject_status_serial_number():
     return get_next_int_val("observations", "SubjectStatus", "serial_number")
 
 
-class SubjectStatus(PermissionSetGroupMixin, TimestampedModel, UUIDModel):
+class SubjectStatus(TenantModelMixin, PermissionSetGroupMixin, TimestampedModel, UUIDModel):
     ONLINE_GPS = "online-gps"
     ONLINE = "online"
     OFFLINE = "offline"
@@ -1819,10 +1860,8 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel, UUIDModel):
         (ALARM, "alarm"),
         (UNKNOWN, "n/a"),
     )
-    serial_number = models.IntegerField(
-        default=generate_subject_status_serial_number, null=False, verbose_name="Serial Number"
-    )
-    subject = models.ForeignKey("Subject", on_delete=models.CASCADE)
+    serial_number = models.IntegerField(null=False, verbose_name="Serial Number")
+    subject = TenantForeignKey("Subject", on_delete=models.CASCADE)
     location = models.PointField("location")
     recorded_at = models.DateTimeField(
         "location at",
@@ -1834,13 +1873,23 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel, UUIDModel):
     radio_state_at = models.DateTimeField("Time of state", null=True, blank=True)
     last_voice_call_start_at = models.DateTimeField("Last time voice call was initiated", null=True, blank=True)
     location_requested_at = models.DateTimeField("Last time location was requested", null=True, blank=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
     objects = SubjectStatusManager.from_queryset(SubjectStatusQuerySet)()
+    tenant_id = "das_tenant_id"
 
     class Meta:
         verbose_name = _("Subject Status")
         verbose_name_plural = _("Subject Status")
-        unique_together = ("subject", "delay_hours")
+        unique_together = (
+            ("id", "das_tenant"),
+            ("subject", "delay_hours"),
+        )
+
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+            self.serial_number = generate_subject_status_serial_number()
+        super().save(*args, **kwargs)
 
     @property
     def groups(self):
@@ -1859,23 +1908,23 @@ class SubjectStatusLatest(SubjectStatus):
         proxy = True
 
 
-class RegionManager(models.Manager):
-    pass
-
-
-class Region(models.Model):
+class Region(TenantModelMixin, models.Model):
     """Region of Africa a subject is in"""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     slug = models.SlugField("unique id", max_length=100, unique=True)
     region = models.CharField("region or pa", max_length=100)
     country = models.CharField("country mostly containing region", max_length=100)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = (("id", "das_tenant"),)
 
     def save(self, *args, **kwargs):
         self.slug = slugify(self.region + " " + self.country)
         super(Region, self).save(*args, **kwargs)
-
-    objects = RegionManager()
 
     def _____str__(self):
         return "%s, %s" % (self.region, self.country)
@@ -1904,11 +1953,11 @@ class QuerySetOnSharedConnection(models.QuerySet, SharedResourceHandler):
         return super().delete(*args, **kwargs)
 
 
-class SocketClientManager(models.Manager):
+class SocketClientManager(TenantManagerMixin, models.Manager):
     pass
 
 
-class SocketClient(TimestampedModel):
+class SocketClient(TenantModelMixin, TimestampedModel):
     """
     Associate a socket ID with a user and a set of session-related data.
     """
@@ -1918,18 +1967,29 @@ class SocketClient(TimestampedModel):
     bbox = models.MultiPolygonField("Viewport bounding box.", null=True, blank=True)
     event_filter = models.JSONField("Event filter", default=dict)
     patrol_filter = models.JSONField("Patrol filter", default=dict)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
+    tenant_id = "das_tenant_id"
     objects = SocketClientManager.from_queryset(QuerySetOnSharedConnection)()
+
+    class Meta:
+        unique_together = (("id", "das_tenant"),)
 
 
 class UserSessionManager(models.Manager):
     pass
 
 
-class UserSession(TimestampedModel, SharedResourceHandler):
+class UserSession(TenantModelMixin, TimestampedModel, SharedResourceHandler):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_column="sid")
     time_range = DateTimeRangeField("user session time", null=True, blank=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
     objects = UserSessionManager.from_queryset(QuerySetOnSharedConnection)()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = (("id", "das_tenant"),)
 
     def aquire_resource(self):
         logger.debug("Aquire database connection from %s", self.__class__.__name__)
@@ -1957,7 +2017,7 @@ class SubjectMaximumSpeed(ObservationAnnotator):
         proxy = True
 
 
-class GPXLogRecord(models.Model):
+class GPXLogRecord(TenantModelMixin, models.Model):
     success = "success"
     pending = "pending"
     failure = "failure"
@@ -1968,7 +2028,7 @@ class GPXLogRecord(models.Model):
         (failure, "Failure"),
     ]
 
-    created_by = models.ForeignKey(
+    created_by = TenantForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
@@ -1982,12 +2042,15 @@ class GPXLogRecord(models.Model):
     points_imported = models.CharField(max_length=225, null=True, blank=True)
     processed_status = models.CharField(choices=PROCESSED_STATUS_CHOICES, max_length=255, null=False, blank=False)
     status_description = models.CharField(max_length=225, null=True, blank=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
+    tenant_id = "das_tenant_id"
 
     class Meta:
         abstract = True
 
 
-class GPXManager(models.Manager):
+class GPXManager(TenantManagerMixin, models.Manager):
     def get_by_natural_key(self, value):
         return self.get(value=value)
 
@@ -2009,7 +2072,7 @@ def upload_to(instance, filename):
 
 class GPXTrackFile(GPXLogRecord):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    source_assignment = models.ForeignKey("SubjectSource", on_delete=models.PROTECT)
+    source_assignment = TenantForeignKey("SubjectSource", on_delete=models.PROTECT)
     description = models.CharField(max_length=255, null=True, blank=True)
     data = models.FileField(upload_to=upload_to, null=True, blank=True)
 
@@ -2018,6 +2081,7 @@ class GPXTrackFile(GPXLogRecord):
     class Meta:
         verbose_name_plural = "GPX track file"
         ordering = ("processed_date",)
+        unique_together = (("id", "das_tenant"),)
 
 
 PENDING = "pending"
@@ -2050,11 +2114,11 @@ class MessageFilteringQuerySet(models.QuerySet, FilterMixin):
         return self.filter(read=read)
 
 
-class MessagesManager(models.Manager):
+class MessagesManager(TenantManagerMixin, models.Manager):
     pass
 
 
-class Message(TimestampedModel):
+class Message(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     _limits = models.Q(app_label="observations", model="subject") | models.Q(app_label="accounts", model="user")
 
@@ -2078,7 +2142,7 @@ class Message(TimestampedModel):
     receiver_id = models.UUIDField(null=True, blank=True, default=None)
     sender = GenericForeignKey("sender_content_type", "sender_id")
     receiver = GenericForeignKey("receiver_content_type", "receiver_id")
-    device = models.ForeignKey("Source", null=True, on_delete=models.SET_NULL)
+    device = TenantForeignKey("Source", null=True, on_delete=models.SET_NULL)
     message_type = models.CharField(max_length=40, choices=MESSAGE_TYPES, default=OUTBOX)
     text = models.TextField(blank=True)
     status = models.CharField(max_length=40, choices=MESSAGE_STATE_CHOICES, default=PENDING)
@@ -2086,8 +2150,10 @@ class Message(TimestampedModel):
     message_time = models.DateTimeField(null=False, blank=False)
     read = models.BooleanField(default=False)
     additional = models.JSONField("additional data", default=dict, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
     objects = MessagesManager.from_queryset(MessageFilteringQuerySet)()
+    tenant_id = "das_tenant_id"
 
     class Meta:
         index_together = [
@@ -2095,9 +2161,10 @@ class Message(TimestampedModel):
             ("receiver_id", "message_time"),
         ]
         ordering = ("-message_time",)
+        unique_together = (("id", "das_tenant"),)
 
 
-class AnnouncementManager(models.Manager):
+class AnnouncementManager(TenantManagerMixin, models.Manager):
     pass
 
 
@@ -2111,7 +2178,7 @@ class AnnouncementFilteringQuerySet(models.QuerySet, FilterMixin):
         return qs
 
 
-class Announcement(TimestampedModel):
+class Announcement(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     related_users = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True)
     title = models.CharField(null=True, max_length=255)
@@ -2119,15 +2186,20 @@ class Announcement(TimestampedModel):
     additional = models.JSONField(null=True, blank=True, default=dict)
     link = models.URLField(verbose_name="Link to topic", null=True)
     announcement_at = models.DateTimeField(db_index=True, null=True, blank=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
     objects = AnnouncementManager.from_queryset(AnnouncementFilteringQuerySet)()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = (("id", "das_tenant"),)
 
 
-class LatestObservationSource(models.Model):
+class LatestObservationSource(TenantModelMixin, models.Model):
     """Manage/keep the latest observation of each source.
     The CRUD operations are managed by database triggers."""
 
-    source = models.ForeignKey(
+    source = TenantForeignKey(
         "Source",
         on_delete=models.CASCADE,
         primary_key=True,
@@ -2135,5 +2207,11 @@ class LatestObservationSource(models.Model):
         related_name="last_observation_sources",
         related_query_name="last_observation_source",
     )
-    observation = models.ForeignKey("Observation", on_delete=models.CASCADE)
+    observation = TenantForeignKey("Observation", on_delete=models.CASCADE)
     recorded_at = models.DateTimeField()
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = (("source", "das_tenant"),)

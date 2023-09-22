@@ -79,17 +79,16 @@ class HierarchyModel(models.Model):
     These access functions are used by other recursive Mixins.
     """
 
-    class Meta:
-        abstract = True
-
-    objects = HierarchyManager()
-
     children = models.ManyToManyField(
         "self",
         blank=True,
         symmetrical=False,
         related_name="_parents",
     )
+    objects = HierarchyManager()
+
+    class Meta:
+        abstract = True
 
     def parents(self):
         return self.__class__.objects.filter(children=self)

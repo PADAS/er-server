@@ -46,6 +46,15 @@ AccessToken = get_access_token_model()
 User = get_user_model()
 
 
+class TenantFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = DASTenant
+        django_get_or_create = ("id",)
+
+    id = factory.Faker("uuid4")
+    domain = factory.Faker("domain_name")
+
+
 class PermissionSetFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = PermissionSet
@@ -117,6 +126,7 @@ class SubjectTypeFactory(factory.django.DjangoModelFactory):
 
     value = fuzzy.FuzzyText()
     display = fuzzy.FuzzyText()
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class SubjectSubTypeFactory(factory.django.DjangoModelFactory):
@@ -126,6 +136,7 @@ class SubjectSubTypeFactory(factory.django.DjangoModelFactory):
     value = fuzzy.FuzzyText(length=20)
     display = fuzzy.FuzzyText(length=50)
     subject_type = factory.SubFactory(SubjectTypeFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class SubjectFactory(factory.django.DjangoModelFactory):
@@ -134,6 +145,7 @@ class SubjectFactory(factory.django.DjangoModelFactory):
 
     name = fuzzy.FuzzyText(length=50)
     subject_subtype = factory.SubFactory(SubjectSubTypeFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class ProviderFactory(factory.django.DjangoModelFactory):
@@ -141,6 +153,7 @@ class ProviderFactory(factory.django.DjangoModelFactory):
         model = SourceProvider
 
     display_name = fuzzy.FuzzyText(length=50)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class SourceFactory(factory.django.DjangoModelFactory):
@@ -149,6 +162,7 @@ class SourceFactory(factory.django.DjangoModelFactory):
 
     manufacturer_id = fuzzy.FuzzyText(length=50)
     provider = factory.SubFactory(ProviderFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class SubjectSourceFactory(factory.django.DjangoModelFactory):
@@ -157,9 +171,12 @@ class SubjectSourceFactory(factory.django.DjangoModelFactory):
 
     source = factory.SubFactory(SourceFactory)
     subject = factory.SubFactory(SubjectFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class SubjectGroupFactory(factory.django.DjangoModelFactory):
+    das_tenant = factory.SubFactory(TenantFactory)
+
     class Meta:
         model = SubjectGroup
         django_get_or_create = ("name",)
@@ -204,6 +221,8 @@ class PatrolSegmentUserFactory(factory.django.DjangoModelFactory):
 
 
 class GeofenceAnalyzerConfigFactory(factory.django.DjangoModelFactory):
+    das_tenant = factory.SubFactory(TenantFactory)
+
     class Meta:
         model = GeofenceAnalyzerConfig
 
@@ -211,18 +230,23 @@ class GeofenceAnalyzerConfigFactory(factory.django.DjangoModelFactory):
 
 
 class FeatureProximityAnalyzerConfigFactory(factory.django.DjangoModelFactory):
+    subject_group = factory.SubFactory(SubjectGroupFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
+
     class Meta:
         model = FeatureProximityAnalyzerConfig
 
-    subject_group = factory.SubFactory(SubjectGroupFactory)
-
 
 class SpatialFeatureGroupStaticFactory(factory.django.DjangoModelFactory):
+    das_tenant = factory.SubFactory(TenantFactory)
+
     class Meta:
         model = SpatialFeatureGroupStatic
 
 
 class SpatialFeatureTypeFactory(factory.django.DjangoModelFactory):
+    das_tenant = factory.SubFactory(TenantFactory)
+
     class Meta:
         model = SpatialFeatureType
 
@@ -245,6 +269,7 @@ class EventCategoryFactory(factory.django.DjangoModelFactory):
         django_get_or_create = ("value",)
 
     value = fuzzy.FuzzyText(length=20)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class EventTypeFactory(factory.django.DjangoModelFactory):
@@ -255,6 +280,7 @@ class EventTypeFactory(factory.django.DjangoModelFactory):
     value = fuzzy.FuzzyText(length=20)
     display = fuzzy.FuzzyText(length=50)
     category = factory.SubFactory(EventCategoryFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class EventFactory(factory.django.DjangoModelFactory):
@@ -338,12 +364,3 @@ class CommunityFactory(factory.django.DjangoModelFactory):
 class SourceGroupFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = SourceGroup
-
-
-class TenantFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = DASTenant
-        django_get_or_create = ("id",)
-
-    id = factory.Faker("uuid4")
-    domain = factory.Faker("domain_name")

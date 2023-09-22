@@ -1,6 +1,7 @@
 from typing import List
 
 import pytest
+from django_multitenant.utils import set_current_tenant
 
 from django.contrib.gis.geos import MultiPoint, Point
 from django.utils import timezone
@@ -12,6 +13,7 @@ from analyzers.models import (
 from analyzers.proximity import FeatureProximityAnalyzer
 from analyzers.subject_proximity import SubjectProximityAnalyzer
 from conftest import subject_group_without_permissions, subject_source
+from core.models import DASTenant
 from mapping.models import SpatialFeature
 from observations.models import Observation, SubjectSource
 from utils.gis import convert_to_point
@@ -30,6 +32,9 @@ class TestAnalyzerEventLocation:
         subject_group_without_permissions,
         spatial_feature_group_static,
     ):
+        tenant = DASTenant.objects.first()
+        set_current_tenant(tenant)
+
         subject = subject_source.subject
         subject_group_without_permissions.subjects.add(subject)
         source = subject_source.source
@@ -62,6 +67,9 @@ class TestAnalyzerEventLocation:
         subject_group_without_permissions,
         subject_group_without_permissions_2,
     ):
+        tenant = DASTenant.objects.first()
+        set_current_tenant(tenant)
+
         subject_1 = subject_source.subject
         subject_2 = subject_source_2.subject
 
