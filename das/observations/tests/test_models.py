@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 import pytest
 import pytz
+from django_multitenant.utils import set_current_tenant
 from pytz import UTC
 
 from django.contrib.auth import get_permission_codename
@@ -12,6 +13,7 @@ from django.test import TestCase
 
 from accounts.models import PermissionSet, User
 from observations.models import (
+    LatestObservationSource,
     Observation,
     Source,
     Subject,
@@ -315,8 +317,11 @@ class TestObservationTriggers:
         assert sources.first().last_observation == observations[0].id
         assert sources.first().last_observation_recorded_at == now
 
-    def test_delete_not_latest_observation(self, subject_source):
+    def test_delete_not_latest_observation(self, subject_source, das_tenant_monkeypatch):
         source = subject_source.source
+        Source.objects.filter(id=source.id).update(das_tenant=das_tenant_monkeypatch)
+        set_current_tenant(das_tenant_monkeypatch)
+
         now = datetime.now(tz=UTC)
         middle_observation_id = None
         for item in range(1, 5):
@@ -331,11 +336,12 @@ class TestObservationTriggers:
         Observation.objects.get(id=middle_observation_id).delete()
 
         sources = (
-            Source.objects.filter(id__in=[source.id])
+            Source.objects.filter(id__in=[source.id], das_tenant=tenant)
             .annotate(last_observation=F("last_observation_source__observation"))
             .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
         )
         observation = Observation.objects.all().order_by("-recorded_at").first()
+        LatestObservationSource.objects.update(das_tenant=tenant)
         assert sources.first().last_observation == observation.id
         assert sources.first().last_observation_recorded_at == observation.recorded_at
 

@@ -1,6 +1,7 @@
 from unittest import mock
 
 import pytest
+from django_multitenant.utils import set_current_tenant
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
@@ -21,9 +22,10 @@ from .analyzer_test_utils import *
 from .immobility_test_data import *
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestImmobilityAnalyzer(BaseAPITest):
     def setUp(self):
+        set_current_tenant(self.das_tenant)
         call_command("loaddata_with_tenant", "event_data_model")
         super(TestImmobilityAnalyzer, self).setUp()
         user_const = dict(last_name="last", first_name="first")

@@ -6,12 +6,14 @@ from unittest.mock import patch
 
 import celery.exceptions
 import pytest
+from django_multitenant.utils import set_current_tenant
 
 from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.core.management import call_command
 from django.test import TestCase
 
+from core.models import DASTenant
 from core.tests import fake_get_pool
 from observations.models import Source, Subject
 from tracking.models import SourcePlugin
@@ -26,6 +28,9 @@ logger = logging.getLogger(__name__)
 
 class AwtPluginTest(TestCase):
     def setUp(self):
+        tenant = DASTenant.objects.first()
+        set_current_tenant(tenant)
+
         call_command("loaddata_with_tenant", "awt_plugin.json")
         latest_timestamp = "2018-07-25T12:00:09+00:00"
         cursor_data = {"latest_timestamp": latest_timestamp}

@@ -5,6 +5,7 @@ import urllib
 
 import pytest
 import yaml
+from django_multitenant.utils import set_current_tenant
 
 from django.contrib.gis.geos import LineString
 from django.core.files import File
@@ -17,6 +18,7 @@ from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.geofence import GeofenceAnalyzer, GeofenceAnalyzerConfig
 from analyzers.models import SubjectAnalyzerResult
 from analyzers.tasks import analyze_subject_
+from core.utils import DASTenantManagement
 from mapping.models import SpatialFeature, SpatialFeatureFile, SpatialFeatureGroupStatic
 from mapping.spatialfile_utils import process_spatialfile
 from observations.models import (
@@ -26,7 +28,9 @@ from observations.models import (
     Subject,
     SubjectGroup,
     SubjectSource,
+    SubjectSubType,
     SubjectTrackSegmentFilter,
+    SubjectType,
 )
 
 from .analyzer_test_utils import *
@@ -36,9 +40,11 @@ logger = logging.getLogger(__name__)
 
 FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fixtures")
 
+das_tenant_management = DASTenantManagement(domain="domain.com")
+
 
 @override_settings(DEFAULT_FILE_STORAGE="django.core.files.storage.FileSystemStorage")
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestGeofenceAnalyzer(TestCase):
     @classmethod
     def event_schema_json(cls):
@@ -129,6 +135,8 @@ class TestGeofenceAnalyzer(TestCase):
             print(f"http://geojson.io/#data=data:application/json,{data}")
 
     def setUp(self):
+        set_current_tenant(self.das_tenant)
+
         data = File(open(os.path.join(FIXTURE_PATH, "lines.geojson"), "rb"))
         feature_types_file = File(open(os.path.join(FIXTURE_PATH, "spatial_feature_types.geojson"), "rb"))
         spatialfile = SpatialFeatureFile.objects.create(data=data, feature_types_file=feature_types_file)
@@ -539,18 +547,17 @@ class TestGeofenceAnalyzerQuietPeriod:
         event_type,
         caplog,
         monkeypatch,
+        das_tenant_monkeypatch,
     ):
+        set_current_tenant(das_tenant_monkeypatch)
         caplog.set_level(logging.INFO)
+        wildlife_subject_type = SubjectType.objects.get(value="wildlife")
+        elephant_subject_subtype = SubjectSubType.objects.get(value="elephant")
+        elephant_subject_subtype.subject_type = wildlife_subject_type
+        elephant_subject_subtype.save()
 
-        subject_subtype = subject_source.subject.subject_subtype
-        subject_subtype.value = "elephant"
-        subject_subtype.display = "Elephant"
-        subject_subtype.save()
-
-        subtype = subject_subtype.subject_type
-        subtype.value = "wildlife"
-        subtype.display = "Wildlife"
-        subtype.save()
+        subject_source.subject.subject_subtype = elephant_subject_subtype
+        subject_source.subject.save()
 
         subject = subject_source.subject
 
@@ -602,15 +609,13 @@ class TestGeofenceAnalyzerQuietPeriod:
     ):
         caplog.set_level(logging.INFO)
 
-        subject_subtype = subject_source.subject.subject_subtype
-        subject_subtype.value = "elephant"
-        subject_subtype.display = "Elephant"
-        subject_subtype.save()
+        wildlife_subject_type = SubjectType.objects.get(value="wildlife")
+        elephant_subject_subtype = SubjectSubType.objects.get(value="elephant")
+        elephant_subject_subtype.subject_type = wildlife_subject_type
+        elephant_subject_subtype.save()
 
-        subtype = subject_subtype.subject_type
-        subtype.value = "wildlife"
-        subtype.display = "Wildlife"
-        subtype.save()
+        subject_source.subject.subject_subtype = elephant_subject_subtype
+        subject_source.subject.save()
 
         subject = subject_source.subject
 

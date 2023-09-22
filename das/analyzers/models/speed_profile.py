@@ -1,18 +1,27 @@
 import uuid
 
+from django_multitenant.fields import TenantForeignKey
+from django_multitenant.mixins import TenantModelMixin
+
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
-from core.models import TimestampedModel
+from core.models import DASTenant, TimestampedModel
 from observations.models import Subject
 
 
-class SubjectSpeedProfile(TimestampedModel):
+class SubjectSpeedProfile(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     subject = models.OneToOneField(to=Subject, on_delete=models.CASCADE, null=True, blank=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = ("id", "das_tenant")
 
 
-class SpeedDistro(TimestampedModel):
+class SpeedDistro(TenantModelMixin, TimestampedModel):
     """
     Represents an empirical speed distribution for a subject for the period within the start until the end
     The distro percentiles/parameters are only valid for the corresponding schedule
@@ -20,13 +29,20 @@ class SpeedDistro(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     percentiles = models.JSONField(blank=True, default=dict)
-    subject_speed_profile = models.ForeignKey(
-        to=SubjectSpeedProfile, on_delete=models.CASCADE, related_name="SpeedDistros", null=True, blank=True
+    subject_speed_profile = TenantForeignKey(
+        to=SubjectSpeedProfile,
+        on_delete=models.CASCADE,
+        related_name="SpeedDistros",
+        null=True,
+        blank=True,
     )
-
     speeds_kmhr = ArrayField(base_field=models.FloatField(), null=True, blank=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
-    # schedule = models.ManyToManyField(to=Schedule)
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = ("id", "das_tenant")
 
     def update_percentiles(self, percentiles, trajectory_filter=None, end=None, ignore_zeroes=True):
         """Determine the speed distribution based on the current subject + schedule"""

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import pytest
 import pytz
 import yaml
+from django_multitenant.utils import set_current_tenant
 
 from django.contrib.gis.geos import LineString, Point
 from django.core.files import File
@@ -31,7 +32,9 @@ from observations.models import (
     Subject,
     SubjectGroup,
     SubjectSource,
+    SubjectSubType,
     SubjectTrackSegmentFilter,
+    SubjectType,
 )
 
 from ..tasks import analyze_subject_
@@ -48,7 +51,7 @@ logger = logging.getLogger(__name__)
 FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fixtures")
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestProximityAnalyzer(TestCase):
     @classmethod
     def event_schema_json(cls):
@@ -93,6 +96,8 @@ class TestProximityAnalyzer(TestCase):
         return out_json
 
     def setUp(self):
+        set_current_tenant(self.das_tenant)
+
         data = File(open(os.path.join(FIXTURE_PATH, "lines.geojson"), "rb"))
         feature_types_file = File(open(os.path.join(FIXTURE_PATH, "spatial_feature_types.geojson"), "rb"))
 
@@ -298,7 +303,7 @@ class TestProximityAnalyzer(TestCase):
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestFeatureProximityAnalyzerQuietPeriod:
     OBSERVATIONS = [
         {
@@ -332,17 +337,16 @@ class TestFeatureProximityAnalyzerQuietPeriod:
         dummy_cache,
         caplog,
     ):
+        set_current_tenant(self.das_tenant)
+
         caplog.set_level(logging.INFO)
+        wildlife_subject_type = SubjectType.objects.get(value="wildlife")
+        elephant_subject_subtype = SubjectSubType.objects.get(value="elephant")
+        elephant_subject_subtype.subject_type = wildlife_subject_type
+        elephant_subject_subtype.save()
 
-        subject_subtype = subject_source.subject.subject_subtype
-        subject_subtype.value = "elephant"
-        subject_subtype.display = "Elephant"
-        subject_subtype.save()
-
-        subtype = subject_subtype.subject_type
-        subtype.value = "wildlife"
-        subtype.display = "Wildlife"
-        subtype.save()
+        subject_source.subject.subject_subtype = elephant_subject_subtype
+        subject_source.subject.save()
 
         subject = subject_source.subject
 
@@ -390,15 +394,13 @@ class TestFeatureProximityAnalyzerQuietPeriod:
     ):
         caplog.set_level(logging.INFO)
 
-        subject_subtype = subject_source.subject.subject_subtype
-        subject_subtype.value = "elephant"
-        subject_subtype.display = "Elephant"
-        subject_subtype.save()
+        wildlife_subject_type = SubjectType.objects.get(value="wildlife")
+        elephant_subject_subtype = SubjectSubType.objects.get(value="elephant")
+        elephant_subject_subtype.subject_type = wildlife_subject_type
+        elephant_subject_subtype.save()
 
-        subtype = subject_subtype.subject_type
-        subtype.value = "wildlife"
-        subtype.display = "Wildlife"
-        subtype.save()
+        subject_source.subject.subject_subtype = elephant_subject_subtype
+        subject_source.subject.save()
 
         subject = subject_source.subject
 

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 import pytest
 import pytz
+from django_multitenant.utils import set_current_tenant
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
@@ -203,6 +204,7 @@ class TestSubjectSourceReport(TestCase):
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestReportByTask:
     def test_two_sources_with_same_provider_reach_the_provider_threshold(self, five_subject_sources):
+        set_current_tenant(self.das_tenant)
         provider = five_subject_sources[0].source.provider
         provider.additional = {"silence_notification_threshold": "00:30:00"}
         provider.save()
@@ -223,8 +225,8 @@ class TestReportByTask:
             source=source_b,
             location=Point(0, 0),
         )
-        check_sources_threshold()
 
+        check_sources_threshold()
         events = Event.objects.all()
         assert events.count() == 1
         for event in events:

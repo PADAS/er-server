@@ -1,3 +1,7 @@
+import pytest
+from django_multitenant.utils import set_current_tenant
+
+from django.core.management import call_command
 from django.test import TestCase
 
 from activity.models import Event
@@ -7,25 +11,11 @@ from analyzers.tests.analyzer_test_utils import generate_random_positions
 from observations import models
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEnvironmentAnalyzer(TestCase):
-    fixtures = [
-        "event_data_model",
-    ]
-
     def setUp(self):
-        # ec, created = activity.models.EventCategory.objects.get_or_create(
-        #      value='analyzer_event', defaults=dict(display='Analyzer Events'))
-        #
-        # activity.models.EventType.objects.get_or_create(value='environmental_value', category=ec,
-        #                                                 defaults=dict(
-        #                                                     display='Environmental Value',
-        #                                                     is_collection=False, ))
-        #
-        # activity.models.EventType.objects.get_or_create(value='environmental_all_clear', category=ec,
-        #                                                 defaults=dict(
-        #                                                     display='Environmental All Clear',
-        # is_collection=False, ))
-        pass
+        set_current_tenant(self.das_tenant)
+        call_command("loaddata_with_tenant", "event_data_model")
 
     def test_environmental_analyzer(self):
         # Create models (Subject, SubjectSource and Source)
