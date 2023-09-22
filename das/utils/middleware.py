@@ -258,6 +258,7 @@ class TenantSettingsMiddleware:
     def __call__(self, request):
         try:
             post_tenant_to_thread(domain=request.get_host())
+            set_current_tenant(DASTenant.objects.get(id=get_tenant_settings().id))
         except TenantNotFoundException as ex:
             return JsonResponse(
                 data={
@@ -267,25 +268,6 @@ class TenantSettingsMiddleware:
             )
         response = self.get_response(request)
         return response
-
-
-class MultiTenantMiddleware:
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        if request.user and not request.user.is_anonymous:
-            tenant = self._get_tenant()
-            logger.info("Setting tenant %s object at request." % tenant.domain)
-            set_current_tenant(tenant=tenant)
-        return self.get_response(request)
-
-    def _get_tenant(self):
-        # TODO Refactor when all tenants will be consolidated.
-        tenant = DASTenant.objects.first()
-        if not tenant:
-            logger.error("DASTenant object not found.")
-        return tenant
 
 
 def is_check_eula_path(path):
