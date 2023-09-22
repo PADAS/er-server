@@ -1,5 +1,4 @@
 import json
-import logging
 from unittest.mock import patch
 
 import pytest
@@ -9,14 +8,14 @@ from django.urls import reverse
 
 from client_http import HTTPClient
 from utils.features import features
-from utils.middleware import MultiTenantMiddleware, TenantSettingsMiddleware
+from utils.middleware import TenantSettingsMiddleware
 from utils.tenant.thread import Tenant, get_tenant_settings
 
 
 @pytest.mark.django_db
 class TestTenantSettingsMiddleware:
-    @pytest.mark.skipif(features.tms.is_on() is False, reason="TMS feature flag is off")
-    @patch("utils.tenant.providers.TenantData._get_from_tms")
+    @pytest.mark.skipif(not features.tms.is_on(), reason="TMS feature flag is off")
+    @patch("utils.tenant.providers.TenantData.get_tenant_data")
     def test_tenant_settings_middleware_getting_tenant(self, mocked_tenant_client, tenant_response, rf):
         mocked_tenant_client.return_value = tenant_response
 
@@ -35,8 +34,8 @@ class TestTenantSettingsMiddleware:
         assert json.loads(settings.to_json()) == tenant_response
 
     @pytest.mark.skipif(features.tms.is_on(), reason="TMS feature flag is on")
-    @patch("utils.tenant.providers.TenantData._get_from_django")
-    def test_tenant_settings_middleware_getting_tenant(self, mocked_tenant_client, tenant_response, rf):
+    @patch("utils.tenant.providers.TenantData.get_tenant_data")
+    def test_tenant_settings_middleware_getting_tenant_from_django(self, mocked_tenant_client, tenant_response, rf):
         mocked_tenant_client.return_value = tenant_response
         client = HTTPClient()
         user = client.app_user
@@ -50,25 +49,6 @@ class TestTenantSettingsMiddleware:
 
         assert isinstance(settings, Tenant)
         assert json.loads(settings.to_json()) == tenant_response
-
-    def _get_response(self, request):
-        return HttpResponse()
-
-
-@pytest.mark.django_db
-class TestMultiTenantMiddleware:
-    @pytest.mark.skip(reason="TMS feature flag is on")
-    def test_multi_tenant_middleware(self, caplog, rf):
-        caplog.set_level(logging.INFO)
-        client = HTTPClient()
-        user = client.app_user
-        request = rf.get("/api/v1.0/status")
-        request.user = user
-
-        multi_tenant_middleware = MultiTenantMiddleware(self._get_response)
-        multi_tenant_middleware(request)
-
-        assert "Setting tenant localhost object at request." in caplog.text
 
     def _get_response(self, request):
         return HttpResponse()
