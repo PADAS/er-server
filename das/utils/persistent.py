@@ -45,8 +45,7 @@ class PersistentStorageWithSortedSet(PersistentStorage):
         raise NotImplementedError
 
 
-@apply_decorator_to_public_methods(use_multitenant_cache_key)
-class MultitenantRedisStorage(PersistentStorageWithSortedSet):
+class RedisStorage(PersistentStorageWithSortedSet):
     def __init__(self, config):
         self.host = config["HOST"]
         self.port = config["PORT"]
@@ -109,3 +108,8 @@ class RedisStorageReadOnly(PersistentStorageReadOnly):
 
     def get_all_keys(self):
         return self._connection.keys()
+
+
+@apply_decorator_to_public_methods(use_multitenant_cache_key)
+class MultitenantRedisStorage(RedisStorage):
+    pass
