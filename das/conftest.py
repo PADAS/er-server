@@ -52,7 +52,7 @@ from utils.tenant import Tenant
 Application = get_application_model()
 User = apps.get_model(app_label="accounts", model_name="User")
 
-with open(Path(__name__).parent / "core/fixtures/tenant-response.json") as tenant_response:
+with open(Path(__file__).parent / "core/fixtures/tenant-response.json") as tenant_response:
     TENANT_RESPONSE = json.load(tenant_response)
 
 
