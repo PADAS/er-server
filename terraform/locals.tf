@@ -472,6 +472,8 @@ locals {
     "virunga"                   = "prod1"
     "uwahq"                     = "prod1"
     "whitebelliedheron"         = "prod-asia"
+    "roc"                       = "prod1"
+    "reservapantanalparaguayo"  = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -697,6 +699,7 @@ locals {
     "scorpionreef"              = 1
     "ezemvelo-turtlemonitoring" = 1
     "zimbali"                   = 1
+    "reservapantanalparaguayo"  = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
