@@ -183,7 +183,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         assert response.status_code == 200
         assert len(response.data)
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_return_all_observation_for_subject(self, get_main_thread):
         get_main_thread.return_value = self.thread
         self.tenant.env_settings.show_track_days = 1000
@@ -218,7 +218,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["data"], [])
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_return_subjects_bbox_view_delayed(self, get_main_thread):
         get_main_thread.return_value = self.thread
         bbox = "37.18,0.1,37.55,0.54"
@@ -228,7 +228,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         response = views.SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_not_return_ranger_in_subjects_call(self, get_main_thread):
         get_main_thread.return_value = self.thread
         request = self.factory.get(API_BASE + "/subjects/")
@@ -243,7 +243,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.force_authenticate(request, self.superuser)
         return views.SubjectsView.as_view()(request)
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_subjects_api_call_only_returns_active_subjects(self, get_main_thread):
         get_main_thread.return_value = self.thread
         response = self.authenticate_user_and_get_subjects("/subjects/")
@@ -329,7 +329,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         self.thread = MagicMock()
         self.thread.tenant_object = self.tenant
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_delay_view_user_return_subject_groups(self, get_main_thread):
         get_main_thread.return_value = self.thread
         request = self.factory.get(API_BASE + "/subjectgroups")
@@ -340,7 +340,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "ele_group")
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_realtime_view_user_return_subject_groups(self, get_main_thread):
         get_main_thread.return_value = self.thread
         request = self.factory.get(API_BASE + "/subjectgroups")
@@ -351,7 +351,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "all_group")
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_superuser_return_subject_groups(self, get_main_thread):
         get_main_thread.return_value = self.thread
         return_groups = ("Subjects", "all_group")
@@ -364,7 +364,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         self.assertTrue(response.data[0]["name"] in return_groups)
         self.assertTrue(response.data[1]["name"] in return_groups)
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_return_single_subject_group_by_id(self, get_main_thread):
         get_main_thread.return_value = self.thread
         request = self.factory.get(API_BASE + "/subjectgroup/{id}".format(id=self.ele_group.id))

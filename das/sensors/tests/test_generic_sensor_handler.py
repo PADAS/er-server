@@ -137,7 +137,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         response = self._post_data(json.dumps(local_obs))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    @mock.patch("utils.tenant.thread._get_main_thread")
+    @mock.patch("utils.tenant.thread._get_local_thread")
     def test_post_one(self, get_main_thread):
         get_main_thread.return_value = self.thread
         self.tenant.env_settings.show_track_days = 365
@@ -401,7 +401,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(1, Observation.objects.filter(source=new_source).count())
         self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
 
-    @mock.patch("utils.tenant.thread._get_main_thread")
+    @mock.patch("utils.tenant.thread._get_local_thread")
     def test_request_with_varying_provider_key_lengths(self, get_main_thread):
         get_main_thread.return_value = self.thread
         client = Client()

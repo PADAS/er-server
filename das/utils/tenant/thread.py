@@ -1,5 +1,5 @@
 import logging
-import threading
+from threading import local
 
 from utils.tenant.dataclass import Tenant
 from utils.tenant.exceptions import (
@@ -11,12 +11,12 @@ logger = logging.getLogger(__name__)
 TENANT_DEFAULT_KEY = "tenant_object"
 
 
-def _get_main_thread():
-    return threading.main_thread()
+def _get_local_thread():
+    return local()
 
 
 def set_tenant_settings(value: dict) -> None:
-    local_thread = _get_main_thread()
+    local_thread = _get_local_thread()
     try:
         tenant_settings = Tenant.from_dict(value)
     except KeyError as error:
@@ -26,7 +26,7 @@ def set_tenant_settings(value: dict) -> None:
 
 
 def get_tenant_settings() -> Tenant:
-    local_thread = _get_main_thread()
+    local_thread = _get_local_thread()
     try:
         tenant_settings = getattr(local_thread, TENANT_DEFAULT_KEY)
         logger.debug("Getting tenant settings for host: %s", tenant_settings.domain)
@@ -37,7 +37,7 @@ def get_tenant_settings() -> Tenant:
 
 
 def clear_tenant_settings():
-    local_thread = _get_main_thread()
+    local_thread = _get_local_thread()
     if hasattr(local_thread, TENANT_DEFAULT_KEY):
         tenant_domain = getattr(local_thread, TENANT_DEFAULT_KEY).domain
         delattr(local_thread, TENANT_DEFAULT_KEY)
