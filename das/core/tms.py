@@ -73,6 +73,16 @@ class DjangoSettingsClient(BaseClient):
         return [tenant]
 
 
+class DjangoSettingsClient(BaseClient):
+    def __init__(self, config):
+        pass
+
+    def get_tenant_data(self, domain: str):
+        from utils.tenant.builder import DjangoSettingsTenantBuilder
+
+        return DjangoSettingsTenantBuilder().build().to_dict()
+
+
 class HTTPClient(BaseClient):
     def __init__(self, config):
         self._host = config["HOST"]
