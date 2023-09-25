@@ -1,14 +1,18 @@
 import uuid
 from functools import partialmethod
 
+from django_multitenant.fields import TenantForeignKey
+from django_multitenant.mixins import TenantModelMixin
+
 from django.contrib.gis.db import models
 from django.core import checks, exceptions
+from django.db.models import UniqueConstraint
 from django.db.models.fields import BLANK_CHOICE_DASH
 from django.utils import timezone
 from django.utils.functional import lazy
 from django.utils.translation import gettext_lazy as _
 
-from core.models import UUIDModel
+from core.models import DASTenant, UUIDModel
 from core.utils import static_image_finder
 
 
@@ -45,20 +49,43 @@ class ChoiceQuerySet(models.QuerySet):
         return self.disable_choices()
 
 
-class DynamicChoice(UUIDModel):
+class DynamicChoice(TenantModelMixin, UUIDModel):
     choice_name = models.CharField(max_length=100, blank=True, null=False, unique=True, verbose_name="Choice name")
     model_name = models.CharField(max_length=100, verbose_name="Model lookup")
     criteria = models.CharField(max_length=100, verbose_name="Criteria")
     value_col = models.CharField(max_length=100, verbose_name="Value column")
     display_col = models.CharField(max_length=100, verbose_name="Display column")
+    das_tenant = models.ForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
+
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
+        ]
 
 
-class SoftDeleteModel(models.Model):
+class SoftDeleteModel(TenantModelMixin, models.Model):
     delete_on = models.DateTimeField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    das_tenant = models.ForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        related_name="%(app_label)s_%(class)s",
+    )
+
+    tenant_id = "das_tenant_id"
 
     class Meta:
         abstract = True
+        unique_together = (("id", "das_tenant"),)
 
     def disable(self):
         self.delete_on = timezone.now()
@@ -97,6 +124,9 @@ class Choice(SoftDeleteModel):
 
     class Meta:
         unique_together = (("model", "field", "value"),)
+        constraints = [
+            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
+        ]
 
     def __str__(self):
         return ", ".join((self.model, self.field, self.value, self.display))
@@ -121,13 +151,27 @@ class Choice(SoftDeleteModel):
         return image_url or default
 
 
-class SubChoiceOf(UUIDModel):
-    from_choice = models.ForeignKey(
+class SubChoiceOf(TenantModelMixin, UUIDModel):
+    from_choice = TenantForeignKey(
         default=uuid.uuid4, on_delete=models.CASCADE, related_name="from_choice", to="choices.choice"
     )
-    to_choice = models.ForeignKey(
+    to_choice = TenantForeignKey(
         default=uuid.uuid4, on_delete=models.CASCADE, related_name="to_choice", to="choices.choice"
     )
+    das_tenant = models.ForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        related_name="%(app_label)s_%(class)s",
+    )
+
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
+        ]
 
 
 class DisableChoice(Choice):
