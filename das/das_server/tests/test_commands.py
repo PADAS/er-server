@@ -18,13 +18,13 @@ class TestCommands:
         set_tenant_settings_mock,
         set_current_tenant_mock,
         tenant_data_mock,
-        tenant_model_instance,
+        das_tenant,
         tenant_response,
         monkeypatch,
     ):
         site_metrics_mock = MagicMock(return_value=None)
         monkeypatch.setattr("das_server.management.commands.site_metrics.Command.handle", site_metrics_mock)
 
-        call_command("site_metrics", tenant_domain=tenant_model_instance.domain)
+        call_command("site_metrics", tenant_domain=das_tenant.domain)
 
         site_metrics_mock.assert_called_once()
