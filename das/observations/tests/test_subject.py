@@ -125,7 +125,7 @@ class SubjectTestCase(BaseAPITest):
 
         self.assertEqual(actual, expected)
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_add_subject(self, get_main_thread):
         get_main_thread.return_value = self.thread
         data = {
@@ -142,7 +142,7 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_add_subject_with_id(self, get_main_thread):
         get_main_thread.return_value = self.thread
         data = {
@@ -160,7 +160,7 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectsView.as_view()(request)
         assert response.status_code == 201
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_fail_add_subject_with_existing_id(self, get_main_thread):
         get_main_thread.return_value = self.thread
         data = {
@@ -193,7 +193,7 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectsView.as_view()(request)
         assert response.status_code == 409
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_update_subject(self, get_main_thread):
         get_main_thread.return_value = self.thread
         data = {
@@ -226,7 +226,7 @@ class SubjectTestCase(BaseAPITest):
         assert subject_id == response.data["id"]
         assert response.data["name"] == data_update["name"]
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_update_subject_change_id(self, get_main_thread):
         get_main_thread.return_value = self.thread
         data = {
@@ -256,7 +256,7 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectView.as_view()(request, id=subject_id)
         assert response.status_code == 400
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_subject_sex_male(self, get_main_thread):
         get_main_thread.return_value = self.thread
         data = {
@@ -274,7 +274,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         assert "/static/elephant-black-male.svg" in response.data["image_url"]
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_subject_sex_empty(self, get_main_thread):
         get_main_thread.return_value = self.thread
         data = {
@@ -292,7 +292,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         assert "/static/elephant-black-male.svg" in response.data["image_url"]
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_subject_sex_unknown(self, get_main_thread):
         get_main_thread.return_value = self.thread
         data = {
@@ -310,7 +310,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         assert "/static/elephant-black-male.svg" in response.data["image_url"]
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_subject_vehicle_sex_empty(self, get_main_thread):
         get_main_thread.return_value = self.thread
         data = {
@@ -327,7 +327,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         assert "/static/security_vehicle-black.svg" in response.data["image_url"]
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_call_subject_api(self, get_main_thread):
         get_main_thread.return_value = self.thread
         url = reverse("subjects-list-view")
@@ -367,7 +367,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_date_range_filter_works(self, get_main_thread):
         get_main_thread.return_value = self.thread
         url = reverse("subjects-list-view")
@@ -420,7 +420,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(actual_size, expected_size)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_date_range_filter_works_with_bbox(self, get_main_thread):
         get_main_thread.return_value = self.thread
         url = reverse("subjects-list-view")
@@ -471,7 +471,7 @@ class SubjectTestCase(BaseAPITest):
         }
         return additional_data
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_subject_api_returning_last_position_per_MOU_expiry(self, get_main_thread):
         get_main_thread.return_value = self.thread
         url = reverse("subjects-list-view")
@@ -525,7 +525,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(t1.date().isoformat(), subject_last_position)
         self.assertEqual(t2.date().isoformat(), subject2_last_postion)
 
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_return_no_last_position_past_mou_expiry(self, get_main_thread):
         get_main_thread.return_value = self.thread
         url = reverse("subjects-list-view")
@@ -568,7 +568,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(GPXTrackFile.objects.count(), 1)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_gpxfile_upload_on_adminpage(self, get_main_thread):
         get_main_thread.return_value = self.thread
         subject = Subject.objects.get(name="Topsy")
@@ -692,7 +692,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(returned_since, expected_since)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @patch("utils.tenant.thread._get_main_thread")
+    @patch("utils.tenant.thread._get_local_thread")
     def test_process_gpx_file_upload_via_api(self, get_main_thread):
         get_main_thread.return_value = self.thread
         subject = Subject.objects.get(name="Topsy")

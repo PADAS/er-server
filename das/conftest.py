@@ -407,7 +407,7 @@ def tenant_settings(request, monkeypatch, tenant):
     For example self.tenant_settings.domain="test.com" """
     thread = MagicMock()
     thread.tenant_object = tenant
-    monkeypatch.setattr("utils.tenant.thread._get_main_thread", MagicMock(return_value=thread))
+    monkeypatch.setattr("utils.tenant.thread._get_local_thread", MagicMock(return_value=thread))
     monkeypatch.setattr("utils.tenant.thread.set_tenant_settings", MagicMock(return_value=None))
     monkeypatch.setattr("utils.tenant.thread.clear_tenant_settings", MagicMock(return_value=None))
     if getattr(request, "cls", None):
