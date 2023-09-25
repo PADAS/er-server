@@ -2,6 +2,7 @@ import datetime
 import random
 from unittest import mock
 
+import pytest
 from pytz import UTC
 
 from django.contrib.auth import authenticate
@@ -15,6 +16,7 @@ from rt_api.rest_api_interface.dummy_request import DummyRequest
 from rt_api.tasks import get_subjectstatus_view
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class RTUtils(BaseAPITest):
     def test_dummy_request_authorization(self):
         user = self.app_user
@@ -24,6 +26,7 @@ class RTUtils(BaseAPITest):
         self.assertEqual(auth_user, user)
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class RTTasksTestCase(TestCase):
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_contain_last_voice(self):

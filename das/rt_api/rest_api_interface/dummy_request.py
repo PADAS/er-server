@@ -1,7 +1,9 @@
-from rest_framework.request import Request
+# from oauthlib.common import Request
+from oauthlib.common import CaseInsensitiveDict, extract_params, to_unicode
+
 from django.http.request import HttpRequest
-#from oauthlib.common import Request
-from oauthlib.common import to_unicode, CaseInsensitiveDict, extract_params
+
+from utils.tenant import get_tenant_settings
 
 
 class DummyRequest(HttpRequest):
@@ -11,10 +13,11 @@ class DummyRequest(HttpRequest):
     def encode(x, encoding=None):
         return to_unicode(x, encoding) if encoding else x
 
-    def __init__(self, uri='/dummy', http_method='POST', body={}, headers={}, encoding='utf-8',
-                 user=None, query_parameters=None):
+    def __init__(
+        self, uri="/dummy", http_method="POST", body={}, headers={}, encoding="utf-8", user=None, query_parameters=None
+    ):
         super().__init__()
-
+        self.host = get_tenant_settings().domain
         self.uri = self.encode(uri)
         self.http_method = self.encode(http_method)
         self.headers = CaseInsensitiveDict(self.encode(headers or {}))
@@ -28,7 +31,7 @@ class DummyRequest(HttpRequest):
         self._request = self
         self.query_params = query_parameters or {}
         self.GET = self.query_params
-        self.successful_authenticator = 'dummy_authentication'
+        self.successful_authenticator = "dummy_authentication"
         self.user = user
         self._force_auth_user = user
 
@@ -40,3 +43,6 @@ class DummyRequest(HttpRequest):
 
     def copy(self, *args):
         pass
+
+    def get_host(self):
+        return self.host

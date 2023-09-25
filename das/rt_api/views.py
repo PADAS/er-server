@@ -17,6 +17,8 @@ from rt_api import client
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from utils import stats
 from utils.db import close_old_shared_connections
+from utils.tenant import get_tenant_settings
+from utils.tenant.managers import TenantContextManager
 
 logger = logging.getLogger("rt_api")
 
@@ -176,18 +178,29 @@ def create_realtime_handler(sios):
         ]
 
         @sios.on("connect", namespace=LOGIN_NAMESPACE)
-        def on_connect(sid, socket, *args):
-            # Drop the user if they don't authenticate immediately
-            socket["authed"] = False
+        def on_connect(sid, environ, *args):
+            with TenantContextManager(RealtimeServices.get_host_from_environ(environ)):
+                # Drop the user if they don't authenticate immediately
+                environ["authed"] = False
+                client.add_client(
+                    sid,
+                    client.ClientData(
+                        username="",
+                        sid=sid,
+                        bbox=None,
+                        tenant_id=get_tenant_settings().id,
+                        domain=get_tenant_settings().domain,
+                    ),
+                )
 
-            logger.info("on_connect", extra={"sid": str(sid)})
-            logger.debug("on_connect", extra={"sid": str(sid), "socket": repr(socket)})
+                logger.info("on_connect", extra={"sid": str(sid)})
+                logger.debug("on_connect", extra={"sid": str(sid), "environ": repr(environ)})
 
-            # Send a connect acknowledgment (helpful for troubleshooting).
-            eventlet.spawn(connect_ack, sid, sios)
+                # Send a connect acknowledgment (helpful for troubleshooting).
+                eventlet.spawn(connect_ack, sid, sios)
 
-            # Make sure the connection authenticates immediately
-            eventlet.spawn(confirm_authorzation, sid, sios)
+                # Make sure the connection authenticates immediately
+                eventlet.spawn(confirm_authorzation, sid, sios)
 
         @sios.on("disconnect", namespace=RT_NAMESPACE)
         def on_disconnect(sid, *args):
@@ -212,48 +225,61 @@ def create_realtime_handler(sios):
                             namespace=RT_NAMESPACE,
                         )
                         sios.disconnect(sid)
+                        client.remove_client
 
                 # To authenticate the token, we need to create a fake http
                 # request for oauth to authenticate
-                request = DummyRequest(headers={"Authorization": data["authorization"]})
-                user = authenticate(**{"request": request})
-                # The token checks out
-                if user is not None:
-                    extra = dict(sid=sid, user_id=user.id)
-                    logger.info("Socket sid=%s, user=%s authenticated successfully", sid, user, extra=extra)
+                client_data = client.get_client(sid)
+                with TenantContextManager(domain=client_data.domain):
+                    request = DummyRequest(headers={"Authorization": data["authorization"]})
+                    user = authenticate(**{"request": request})
+                    # The token checks out
+                    if user is not None:
+                        extra = dict(sid=sid, user_id=user.id)
+                        logger.info("Socket sid=%s, user=%s authenticated successfully", sid, user, extra=extra)
 
-                    # Put the user into redis
-                    client_data = client.ClientData(sid=sid, username=user.username, bbox=None)
-                    client.add_client(sid, client_data)
-                    client.save_session_timestamp(sid)
+                        # Put the user into redis
+                        client_data = client.ClientData(
+                            sid=sid,
+                            username=user.username,
+                            bbox=None,
+                            tenant_id=get_tenant_settings().id,
+                            domain=get_tenant_settings().domain,
+                        )
+                        client.add_client(sid, client_data)
+                        client.save_session_timestamp(sid)
 
-                    # Put the connection into the correct rooms
-                    sios.manager.enter_room(sid, RT_NAMESPACE, "all_clients")
-                    sios.manager.enter_room(sid, RT_NAMESPACE, sid)
+                        # Put the connection into the correct rooms
+                        sios.manager.enter_room(sid, RT_NAMESPACE, "all_clients")
+                        sios.manager.enter_room(sid, RT_NAMESPACE, sid)
 
-                    # tell the user that they've been authenticated
-                    sios.emit(
-                        "resp_authorization",
-                        {"type": "resp_authorization", "resp_id": data["id"], "status": {"code": 200, "message": "OK"}},
-                        room=str(sid),
-                        namespace=RT_NAMESPACE,
-                    )
+                        # tell the user that they've been authenticated
+                        sios.emit(
+                            "resp_authorization",
+                            {
+                                "type": "resp_authorization",
+                                "resp_id": data["id"],
+                                "status": {"code": 200, "message": "OK"},
+                            },
+                            room=str(sid),
+                            namespace=RT_NAMESPACE,
+                        )
 
-                    client.create_update_user_session(sid)
+                        client.create_update_user_session(sid)
 
-                else:
-                    extra = dict(sid=sid)
-                    logger.warning("User is None, so disconnecting. sid=%s, data=%s", sid, data, extra=extra)
-                    sios.emit(
-                        "resp_authorization",
-                        {
-                            "type": "resp_authorization",
-                            "resp_id": data["id"],
-                            "status": {"code": 401, "message": "Invalid credentials"},
-                        },
-                        room=str(sid),
-                        namespace=RT_NAMESPACE,
-                    )
+                    else:
+                        extra = dict(sid=sid)
+                        logger.warning("User is None, so disconnecting. sid=%s, data=%s", sid, data, extra=extra)
+                        sios.emit(
+                            "resp_authorization",
+                            {
+                                "type": "resp_authorization",
+                                "resp_id": data["id"],
+                                "status": {"code": 401, "message": "Invalid credentials"},
+                            },
+                            room=str(sid),
+                            namespace=RT_NAMESPACE,
+                        )
 
             except:
                 sios.emit(
@@ -279,7 +305,6 @@ def create_realtime_handler(sios):
                 if len(bbox) != 4:
                     raise ValueError("invalid bbox param")
 
-            bbox = client.Bbox(*bbox)
             client.update_client(sid, bbox=bbox)
             sios.emit(
                 "bbox_resp",
@@ -408,6 +433,16 @@ def create_realtime_handler(sios):
                 )
             else:
                 logger.error("Realtime server received invalid message type: %s", message_data["type"])
+
+        @staticmethod
+        def get_host_from_environ(environ):
+            if settings.USE_X_FORWARDED_HOST and ("HTTP_X_FORWARDED_HOST" in environ):
+                host = environ["HTTP_X_FORWARDED_HOST"]
+            elif "HTTP_HOST" in environ:
+                host = environ["HTTP_HOST"]
+            else:
+                host = environ["SERVER_NAME"]
+            return host
 
     # Start up recursive calls to clean up disconnected clients.
     eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL, cleanup_disconnected_clients, sios)
