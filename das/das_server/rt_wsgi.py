@@ -11,13 +11,10 @@ import eventlet.patcher
 if not eventlet.patcher.is_monkey_patched(os):
     print("Error, eventlet not monkey patched during import rt_wsgi!!")
 
-from django.conf import settings
 from django.core.wsgi import get_wsgi_application
 from socketio import WSGIApp
 from das_server.log import init_logging
-from utils.tenant.providers import post_tenant_to_thread
 
-post_tenant_to_thread(domain=getattr(settings, "SERVER_FQDN", None))
 init_logging()
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "das_server.settings")

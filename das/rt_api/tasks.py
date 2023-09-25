@@ -22,9 +22,7 @@ from observations.utils import LOCATION, get_position, get_user_key
 from observations.views import FlattenObservationsView, SubjectStatusView
 from rt_api import client
 from rt_api.rest_api_interface.dummy_request import DummyRequest
-from utils.features import features
 from utils.stats import update_gauge
-from utils.tenant import get_tenant_settings
 from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask, TenantTask
 
 logger = logging.getLogger(__name__)
@@ -223,8 +221,7 @@ def _broadcast_service_status(service_status_data=None, **kwargs):
 
 @celery.app.task(base=OverAllTenantTask)
 def broadcast_service_status():
-    kwargs = {"domain": get_tenant_settings().domain} if features.tms.is_on() else {}
-    _broadcast_service_status.apply(kwargs=kwargs)
+    _broadcast_service_status.apply()
 
 
 def _subjectstatus_update_handler(subject_id):

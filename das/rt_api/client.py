@@ -1,11 +1,15 @@
-import collections
 import datetime
 import logging
 import signal
 import socket
+import uuid
+from dataclasses import dataclass, field
+from typing import Optional
 
 import pytz
 import redis
+from dataclasses_json import config, dataclass_json
+from django_multitenant.utils import get_current_tenant
 from psycopg2.extras import DateTimeTZRange
 
 from django.conf import settings
@@ -13,6 +17,7 @@ from django.contrib.gis.geos import MultiPolygon, Polygon
 
 from observations.models import SocketClient, UserSession
 from utils import json
+from utils.tenant.managers import TenantContextManager
 
 logger = logging.getLogger(__name__)
 redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
@@ -22,12 +27,26 @@ EXPIRED_CLIENT_TRACES_LIST = "rt_api.expired_traces"
 REALTIME_SERVICES_KEY = "rt_api.services"
 TRACE_TTL = 60
 
-FIELDS = ["username", "sid", "bbox"]
-ClientData = collections.namedtuple("ClientData", FIELDS)
 
-# bbox, where bbox is the (west, south, east, north) lon,lat pairs.
-BBOX_FIELDS = ["west", "south", "east", "north"]
-Bbox = collections.namedtuple("Bbox", BBOX_FIELDS)
+@dataclass_json
+@dataclass(frozen=True)
+class Bbox:
+    """Bbox, where bbox is the (west, south, east, north) lon,lat pairs."""
+
+    west: float = field(metadata=config(field_name="west"))
+    south: float = field(metadata=config(field_name="south"))
+    east: float = field(metadata=config(field_name="east"))
+    north: float = field(metadata=config(field_name="north"))
+
+
+@dataclass_json
+@dataclass(frozen=True)
+class ClientData:
+    username: str = field(metadata=config(field_name="username"))
+    sid: str = field(metadata=config(field_name="sid"))
+    bbox: Optional[Bbox] = field(metadata=config(field_name="bbox"))
+    tenant_id: uuid.UUID = field(metadata=config(field_name="tenantId"))
+    domain: str = field(metadata=config(field_name="domain"))
 
 
 SID_SUBJECTS_TIMESTAMPS_KEY = "sid-subject-timestamps-{}"
@@ -70,27 +89,38 @@ def update_client(sid, bbox=None, event_filter=None, patrol_filter=None):
     # Sometimes we get back None from get_client (per messages in
     # realtime-stderr.log)
     if client_data:
-        client_data = ClientData(sid=client_data.sid, username=client_data.username, bbox=bbox)
-        add_client(sid, client_data)
+        with TenantContextManager(domain=client_data.domain):
+            client_data = ClientData(
+                sid=client_data.sid,
+                username=client_data.username,
+                bbox=Bbox(*bbox) if bbox else client_data.bbox,
+                tenant_id=client_data.tenant_id,
+                domain=client_data.domain,
+            )
+            add_client(sid, client_data)
 
-        update_values = {}
-        if bbox:
-            bbox_geom = MultiPolygon(Polygon.from_bbox(bbox))
-            update_values["bbox"] = bbox_geom
-        if event_filter:
-            update_values["event_filter"] = event_filter
+            update_values = {}
+            if bbox:
+                bbox_geom = MultiPolygon(Polygon.from_bbox(bbox))
+                update_values["bbox"] = bbox_geom
+            if event_filter:
+                update_values["event_filter"] = event_filter
 
-        if patrol_filter:
-            update_values["patrol_filter"] = patrol_filter
+            if patrol_filter:
+                update_values["patrol_filter"] = patrol_filter
 
-        if update_values:
-            update_values["username"] = client_data.username
-            socket_client, created = SocketClient.objects.update_or_create(id=sid, defaults=update_values)
+            if update_values:
+                update_values["username"] = client_data.username
+                socket_client, created = SocketClient.objects.update_or_create(
+                    id=sid, das_tenant=get_current_tenant(), defaults=update_values
+                )
 
 
 def create_update_user_session(sid):
     defaults = {"time_range": DateTimeTZRange(lower=datetime.datetime.now(tz=pytz.utc))}
-    user_session, created = UserSession.objects.update_or_create(id=sid, defaults=defaults)
+    user_session, created = UserSession.objects.update_or_create(
+        id=sid, das_tenant=get_current_tenant(), defaults=defaults
+    )
 
 
 def get_all_connections():
@@ -135,23 +165,22 @@ def get_expired_traces_client_list():
         yield sid.decode("utf8")
 
 
-def add_client(sid, data):
+def add_client(sid, client: ClientData):
     sid = str(sid)
     logger.info(f"Adding socket client. {sid}")
     logger.info(f"Adding client to session list. {get_client_list_key()} {sid}")
-    redis_client.hset(get_client_list_key(), sid, json.dumps(data))
+    redis_client.hset(get_client_list_key(), sid, client.to_json())
 
 
 def _restore_client_data(data):
     try:
-        data = json.loads(data)
+        client_data = ClientData.from_json(data)
     except json.JSONDecodeError:
-        data = None
-    if not data or isinstance(data, str) or isinstance(data, int):
+        client_data = None
+    if not client_data:
         return None
 
-    bbox = Bbox(**data["bbox"]) if data.get("bbox") else None
-    return ClientData(sid=data["sid"], username=data["username"], bbox=bbox)
+    return client_data
 
 
 def get_client(sid):
@@ -232,7 +261,7 @@ def cleanup_socketclient():
     live_sids = get_all_connections_list_decoded()
     for socket_client in SocketClient.objects.values("id", "username"):
         sid = socket_client["id"]
-        if not sid in live_sids:
+        if sid not in live_sids:
             remove_client(str(sid))
 
 

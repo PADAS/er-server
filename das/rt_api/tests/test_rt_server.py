@@ -10,7 +10,7 @@ from rt_api import client
 from rt_api.views import cleanup_disconnected_clients
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestRTServer(TestCase):
     @staticmethod
     def _get_mock_socket():
@@ -21,9 +21,14 @@ class TestRTServer(TestCase):
         mock_socket.session = {}
         return mock_socket
 
-    @staticmethod
-    def add_client():
-        testdata = client.ClientData(username="x-user", sid="e8ef807c2bbe4418b32de45786d82a52", bbox=None)
+    def add_client(self):
+        testdata = client.ClientData(
+            username="x-user",
+            sid="e8ef807c2bbe4418b32de45786d82a52",
+            bbox=None,
+            tenant_id=self.tenant_settings.id,
+            domain=self.tenant_settings.domain,
+        )
         client.add_client(testdata.sid, testdata)
 
     @mock.patch("redis.Redis", MockRedis)

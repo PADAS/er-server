@@ -148,6 +148,7 @@
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "gevent": true,
+            "justMyCode": false,
             "args": [
                 "rtserver",
                 "localhost:8000",

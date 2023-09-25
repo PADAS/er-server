@@ -18,6 +18,7 @@ from rt_api.client import (
     create_update_user_session,
     get_sid_subject_timestamp,
     redis_client,
+    remove_all_rt_services,
     remove_invalid_rt_service_key,
     save_session_timestamp,
     update_user_session,
@@ -25,7 +26,7 @@ from rt_api.client import (
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("multitenant_cache_client", "tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestClient:
     sid = "e85ae638fe904b6fa1e018c5c401c11c"
     mock_datetime_now = datetime.datetime(2010, 10, 2, 14, 10, tzinfo=timezone.utc)
@@ -48,7 +49,6 @@ class TestClient:
         assert isinstance(result, str)
         assert dateparse(result)
 
-    @pytest.mark.usefixtures("multitenant_cache_client", "tenant_settings")
     def test_get_sid_subject_timestamp_with_date_as_timestamp(self, subject):
         redis_client.set(
             SID_SESSION_TIMESTAMP_KEY.format(self.sid),
@@ -237,6 +237,7 @@ class TestClient:
 
     @patch("rt_api.client.get_client_list_key")
     def test_remove_invalid_rt_services(self, mocked_client_list):
+        remove_all_rt_services()
         current_service = "rt_api.172.18.0.8"
         redis_client.sadd(REALTIME_SERVICES_KEY, "rt_api.172.18.0.1")
         redis_client.sadd(REALTIME_SERVICES_KEY, "rt_api.172.18.0.2")
