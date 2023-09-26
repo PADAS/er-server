@@ -10,9 +10,11 @@ from utils.tenant.exceptions import (
 logger = logging.getLogger(__name__)
 TENANT_DEFAULT_KEY = "tenant_object"
 
+_local_thread = local()
+
 
 def _get_local_thread():
-    return local()
+    return _local_thread
 
 
 def set_tenant_settings(value: dict) -> None:

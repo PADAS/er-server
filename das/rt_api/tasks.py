@@ -221,7 +221,7 @@ def _broadcast_service_status(service_status_data=None, **kwargs):
 
 @celery.app.task(base=OverAllTenantTask)
 def broadcast_service_status():
-    _broadcast_service_status.apply()
+    _broadcast_service_status.apply_async()
 
 
 def _subjectstatus_update_handler(subject_id):
