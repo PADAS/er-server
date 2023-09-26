@@ -1,5 +1,7 @@
 import uuid
 
+from django_multitenant.fields import TenantForeignKey
+from django_multitenant.mixins import TenantModelMixin
 from oauth2_provider.models import (
     AbstractAccessToken,
     AbstractApplication,
@@ -9,9 +11,12 @@ from oauth2_provider.models import (
 )
 
 from django.db import models
+from django.db.models import UniqueConstraint
+
+from core.models import DASTenant
 
 
-class DASAccessToken(AbstractAccessToken):
+class DASAccessToken(TenantModelMixin, AbstractAccessToken):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     source_refresh_token = models.OneToOneField(
         # unique=True implied by the OneToOneField
@@ -21,7 +26,6 @@ class DASAccessToken(AbstractAccessToken):
         null=True,
         related_name="refreshed_access_token",
     )
-
     id_token = models.OneToOneField(
         to="DASIDToken",
         on_delete=models.CASCADE,
@@ -29,52 +33,76 @@ class DASAccessToken(AbstractAccessToken):
         null=True,
         related_name="access_token",
     )
-    application = models.ForeignKey(
+    application = TenantForeignKey(
         to="DASApplication",
         on_delete=models.CASCADE,
         blank=True,
         null=True,
     )
+    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
+    tenant_id = "das_tenant_id"
 
     class Meta:
         verbose_name = "DAS Access Token"
         verbose_name_plural = "DAS Access Tokens"
+        constraints = [
+            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
+        ]
 
 
-class DASApplication(AbstractApplication):
+class DASApplication(TenantModelMixin, AbstractApplication):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
+    tenant_id = "das_tenant_id"
 
     class Meta:
         verbose_name = "DAS Application"
         verbose_name_plural = "DAS Applications"
+        constraints = [
+            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
+        ]
 
 
-class DASGrant(AbstractGrant):
+class DASGrant(TenantModelMixin, AbstractGrant):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    application = models.ForeignKey(to="DASApplication", on_delete=models.CASCADE)
+    application = TenantForeignKey(to="DASApplication", on_delete=models.CASCADE)
+    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
+    tenant_id = "das_tenant_id"
 
     class Meta:
         verbose_name = "DAS Grant"
         verbose_name_plural = "DAS Grants"
+        constraints = [
+            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
+        ]
 
 
-class DASIDToken(AbstractIDToken):
+class DASIDToken(TenantModelMixin, AbstractIDToken):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    application = models.ForeignKey(
+    application = TenantForeignKey(
         to="DASApplication",
         on_delete=models.CASCADE,
         blank=True,
         null=True,
     )
+    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
+    tenant_id = "das_tenant_id"
 
     class Meta:
         verbose_name = "DAS ID Token"
         verbose_name_plural = "DAS ID Tokens"
+        constraints = [
+            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
+        ]
 
 
-class DASRefreshToken(AbstractRefreshToken):
+class DASRefreshToken(TenantModelMixin, AbstractRefreshToken):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    application = models.ForeignKey(to="DASApplication", on_delete=models.CASCADE)
+    application = TenantForeignKey(to="DASApplication", on_delete=models.CASCADE)
 
     access_token = models.OneToOneField(
         to="DASAccessToken",
@@ -83,7 +111,13 @@ class DASRefreshToken(AbstractRefreshToken):
         null=True,
         related_name="refresh_token",
     )
+    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+
+    tenant_id = "das_tenant_id"
 
     class Meta:
         verbose_name = "DAS Refresh Token"
         verbose_name_plural = "DAS Refresh Tokens"
+        constraints = [
+            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
+        ]

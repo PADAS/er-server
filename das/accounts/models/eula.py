@@ -11,9 +11,7 @@ from core.models import TimestampedModel, UUIDModel
 class UserAgreement(TimestampedModel, UUIDModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="userterms", on_delete=models.CASCADE)
     eula = models.ForeignKey("EULA", related_name="userterms", on_delete=models.CASCADE)
-
     date_accepted = models.DateTimeField(auto_now_add=True, verbose_name=_("Date Accepted"))
-
     accept = models.BooleanField(default=False)
 
     class Meta:
