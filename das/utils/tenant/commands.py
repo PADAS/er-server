@@ -1,6 +1,6 @@
 from django_multitenant.utils import set_current_tenant
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
 
 from core.models import DASTenant
 from utils.features import features
@@ -9,23 +9,25 @@ from utils.tenant.providers import TenantData
 from utils.tenant.thread import set_tenant_settings
 
 
-class TenantBaseCommand(BaseCommand):
+class TenantCommandMixin:
     """
-    Base class for tenant-aware commands.
-    This class can be used as a drop-in replacement of the Django BaseCommand class.
+    Mixin for tenant-aware Django commands.
+    This class can be mixed in Custom Django commands.
 
-    A mandatory argument --tenant_domain is added.
+    Tenant resolution:
+        1. Look for the tenant specified by --tenant_id.
+        2. Look if a tenant is already set in the current thread.
 
-    Derived classes must implement handle(), and optionally add_arguments().
     By the time the handle method of the custom command subclass is called,
     the tenant instance and tenant settings are both set in the current thread
 
     Class usage example:
     ```
         # my_tenant_command.py
-        from utils.tenant.commands import TenantBaseCommand
+        from django.core.management.base import BaseCommand
+        from utils.tenant.commands import TenantCommandMixin
 
-        class Command(TenantBaseCommand):
+        class Command(TenantCommandMixin, BaseCommand):
             help = "Perform some operation against one tenant's data"
 
             def add_arguments(self, parser):
