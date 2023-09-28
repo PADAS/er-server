@@ -11,8 +11,6 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from core.models import DASTenant
-
 pytestmark = pytest.mark.django_db
 
 AccessToken = get_access_token_model()
@@ -26,6 +24,7 @@ def fake_get_pool():
     return Connection("memory://").Pool(20)
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class BaseAPITest(TestCase):
     use_atomic_transaction = True
     api_base = API_BASE
@@ -38,8 +37,7 @@ class BaseAPITest(TestCase):
 
     def setUp(self):
         user_const = dict(last_name="last", first_name="first")
-        tenant = DASTenant.objects.first()
-        set_current_tenant(tenant)
+        set_current_tenant(self.das_tenant)
         self.app_user = User.objects.create_user(
             "app-user", "app-user@test.com", "app-user", is_superuser=False, is_staff=True, **user_const
         )

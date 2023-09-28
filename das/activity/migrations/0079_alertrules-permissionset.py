@@ -14,11 +14,10 @@ def reverse(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('activity', '0078_eventnotification'),
+        ("activity", "0078_eventnotification"),
     ]
 
     operations = [
-        migrations.RunPython(forward, reverse),
+        # migrations.RunPython(forward, reverse), move to activity 0151
     ]

@@ -39,7 +39,7 @@ def get_users_for_permission(permission_codename: str, usernames: list = None):
     return queryset
 
 
-def create_report_permissionset():
+def create_report_permissionset(tenant=None):
     """
     This should run once (probably as part of a migration) to add the proper permission and permissionset that
     will identify the users who receive reports.
@@ -55,11 +55,13 @@ def create_report_permissionset():
         ),
     )
 
-    permission_set, created = accounts.models.PermissionSet.objects.get_or_create(name="Receive Source Report")
+    permission_set, created = accounts.models.PermissionSet.objects.get_or_create(
+        name="Receive Source Report", das_tenant=tenant
+    )
     permission_set.permissions.add(perm)
 
 
-def create_lag_notify_permissionset():
+def create_lag_notify_permissionset(tenant=None):
     """
     This should run once (probably as part of a migration) to add the proper permission and permissionset that
     will identify the users who receive reports.
@@ -76,12 +78,12 @@ def create_lag_notify_permissionset():
     )
 
     permission_set, created = accounts.models.PermissionSet.objects.get_or_create(
-        name="Receive observation lag notification"
+        name="Receive observation lag notification", das_tenant=tenant
     )
     permission_set.permissions.add(perm)
 
 
-def create_silent_source_notify_permissionset():
+def create_silent_source_notify_permissionset(tenant=None):
     """
     This should run once (probably as part of a migration) to add the proper permission and permissionset that
     will identify the users who receive silent source notifications.
@@ -98,6 +100,6 @@ def create_silent_source_notify_permissionset():
     )
 
     permission_set, created = accounts.models.PermissionSet.objects.get_or_create(
-        name="Receive silent source notification"
+        name="Receive silent source notification", das_tenant=tenant
     )
     permission_set.permissions.add(perm)

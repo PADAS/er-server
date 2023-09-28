@@ -3,22 +3,13 @@
 from __future__ import unicode_literals
 
 from django.db import migrations
-from django.core.management import call_command
-
-import utils.models
-
-
-def populate_pss(apps, schema_editor):
-    utils.models.migrate_permissions(apps)
-    call_command('loaddata', 'initial_pss')
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('accounts', '0007_group_update'),
+        ("accounts", "0007_group_update"),
     ]
 
     operations = [
-        migrations.RunPython(populate_pss),
+        # migrations.RunPython(populate_pss), Move to accounts 0031
     ]

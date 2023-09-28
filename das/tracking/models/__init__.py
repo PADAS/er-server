@@ -14,6 +14,33 @@ from tracking.models.vectronics import VectronicsPlugin
 from tracking.models.awt import AwtPlugin
 from tracking.models.er_track import SourceProviderConfiguration
 
-runnable_plugins = (SavannahPlugin, DemoSourcePlugin, InreachPlugin, InreachKMLPlugin, AWTHttpPlugin,
-                    SkygisticsSatellitePlugin, SpiderTracksPlugin, AWETelemetryPlugin, SirtrackPlugin,
-                    VectronicsPlugin, AwtPlugin)
+runnable_plugins = (
+    SavannahPlugin,
+    DemoSourcePlugin,
+    InreachPlugin,
+    InreachKMLPlugin,
+    AWTHttpPlugin,
+    SkygisticsSatellitePlugin,
+    SpiderTracksPlugin,
+    AWETelemetryPlugin,
+    SirtrackPlugin,
+    VectronicsPlugin,
+    AwtPlugin,
+)
+
+__all__ = [
+    SourcePlugin,
+    SavannahPlugin,
+    DemoSourcePlugin,
+    InreachPlugin,
+    AWTHttpPlugin,
+    InreachKMLPlugin,
+    SkygisticsSatellitePlugin,
+    FirmsPlugin,
+    AWETelemetryPlugin,
+    SpiderTracksPlugin,
+    SirtrackPlugin,
+    VectronicsPlugin,
+    AwtPlugin,
+    SourceProviderConfiguration,
+]
