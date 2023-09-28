@@ -33,7 +33,7 @@ def apply_permissions_sets(apps, _):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("accounts", "0030_add_tenant_id_permmission_set"),
+        ("accounts", "0034_alter_permissionsetpermission_das_tenant"),
     ]
 
     operations = [
