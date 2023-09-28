@@ -1,6 +1,8 @@
 import logging
 
-from utils.tenant.commands import TenantBaseCommand
+from django.core.management.base import BaseCommand
+
+from utils.tenant.commands import TenantCommandMixin
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +39,7 @@ def reset_serial_number():
         cursor.execute(RESET_SERIAL_NUMBER_SQL)
 
 
-class Command(TenantBaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     help = "Purge events from a system."
 
     def add_arguments(self, parser):

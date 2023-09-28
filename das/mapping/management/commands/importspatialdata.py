@@ -2,6 +2,7 @@ import logging
 import os
 
 from django.core.files import File
+from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from mapping import models
@@ -13,12 +14,12 @@ from mapping.utils import (
     default_name_field,
     validate_feature_record,
 )
-from utils.tenant.commands import TenantBaseCommand
+from utils.tenant.commands import TenantCommandMixin
 
 logger = logging.getLogger(__name__)
 
 
-class Command(TenantBaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     help = "Import a spatial data layer"
     tmpdirs = []
     SPATIALDATA_VERSIONS = ("v1", "v2")

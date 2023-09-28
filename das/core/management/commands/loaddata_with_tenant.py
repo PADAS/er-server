@@ -10,9 +10,10 @@ from django.core.management.commands.loaddata import Command as LoadDataCommand
 from django.db import DatabaseError, IntegrityError, router
 
 from core.utils import DASTenantManagement
+from utils.tenant.commands import TenantCommandMixin
 
 
-class Command(LoadDataCommand):
+class Command(TenantCommandMixin, LoadDataCommand):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.das_tenant = get_current_tenant()

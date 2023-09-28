@@ -6,13 +6,14 @@ from sys import stdin
 import oauth2_provider.models as oauth_models
 
 from django.contrib.admin.models import LogEntry
+from django.core.management.base import BaseCommand
 from django.db import transaction
 
 import accounts.models as models
-from utils.tenant.commands import TenantBaseCommand
+from utils.tenant.commands import TenantCommandMixin
 
 
-class Command(TenantBaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     logger = logging.getLogger(__name__)
     help = "Purge account(s)"
 
