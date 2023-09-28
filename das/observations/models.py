@@ -121,7 +121,7 @@ def Condition(*args, **kwargs):
     return ExpressionWrapper(Q(*args, **kwargs), output_field=BooleanField())
 
 
-class SourceGroupManager(TenantManagerMixin, HierarchyManager):
+class SourceGroupManager(HierarchyManager):
     def get_default(self):
         return self.get(id=DEFAULT_SOURCE_GROUP_ID)
 
@@ -129,7 +129,7 @@ class SourceGroupManager(TenantManagerMixin, HierarchyManager):
         return self.get(**{name: name})
 
 
-class SourceGroup(TenantModelMixin, HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
+class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
     """
     Manage Groups of sources so that we can easily set permissions on a group
     rather than each individual Source. Additionally there are requests to
@@ -141,10 +141,8 @@ class SourceGroup(TenantModelMixin, HierarchyModel, TimestampedModel, Permission
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_("name"), max_length=80, unique=True)
     sources = models.ManyToManyField("Source", related_name="groups", blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
     objects = SourceGroupManager()
-    tenant_id = "das_tenant_id"
 
     class Meta:
         verbose_name = _("source group")
@@ -840,7 +838,7 @@ class SubjectGroupQuerySet(models.QuerySet, FilterMixin):
         return self.filter(name__exact=value)
 
 
-class SubjectGroupManager(TenantManagerMixin, HierarchyManager):
+class SubjectGroupManager(HierarchyManager):
     def get_default(self):
         return self.get(is_default=True)
 
@@ -864,7 +862,7 @@ class SubjectGroupManager(TenantManagerMixin, HierarchyManager):
         return queryset
 
 
-class SubjectGroup(TenantModelMixin, HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
+class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
     """
     Manage Groups of subjects so that we can easily set permissions on a group
     rather than each individual Subject. Additionally there are requests to
@@ -887,10 +885,8 @@ class SubjectGroup(TenantModelMixin, HierarchyModel, TimestampedModel, Permissio
         default=False,
         help_text=_("This Subject group is the default for new subjects."),
     )
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
     objects = SubjectGroupManager.from_queryset(SubjectGroupQuerySet)()
-    tenant_id = "das_tenant_id"
 
     def get_all_subjects(self, user=None, active=None, include_from_subgroups=True, mou_expiry_date=None):
         min_age_days = get_minimum_allowed_age(user) or 0 if user else 0

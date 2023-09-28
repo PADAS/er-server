@@ -15,7 +15,10 @@ populate_uuid = partial(populate_model_uuid_column, APP_NAME, MODEL_NAME, UUID_C
 
 
 class Migration(migrations.Migration):
-    dependencies = [(APP_NAME, "0026_deleting_longer_active_access_token")]
+    dependencies = [
+        (APP_NAME, "0026_deleting_longer_active_access_token"),
+        ("observations", "0142_add_crocodiles_and_vehicles"),
+    ]
 
     operations = [
         migrations.AddField(

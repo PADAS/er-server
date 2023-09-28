@@ -564,4 +564,64 @@ class Migration(migrations.Migration):
                 on_delete=django.db.models.deletion.PROTECT, to="activity.membershiptype"
             ),
         ),
+        migrations.AlterUniqueTogether(
+            name="event",
+            unique_together={("id", "das_tenant")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventattachment",
+            unique_together={("id", "das_tenant")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventclassfactor",
+            unique_together={("eventclass", "eventfactor"), ("id", "das_tenant")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventdetails",
+            unique_together={("id", "das_tenant")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventfile",
+            unique_together={("id", "das_tenant")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventnote",
+            unique_together={("id", "das_tenant")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventnotification",
+            unique_together={("id", "das_tenant")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventphoto",
+            unique_together={("id", "das_tenant")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventprovider",
+            unique_together={("id", "das_tenant")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventrelatedsegments",
+            unique_together={("id", "das_tenant")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventrelationship",
+            unique_together={("type", "from_event", "to_event"), ("id", "das_tenant")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventsource",
+            unique_together={("id", "das_tenant"), ("eventprovider", "external_event_type")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventsourceevent",
+            unique_together={("eventsource", "external_event_id"), ("id", "das_tenant")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventtype",
+            unique_together={("id", "das_tenant")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="patrolsegmentmembership",
+            unique_together={("type", "patrol_segment", "person"), ("id", "das_tenant")},
+        ),
     ]
