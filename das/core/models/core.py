@@ -1,5 +1,6 @@
 import uuid
 
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from django_multitenant.models import TenantModel
 
 from django.conf import settings
@@ -29,7 +30,16 @@ class AuditableModel(TimestampedModel):
         abstract = True
 
 
-class HierarchyManager(models.Manager):
+class DASTenant(TenantModel):
+    id = models.UUIDField(primary_key=True)
+    domain = models.CharField(max_length=100)
+    tenant_id = "id"
+
+    def __str__(self):
+        return self.domain
+
+
+class HierarchyManager(TenantManagerMixin, models.Manager):
     def get_ancestors(self, child, ancestors=None):
         ancestors = set() if not ancestors else ancestors
         if child not in ancestors:
@@ -72,23 +82,26 @@ class HierarchQuerySet(models.QuerySet):
         return all_nodes
 
 
-class HierarchyModel(models.Model):
+class HierarchyModel(TenantModelMixin, models.Model):
     """
     Provides a recursive hierarchy on self.
     A child can have multiple parents.
     These access functions are used by other recursive Mixins.
     """
 
+    class Meta:
+        abstract = True
+        unique_together = ["id", "das_tenant"]
+
+    objects = HierarchyManager()
     children = models.ManyToManyField(
         "self",
         blank=True,
         symmetrical=False,
         related_name="_parents",
     )
-    objects = HierarchyManager()
-
-    class Meta:
-        abstract = True
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    tenant_id = "das_tenant_id"
 
     def parents(self):
         return self.__class__.objects.filter(children=self)
@@ -123,12 +136,3 @@ class SingletonModel(UUIDModel):
     def get_instance(cls, **kwargs):
         o, created = cls.objects.get_or_create(pk=cls.instance_id, **kwargs)
         return o
-
-
-class DASTenant(TenantModel):
-    id = models.UUIDField(primary_key=True)
-    domain = models.CharField(max_length=100)
-    tenant_id = "id"
-
-    def __str__(self):
-        return self.domain

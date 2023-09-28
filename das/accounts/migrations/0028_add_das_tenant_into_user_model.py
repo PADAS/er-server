@@ -6,8 +6,10 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
+        ("admin", "0001_initial"),
         ("accounts", "0027_change_useragreement_pk_type_to_uuid"),
         ("core", "0006_add_das_tenant_model"),
+        ("activity", "0130_create_event_geometry_model"),
     ]
 
     operations = [

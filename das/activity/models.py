@@ -303,6 +303,7 @@ class EventType(TenantModelMixin, TimestampedModel):
             models.Index(fields=["is_active"]),
             models.Index(fields=["is_collection"]),
         ]
+        unique_together = ["id", "das_tenant"]
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -691,6 +692,7 @@ class EventFile(TenantModelMixin, TimestampedModel, RevisionMixin):
 
     class Meta:
         ordering = ["ordernum", "-updated_at"]
+        unique_together = ["id", "das_tenant"]
 
     @property
     def event_type(self):
@@ -727,7 +729,7 @@ class EventRelationship(TenantModelMixin, TimestampedModel):
     name = "Event Relationship"
 
     class Meta:
-        unique_together = ("type", "from_event", "to_event")
+        unique_together = (("type", "from_event", "to_event"), ("id", "das_tenant"))
         ordering = [
             "type",
             "ordernum",
@@ -844,6 +846,7 @@ class Event(TenantModelMixin, RevisionMixin, TimestampedModel):
             models.Index(fields=["updated_at"]),
             models.Index(fields=["event_time"]),
         ]
+        unique_together = ["id", "das_tenant"]
 
     class ReadonlyMeta:
         readonly = [
@@ -1095,27 +1098,20 @@ class Event(TenantModelMixin, RevisionMixin, TimestampedModel):
         return f"{self.serial_number}: ({self.title}, {self.event_type})"
 
 
-class EventRelatedSegmentsManager(TenantManagerMixin, models.Manager):
-    pass
-
-
 class EventRelatedSegments(TenantModelMixin, UUIDModel):
     event = TenantForeignKey(Event, on_delete=models.CASCADE, null=False)
     patrol_segment = TenantForeignKey(to="PatrolSegment", on_delete=models.CASCADE, null=False)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
-    objects = EventRelatedSegmentsManager()
     tenant_id = "das_tenant_id"
 
-
-class EventRelatedSubjectManager(TenantManagerMixin, models.Manager):
-    pass
+    class Meta:
+        unique_together = ["id", "das_tenant"]
 
 
 class EventRelatedSubject(TenantModelMixin, UUIDModel, models.Model):
     event = TenantForeignKey(Event, on_delete=models.CASCADE)
     subject = TenantForeignKey(Subject, on_delete=models.PROTECT)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
-    objects = EventRelatedSubjectManager()
     tenant_id = "das_tenant_id"
 
     def __str__(self):
@@ -1162,6 +1158,9 @@ class EventAttachment(TenantModelMixin, RevisionMixin, models.Model):
     objects = EventAttachmentManager()
     tenant_id = "das_tenant_id"
 
+    class Meta:
+        unique_together = ["id", "das_tenant"]
+
     def save(self, *args, **kwargs):
         result = super().save(*args, **kwargs)
         self.event.dependent_table_updated()
@@ -1186,6 +1185,9 @@ class EventNote(TenantModelMixin, RevisionMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     objects = EventNoteManager()
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = ["id", "das_tenant"]
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -1222,6 +1224,9 @@ class EventDetails(TenantModelMixin, RevisionMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     objects = EventDetailsManager()
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        unique_together = ["id", "das_tenant"]
 
     def save(self, *args, update_parent_event=True, **kwargs):
         result = super().save(*args, **kwargs)
@@ -1263,6 +1268,9 @@ class EventPhoto(TenantModelMixin, RevisionMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     tenant_id = "das_tenant_id"
 
+    class Meta:
+        unique_together = ["id", "das_tenant"]
+
     def save(self, *args, **kwargs):
         self.full_clean()
         result = super().save(*args, **kwargs)
@@ -1292,7 +1300,10 @@ class EventClassFactor(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
-        unique_together = (("eventclass", "eventfactor"),)
+        unique_together = (
+            ("eventclass", "eventfactor"),
+            ("id", "das_tenant"),
+        )
 
     @property
     def value(self):
@@ -1302,10 +1313,6 @@ class EventClassFactor(TenantModelMixin, TimestampedModel):
         return self.value
 
 
-class EventFilterManager(TenantManagerMixin, models.Manager):
-    pass
-
-
 class EventFilter(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     ordernum = models.SmallIntegerField(verbose_name="Sort order number", null=False, default=0)
@@ -1313,15 +1320,10 @@ class EventFilter(TenantModelMixin, TimestampedModel):
     filter_name = models.CharField(verbose_name="Display name that is meaningful to a user", null=False, max_length=100)
     filter_spec = models.JSONField(verbose_name="Filter specification", default=dict)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
-    objects = EventFilterManager()
     tenant_id = "das_tenant_id"
 
     class Meta:
         unique_together = ["id", "das_tenant"]
-
-
-class EventProviderManager(TenantManagerMixin, models.Manager):
-    pass
 
 
 class EventProvider(TenantModelMixin, TimestampedModel):
@@ -1344,15 +1346,13 @@ class EventProvider(TenantModelMixin, TimestampedModel):
     )
     additional = models.JSONField(default=dict, blank=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
-    objects = EventProviderManager()
     tenant_id = "das_tenant_id"
 
     def __str__(self):
         return self.display
 
-
-class EventSourceManager(TenantManagerMixin, models.Manager):
-    pass
+    class Meta:
+        unique_together = ["id", "das_tenant"]
 
 
 class EventSource(TenantModelMixin, TimestampedModel):
@@ -1381,7 +1381,6 @@ class EventSource(TenantModelMixin, TimestampedModel):
     )
     additional = models.JSONField(default=dict, blank=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
-    objects = EventSourceManager()
     tenant_id = "das_tenant_id"
 
     @property
@@ -1391,8 +1390,8 @@ class EventSource(TenantModelMixin, TimestampedModel):
     class Meta:
         permissions = (("create_event_for_eventsource", "Permission to add an event for an event source"),)
         unique_together = (
-            "eventprovider",
-            "external_event_type",
+            ("eventprovider", "external_event_type"),
+            ("id", "das_tenant"),
         )
 
     def __str__(self):
@@ -1442,7 +1441,10 @@ class EventsourceEvent(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
-        unique_together = ("eventsource", "external_event_id")
+        unique_together = (
+            ("eventsource", "external_event_id"),
+            ("id", "das_tenant"),
+        )
 
     def clean(self):
         super().clean()
@@ -1558,6 +1560,7 @@ class EventNotification(TenantModelMixin, UUIDModel, TimestampedModel):
 
     class Meta:
         indexes = [models.Index(fields=["event"])]
+        unique_together = ["id", "das_tenant"]
 
 
 class TSVectorModel(TenantModelMixin, models.Model):
@@ -2007,7 +2010,10 @@ class PatrolSegmentMembership(TenantModelMixin, TimestampedModel):
     name = "Patrol Segment Membership"
 
     class Meta:
-        unique_together = ("type", "patrol_segment", "person")
+        unique_together = (
+            ("type", "patrol_segment", "person"),
+            ("id", "das_tenant"),
+        )
         ordering = [
             "type",
             "ordernum",
