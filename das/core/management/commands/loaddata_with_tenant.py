@@ -3,25 +3,18 @@ import warnings
 
 from django_multitenant.utils import get_current_tenant
 
-from django.conf import settings
 from django.core import serializers
 from django.core.management.base import CommandError
 from django.core.management.commands.loaddata import Command as LoadDataCommand
 from django.db import DatabaseError, IntegrityError, router
 
-from core.utils import DASTenantManagement
 from utils.tenant.commands import TenantCommandMixin
 
 
 class Command(TenantCommandMixin, LoadDataCommand):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.das_tenant = get_current_tenant()
-        if self.das_tenant is None:
-            self.das_tenant = DASTenantManagement(domain=settings.SERVER_FQDN).get_or_create_tenant()
-
     def load_label(self, fixture_label):
         """Load fixtures files for a given label."""
+        das_tenant = get_current_tenant()
         show_progress = self.verbosity >= 3
         for fixture_file, fixture_dir, fixture_name in self.find_fixtures(fixture_label):
             _, ser_fmt, cmp_fmt = self.parse_name(os.path.basename(fixture_file))
@@ -53,7 +46,7 @@ class Command(TenantCommandMixin, LoadDataCommand):
                         self.models.add(obj.object.__class__)
                         try:
                             if hasattr(obj.object, "das_tenant"):
-                                obj.object.das_tenant = self.das_tenant
+                                obj.object.das_tenant = das_tenant
                             obj.save(using=self.using)
                             if show_progress:
                                 self.stdout.write("\rProcessed %i object(s)." % loaded_objects_in_fixture, ending="")
