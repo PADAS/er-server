@@ -46,8 +46,8 @@ def get_alert_counter(user: User) -> int:
 
 
 def reset_alert_metrics():
-    alerts_storage.delete(KEY_ALERT_100_PERCENT)
-    alerts_storage.delete(KEY_ALERT_90_PERCENT)
+    alerts_storage.delete_set(KEY_ALERT_100_PERCENT)
+    alerts_storage.delete_set(KEY_ALERT_90_PERCENT)
     update_stats()
 
 
