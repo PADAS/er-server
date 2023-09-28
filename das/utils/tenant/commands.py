@@ -63,8 +63,8 @@ class TenantCommandMixin:
         """
         if features.tms.is_on():
             domain = options.get("tenant_domain")
-            tenant = self._set_tenant_instance(domain=domain)
-            self._set_tenant_settings(domain=domain)
+            tenant_settings = self._set_tenant_settings(domain=domain)
+            tenant = self._set_tenant_instance(tenant_id=tenant_settings.get("id"))
             # Verbose mode
             if options.get("verbosity", 0) >= 2:
                 self.stdout.write(f"Executing command with tenant id {tenant.id}...")
@@ -81,12 +81,12 @@ class TenantCommandMixin:
         except Exception as e:
             raise CommandError(f"Error resolving tenant settings with domain '{domain}': {e}")
 
-    def _set_tenant_instance(self, domain):
+    def _set_tenant_instance(self, tenant_id):
         try:
-            tenant = DASTenant.objects.get(domain=domain)
+            tenant = DASTenant.objects.get(id=tenant_id)
             set_current_tenant(tenant=tenant)
             return tenant
         except DASTenant.DoesNotExist:
-            raise CommandError(f"Tenant for domain '{domain}' not found.")
+            raise CommandError(f"Tenant with id '{tenant_id}' not found.")
         except Exception as e:
-            raise CommandError(f"Error resolving tenant with domain '{domain}': {e}")
+            raise CommandError(f"Error resolving tenant with id '{tenant_id}': {e}")
