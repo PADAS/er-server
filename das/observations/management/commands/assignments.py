@@ -4,6 +4,7 @@ import dateutil.parser as date_parser
 import psycopg2.extras
 import pytz
 
+from django.core.management.base import BaseCommand
 from django.db.models import Q
 
 from observations.models import (
@@ -13,7 +14,7 @@ from observations.models import (
     Subject,
     SubjectSource,
 )
-from utils.tenant.commands import TenantBaseCommand
+from utils.tenant.commands import TenantCommandMixin
 
 
 def find_assignments(subject=None, source=None, start_date=None, end_date=None):
@@ -134,7 +135,7 @@ def ensure_assignment(subject, manufacturer_id, model_name, source_type, source_
 
 
 # source_type_list = (k for k,v in SOURCE_TYPES)
-class Command(TenantBaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     help = "Administer Subject-Source assigments."
 
     def add_arguments(self, parser):

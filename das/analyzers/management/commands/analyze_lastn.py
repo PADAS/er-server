@@ -2,14 +2,15 @@ from datetime import datetime, timedelta
 
 import pytz
 
+from django.core.management.base import BaseCommand
 from django.db.models import F
 
 from analyzers.tasks import analyze_subject_
 from observations.models import Subject
-from utils.tenant.commands import TenantBaseCommand
+from utils.tenant.commands import TenantCommandMixin
 
 
-class Command(TenantBaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     help = "Run analyzers for all Subjects having observations within the last n minutes."
 
     def handle(self, *args, **options):

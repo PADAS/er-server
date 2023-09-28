@@ -2,14 +2,15 @@ from datetime import datetime
 
 import pytz
 
+from django.core.management.base import BaseCommand
 from django.db.models import F
 
 from observations.models import Source
 from tracking.models import SourcePlugin
-from utils.tenant.commands import TenantBaseCommand
+from utils.tenant.commands import TenantCommandMixin
 
 
-class Command(TenantBaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     help = "Run ingester for given Subject."
 
     def add_arguments(self, parser):
