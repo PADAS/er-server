@@ -4,9 +4,12 @@ from django.core.management.base import CommandError
 
 from core.models import DASTenant
 from utils.features import features
-from utils.tenant.exceptions import TenantNotFoundException
+from utils.tenant.exceptions import (
+    TenantNotFoundException,
+    TenantNotFoundInLocalThreadException,
+)
 from utils.tenant.providers import TenantData
-from utils.tenant.thread import set_tenant_settings
+from utils.tenant.thread import get_tenant_settings, set_tenant_settings
 
 
 class TenantCommandMixin:
@@ -49,11 +52,11 @@ class TenantCommandMixin:
 
     def create_parser(self, prog_name, subcommand, **kwargs):
         """
-        Overriden to add tenant_domain as a mandatory argument for tenant-aware commands
+        Overriden to add tenant_domain argument for tenant-aware commands
         """
         parser = super().create_parser(prog_name, subcommand, **kwargs)
         if features.tms.is_on():
-            parser.add_argument("--tenant_domain", type=str, help="Specify the tenant domain", required=True)
+            parser.add_argument("--tenant_domain", type=str, help="Specify the tenant domain", required=False)
         return parser
 
     def execute(self, *args, **options):
@@ -63,8 +66,17 @@ class TenantCommandMixin:
         """
         if features.tms.is_on():
             domain = options.get("tenant_domain")
-            tenant_settings = self._set_tenant_settings(domain=domain)
-            tenant = self._set_tenant_instance(tenant_id=tenant_settings.get("id"))
+            if domain:
+                tenant_settings = self._set_tenant_settings(domain=domain)
+                tenant = self._set_tenant_instance(tenant_id=tenant_settings.get("id"))
+            else:
+                try:
+                    tenant_settings = get_tenant_settings()
+                    tenant = self._set_tenant_instance(tenant_id=tenant_settings.id)
+                except TenantNotFoundInLocalThreadException:
+                    raise CommandError(
+                        "Please either specify a tenant with '--tenant_domain' or set the tenant in the current thread"
+                    )
             # Verbose mode
             if options.get("verbosity", 0) >= 2:
                 self.stdout.write(f"Executing command with tenant id {tenant.id}...")
