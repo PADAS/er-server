@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 @admin.register(models.Map)
 class MapAdmin(OSMGeoExtendedAdmin):
-    list_display = ("name", "das_tenant")
+    list_display = ("name",)
     form = MapCenterForm
     gis_geometry_field_name = "center"
 
@@ -57,12 +57,7 @@ class MapAdmin(OSMGeoExtendedAdmin):
 @admin.register(models.TileLayer)
 class TileLayerAdmin(admin.ModelAdmin):
     ordering = ("ordernum", "name")
-    list_display = (
-        "name",
-        "ordernum",
-        "get_attributes",
-        "das_tenant",
-    )
+    list_display = ("name", "ordernum", "get_attributes")
     list_editable = ("ordernum",)
     form = TileLayerFormWithAttributes
     fieldsets = (
@@ -135,10 +130,7 @@ class SpatialFeaturesInline(admin.TabularInline):
 
 @admin.register(models.DisplayCategory)
 class DisplayCategoryAdmin(admin.ModelAdmin):
-    list_display = (
-        "name",
-        "das_tenant",
-    )
+    list_display = ("name",)
     ordering = ("name",)
     form = DisplayCategoryForm
 
@@ -155,7 +147,6 @@ class SpatialFeatureTypeAdmin(admin.ModelAdmin):
         "name",
         "is_visible",
         "display_category",
-        "das_tenant",
     )
     ordering = list_display
     search_fields = ("name",)
@@ -437,7 +428,13 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
 
 @admin.register(models.SpatialFeatureFile)
 class SpatialFeatureFileAdmin(BaseSpatialFileAdmin):
-    list_display = ("id", "name", "file_type", "description", "feature_type", "das_tenant")
+    list_display = (
+        "id",
+        "name",
+        "file_type",
+        "description",
+        "feature_type",
+    )
     ordering = list_display
     list_filter = ("name",)
     fieldsets = (
