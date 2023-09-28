@@ -242,7 +242,7 @@ class DASTenantManagement:
         if not tenant:
             tenant_data = self._get_tenant_from_tms(domain=self.domain)
             try:
-                return DASTenant.objects.create(id=tenant_data["id"], domain=tenant_data["domain"])
+                tenant, _ = DASTenant.objects.get_or_create(id=tenant_data["id"], domain=tenant_data["domain"])
             except ValidationError:
                 raise TenantNotFoundException(domain=self.domain)
         return tenant
