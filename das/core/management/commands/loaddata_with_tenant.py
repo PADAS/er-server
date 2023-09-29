@@ -1,7 +1,7 @@
 import os
 import warnings
 
-from django_multitenant.utils import get_current_tenant
+from django_multitenant.utils import get_current_tenant, set_current_tenant
 
 from django.conf import settings
 from django.core import serializers
@@ -10,14 +10,18 @@ from django.core.management.commands.loaddata import Command as LoadDataCommand
 from django.db import DatabaseError, IntegrityError, router
 
 from core.utils import DASTenantManagement
+from utils.tenant.providers import post_tenant_to_thread
 
 
 class Command(LoadDataCommand):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        # TODO: Remove this tenant handling code here in the __init__ when we complete ERA-8886, ERA-8666 refactors this into a mixin
         self.das_tenant = get_current_tenant()
         if self.das_tenant is None:
+            post_tenant_to_thread(settings.SERVER_FQDN)
             self.das_tenant = DASTenantManagement(domain=settings.SERVER_FQDN).get_or_create_tenant()
+            set_current_tenant(self.das_tenant)
 
     def load_label(self, fixture_label):
         """Load fixtures files for a given label."""
