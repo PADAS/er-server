@@ -261,5 +261,5 @@ class DASTenantManagement:
 def update_tenant_models(models: list, tenant) -> None:
     # INFO Deprecated this function after all tenant will be consolidated in a one single database.
     for class_model in models:
-        updated_objects = class_model.objects.all().update(das_tenant=tenant)
+        updated_objects = class_model.objects.filter(das_tenant__isnull=True).update(das_tenant=tenant)
         logger.info("%d objects updated of model %s.", updated_objects, class_model._meta.object_name)

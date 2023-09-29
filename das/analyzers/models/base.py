@@ -8,12 +8,12 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
+from django.db.models.constraints import UniqueConstraint
 from django.utils.translation import gettext_lazy as _
 
 from activity.models import Event
 from core.models import DASTenant, TimestampedModel
 from observations.models import Observation, Subject, SubjectGroup
-from revision.manager import Revision, RevisionMixin
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ EVENT_PRIORITY_MAP = {
 }
 
 
-class SubjectAnalyzerConfig(TenantModelMixin, RevisionMixin, TimestampedModel):
+class SubjectAnalyzerConfig(TenantModelMixin, TimestampedModel):
     """
     An implementation of SubjectAnalyzerConfig is meant to associate a specific set of parameter values with
     a SubjectGroup that it applies to.
@@ -59,8 +59,6 @@ class SubjectAnalyzerConfig(TenantModelMixin, RevisionMixin, TimestampedModel):
         help_text=_("This analyzer applies to subjects in this Subject Group."),
     )
 
-    revision = Revision()
-
     is_active = models.BooleanField(
         _("active"),
         default=True,
@@ -87,7 +85,9 @@ class SubjectAnalyzerConfig(TenantModelMixin, RevisionMixin, TimestampedModel):
     class Meta:
         abstract = True
         app_label = "analyzers"
-        unique_together = ("id", "das_tenant")
+        constraints = [
+            UniqueConstraint(fields=["das_tenant", "id"], name="%(app_label)s_%(class)s_tenant_unique"),
+        ]
 
     analyzer_category = "generic"
 
@@ -132,7 +132,9 @@ class SubjectAnalyzerResult(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
-        unique_together = ("id", "das_tenant")
+        constraints = [
+            UniqueConstraint(fields=["das_tenant", "id"], name="%(app_label)s_%(class)s_tenant_unique"),
+        ]
 
     def __str__(self):
         _tmp_str = (
@@ -143,7 +145,7 @@ class SubjectAnalyzerResult(TenantModelMixin, TimestampedModel):
         return _tmp_str
 
 
-class Annotator(TenantModelMixin, RevisionMixin, TimestampedModel):
+class Annotator(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     subject = TenantForeignKey(to=Subject, on_delete=models.CASCADE)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
@@ -160,4 +162,6 @@ class Annotator(TenantModelMixin, RevisionMixin, TimestampedModel):
     class Meta:
         abstract = True
         app_label = "analyzers"
-        unique_together = ("id", "das_tenant")
+        constraints = [
+            UniqueConstraint(fields=["das_tenant", "id"], name="%(app_label)s_%(class)s_tenant_unique"),
+        ]

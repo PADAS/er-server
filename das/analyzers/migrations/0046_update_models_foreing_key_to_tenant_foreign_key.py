@@ -3,7 +3,7 @@
 import django_multitenant.fields
 
 import django.db.models.deletion
-from django.db import migrations
+from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
@@ -107,6 +107,76 @@ class Migration(migrations.Migration):
                 related_name="subject_group_1",
                 to="observations.subjectgroup",
                 verbose_name="Subject Group 1",
+            ),
+        ),
+        migrations.AlterUniqueTogether(
+            name="environmentalsubjectanalyzerconfig",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="geofenceanalyzerconfig",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="immobilityanalyzerconfig",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="lowspeedpercentileanalyzerconfig",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="lowspeedwilcoxanalyzerconfig",
+            unique_together=set(),
+        ),
+        migrations.AddConstraint(
+            model_name="environmentalsubjectanalyzerconfig",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "id"), name="analyzers_environmentalsubjectanalyzerconfig_tenant_unique"
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="geofenceanalyzerconfig",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "id"), name="analyzers_geofenceanalyzerconfig_tenant_unique"
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="immobilityanalyzerconfig",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "id"), name="analyzers_immobilityanalyzerconfig_tenant_unique"
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="lowspeedpercentileanalyzerconfig",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "id"), name="analyzers_lowspeedpercentileanalyzerconfig_tenant_unique"
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="lowspeedwilcoxanalyzerconfig",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "id"), name="analyzers_lowspeedwilcoxanalyzerconfig_tenant_unique"
+            ),
+        ),
+        migrations.AlterUniqueTogether(
+            name="observationannotator",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="subjectanalyzerresult",
+            unique_together=set(),
+        ),
+        migrations.AddConstraint(
+            model_name="observationannotator",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "id"), name="analyzers_observationannotator_tenant_unique"
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="subjectanalyzerresult",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "id"), name="analyzers_subjectanalyzerresult_tenant_unique"
             ),
         ),
     ]
