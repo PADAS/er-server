@@ -474,6 +474,7 @@ locals {
     "whitebelliedheron"         = "prod-asia"
     "roc"                       = "prod1"
     "reservapantanalparaguayo"  = "prod1"
+    "hojanueva"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
