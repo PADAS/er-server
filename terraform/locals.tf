@@ -474,6 +474,7 @@ locals {
     "whitebelliedheron"         = "prod-asia"
     "roc"                       = "prod1"
     "reservapantanalparaguayo"  = "prod1"
+    "mmnr"                      = "prod1"
     "hojanueva"                 = "prod1"
   }
 
