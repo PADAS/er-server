@@ -19,6 +19,7 @@ from django.utils.dateparse import parse_duration
 from core.models import DASTenant
 from utils.constants import regex
 from utils.tenant import TenantNotFoundException
+from utils.tenant.managers import UnsetDASTenantContextManager
 from utils.tenant.providers import TenantData
 
 logger = logging.getLogger(__name__)
@@ -242,13 +243,15 @@ class DASTenantManagement:
         if not tenant:
             tenant_data = self._get_tenant_from_tms(domain=self.domain)
             try:
-                tenant, _ = DASTenant.objects.get_or_create(id=tenant_data["id"], domain=tenant_data["domain"])
+                with UnsetDASTenantContextManager():
+                    tenant, _ = DASTenant.objects.get_or_create(id=tenant_data["id"], domain=tenant_data["domain"])
             except ValidationError:
                 raise TenantNotFoundException(domain=self.domain)
         return tenant
 
     def _get_existing_tenant(self):
-        return DASTenant.objects.filter(domain=self.domain).first()
+        with UnsetDASTenantContextManager():
+            return DASTenant.objects.filter(domain=self.domain).first()
 
     def _get_tenant_from_tms(self, domain: str):
         instance = TenantData(domain=domain)

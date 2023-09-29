@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 from core.models import DASTenant
 from utils.features import features
 from utils.tenant.exceptions import TenantNotFoundException
+from utils.tenant.managers import UnsetDASTenantContextManager
 from utils.tenant.providers import TenantData
 from utils.tenant.thread import set_tenant_settings
 
@@ -81,7 +82,9 @@ class TenantBaseCommand(BaseCommand):
 
     def _set_tenant_instance(self, domain):
         try:
-            tenant = DASTenant.objects.get(domain=domain)
+            with UnsetDASTenantContextManager():
+                tenant = DASTenant.objects.get(domain=domain)
+
             set_current_tenant(tenant=tenant)
             return tenant
         except DASTenant.DoesNotExist:
