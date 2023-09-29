@@ -474,6 +474,8 @@ locals {
     "whitebelliedheron"         = "prod-asia"
     "roc"                       = "prod1"
     "reservapantanalparaguayo"  = "prod1"
+    "langland"                  = "prod1"
+    "k9conservation"            = "prod1"
     "mmnr"                      = "prod1"
     "hojanueva"                 = "prod1"
   }
@@ -702,6 +704,7 @@ locals {
     "ezemvelo-turtlemonitoring" = 1
     "zimbali"                   = 1
     "reservapantanalparaguayo"  = 1
+    "k9conservation"            = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
