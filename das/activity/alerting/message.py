@@ -301,13 +301,15 @@ def render_event_alert_context(
             # different property & def titles, get alternative title
             key_display = schema_utils.find_display_value_for_key_in_definition(schema, k)
 
-        pretty_details[k] = {"title": key_display, "value": render_pretty_value(details[key_display])}
+        if key_display and key_display in details:
+            # ignore keys that are not in the schema
+            pretty_details[k] = {"title": key_display, "value": render_pretty_value(details[key_display])}
 
-        old_internal_value = event_details_updated_fields.get(k)
+            old_internal_value = event_details_updated_fields.get(k)
 
-        if old_internal_value:
-            old_internal_value = old_internal_value.get("old")
-            pretty_details[k]["old_value"] = render_pretty_value(old_internal_value)
+            if old_internal_value:
+                old_internal_value = old_internal_value.get("old")
+                pretty_details[k]["old_value"] = render_pretty_value(old_internal_value)
 
     priority_color = priority_label_colors.get(event.priority_label, priority_label_color_default)
 

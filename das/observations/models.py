@@ -1672,6 +1672,9 @@ def update_subject_status(
 def transform_additional_data(additional, transform_format):
     """Transform additional subject data for display."""
 
+    if not transform_format or not isinstance(transform_format, (list, tuple)):
+        return None
+
     device_attributes = []
     dests = []
     for tf in transform_format:
