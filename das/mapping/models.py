@@ -52,7 +52,6 @@ class Map(TenantModelMixin, TimestampedModel):
 
     class Meta:
         verbose_name = "Map Quicklink"
-        unique_together = ["id", "das_tenant"]
 
     def __str__(self):
         return self.name
@@ -75,7 +74,6 @@ class TileLayer(TenantModelMixin, TimestampedModel):
     class Meta:
         verbose_name = "Basemap"
         ordering = ["name"]
-        unique_together = ["id", "das_tenant"]
 
     def __str__(self):
         return self.name
@@ -105,7 +103,6 @@ class FeatureType(TenantModelMixin, TimestampedModel):
 
     class Meta:
         ordering = ["name"]
-        unique_together = ["id", "das_tenant"]
 
     def __str__(self):
         return self.name
@@ -144,7 +141,6 @@ class FeatureSet(TenantModelMixin, TimestampedModel):
 
     class Meta:
         ordering = ["name"]
-        unique_together = ["id", "das_tenant"]
 
     def __str__(self):
         return self.name
@@ -198,7 +194,6 @@ class SpatialFilesBase(TenantModelMixin, TimestampedModel):
 
     class Meta:
         abstract = True
-        unique_together = ["id", "das_tenant"]
 
     # Clean method is used for better error handling within the admin form
     # itself. To have the file data available, save method needs to be invoked.
@@ -527,7 +522,6 @@ class SpatialFeatureGroup(TenantModelMixin, TimestampedModel):
     class Meta:
         verbose_name = "Base Feature Group"
         ordering = ["name"]
-        unique_together = ["id", "das_tenant"]
 
     def __str__(self):
         return self.name
@@ -577,7 +571,6 @@ class DisplayCategory(TenantModelMixin, TimestampedModel):
         verbose_name = "Display Category"
         verbose_name_plural = "Display Categories"
         ordering = ["name"]
-        unique_together = ["id", "das_tenant"]
 
     def __str__(self):
         return self.name
@@ -765,9 +758,6 @@ class ArcgisGroup(TenantModelMixin, TimestampedModel, UUIDModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     tenant_id = "das_tenant_id"
 
-    class Meta:
-        unique_together = ["id", "das_tenant"]
-
     def __str__(self):
         return self.name
 
@@ -839,9 +829,6 @@ class ArcgisItem(TenantModelMixin, TimestampedModel):
     arcgis_config = TenantForeignKey(to=ArcgisConfiguration, on_delete=models.SET_NULL, null=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     tenant_id = "das_tenant_id"
-
-    class Meta:
-        unique_together = ["id", "das_tenant"]
 
     @property
     def features(self):

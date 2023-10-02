@@ -8,7 +8,6 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
-from django.db.models.constraints import UniqueConstraint
 from django.utils.translation import gettext_lazy as _
 
 from activity.models import Event
@@ -85,9 +84,6 @@ class SubjectAnalyzerConfig(TenantModelMixin, TimestampedModel):
     class Meta:
         abstract = True
         app_label = "analyzers"
-        constraints = [
-            UniqueConstraint(fields=["das_tenant", "id"], name="%(app_label)s_%(class)s_tenant_unique"),
-        ]
 
     analyzer_category = "generic"
 
@@ -131,11 +127,6 @@ class SubjectAnalyzerResult(TenantModelMixin, TimestampedModel):
 
     tenant_id = "das_tenant_id"
 
-    class Meta:
-        constraints = [
-            UniqueConstraint(fields=["das_tenant", "id"], name="%(app_label)s_%(class)s_tenant_unique"),
-        ]
-
     def __str__(self):
         _tmp_str = (
             f"Subject: {self.subject.name}, Values: {str(self.values)}, Title: {str(self.title)}, "
@@ -162,6 +153,3 @@ class Annotator(TenantModelMixin, TimestampedModel):
     class Meta:
         abstract = True
         app_label = "analyzers"
-        constraints = [
-            UniqueConstraint(fields=["das_tenant", "id"], name="%(app_label)s_%(class)s_tenant_unique"),
-        ]

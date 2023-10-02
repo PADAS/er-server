@@ -214,7 +214,7 @@ SERIALIZATION_MODULES = {"geojson": "core.serializers"}
 # createdb -T template_postgis das ENCODING 'utf8';
 DATABASES = {
     "default": {
-        "ENGINE": "django_multitenant.backends.postgresql",
+        "ENGINE": "utils.tenant.backends.postgis",
         "NAME": "das",
         "USER": "das",
         "HOST": env.str("DB_HOST", "postgis"),

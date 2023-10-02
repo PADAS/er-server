@@ -17,9 +17,6 @@ class SubjectSpeedProfile(TenantModelMixin, TimestampedModel):
 
     tenant_id = "das_tenant_id"
 
-    class Meta:
-        unique_together = ("id", "das_tenant")
-
 
 class SpeedDistro(TenantModelMixin, TimestampedModel):
     """
@@ -40,9 +37,6 @@ class SpeedDistro(TenantModelMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
     tenant_id = "das_tenant_id"
-
-    class Meta:
-        unique_together = ("id", "das_tenant")
 
     def update_percentiles(self, percentiles, trajectory_filter=None, end=None, ignore_zeroes=True):
         """Determine the speed distribution based on the current subject + schedule"""

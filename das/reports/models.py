@@ -23,9 +23,6 @@ class SourceProviderEvent(TenantModelMixin, TimestampedModel, UUIDModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     tenant_id = "das_tenant_id"
 
-    class Meta:
-        unique_together = ["id", "das_tenant"]
-
 
 class SourceEvent(TenantModelMixin, TimestampedModel, UUIDModel):
     source = TenantForeignKey(
@@ -42,6 +39,3 @@ class SourceEvent(TenantModelMixin, TimestampedModel, UUIDModel):
     )
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     tenant_id = "das_tenant_id"
-
-    class Meta:
-        unique_together = ["id", "das_tenant"]

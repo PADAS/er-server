@@ -77,7 +77,6 @@ class SourceProviderConfiguration(TenantModelMixin, TimestampedModel):
         verbose_name = "EarthRanger Track Configuration"
         constraints = [
             UniqueConstraint(
-                fields=["is_default", "das_tenant"], condition=Q(is_default=True), name="default_track_config"
+                fields=["das_tenant", "is_default"], condition=Q(is_default=True), name="default_track_config"
             ),
-            UniqueConstraint(fields=["id", "das_tenant"], name="tenant_id"),
         ]
