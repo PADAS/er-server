@@ -129,16 +129,12 @@ def fake_get_pool():
     return Connection("memory://").Pool(20)
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventView(BaseTestToolMixin, BaseAPITest):
     user_const = dict(last_name="last", first_name="first")
 
     def setUp(self):
         super().setUp()
-        das_tenant_management = DASTenantManagement(domain="domain.com")
-        tenant = das_tenant_management.get_or_create_tenant()
-        set_current_tenant(tenant)
-
         call_command("loaddata_with_tenant", "initial_eventdata")
         call_command("loaddata_with_tenant", "event_data_model")
         call_command("loaddata_with_tenant", "test_events_schema")
@@ -3598,6 +3594,9 @@ class TestEventView2(BaseTestToolMixin):
         assert segment.events.count() == 0
 
     def test_auto_add_report_to_patrols(self, five_patrol_segment_subject):
+        das_tenant_management = DASTenantManagement(domain="zoo.com")
+        tenant = das_tenant_management.get_or_create_tenant()
+        set_current_tenant(tenant)
         patrol = Patrol.objects.order_by("created_at").last()
         segment = patrol.patrol_segments.first()
         subject = patrol.patrol_segments.first().leader
