@@ -3,7 +3,7 @@ import re
 import uuid
 
 import simplejson as json
-from django_multitenant.mixins import TenantManagerMixin
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from django_multitenant.utils import get_current_tenant
 
 import django.db.transaction as transaction
@@ -70,7 +70,7 @@ class UserField(models.ForeignKey):
 
 
 def make_revision_model_name(model):
-    return "{0}Revision".format(model._meta.object_name)
+    return f"{model._meta.object_name}Revision"
 
 
 def get_revision_model(model):
@@ -250,6 +250,7 @@ class Revision(object):
                 null=True,
                 related_name="%(app_label)s_%(class)s",
             ),
+            "tenant_id": "das_tenant_id",
             "__str__": to_str,
             "__module__": model.__module__,
         }
@@ -275,7 +276,7 @@ class Revision(object):
         attrs = self.get_table_fields(model)
         attrs.update(Meta=type(str("Meta"), (), self.get_meta_options(model)))
         name = make_revision_model_name(model)
-        return type(name, (models.Model,), attrs)
+        return type(name, (TenantModelMixin, models.Model), attrs)
 
 
 class RevisionMixin(object):
