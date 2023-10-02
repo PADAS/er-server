@@ -49,6 +49,7 @@ from django.utils.translation import gettext_lazy as _
 
 from accounts.models.permissionset import PermissionSet
 from accounts.models.user import User
+from core.mixins import SerialNumberModelMixin
 from core.models import DASTenant, SingletonModel, TimestampedModel, UUIDModel
 from core.utils import static_image_finder
 from observations.models import Subject, SubjectGroup, SubjectStatus
@@ -762,7 +763,7 @@ class EventRelationship(TenantModelMixin, TimestampedModel):
         return result
 
 
-class Event(TenantModelMixin, RevisionMixin, TimestampedModel):
+class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, TimestampedModel):
     revision_ignore_fields = "sort_at"
     revision_follow_relations = ("activity.EventPhoto",)
 
