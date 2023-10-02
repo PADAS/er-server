@@ -51,8 +51,8 @@ class TenantFactory(factory.django.DjangoModelFactory):
         model = DASTenant
         django_get_or_create = ("id",)
 
-    id = factory.Faker("uuid4")
-    domain = factory.Faker("domain_name")
+    id = "c0973be2-8e11-4cb8-8463-897fb96391d0"
+    domain = "zoo.com"
 
 
 class PermissionSetFactory(factory.django.DjangoModelFactory):
@@ -94,6 +94,7 @@ class PatrolFactory(factory.django.DjangoModelFactory):
         model = Patrol
 
     title = fuzzy.FuzzyText(length=50)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class PatrolNoteFactory(factory.django.DjangoModelFactory):
@@ -209,6 +210,7 @@ class PatrolSegmentSubjectFactory(factory.django.DjangoModelFactory):
     patrol = factory.SubFactory(PatrolFactory)
     patrol_type = factory.SubFactory(PatrolTypeFactory)
     leader = factory.SubFactory(SubjectFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class PatrolSegmentUserFactory(factory.django.DjangoModelFactory):
@@ -289,6 +291,7 @@ class EventFactory(factory.django.DjangoModelFactory):
 
     title = fuzzy.FuzzyText(length=20)
     event_type = factory.SubFactory(EventTypeFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class EventDetailsFactory(factory.django.DjangoModelFactory):
@@ -297,6 +300,7 @@ class EventDetailsFactory(factory.django.DjangoModelFactory):
 
     event = factory.SubFactory(EventFactory)
     data = factory.LazyAttribute(lambda data: {"event_details": {}})
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class EventNoteFactory(factory.django.DjangoModelFactory):
@@ -326,6 +330,7 @@ class EventGeometryFactory(factory.django.DjangoModelFactory):
 
     geometry = FuzzyPolygon()
     event = factory.SubFactory(EventFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class AccessTokenFactory(factory.django.DjangoModelFactory):

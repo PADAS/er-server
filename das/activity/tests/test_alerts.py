@@ -287,7 +287,6 @@ class TestAlertsLimit:
         mock_set_key.assert_called_once_with(key=key, value=0, ttl=settings.ALERTS_RATE_LIMIT_DURATION_SECONDS)
         assert counter == 0
 
-    @override_settings(SERVER_FQDN="http://zoo.com")
     @pytest.mark.usefixtures("tenant_settings")
     def test_increment_alert_counter(self, superuser, monkeypatch, caplog, tenant_response):
         caplog.set_level(logging.INFO)
@@ -300,7 +299,7 @@ class TestAlertsLimit:
         key = KEY_ALERT_LIMIT.format(superuser.id)
 
         mock.assert_called_once_with(key, 1)
-        assert f"Site http://zoo.com message sent {NOTIFICATION_METHOD_EMAIL} alert" in caplog.text
+        assert f"Site zoo.com message sent {NOTIFICATION_METHOD_EMAIL} alert" in caplog.text
 
     @override_settings(ALERTS_RATE_LIMIT=20)
     @pytest.mark.usefixtures("tenant_settings")
