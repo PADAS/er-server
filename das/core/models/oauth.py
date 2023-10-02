@@ -11,7 +11,6 @@ from oauth2_provider.models import (
 )
 
 from django.db import models
-from django.db.models import UniqueConstraint
 
 from core.models import DASTenant
 
@@ -46,9 +45,6 @@ class DASAccessToken(TenantModelMixin, AbstractAccessToken):
     class Meta:
         verbose_name = "DAS Access Token"
         verbose_name_plural = "DAS Access Tokens"
-        constraints = [
-            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
-        ]
 
 
 class DASApplication(TenantModelMixin, AbstractApplication):
@@ -60,9 +56,6 @@ class DASApplication(TenantModelMixin, AbstractApplication):
     class Meta:
         verbose_name = "DAS Application"
         verbose_name_plural = "DAS Applications"
-        constraints = [
-            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
-        ]
 
 
 class DASGrant(TenantModelMixin, AbstractGrant):
@@ -75,9 +68,6 @@ class DASGrant(TenantModelMixin, AbstractGrant):
     class Meta:
         verbose_name = "DAS Grant"
         verbose_name_plural = "DAS Grants"
-        constraints = [
-            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
-        ]
 
 
 class DASIDToken(TenantModelMixin, AbstractIDToken):
@@ -95,9 +85,6 @@ class DASIDToken(TenantModelMixin, AbstractIDToken):
     class Meta:
         verbose_name = "DAS ID Token"
         verbose_name_plural = "DAS ID Tokens"
-        constraints = [
-            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
-        ]
 
 
 class DASRefreshToken(TenantModelMixin, AbstractRefreshToken):
@@ -118,6 +105,3 @@ class DASRefreshToken(TenantModelMixin, AbstractRefreshToken):
     class Meta:
         verbose_name = "DAS Refresh Token"
         verbose_name_plural = "DAS Refresh Tokens"
-        constraints = [
-            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
-        ]

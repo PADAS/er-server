@@ -3,6 +3,14 @@
 import django.db.models.deletion
 from django.db import migrations, models
 
+from utils.migrations.update_primary_key import add_tenant_to_primary_key
+
+usercontent_models = ["FileContent", "ImageFileContent"]
+
+
+def regenerate_primary_keys(apps, schema_editor):
+    add_tenant_to_primary_key("usercontent", usercontent_models)
+
 
 class Migration(migrations.Migration):
     dependencies = [
@@ -33,16 +41,13 @@ class Migration(migrations.Migration):
                 to="core.dastenant",
             ),
         ),
-        migrations.AddConstraint(
-            model_name="filecontentrevision",
-            constraint=models.UniqueConstraint(
-                fields=("das_tenant", "id"), name="usercontent_filecontentrevision_tenant_unique"
-            ),
+        migrations.AlterUniqueTogether(
+            name="filecontent",
+            unique_together=set(),
         ),
-        migrations.AddConstraint(
-            model_name="imagefilecontentrevision",
-            constraint=models.UniqueConstraint(
-                fields=("das_tenant", "id"), name="usercontent_imagefilecontentrevision_tenant_unique"
-            ),
+        migrations.AlterUniqueTogether(
+            name="imagefilecontent",
+            unique_together=set(),
         ),
+        migrations.RunPython(code=regenerate_primary_keys, reverse_code=migrations.RunPython.noop),
     ]

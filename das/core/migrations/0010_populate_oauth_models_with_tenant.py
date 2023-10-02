@@ -8,10 +8,11 @@ from core.utils import DASTenantManagement, update_tenant_models
 
 logger = logging.getLogger(__name__)
 
+core_models = ["DASApplication", "DASAccessToken", "DASGrant", "DASIDToken", "DASRefreshToken"]
+
 
 def populate_tenant_into_models(apps, schema_editor):
-    models_names = ["DASAccessToken", "DASApplication", "DASGrant", "DASIDToken", "DASRefreshToken"]
-    class_models = [apps.get_model("core", model_name) for model_name in models_names]
+    class_models = [apps.get_model("core", model_name) for model_name in core_models]
 
     das_tenant_management = DASTenantManagement(domain=settings.SERVER_FQDN)
     tenant = das_tenant_management.get_or_create_tenant()
@@ -31,5 +32,5 @@ class Migration(migrations.Migration):
         migrations.RunPython(
             populate_tenant_into_models,
             migrations.RunPython.noop,
-        )
+        ),
     ]

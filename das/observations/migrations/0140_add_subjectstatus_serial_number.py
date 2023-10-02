@@ -38,7 +38,7 @@ class Migration(migrations.Migration):
             model_name=MODEL_NAME.lower(),
             name=SERIAL_COLUMN,
             field=models.IntegerField(
-                default=generate_subject_status_serial_number, null=False, verbose_name="Serial Number"
+                default=generate_subject_status_serial_number, null=True, verbose_name="Serial Number"
             ),
         ),
         migrations.RunPython(refresh_patrols_view),
