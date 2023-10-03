@@ -14,6 +14,7 @@ import django.contrib.auth.models
 from django.conf import settings
 from django.conf.urls import re_path
 from django.contrib import admin
+from django.contrib.admin.checks import BaseModelAdminChecks
 from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import PasswordResetForm
@@ -26,6 +27,7 @@ from django.utils.translation import gettext_lazy as _
 
 from accounts.models import PermissionSet, User
 from accounts.utils import patrol_mgmt_permissions
+from core.admin import ModelAdminDisplayingManyToManyFieldMixin
 from core.common import TIMEZONE_USED
 from observations.models import Subject
 from utils.admin import DefaultFilterMixin, FieldSetElementMixin
@@ -50,8 +52,14 @@ GrantAdmin = get_grant_admin_class()
 RefreshTokenAdmin = get_refresh_token_admin_class()
 
 
+class PermissionSetAdminChecks(BaseModelAdminChecks):
+    def _check_field_spec_item(self, obj, field_name, label):
+        return []  # This disables error admin.E013
+
+
 @admin.register(PermissionSet)
-class PermissionSetAdmin(DjangoGroupAdmin):
+class PermissionSetAdmin(ModelAdminDisplayingManyToManyFieldMixin, DjangoGroupAdmin):
+    checks_class = PermissionSetAdminChecks
     form = PermissionSetAdminForm
     list_display = ("name", "all_permissions", "all_users")
     ordering = ("name",)

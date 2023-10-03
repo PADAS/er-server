@@ -3,6 +3,8 @@ import re
 import uuid
 
 import simplejson as json
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
+from django_multitenant.utils import get_current_tenant
 
 import django.db.transaction as transaction
 import django.dispatch
@@ -12,9 +14,10 @@ from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.core import serializers
-from django.db.models import Max
+from django.db.models import Max, UniqueConstraint
 
 from activity.constants import PRIORITY_CHOICES
+from core.models import DASTenant
 from core.utils import is_uuid
 from observations.models import Source, Subject
 from utils.text import humanize_field_name
@@ -25,7 +28,7 @@ relation_deleted = django.dispatch.Signal(providing_args=["relation", "instance"
 User = get_user_model()
 
 
-class RevisionManager(models.Manager):
+class RevisionManager(TenantManagerMixin, models.Manager):
     def __init__(self, model, instance=None):
         super().__init__()
         self.model = model
@@ -67,7 +70,7 @@ class UserField(models.ForeignKey):
 
 
 def make_revision_model_name(model):
-    return "{0}Revision".format(model._meta.object_name)
+    return f"{model._meta.object_name}Revision"
 
 
 def get_revision_model(model):
@@ -174,7 +177,12 @@ class Revision(object):
             max_sequence = obj.get("max_sequence") or 0
 
             revision = manager.create(
-                object_id=instance.id, sequence=max_sequence + 1, action=action, user=user, data=data
+                object_id=instance.id,
+                sequence=max_sequence + 1,
+                action=action,
+                user=user,
+                data=data,
+                das_tenant=get_current_tenant(),
             )
 
         instance.revision_sequence = revision.sequence
@@ -235,6 +243,14 @@ class Revision(object):
             "sequence": models.IntegerField(help_text="Revision sequence"),
             "user": user_field,
             "data": models.JSONField(default=dict),
+            "das_tenant": models.ForeignKey(
+                DASTenant,
+                on_delete=models.CASCADE,
+                blank=True,
+                null=True,
+                related_name="%(app_label)s_%(class)s",
+            ),
+            "tenant_id": "das_tenant_id",
             "__str__": to_str,
             "__module__": model.__module__,
         }
@@ -246,6 +262,9 @@ class Revision(object):
                 "sequence",
             ),
             "app_label": model._meta.app_label,
+            "constraints": [
+                UniqueConstraint(fields=["das_tenant", "id"], name="%(app_label)s_%(class)s_tenant_unique"),
+            ],
         }
         from django.db.models.options import DEFAULT_NAMES
 
@@ -257,7 +276,7 @@ class Revision(object):
         attrs = self.get_table_fields(model)
         attrs.update(Meta=type(str("Meta"), (), self.get_meta_options(model)))
         name = make_revision_model_name(model)
-        return type(name, (models.Model,), attrs)
+        return type(name, (TenantModelMixin, models.Model), attrs)
 
 
 class RevisionMixin(object):

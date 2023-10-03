@@ -8,6 +8,7 @@ from utils.tenant.exceptions import (
     TenantNotFoundException,
     TenantNotFoundInLocalThreadException,
 )
+from utils.tenant.managers import UnsetDASTenantContextManager
 from utils.tenant.providers import TenantData
 from utils.tenant.thread import get_tenant_settings, set_tenant_settings
 
@@ -95,9 +96,10 @@ class TenantCommandMixin:
 
     def _set_tenant_instance(self, tenant_id):
         try:
-            tenant = DASTenant.objects.get(id=tenant_id)
-            set_current_tenant(tenant=tenant)
-            return tenant
+            with UnsetDASTenantContextManager():
+                tenant = DASTenant.objects.get(id=tenant_id)
+                set_current_tenant(tenant=tenant)
+                return tenant
         except DASTenant.DoesNotExist:
             raise CommandError(f"Tenant with id '{tenant_id}' not found.")
         except Exception as e:

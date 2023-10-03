@@ -13,6 +13,14 @@ TMS_API = {
     "CLIENT": "core.tms.TestClient",
 }
 
+MEMORY_STORE = {
+    "CLIENT": "utils.persistent.RedisStorageReadOnly",
+    "HOST": "redis",
+    "PORT": "6379",
+    "DATABASE": "10",
+    "API_KEY": "",
+}
+
 if env.bool("IS_OAUTH2_PROVIDER_MIGRATION", False):
     del (
         OAUTH2_PROVIDER_ACCESS_TOKEN_MODEL,

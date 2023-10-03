@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from core.models import DASTenant
+from utils.tenant.managers import UnsetDASTenantContextManager
 from utils.tenant.providers import TenantData
 
 
@@ -14,7 +15,8 @@ class Command(BaseCommand):
         domain = tenant_data["domain"]
 
         try:
-            obj, created = DASTenant.objects.get_or_create(id=tenant_id, domain=domain)
+            with UnsetDASTenantContextManager():
+                obj, created = DASTenant.objects.get_or_create(id=tenant_id, domain=domain)
             if created:
                 self.stdout.write(self.style.SUCCESS("Tenant for domain '%s' created successfully" % domain))
         except DASTenant.DoesNotExist:

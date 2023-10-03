@@ -6,7 +6,7 @@ from celery_once import QueueOnce
 from core.models import DASTenant
 from utils.features import features
 from utils.tenant import get_tenant_settings
-from utils.tenant.managers import TenantContextManager
+from utils.tenant.managers import TenantContextManager, UnsetDASTenantContextManager
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,10 @@ class OverAllTenantTask(QueueOnce):
     def __call__(self, *args, **kwargs):
         if features.tms.is_on():
             # TODO: update with the TMS call to get all tenants
-            for tenant in DASTenant.objects.all():
+            with UnsetDASTenantContextManager():
+                tenants = list(DASTenant.objects.all())
+
+            for tenant in tenants:
                 with TenantContextManager(tenant.domain):
                     logger.info("Running: %s for Tenant domain: %s" % (self.name, tenant.domain))
                     self.run(*args, **kwargs)

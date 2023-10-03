@@ -79,8 +79,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
         "event_type",
         "title",
         "_latitude",
-        "_longitude",
-        "das_tenant",
+        "_longitude"        
     )
     ordering = ("serial_number",)
     sortable_by = (
@@ -189,8 +188,7 @@ class EventTypeAdmin(admin.ModelAdmin):
         "_default_priority_display",
         "_icon_display",
         "default_state",
-        "is_active",
-        "das_tenant",
+        "is_active"        
     )
     list_editable = (
         "ordernum",
@@ -288,7 +286,7 @@ class EventTypeAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventSource)
 class EventSourceAdmin(admin.ModelAdmin):
-    list_display = ("display", "eventprovider", "event_type", "is_active", "das_tenant")
+    list_display = ("display", "eventprovider", "event_type", "is_active")
     ordering = list_display
     readonly_fields = (
         "external_event_type",
@@ -357,7 +355,7 @@ class EventSourceInline(InlineExtraDynamicMixin, admin.TabularInline):
 
 @admin.register(models.EventProvider)
 class EventProviderAdmin(admin.ModelAdmin):
-    list_display = ("display", "owner", "is_active", "das_tenant")
+    list_display = ("display", "owner", "is_active")
     ordering = list_display
     readonly_fields = ("id",)
 
@@ -415,14 +413,14 @@ class EventProviderAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventCategory)
 class EventCategoryAdmin(admin.ModelAdmin):
-    list_display = ("display", "value", "ordernum", "flag", "is_active", "das_tenant")
+    list_display = ("display", "value", "ordernum", "flag", "is_active")
     ordering = ("display", "value", "ordernum", "flag", "is_active")
 
 
 @admin.register(models.AlertRule)
 class AlertRuleAdmin(admin.ModelAdmin):
     readonly_fields = ("id",)  # 'conditions', 'schedule',)
-    list_display = ("owner_username", "title", "is_active", "ordernum", "das_tenant")
+    list_display = ("owner_username", "title", "is_active", "ordernum")
     ordering = (
         "owner",
         "title",
@@ -482,7 +480,7 @@ class AlertRuleAdmin(admin.ModelAdmin):
 @admin.register(models.NotificationMethod)
 class NotificationMethodAdmin(admin.ModelAdmin):
     readonly_fields = ("id",)
-    list_display = ("owner_username", "method", "value", "is_active", "das_tenant")
+    list_display = ("owner_username", "method", "value", "is_active")
     ordering = ("owner", "method", "value", "is_active")
 
     def owner_username(self, instance):
@@ -496,7 +494,7 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
     # NOTE: This class relies on celery.
 
     change_list_template = "admin/activity/eventtype/event_detail_change_list.html"
-    list_display = ("performed_by", "task_mode", "started_at", "ended_at", "maintenance_status", "das_tenant")
+    list_display = ("performed_by", "task_mode", "started_at", "ended_at", "maintenance_status")
     fields = ("id", "performed_by", "task_mode", "started_at", "ended_at", "error_details")
     ordering = ("-started_at",)
 
@@ -575,7 +573,7 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 class PatrolTypeAdmin(admin.ModelAdmin):
     form = PatrolTypeForm
     readonly_fields = ("id",)
-    list_display = ("display", "value", "ordernum", "_icon_display", "is_active", "das_tenant")
+    list_display = ("display", "value", "ordernum", "_icon_display", "is_active")
     search_fields = ("display", "value")
     list_editable = (
         "ordernum",
@@ -700,8 +698,7 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
         "start_location",
         "scheduled_end_date",
         "actual_end_date",
-        "end_location",
-        "das_tenant",
+        "end_location"        
     )
 
     fields = ("serial_number", "title", "priority", "patrol_status")

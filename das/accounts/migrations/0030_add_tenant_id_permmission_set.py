@@ -18,4 +18,15 @@ class Migration(migrations.Migration):
                 blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="core.dastenant"
             ),
         ),
+        migrations.AlterField(
+            model_name="permissionset",
+            name="name",
+            field=models.CharField(max_length=80, verbose_name="name"),
+        ),
+        migrations.AddConstraint(
+            model_name="permissionset",
+            constraint=models.UniqueConstraint(
+                fields=("name", "das_tenant"), name="accounts_permissionset_tenant_unique"
+            ),
+        ),
     ]

@@ -32,6 +32,7 @@ from utils.categories import should_apply_geographic_features
 from utils.gis import convert_to_point
 from utils.tenant import get_tenant_settings
 from utils.tenant.exceptions import TenantNotFoundException
+from utils.tenant.managers import UnsetDASTenantContextManager
 from utils.tenant.providers import post_tenant_to_thread
 
 logger = logging.getLogger(__name__)
@@ -258,7 +259,9 @@ class TenantSettingsMiddleware:
     def __call__(self, request):
         try:
             post_tenant_to_thread(domain=request.get_host())
-            set_current_tenant(DASTenant.objects.get(id=get_tenant_settings().id))
+            with UnsetDASTenantContextManager():
+                tenant = DASTenant.objects.get(id=get_tenant_settings().id)
+            set_current_tenant(tenant)
         except TenantNotFoundException as ex:
             return JsonResponse(
                 data={

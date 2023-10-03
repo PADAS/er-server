@@ -19,6 +19,7 @@ from django.utils.dateparse import parse_duration
 from core.models import DASTenant
 from utils.constants import regex
 from utils.tenant import TenantNotFoundException
+from utils.tenant.managers import UnsetDASTenantContextManager
 from utils.tenant.providers import TenantData
 
 logger = logging.getLogger(__name__)
@@ -242,13 +243,15 @@ class DASTenantManagement:
         if not tenant:
             tenant_data = self._get_tenant_from_tms(domain=self.domain)
             try:
-                return DASTenant.objects.create(id=tenant_data["id"], domain=tenant_data["domain"])
+                with UnsetDASTenantContextManager():
+                    tenant, _ = DASTenant.objects.get_or_create(id=tenant_data["id"], domain=tenant_data["domain"])
             except ValidationError:
                 raise TenantNotFoundException(domain=self.domain)
         return tenant
 
     def _get_existing_tenant(self):
-        return DASTenant.objects.filter(domain=self.domain).first()
+        with UnsetDASTenantContextManager():
+            return DASTenant.objects.filter(domain=self.domain).first()
 
     def _get_tenant_from_tms(self, domain: str):
         instance = TenantData(domain=domain)
@@ -258,5 +261,5 @@ class DASTenantManagement:
 def update_tenant_models(models: list, tenant) -> None:
     # INFO Deprecated this function after all tenant will be consolidated in a one single database.
     for class_model in models:
-        updated_objects = class_model.objects.all().update(das_tenant=tenant)
+        updated_objects = class_model.objects.filter(das_tenant__isnull=True).update(das_tenant=tenant)
         logger.info("%d objects updated of model %s.", updated_objects, class_model._meta.object_name)
