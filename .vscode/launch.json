@@ -12,16 +12,41 @@
 
             "module": "pytest",
             "args": [
-
+                "--reuse-db",
+                "--ds",
+                "test_scripts.unittest_settings"
             ],
-            "cwd": "${workspaceRoot}",
+            "cwd": "${workspaceRoot}/das",
             "env": {},
-            "envFile": "${workspaceRoot}/.env",
             "debugOptions": [
                 "WaitOnAbnormalExit",
                 "WaitOnNormalExit",
                 "RedirectOutput"
             ]
+        },
+        {
+            "name": "PyTest --createdb",
+            "type": "python",
+            "request": "launch",
+            "stopOnEntry": false,
+            "module": "pytest",
+            "args": [
+                "--create-db",
+                "--reuse-db",
+                "--ds",
+                "test_scripts.unittest_settings",
+                "core/tests/test_utils.py"
+            ],
+            "cwd": "${workspaceRoot}/das",
+            "env": {
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+            },
+            "debugOptions": [
+                "WaitOnAbnormalExit",
+                "WaitOnNormalExit",
+                "RedirectOutput"
+            ]
+
         },
         {
             "name": "Django:Run",
@@ -31,7 +56,7 @@
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
                 "ROOT_LOGGING_LEVEL": "INFO"
             },
             "args": [
@@ -49,7 +74,7 @@
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
                 "LOGGING_LEVEL": "INFO"
             },
             "args": [
@@ -95,7 +120,10 @@
                 "600",
                 "--log-level",
                 "info"
-            ]
+            ],
+            "env":{
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
+            }
         },
         {
             "name": "ER Workers",
@@ -123,7 +151,7 @@
             ],
             //"postDebugTask": "killdebugger",
             "env":{
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
                 "GEVENT_SUPPORT": "True",
                 "LOGGING_LEVEL": "INFO"
             }
@@ -138,8 +166,10 @@
             "args": [
                 "message_queue_listeners"
             ],
-            "django": true
-        },
+            "django": true,
+            "env":{
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
+            }
         {
             "name": "Django:RunRT",
             "type": "python",
@@ -155,6 +185,9 @@
                 "--noreload",
                 "--nothreading"
             ],
+            "env":{
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
+            }
             "django": true
         },
         {
@@ -168,7 +201,10 @@
             "args": [
                 "shell"
             ],
-            "django": true
+            "django": true,
+            "env":{
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
+            }
         }
 
     ]
