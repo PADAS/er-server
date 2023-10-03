@@ -564,64 +564,184 @@ class Migration(migrations.Migration):
                 on_delete=django.db.models.deletion.PROTECT, to="activity.membershiptype"
             ),
         ),
-        migrations.AlterUniqueTogether(
-            name="event",
-            unique_together={("id", "das_tenant")},
+        migrations.RemoveIndex(
+            model_name="event",
+            name="activity_ev_created_bade74_idx",
+        ),
+        migrations.RemoveIndex(
+            model_name="event",
+            name="activity_ev_updated_1568c9_idx",
+        ),
+        migrations.RemoveIndex(
+            model_name="event",
+            name="activity_ev_event_t_28b799_idx",
+        ),
+        migrations.RemoveIndex(
+            model_name="eventnotification",
+            name="activity_ev_event_i_172cfd_idx",
+        ),
+        migrations.RemoveIndex(
+            model_name="eventtype",
+            name="activity_ev_geometr_48865d_idx",
+        ),
+        migrations.RemoveIndex(
+            model_name="eventtype",
+            name="activity_ev_is_acti_621e37_idx",
+        ),
+        migrations.RemoveIndex(
+            model_name="eventtype",
+            name="activity_ev_is_coll_ea95ac_idx",
         ),
         migrations.AlterUniqueTogether(
-            name="eventattachment",
-            unique_together={("id", "das_tenant")},
+            name="community",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventcategory",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventclass",
+            unique_together=set(),
         ),
         migrations.AlterUniqueTogether(
             name="eventclassfactor",
-            unique_together={("eventclass", "eventfactor"), ("id", "das_tenant")},
+            unique_together=set(),
         ),
         migrations.AlterUniqueTogether(
-            name="eventdetails",
-            unique_together={("id", "das_tenant")},
+            name="eventfactor",
+            unique_together=set(),
         ),
         migrations.AlterUniqueTogether(
-            name="eventfile",
-            unique_together={("id", "das_tenant")},
+            name="eventfilter",
+            unique_together=set(),
         ),
         migrations.AlterUniqueTogether(
-            name="eventnote",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="eventnotification",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="eventphoto",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="eventprovider",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="eventrelatedsegments",
-            unique_together={("id", "das_tenant")},
+            name="eventrelatedsubject",
+            unique_together=set(),
         ),
         migrations.AlterUniqueTogether(
             name="eventrelationship",
-            unique_together={("type", "from_event", "to_event"), ("id", "das_tenant")},
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="eventrelationshiptype",
+            unique_together=set(),
         ),
         migrations.AlterUniqueTogether(
             name="eventsource",
-            unique_together={("id", "das_tenant"), ("eventprovider", "external_event_type")},
+            unique_together=set(),
         ),
         migrations.AlterUniqueTogether(
             name="eventsourceevent",
-            unique_together={("eventsource", "external_event_id"), ("id", "das_tenant")},
+            unique_together=set(),
         ),
         migrations.AlterUniqueTogether(
-            name="eventtype",
-            unique_together={("id", "das_tenant")},
+            name="membershiptype",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="patrol",
+            unique_together=set(),
         ),
         migrations.AlterUniqueTogether(
             name="patrolsegmentmembership",
-            unique_together={("type", "patrol_segment", "person"), ("id", "das_tenant")},
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="patroltype",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="refreshrecreateeventdetailview",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="team",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="teammembership",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="tsvectormodel",
+            unique_together=set(),
+        ),
+        migrations.AddIndex(
+            model_name="event",
+            index=models.Index(fields=["das_tenant", "created_at"], name="activity_ev_das_ten_6c433b_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="event",
+            index=models.Index(fields=["das_tenant", "updated_at"], name="activity_ev_das_ten_2903cd_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="event",
+            index=models.Index(fields=["das_tenant", "event_time"], name="activity_ev_das_ten_2223fe_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="eventnotification",
+            index=models.Index(fields=["das_tenant", "event"], name="activity_ev_das_ten_7f5afa_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="eventtype",
+            index=models.Index(fields=["das_tenant", "geometry_type"], name="activity_ev_das_ten_5a5d52_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="eventtype",
+            index=models.Index(fields=["das_tenant", "is_active"], name="activity_ev_das_ten_e33f6e_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="eventtype",
+            index=models.Index(fields=["das_tenant", "is_collection"], name="activity_ev_das_ten_db1945_idx"),
+        ),
+        migrations.AddConstraint(
+            model_name="eventclassfactor",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "eventclass", "eventfactor"),
+                name="activity_eventclassfactor_tenant_class_factor_unique",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="eventrelatedsubject",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "event", "subject"),
+                name="activity_eventrelatedsubject_tenant_event_subject_unique",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="eventrelationship",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "type", "from_event", "to_event"),
+                name="activity_eventrelationship_tenant_type_event_unique",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="eventsource",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "eventprovider", "external_event_type"),
+                name="activity_eventsource_tenant_provider_unique",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="eventsourceevent",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "eventsource", "external_event_id"),
+                name="activity_eventsourceevent_tenant_source_unique",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="patrolsegmentmembership",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "type", "patrol_segment", "person"),
+                name="activity_patrolsegmentmembership_tenant_type_unique",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="teammembership",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "type", "team", "person"), name="activity_teammembership_tenant_type_team_unique"
+            ),
         ),
     ]

@@ -30,6 +30,3 @@ class EnvironmentalSubjectAnalyzerConfig(SubjectAnalyzerConfig):
         abstract = False
         verbose_name = _("Google Earth Engine Analyzer")
         verbose_name_plural = _("Google Earth Engine Analyzers")
-        # constraints = [
-        #    UniqueConstraint(fields=["das_tenant", "id"], name="%(app_label)s_%(class)s_tenant_unique"),
-        # ]

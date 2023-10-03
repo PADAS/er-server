@@ -117,9 +117,6 @@ class SourcePlugin(TenantModelMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     tenant_id = "das_tenant_id"
 
-    class Meta:
-        unique_together = ["id", "das_tenant"]
-
     def execute(self, target=None):
         """
         Run basic logic to fetch new observations for the associated source.
@@ -207,7 +204,6 @@ class TrackingPlugin(TenantModelMixin, TimestampedModel):
 
     class Meta:
         abstract = True
-        unique_together = ["id", "das_tenant"]
 
     source_plugin_reverse_relation = None
 

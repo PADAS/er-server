@@ -14,7 +14,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.core import serializers
-from django.db.models import Max, UniqueConstraint
+from django.db.models import Max
 
 from activity.constants import PRIORITY_CHOICES
 from core.models import DASTenant
@@ -262,9 +262,6 @@ class Revision(object):
                 "sequence",
             ),
             "app_label": model._meta.app_label,
-            "constraints": [
-                UniqueConstraint(fields=["das_tenant", "id"], name="%(app_label)s_%(class)s_tenant_unique"),
-            ],
         }
         from django.db.models.options import DEFAULT_NAMES
 

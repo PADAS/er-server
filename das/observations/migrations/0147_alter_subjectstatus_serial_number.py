@@ -2,6 +2,37 @@
 
 from django.db import migrations, models
 
+from utils.migrations.update_primary_key import add_tenant_to_primary_key
+
+observations_models = [
+    "SourceGroup",
+    "SourceProvider",
+    "Source",
+    "Observation",
+    "SocketClient",
+    "SubjectSource",
+    "SubjectSourceSummary",
+    "SubjectType",
+    "SubjectSubType",
+    "SubjectTrackSegmentFilter",
+    "SubjectGroup",
+    "Subject",
+    "SubjectSummary",
+    "SubjectPositionSummary",
+    "SubjectStatus",
+    "SubjectStatusLatest",
+    "UserSession",
+    "Region",
+    "SubjectMaximumSpeed",
+    "GPXTrackFile",
+    "Message",
+    "Announcement",
+]
+
+
+def regenerate_primary_keys(apps, schema_editor):
+    add_tenant_to_primary_key("observations", observations_models)
+
 
 class Migration(migrations.Migration):
     dependencies = [
@@ -14,4 +45,5 @@ class Migration(migrations.Migration):
             name="serial_number",
             field=models.IntegerField(verbose_name="Serial Number"),
         ),
+        migrations.RunPython(code=regenerate_primary_keys, reverse_code=migrations.RunPython.noop),
     ]

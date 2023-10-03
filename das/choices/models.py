@@ -64,11 +64,6 @@ class DynamicChoice(TenantModelMixin, UUIDModel):
 
     tenant_id = "das_tenant_id"
 
-    class Meta:
-        constraints = [
-            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
-        ]
-
 
 class SoftDeleteModel(TenantModelMixin, models.Model):
     delete_on = models.DateTimeField(blank=True, null=True)
@@ -85,7 +80,6 @@ class SoftDeleteModel(TenantModelMixin, models.Model):
 
     class Meta:
         abstract = True
-        unique_together = (("id", "das_tenant"),)
 
     def disable(self):
         self.delete_on = timezone.now()
@@ -123,9 +117,10 @@ class Choice(SoftDeleteModel):
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     class Meta:
-        unique_together = (("model", "field", "value"),)
         constraints = [
-            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
+            UniqueConstraint(
+                fields=["das_tenant", "model", "field", "value"], name="%(app_label)s_%(class)s_tenant_model_unique"
+            ),
         ]
 
     def __str__(self):
@@ -167,11 +162,6 @@ class SubChoiceOf(TenantModelMixin, UUIDModel):
     )
 
     tenant_id = "das_tenant_id"
-
-    class Meta:
-        constraints = [
-            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
-        ]
 
 
 class DisableChoice(Choice):
