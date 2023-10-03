@@ -1,9 +1,8 @@
 import datetime
 import logging
 
-from django_multitenant.utils import get_current_tenant, set_current_tenant
+from django_multitenant.utils import get_current_tenant
 
-from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
@@ -24,11 +23,11 @@ from activity.models import (
     PatrolNote,
     PatrolSegment,
 )
-from core.utils import DASTenantManagement
 from das_server import celery, pubsub
 from usercontent.tasks import imagefile_rendered
 from utils.features import features
 from utils.tenant import get_tenant_settings
+from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 
 logger = logging.getLogger(__name__)
 
@@ -176,17 +175,15 @@ def update_patrolstate(sender, instance, **kwargs):
 
 @receiver(post_save, sender=EventCategory)
 def ensure_perms_exist(sender, **kwargs):
+    if not get_current_tenant():
+        raise TenantNotFoundInLocalThreadException()
+
     if kwargs.get("created", False):
         content_type = ContentType.objects.get(app_label="activity", model="event")
         category_name = kwargs["instance"].value
 
         kwargs["instance"].display
         permissionset_name = kwargs["instance"].auto_permissionset_name
-
-        if not get_current_tenant():
-            das_tenant_management = DASTenantManagement(domain=settings.SERVER_FQDN)
-            tenant = das_tenant_management.get_or_create_tenant()
-            set_current_tenant(tenant)
 
         permissionset, _ = PermissionSet.objects.get_or_create(name=permissionset_name)
 
@@ -200,16 +197,15 @@ def ensure_perms_exist(sender, **kwargs):
 
 @receiver(post_save, sender=EventCategory)
 def ensure_geographic_perms_exists(sender, **kwargs):
+    if not get_current_tenant():
+        raise TenantNotFoundInLocalThreadException()
+
     if kwargs.get("created", False):
         content_type = ContentType.objects.get(app_label="activity", model="event")
         category_name = kwargs["instance"].value
 
         permission_set_name = kwargs["instance"].auto_geographic_permission_set_name
 
-        if not get_current_tenant():
-            das_tenant_management = DASTenantManagement(domain=settings.SERVER_FQDN)
-            tenant = das_tenant_management.get_or_create_tenant()
-            set_current_tenant(tenant)
         permission_set, _ = PermissionSet.objects.get_or_create(name=permission_set_name)
 
         for operation in ["add", "view", "change", "delete"]:

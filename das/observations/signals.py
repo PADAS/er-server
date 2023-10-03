@@ -1,9 +1,8 @@
 import logging
 
-from django_multitenant.utils import get_current_tenant, set_current_tenant
+from django_multitenant.utils import get_current_tenant
 
 from django.apps import apps
-from django.conf import settings
 from django.contrib.auth import models
 from django.contrib.auth.management import _get_all_permissions
 from django.contrib.auth.models import Permission
@@ -16,7 +15,6 @@ from django.db.models.signals import post_delete, post_migrate, post_save, pre_d
 from django.dispatch import receiver
 
 from accounts.models import PermissionSet
-from core.utils import DASTenantManagement
 from das_server import pubsub
 from observations.models import (
     Announcement,
@@ -31,6 +29,7 @@ from observations.models import (
 )
 from observations.servicesutils import SOURCE_PROVIDER_2WAY_MSG_KEY
 from observations.utils import is_observation_stationary_subject
+from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 
 logger = logging.getLogger(__name__)
 
@@ -117,9 +116,8 @@ post_migrate.connect(create_proxy_permissions)
 
 def create_view_permissionset(permission_name):
     if not get_current_tenant():
-        das_tenant_management = DASTenantManagement(domain=settings.SERVER_FQDN)
-        tenant = das_tenant_management.get_or_create_tenant()
-        set_current_tenant(tenant)
+        raise TenantNotFoundInLocalThreadException()
+
     permission_set, _ = PermissionSet.objects.get_or_create(name=permission_name)
 
     for codename in ["view_real_time", "view_subject", "subscribe_alerts", "view_subjectgroup"]:

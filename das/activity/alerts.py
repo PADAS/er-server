@@ -27,7 +27,7 @@ def create_alerts_permissionset(tenant=None):
         "delete_alertrule": "Can delete alert rule",
     }
 
-    permission_set = PermissionSet.objects.create(
+    permission_set, _ = PermissionSet.objects.get_or_create(
         id=ALERT_RULES_PERMISSIONSET_ID,
         name="Alert Rule Permissions",
         das_tenant=tenant,

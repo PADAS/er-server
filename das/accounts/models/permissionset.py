@@ -1,16 +1,26 @@
 import uuid
 
+from django_multitenant.mixins import TenantModelMixin
+
 import django.db.models as models
 from django.contrib.auth.models import Permission
+from django.db.models import UniqueConstraint
 from django.utils.translation import gettext_lazy as _
 
-from core.models import HierarchyManager, HierarchyModel, TimestampedModel
+from core.models import (
+    DASTenant,
+    HierarchyManager,
+    HierarchyModel,
+    TimestampedModel,
+    UUIDModel,
+)
 
 
 class PermissionSetManager(HierarchyManager):
     """
     The manager for the accounts PermissionSet model.
     """
+
     use_in_migrations = True
 
     def get_by_natural_key(self, name):
@@ -34,12 +44,14 @@ class PermissionSet(HierarchyModel, TimestampedModel):
     members-only portion of your site, or sending them members-only email
     messages.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(_('name'), max_length=80, unique=True)
+    name = models.CharField(_("name"), max_length=80)
     permissions = models.ManyToManyField(
-        Permission,
-        blank=True,
-        related_name='permission_sets',
+        "auth.permission",
+        related_name="permission_sets",
+        through="accounts.PermissionSetPermission",
+        through_fields=("permissionset", "permission"),
     )
 
     objects = PermissionSetManager()
@@ -48,8 +60,29 @@ class PermissionSet(HierarchyModel, TimestampedModel):
         return (self.name,)
 
     class Meta:
-        verbose_name = _('permission set')
-        verbose_name_plural = _('permission sets')
+        constraints = [
+            UniqueConstraint(fields=["name", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
+        ]
+        verbose_name = _("permission set")
+        verbose_name_plural = _("permission sets")
 
     def __str__(self):
         return self.name
+
+
+class PermissionSetPermission(UUIDModel, TenantModelMixin):
+    permissionset = models.ForeignKey(PermissionSet, on_delete=models.CASCADE)
+    permission = models.ForeignKey(Permission, on_delete=models.CASCADE)
+    das_tenant = models.ForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        related_name="%(app_label)s_%(class)s",
+    )
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
+        ]

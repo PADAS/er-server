@@ -4,10 +4,8 @@ from django.core.management.base import CommandError
 
 from core.models import DASTenant
 from utils.features import features
-from utils.tenant.exceptions import (
-    TenantNotFoundException,
-    TenantNotFoundInLocalThreadException,
-)
+from utils.tenant.exceptions import TenantNotFoundException
+from utils.tenant.managers import UnsetDASTenantContextManager
 from utils.tenant.providers import TenantData
 from utils.tenant.thread import get_tenant_settings, set_tenant_settings
 
@@ -95,7 +93,9 @@ class TenantCommandMixin:
 
     def _set_tenant_instance(self, tenant_id):
         try:
-            tenant = DASTenant.objects.get(id=tenant_id)
+            with UnsetDASTenantContextManager():
+                tenant = DASTenant.objects.get(domain=domain)
+
             set_current_tenant(tenant=tenant)
             return tenant
         except DASTenant.DoesNotExist:
