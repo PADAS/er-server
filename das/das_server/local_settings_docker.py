@@ -1,8 +1,5 @@
-"""Put your local overrides in this and rename it to local_settings.py
-
-call your project be overriding the settings file
- --settings=local_settings
-
+"""
+Used in our production docker images
 """
 
 import os
@@ -75,7 +72,7 @@ CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", True)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 CSRF_TRUSTED_ORIGINS = ("localhost:9000", SERVER_FQDN)
 
-STATIC_ROOT = "/var/www/static/"
+STATIC_ROOT = env.str("STATIC_ROOT", "/var/www/static/")
 
 # TODO can use aws mail short term, until we source a commercial mailer
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
