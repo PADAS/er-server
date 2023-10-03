@@ -87,32 +87,4 @@ class Migration(migrations.Migration):
                 to="analyzers.subjectspeedprofile",
             ),
         ),
-        migrations.AlterUniqueTogether(
-            name="environmentalsubjectanalyzerconfig",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="geofenceanalyzerconfig",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="immobilityanalyzerconfig",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="lowspeedpercentileanalyzerconfig",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="lowspeedwilcoxanalyzerconfig",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="speeddistro",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="subjectanalyzerresult",
-            unique_together={("id", "das_tenant")},
-        ),
     ]

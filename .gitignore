@@ -226,6 +226,7 @@ das/das_server/das_ste_extensions_settings.py
 Pipfile
 Pipfile.lock
 das/das_server/.env
+das/.env
 dependencies/gdal**/
 dependencies/geos**/
 dependencies/proj**/

@@ -5,7 +5,7 @@ import logging
 from django.conf import settings
 from django.db import migrations
 
-from core.utils import DASTenantManagement
+from core.utils import DASTenantManagement, update_tenant_models
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +19,7 @@ def populate_das_tenant_in_subject_model(apps, schema_editor):
     tenant = das_tenant_management.get_or_create_tenant()
 
     if tenant:
-        for class_model in class_models:
-            updated_objects = class_model.objects.all().update(das_tenant=tenant)
-            logger.info("%d objects updated of model %s." % (updated_objects, class_model._meta.object_name))
+        update_tenant_models(class_models, tenant)
     else:
         logger.error("DAS Tenant not found.")
 

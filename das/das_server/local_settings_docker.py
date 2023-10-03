@@ -1,8 +1,5 @@
-"""Put your local overrides in this and rename it to local_settings.py
-
-call your project be overriding the settings file
- --settings=local_settings
-
+"""
+Used in our production docker images
 """
 
 import os
@@ -75,7 +72,7 @@ CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", True)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 CSRF_TRUSTED_ORIGINS = ("localhost:9000", SERVER_FQDN)
 
-STATIC_ROOT = "/var/www/static/"
+STATIC_ROOT = env.str("STATIC_ROOT", "/var/www/static/")
 
 # TODO can use aws mail short term, until we source a commercial mailer
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -99,7 +96,7 @@ KML_FEED_TITLE = env.str("KML_FEED_TITLE", KML_FEED_TITLE)
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.contrib.gis.db.backends.postgis",
+        "ENGINE": "utils.tenant.backends.postgis",
         "NAME": env.str("DB_NAME", "das"),
         "USER": env.str("DB_USER", "das"),
         "HOST": env.str("DB_HOST", "postgis"),
