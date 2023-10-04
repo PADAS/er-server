@@ -4,17 +4,10 @@ import redis
 from celery_once import QueueOnce
 
 from django.conf import settings
-from django.core.management import call_command
 
 from das_server import celery
-from utils.tenant.celery import OverAllTenantTask
 
 logger = logging.getLogger(__name__)
-
-
-@celery.app.task(base=OverAllTenantTask)
-def publish_daily_site_metrics():
-    call_command("site_metrics")
 
 
 # This is a sentinel key that a livenessProbe will look for to determine health of celery beat.

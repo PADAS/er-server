@@ -1,19 +1,16 @@
-import threading
-
 import pytest
 
 from utils.features import features
 from utils.tenant import Tenant, get_tenant_settings
 from utils.tenant.managers import TenantContextManager
-from utils.tenant.thread import TENANT_DEFAULT_KEY
+from utils.tenant.thread import TENANT_DEFAULT_KEY, _get_local_thread
 
 
 @pytest.mark.django_db
 @pytest.mark.skipif(features.tms.is_on() is False, reason="TMS feature flag is off")
 class TestTenantContextManager:
     def test_tenant_context_manager(self, memory_store_client_mock):
-        main_thread = threading.main_thread()
-
+        main_thread = _get_local_thread()
         with TenantContextManager(domain="zoo.com"):
             memory_store_client_mock.get_key.assert_called_once()
             assert TENANT_DEFAULT_KEY in main_thread.__dict__.keys()

@@ -5,10 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from django.test import override_settings
-
 from das_server.celery import app
-from utils.features import features
+from utils.tenant.celery import OverAllTenantTask
 
 
 def get_module_and_task_names(task_path: Tuple) -> Tuple[str, str]:
@@ -33,10 +31,8 @@ def get_kwargs(task: Tuple):
     return kwargs
 
 
-@pytest.mark.skipif(not features.tms.is_on(), reason="TMS feature flag is on")
 @pytest.mark.django_db
-@pytest.mark.parametrize("domain", [[b"tenant_domain1.com"]])
-@override_settings(SERVER_FQDN="tenant_domain1.com")
+@pytest.mark.parametrize("domain", [[b"zoo.com"]])
 def test_tenant_schedule_celery_task(memory_store_client_mock, tenant_response, tenant, domain, caplog, monkeypatch):
     caplog.set_level(logging.INFO)
     memory_store_client_mock.get_all_keys.return_value = domain
@@ -50,5 +46,9 @@ def test_tenant_schedule_celery_task(memory_store_client_mock, tenant_response, 
         kwargs = get_kwargs(task)
 
         function = getattr(module, function_name)
+
+        if not isinstance(function, OverAllTenantTask):
+            continue
+
         function.apply(args=args, kwargs=kwargs)
         assert f"Running: {module_name}.{function_name} for Tenant domain: {domain[0].decode('utf-8')}" in caplog.text

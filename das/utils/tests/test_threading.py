@@ -8,6 +8,7 @@ from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 from utils.tenant.thread import (
     TENANT_DEFAULT_KEY,
     Tenant,
+    _get_local_thread,
     clear_tenant_settings,
     get_tenant_settings,
     set_tenant_settings,
@@ -25,7 +26,7 @@ class TestThreadStorage:
 
     def test_delete_tenant_dict_settings_in_main_thread(self, tenant_response):
         set_tenant_settings(tenant_response)
-        main_thread = threading.main_thread()
+        main_thread = _get_local_thread()
 
         assert TENANT_DEFAULT_KEY in main_thread.__dict__.keys()
 
