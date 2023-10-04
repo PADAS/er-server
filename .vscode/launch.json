@@ -57,6 +57,30 @@
             "redirectOutput": true
         },
         {
+            "name": "PyTest --createdb",
+            "type": "python",
+            "request": "launch",
+            "stopOnEntry": false,
+            "module": "pytest",
+            "args": [
+                "--create-db",
+                "--reuse-db",
+                "--ds",
+                "test_scripts.unittest_settings",
+                "core/tests/test_utils.py"
+            ],
+            "cwd": "${workspaceRoot}/das",
+            "env": {
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+            },
+            "debugOptions": [
+                "WaitOnAbnormalExit",
+                "WaitOnNormalExit",
+                "RedirectOutput"
+            ]
+
+        },
+        {
             "name": "Django:Run",
             "type": "debugpy",
             "request": "launch",
