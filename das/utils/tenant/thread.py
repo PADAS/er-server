@@ -3,14 +3,11 @@ from threading import local
 
 from django_multitenant.utils import set_current_tenant
 
-from core.models import DASTenant
 from utils.tenant.dataclass import Tenant
 from utils.tenant.exceptions import (
     TenantDataclassException,
     TenantNotFoundInLocalThreadException,
 )
-from utils.tenant.managers import UnsetDASTenantContextManager
-from utils.tenant.providers import TenantData
 
 logger = logging.getLogger(__name__)
 TENANT_DEFAULT_KEY = "tenant_object"
@@ -55,6 +52,10 @@ def set_tenant(domain):
     """
     Single function to set both the Tenant and the DASTenant in the current thread
     """
+    from core.models import DASTenant
+    from utils.tenant.managers import UnsetDASTenantContextManager
+    from utils.tenant.providers import TenantData
+
     instance = TenantData(domain=domain)
     tenant_data = instance.get_tenant_data()
     tenant_id = tenant_data.get("id")
