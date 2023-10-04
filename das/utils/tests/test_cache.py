@@ -2,10 +2,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from utils.features import features
 from utils.persistent import MultitenantRedisStorage
 from utils.tenant.cache import MultitenantRedisClient, make_cache_key
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
+from utils.tenant.thread import clear_tenant_settings
 
 
 @pytest.fixture
@@ -24,8 +24,8 @@ class TestCache:
 
         assert key == f"{tenant_settings.id}:test:v1:the-key"
 
-    @pytest.mark.skipif(not features.tms.is_on(), reason="TMS feature flag is off")
     def test_make_cache_key_without_tenant_id(self):
+        clear_tenant_settings()
         with pytest.raises(TenantNotFoundInLocalThreadException):
             make_cache_key("the-key", "test", "v1")
 
@@ -37,8 +37,8 @@ class TestCache:
 
         redis_connection_mock.set.assert_called_once_with(expected_key, "test-value", 60)
 
-    @pytest.mark.skipif(not features.tms.is_on(), reason="TMS feature flag is off")
     def test_get_decorated_tenant_cache_keys_without_tenant_set(self, redis_connection_mock, caplog):
+        clear_tenant_settings()
         cache_mock = MultitenantRedisStorage(config=MagicMock())
 
         with pytest.raises(TenantNotFoundInLocalThreadException):

@@ -329,8 +329,13 @@ MAPPING = {
     }
 }
 
+# in kubernetes, the environment variable are
+# REDIS_SERVICE_HOST, REDIS_SERVICE_PORT
+REDIS_PORT = env.int("REDIS_SERVICE_PORT", 0)
+if not REDIS_PORT:
+    REDIS_PORT = env.int("REDIS_PORT", 6379)
+
 REDIS_HOST = env.str("REDIS_HOST", "redis")
-REDIS_PORT = env.int("REDIS_PORT", 6379)
 REDIS_SERVER = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 REALTIME_BROKER_URL = f"{REDIS_SERVER}/2"
 REALTIME_BROKER_OPTIONS = {"max_connections": 200}
