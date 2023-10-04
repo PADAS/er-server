@@ -4,7 +4,6 @@ from django.db import migrations
 
 from core.utils import DASTenantManagement
 
-
 SILENCE_SOURCE_SCHEMA = """{
     "schema": {
         "$schema": "http://json-schema.org/draft-04/schema#",
@@ -84,6 +83,7 @@ SILENCE_SOURCE_PROVIDER_SCHEMA = """
 }
 """
 
+
 def forwards(apps, schema_editor):
     EventCategory = apps.get_model("activity", "EventCategory")
     EventType = apps.get_model("activity", "EventType")
@@ -123,10 +123,13 @@ def forwards(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('reports', '0009_populate_tenant_foreign_key'),
+        ("reports", "0009_populate_tenant_foreign_key"),
     ]
 
     operations = [
+        migrations.RunPython(
+            forwards,
+            migrations.RunPython.noop,
+        )
     ]

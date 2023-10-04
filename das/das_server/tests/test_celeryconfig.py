@@ -45,7 +45,6 @@ class CeleryConfigurationTests(TestCase):
             "analyzers.tasks.handle_subject",
             "das_server.celery.debug_task",
             "das_server.tasks.celerybeat_pulse",
-            "das_server.tasks.publish_daily_site_metrics",
             "mapping.tasks.automate_download_features_from_wfs",
             "mapping.tasks.load_features_from_wfs",
             "mapping.tasks.load_spatial_features_from_files",
