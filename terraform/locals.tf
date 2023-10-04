@@ -478,6 +478,7 @@ locals {
     "k9conservation"            = "prod1"
     "mmnr"                      = "prod1"
     "hojanueva"                 = "prod1"
+    "ecu-pnya"                  = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"

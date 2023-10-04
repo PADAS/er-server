@@ -3,7 +3,7 @@
 import django_multitenant.fields
 
 import django.db.models.deletion
-from django.db import migrations, models
+from django.db import migrations
 
 
 class Migration(migrations.Migration):
@@ -74,25 +74,5 @@ class Migration(migrations.Migration):
             field=django_multitenant.fields.TenantForeignKey(
                 on_delete=django.db.models.deletion.CASCADE, to="core.dasapplication"
             ),
-        ),
-        migrations.AddConstraint(
-            model_name="dasaccesstoken",
-            constraint=models.UniqueConstraint(fields=("id", "das_tenant"), name="core_dasaccesstoken_tenant_unique"),
-        ),
-        migrations.AddConstraint(
-            model_name="dasapplication",
-            constraint=models.UniqueConstraint(fields=("id", "das_tenant"), name="core_dasapplication_tenant_unique"),
-        ),
-        migrations.AddConstraint(
-            model_name="dasgrant",
-            constraint=models.UniqueConstraint(fields=("id", "das_tenant"), name="core_dasgrant_tenant_unique"),
-        ),
-        migrations.AddConstraint(
-            model_name="dasidtoken",
-            constraint=models.UniqueConstraint(fields=("id", "das_tenant"), name="core_dasidtoken_tenant_unique"),
-        ),
-        migrations.AddConstraint(
-            model_name="dasrefreshtoken",
-            constraint=models.UniqueConstraint(fields=("id", "das_tenant"), name="core_dasrefreshtoken_tenant_unique"),
         ),
     ]

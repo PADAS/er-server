@@ -61,7 +61,7 @@ class PermissionSet(HierarchyModel, TimestampedModel):
 
     class Meta:
         constraints = [
-            UniqueConstraint(fields=["name", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
+            UniqueConstraint(fields=["das_tenant", "name"], name="%(app_label)s_%(class)s_tenant_name_unique"),
         ]
         verbose_name = _("permission set")
         verbose_name_plural = _("permission sets")
@@ -81,8 +81,3 @@ class PermissionSetPermission(UUIDModel, TenantModelMixin):
         related_name="%(app_label)s_%(class)s",
     )
     tenant_id = "das_tenant_id"
-
-    class Meta:
-        constraints = [
-            UniqueConstraint(fields=["id", "das_tenant"], name="%(app_label)s_%(class)s_tenant_unique"),
-        ]
