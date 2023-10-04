@@ -214,7 +214,7 @@ SERIALIZATION_MODULES = {"geojson": "core.serializers"}
 # createdb -T template_postgis das ENCODING 'utf8';
 DATABASES = {
     "default": {
-        "ENGINE": "django_multitenant.backends.postgresql",
+        "ENGINE": "utils.tenant.backends.postgis",
         "NAME": "das",
         "USER": "das",
         "HOST": env.str("DB_HOST", "postgis"),
@@ -243,8 +243,8 @@ TIME_ZONE = "UTC"
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.8/howto/static-files/
 
-STATIC_URL = "/static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "www", "static")
+STATIC_URL = env.str("STATIC_URL", "/static/")
+STATIC_ROOT = env.str("STATIC_ROOT", os.path.join(BASE_DIR, "www", "static"))
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, "activity"),
     os.path.join(BASE_DIR, "das_server"),
@@ -303,8 +303,8 @@ OAUTH2_PROVIDER = {
 ASYNC_MODE = "eventlet"
 
 # override these if your libraries are in a different place
-GEOS_LIBRARY_PATH = "/usr/lib/x86_64-linux-gnu/libgeos_c.so.1"
-GDAL_LIBRARY_PATH = "/usr/lib/libgdal.so"
+GEOS_LIBRARY_PATH = env.str("GEOS_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu/libgeos_c.so.1")
+GDAL_LIBRARY_PATH = env.str("GDAL_LIBRARY_PATH", "/usr/lib/libgdal.so")
 
 
 CACHES = {
@@ -329,14 +329,18 @@ MAPPING = {
     }
 }
 
-
-REALTIME_BROKER_URL = "redis://redis:6379/2"
+REDIS_HOST = env.str("REDIS_HOST", "redis")
+REDIS_PORT = env.int("REDIS_PORT", 6379)
+REDIS_SERVER = f"redis://{REDIS_HOST}:{REDIS_PORT}"
+REALTIME_BROKER_URL = f"{REDIS_SERVER}/2"
 REALTIME_BROKER_OPTIONS = {"max_connections": 200}
-PUBSUB_BROKER_URL = "redis://redis:6379/1"
+PUBSUB_BROKER_URL = f"{REDIS_SERVER}/1"
 PUBSUB_BROKER_OPTIONS = {"max_connections": 200}
 
 # Celery Settings
-CELERY_BROKER_URL = "redis://redis:6379"
+CELERY_BROKER_URL = REDIS_SERVER
+
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ["application/json"]
@@ -612,15 +616,15 @@ GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN = 10
 
 PERSISTENT_STORAGE = {
     "CLIENT": "utils.persistent.MultitenantRedisStorage",
-    "HOST": "redis",
-    "PORT": "6379",
+    "HOST": REDIS_HOST,
+    "PORT": REDIS_PORT,
     "DATABASE": 0,
 }
 
 ALERTS_STORAGE = {
     "CLIENT": "utils.persistent.MultitenantRedisStorage",
-    "HOST": "redis",
-    "PORT": "6379",
+    "HOST": REDIS_HOST,
+    "PORT": REDIS_PORT,
     "DATABASE": 3,
 }
 
@@ -639,12 +643,16 @@ MEMORY_STORE = {
     "API_KEY": env.str("MEMORY_STORE_API_KEY", ""),
 }
 
-DISABLE_STATSD = True
+DISABLE_STATSD = env.bool("DISABLE_STATSD", True)
 
+if not env.bool("IS_OAUTH2_PROVIDER_MIGRATION", False):
+    # Django oauth custom models
+    OAUTH2_PROVIDER_ACCESS_TOKEN_MODEL = "core.DASAccessToken"
+    OAUTH2_PROVIDER_APPLICATION_MODEL = "core.DASApplication"
+    OAUTH2_PROVIDER_GRANT_MODEL = "core.DASGrant"
+    OAUTH2_PROVIDER_ID_TOKEN_MODEL = "core.DASIDToken"
+    OAUTH2_PROVIDER_REFRESH_TOKEN_MODEL = "core.DASRefreshToken"
 
-# Django oauth custom models
-OAUTH2_PROVIDER_ACCESS_TOKEN_MODEL = "core.DASAccessToken"
-OAUTH2_PROVIDER_APPLICATION_MODEL = "core.DASApplication"
-OAUTH2_PROVIDER_GRANT_MODEL = "core.DASGrant"
-OAUTH2_PROVIDER_ID_TOKEN_MODEL = "core.DASIDToken"
-OAUTH2_PROVIDER_REFRESH_TOKEN_MODEL = "core.DASRefreshToken"
+# You would only set this in a development environment
+# In production, the tenant id will come from the TMS
+TENANT_ID = env.str("TENANT_ID", "")

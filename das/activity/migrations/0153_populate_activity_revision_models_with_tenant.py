@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def populate_tenant_into_models(apps, schema_editor):
-    models_names = [
+    model_names = [
         "EventFileRevision",
         "EventRevision",
         "EventAttachmentRevision",
@@ -23,13 +23,14 @@ def populate_tenant_into_models(apps, schema_editor):
         "PatrolSegmentRevision",
         "EventGeometryRevision",
     ]
-    class_models = [apps.get_model("activity", model_name) for model_name in models_names]
+    class_models = [apps.get_model("activity", model_name) for model_name in model_names]
 
     das_tenant_management = DASTenantManagement(domain=settings.SERVER_FQDN)
     tenant = das_tenant_management.get_or_create_tenant()
 
     if tenant:
         update_tenant_models(models=class_models, tenant=tenant)
+
     else:
         logger.error("DAS Tenant not found.")
 

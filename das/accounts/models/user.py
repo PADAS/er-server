@@ -256,7 +256,6 @@ class User(TenantModelMixin, AccountsAbstractUser):
         swappable = "AUTH_USER_MODEL"
         verbose_name = _("user")
         verbose_name_plural = _("users")
-        unique_together = ["id", "das_tenant"]
 
     def get_user_permissions(self, obj=None):
         """

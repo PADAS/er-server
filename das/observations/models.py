@@ -147,7 +147,6 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
     class Meta:
         verbose_name = _("source group")
         verbose_name_plural = _("source groups")
-        unique_together = (("id", "das_tenant"),)
 
     def __str__(self):
         return self.name
@@ -261,9 +260,6 @@ class SourceProvider(TenantModelMixin, TimestampedModel):
     objects = SourceProviderManager()
     tenant_id = "das_tenant_id"
 
-    class Meta:
-        unique_together = (("id", "das_tenant"),)
-
     def __str__(self):
         return "{} ({})".format(self.display_name, self.provider_key)
 
@@ -303,10 +299,12 @@ class Source(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
-        unique_together = (
-            ("id", "das_tenant"),
-            ("provider", "manufacturer_id"),
-        )
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "provider", "manufacturer_id"],
+                name="%(app_label)s_%(class)s_tenant_provider_manu_unique",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.manufacturer_id} ({self.provider.provider_key})"
@@ -547,9 +545,10 @@ class Observation(TenantModelMixin, models.Model):
         return "{}:{}:{:08b}".format(self.recorded_at.isoformat(), self.location, self.exclusion_flags.mask)
 
     class Meta:
-        unique_together = [
-            ("id", "das_tenant"),
-            ("source", "recorded_at"),
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "source", "recorded_at"], name="%(app_label)s_%(class)s_tenant_source_at_unique"
+            ),
         ]
         ordering = ["-recorded_at"]
 
@@ -686,7 +685,6 @@ class SubjectSource(TenantModelMixin, models.Model):
     class Meta:
         verbose_name = _("Subject Source Assignment")
         verbose_name_plural = _("Subject Source Assignments")
-        unique_together = (("id", "das_tenant"),)
 
     def __str__(self):
         ind = " (expired)" if datetime.now(tz=pytz.utc) not in self.assigned_range else ""
@@ -777,9 +775,6 @@ class SubjectType(TenantModelMixin, TimestampedModel):
 
     tenant_id = "das_tenant_id"
 
-    class Meta:
-        unique_together = (("id", "das_tenant"),)
-
     def __str__(self):
         return self.display
 
@@ -806,9 +801,6 @@ class SubjectSubType(TenantModelMixin, TimestampedModel):
     ordernum = models.SmallIntegerField(blank=True, null=True)
     tenant_id = "das_tenant_id"
 
-    class Meta:
-        unique_together = (("id", "das_tenant"),)
-
     def __str__(self):
         return str(self.value)
 
@@ -825,9 +817,6 @@ class SubjectTrackSegmentFilter(TenantModelMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
     tenant_id = "das_tenant_id"
-
-    class Meta:
-        unique_together = (("id", "das_tenant"),)
 
 
 DEFAULT_SOURCE_GROUP_ID = "654e592c-fc5a-436d-98dd-fd1b36436a85"
@@ -916,8 +905,11 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
         verbose_name = _("subject group")
         verbose_name_plural = _("subject groups")
         constraints = [
-            UniqueConstraint(fields=["is_default"], condition=Q(is_default=True), name="default_subject_group"),
-            UniqueConstraint(fields=["id", "das_tenant"], name="id_and_das_tenant_unique"),
+            UniqueConstraint(
+                fields=["das_tenant", "is_default"],
+                condition=Q(is_default=True),
+                name="%(app_label)s_%(class)s_tenant_is_default_unique",
+            ),
         ]
 
     def __str__(self):
@@ -1263,7 +1255,6 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
         return self.subject_type == STATIONARY_SUBJECT_VALUE
 
     class Meta:
-        unique_together = ["id", "das_tenant"]
         permissions = (
             ("view_last_position", "Permission to view the last reported position of a Subject only."),
             ("view_real_time", "Access to real-time observations."),
@@ -1829,7 +1820,9 @@ class CommonName(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
-        unique_together = (("value", "das_tenant"),)
+        constraints = [
+            UniqueConstraint(fields=["das_tenant", "value"], name="%(app_label)s_%(class)s_tenant_value_unique"),
+        ]
 
     def __str__(self):
         return self.display
@@ -1880,10 +1873,11 @@ class SubjectStatus(TenantModelMixin, PermissionSetGroupMixin, TimestampedModel,
     class Meta:
         verbose_name = _("Subject Status")
         verbose_name_plural = _("Subject Status")
-        unique_together = (
-            ("id", "das_tenant"),
-            ("subject", "delay_hours"),
-        )
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "subject", "delay_hours"], name="%(app_label)s_%(class)s_tenant_subject_unique"
+            ),
+        ]
 
     def save(self, *args, **kwargs):
         if self._state.adding:
@@ -1917,9 +1911,6 @@ class Region(TenantModelMixin, models.Model):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
     tenant_id = "das_tenant_id"
-
-    class Meta:
-        unique_together = (("id", "das_tenant"),)
 
     def save(self, *args, **kwargs):
         self.slug = slugify(self.region + " " + self.country)
@@ -1971,9 +1962,6 @@ class SocketClient(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
     objects = SocketClientManager.from_queryset(QuerySetOnSharedConnection)()
 
-    class Meta:
-        unique_together = (("id", "das_tenant"),)
-
 
 class UserSessionManager(models.Manager):
     pass
@@ -1986,9 +1974,6 @@ class UserSession(TenantModelMixin, TimestampedModel, SharedResourceHandler):
 
     objects = UserSessionManager.from_queryset(QuerySetOnSharedConnection)()
     tenant_id = "das_tenant_id"
-
-    class Meta:
-        unique_together = (("id", "das_tenant"),)
 
     def aquire_resource(self):
         logger.debug("Aquire database connection from %s", self.__class__.__name__)
@@ -2080,7 +2065,6 @@ class GPXTrackFile(GPXLogRecord):
     class Meta:
         verbose_name_plural = "GPX track file"
         ordering = ("processed_date",)
-        unique_together = (("id", "das_tenant"),)
 
 
 PENDING = "pending"
@@ -2156,11 +2140,10 @@ class Message(TenantModelMixin, TimestampedModel):
 
     class Meta:
         index_together = [
-            ("sender_id", "message_time"),
-            ("receiver_id", "message_time"),
+            ("das_tenant", "sender_id", "message_time"),
+            ("das_tenant", "receiver_id", "message_time"),
         ]
         ordering = ("-message_time",)
-        unique_together = (("id", "das_tenant"),)
 
 
 class AnnouncementManager(TenantManagerMixin, models.Manager):
@@ -2190,9 +2173,6 @@ class Announcement(TenantModelMixin, TimestampedModel):
     objects = AnnouncementManager.from_queryset(AnnouncementFilteringQuerySet)()
     tenant_id = "das_tenant_id"
 
-    class Meta:
-        unique_together = (("id", "das_tenant"),)
-
 
 class LatestObservationSource(TenantModelMixin, models.Model):
     """Manage/keep the latest observation of each source.
@@ -2213,4 +2193,6 @@ class LatestObservationSource(TenantModelMixin, models.Model):
     tenant_id = "das_tenant_id"
 
     class Meta:
-        unique_together = (("source", "das_tenant"),)
+        constraints = [
+            UniqueConstraint(fields=["das_tenant", "source"], name="%(app_label)s_%(class)s_tenant_source_unique"),
+        ]

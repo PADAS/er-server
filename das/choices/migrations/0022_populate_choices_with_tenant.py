@@ -31,5 +31,5 @@ class Migration(migrations.Migration):
         migrations.RunPython(
             populate_tenant_into_models,
             migrations.RunPython.noop,
-        )
+        ),
     ]

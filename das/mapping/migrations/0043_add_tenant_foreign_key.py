@@ -5,6 +5,31 @@ import django_multitenant.fields
 import django.db.models.deletion
 from django.db import migrations, models
 
+from utils.migrations.update_primary_key import add_tenant_to_primary_key
+
+mapping_models = [
+    "Map",
+    "TileLayer",
+    "FeatureType",
+    "FeatureSet",
+    "SpatialFile",
+    "PolygonFeature",
+    "LineFeature",
+    "PointFeature",
+    "SpatialFeatureGroup",
+    "DisplayCategory",
+    "SpatialFeatureType",
+    "SpatialFeatureFile",
+    "SpatialFeature",
+    "ArcgisGroup",
+    "ArcgisConfiguration",
+    "ArcgisItem",
+]
+
+
+def regenerate_primary_keys(apps, schema_editor):
+    add_tenant_to_primary_key("mapping", mapping_models)
+
 
 class Migration(migrations.Migration):
     dependencies = [
@@ -181,4 +206,37 @@ class Migration(migrations.Migration):
                 on_delete=django.db.models.deletion.PROTECT, to="mapping.featuretype"
             ),
         ),
+        migrations.AlterUniqueTogether(
+            name="arcgisgroup",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="arcgisitem",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="displaycategory",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="featureset",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="featuretype",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="map",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="spatialfeaturegroup",
+            unique_together=set(),
+        ),
+        migrations.AlterUniqueTogether(
+            name="tilelayer",
+            unique_together=set(),
+        ),
+        migrations.RunPython(code=regenerate_primary_keys, reverse_code=migrations.RunPython.noop),
     ]

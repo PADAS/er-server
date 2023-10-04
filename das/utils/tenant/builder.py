@@ -13,7 +13,7 @@ from .dataclass import EnvironmentSettings, FeatureFlags, Tenant
 class DjangoSettingsTenantBuilder:
     def __init__(self):
         self.tenant = Tenant(
-            id=getattr(settings, "TENANT_ID", uuid.uuid4()),
+            id=getattr(settings, "TENANT_ID", None) or str(uuid.uuid4()),
             name=getattr(settings, "UI_SITE_NAME", None),
             slug_name=getattr(settings, "SERVER_FQDN", None),
             domain=getattr(settings, "SERVER_FQDN", None),

@@ -4,6 +4,28 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 import observations.models
+from utils.migrations.update_primary_key import add_tenant_to_primary_key
+
+tracking_models = [
+    "SourcePlugin",
+    "SavannahPlugin",
+    "DemoSourcePlugin",
+    "InreachPlugin",
+    "AWTHttpPlugin",
+    "InreachKMLPlugin",
+    "SkygisticsSatellitePlugin",
+    "FirmsPlugin",
+    "AWETelemetryPlugin",
+    "SpiderTracksPlugin",
+    "SirtrackPlugin",
+    "VectronicsPlugin",
+    "AwtPlugin",
+    "SourceProviderConfiguration",
+]
+
+
+def regenerate_primary_keys(apps, schema_editor):
+    add_tenant_to_primary_key("tracking", tracking_models)
 
 
 class Migration(migrations.Migration):
@@ -177,4 +199,5 @@ class Migration(migrations.Migration):
                 to="observations.sourceprovider",
             ),
         ),
+        migrations.RunPython(code=regenerate_primary_keys, reverse_code=migrations.RunPython.noop),
     ]

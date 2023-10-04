@@ -1,14 +1,19 @@
 import logging
 
+from django.apps import apps
 from django.db import connection
 from django.utils.module_loading import import_string
 
 logger = logging.getLogger(__name__)
 
-EDGE_CASE_TABLES = [
-    "observations_usersession",
-    "observations_socketclient"
-]
+EDGE_CASE_TABLES = ["observations_usersession", "observations_socketclient"]
+
+
+def add_tenant_to_primary_key(app: str, models: []):
+    query_manager = QueryManager()
+    apps_handler = DjangoAppsHandler(query_manager=query_manager)
+    apps_handler.handle(app=app, models=models)
+
 
 class QueryManager:
     def regenerate_primary_key(self, table):
@@ -64,3 +69,9 @@ class AppsHandler:
 
     def _get_model_table_name(self, model) -> str:
         return model.objects.model._meta.db_table
+
+
+class DjangoAppsHandler(AppsHandler):
+    def _get_table_names(self, app: str, models):
+        for model in models:
+            yield apps.get_model(app, model)._meta.db_table
