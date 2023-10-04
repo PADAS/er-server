@@ -1,4 +1,4 @@
-from django_multitenant.utils import set_current_tenant
+from django_multitenant.utils import get_current_tenant, set_current_tenant
 
 from django.core.management.base import CommandError
 
@@ -9,8 +9,8 @@ from utils.tenant.exceptions import (
     TenantNotFoundInLocalThreadException,
 )
 from utils.tenant.managers import UnsetDASTenantContextManager
-from utils.tenant.providers import TenantData
-from utils.tenant.thread import get_tenant_settings, set_tenant_settings
+from utils.tenant.providers import post_tenant_to_thread
+from utils.tenant.thread import get_tenant_settings, set_tenant
 
 
 class TenantCommandMixin:
@@ -68,38 +68,43 @@ class TenantCommandMixin:
         if features.tms.is_on():
             domain = options.get("tenant_domain")
             if domain:
-                tenant_settings = self._set_tenant_settings(domain=domain)
-                tenant = self._set_tenant_instance(tenant_id=tenant_settings.get("id"))
+                try:
+                    set_tenant(domain=domain)
+                except Exception as e:
+                    raise CommandError(f"Error setting tenant for domain {domain}: {e}")
             else:
                 try:
                     tenant_settings = get_tenant_settings()
-                    tenant = self._set_tenant_instance(tenant_id=tenant_settings.id)
                 except TenantNotFoundInLocalThreadException:
-                    raise CommandError(
-                        "Please either specify a tenant with '--tenant_domain' or set the tenant in the current thread"
-                    )
+                    # Look for the das_tenant as fallback
+                    das_tenant = get_current_tenant()
+                    if das_tenant:
+                        self._set_tenant_settings(domain=das_tenant.domain)
+                    else:
+                        raise CommandError(
+                            "Please either specify a tenant with '--tenant_domain' or set the tenant in the current thread"
+                        )
+                else:
+                    self._set_das_tenant(tenant_id=tenant_settings.id)
             # Verbose mode
             if options.get("verbosity", 0) >= 2:
-                self.stdout.write(f"Executing command with tenant id {tenant.id}...")
+                current_tenant_settings = get_tenant_settings()
+                self.stdout.write(f"Executing command with tenant id {current_tenant_settings.id}...")
         super().execute(*args, **options)
 
     def _set_tenant_settings(self, domain):
         try:
-            tenant_data = TenantData(domain=domain)
-            tenant_settings = tenant_data.get_tenant_data()
-            set_tenant_settings(value=tenant_settings)
-            return tenant_settings
+            post_tenant_to_thread(domain=domain)
         except TenantNotFoundException:
             raise CommandError(f"Tenant settings for domain '{domain}' not found.")
         except Exception as e:
             raise CommandError(f"Error resolving tenant settings with domain '{domain}': {e}")
 
-    def _set_tenant_instance(self, tenant_id):
+    def _set_das_tenant(self, tenant_id):
         try:
             with UnsetDASTenantContextManager():
                 tenant = DASTenant.objects.get(id=tenant_id)
                 set_current_tenant(tenant=tenant)
-                return tenant
         except DASTenant.DoesNotExist:
             raise CommandError(f"Tenant with id '{tenant_id}' not found.")
         except Exception as e:
