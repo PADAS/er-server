@@ -64,10 +64,10 @@ power_user_permissions = [
 class BusinessRulesTestCase(BaseAPITest):
     def setUp(self):
         super().setUp()
-        call_command("loaddata", "initial_eventdata")
+        call_command("loaddata_with_tenant", "initial_eventdata")
         call_command("loaddata_with_tenant", "event_data_model")
-        call_command("loaddata", "test_events_schema")
-        call_command("loaddata", "initial_choices")
+        call_command("loaddata_with_tenant", "test_events_schema")
+        call_command("loaddata_with_tenant", "initial_choices")
         call_command("loaddata_with_tenant", "initial_common_name")
 
         self.alerts_perms_user = User.objects.create_user(
