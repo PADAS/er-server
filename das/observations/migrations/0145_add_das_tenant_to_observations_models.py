@@ -309,76 +309,67 @@ class Migration(migrations.Migration):
             name="serial_number",
             field=models.IntegerField(verbose_name="Serial Number"),
         ),
-        migrations.AlterUniqueTogether(
-            name="announcement",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="commonname",
-            unique_together={("value", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="gpxtrackfile",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="latestobservationsource",
-            unique_together={("source", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="message",
-            unique_together={("id", "das_tenant")},
+        migrations.RemoveConstraint(
+            model_name="subjectgroup",
+            name="default_subject_group",
         ),
         migrations.AlterUniqueTogether(
             name="observation",
-            unique_together={("source", "recorded_at"), ("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="region",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="socketclient",
-            unique_together={("id", "das_tenant")},
+            unique_together=set(),
         ),
         migrations.AlterUniqueTogether(
             name="source",
-            unique_together={("provider", "manufacturer_id"), ("id", "das_tenant")},
+            unique_together=set(),
         ),
         migrations.AlterUniqueTogether(
-            name="sourcegroup",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="sourceprovider",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="subjectsource",
-            unique_together={("id", "das_tenant")},
+            name="subject",
+            unique_together=set(),
         ),
         migrations.AlterUniqueTogether(
             name="subjectstatus",
-            unique_together={("subject", "delay_hours"), ("id", "das_tenant")},
+            unique_together=set(),
         ),
-        migrations.AlterUniqueTogether(
-            name="subjectsubtype",
-            unique_together={("id", "das_tenant")},
+        migrations.AlterIndexTogether(
+            name="message",
+            index_together={("das_tenant", "sender_id", "message_time"), ("das_tenant", "receiver_id", "message_time")},
         ),
-        migrations.AlterUniqueTogether(
-            name="subjecttracksegmentfilter",
-            unique_together={("id", "das_tenant")},
+        migrations.AddConstraint(
+            model_name="commonname",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "value"), name="observations_commonname_tenant_value_unique"
+            ),
         ),
-        migrations.AlterUniqueTogether(
-            name="subjecttype",
-            unique_together={("id", "das_tenant")},
+        migrations.AddConstraint(
+            model_name="latestobservationsource",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "source"), name="observations_latestobservationsource_tenant_source_unique"
+            ),
         ),
-        migrations.AlterUniqueTogether(
-            name="usersession",
-            unique_together={("id", "das_tenant")},
+        migrations.AddConstraint(
+            model_name="observation",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "source", "recorded_at"), name="observations_observation_tenant_source_at_unique"
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="source",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "provider", "manufacturer_id"),
+                name="observations_source_tenant_provider_manu_unique",
+            ),
         ),
         migrations.AddConstraint(
             model_name="subjectgroup",
-            constraint=models.UniqueConstraint(fields=("id", "das_tenant"), name="id_and_das_tenant_unique"),
+            constraint=models.UniqueConstraint(
+                condition=models.Q(("is_default", True)),
+                fields=("das_tenant", "is_default"),
+                name="observations_subjectgroup_tenant_is_default_unique",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="subjectstatus",
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "subject", "delay_hours"), name="observations_subjectstatus_tenant_subject_unique"
+            ),
         ),
     ]

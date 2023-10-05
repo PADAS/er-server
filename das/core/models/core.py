@@ -91,7 +91,6 @@ class HierarchyModel(TenantModelMixin, models.Model):
 
     class Meta:
         abstract = True
-        unique_together = ["id", "das_tenant"]
 
     objects = HierarchyManager()
     children = models.ManyToManyField(

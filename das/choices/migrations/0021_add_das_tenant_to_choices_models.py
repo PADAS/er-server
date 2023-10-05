@@ -64,16 +64,14 @@ class Migration(migrations.Migration):
                 to="choices.choice",
             ),
         ),
+        migrations.AlterUniqueTogether(
+            name="choice",
+            unique_together=set(),
+        ),
         migrations.AddConstraint(
             model_name="choice",
-            constraint=models.UniqueConstraint(fields=("id", "das_tenant"), name="choices_choice_tenant_unique"),
-        ),
-        migrations.AddConstraint(
-            model_name="dynamicchoice",
-            constraint=models.UniqueConstraint(fields=("id", "das_tenant"), name="choices_dynamicchoice_tenant_unique"),
-        ),
-        migrations.AddConstraint(
-            model_name="subchoiceof",
-            constraint=models.UniqueConstraint(fields=("id", "das_tenant"), name="choices_subchoiceof_tenant_unique"),
+            constraint=models.UniqueConstraint(
+                fields=("das_tenant", "model", "field", "value"), name="choices_choice_tenant_model_unique"
+            ),
         ),
     ]

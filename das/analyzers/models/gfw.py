@@ -53,4 +53,3 @@ class GlobalForestWatchSubscription(TenantModelMixin, TimestampedModel):
     class Meta:
         verbose_name = "Global Forest Watch Subscription"
         verbose_name_plural = "Global Forest Watch Subscriptions"
-        unique_together = ("id", "das_tenant")

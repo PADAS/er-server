@@ -4,8 +4,20 @@
 import django.db.models.deletion
 from django.db import migrations, models
 
+from utils.migrations.update_primary_key import add_tenant_to_primary_key
+
 APP_NAME = "accounts"
 MODEL_NAME = "PermissionSetPermission"
+
+accounts_models = [
+    "User",
+    # "UserAgreement",
+    # "EULA"
+]
+
+
+def regenerate_primary_keys(apps, schema_editor):
+    add_tenant_to_primary_key(APP_NAME, accounts_models)
 
 
 class Migration(migrations.Migration):
@@ -25,10 +37,19 @@ class Migration(migrations.Migration):
                 to="core.dastenant",
             ),
         ),
+        migrations.RemoveConstraint(
+            model_name="permissionset",
+            name="accounts_permissionset_tenant_unique",
+        ),
+        migrations.AlterUniqueTogether(
+            name="user",
+            unique_together=set(),
+        ),
         migrations.AddConstraint(
-            model_name=MODEL_NAME,
+            model_name="permissionset",
             constraint=models.UniqueConstraint(
-                fields=("id", "das_tenant"), name=f"{APP_NAME.lower()}_{MODEL_NAME.lower()}_tenant_unique"
+                fields=("das_tenant", "name"), name="accounts_permissionset_tenant_name_unique"
             ),
         ),
+        migrations.RunPython(code=regenerate_primary_keys, reverse_code=migrations.RunPython.noop),
     ]
