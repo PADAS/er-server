@@ -19,6 +19,7 @@ from observations.models import (
 from observations.utils import convert_date_string
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class SourceAdditionalTest(TestCase):
     def setUp(self):
         self.test_source_provider = SourceProvider.objects.create(
@@ -62,6 +63,7 @@ class SourceAdditionalTest(TestCase):
         self.assertTrue(all(item in source.additional.items() for item in additional_data.items()))
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class SubjectSourceAdditionalTest(TestCase):
     def setUp(self):
         test_source_provider = SourceProvider.objects.create(
@@ -129,6 +131,7 @@ class SubjectSourceAdditionalTest(TestCase):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 @pytest.mark.parametrize(
     "additional",
     [

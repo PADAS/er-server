@@ -188,7 +188,7 @@ def permission_set_with_permissions(request):
     for permission in request.param:
         name, app_label, model, code_name = permission
         content_type = ContentType.objects.get(app_label=app_label, model=model)
-        permission = PermissionFactory.create(name=name, content_type=content_type, code_name=code_name)
+        permission = PermissionFactory.create(name=name, content_type=content_type, codename=code_name)
         permission_set.permissions.add(permission)
     return permission_set
 

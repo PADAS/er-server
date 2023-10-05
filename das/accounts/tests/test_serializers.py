@@ -4,7 +4,7 @@ from accounts.serializers import UserSerializer
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestUserSerializer:
     def test_serialized_user(self, ops_user, subject):
         ops_user.username = "username"

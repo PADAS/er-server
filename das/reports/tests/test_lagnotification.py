@@ -57,6 +57,7 @@ def generate_random_positions(
         existing_recorded_at.append(recorded_at)
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectSourceReport(TestCase):
     def setUp(self):
         super().setUp()
