@@ -122,7 +122,7 @@ database_init: ## Initialize a feature site database | [tfvars_environment="BRAN
 	K8S_POD=$$(kubectl get pods -n $$K8S_NAMESPACE --selector=das.component=api -o jsonpath='{.items[*].metadata.name}') && \
 	echo $$K8S_POD && \
 	$(CURDIR)/wait_for_pods.sh 240 6 $$K8S_NAMESPACE && \
-	kubectl -n $$K8S_NAMESPACE exec -it $$K8S_POD -c das-api -- start_scripts/start_load_initial_data_tests.sh
+	kubectl -n $$K8S_NAMESPACE exec -it $$K8S_POD -c das-api -- start_scripts/start_load_initial_data_tests.sh $tenant_domain
 
 .PHONY: kubectl_apply_via_proxy
 kubectl_apply_via_proxy: # this should only be run by the build server
@@ -159,6 +159,7 @@ ingress_default_branch := develop
 ingress_gcr_path_default_branch := $(gcr_ingress_root)/$(ingress_default_branch)
 
 current_branch := $(shell echo "$$(git rev-parse --quiet --verify --abbrev-ref HEAD || exit 1)")
+tenant_domain :=  $(shell echo $current_branch | tr "[:upper:]." "[:lower:]_").pamdas.org
 descriptive_server_gcr_path := $(gcr_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
 descriptive_web_react_gcr_path := $(gcr_web_react_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
 descriptive_web_admin_gcr_path := $(gcr_web_admin_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
