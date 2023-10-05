@@ -1,15 +1,20 @@
 from datetime import datetime
 
+import pytest
 import pytz
 
+from django.core.management import call_command
 from django.test import TestCase
 
 from accounts.admin import CustomUserCreationForm
 from accounts.models import User
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class AdditionalTestCase(TestCase):
-    fixtures = ["accounts_choices.json"]
+    def setUp(self):
+        super().setUp()
+        call_command("loaddata_with_tenant", "accounts_choices.json")
 
     def convert_datestring_to_datetime(self, date_string):
         datetime_object = datetime.strptime(date_string, "%m/%d/%Y")

@@ -8,12 +8,12 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 
 from accounts.models import PermissionSet
-from accounts.utils import (allowed_permissions, get_category_name_from_perm,
-                            method_map)
+from accounts.utils import allowed_permissions, get_category_name_from_perm, method_map
 from client_http import HTTPClient
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestAllowedPermissions:
     @pytest.mark.parametrize(
         "perms_data",
@@ -25,9 +25,7 @@ class TestAllowedPermissions:
                     "view_analyzer_event_geographic_distance",
                     "add_logistics_geographic_distance",
                 ],
-                "deleted_category_perms": [
-                    "hello_create, view_hello_geographic_distance"
-                ],
+                "deleted_category_perms": ["hello_create, view_hello_geographic_distance"],
                 "expected": ["analyzer_event", "logistics"],
                 "unexpected": [
                     "analyzer_event_geographic_distance",
@@ -41,9 +39,7 @@ class TestAllowedPermissions:
                     "view_analyzer_event_geographic_distance",
                     "add_logistics_geographic_distance",
                 ],
-                "deleted_category_perms": [
-                    "hello_create, view_hello_geographic_distance"
-                ],
+                "deleted_category_perms": ["hello_create, view_hello_geographic_distance"],
                 "expected": ["analyzer_event", "logistics_geographic_distance"],
                 "unexpected": ["analyzer_event_geographic_distance"],
             },
@@ -53,15 +49,11 @@ class TestAllowedPermissions:
         client = HTTPClient()
 
         perm_set = PermissionSet.objects.create(name="test_perm_set")
-        q = reduce(
-            operator.or_, (Q(codename__icontains=perm)
-                           for perm in perms_data["perms"])
-        )
+        q = reduce(operator.or_, (Q(codename__icontains=perm) for perm in perms_data["perms"]))
         perms = Permission.objects.filter(q)
         perm_set.permissions.add(*perms)
 
-        content_type = ContentType.objects.get(
-            app_label="activity", model="event")
+        content_type = ContentType.objects.get(app_label="activity", model="event")
         deleted_categories_perms = [
             Permission.objects.create(codename=perm, content_type=content_type)
             for perm in perms_data["deleted_category_perms"]
