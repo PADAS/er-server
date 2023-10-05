@@ -28,7 +28,7 @@ from observations.models import (
     SubjectGroup,
     SubjectSource,
 )
-from observations.views import SourceSubjectsView, SourceView
+from observations.views import SourceView
 from utils.tenant import Tenant
 
 
@@ -458,7 +458,8 @@ def subject_with_month_long_track(db, user_with_one_week_track_perms):
     return UserSubject(user_with_one_week_track_perms, subject)
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_one_week_track_permissions(subject_with_month_long_track, client, tenant_response, memory_store_client_mock):
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     oldest_time = now - datetime.timedelta(days=31)
@@ -489,6 +490,7 @@ def test_one_week_track_permissions(subject_with_month_long_track, client, tenan
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSourceProvider:
     def test_update_source_provider_with_patch_method(self, source_provider):
         client = HTTPClient()
@@ -531,12 +533,12 @@ class TestSourceProvider:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSourceSubjectsView:
-    def test_create_subject_source(self, subject_source):
+    def test_create_subject_source(self, subject_source, superuser_client):
         subject = subject_source.subject
         source = subject_source.source
-        url = f"{reverse('source-subjects-view', kwargs={'id': source.id})}"
-        client = HTTPClient()
+        url = f"{reverse('source-subjects-view', kwargs={'id': subject.id})}"
         data = {
             "assigned_range": {"lower": "2022-05-01T17:00:00-07:00", "upper": "2022-05-05T16:59:59-07:00"},
             "source": source.id,
@@ -546,9 +548,7 @@ class TestSourceSubjectsView:
         }
         subject_source_count = SubjectSource.objects.all().count()
 
-        request = client.factory.post(url, data=data)
-        client.force_authenticate(request, client.app_user)
-        response = SourceSubjectsView.as_view()(request, id=str(subject.id))
+        response = superuser_client.post(url, data=data)
 
         assert response.status_code == 201
         assert SubjectSource.objects.all().count() == subject_source_count + 1
@@ -563,7 +563,7 @@ class TestSourceView:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestFlattenObservationsView:
     FLATTEN_URL = reverse("flatten-observations")
 
@@ -596,7 +596,7 @@ class TestFlattenObservationsView:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectsView:
     base_url = "subjects-list-view"
 
@@ -641,7 +641,7 @@ class TestSubjectsView:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectView:
     base_url = "subject-view"
 

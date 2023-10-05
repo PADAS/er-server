@@ -7,6 +7,8 @@ import django.contrib.auth
 from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 
+from conftest import TENANT_RESPONSE
+
 AccessToken = get_access_token_model()
 Application = get_application_model()
 User = django.contrib.auth.get_user_model()
@@ -22,6 +24,7 @@ class HTTPClient:
             "app-user",
             is_superuser=False,
             is_staff=True,
+            das_tenant_id=TENANT_RESPONSE["id"],
             **dict(last_name="last", first_name="first"),
         )
         self.application = Application.objects.create(
