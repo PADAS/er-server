@@ -2,6 +2,8 @@
 
 from django.db import migrations
 
+DROP_TS_VECTOR_TRIGGER = "DROP TRIGGER IF EXISTS tsvector_update on activity_eventdetails;"
+
 CREATE_TS_VECTOR_DOC_TRIGGER_FUNCTION = """
 CREATE OR REPLACE FUNCTION tsvector_doc_trigger() RETURNS TRIGGER AS
 $$
@@ -41,7 +43,7 @@ $$ LANGUAGE plpgsql;
 """
 
 CREATE_TS_VECTOR_UPDATE_TRIGGER = """
-CREATE OR REPLACE TRIGGER tsvector_update
+CREATE TRIGGER tsvector_update
     AFTER INSERT OR UPDATE
     ON activity_eventdetails
     FOR EACH ROW
@@ -55,6 +57,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunSQL(
+            sql=DROP_TS_VECTOR_TRIGGER,
+            reverse_sql=migrations.RunSQL.noop,
+        ),
         migrations.RunSQL(
             sql=CREATE_TS_VECTOR_DOC_TRIGGER_FUNCTION,
             reverse_sql=migrations.RunSQL.noop,
