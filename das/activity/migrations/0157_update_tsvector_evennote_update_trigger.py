@@ -2,6 +2,8 @@
 
 from django.db import migrations
 
+DROP_TS_VECTOR_EVENNOTE_UPDATE_TRIGGER = "DROP TRIGGER IF EXISTS tsvector_evennote_update on activity_eventnote;"
+
 CREATE_TS_VECTOR_EVEN_NOTE_UPDATE_TRIGGER_FUNCTION = """
 CREATE OR REPLACE FUNCTION tsvector_eventnote_trigger() RETURNS trigger as
 $$
@@ -19,7 +21,7 @@ $$ LANGUAGE plpgsql;
 """
 
 CREATE_TS_VECTOR_EVEN_NOTE_UPDATE_TRIGGER = """
-CREATE OR REPLACE TRIGGER tsvector_evennote_update
+CREATE TRIGGER tsvector_evennote_update
     AFTER INSERT OR UPDATE
     on activity_eventnote
     FOR EACH ROW
@@ -33,6 +35,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunSQL(
+            sql=DROP_TS_VECTOR_EVENNOTE_UPDATE_TRIGGER,
+            reverse_sql=migrations.RunSQL.noop,
+        ),
         migrations.RunSQL(
             sql=CREATE_TS_VECTOR_EVEN_NOTE_UPDATE_TRIGGER_FUNCTION,
             reverse_sql=migrations.RunSQL.noop,
