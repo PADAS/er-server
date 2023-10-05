@@ -26,7 +26,6 @@ class TestTenantBaseCommand:
         das_tenant,
         capsys,
     ):
-        # Simulate no tenant is set on thread
         get_tenant_settings_mock.side_effect = TenantNotFoundInLocalThreadException
         get_current_tenant_mock.return_value = None
 

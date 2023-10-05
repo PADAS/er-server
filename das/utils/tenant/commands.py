@@ -16,7 +16,7 @@ from utils.tenant.providers import post_tenant_to_thread
 class TenantCommandMixin:
     """
     Mixin for tenant-aware Django commands.
-    This class can be mixed in Custom Django commands.
+    This class has to be mixed in Custom Django commands.
 
     Tenant resolution:
         1. Look for the tenant specified by --tenant_id.
@@ -76,7 +76,6 @@ class TenantCommandMixin:
                 try:
                     tenant_settings = get_tenant_settings()
                 except TenantNotFoundInLocalThreadException:
-                    # Look for the das_tenant as fallback
                     das_tenant = get_current_tenant()
                     if das_tenant:
                         self._set_tenant_settings(domain=das_tenant.domain)
