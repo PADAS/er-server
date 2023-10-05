@@ -251,7 +251,7 @@ class ObservationViewTestCase(BaseAPITest):
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestObservationsFilterView:
     def test_filter_by_subject_ascending(
         self, five_observations, superuser_client, subject_source, tenant_response, memory_store_client_mock

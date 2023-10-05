@@ -30,10 +30,7 @@ from observations.models import (
 )
 from observations.serializers import ObservationSerializer
 from observations.utils import parse_comma
-from observations.views import (
-    SourcesView,
-    SubjectSourcesAssignmentView,
-)
+from observations.views import SourcesView, SubjectSourcesAssignmentView
 
 User = get_user_model()
 das_tenant_management = DASTenantManagement(domain="zoo.com")
@@ -286,8 +283,8 @@ class SubjectSourceTestCase(BaseAPITest):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSourceAPITestCase:
-
     def test_create_source_api(self, superuser_client):
         set_current_tenant(self._get_tenant())
         faker = Faker()
