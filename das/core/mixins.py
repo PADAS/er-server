@@ -41,7 +41,7 @@ class SerialNumberModelMixin:
                 Coalesce(
                     Subquery(
                         self.__class__.objects.filter(serial_number__isnull=False)
-                        .order_by(serial_number_field_name)
+                        .order_by(f"-{serial_number_field_name}")
                         .values(serial_number_field_name)[:1],
                         output_field=BigIntegerField(),
                     ),
