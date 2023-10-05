@@ -80,6 +80,7 @@ class TestSpeedCalculation:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestObservationUtils:
     def test_is_an_observation_for_stationary_subject(self, subject_source):
         source = subject_source.source
