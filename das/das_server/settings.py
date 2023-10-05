@@ -759,6 +759,13 @@ TENANT_ID = env.str("TENANT_ID", "")
 CLUSTER_NAME = env.str("CLUSTER_NAME", "UNSET")
 CLUSTER_NAMESPACE = env.str("CLUSTER_NAMESPACE", "UNSET")
 
+if not env.bool("IS_OAUTH2_PROVIDER_MIGRATION", False):
+    # Django oauth custom models
+    OAUTH2_PROVIDER_ACCESS_TOKEN_MODEL = "core.DASAccessToken"
+    OAUTH2_PROVIDER_APPLICATION_MODEL = "core.DASApplication"
+    OAUTH2_PROVIDER_GRANT_MODEL = "core.DASGrant"
+    OAUTH2_PROVIDER_ID_TOKEN_MODEL = "core.DASIDToken"
+    OAUTH2_PROVIDER_REFRESH_TOKEN_MODEL = "core.DASRefreshToken"
 
 if CLUSTER_NAME in ["das1-prod-asia", "das-prod1"]:
     PUBSUB_PROJECT_ID = "earthranger-prod"
