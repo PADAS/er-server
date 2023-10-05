@@ -338,3 +338,5 @@ flycheck_*.el
 /network-security.data
 
 pyrightconfig.json
+.env
+.envrc
