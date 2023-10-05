@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 
 import pytest
 import pytz
-from django_multitenant.utils import set_current_tenant
 from pytz import UTC
 
 from django.contrib.auth import get_permission_codename
@@ -13,7 +12,6 @@ from django.test import TestCase
 
 from accounts.models import PermissionSet, User
 from observations.models import (
-    LatestObservationSource,
     Observation,
     Source,
     Subject,
@@ -26,6 +24,7 @@ def make_perm(perm):
     return "{0}.{1}".format(perm.content_type.app_label, perm.codename)
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class SubjectGroupTestCase(TestCase):
     def setUp(self):
         all_set = PermissionSet.objects.create(name="all")
@@ -44,6 +43,7 @@ class SubjectGroupTestCase(TestCase):
         self.assertIn(ele_group, ele.groups.all())
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class SubjectPermissionsTestCase(TestCase):
     user_const = dict(last_name="last", first_name="first")
 
@@ -82,6 +82,7 @@ class SubjectPermissionsTestCase(TestCase):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectQuerySet:
     def test_get_queyset_by_linked_user(self, user, subject):
         user.linked_subject = subject
@@ -93,6 +94,7 @@ class TestSubjectQuerySet:
         assert subject_queryset.first() == subject
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class SubjectAlertTestCase(TestCase):
     user_const = dict(last_name="last", first_name="first")
 
@@ -148,6 +150,7 @@ class SubjectAlertTestCase(TestCase):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestObservationManager:
     OBSERVATION_POINTS = [
         (-103.64398956298828, 20.612540918310213),
@@ -213,6 +216,7 @@ class TestObservationManager:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestObservationTriggers:
     def test_source_last_observation_relation_without_observation(self, subject_source):
         source = subject_source.source
@@ -317,10 +321,8 @@ class TestObservationTriggers:
         assert sources.first().last_observation == observations[0].id
         assert sources.first().last_observation_recorded_at == now
 
-    def test_delete_not_latest_observation(self, subject_source, das_tenant_monkeypatch):
+    def test_delete_not_latest_observation(self, subject_source):
         source = subject_source.source
-        Source.objects.filter(id=source.id).update(das_tenant=das_tenant_monkeypatch)
-        set_current_tenant(das_tenant_monkeypatch)
 
         now = datetime.now(tz=UTC)
         middle_observation_id = None
@@ -336,12 +338,11 @@ class TestObservationTriggers:
         Observation.objects.get(id=middle_observation_id).delete()
 
         sources = (
-            Source.objects.filter(id__in=[source.id], das_tenant=tenant)
+            Source.objects.filter(id__in=[source.id])
             .annotate(last_observation=F("last_observation_source__observation"))
             .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
         )
         observation = Observation.objects.all().order_by("-recorded_at").first()
-        LatestObservationSource.objects.update(das_tenant=tenant)
         assert sources.first().last_observation == observation.id
         assert sources.first().last_observation_recorded_at == observation.recorded_at
 

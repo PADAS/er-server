@@ -61,6 +61,7 @@ class PermissionSetFactory(factory.django.DjangoModelFactory):
         django_get_or_create = ("name",)
 
     name = fuzzy.FuzzyText(length=25)
+    das_tenant = factory.SubFactory(TenantFactory)
 
     @factory.post_generation
     def permissions(self, create, extracted, **kwargs):

@@ -784,7 +784,7 @@ class SubjectTestCase(BaseAPITest):
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectsView:
     def test_static_sensor_response(self, subject_source):
         now = datetime.now(tz=pytz.utc)
@@ -936,7 +936,7 @@ class TestSubjectsView:
                     "Access to updated observations as they become available, includes view_last_position.",
                     "observations",
                     "subject",
-                    "view_real_time",
+                    "view_real_time1",
                 ],
                 ["Permission to subscribe to an alert on this Subject.", "observations", "subject", "subscribe_alerts"],
                 ["Can view subject group", "observations", "subjectgroup", "view_subjectgroup"],
@@ -945,7 +945,11 @@ class TestSubjectsView:
         indirect=True,
     )
     def test_cannot_combine_queries(
-        self, permission_set_with_permissions, five_subjects, user_client, subject_group_empty
+        self,
+        permission_set_with_permissions,
+        five_subjects,
+        user_client,
+        subject_group_empty,
     ):
         dumbo = five_subjects[0]
         felix = five_subjects[1]
@@ -977,7 +981,7 @@ class TestSubjectsView:
                     "Access to updated observations as they become available, includes view_last_position.",
                     "observations",
                     "subject",
-                    "view_real_time",
+                    "view_real_time1",
                 ],
                 ["Permission to subscribe to an alert on this Subject.", "observations", "subject", "subscribe_alerts"],
                 ["Can view subject group", "observations", "subjectgroup", "view_subjectgroup"],
@@ -985,6 +989,7 @@ class TestSubjectsView:
         ],
         indirect=True,
     )
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
     def test_response_when_not_param_sent_and_a_linked_subject_tied(
         self, permission_set_with_permissions, subject_source, source_group, user_client, five_subjects
     ):
@@ -1019,7 +1024,7 @@ class TestSubjectsView:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectsViewFilter:
     position_observations = [
         [-103.66424560546874, 20.619288994719977],
