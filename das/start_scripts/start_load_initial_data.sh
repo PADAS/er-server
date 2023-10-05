@@ -1,7 +1,7 @@
 #!/bin/sh
 # Check arguments
 if [ $# -ne 1 ]; then
-  echo "Usage: ./start_load_initial_data_tests.sh <domain>"
+  echo "Usage: ./start_load_initial_data.sh <domain>"
   exit 1
 fi
 
