@@ -8,10 +8,13 @@ from django_multitenant.utils import (
 )
 
 from core.models import DASTenant
-from utils.tenant import get_tenant_settings, set_tenant_settings
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 from utils.tenant.providers import TenantData
-from utils.tenant.thread import clear_tenant_settings
+from utils.tenant.thread import (
+    clear_tenant_settings,
+    get_tenant_settings,
+    set_tenant_settings,
+)
 
 logger = logging.getLogger(__name__)
 
