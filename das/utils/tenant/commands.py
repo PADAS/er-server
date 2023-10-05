@@ -4,13 +4,13 @@ from django.core.management.base import CommandError
 
 from core.models import DASTenant
 from utils.features import features
+from utils.tenant import get_tenant_settings, set_tenant
 from utils.tenant.exceptions import (
     TenantNotFoundException,
     TenantNotFoundInLocalThreadException,
 )
 from utils.tenant.managers import UnsetDASTenantContextManager
 from utils.tenant.providers import post_tenant_to_thread
-from utils.tenant.thread import get_tenant_settings, set_tenant
 
 
 class TenantCommandMixin:

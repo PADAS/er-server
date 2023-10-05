@@ -63,3 +63,19 @@ class TenantContextManager:
         else:
             clear_tenant_settings()
         set_current_tenant(self.previous_tenant)
+
+
+def set_tenant(domain):
+    """
+    Single function to set both the Tenant and the DASTenant in the current thread
+    """
+    from core.models import DASTenant
+    from utils.tenant.providers import TenantData
+
+    instance = TenantData(domain=domain)
+    tenant_data = instance.get_tenant_data()
+    tenant_id = tenant_data.get("id")
+    with UnsetDASTenantContextManager():
+        das_tenant = DASTenant.objects.get(id=tenant_id)
+    set_tenant_settings(value=tenant_data)
+    set_current_tenant(tenant=das_tenant)
