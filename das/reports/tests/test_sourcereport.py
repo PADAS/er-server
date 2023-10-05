@@ -1,6 +1,7 @@
 import random
 from datetime import datetime, timedelta
 
+import pytest
 import pytz
 
 from django.contrib.auth import get_user_model
@@ -47,6 +48,7 @@ def generate_random_positions(
         recorded_at += interval
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectSourceReport(TestCase):
     def setUp(self):
         super().setUp()

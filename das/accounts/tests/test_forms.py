@@ -14,6 +14,7 @@ INVALID_CHARACTERS_FOR_NAMES = ("`", "<", ">", ";", "$", "@", "{", "}", '"')
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestCustomUserCreationForm:
     @pytest.mark.parametrize("pin", ["1234", "0000", "0012"])
     def test_create_user_with_valid_pin(self, pin):
@@ -87,6 +88,7 @@ class TestCustomUserCreationForm:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestUserAdditionalForm:
     @pytest.mark.parametrize("pin", ["1234", "0000", "0012"])
     def test_create_user_with_valid_pin(self, pin):

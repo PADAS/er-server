@@ -4,6 +4,7 @@ from accounts.utils import fetch_organization_choices, fetch_tech_choices, get_p
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestUtils:
     def test_fetch_tech_choices(self, five_choices):
         five_choices[0].field = "tech"
@@ -22,6 +23,7 @@ class TestUtils:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestFetchOrganizationChoices:
     def test_fetch_organization_choices(self, five_choices):
         five_choices[0].field = "organization"
@@ -44,6 +46,7 @@ class TestFetchOrganizationChoices:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestGetProfiles:
     def test_without_children(self, five_users):
         user = five_users[0]
