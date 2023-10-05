@@ -840,16 +840,9 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
             models.Index(fields=["das_tenant", "event_time"]),
         ]
 
-    class ReadonlyMeta:
-        readonly = [
-            "serial_number",
-        ]
-
-    # created_at = models.DateTimeField(auto_now_add=True)
-    # updated_at = models.DateTimeField()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
-    serial_number = models.BigIntegerField(blank=True, unique=True, null=True, verbose_name="Serial Number")
+    serial_number = models.BigIntegerField(blank=True, unique=False, null=True, verbose_name="Serial Number")
 
     message = models.TextField(blank=True)
     comment = models.TextField(blank=True, null=True, verbose_name="Additional message text")
