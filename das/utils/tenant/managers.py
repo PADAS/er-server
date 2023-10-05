@@ -72,9 +72,6 @@ def set_tenant(domain):
     """
     Single function to set both the Tenant and the DASTenant in the current thread
     """
-    from core.models import DASTenant
-    from utils.tenant.providers import TenantData
-
     instance = TenantData(domain=domain)
     tenant_data = instance.get_tenant_data()
     tenant_id = tenant_data.get("id")
