@@ -1729,7 +1729,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         response = views.EventSourcesView.as_view()(request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 201)
-        response.data
 
         request = self.factory.post(
             f"{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources", eventsource_data
@@ -1738,7 +1737,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         response = views.EventSourcesView.as_view()(request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 400)
-        response.data
 
     def test_eventsourceview_update_permission_denied(self):
         eventprovider = EventProvider.objects.create(display="Smart CSD Provider", owner=self.eventsource_user_no1)

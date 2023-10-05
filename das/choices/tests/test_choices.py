@@ -37,7 +37,7 @@ def choices_fixture(db, django_user_model):
     return ChoiceDetails(choices=Choice.objects.all(), user=user)
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_get_all_choices(choices_fixture, client, memory_store_client_mock):
     choices, user = choices_fixture.choices, choices_fixture.user
 
@@ -48,7 +48,7 @@ def test_get_all_choices(choices_fixture, client, memory_store_client_mock):
     assert len(response.data["results"]) == 2
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_single_choice(choices_fixture, client, memory_store_client_mock):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
@@ -60,7 +60,7 @@ def test_single_choice(choices_fixture, client, memory_store_client_mock):
     assert response.data.get("id") == choice_id
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_add_choice(choices_fixture, client, memory_store_client_mock):
     choices, user = choices_fixture.choices, choices_fixture.user
 
@@ -79,7 +79,7 @@ def test_add_choice(choices_fixture, client, memory_store_client_mock):
     assert qcount == 3
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_update_choice(choices_fixture, client, memory_store_client_mock):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
@@ -91,7 +91,7 @@ def test_update_choice(choices_fixture, client, memory_store_client_mock):
     assert response.status_code == 200
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_softdelete_choice(choices_fixture, client, memory_store_client_mock):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
@@ -109,7 +109,7 @@ def test_softdelete_choice(choices_fixture, client, memory_store_client_mock):
 
 
 @pytest.mark.django_db()
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestChoicesViews:
     def test_url_resolving(self, choice):
         api_path = f"choices/{choice.pk}/"

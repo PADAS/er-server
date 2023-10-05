@@ -3,6 +3,7 @@ import logging
 import traceback
 from collections import OrderedDict
 
+from django_multitenant.utils import get_current_tenant
 from drf_extra_fields.geo_fields import PointField
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
@@ -625,8 +626,21 @@ class EventSourceSerializer(ModelSerializer):
                 ],
             ),
         )
-
         return rep
+
+    def validate(self, data):
+        tenant = get_current_tenant()
+        event_provider = data.get("eventprovider")
+        external_event_type = data.get("external_event_type")
+        if tenant and event_provider and external_event_type:
+            event_source = EventSource.objects.filter(
+                das_tenant=tenant,
+                eventprovider=data["eventprovider"],
+                external_event_type=data["external_event_type"],
+            ).exists()
+            if event_source:
+                raise ValidationError("Unique constrain error in EventSource model.")
+        return data
 
 
 class EventProviderSerializer(ModelSerializer):

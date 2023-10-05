@@ -30,7 +30,7 @@ class TestEventServices(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        call_command("loaddata", "initial_eventdata")
+        call_command("loaddata_with_tenant", "initial_eventdata")
 
         cls.plain_user = User.objects.create_user(
             "someusername", "someuser@tempuri.org", "AbODI#@!018234", first_name="Some", last_name="Name"

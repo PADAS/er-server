@@ -10,7 +10,7 @@ from accounts.models.eula import EULA, UserAgreement
 from core.tests import BaseAPITest
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class EulaModelTestCase(TestCase):
     def setUp(self) -> None:
         self.user1 = User.objects.create_user(username="user1", password="asdfo9823sfiu23$", email="user1user@user.org")
