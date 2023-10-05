@@ -35,6 +35,7 @@ class TestAppendDomainToMessage:
             append_domain_to_message(message=None, domain="domain1.com")
 
 
+@pytest.mark.django_db
 class TestTenantContextFromMessage:
     def test_pubsub_message_contains_tenant(self, tenant_settings, memory_store_client_mock):
         def tenant_callback(*args, **kwargs):

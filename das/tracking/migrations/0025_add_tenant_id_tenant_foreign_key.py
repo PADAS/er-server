@@ -18,10 +18,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveConstraint(
-            model_name="sourceproviderconfiguration",
-            name="default_track_config",
-        ),
         migrations.AddField(
             model_name="awetelemetryplugin",
             name="das_tenant",
@@ -282,60 +278,16 @@ class Migration(migrations.Migration):
                 to="observations.sourceprovider",
             ),
         ),
-        migrations.AlterUniqueTogether(
-            name="awetelemetryplugin",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="awthttpplugin",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="awtplugin",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="demosourceplugin",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="firmsplugin",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="savannahplugin",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="sirtrackplugin",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="skygisticssatelliteplugin",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="sourceplugin",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="spidertracksplugin",
-            unique_together={("id", "das_tenant")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="vectronicsplugin",
-            unique_together={("id", "das_tenant")},
+        migrations.RemoveConstraint(
+            model_name="sourceproviderconfiguration",
+            name="default_track_config",
         ),
         migrations.AddConstraint(
             model_name="sourceproviderconfiguration",
             constraint=models.UniqueConstraint(
                 condition=models.Q(("is_default", True)),
-                fields=("is_default", "das_tenant"),
+                fields=("das_tenant", "is_default"),
                 name="default_track_config",
             ),
-        ),
-        migrations.AddConstraint(
-            model_name="sourceproviderconfiguration",
-            constraint=models.UniqueConstraint(fields=("id", "das_tenant"), name="tenant_id"),
         ),
     ]

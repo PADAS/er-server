@@ -3,6 +3,14 @@
 import django.db.models.deletion
 from django.db import migrations, models
 
+from utils.migrations.update_primary_key import add_tenant_to_primary_key
+
+mapping_models = ["SpatialFeatureRevision"]
+
+
+def regenerate_primary_keys(apps, schema_editor):
+    add_tenant_to_primary_key("mapping", mapping_models)
+
 
 class Migration(migrations.Migration):
     dependencies = [
@@ -22,10 +30,5 @@ class Migration(migrations.Migration):
                 to="core.dastenant",
             ),
         ),
-        migrations.AddConstraint(
-            model_name="spatialfeaturerevision",
-            constraint=models.UniqueConstraint(
-                fields=("das_tenant", "id"), name="mapping_spatialfeaturerevision_tenant_unique"
-            ),
-        ),
+        migrations.RunPython(code=regenerate_primary_keys, reverse_code=migrations.RunPython.noop),
     ]

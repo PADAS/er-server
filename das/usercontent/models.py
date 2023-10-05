@@ -88,9 +88,6 @@ class FileContent(TenantModelMixin, TimestampedModel, RevisionMixin):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     tenant_id = "das_tenant_id"
 
-    class Meta:
-        unique_together = ["id", "das_tenant"]
-
     def save(self, *args, **kwargs):
         self.full_clean()
         result = super().save(*args, **kwargs)
@@ -124,9 +121,6 @@ class ImageFileContent(TenantModelMixin, TimestampedModel, RevisionMixin):
     content_type = ContentTypeField()
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
     tenant_id = "das_tenant_id"
-
-    class Meta:
-        unique_together = ["id", "das_tenant"]
 
     def save(self, *args, **kwargs):
         self.full_clean()

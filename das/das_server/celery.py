@@ -154,11 +154,6 @@ app.conf.beat_schedule = {
         # 4 AM local time per settings.TIME_ZONE
         "schedule": crontab(hour=4, minute=0),
     },
-    "publish-daily-site-metrics": {
-        "task": "das_server.tasks.publish_daily_site_metrics",
-        # 1 AM daily
-        "schedule": crontab(hour=1, minute=0),
-    },
     "download-features-from-wfs": {
         "task": "mapping.tasks.automate_download_features_from_wfs",
         # 2 AM per settings.TIME_ZONE
