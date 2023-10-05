@@ -13,7 +13,6 @@ from django.utils import timezone
 
 from accounts.models import PermissionSet, User
 from observations.models import (
-    LatestObservationSource,
     Observation,
     Source,
     Subject,
