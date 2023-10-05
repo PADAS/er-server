@@ -398,6 +398,7 @@ class TwoSubjectsOneSource(NamedTuple):
 
 
 @pytest.fixture
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def two_subjects_one_source(db):
     bobo = Subject.objects.create_subject(name="Bobo", subject_subtype_id="elephant")
     ivy = Subject.objects.create_subject(name="Ivy", subject_subtype_id="elephant")
@@ -429,6 +430,8 @@ def two_subjects_one_source(db):
     return TwoSubjectsOneSource(bobo, ivy, source, bobo_observations, ivy_observations)
 
 
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_subject_observations_for_multiple_source_assignments(two_subjects_one_source):
     bobo_get_observations = [
         x.recorded_at for x in Observation.objects.get_subject_observations(str(two_subjects_one_source.bobo.id))
@@ -438,6 +441,8 @@ def test_subject_observations_for_multiple_source_assignments(two_subjects_one_s
     assert set(bobo_get_observations).difference(set(two_subjects_one_source.ivy_observations))
 
 
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_trackingdata_view_for_multiple_source_assignments(two_subjects_one_source):
     view = TrackingDataCsvView()
     lower = datetime.min.replace(tzinfo=timezone.utc)
@@ -452,6 +457,8 @@ def test_trackingdata_view_for_multiple_source_assignments(two_subjects_one_sour
     assert set(bobo_get_observations).difference(set(two_subjects_one_source.ivy_observations))
 
 
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_trackingdata_view_for_max_records(two_subjects_one_source):
     # Verify we don't see: AssertionError: Cannot reorder a query once a slice has been taken.
     view = TrackingDataCsvView()

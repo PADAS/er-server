@@ -25,6 +25,7 @@ from observations.serializers import (
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectSourceSerializer:
     def test_subject_source_serializer_no_stationary_subject(self, subject_source):
         subject_source.additional = {
@@ -146,6 +147,7 @@ class TestSubjectSourceSerializer:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectTrackSerializer:
     @pytest.fixture()
     def subject(self):
@@ -188,6 +190,7 @@ class TestSubjectTrackSerializer:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestObservationSerializer:
     @pytest.mark.parametrize("coordinates", [(0, 0), (-103.313486, 20.420935)])
     def test_serialized_observation(self, subject_source, coordinates):
@@ -240,6 +243,7 @@ class TestObservationSerializer:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestFlattenObservationSerializer:
     def test_serialized_observation_format(self, observation):
         serialized_observation = FlattenObservationSerializer(observation).data
@@ -259,6 +263,7 @@ class TestFlattenObservationSerializer:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectSerializer:
     def test_with_linked_user(self, subject, ops_user):
         subject.linked_user = ops_user

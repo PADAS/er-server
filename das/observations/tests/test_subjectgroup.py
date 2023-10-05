@@ -1,6 +1,8 @@
 from unittest import mock
 from uuid import uuid4
 
+import pytest
+
 from django.contrib.auth.models import Permission
 from django.core.management import call_command
 from django.db import transaction
@@ -674,6 +676,7 @@ class TestSubjectGroupsVisibility(BaseAPITest):
         self.assertNotIn(str(self.parent_group.id), top_level_subject_groups_ids)
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectGroupAutoCreatedViewPerm(TestCase):
     def create_subject_group(self):
         subject_group = SubjectGroup.objects.create(name="Elephant")

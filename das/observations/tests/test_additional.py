@@ -1,5 +1,7 @@
 import uuid
 
+import pytest
+
 from django.test import TestCase
 
 from choices.models import Choice
@@ -7,6 +9,7 @@ from observations.forms import SubjectForm
 from observations.models import SEX_MALE, Subject, SubjectSubType, SubjectType
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class SubjectAdditionalTest(TestCase):
     def setUp(self):
         wildlife_subject_type, created = SubjectType.objects.get_or_create(
