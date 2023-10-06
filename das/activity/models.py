@@ -840,6 +840,11 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
             models.Index(fields=["das_tenant", "event_time"]),
             models.Index(fields=["das_tenant", "serial_number"]),
         ]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "serial_number"], name="%(app_label)s_%(class)s_tenant_serial_number_unique"
+            ),
+        ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
