@@ -1,3 +1,4 @@
+// Format moved to https://github.com/devcontainers
 // For format details, see https://aka.ms/vscode-remote/devcontainer.json or this file's README at:
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.202.3/containers/python-3
 {
@@ -17,6 +18,8 @@
 	"containerEnv": {
 
 	},
+	"customizations": {
+		"vscode": {
 
 	// Set *default* container specific settings.json values on container create.
 	"settings": {
@@ -45,6 +48,7 @@
 	"extensions": [
 		"ms-python.python",
 		"ms-python.vscode-pylance",
+		"ms-python.flake8",
 		"eamodio.gitlens",
 		"yzhang.markdown-all-in-one",
 		"njpwerner.autodocstring",
@@ -56,7 +60,7 @@
 		"googlecloudtools.cloudcode",
 		"github.vscode-pull-request-github",
 		"trond-snekvik.simple-rst"
-	],
+	]}},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [9000],
@@ -85,7 +89,6 @@
 	"remoteUser": "vscode",
 	"runArgs": [
 		"--add-host=postgis:host-gateway",
-		"--add-host=redis:host-gateway",
-		"--env-file=.env"
+		"--add-host=redis:host-gateway"
 	]
 }
