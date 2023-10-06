@@ -44,7 +44,8 @@ class details_view(models.Model):
         app_label = "activity"
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestMaterializedView(BaseAPITest):
     def setUp(self):
         super().setUp()
