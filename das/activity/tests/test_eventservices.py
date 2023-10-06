@@ -25,14 +25,13 @@ ET_MONITORING = "wildlife_sighting_rep"
 ET_LOGISTICS = "all_posts"
 
 
-@pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventServices(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        # FixMe: the tenant monkepatch fixtures don't work on this class method
         call_command("loaddata_with_tenant", "initial_eventdata")
-
         cls.plain_user = User.objects.create_user(
             "someusername", "someuser@tempuri.org", "AbODI#@!018234", first_name="Some", last_name="Name"
         )
