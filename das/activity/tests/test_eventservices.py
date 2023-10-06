@@ -25,7 +25,8 @@ ET_MONITORING = "wildlife_sighting_rep"
 ET_LOGISTICS = "all_posts"
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventServices(TestCase):
     @classmethod
     def setUpClass(cls):

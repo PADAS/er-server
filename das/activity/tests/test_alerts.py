@@ -51,7 +51,7 @@ user_permissions = ["security_read", "security_create", "security_update", "secu
 
 
 @patch("redis.StrictRedis", MockRedis)
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestAlerts(TestCase):
     def setUp(self) -> None:
         call_command("loaddata_with_tenant", "event_data_model")

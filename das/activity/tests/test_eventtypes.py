@@ -78,7 +78,7 @@ EVENT_TYPE_UPDATES = (
 )
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_post_eventtype(superuser_client, monkeypatch, memory_store_client_mock, tenant_response):
     EventType.objects.all().delete()
     url = reverse("eventtypes")
@@ -88,7 +88,7 @@ def test_post_eventtype(superuser_client, monkeypatch, memory_store_client_mock,
     assert response.data.get("value") == "acoustic_detection"
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_post_eventtype_with_schema(
     superuser_client, basic_event_categories, memory_store_client_mock, tenant_response
 ):
@@ -104,6 +104,7 @@ def test_post_eventtype_with_schema(
     assert response.status_code == 201
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_update_event_type(
     event_type, basic_event_categories, superuser_client, memory_store_client_mock, tenant_response
 ):
@@ -123,7 +124,7 @@ def test_update_event_type(
     assert response.data.get("icon_id") == "carcass_rep"
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_set_eventtype_to_inactive(event_type, superuser_client, memory_store_client_mock, tenant_response):
     url = reverse("eventtype", kwargs={"eventtype_id": event_type.id})
 
@@ -133,7 +134,7 @@ def test_set_eventtype_to_inactive(event_type, superuser_client, memory_store_cl
     assert EventType.objects.filter(is_active=False).count() == 1
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_post_eventtype_with_bad_schema(superuser_client, memory_store_client_mock, tenant_response):
     url = reverse("eventtypes")
     data = {
@@ -149,7 +150,7 @@ def test_post_eventtype_with_bad_schema(superuser_client, memory_store_client_mo
     assert response.status_code == 400
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_readonly_eventtype(superuser_client, basic_event_categories, memory_store_client_mock, tenant_response):
     url = reverse("eventtypes")
     schema = """
@@ -182,7 +183,7 @@ def test_readonly_eventtype(superuser_client, basic_event_categories, memory_sto
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventTypeAPI:
     @pytest.mark.parametrize(
         "mocked_geometry_type", (EventType.GeometryTypesChoices.POINT, EventType.GeometryTypesChoices.POLYGON)
