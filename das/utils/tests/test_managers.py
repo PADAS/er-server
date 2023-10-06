@@ -1,24 +1,46 @@
+from unittest.mock import patch
+
 import pytest
 
 from utils.features import features
-from utils.tenant import Tenant, get_tenant_settings
+from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 from utils.tenant.managers import TenantContextManager
-from utils.tenant.thread import TENANT_DEFAULT_KEY, _get_local_thread
 
 
 @pytest.mark.django_db
 @pytest.mark.skipif(not features.tms.is_on(), reason="TMS feature flag is off")
 class TestTenantContextManager:
-    def test_tenant_context_manager(self, memory_store_client_mock):
-        main_thread = _get_local_thread()
-        with TenantContextManager(domain="zoo.com"):
-            memory_store_client_mock.get_key.assert_called_once()
-            assert TENANT_DEFAULT_KEY in main_thread.__dict__.keys()
-            assert isinstance(get_tenant_settings(), Tenant)
+    @patch("utils.tenant.managers.TenantData")
+    @patch("utils.tenant.managers.clear_tenant_settings")
+    @patch("utils.tenant.managers.set_tenant_settings")
+    @patch("utils.tenant.managers.get_tenant_settings")
+    @patch("utils.tenant.managers.set_current_tenant")
+    @patch("utils.tenant.managers.get_current_tenant")
+    def test_tenant_context_manager_without_previous_tenant(
+        self,
+        get_current_tenant_mock,
+        set_current_tenant_mock,
+        get_tenant_settings_mock,
+        set_tenant_settings_mock,
+        clear_tenant_settings_mock,
+        tenant_data_mock,
+        tenant_response,
+        das_tenant,
+    ):
+        get_tenant_settings_mock.side_effect = TenantNotFoundInLocalThreadException
+        get_current_tenant_mock.return_value = None
+        tenant_data_mock.return_value.get_tenant_data.return_value = tenant_response
 
-        # FixMe?: The test assumes that there was no previous Tenant set in the thread
-        # It fails when there was a previous Tenant set
-        assert TENANT_DEFAULT_KEY not in main_thread.__dict__.keys()
+        with TenantContextManager(domain="zoo.com"):
+            pass
+
+        assert get_tenant_settings_mock.called
+        assert get_current_tenant_mock.called
+        tenant_data_mock.assert_called_with(domain="zoo.com")
+        tenant_data_mock.return_value.get_tenant_data.assert_called_once()
+        set_tenant_settings_mock.assert_called_once()
+        set_tenant_settings_mock.assert_called_with(value=tenant_response)
+        clear_tenant_settings_mock.assert_called_once()
 
     @pytest.mark.parametrize("domain", ["", None])
     def test_tenant_context_manager_with_no_domain(self, domain, memory_store_client_mock):
