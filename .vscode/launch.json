@@ -205,6 +205,23 @@
             "env":{
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
             }
+        },
+        {
+            "name": "Django migrate db",
+            "type": "python",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "${workspaceFolder}/das/manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "migrate"
+            ],
+            "django": true,
+            "env":{
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+            }
         }
 
     ]
