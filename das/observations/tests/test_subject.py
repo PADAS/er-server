@@ -51,12 +51,18 @@ TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests")
 class SubjectTestCase(BaseAPITest):
     def setUp(self):
         super().setUp()
-        call_command("loaddata_with_tenant", "test/user_and_usergroup.yaml")
-        call_command("loaddata_with_tenant", "test/source_group.json")
-        call_command("loaddata_with_tenant", "test/observations_source.json")
-        call_command("loaddata_with_tenant", "test/observations_subject.json")
-        call_command("loaddata_with_tenant", "test/observations_subject_source.json")
-        call_command("loaddata_with_tenant", "test/observations_observation.json")
+        call_command("loaddata_with_tenant", "test/user_and_usergroup.yaml", tenant_domain=self.tenant_settings.domain)
+        call_command("loaddata_with_tenant", "test/source_group.json", tenant_domain=self.tenant_settings.domain)
+        call_command("loaddata_with_tenant", "test/observations_source.json", tenant_domain=self.tenant_settings.domain)
+        call_command(
+            "loaddata_with_tenant", "test/observations_subject.json", tenant_domain=self.tenant_settings.domain
+        )
+        call_command(
+            "loaddata_with_tenant", "test/observations_subject_source.json", tenant_domain=self.tenant_settings.domain
+        )
+        call_command(
+            "loaddata_with_tenant", "test/observations_observation.json", tenant_domain=self.tenant_settings.domain
+        )
         user_const = dict(last_name="last", first_name="first")
         self.user = User.objects.create_user(
             "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
