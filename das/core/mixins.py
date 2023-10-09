@@ -51,7 +51,7 @@ class SerialNumberModelMixin:
             )
 
         result = super().save(*args, **kwargs)
-        self.refresh_from_db()  # Back-fill serial_number in memory
+        self.refresh_from_db()
         return result
 
     def _get_serial_number_field_name(self):
