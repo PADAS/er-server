@@ -182,8 +182,8 @@ def test_readonly_eventtype(superuser_client, basic_event_categories, memory_sto
     assert response_detail.data["readonly"]
 
 
-@pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.django_db
 class TestEventTypeAPI:
     @pytest.mark.parametrize(
         "mocked_geometry_type", (EventType.GeometryTypesChoices.POINT, EventType.GeometryTypesChoices.POLYGON)
