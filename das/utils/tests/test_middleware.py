@@ -15,6 +15,7 @@ from utils.tenant.thread import Tenant, get_tenant_settings
 @pytest.mark.django_db
 class TestTenantSettingsMiddleware:
     @pytest.mark.skipif(not features.tms.is_on(), reason="TMS feature flag is off")
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
     @patch("utils.tenant.providers.TenantData.get_tenant_data")
     def test_tenant_settings_middleware_getting_tenant(self, mocked_tenant_client, tenant_response, rf):
         mocked_tenant_client.return_value = tenant_response
