@@ -48,6 +48,7 @@ from factories import (
 )
 from utils.features import features
 from utils.tenant import Tenant
+from utils.tenant.managers import TenantContextManager
 
 Application = get_application_model()
 User = apps.get_model(app_label="accounts", model_name="User")
@@ -322,8 +323,9 @@ def user():
 
 
 @pytest.fixture
-def superuser_client(application, superuser):
-    token = AccessTokenFactory(user=superuser, application=application).token
+def superuser_client(application, superuser, tenant):
+    with TenantContextManager(domain=tenant.domain):
+        token = AccessTokenFactory(user=superuser, application=application).token
     client = APIClientWithUser()
     client.credentials(HTTP_AUTHORIZATION="Bearer " + token)
     client.force_login(user=superuser)
@@ -332,8 +334,9 @@ def superuser_client(application, superuser):
 
 
 @pytest.fixture
-def user_client(application, user):
-    token = AccessTokenFactory(user=user, application=application).token
+def user_client(application, user, tenant):
+    with TenantContextManager(domain=tenant.domain):
+        token = AccessTokenFactory(user=user, application=application).token
     client = APIClientWithUser()
     client.credentials(HTTP_AUTHORIZATION="Bearer " + token)
     client.force_login(user=user)
