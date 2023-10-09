@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("activity", "0159_event_activity_ev_das_ten_0f89c5_idx"),
+        ("activity", "0158_alter_event_serial_number"),
     ]
 
     operations = [
