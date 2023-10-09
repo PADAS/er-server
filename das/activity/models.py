@@ -838,7 +838,6 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
             models.Index(fields=["das_tenant", "created_at"]),
             models.Index(fields=["das_tenant", "updated_at"]),
             models.Index(fields=["das_tenant", "event_time"]),
-            models.Index(fields=["das_tenant", "serial_number"]),
         ]
         constraints = [
             UniqueConstraint(
