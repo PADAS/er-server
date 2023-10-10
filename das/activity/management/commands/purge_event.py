@@ -3,10 +3,11 @@ import uuid
 from argparse import FileType
 from sys import stdin
 
+from django.core.management.base import BaseCommand
 from django.db import transaction
 
 import activity.models as models
-from utils.tenant.commands import TenantBaseCommand
+from utils.tenant.commands import TenantCommandMixin
 
 REVISION_DELETIONS = [
     "delete from activity_eventrevision",
@@ -19,7 +20,7 @@ REVISION_DELETIONS = [
 ]
 
 
-class Command(TenantBaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     logger = logging.getLogger(__name__)
     help = "Purge event(s)"
 

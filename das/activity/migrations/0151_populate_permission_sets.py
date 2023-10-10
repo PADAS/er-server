@@ -9,6 +9,7 @@ import utils.models
 from accounts.models import PermissionSet, User
 from activity.alerts import create_alerts_permissionset
 from core.utils import DASTenantManagement
+from utils.tenant import set_tenant
 
 
 def create_new_permission_sets(apps, _):  # comes from das/activity/migrations/0053_migrate_existing_user_permissions.py
@@ -99,6 +100,7 @@ def forward_pre(apps, _):  # comes from das/activity/migrations/0061_event_permi
 
 def populate_new_permission_sets(apps):
     utils.models.migrate_permissions(apps)
+    set_tenant(domain=settings.SERVER_FQDN)
     call_command("loaddata_with_tenant", "new_permission_sets", app_label="activity")
 
 

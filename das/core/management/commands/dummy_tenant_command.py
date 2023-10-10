@@ -1,10 +1,12 @@
 from django_multitenant.utils import get_current_tenant
 
+from django.core.management.base import BaseCommand
+
 from utils.tenant import get_tenant_settings
-from utils.tenant.commands import TenantBaseCommand
+from utils.tenant.commands import TenantCommandMixin
 
 
-class Command(TenantBaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     help = "Dummy tenant-aware command"
 
     def handle(self, *args, **options):

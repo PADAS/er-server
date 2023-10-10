@@ -1,32 +1,37 @@
-from django_multitenant.utils import set_current_tenant
+from django_multitenant.utils import get_current_tenant, set_current_tenant
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
 
 from core.models import DASTenant
 from utils.features import features
-from utils.tenant.exceptions import TenantNotFoundException
+from utils.tenant import get_tenant_settings, set_tenant
+from utils.tenant.exceptions import (
+    TenantNotFoundException,
+    TenantNotFoundInLocalThreadException,
+)
 from utils.tenant.managers import UnsetDASTenantContextManager
-from utils.tenant.providers import TenantData
-from utils.tenant.thread import set_tenant_settings
+from utils.tenant.providers import post_tenant_to_thread
 
 
-class TenantBaseCommand(BaseCommand):
+class TenantCommandMixin:
     """
-    Base class for tenant-aware commands.
-    This class can be used as a drop-in replacement of the Django BaseCommand class.
+    Mixin for tenant-aware Django commands.
+    This class has to be mixed in Custom Django commands.
 
-    A mandatory argument --tenant_domain is added.
+    Tenant resolution:
+        1. Look for the tenant specified by --tenant_id.
+        2. Look if a tenant is already set in the current thread.
 
-    Derived classes must implement handle(), and optionally add_arguments().
     By the time the handle method of the custom command subclass is called,
     the tenant instance and tenant settings are both set in the current thread
 
     Class usage example:
     ```
         # my_tenant_command.py
-        from utils.tenant.commands import TenantBaseCommand
+        from django.core.management.base import BaseCommand
+        from utils.tenant.commands import TenantCommandMixin
 
-        class Command(TenantBaseCommand):
+        class Command(TenantCommandMixin, BaseCommand):
             help = "Perform some operation against one tenant's data"
 
             def add_arguments(self, parser):
@@ -48,11 +53,11 @@ class TenantBaseCommand(BaseCommand):
 
     def create_parser(self, prog_name, subcommand, **kwargs):
         """
-        Overriden to add tenant_domain as a mandatory argument for tenant-aware commands
+        Overriden to add tenant_domain argument for tenant-aware commands
         """
         parser = super().create_parser(prog_name, subcommand, **kwargs)
         if features.tms.is_on():
-            parser.add_argument("--tenant_domain", type=str, help="Specify the tenant domain", required=True)
+            parser.add_argument("--tenant_domain", type=str, help="Specify the tenant domain", required=False)
         return parser
 
     def execute(self, *args, **options):
@@ -62,32 +67,44 @@ class TenantBaseCommand(BaseCommand):
         """
         if features.tms.is_on():
             domain = options.get("tenant_domain")
-            tenant = self._set_tenant_instance(domain=domain)
-            self._set_tenant_settings(domain=domain)
+            if domain:
+                try:
+                    set_tenant(domain=domain)
+                except Exception as e:
+                    raise CommandError(f"Error setting tenant for domain {domain}: {e}")
+            else:
+                try:
+                    tenant_settings = get_tenant_settings()
+                except TenantNotFoundInLocalThreadException:
+                    das_tenant = get_current_tenant()
+                    if das_tenant:
+                        self._set_tenant_settings(domain=das_tenant.domain)
+                    else:
+                        raise CommandError(
+                            "Please either specify a tenant with '--tenant_domain' or set the tenant in the current thread"
+                        )
+                else:
+                    self._set_das_tenant(tenant_id=tenant_settings.id)
             # Verbose mode
             if options.get("verbosity", 0) >= 2:
-                self.stdout.write(f"Executing command with tenant id {tenant.id}...")
+                current_tenant_settings = get_tenant_settings()
+                self.stdout.write(f"Executing command with tenant id {current_tenant_settings.id}...")
         super().execute(*args, **options)
 
     def _set_tenant_settings(self, domain):
         try:
-            tenant_data = TenantData(domain=domain)
-            tenant_settings = tenant_data.get_tenant_data()
-            set_tenant_settings(value=tenant_settings)
-            return tenant_settings
+            post_tenant_to_thread(domain=domain)
         except TenantNotFoundException:
             raise CommandError(f"Tenant settings for domain '{domain}' not found.")
         except Exception as e:
             raise CommandError(f"Error resolving tenant settings with domain '{domain}': {e}")
 
-    def _set_tenant_instance(self, domain):
+    def _set_das_tenant(self, tenant_id):
         try:
             with UnsetDASTenantContextManager():
-                tenant = DASTenant.objects.get(domain=domain)
-
-            set_current_tenant(tenant=tenant)
-            return tenant
+                tenant = DASTenant.objects.get(id=tenant_id)
+                set_current_tenant(tenant=tenant)
         except DASTenant.DoesNotExist:
-            raise CommandError(f"Tenant for domain '{domain}' not found.")
+            raise CommandError(f"Tenant with id '{tenant_id}' not found.")
         except Exception as e:
-            raise CommandError(f"Error resolving tenant with domain '{domain}': {e}")
+            raise CommandError(f"Error resolving tenant with id '{tenant_id}': {e}")

@@ -2,8 +2,6 @@ import json
 import uuid
 from collections import namedtuple
 
-import pytest
-
 import django.db.models as models
 from django.contrib.admin.sites import AdminSite
 from django.contrib.messages.storage.cookie import CookieStorage
@@ -44,7 +42,6 @@ class details_view(models.Model):
         app_label = "activity"
 
 
-@pytest.mark.usefixtures("tenant_settings")
 class TestMaterializedView(BaseAPITest):
     def setUp(self):
         super().setUp()

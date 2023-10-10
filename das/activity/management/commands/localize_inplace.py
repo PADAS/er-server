@@ -3,11 +3,12 @@ import logging
 import re
 from typing import NamedTuple
 
+from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from activity.models import EventCategory, EventType
 from choices.models import Choice
-from utils.tenant.commands import TenantBaseCommand
+from utils.tenant.commands import TenantCommandMixin
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ models = [
 ]
 
 
-class Command(TenantBaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     help = "Inplace localize"
     outfile = None
 

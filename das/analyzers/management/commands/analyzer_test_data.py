@@ -3,10 +3,11 @@ from datetime import datetime, timedelta
 
 import pytz
 
+from django.core.management.base import BaseCommand
 from django.db.models import F
 
 from observations.models import Observation
-from utils.tenant.commands import TenantBaseCommand
+from utils.tenant.commands import TenantCommandMixin
 
 
 def print_immobility_test_set():
@@ -49,7 +50,7 @@ TEST_SETS = {"immobility": print_immobility_test_set}
 DEFAULT_TEST_SET = "immobility"
 
 
-class Command(TenantBaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     help = "Generate and print a test dataset for the given test set name.\n One of %s" % (TEST_SETS.keys(),)
 
     def handle(self, *args, **options):
