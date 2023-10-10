@@ -50,6 +50,7 @@ from django.utils.translation import gettext_lazy as _
 
 from accounts.models.permissionset import PermissionSet
 from accounts.models.user import User
+from core.mixins import SerialNumberModelMixin
 from core.models import DASTenant, SingletonModel, TimestampedModel, UUIDModel
 from core.utils import static_image_finder
 from observations.models import Subject, SubjectGroup, SubjectStatus
@@ -754,7 +755,7 @@ class EventRelationship(TenantModelMixin, TimestampedModel):
         return result
 
 
-class Event(TenantModelMixin, RevisionMixin, TimestampedModel):
+class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, TimestampedModel):
     revision_ignore_fields = "sort_at"
     revision_follow_relations = ("activity.EventPhoto",)
 
@@ -838,17 +839,15 @@ class Event(TenantModelMixin, RevisionMixin, TimestampedModel):
             models.Index(fields=["das_tenant", "updated_at"]),
             models.Index(fields=["das_tenant", "event_time"]),
         ]
-
-    class ReadonlyMeta:
-        readonly = [
-            "serial_number",
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "serial_number"], name="%(app_label)s_%(class)s_tenant_serial_number_unique"
+            ),
         ]
 
-    # created_at = models.DateTimeField(auto_now_add=True)
-    # updated_at = models.DateTimeField()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
-    serial_number = models.BigIntegerField(blank=True, unique=True, null=True, verbose_name="Serial Number")
+    serial_number = models.BigIntegerField(blank=True, unique=False, null=True, verbose_name="Serial Number")
 
     message = models.TextField(blank=True)
     comment = models.TextField(blank=True, null=True, verbose_name="Additional message text")
