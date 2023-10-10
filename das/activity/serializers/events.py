@@ -881,13 +881,13 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             "updated_at",
             "created_at",
             "icon_id",
+            "serial_number",
         )
         default_fields = (
             "id",
             "location",
             "time",
             "end_time",
-            "serial_number",
             "message",
             "provenance",
             "event_type",
