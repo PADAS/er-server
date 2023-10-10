@@ -2,6 +2,7 @@ import copy
 import logging
 from datetime import datetime
 
+import pytest
 from drf_extra_fields.geo_fields import PointField
 
 from django.core.management import call_command
@@ -57,6 +58,8 @@ migration_doc = [
 ]
 
 
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestManageEvent(TestCase):
     event_data = dict(
         message="Something worth recording happened",

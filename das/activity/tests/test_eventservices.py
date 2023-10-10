@@ -25,14 +25,12 @@ ET_MONITORING = "wildlife_sighting_rep"
 ET_LOGISTICS = "all_posts"
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventServices(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        call_command("loaddata_with_tenant", "initial_eventdata")
-
-        cls.plain_user = User.objects.create_user(
+    def setUp(self):
+        super().setUp()
+        call_command("loaddata_with_tenant", "initial_eventdata", tenant_domain=self.tenant_settings.domain)
+        self.plain_user = User.objects.create_user(
             "someusername", "someuser@tempuri.org", "AbODI#@!018234", first_name="Some", last_name="Name"
         )
 

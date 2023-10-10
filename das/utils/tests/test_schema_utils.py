@@ -2,6 +2,8 @@ import json
 from collections import OrderedDict
 from unittest.mock import MagicMock
 
+import pytest
+
 from django.test import TestCase
 
 import utils.schema_utils as schema_utils
@@ -9,6 +11,7 @@ from choices.models import Choice, DynamicChoice
 from observations.models import CommonName, Subject
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestReportUtils(TestCase):
     raw_schema_1 = """{
    "schema":

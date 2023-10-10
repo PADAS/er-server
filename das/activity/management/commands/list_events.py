@@ -1,8 +1,10 @@
+from django.core.management.base import BaseCommand
+
 from activity.models import Event, EventRelationship, EventRelationshipType
-from utils.tenant.commands import TenantBaseCommand
+from utils.tenant.commands import TenantCommandMixin
 
 
-class Command(TenantBaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     help = "List events"
 
     def handle(self, *args, **options):

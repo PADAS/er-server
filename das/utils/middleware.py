@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from threading import local
 
 import pytz
-from django_multitenant.utils import set_current_tenant
 from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import error_reporting
 from oauth2_provider.models import get_access_token_model
@@ -19,7 +18,6 @@ from django.utils import timezone
 from rest_framework import status
 
 from core import persistent_storage
-from core.models import DASTenant
 from observations.utils import (
     LOCATION,
     block_user_temp,
@@ -30,10 +28,8 @@ from observations.utils import (
 from utils import add_base_url, stats
 from utils.categories import should_apply_geographic_features
 from utils.gis import convert_to_point
-from utils.tenant import get_tenant_settings
+from utils.tenant import get_tenant_settings, set_tenant
 from utils.tenant.exceptions import TenantNotFoundException
-from utils.tenant.managers import UnsetDASTenantContextManager
-from utils.tenant.providers import post_tenant_to_thread
 
 logger = logging.getLogger(__name__)
 
@@ -258,10 +254,7 @@ class TenantSettingsMiddleware:
 
     def __call__(self, request):
         try:
-            post_tenant_to_thread(domain=request.get_host())
-            with UnsetDASTenantContextManager():
-                tenant = DASTenant.objects.get(id=get_tenant_settings().id)
-            set_current_tenant(tenant)
+            set_tenant(domain=request.get_host())
         except TenantNotFoundException as ex:
             return JsonResponse(
                 data={

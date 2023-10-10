@@ -3351,6 +3351,7 @@ class TestParsing(TestCase):
             parse_date_range(val)
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 @pytest.mark.django_db
 class TestEventFilterQueryset:
     ID = [
@@ -3361,7 +3362,6 @@ class TestEventFilterQueryset:
         "b97e67c4-350e-412c-9ef7-cd1e54ed205a",
     ]
 
-    @pytest.mark.usefixtures("tenant_settings")
     def test_by_text_filter_method_for_serial_number(self, five_events_with_details):
         event = Event.objects.last()
 
@@ -3370,7 +3370,6 @@ class TestEventFilterQueryset:
         assert events.count() == 1
 
     @pytest.mark.parametrize("term", ["2", "24", "248"])
-    @pytest.mark.usefixtures("tenant_settings")
     def test_by_text_filter_method_using_numbers_for_ids_in_event_details_data(self, five_events_with_details, term):
         event_details = EventDetails.objects.all()
         for idx, event_detail in enumerate(event_details, 0):
@@ -3386,7 +3385,6 @@ class TestEventFilterQueryset:
         assert events.count() >= 1
 
     @pytest.mark.parametrize("term", ["d", "d6", "d6e"])
-    @pytest.mark.usefixtures("tenant_settings")
     def test_by_text_filter_method_using_letters_for_ids_in_event_details_data(self, five_events_with_details, term):
         event_details = EventDetails.objects.all()
         for idx, event_detail in enumerate(event_details, 0):
@@ -3559,7 +3557,7 @@ class TestEventFilterQuerysetByBbox:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventView2(BaseTestToolMixin):
     api_path = "activity/events/"
     view = views.EventsView

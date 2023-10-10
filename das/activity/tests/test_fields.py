@@ -9,7 +9,7 @@ from activity.serializers import EventGeometryField
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventGeometryField:
     def test_serialized_geometry_format(self, event_with_detail):
         event = event_with_detail.event

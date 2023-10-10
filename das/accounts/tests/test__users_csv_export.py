@@ -8,9 +8,9 @@ from core.tests import BaseAPITest
 class UsersCSVExportTest(BaseAPITest):
     def setUp(self):
         super().setUp()
-        call_command("loaddata_with_tenant", "accounts_choices.json")
-        call_command("loaddata_with_tenant", "initial_admin.yaml")
-        call_command("loaddata_with_tenant", "iOS_user.yaml")
+        call_command("loaddata_with_tenant", "accounts_choices.json", tenant_domain=self.tenant_settings.domain)
+        call_command("loaddata_with_tenant", "initial_admin.yaml", tenant_domain=self.tenant_settings.domain)
+        call_command("loaddata_with_tenant", "iOS_user.yaml", tenant_domain=self.tenant_settings.domain)
         self.superuser = User.objects.get(username="admin")
         self.ios_user = User.objects.get(username="ios")
 

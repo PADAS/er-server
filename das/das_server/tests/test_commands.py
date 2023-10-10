@@ -10,9 +10,9 @@ from das.utils.features import features
 @pytest.mark.django_db
 @pytest.mark.skipif(not features.tms.is_on(), reason="TMS feature flag is off")
 class TestCommands:
-    @patch("utils.tenant.commands.TenantData")
-    @patch("utils.tenant.commands.set_current_tenant")
-    @patch("utils.tenant.commands.set_tenant_settings")
+    @patch("utils.tenant.commands.set_tenant")
+    @patch("utils.tenant.commands.get_current_tenant")
+    @patch("utils.tenant.commands.get_tenant_settings")
     def test_call_site_metrics(
         self,
         set_tenant_settings_mock,

@@ -1,10 +1,12 @@
 import csv
 
+from django.core.management.base import BaseCommand
+
 from activity.models import EventNotification
-from utils.tenant.commands import TenantBaseCommand
+from utils.tenant.commands import TenantCommandMixin
 
 
-class Command(TenantBaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     help = "List all event alerts sent for an ER user. This is for alerts sent based on their rules and notification methods"
 
     def add_arguments(self, parser):
