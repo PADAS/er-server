@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 set -e
+MAX_PODS=1
 
 function __is_pod_ready() {
   pod_status=`kubectl get po "$1" -n "$2" --no-headers | awk '{print $3}'`
-  if [[ $pod_status -eq "Running" ]]; then
+  if [[ $pod_status == "Running" ]]; then
     return 0
   fi
 
@@ -19,8 +20,8 @@ function __pods_ready() {
 
   [[ "$#" == 0 ]] && return 0
 
-  for pod in $pods; do
-    __is_pod_ready "$pod" "$namespace" || return 1
+  for pod in ${pods[@]}; do
+     __is_pod_ready "$pod" "$namespace" || return 1
   done
 
   return 0
@@ -41,9 +42,12 @@ function __wait-until-pods-ready() {
   if [[ $(kubectl get replicaset -n $namespace -o jsonpath='{ .items[?(@.spec.replicas==0)].metadata.name }') ]]; then
     kubectl delete replicaset -n $namespace $(kubectl get replicaset -n $namespace -o jsonpath='{ .items[?(@.spec.replicas==0)].metadata.name }') || true
   fi
+
   for ((i=0; i<$period; i+=$interval)); do
     pods="$(kubectl get po -n $namespace -o 'jsonpath={.items[*].metadata.name}' -l das.component=api)"
-    if __pods_ready $pods; then
+    pod_count=$(kubectl get deployment api -n $namespace -o jsonpath='{.status.replicas}')
+    echo "Pods $pods Pod Count $pod_count"
+    if __pods_ready "$pods" && [ $pod_count -le $MAX_PODS ] ; then
       return 0
     fi
 
