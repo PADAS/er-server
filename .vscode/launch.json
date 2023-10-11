@@ -75,7 +75,7 @@
             "cwd": "${workspaceFolder}/das",
             "env": {
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
-                "LOGGING_LEVEL": "INFO"
+                "ROOT_LOGGING_LEVEL": "INFO"
             },
             "args": [
                 "das_server.wsgi",
@@ -153,7 +153,7 @@
             "env":{
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
                 "GEVENT_SUPPORT": "True",
-                "LOGGING_LEVEL": "INFO"
+                "ROOT_LOGGING_LEVEL": "INFO"
             }
         },
         {
@@ -168,8 +168,10 @@
             ],
             "django": true,
             "env":{
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
+                "ROOT_LOGGING_LEVEL": "INFO"
             }
+        },
         {
             "name": "Django:RunRT",
             "type": "python",
@@ -187,7 +189,7 @@
             ],
             "env":{
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
-            }
+            },
             "django": true
         },
         {

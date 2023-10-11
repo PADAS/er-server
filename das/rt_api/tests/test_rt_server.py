@@ -12,15 +12,6 @@ from rt_api.views import cleanup_disconnected_clients
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestRTServer(TestCase):
-    @staticmethod
-    def _get_mock_socket():
-        mock_socket = mock.MagicMock()
-        mock_socket.closed = False
-        mock_socket.closing = False
-        mock_socket.upgraded = False
-        mock_socket.session = {}
-        return mock_socket
-
     def add_client(self):
         testdata = client.ClientData(
             username="x-user",
@@ -33,23 +24,19 @@ class TestRTServer(TestCase):
 
     @mock.patch("redis.Redis", MockRedis)
     def test_cleanup_disconnected_clients(self):
-        mgr = mock.MagicMock()
-        sios = server.Server(client_manager=mgr)
+        manager_mock = mock.MagicMock()
+        sios = server.Server(client_manager=manager_mock)
         handler = mock.MagicMock()
-        mock_socket = self._get_mock_socket()
-        sios.eio.sockets["sid"] = mock_socket
         sios.on("connect", handler)
-        sios._handle_eio_connect("sid", "e8ef807c2bbe4418b32de45786d82a52")
-        handler.assert_called_once_with("sid", "e8ef807c2bbe4418b32de45786d82a52")
+        sios._handle_eio_connect("e8ef807c2bbe4418b32de45786d82a52", "sid")
+        assert sios.handlers["/"]["connect"] is handler
+        assert sios.environ == {"e8ef807c2bbe4418b32de45786d82a52": "sid"}
         self.add_client()
         client.redis_client.hset(client.EXPIRED_CLIENT_TRACES_LIST, "e8ef807c2bbe4418b32de45786d82a52", "message")
-        num_sockets = len(sios.eio.sockets)
-        len_environ = len(sios.environ)
-        self.assertEqual(num_sockets, 1)
-        self.assertEqual(len_environ, 1)
 
         cleanup_disconnected_clients(sios)
-        _sockets = len(sios.eio.sockets)
-        _environ = len(sios.environ)
-        self.assertEqual(_sockets, 0)
-        self.assertEqual(_environ, 0)
+
+        assert sios.environ == {}
+        manager_mock.disconnect.assert_called_once_with(
+            "e8ef807c2bbe4418b32de45786d82a52", namespace="/", ignore_queue=True
+        )

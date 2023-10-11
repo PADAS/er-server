@@ -1952,7 +1952,8 @@ class SocketClient(TenantModelMixin, TimestampedModel):
     Associate a socket ID with a user and a set of session-related data.
     """
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_column="sid")
+    sid = models.CharField(max_length=40, blank=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_column="id")
     username = models.CharField("Das username associated with session", max_length=30)
     bbox = models.MultiPolygonField("Viewport bounding box.", null=True, blank=True)
     event_filter = models.JSONField("Event filter", default=dict)
@@ -1962,18 +1963,35 @@ class SocketClient(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
     objects = SocketClientManager.from_queryset(QuerySetOnSharedConnection)()
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["das_tenant", "sid"],
+                name="%(app_label)s_%(class)s_tenant_sid_unique",
+            ),
+        ]
+
 
 class UserSessionManager(models.Manager):
     pass
 
 
 class UserSession(TenantModelMixin, TimestampedModel, SharedResourceHandler):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_column="sid")
+    sid = models.CharField(max_length=40, blank=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_column="id")
     time_range = DateTimeRangeField("user session time", null=True, blank=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
 
     objects = UserSessionManager.from_queryset(QuerySetOnSharedConnection)()
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["das_tenant", "sid"],
+                name="%(app_label)s_%(class)s_tenant_sid_unique",
+            ),
+        ]
 
     def aquire_resource(self):
         logger.debug("Aquire database connection from %s", self.__class__.__name__)

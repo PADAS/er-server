@@ -133,7 +133,7 @@ def _event_handler(event_id, type_):
                             matches_current_filter = True
                             should_annotate = False
                             try:
-                                socket_client = SocketClient.objects.get(id=sid)
+                                socket_client = SocketClient.objects.get(sid=sid)
                                 should_annotate = should_annotate_filtered_events(socket_client.event_filter)
                                 queryset = get_filtered_events(socket_client.event_filter, queryset)
                                 matches_current_filter = queryset.exists()
@@ -407,7 +407,7 @@ def _patrol_handler(item_id, type):
                         else:
                             matches_current_filter = True
                             try:
-                                socket_client = SocketClient.objects.get(id=sid)
+                                socket_client = SocketClient.objects.get(sid=sid)
                             except SocketClient.DoesNotExist:
                                 logger.debug(f"SocketClient does not exist for sid={sid}")
                             else:

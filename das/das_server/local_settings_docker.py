@@ -59,18 +59,24 @@ SERVER_NAMES.extend(ALT_SERVER_NAMES)
 ALLOWED_HOSTS = SERVER_NAMES
 
 CORS_ALLOW_CREDENTIALS = True
+# CORS_ORIGIN_ALLOW_ALL is deprecated, CORS_ALLOW_ALL_ORIGINS replaces it
 CORS_ORIGIN_ALLOW_ALL = env.bool("CORS_ORIGIN_ALLOW_ALL", False)
+CORS_ALLOW_ALL_ORIGINS = CORS_ORIGIN_ALLOW_ALL
 
 # Rest and realtime API allowed hosts.
-CORS_ORIGIN_WHITELIST = [f"{prefix}{servername}" for servername in SERVER_NAMES for prefix in ("http://", "https://")]
-
+# CORS_ORIGIN_WHITELIST is deprecated, CORS_ALLOWED_ORIGINS replaces it
+CORS_ALLOWED_ORIGINS = [f"{prefix}{servername}" for servername in SERVER_NAMES for prefix in ("http://", "https://")]
+CORS_ORIGIN_WHITELIST = CORS_ALLOWED_ORIGINS
 
 CORS_REPLACE_HTTPS_REFERER = env.bool("CORS_REPLACE_HTTPS_REFERER", True)
 
 SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", True)
 CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", True)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-CSRF_TRUSTED_ORIGINS = ("localhost:9000", SERVER_FQDN)
+CSRF_TRUSTED_ORIGINS = (
+    "localhost:9000",
+    SERVER_FQDN,
+)  # TODO: test with CORS_ALLOWED_ORIGINS, see https://docs.djangoproject.com/en/4.2/ref/settings/#csrf-trusted-origins
 
 STATIC_ROOT = env.str("STATIC_ROOT", "/var/www/static/")
 
