@@ -480,6 +480,8 @@ locals {
     "hojanueva"                 = "prod1"
     "ecu-pnya"                  = "prod1"
     "wildaid"                   = "prod1"
+    "sci"                       = "prod1"
+    "kwt"                       = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -708,6 +710,7 @@ locals {
     "reservapantanalparaguayo"  = 1
     "k9conservation"            = 1
     "wildaid"                   = 1
+    "kwt"                       = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
