@@ -122,7 +122,7 @@ database_init: ## Initialize a feature site database | [tfvars_environment="BRAN
 	$(CURDIR)/wait_for_pods.sh 240 6 $$K8S_NAMESPACE && \
 	K8S_POD=$$(kubectl get pods -n $$K8S_NAMESPACE --selector=das.component=api -o jsonpath='{.items[*].metadata.name}') && \
 	echo $$K8S_POD && \
-	kubectl -n $$K8S_NAMESPACE exec -it $$K8S_POD -c das-api -- start_scripts/start_load_initial_data_tests.sh $tenant_domain
+	kubectl -n $$K8S_NAMESPACE exec -it $$K8S_POD -c das-api -- start_scripts/start_load_initial_data_tests.sh $$tenant_domain
 
 .PHONY: kubectl_apply_via_proxy
 kubectl_apply_via_proxy: # this should only be run by the build server
