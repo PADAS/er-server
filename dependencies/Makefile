@@ -6,20 +6,21 @@
 
 .PHONY: all check clean
 
-objects = $(wildcard *.in)
-outputs := $(objects:.in=.txt)
+PIP_COMPILE_FLAGS=-v --resolver=backtracking --find-links=wheelhouse
 
-all: $(outputs)
+all: requirements.txt requirements-dev.txt requirements-docs.txt
 
-%.txt: %.in
-	pip-compile -v --output-file $@ $<
+requirements.txt: requirements.in requirements-pinned.txt
+	pip-compile $(PIP_COMPILE_FLAGS) --output-file=$@ $^
 
-requirements-ci.txt: requirements.txt
+requirements-dev.txt: requirements.txt requirements-dev.in
+	pip-compile $(PIP_COMPILE_FLAGS) --output-file=$@ $^
 
-requirements-dev.txt: requirements.txt
+requirements-docs.txt: requirements-docs.in
+	pip-compile $(PIP_COMPILE_FLAGS) --output-file=$@ $^
 
 check:
 	@which pip-compile > /dev/null
 
 clean: check
-	- rm *.txt
+	$(RM) requirements.txt requirements-dev.txt requirements-docs.txt

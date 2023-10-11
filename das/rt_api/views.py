@@ -109,47 +109,54 @@ def connect_ack(sid, sios):
     logger.debug("Acknowledge connection for sid: %s", sid)
     eventlet.sleep(1.0)
     sios.emit(
-        "connect_ack", {"type": "connect_ack", "message": "Connect acknowledgment."}, room=str(sid), namespace="/das"
+        "connect_ack",
+        {"type": "connect_ack", "message": "Connect acknowledgment."},
+        room=str(sid),
+        namespace=RT_NAMESPACE,
     )
 
 
 CLIENT_CLEANUP_INTERVAL = 30  # seconds
 
 
+def get_sid_list(sios):
+    return [sios.manager.sid_from_eio_sid(eio_sid, RT_NAMESPACE) for eio_sid in list(sios.eio.sockets.keys())]
+
+
 def cleanup_disconnected_clients(sios):
     try:
-        if sios.environ:
-            environ = [sid for sid in sios.environ]
+        sid_list = get_sid_list(sios)
+        if sid_list:
             client_list = set(client.get_client_list())
 
             stats.update_gauge("rt.clientcount", len(client_list), sample_rate=0.5)
-            remove_these_clients = set([c for c in client_list if c.sid not in environ])
+            remove_these_clients = set([c for c in client_list if c.sid not in sid_list])
 
             expired_clients = [
                 client for sid in client.get_expired_traces_client_list() for client in client_list if client.sid == sid
             ]
 
             disconnect_these_sids = [
-                key
-                for sid in client.get_expired_traces_client_list()
-                for key, value in sios.environ.items()
-                if value == sid
+                key for sid in client.get_expired_traces_client_list() for key in sid_list if key == sid
             ]
 
             remove_these_clients = remove_these_clients.union(expired_clients)
 
+            logger.info(
+                "inside cleanup disconnected clients, available sockets are: %s",
+                str(sid_list),
+            )
             if len(remove_these_clients) > 0:
-                logger.info(f"Clients to cleanup and disconnect {len(remove_these_clients)}")
+                logger.info("Clients to cleanup and disconnect: %s", len(remove_these_clients))
 
-                client.remove_clients(set([str(x.sid) for x in remove_these_clients]))
+                remove_sids = set([str(dropping_client.sid) for dropping_client in remove_these_clients])
+                client.remove_clients(remove_sids)
 
                 for sid in disconnect_these_sids:
                     sios.disconnect(sid)
-                    if sid in sios.environ:
-                        del sios.environ[sid]
 
             else:
-                logger.info(f"No sockets to clean up. {len(environ)} Existing sockets connected")
+                logger.info("No sockets to clean up. %d Existing sockets connected", len(sid_list))
 
     finally:
         eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL, cleanup_disconnected_clients, sios)
@@ -177,9 +184,11 @@ def create_realtime_handler(sios):
             "service_status",
         ]
 
-        @sios.on("connect", namespace=LOGIN_NAMESPACE)
+        @sios.on("connect", namespace=RT_NAMESPACE)
         def on_connect(sid, environ, *args):
-            with TenantContextManager(RealtimeServices.get_host_from_environ(environ)):
+            domain = RealtimeServices.get_host_from_environ(environ)
+            logger.info("on_connect: socket connecting for sid '%s' under domain '%s'", sid, domain)
+            with TenantContextManager(domain):
                 # Drop the user if they don't authenticate immediately
                 environ["authed"] = False
                 client.add_client(
@@ -204,13 +213,16 @@ def create_realtime_handler(sios):
 
         @sios.on("disconnect", namespace=RT_NAMESPACE)
         def on_disconnect(sid, *args):
+            sid_list = get_sid_list(sios)
             extra = dict(sid=sid)
+            logger.info("inside on_disconnect, available sockets at sios.eio.sockets are: %s", str(sid_list))
             logger.info("Client disconnect %s", sid, extra=extra)
             client.remove_client(sid)
-            client.update_user_session(sid)
+            client.update_user_session_by_sid(sid)
 
         @sios.on("authorization", namespace=RT_NAMESPACE)
         def on_authenticate(sid, data):
+            logger.info("on_authenticate: socket authenticating for sid '%s'", sid)
             try:
                 # validate the data
                 for param in ("type", "authorization", "id"):
@@ -224,6 +236,7 @@ def create_realtime_handler(sios):
                             room=str(sid),
                             namespace=RT_NAMESPACE,
                         )
+                        logger.debug("Disconnecting sid: %s...", sid)
                         sios.disconnect(sid)
                         client.remove_client
 
@@ -265,7 +278,7 @@ def create_realtime_handler(sios):
                             namespace=RT_NAMESPACE,
                         )
 
-                        client.create_update_user_session(sid)
+                        client.create_update_user_session_by_sid(sid)
 
                     else:
                         extra = dict(sid=sid)
@@ -281,7 +294,7 @@ def create_realtime_handler(sios):
                             namespace=RT_NAMESPACE,
                         )
 
-            except:
+            except Exception as exc:
                 sios.emit(
                     "resp_authorization",
                     {
@@ -292,8 +305,8 @@ def create_realtime_handler(sios):
                     room=str(sid),
                     namespace=RT_NAMESPACE,
                 )
-                logger.exception("Disconnecting session. data=%s", data)
                 sios.disconnect(sid)
+                logger.exception("Disconnecting session", extra={"data": data, "exc": exc})
 
         @sios.on("bbox", namespace=RT_NAMESPACE)
         def on_bbox(sid, data):
@@ -393,11 +406,12 @@ def create_realtime_handler(sios):
         @staticmethod
         def emit(message_type, data, socketid=None):
             # user is the SID if set
-            if socketid and socketid not in sios.environ:
+            if not sios.manager.is_connected(socketid, RT_NAMESPACE):
                 client.remove_client(socketid)
                 # extra = dict(sid=user)
                 logger.warning("Tried to send a message to a disconnected client.", extra={"sid": socketid})
                 return
+
             try:
                 # Add a message index. The client can use this to identify gaps
                 # in message streams.

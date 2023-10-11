@@ -112,14 +112,14 @@ def update_client(sid, bbox=None, event_filter=None, patrol_filter=None):
             if update_values:
                 update_values["username"] = client_data.username
                 socket_client, created = SocketClient.objects.update_or_create(
-                    id=sid, das_tenant=get_current_tenant(), defaults=update_values
+                    sid=sid, das_tenant=get_current_tenant(), defaults=update_values
                 )
 
 
-def create_update_user_session(sid):
+def create_update_user_session_by_sid(sid):
     defaults = {"time_range": DateTimeTZRange(lower=datetime.datetime.now(tz=pytz.utc))}
     user_session, created = UserSession.objects.update_or_create(
-        id=sid, das_tenant=get_current_tenant(), defaults=defaults
+        sid=sid, das_tenant=get_current_tenant(), defaults=defaults
     )
 
 
@@ -168,7 +168,9 @@ def get_expired_traces_client_list():
 def add_client(sid, client: ClientData):
     sid = str(sid)
     logger.info(f"Adding socket client. {sid}")
-    logger.info(f"Adding client to session list. {get_client_list_key()} {sid}")
+    logger.info(
+        f"Adding client to session list. {get_client_list_key()} {sid}", extra={"client_data": client.to_json()}
+    )
     redis_client.hset(get_client_list_key(), sid, client.to_json())
 
 
@@ -241,8 +243,8 @@ def remove_clients(sids: set):
     redis_client.delete(*[SID_SESSION_TIMESTAMP_KEY.format(sid) for sid in sids])
     redis_client.delete(*[SID_SUBJECTS_TIMESTAMPS_KEY.format(sid) for sid in sids])
 
-    sockets_sessions = SocketClient.objects.filter(id__in=sids)
-    user_sessions = UserSession.objects.filter(id__in=sids)
+    sockets_sessions = SocketClient.objects.filter(sid__in=sids)
+    user_sessions = UserSession.objects.filter(sid__in=sids)
 
     if sockets_sessions.exists():
         logger.debug("SIDs on SocketClient, deleting", extra={"sids": sids})
@@ -259,15 +261,15 @@ def cleanup_usersessions():
 
 def cleanup_socketclient():
     live_sids = get_all_connections_list_decoded()
-    for socket_client in SocketClient.objects.values("id", "username"):
-        sid = socket_client["id"]
+    for socket_client in SocketClient.objects.values("sid", "username"):
+        sid = socket_client["sid"]
         if sid not in live_sids:
             remove_client(str(sid))
 
 
-def update_user_session(sid):
+def update_user_session_by_sid(sid):
     try:
-        user_session = UserSession.objects.get(id=sid)
+        user_session = UserSession.objects.get(sid=sid)
     except UserSession.DoesNotExist:
         logger.warning(f"sid {sid} not found in UserSession")
     else:

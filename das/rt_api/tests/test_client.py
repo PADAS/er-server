@@ -1,5 +1,5 @@
 import datetime
-import uuid
+import hashlib
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
@@ -7,7 +7,7 @@ import pytest
 from dateutil.parser import ParserError
 from psycopg2._range import DateTimeTZRange
 
-from django.utils import timezone
+from django.utils import lorem_ipsum, timezone
 
 from observations.models import UserSession
 from observations.utils import dateparse
@@ -15,13 +15,13 @@ from rt_api.client import (
     REALTIME_SERVICES_KEY,
     SID_SESSION_TIMESTAMP_KEY,
     cleanup_usersessions,
-    create_update_user_session,
+    create_update_user_session_by_sid,
     get_sid_subject_timestamp,
     redis_client,
     remove_all_rt_services,
     remove_invalid_rt_service_key,
     save_session_timestamp,
-    update_user_session,
+    update_user_session_by_sid,
 )
 
 
@@ -67,7 +67,7 @@ class TestClient:
         mock.datetime.now.return_value = self.mock_datetime_now
         monkeypatch.setattr("rt_api.client.datetime", mock)
 
-        create_update_user_session(user_session.id)
+        create_update_user_session_by_sid(user_session.sid)
         user_session.refresh_from_db()
 
         assert user_session.time_range.lower == self.mock_datetime_now
@@ -82,7 +82,7 @@ class TestClient:
         mock.datetime.now.return_value = self.mock_datetime_now
         monkeypatch.setattr("rt_api.client.datetime", mock)
 
-        create_update_user_session(user_session.id)
+        create_update_user_session_by_sid(user_session.sid)
         user_session.refresh_from_db()
 
         assert user_session.time_range.lower == self.mock_datetime_now
@@ -93,9 +93,9 @@ class TestClient:
         mock.datetime.now.return_value = self.mock_datetime_now
         monkeypatch.setattr("rt_api.client.datetime", mock)
 
-        user_id = uuid.uuid4()
-        create_update_user_session(user_id)
-        user_session = UserSession.objects.get(pk=user_id)
+        sid = hashlib.sha256(lorem_ipsum.words(4).encode()).hexdigest()[:20]
+        create_update_user_session_by_sid(sid)
+        user_session = UserSession.objects.get(sid=sid)
 
         assert user_session.time_range.lower == self.mock_datetime_now
         assert not user_session.time_range.upper
@@ -200,7 +200,7 @@ class TestClient:
         mock.datetime.now.return_value = self.mock_datetime_now
         monkeypatch.setattr("rt_api.client.datetime", mock)
 
-        update_user_session(user_session.id)
+        update_user_session_by_sid(user_session.sid)
         user_session.refresh_from_db()
 
         assert user_session.time_range.lower == self.mock_datetime_now
@@ -215,7 +215,7 @@ class TestClient:
         user_session.time_range = DateTimeTZRange(lower=date)
         user_session.save()
 
-        update_user_session(user_session.id)
+        update_user_session_by_sid(user_session.sid)
         user_session.refresh_from_db()
 
         assert user_session.time_range.upper == self.mock_datetime_now
@@ -229,7 +229,7 @@ class TestClient:
         user_session.time_range = DateTimeTZRange()
         user_session.save()
 
-        update_user_session(user_session.id)
+        update_user_session_by_sid(user_session.sid)
         user_session.refresh_from_db()
 
         assert user_session.time_range.upper == self.mock_datetime_now
