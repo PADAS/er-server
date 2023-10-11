@@ -2930,6 +2930,14 @@ class SocketClient(TenantModelMixin, TimestampedModel):
             ),
         ]
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["das_tenant", "sid"],
+                name="%(app_label)s_%(class)s_tenant_sid_unique",
+            ),
+        ]
+
 
 class UserSessionManager(TenantManagerMixin, models.Manager.from_queryset(QuerySetOnSharedConnection)):
     use_in_migrations = True

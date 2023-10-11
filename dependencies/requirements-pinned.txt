@@ -1,0 +1,1 @@
+git+https://github.com/PADAS/fastkml.git@7922b3f38c4cef4a513a599e899bfb10576d8bd3#egg=fastkml
