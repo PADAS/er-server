@@ -23,7 +23,6 @@ tfvars_overrides := $(template_path)/tfvars-overrides
 
 rendered_template_path := $(CURDIR)/../templated-deployment/rendered
 current_branch := $(shell echo "$$(git rev-parse --quiet --verify --abbrev-ref HEAD || exit 1)")
-tenant_domain :=  $(shell echo $$current_branch | tr "[:upper:]." "[:lower:]_").pamdas.org
 
 .PHONY: help
 help: ## show this help
@@ -121,11 +120,13 @@ database_init: ## Initialize a feature site database | [tfvars_environment="BRAN
 	@ $$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="gcloud_kubectl_configuration" || false) && \
 	K8S_NAMESPACE=$$(echo "$(tfvars_environment)" | tr '[:upper:]' '[:lower:]') && \
 	echo $$K8S_NAMESPACE && \
+	K8S_TENANT_DOMAIN=$$(echo "$$K8S_NAMESPACE.pamdas.org") && \
+	echo $$K8S_TENANT_DOMAIN && \
 	$(CURDIR)/wait_for_pods.sh 240 6 $$K8S_NAMESPACE && \
 	sleep 5 && \
 	K8S_POD=$$(kubectl get pods -n $$K8S_NAMESPACE --selector=das.component=api -o jsonpath='{.items[*].metadata.name}') && \
 	echo $$K8S_POD && \
-	kubectl -n $$K8S_NAMESPACE exec -it $$K8S_POD -c das-api -- start_scripts/start_load_initial_data_tests.sh $$tenant_domain
+	kubectl -n $$K8S_NAMESPACE exec -it $$K8S_POD -c das-api -- start_scripts/start_load_initial_data_tests.sh $$K8S_TENANT_DOMAIN
 
 .PHONY: kubectl_apply_via_proxy
 kubectl_apply_via_proxy: # this should only be run by the build server
