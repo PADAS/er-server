@@ -1,5 +1,4 @@
 from django.conf import settings
-from django.db import transaction
 from django.db.models import BigIntegerField, Subquery, Value
 from django.db.models.functions import Coalesce
 
@@ -50,8 +49,7 @@ class SerialNumberModelMixin:
                 )
                 + Value(1),
             )
-        with transaction.atomic():
-            result = super().save(*args, **kwargs)
+        result = super().save(*args, **kwargs)
         self.refresh_from_db()
         return result
 

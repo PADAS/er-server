@@ -988,6 +988,7 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
             parent.sort_at = self.sort_at
             parent.save(notify_parent_events=False)
 
+    @transaction.atomic
     def save(self, *args, notify_parent_events=True, **kwargs):
         """
 
@@ -996,7 +997,7 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
         :param kwargs:
         :return:
         """
-        self.full_clean(exclude=["id"])
+        self.full_clean(exclude=["id", "serial_number"])
         update_fields = kwargs.get("update_fields", [])
         save_fields = set()
 
