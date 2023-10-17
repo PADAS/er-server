@@ -20,6 +20,7 @@ from activity.constants import PRIORITY_CHOICES
 from core.models import DASTenant
 from core.utils import is_uuid
 from observations.models import Source, Subject
+from utils.migrations.columns import default_tenant_id
 from utils.text import humanize_field_name
 
 logger = logging.getLogger(__name__)
@@ -246,8 +247,7 @@ class Revision(object):
             "das_tenant": models.ForeignKey(
                 DASTenant,
                 on_delete=models.CASCADE,
-                blank=True,
-                null=True,
+                default=default_tenant_id,
                 related_name="%(app_label)s_%(class)s",
             ),
             "tenant_id": "das_tenant_id",

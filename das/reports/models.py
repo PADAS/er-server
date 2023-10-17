@@ -5,6 +5,7 @@ from django.db import models
 
 from core.models import TimestampedModel, UUIDModel
 from core.models.core import DASTenant
+from utils.migrations.columns import default_tenant_id
 
 
 class SourceProviderEvent(TenantModelMixin, TimestampedModel, UUIDModel):
@@ -20,7 +21,7 @@ class SourceProviderEvent(TenantModelMixin, TimestampedModel, UUIDModel):
         related_name="sources_provider_event",
         related_query_name="source_provider_event",
     )
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
 
@@ -37,5 +38,5 @@ class SourceEvent(TenantModelMixin, TimestampedModel, UUIDModel):
         related_name="sources_event",
         related_query_name="source_event",
     )
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"

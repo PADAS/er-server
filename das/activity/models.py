@@ -60,6 +60,7 @@ from revision.manager import Revision, RevisionAdapter, RevisionMixin, relation_
 from utils.gis import convert_to_point, get_circle_polygon_from_point
 from utils.html import clean_user_text
 from utils.json import parse_bool
+from utils.migrations.columns import default_tenant_id
 from utils.tenant import get_tenant_settings
 
 from .constants import (
@@ -105,7 +106,7 @@ class CommunityManager(TenantManagerMixin, models.Manager):
 class Community(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = CommunityManager()
     tenant_id = "das_tenant_id"
 
@@ -136,7 +137,7 @@ class EventClass(TenantModelMixin, TimestampedModel):
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventBaseManager()
     tenant_id = "das_tenant_id"
 
@@ -152,7 +153,7 @@ class EventFactor(TenantModelMixin, TimestampedModel):
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventBaseManager()
     tenant_id = "das_tenant_id"
 
@@ -170,7 +171,7 @@ class EventCategory(TenantModelMixin, TimestampedModel):
     ordernum = models.SmallIntegerField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     flag = models.CharField(max_length=40, default="user", choices=(("user", "User"), ("system", "System")))
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventBaseManager()
     tenant_id = "das_tenant_id"
 
@@ -278,7 +279,7 @@ class EventType(TenantModelMixin, TimestampedModel):
     geometry_type = models.CharField(
         choices=GeometryTypesChoices.choices, default=GeometryTypesChoices.POINT, max_length=20
     )
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventTypeManager.from_queryset(EventTypeFilteringQuerySet)()
     tenant_id = "das_tenant_id"
 
@@ -364,7 +365,7 @@ class RefreshRecreateEventDetailView(TenantModelMixin, UUIDModel):
     ended_at = models.DateTimeField(blank=True, null=True)
     maintenance_status = models.CharField(max_length=255)
     error_details = models.JSONField("error details", default=list, blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = RefreshRecreateEventDetailViewQuery.as_manager()
     tenant_id = "das_tenant_id"
 
@@ -602,7 +603,7 @@ class EventRelationshipType(TenantModelMixin, models.Model):
     value = models.CharField(max_length=50, unique=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     symmetrical = models.BooleanField(default=False)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventBaseManager()
     tenant_id = "das_tenant_id"
 
@@ -676,7 +677,7 @@ class EventFile(TenantModelMixin, TimestampedModel, RevisionMixin):
     usercontent = GenericForeignKey("usercontent_type", "usercontent_id")
     ordernum = models.SmallIntegerField(blank=True, null=True)
     revision = Revision()
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     class Meta:
@@ -711,7 +712,7 @@ class EventRelationship(TenantModelMixin, TimestampedModel):
         "Event", related_name="in_relationships", related_query_name="in_relationship", on_delete=models.CASCADE
     )
     ordernum = models.SmallIntegerField(blank=True, null=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventRelationshipManager()
     tenant_id = "das_tenant_id"
     name = "Event Relationship"
@@ -901,7 +902,7 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
     patrol_segments = models.ManyToManyField(
         to="PatrolSegment", through="EventRelatedSegments", related_name="events", related_query_name="event"
     )
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventManager.from_queryset(EventFilteringQuerySet)()
     tenant_id = "das_tenant_id"
 
@@ -1091,14 +1092,14 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
 class EventRelatedSegments(TenantModelMixin, UUIDModel):
     event = TenantForeignKey(Event, on_delete=models.CASCADE, null=False)
     patrol_segment = TenantForeignKey(to="PatrolSegment", on_delete=models.CASCADE, null=False)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
 
 class EventRelatedSubject(TenantModelMixin, UUIDModel, models.Model):
     event = TenantForeignKey(Event, on_delete=models.CASCADE)
     subject = TenantForeignKey(Subject, on_delete=models.PROTECT)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     def __str__(self):
@@ -1145,7 +1146,7 @@ class EventAttachment(TenantModelMixin, RevisionMixin, models.Model):
     target = GenericForeignKey("content_type", "target_id")
     reason = models.CharField(max_length=20, choices=EVENT_ATTACHMENT_REASONS, default="target")
     revision = Revision()
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventAttachmentManager()
     tenant_id = "das_tenant_id"
 
@@ -1170,7 +1171,7 @@ class EventNote(TenantModelMixin, RevisionMixin, TimestampedModel):
     created_by_user = TenantForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True)
     event = TenantForeignKey(Event, on_delete=models.CASCADE, related_name="notes", related_query_name="note")
     revision = Revision()
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventNoteManager()
     tenant_id = "das_tenant_id"
 
@@ -1206,7 +1207,7 @@ class EventDetails(TenantModelMixin, RevisionMixin, TimestampedModel):
     )
     data = models.JSONField()
     revision = Revision()
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventDetailsManager()
     tenant_id = "das_tenant_id"
 
@@ -1247,7 +1248,7 @@ class EventPhoto(TenantModelMixin, RevisionMixin, TimestampedModel):
     filename = models.TextField(verbose_name="Name of uploaded image file.", default="noname")
     event = TenantForeignKey(Event, on_delete=models.CASCADE, related_name="photos", related_query_name="photo")
     revision = Revision()
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     def save(self, *args, **kwargs):
@@ -1275,7 +1276,7 @@ class EventClassFactor(TenantModelMixin, TimestampedModel):
     eventclass = TenantForeignKey(EventClass, on_delete=models.CASCADE)
     eventfactor = TenantForeignKey(EventFactor, on_delete=models.CASCADE)
     priority = models.PositiveSmallIntegerField(default=Event.PRI_REFERENCE, choices=Event.PRIORITY_CHOICES)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     class Meta:
@@ -1300,7 +1301,7 @@ class EventFilter(TenantModelMixin, TimestampedModel):
     is_hidden = models.BooleanField(verbose_name="Hide this filter", default=True)
     filter_name = models.CharField(verbose_name="Display name that is meaningful to a user", null=False, max_length=100)
     filter_spec = models.JSONField(verbose_name="Filter specification", default=dict)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
 
@@ -1323,7 +1324,7 @@ class EventProvider(TenantModelMixin, TimestampedModel):
         related_query_name="eventprovider",
     )
     additional = models.JSONField(default=dict, blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     def __str__(self):
@@ -1355,7 +1356,7 @@ class EventSource(TenantModelMixin, TimestampedModel):
         related_query_name="eventsource",
     )
     additional = models.JSONField(default=dict, blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     @property
@@ -1413,7 +1414,7 @@ class EventsourceEvent(TenantModelMixin, TimestampedModel):
         on_delete=models.CASCADE,
     )
     external_event_id = models.CharField(max_length=100, null=False)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventsourceEventManager()
     tenant_id = "das_tenant_id"
 
@@ -1458,7 +1459,7 @@ class NotificationMethod(TenantModelMixin, TimestampedModel):
     method = models.CharField(default="email", max_length=20, choices=NOTIFICATION_METHOD_CHOICES)
     value = models.CharField(default="", max_length=100, help_text=_("A phone number or email address."))
     is_active = models.BooleanField(default=True, help_text=_("Whether messages should be sent to this method."))
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = NotificationMethodManager()
     tenant_id = "das_tenant_id"
 
@@ -1497,7 +1498,7 @@ class AlertRule(TenantModelMixin, TimestampedModel):
     is_active = models.BooleanField(
         default=True,
     )
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = AlertRuleManager()
     tenant_id = "das_tenant_id"
 
@@ -1533,7 +1534,7 @@ class EventNotification(TenantModelMixin, UUIDModel, TimestampedModel):
         related_query_name="event_notification",
     )
     event = TenantForeignKey(Event, null=True, on_delete=models.SET_NULL)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventNotificationManager()
     tenant_id = "das_tenant_id"
 
@@ -1546,7 +1547,7 @@ class TSVectorModel(TenantModelMixin, models.Model):
     event = models.OneToOneField(Event, on_delete=models.CASCADE)
     tsvector_event = SearchVectorField(null=True)
     tsvector_event_note = SearchVectorField(null=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
 
@@ -1592,7 +1593,7 @@ class MembershipType(TenantModelMixin, models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=100, unique=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     def __str__(self):
@@ -1602,7 +1603,7 @@ class MembershipType(TenantModelMixin, models.Model):
 class Team(TenantModelMixin, models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     display = models.CharField(max_length=255, blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
 
@@ -1618,7 +1619,7 @@ class TeamMembership(TenantModelMixin, TimestampedModel):
         "Person", related_name="team_memberships", related_query_name="team_membership", on_delete=models.CASCADE
     )
     ordernum = models.SmallIntegerField(blank=True, null=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = TeamMembershipManager()
     tenant_id = "das_tenant_id"
     name = "Team Membership"
@@ -1846,7 +1847,7 @@ class Patrol(TenantModelMixin, TimestampedModel, RevisionMixin):
     title = models.CharField(max_length=255, blank=True, null=True)
     objective = models.TextField(blank=True, null=True)
     revision = Revision()
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = models.Manager.from_queryset(PatrolFilteringQuerySet)()
     tenant_id = "das_tenant_id"
 
@@ -1884,7 +1885,7 @@ class PatrolNote(TenantModelMixin, RevisionMixin, TimestampedModel):
     created_by_user = TenantForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True)
     patrol = TenantForeignKey(Patrol, on_delete=models.CASCADE, related_name="notes", related_query_name="note")
     revision = Revision()
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
 
@@ -1909,7 +1910,7 @@ class PatrolFile(TenantModelMixin, TimestampedModel, RevisionMixin):
     usercontent = GenericForeignKey("usercontent_type", "usercontent_id")
     ordernum = models.SmallIntegerField(blank=True, null=True)
     revision = Revision()
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
 
@@ -1929,7 +1930,7 @@ class PatrolType(TenantModelMixin, TimestampedModel):
     icon = models.CharField(max_length=100, blank=True)
     default_priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
     is_active = models.BooleanField(default=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = PatrolTypeManager()
     tenant_id = "das_tenant_id"
 
@@ -1971,7 +1972,7 @@ class PatrolSegmentMembership(TenantModelMixin, TimestampedModel):
         on_delete=models.CASCADE,
     )
     ordernum = models.SmallIntegerField(blank=True, null=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = PatrolSegmentMembershipManager()
     tenant_id = "das_tenant_id"
     name = "Patrol Segment Membership"
@@ -2074,7 +2075,7 @@ class PatrolSegment(TenantModelMixin, TimestampedModel, RevisionMixin):
     leader_id = models.UUIDField(null=True, blank=True, default=None)
     leader = GenericForeignKey("leader_content_type", "leader_id")
     revision = PatrolSegmentRevision()
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = PatrolSegmentManager()
     tenant_id = "das_tenant_id"
 
@@ -2112,7 +2113,7 @@ class EventGeometry(TenantModelMixin, RevisionMixin, TimestampedModel):
     )
     properties = models.JSONField(default=dict, blank=True)
     revision = Revision()
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     @transaction.atomic

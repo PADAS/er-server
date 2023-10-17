@@ -14,6 +14,7 @@ from core.models import (
     TimestampedModel,
     UUIDModel,
 )
+from utils.migrations.columns import default_tenant_id
 
 
 class PermissionSetManager(HierarchyManager):
@@ -76,8 +77,7 @@ class PermissionSetPermission(UUIDModel, TenantModelMixin):
     das_tenant = models.ForeignKey(
         DASTenant,
         on_delete=models.CASCADE,
-        blank=True,
-        null=True,
+        default=default_tenant_id,
         related_name="%(app_label)s_%(class)s",
     )
     tenant_id = "das_tenant_id"

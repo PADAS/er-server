@@ -17,6 +17,7 @@ from django.utils.translation import gettext_lazy as _
 
 from accounts.mixins import PermissionsMixin
 from core.models import DASTenant
+from utils.migrations.columns import default_tenant_id
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +173,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
     )
     accepted_eula = models.BooleanField(default=False)
     pin = models.CharField(max_length=4, blank=True, null=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = UserManager()
     tenant_id = "das_tenant_id"
 

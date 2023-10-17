@@ -7,6 +7,8 @@ from django.conf import settings
 from django.contrib.gis.db import models
 from django.core.cache import cache
 
+from utils.migrations.columns import default_tenant_id
+
 
 class TimestampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -99,7 +101,7 @@ class HierarchyModel(TenantModelMixin, models.Model):
         symmetrical=False,
         related_name="_parents",
     )
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     def parents(self):

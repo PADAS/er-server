@@ -8,12 +8,13 @@ from django.db import models
 
 from core.models import DASTenant, TimestampedModel
 from observations.models import Subject
+from utils.migrations.columns import default_tenant_id
 
 
 class SubjectSpeedProfile(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     subject = models.OneToOneField(to=Subject, on_delete=models.CASCADE, null=True, blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 
@@ -34,7 +35,7 @@ class SpeedDistro(TenantModelMixin, TimestampedModel):
         blank=True,
     )
     speeds_kmhr = ArrayField(base_field=models.FloatField(), null=True, blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 

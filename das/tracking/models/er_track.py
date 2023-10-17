@@ -11,6 +11,7 @@ from django.utils.translation import gettext_lazy as _
 from core.models import TimestampedModel
 from core.models.core import DASTenant
 from observations.models import SourceProvider, SubjectType
+from utils.migrations.columns import default_tenant_id
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,7 @@ class SourceProviderConfiguration(TenantModelMixin, TimestampedModel):
     )
     new_device_match_case = models.BooleanField(default=False, verbose_name="Match case")
     name_change_match_case = models.BooleanField(default=False, verbose_name="Match case")
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     class Meta:

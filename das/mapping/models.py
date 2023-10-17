@@ -30,6 +30,7 @@ from mapping.mbtiles import (
 from mapping.utils import SPATIAL_FILES_FOLDER, check_file_extension
 from revision.manager import Revision, RevisionMixin
 from utils.decorator import reify
+from utils.migrations.columns import default_tenant_id
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class Map(TenantModelMixin, TimestampedModel):
     attributes = models.JSONField(default=dict, blank=True)
     center = models.PointField(srid=4326)
     zoom = models.IntegerField()
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     class Meta:
@@ -67,7 +68,7 @@ class TileLayer(TenantModelMixin, TimestampedModel):
     name = models.CharField(max_length=255, unique=True)
     attributes = models.JSONField(default=dict, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = TileLayerQuerySet.as_manager()
     tenant_id = "das_tenant_id"
 
@@ -97,7 +98,7 @@ class FeatureType(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
     presentation = models.JSONField(default=dict, blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = FeatureTypeManager()
     tenant_id = "das_tenant_id"
 
@@ -135,7 +136,7 @@ class FeatureSet(TenantModelMixin, TimestampedModel):
     name = models.CharField(max_length=255, unique=True)
     types = models.ManyToManyField(to=FeatureType, related_name="featuresets")
     description = models.TextField(null=True, blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = FeatureSetManager()
     tenant_id = "das_tenant_id"
 
@@ -189,7 +190,7 @@ class SpatialFilesBase(TenantModelMixin, TimestampedModel):
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
     status = models.CharField(max_length=1000, blank=True, null=True, verbose_name="Feature Load Status")
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     class Meta:
@@ -249,7 +250,7 @@ class Feature(TenantModelMixin, TimestampedModel):
     # probably should be spelled feature_set
     featureset = TenantForeignKey(to=FeatureSet, null=True, on_delete=models.PROTECT)
     spatialfile = TenantForeignKey(to=SpatialFile, null=True, blank=True, on_delete=models.SET_NULL)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     @property
@@ -516,7 +517,7 @@ class SpatialFeatureGroup(TenantModelMixin, TimestampedModel):
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True)
     objects = SpatialFeatureGroupManager()
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     class Meta:
@@ -563,7 +564,7 @@ class DisplayCategory(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(null=True, blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = DisplayCategoryManager()
     tenant_id = "das_tenant_id"
 
@@ -605,7 +606,7 @@ class SpatialFeatureType(TenantModelMixin, TimestampedModel):
     external_id = models.CharField(max_length=255, unique=True, blank=True, null=True)
     external_source = models.CharField(max_length=100, blank=True)
     is_visible = models.BooleanField(_("visible"), default=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = SpatialFeatureTypeManager()
     tenant_id = "das_tenant_id"
     # Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
@@ -713,7 +714,7 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
     spatialfile = TenantForeignKey(to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
     arcgis_item = TenantForeignKey(to="ArcgisItem", null=True, blank=True, on_delete=models.CASCADE)
     revision = Revision()
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = SpatialFeatureManager()
     tenant_id = "das_tenant_id"
 
@@ -755,7 +756,7 @@ class ArcgisGroup(TenantModelMixin, TimestampedModel, UUIDModel):
     name = models.CharField(max_length=100, blank=True, null=True)
     group_id = models.CharField(max_length=100, blank=False)
     config_id = models.CharField(max_length=100, blank=False)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     def __str__(self):
@@ -806,7 +807,7 @@ class ArcgisConfiguration(TenantModelMixin, TimestampedModel, UUIDModel):
         help_text="Name of field in your GIS data that has the feature type. Defaults are type and FeatureType",
     )
     last_download = models.DateTimeField(blank=True, null=True, verbose_name="Last Download Time")
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     class Meta:
@@ -827,7 +828,7 @@ class ArcgisItem(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True)
     name = models.CharField(max_length=50)
     arcgis_config = TenantForeignKey(to=ArcgisConfiguration, on_delete=models.SET_NULL, null=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     @property

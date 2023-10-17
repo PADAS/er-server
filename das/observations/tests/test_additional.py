@@ -5,6 +5,7 @@ import pytest
 from django.test import TestCase
 
 from choices.models import Choice
+from core.models import DASTenant
 from observations.forms import SubjectForm
 from observations.models import SEX_MALE, Subject, SubjectSubType, SubjectType
 
@@ -35,9 +36,16 @@ class SubjectAdditionalTest(TestCase):
             "external_id": "some other id",
             "external_name": "some external name",
         }
-        form_data = {"id": uuid.uuid4(), "name": "Henry", "subject_subtype": "cheetah", "is_active": "on"}
+        form_data = {
+            "id": uuid.uuid4(),
+            "name": "Henry",
+            "subject_subtype": "cheetah",
+            "is_active": "on",
+            "das_tenant": DASTenant.objects.first(),
+        }
         form_data = {**form_data, **additional_data}
         form = SubjectForm(data=form_data)
+        form.is_valid()
         self.assertTrue(form.is_valid())
         form.save()
 

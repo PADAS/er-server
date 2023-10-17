@@ -249,6 +249,10 @@ class DASTenantManagement:
                 raise TenantNotFoundException(domain=self.domain)
         return tenant
 
+    def get_tenant_id(self):
+        tenant_data = self._get_tenant_from_tms(domain=self.domain)
+        return tenant_data["id"]
+
     def _get_existing_tenant(self):
         with UnsetDASTenantContextManager():
             return DASTenant.objects.filter(domain=self.domain).first()
