@@ -2,6 +2,7 @@ import uuid
 from typing import Any
 
 from django.apps.registry import Apps
+from django.conf import settings
 from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 
 
@@ -60,3 +61,10 @@ def propagate_uuid_reference(instance, relationship_field, uuid_column, referrer
     for related_instance in getattr(instance, relationship_field).all():
         setattr(related_instance, referrer_uuid_column, instance_uuid)
         related_instance.save()
+
+
+def default_tenant_id():
+    from core.utils import DASTenantManagement
+
+    das_tenant_management = DASTenantManagement(domain=settings.SERVER_FQDN)
+    return das_tenant_management.get_tenant_id()

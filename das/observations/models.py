@@ -79,6 +79,7 @@ from tracking.pubsub_registry import notify_subjectstatus_update
 from utils.decorator import use_shared_resource
 from utils.interfaces import SharedResourceHandler
 from utils.json import zeroout_microseconds
+from utils.migrations.columns import default_tenant_id
 from utils.models import get_next_int_val
 
 User = get_user_model()
@@ -255,7 +256,7 @@ class SourceProvider(TenantModelMixin, TimestampedModel):
     notes = models.TextField(blank=True, null=True)
     additional = models.JSONField("additional data", default=dict, blank=True)
     transforms = models.JSONField(name="transforms", default=list, blank=True, null=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     objects = SourceProviderManager()
     tenant_id = "das_tenant_id"
@@ -293,7 +294,7 @@ class Source(TenantModelMixin, TimestampedModel):
         related_name="sources",
         related_query_name="source",
     )
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     objects = SourceManager()
     tenant_id = "das_tenant_id"
@@ -536,7 +537,7 @@ class Observation(TenantModelMixin, models.Model):
     source = TenantForeignKey("Source", on_delete=models.CASCADE)
     additional = models.JSONField(null=True, blank=True)
     exclusion_flags = BitField(flags=BITMAP_FILTER_CHOICES, default=0)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     objects = ObservationManager.from_queryset(ObservationQuerySet)()
     tenant_id = "das_tenant_id"
@@ -677,7 +678,7 @@ class SubjectSource(TenantModelMixin, models.Model):
     additional = models.JSONField("additional", default=dict, blank=True)
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
     location = models.PointField(verbose_name="Assigned location", blank=True, null=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     objects = SubjectSourceManager.from_queryset(SubjectSourceQuerySet)()
     tenant_id = "das_tenant_id"
@@ -771,7 +772,7 @@ class SubjectType(TenantModelMixin, TimestampedModel):
         max_length=100, blank=True, verbose_name="Subject Type", help_text=_("Subject Type description")
     )
     ordernum = models.SmallIntegerField(blank=True, null=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 
@@ -796,7 +797,7 @@ class SubjectSubType(TenantModelMixin, TimestampedModel):
         help_text=_("Subject Sub-Type description"), max_length=100, blank=True, verbose_name="Subject Sub-Type"
     )
     subject_type = TenantForeignKey(SubjectType, null=False, on_delete=models.PROTECT, default=get_default_subject_type)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     ordernum = models.SmallIntegerField(blank=True, null=True)
     tenant_id = "das_tenant_id"
@@ -814,7 +815,7 @@ class SubjectTrackSegmentFilter(TenantModelMixin, TimestampedModel):
     subject_subtype = TenantForeignKey(SubjectSubType, on_delete=models.PROTECT)
     speed_KmHr = models.FloatField(default=7.0)
     additional = models.JSONField(default=dict, blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 
@@ -1242,7 +1243,7 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
     subject_subtype = TenantForeignKey(SubjectSubType, default=get_default_subject_subtype, on_delete=models.PROTECT)
     import_gpx_data = TenantForeignKey("observations.GPXTrackFile", on_delete=models.SET_NULL, null=True, blank=True)
 
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = SubjectManager.from_queryset(SubjectQuerySet)()
     tenant_id = "das_tenant_id"
 
@@ -1814,7 +1815,7 @@ class CommonName(TenantModelMixin, TimestampedModel):
     subject_subtype = TenantForeignKey(SubjectSubType, on_delete=models.PROTECT, default=get_default_subject_subtype)
     value = models.CharField(primary_key=True, max_length=100)
     display = models.CharField(max_length=100)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     objects = CommonNameManager()
     tenant_id = "das_tenant_id"
@@ -1865,7 +1866,7 @@ class SubjectStatus(TenantModelMixin, PermissionSetGroupMixin, TimestampedModel,
     radio_state_at = models.DateTimeField("Time of state", null=True, blank=True)
     last_voice_call_start_at = models.DateTimeField("Last time voice call was initiated", null=True, blank=True)
     location_requested_at = models.DateTimeField("Last time location was requested", null=True, blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     objects = SubjectStatusManager.from_queryset(SubjectStatusQuerySet)()
     tenant_id = "das_tenant_id"
@@ -1908,7 +1909,7 @@ class Region(TenantModelMixin, models.Model):
     slug = models.SlugField("unique id", max_length=100, unique=True)
     region = models.CharField("region or pa", max_length=100)
     country = models.CharField("country mostly containing region", max_length=100)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 
@@ -1958,7 +1959,7 @@ class SocketClient(TenantModelMixin, TimestampedModel):
     bbox = models.MultiPolygonField("Viewport bounding box.", null=True, blank=True)
     event_filter = models.JSONField("Event filter", default=dict)
     patrol_filter = models.JSONField("Patrol filter", default=dict)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
     objects = SocketClientManager.from_queryset(QuerySetOnSharedConnection)()
@@ -1980,7 +1981,7 @@ class UserSession(TenantModelMixin, TimestampedModel, SharedResourceHandler):
     sid = models.CharField(max_length=40, blank=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_column="id")
     time_range = DateTimeRangeField("user session time", null=True, blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     objects = UserSessionManager.from_queryset(QuerySetOnSharedConnection)()
     tenant_id = "das_tenant_id"
@@ -2044,7 +2045,7 @@ class GPXLogRecord(TenantModelMixin, models.Model):
     points_imported = models.CharField(max_length=225, null=True, blank=True)
     processed_status = models.CharField(choices=PROCESSED_STATUS_CHOICES, max_length=255, null=False, blank=False)
     status_description = models.CharField(max_length=225, null=True, blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 
@@ -2151,7 +2152,7 @@ class Message(TenantModelMixin, TimestampedModel):
     message_time = models.DateTimeField(null=False, blank=False)
     read = models.BooleanField(default=False)
     additional = models.JSONField("additional data", default=dict, blank=True, null=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     objects = MessagesManager.from_queryset(MessageFilteringQuerySet)()
     tenant_id = "das_tenant_id"
@@ -2186,7 +2187,7 @@ class Announcement(TenantModelMixin, TimestampedModel):
     additional = models.JSONField(null=True, blank=True, default=dict)
     link = models.URLField(verbose_name="Link to topic", null=True)
     announcement_at = models.DateTimeField(db_index=True, null=True, blank=True)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     objects = AnnouncementManager.from_queryset(AnnouncementFilteringQuerySet)()
     tenant_id = "das_tenant_id"
@@ -2206,7 +2207,7 @@ class LatestObservationSource(TenantModelMixin, models.Model):
     )
     observation = TenantForeignKey("Observation", on_delete=models.CASCADE)
     recorded_at = models.DateTimeField()
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 

@@ -13,6 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from activity.models import Event
 from core.models import DASTenant, TimestampedModel
 from observations.models import Observation, Subject, SubjectGroup
+from utils.migrations.columns import default_tenant_id
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ class SubjectAnalyzerConfig(TenantModelMixin, TimestampedModel):
         verbose_name="Quiet period (HH:MM:SS)",
         help_text=_("This will be used to override the configured quiet period."),
     )
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 
@@ -123,7 +124,7 @@ class SubjectAnalyzerResult(TenantModelMixin, TimestampedModel):
     subject_analyzer_id = models.UUIDField()
     subject_analyzer = GenericForeignKey("subject_analyzer_content_type", "subject_analyzer_id")
     subject_analyzer_revision = models.PositiveIntegerField(default=1)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 
@@ -139,7 +140,7 @@ class SubjectAnalyzerResult(TenantModelMixin, TimestampedModel):
 class Annotator(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     subject = TenantForeignKey(to=Subject, on_delete=models.CASCADE)
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 

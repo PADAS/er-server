@@ -19,6 +19,7 @@ from core.models.core import DASTenant
 from observations.models import Source, SourceProvider, get_default_source_provider_id
 from tracking.pubsub_registry import notify_new_tracks
 from utils import stats
+from utils.migrations.columns import default_tenant_id
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +115,7 @@ class SourcePlugin(TenantModelMixin, TimestampedModel):
     )
     plugins_to_validate_location = ["awtplugin", "skygisticssatelliteplugin"]
 
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     def execute(self, target=None):
@@ -199,7 +200,7 @@ class TrackingPlugin(TenantModelMixin, TimestampedModel):
     provider = models.ForeignKey(
         SourceProvider, related_name="+", null=False, default=get_default_source_provider_id, on_delete=models.PROTECT
     )
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
 
     class Meta:

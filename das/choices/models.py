@@ -14,6 +14,7 @@ from django.utils.translation import gettext_lazy as _
 
 from core.models import DASTenant, UUIDModel
 from core.utils import static_image_finder
+from utils.migrations.columns import default_tenant_id
 
 
 class ChoiceQuerySet(models.QuerySet):
@@ -55,12 +56,7 @@ class DynamicChoice(TenantModelMixin, UUIDModel):
     criteria = models.CharField(max_length=100, verbose_name="Criteria")
     value_col = models.CharField(max_length=100, verbose_name="Value column")
     display_col = models.CharField(max_length=100, verbose_name="Display column")
-    das_tenant = models.ForeignKey(
-        DASTenant,
-        on_delete=models.CASCADE,
-        blank=True,
-        null=True,
-    )
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 
@@ -71,8 +67,7 @@ class SoftDeleteModel(TenantModelMixin, models.Model):
     das_tenant = models.ForeignKey(
         DASTenant,
         on_delete=models.CASCADE,
-        blank=True,
-        null=True,
+        default=default_tenant_id,
         related_name="%(app_label)s_%(class)s",
     )
 
@@ -156,8 +151,7 @@ class SubChoiceOf(TenantModelMixin, UUIDModel):
     das_tenant = models.ForeignKey(
         DASTenant,
         on_delete=models.CASCADE,
-        blank=True,
-        null=True,
+        default=default_tenant_id,
         related_name="%(app_label)s_%(class)s",
     )
 
