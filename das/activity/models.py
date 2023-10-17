@@ -996,7 +996,7 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
         :param kwargs:
         :return:
         """
-        self.full_clean(exclude=["id", "serial_number"])
+        self.full_clean(exclude=["id"])
         update_fields = kwargs.get("update_fields", [])
         save_fields = set()
 
