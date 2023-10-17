@@ -988,7 +988,6 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
             parent.sort_at = self.sort_at
             parent.save(notify_parent_events=False)
 
-    @transaction.atomic
     def save(self, *args, notify_parent_events=True, **kwargs):
         """
 
