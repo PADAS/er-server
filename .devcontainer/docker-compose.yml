@@ -1,0 +1,40 @@
+version: "3.9"
+services:
+  ## ----------------------------- DB -----------------------------
+  postgis:
+    container_name: postgis
+    image: kartoza/postgis:14-3.3
+    environment:
+      - POSTGRES_USER=das
+      - POSTGRES_DB=das
+      - POSTGRES_PASSWORD=das
+    ports:
+      - "5432:5432"
+    expose:
+      - 5432
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - das_db_volume:/var/lib/postgresql/data
+  ## ----------------------------- Redis -----------------------------
+  redis:
+    container_name: redis
+    image: redis:6.2.7
+    ports:
+      - "6379:6379"
+    expose:
+      - 6379
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 2s
+      timeout: 3s
+      retries: 5
+## ----------------------------- Volumes -----------------------------
+volumes:
+  das_db_volume:
+    driver: local

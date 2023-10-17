@@ -9,7 +9,6 @@
             "type": "python",
             "request": "launch",
             "stopOnEntry": false,
-
             "module": "pytest",
             "args": [
                 "--reuse-db",
@@ -46,7 +45,6 @@
                 "WaitOnNormalExit",
                 "RedirectOutput"
             ]
-
         },
         {
             "name": "Django:Run",
@@ -100,7 +98,7 @@
             "program": "/usr/local/bin/gunicorn",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
-            "gevent":true,
+            "gevent": true,
             "justMyCode": false,
             "args": [
                 "das_server.rt_wsgi",
@@ -121,7 +119,7 @@
                 "--log-level",
                 "info"
             ],
-            "env":{
+            "env": {
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
             }
         },
@@ -150,7 +148,7 @@
                 "all-in-one"
             ],
             //"postDebugTask": "killdebugger",
-            "env":{
+            "env": {
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
                 "GEVENT_SUPPORT": "True",
                 "ROOT_LOGGING_LEVEL": "INFO"
@@ -167,7 +165,7 @@
                 "message_queue_listeners"
             ],
             "django": true,
-            "env":{
+            "env": {
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
                 "ROOT_LOGGING_LEVEL": "INFO"
             }
@@ -187,7 +185,7 @@
                 "--noreload",
                 "--nothreading"
             ],
-            "env":{
+            "env": {
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
             },
             "django": true
@@ -204,7 +202,7 @@
                 "shell"
             ],
             "django": true,
-            "env":{
+            "env": {
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
             }
         },
@@ -220,11 +218,37 @@
                 "migrate"
             ],
             "django": true,
-            "env":{
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+            }
+        },
+
+        {
+            "name": "Django initial data",
+            "type": "python",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "${workspaceFolder}/das/manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "loaddata_with_tenant",
+                "--tenant_domain",
+                "localhost",
+                "initial_admin",
+                "initial_groups",
+                "initial_eventdata",
+                "initial_dev_map",
+                "initial_features",
+                "initial_tilelayers",
+                "event_data_model",
+            ],
+            "django": true,
+            "env": {
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
                 "IS_OAUTH2_PROVIDER_MIGRATION": "True"
             }
         }
-
     ]
 }
