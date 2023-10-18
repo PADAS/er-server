@@ -484,6 +484,7 @@ locals {
     "kwt"                       = "prod1"
     "duikergamelodge"           = "prod1"
     "limpopo-lipadi"            = "prod1"
+    "munywanaconservancy"       = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -714,6 +715,7 @@ locals {
     "wildaid"                   = 1
     "kwt"                       = 1
     "duikergamelodge"           = 1
+    "munywanaconservancy"       = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
