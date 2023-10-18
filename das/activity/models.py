@@ -1838,10 +1838,10 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self.annotate(serial_number_string=Cast("serial_number", CharField()))
 
 
-class Patrol(TenantModelMixin, TimestampedModel, RevisionMixin):
+class Patrol(TenantModelMixin, SerialNumberModelMixin, TimestampedModel, RevisionMixin):
     PRIORITY_CHOICES = PRIORITY_CHOICES
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    serial_number = models.BigIntegerField(verbose_name="Serial Number", unique=True, blank=True, null=True)
+    serial_number = models.BigIntegerField(verbose_name="Serial Number", unique=False, blank=True, null=True)
     priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
     state = models.CharField(choices=PATROL_STATE_CHOICES, default=PC_OPEN, max_length=25)
     title = models.CharField(max_length=255, blank=True, null=True)
@@ -1851,9 +1851,11 @@ class Patrol(TenantModelMixin, TimestampedModel, RevisionMixin):
     objects = models.Manager.from_queryset(PatrolFilteringQuerySet)()
     tenant_id = "das_tenant_id"
 
-    class ReadonlyMeta:
-        readonly = [
-            "serial_number",
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "serial_number"], name="%(app_label)s_%(class)s_tenant_serial_number_unique"
+            ),
         ]
 
     def __str__(self):

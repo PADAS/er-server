@@ -2335,3 +2335,28 @@ class TestPatrolModel:
         patrols = Patrol.objects.by_date_range(filters, True)
 
         assert patrols.first().id == patrol.id
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestSerialNumberOnPatrolModel:
+    def test_serial_number_added_on_save(self):
+        patrol_1 = Patrol(title="Test Patrol 1")
+        patrol_1.save()
+        patrol_2 = Patrol(title="Test Patrol 2")
+        patrol_2.save()
+        patrol_3 = Patrol(title="Test Patrol 3")
+        patrol_3.save()
+
+        assert patrol_1.serial_number == 1
+        assert patrol_2.serial_number == 2
+        assert patrol_3.serial_number == 3
+
+    def test_serial_number_added_on_create(self):
+        patrol_1 = Patrol.objects.create(title="Test Patrol 1")
+        patrol_2 = Patrol.objects.create(title="Test Patrol 2")
+        patrol_3 = Patrol.objects.create(title="Test Patrol 3")
+
+        assert patrol_1.serial_number == 1
+        assert patrol_2.serial_number == 2
+        assert patrol_3.serial_number == 3
