@@ -94,6 +94,7 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 	@ cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_init
 	@ if [ ! -f $(tfvars_overrides)/$(tfvars_environment).tfvars ]; then touch $(tfvars_overrides)/$(tfvars_environment).tfvars; fi
 	@ K8S_NAMESPACE=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="kubernetes_namespace") && \
+	CLUSTER_NAME=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_name") && \
 	DATABASE_NAME=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="database_name") && \
 	SITE_IP_ADDRESS=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="site_ip_address") && \
 	GS_BUCKET_NAME=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="user_uploads_bucket_name") && \
@@ -103,6 +104,7 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 	 apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars' \
 	 -var app_infra_workspace=$$APP_INFRA_WORKSPACE \
 	 -var kubernetes_namespace=$$K8S_NAMESPACE \
+	 -var cluster_name=$$CLUSTER_NAME \
 	 -var site_terraform_workspace=$(tfvars_environment) \
 	 -var db_name=$$DATABASE_NAME \
 	 -var site_ip_address=$$SITE_IP_ADDRESS \

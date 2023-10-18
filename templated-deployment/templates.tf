@@ -25,6 +25,7 @@ resource "template_dir" "deployments" {
     API_PORT                        = var.api_port
     AWS_ACCESS_KEY_ID               = jsondecode(data.google_secret_manager_secret_version.aws_metrics_credentials.secret_data).aws_access_key_id
     AWS_SECRET_ACCESS_KEY           = jsondecode(data.google_secret_manager_secret_version.aws_metrics_credentials.secret_data).aws_secret_access_key
+    CLUSTER_NAME                    = var.cluster_name
     CONFIG_CONTAINER                = var.config_container
     DAILY_REPORT_ENABLED            = var.daily_report_enabled
     DB_HOST                         = local.db_instance_private_ip

@@ -2,6 +2,11 @@ output "gcloud_kubectl_configuration" {
   value = data.terraform_remote_state.earthranger_app_infra.outputs.gcloud_kubectl_configuration
 }
 
+output "cluster_name" {
+  # replace with data.terraform_remote_state.earthranger_app_infra.outputs.cluster_name
+  value = regex("gcloud container clusters get-credentials (?P<cluster_name>\\S+) --zone", data.terraform_remote_state.earthranger_app_infra.outputs.gcloud_kubectl_configuration).cluster_name
+}
+
 output "cluster_b64_encoded_proxy_ca_certificate" {
   value = data.terraform_remote_state.earthranger_app_infra.outputs.b64_encoded_proxy_ca_certificate
 }
@@ -64,4 +69,3 @@ output "analytics_user_pass" {
 output "db_instance_private_ip" {
   value     = local.db_instance_private_ip
 }
-

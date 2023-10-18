@@ -10,6 +10,10 @@ variable "kubernetes_namespace" {
   type = string
 }
 
+variable "cluster_name" {
+  type = string
+}
+
 variable "site_ip_address" {
   type = string
 }
