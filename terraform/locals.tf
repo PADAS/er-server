@@ -484,6 +484,7 @@ locals {
     "kwt"                       = "prod1"
     "duikergamelodge"           = "prod1"
     "limpopo-lipadi"            = "prod1"
+    "niscc"                     = "prod1"
     "munywanaconservancy"       = "prod1"
   }
 
@@ -715,6 +716,7 @@ locals {
     "wildaid"                   = 1
     "kwt"                       = 1
     "duikergamelodge"           = 1
+    "niscc"                     = 1
     "munywanaconservancy"       = 1
   }
 
