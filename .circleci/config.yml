@@ -98,7 +98,7 @@ commands:
           at: './'
       - 'export_google_credentials'
       - 'toggle_firewall_for_build_agent_k8s_and_proxy_closure':
-          inner_command: 'cd infra-automation && make tf_apply apply_options="<< parameters.apply_args >>"'
+          inner_command: 'cd infra-automation && make tf_apply apply_options="<< parameters.apply_args >>" && make install_er_cli tfvars_environment="$CIRCLE_BRANCH"'
           network: '<< parameters.network >>'
       - run:
           name: 'Generate Manifest and Render Templates'
@@ -196,6 +196,7 @@ executors:
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
+
 jobs:
 
   check_for_abandoned_workspaces:
@@ -236,6 +237,7 @@ jobs:
     steps:
       - terraform_apply_dev:
           network: 'dev'
+
   terraform_apply_feature_branch:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
@@ -295,7 +297,6 @@ jobs:
           path: /testresults
       - store_test_results:
           path: /testresults
-
   docker_build_image:
     executor: 'default'
     steps:
@@ -312,14 +313,6 @@ jobs:
           root: './'
           paths:
             - '*'
-  install_er_cli:
-    executor: 'default'
-    steps:
-      - 'checkout'
-      - 'activate_google_service_account'
-      - 'export_google_credentials'
-      - run: cd infra-automation && make install_er_cli
-
 workflows:
   version: 2
   build_and_terraform_dev:
@@ -362,14 +355,6 @@ workflows:
       - docker_build_image:
           requires:
             - 'build_sphinx_docs'
-          filters:
-            branches:
-              ignore:
-                - 'develop'
-                - /das-2-.*-.*/
-      - install_er_cli:
-          requires:
-            - 'docker_build_image'
           filters:
             branches:
               ignore:
