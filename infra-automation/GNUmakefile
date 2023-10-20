@@ -240,14 +240,18 @@ check_for_abandoned_workspaces: ## compare terraform workspaces against git bran
 	@ export maybe_orphans="$$(comm -23 $(vulcan_path)/workspaces $(vulcan_path)/branches | grep -v default)"; if [ -n "$$maybe_orphans" ]; then printf "The following workspaces do not have corresponding branches:\n%s\n" "$$maybe_orphans" && exit 1; fi
 
 .PHONY: install_er_cli
-install_er_cli: ## Installs the ER CLI used to interact with the TMS. Repo: https://github.com/PADAS/er-cli
+install_er_cli: ## Installs the ER CLI used to interact with the TMS. Repo: https://github.com/PADAS/er-cli | [tfvars_environment="BRANCH_NAME"]
 	@ apt install -y jq
 	@ pip3 install keyring==23.9.3 keyrings.google-artifactregistry-auth==1.1.1
 	@ gcloud artifacts print-settings python --project=earthranger-dev --repository=core-backend --location=us-west1 > $$HOME/.pypirc
-	@ echo $$ENCODED_GOOGLE_CREDENTIALS | base64 -d > google_credentials.json && \
+
+	@ K8S_NAMESPACE=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="kubernetes_namespace"); \
+	CLUSTER_NAME=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_name"); \
+	echo "cluster_namespace: $$K8S_NAMESPACE" && echo "cluster_name: $$CLUSTER_NAME" && \
+	echo $$ENCODED_GOOGLE_CREDENTIALS | base64 -d > google_credentials.json && \
 		export GOOGLE_APPLICATION_CREDENTIALS='/root/project/infra-automation/google_credentials.json' && \
-		pip3 install tms-services==0.0.7 --extra-index-url https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/ && \
-		pip3 install earthranger-cli==0.0.4 --extra-index-url https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/ && \
+			pip3 install tms-services --extra-index-url https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/ && \
+		pip3 install earthranger-cli==0.0.5 --extra-index-url https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/ && \
 		echo "Successfully installed the er cli" && \
 		export PROJECT_ID=earthranger-dev && \
-		$(CURDIR)/tenant-exists.sh $(current_branch) && echo "tenant already exists" || $(CURDIR)/create-tenant.sh $(current_branch)
+		$(CURDIR)/tenant-exists.sh $(current_branch) && echo "tenant already exists" || $(CURDIR)/create-tenant.sh '$(current_branch)' $$K8S_NAMESPACE $$CLUSTER_NAME
