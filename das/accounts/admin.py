@@ -175,7 +175,7 @@ class UserAdmin(DefaultFilterMixin, FieldSetElementMixin, DjangoUserAdmin):
         ),
     )
 
-    list_display = ("display_name", "username", "_last_login", "member_permission_sets", "is_active", "das_tenant")
+    list_display = ("display_name", "username", "_last_login", "member_permission_sets", "is_active")
     list_editable = ("is_active",)
     list_display_links = ("display_name",)
     list_filter = ("is_active", "is_staff", "is_superuser", "permission_sets")

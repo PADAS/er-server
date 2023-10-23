@@ -13,6 +13,7 @@ from oauth2_provider.models import (
 from django.db import models
 
 from core.models import DASTenant
+from utils.migrations.columns import default_tenant_id
 
 
 class DASAccessToken(TenantModelMixin, AbstractAccessToken):
@@ -38,7 +39,7 @@ class DASAccessToken(TenantModelMixin, AbstractAccessToken):
         blank=True,
         null=True,
     )
-    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 
@@ -49,7 +50,7 @@ class DASAccessToken(TenantModelMixin, AbstractAccessToken):
 
 class DASApplication(TenantModelMixin, AbstractApplication):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 
@@ -61,7 +62,11 @@ class DASApplication(TenantModelMixin, AbstractApplication):
 class DASGrant(TenantModelMixin, AbstractGrant):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     application = TenantForeignKey(to="DASApplication", on_delete=models.CASCADE)
-    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = TenantForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        default=default_tenant_id,
+    )
 
     tenant_id = "das_tenant_id"
 
@@ -78,7 +83,7 @@ class DASIDToken(TenantModelMixin, AbstractIDToken):
         blank=True,
         null=True,
     )
-    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 
@@ -98,7 +103,7 @@ class DASRefreshToken(TenantModelMixin, AbstractRefreshToken):
         null=True,
         related_name="refresh_token",
     )
-    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 
