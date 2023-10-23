@@ -23,6 +23,7 @@ locals {
     "madikwefutures"         = "madikwewildlife"
     "bomani"                 = "ngamo"
     "grevyzebra"             = "grevyszebratrust"
+    "ecu-pnya"               = "gc-comunitario"
   }
 
   subdomain_name = lookup(local.alt_subdomains, terraform.workspace, kubernetes_namespace.this.metadata.0.name)
