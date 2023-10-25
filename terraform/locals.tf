@@ -488,6 +488,7 @@ locals {
     "munywanaconservancy"       = "prod1"
     "balemountains"             = "prod1"
     "sanbasilio"                = "prod1"
+    "nazinga"                   = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
