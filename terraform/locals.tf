@@ -489,6 +489,8 @@ locals {
     "balemountains"             = "prod1"
     "sanbasilio"                = "prod1"
     "nazinga"                   = "prod1"
+    "rare"                      = "prod-asia"
+    "cvr"                       = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
