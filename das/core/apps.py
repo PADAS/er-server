@@ -2,5 +2,8 @@ from django.apps import AppConfig
 
 
 class CoreConfig(AppConfig):
-    name = 'core'
-    verbose_name = 'DAS Configuration'
+    name = "core"
+    verbose_name = "DAS Configuration"
+
+    def ready(self):
+        import core.signals

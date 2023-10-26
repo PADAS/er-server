@@ -5,6 +5,8 @@ from unittest.mock import MagicMock
 import django_multitenant
 import pytest
 from django_fakeredis.fakeredis import get_fake_redis
+from django_multitenant.utils import get_current_tenant, set_current_tenant
+from factory import Faker
 from oauth2_provider.models import get_application_model
 from pytest_factoryboy import register
 
@@ -400,6 +402,15 @@ def tenant(tenant_response):
 @pytest.fixture
 def das_tenant(tenant):
     return TenantFactory.create(id=tenant.id, domain=tenant.domain)
+
+
+@pytest.fixture
+def five_tenants():
+    previous_tenant = get_current_tenant()
+
+    yield TenantFactory.create_batch(size=5, id=Faker("uuid4"), domain=Faker("domain_name"))
+
+    set_current_tenant(previous_tenant)
 
 
 @pytest.fixture

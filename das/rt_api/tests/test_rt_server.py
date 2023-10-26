@@ -7,6 +7,7 @@ from socketio import server
 from django.test import TestCase
 
 from rt_api import client
+from rt_api.server import DasSocketIOServer
 from rt_api.views import cleanup_disconnected_clients
 
 
@@ -41,3 +42,31 @@ class TestRTServer(TestCase):
         manager_mock.disconnect.assert_called_once_with(
             "e8ef807c2bbe4418b32de45786d82a52", namespace="/", ignore_queue=True
         )
+
+    def test_cors_allowed_origins_are_modifiable(self):
+        cors_allowed = ["http://somewhere-else.pamdas.org"]
+        sios = DasSocketIOServer()
+        original_cors_allowed = sios.eio.cors_allowed_origins
+
+        sios.set_cors_allowed_origins(cors_allowed)
+
+        assert original_cors_allowed is None
+        assert sios.eio.cors_allowed_origins == cors_allowed
+
+    def test_set_cors_allowed_origins_failed_on_str_arg(self):
+        sios = DasSocketIOServer()
+
+        with pytest.raises(TypeError):
+            sios.set_cors_allowed_origins("http://foo.bar.org;https://foo.bar.org")
+
+    def test_set_cors_allowed_origins_failed_on_non_iterable_arg(self):
+        sios = DasSocketIOServer()
+
+        with pytest.raises(TypeError):
+            sios.set_cors_allowed_origins(33)
+
+    def test_set_cors_allowed_origins_failed_on_empty_list(self):
+        sios = DasSocketIOServer()
+
+        with pytest.raises(ValueError):
+            sios.set_cors_allowed_origins([])
