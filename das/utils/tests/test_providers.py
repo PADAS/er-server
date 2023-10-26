@@ -1,11 +1,12 @@
 import json
 import logging
+import os
 
 import pytest
 
 from utils.features import features
 from utils.tenant.exceptions import TenantNotFoundException
-from utils.tenant.providers import TenantData
+from utils.tenant.providers import get_current_cluster_domains
 
 DOMAIN = "zoo.com"
 
@@ -62,10 +63,12 @@ class TestTenantData:
             {"domains": [], "expected": 0},
         ],
     )
-    def test_get_all_tenant_domains_from_cache(self, data, memory_store_client_mock, tenant_response):
-        memory_store_client_mock.get_all_keys.return_value = data["domains"]
+    def test_get_all_tenant_domains_from_cache(self, monkeypatch, data, memory_store_client_mock):
+        monkeypatch.setitem(os.environ, "CLUSTER_NAME", "R2D2")
+        monkeypatch.setitem(os.environ, "CLUSTER_NAMESPACE", "SPACE")
+        memory_store_client_mock.get_set_by_key.return_value = data["domains"]
 
-        domains = TenantData.get_all_tenant_domains()
+        domains = get_current_cluster_domains()
 
         assert data["expected"] == len(domains)
         for domain in data["domains"]:

@@ -24,6 +24,8 @@ class DjangoSettingsTenantBuilder:
             env_settings=self._load_env_settings_from_django(),
             services=[],
             status=None,
+            cluster_name=None,
+            cluster_namespace=None,
         )
 
     def build(self) -> Tenant:
