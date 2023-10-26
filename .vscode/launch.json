@@ -13,7 +13,8 @@
             "args": [
                 "--reuse-db",
                 "--ds",
-                "test_scripts.unittest_settings"
+                "test_scripts.unittest_settings",
+                "${input:pytest_path_args}"
             ],
             "cwd": "${workspaceRoot}/das",
             "env": {},
@@ -199,7 +200,8 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/das",
             "args": [
-                "shell"
+                "${input:django_command}",
+                "${input:django_command_args}"
             ],
             "django": true,
             "env": {
@@ -223,7 +225,6 @@
                 "IS_OAUTH2_PROVIDER_MIGRATION": "True"
             }
         },
-
         {
             "name": "Django initial data",
             "type": "python",
@@ -249,6 +250,25 @@
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
                 "IS_OAUTH2_PROVIDER_MIGRATION": "True"
             }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "django_command",
+            "type": "promptString",
+            "description": "Django commands",
+            "default": "dumpdata"
+        },
+        {
+            "id": "django_command_args",
+            "type": "promptString",
+            "description": "Django commands args. Example: -o datajson.",
+        },
+        {
+            "id": "pytest_path_args",
+            "type": "promptString",
+            "description": "pytest custom path (empty to execute the full test suite)",
+            "default": "activity/tests"
         }
     ]
 }

@@ -3254,9 +3254,9 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         created_at = datetime.now(tz=pytz.utc) - timedelta(hours=2)
         Event.objects.filter(id=response.data.get("id")).update(created_at=created_at)
-
         self.assertEqual(response.data.get("state"), "new")
-        automatically_update_event_state()
+        automatically_update_event_state_task = automatically_update_event_state.__wrapped__
+        automatically_update_event_state_task()
 
         state = Event.objects.get(id=response.data.get("id")).state
         self.assertEqual(state, "resolved")

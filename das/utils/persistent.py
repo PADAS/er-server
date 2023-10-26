@@ -106,8 +106,8 @@ class RedisStorageReadOnly(PersistentStorageReadOnly):
     def get_key(self, key):
         return self._connection.get(str(key))
 
-    def get_all_keys(self):
-        return self._connection.keys()
+    def get_set_by_key(self, key: str):
+        return self._connection.smembers(key)
 
 
 @apply_decorator_to_public_methods(use_multitenant_cache_key)
