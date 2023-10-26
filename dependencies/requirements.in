@@ -35,6 +35,8 @@ django-docs==0.3.3
 django-environ==0.10.0
 django-extensions==3.2.3
 django-extra-fields==3.0.2
+# django-fast-update are some utilities for bulk_update performance
+django-fast-update==0.2.3
 django-leaflet==0.29.0
 django-model-utils==4.3.1
 django-mptt==0.14.0

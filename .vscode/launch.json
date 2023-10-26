@@ -222,7 +222,8 @@
             "django": true,
             "env": {
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
-                "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True",
+                "ROOT_LOGGING_LEVEL": "INFO"
             }
         },
         {

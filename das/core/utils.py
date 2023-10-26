@@ -1,7 +1,9 @@
 import json
 import logging
 import re
+import time
 import urllib.parse
+import uuid
 from collections import namedtuple
 from datetime import datetime
 from typing import Dict
@@ -244,7 +246,9 @@ class DASTenantManagement:
             tenant_data = self._get_tenant_from_tms(domain=self.domain)
             try:
                 with UnsetDASTenantContextManager():
-                    tenant, _ = DASTenant.objects.get_or_create(id=tenant_data["id"], domain=tenant_data["domain"])
+                    tenant, _ = DASTenant.objects.get_or_create(
+                        id=uuid.UUID(tenant_data["id"]), domain=tenant_data["domain"]
+                    )
             except ValidationError:
                 raise TenantNotFoundException(domain=self.domain)
         return tenant
@@ -263,7 +267,49 @@ class DASTenantManagement:
 
 
 def update_tenant_models(models: list, tenant) -> None:
-    # INFO Deprecated this function after all tenant will be consolidated in a one single database.
-    for class_model in models:
-        updated_objects = class_model.objects.filter(das_tenant__isnull=True).update(das_tenant=tenant)
-        logger.info("%d objects updated of model %s.", updated_objects, class_model._meta.object_name)
+    """Batch update all records in every model with this tenant. Only
+    updates rows that have a null tenant id.
+    We use the django-fast-update library which is optimized to use postgresql
+    temp tables for staging and applying updates.
+    This function is only needed as we upgrade exisiting databases to MT. When we delete this
+    function, stop installing the library.
+
+    Args:
+        models (list): list of models to ensure all records have a tenant id set
+        tenant (_type_): the tenant
+    """
+    from fast_update.copy import copy_update
+
+    batch_size = 10000
+
+    table_exception_list = set(["observations_subject", "observations_socketclient", "observations_usersession"])
+    pk_overrides = {"observations_socketclient": "sid", "observations_usersession": "sid"}
+
+    with UnsetDASTenantContextManager():
+        for class_model in models:
+            start = time.time()
+            logger.info("Backfilling das_tenant on model %s", class_model._meta.object_name)
+            if class_model._meta.db_table in table_exception_list:
+                cnt = class_model.objects.filter(das_tenant__isnull=True).update(das_tenant=tenant)
+                total_seconds = time.time() - start
+                logger.info(
+                    "%d objects updated of model %s. In %.3f seconds", cnt, class_model._meta.object_name, total_seconds
+                )
+            else:
+                qs = class_model.objects.filter(das_tenant__isnull=True)
+                cnt = 0
+                batch = []
+                pk_name = pk_overrides.get(class_model._meta.db_table, "pk")
+                for id in class_model.objects.filter(das_tenant__isnull=True).values_list(pk_name, flat=True):
+                    cnt += 1
+                    batch.append(class_model(**{pk_name: id, "das_tenant": tenant}))
+                    if 0 == cnt % batch_size:
+                        copy_update(qs=qs, objs=batch, fieldnames=("das_tenant",))
+                        batch = []
+                if batch:
+                    copy_update(qs=qs, objs=batch, fieldnames=("das_tenant",))
+
+                total_seconds = time.time() - start
+                logger.info(
+                    "%d objects updated of model %s. In %.3f seconds", cnt, class_model._meta.object_name, total_seconds
+                )

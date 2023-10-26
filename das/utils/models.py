@@ -20,8 +20,6 @@ def migrate_permissions(apps):
 
 
 def update_all_contenttypes(**kwargs):
-    from django.apps import apps
-
     try:
         from django.contrib.contenttypes.management import (
             update_contenttypes as create_contenttypes,
