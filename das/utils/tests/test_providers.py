@@ -6,7 +6,7 @@ import pytest
 
 from utils.features import features
 from utils.tenant.exceptions import TenantNotFoundException
-from utils.tenant.providers import get_current_cluster_domains
+from utils.tenant.providers import TenantData, get_current_cluster_domains
 
 DOMAIN = "zoo.com"
 
