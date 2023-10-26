@@ -8,22 +8,16 @@ from django.db import migrations, models
 from utils.migrations.update_primary_key import add_tenant_to_primary_key
 
 mapping_models = [
-    "Map",
-    "TileLayer",
+    "ArcgisGroup",
+    "ArcgisItem",
+    "DisplayCategory",
     "FeatureType",
     "FeatureSet",
-    "SpatialFile",
-    "PolygonFeature",
-    "LineFeature",
-    "PointFeature",
-    "SpatialFeatureGroup",
-    "DisplayCategory",
-    "SpatialFeatureType",
+    "Map",
     "SpatialFeatureFile",
-    "SpatialFeature",
-    "ArcgisGroup",
-    "ArcgisConfiguration",
-    "ArcgisItem",
+    "SpatialFeatureGroup",
+    "SpatialFile",
+    "TileLayer",
 ]
 
 
