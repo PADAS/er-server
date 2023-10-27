@@ -63,7 +63,7 @@ class TenantData:
         return tenant.to_dict()
 
 
-def get_current_cluster_domains(cls):
+def get_current_cluster_domains():
     current_cluster_name = settings.CLUSTER_NAME
     current_cluster_namespace = settings.CLUSTER_NAMESPACE
 
