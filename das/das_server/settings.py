@@ -662,5 +662,5 @@ if not env.bool("IS_OAUTH2_PROVIDER_MIGRATION", False):
 # In production, the tenant id will come from the TMS
 TENANT_ID = env.str("TENANT_ID", "")
 
-CURRENT_CLUSTER_NAME = env.str("CLUSTER_NAME", "UNSET")
-CURRENT_CLUSTER_NAMESPACE = env.str("CLUSTER_NAMESPACE", "UNSET")
+CLUSTER_NAME = env.str("CLUSTER_NAME", "UNSET")
+CLUSTER_NAMESPACE = env.str("CLUSTER_NAMESPACE", "UNSET")

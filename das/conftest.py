@@ -65,7 +65,7 @@ class APIClientWithUser(APIClient):
 
 @pytest.fixture
 def patrol():
-    PatrolFactory()
+    return PatrolFactory()
 
 
 @pytest.fixture
@@ -90,17 +90,17 @@ def five_sources():
 
 @pytest.fixture
 def five_patrols():
-    PatrolFactory.create_batch(5)
+    return PatrolFactory.create_batch(5)
 
 
 @pytest.fixture
 def five_patrol_notes():
-    PatrolNoteFactory.create_batch(5)
+    return PatrolNoteFactory.create_batch(5)
 
 
 @pytest.fixture
 def five_patrol_segment():
-    PatrolSegmentFactory.create_batch(5)
+    return PatrolSegmentFactory.create_batch(5)
 
 
 @pytest.fixture
@@ -110,7 +110,7 @@ def five_patrol_segment_subject():
 
 @pytest.fixture
 def five_patrol_segment_user():
-    PatrolSegmentUserFactory.create_batch(5)
+    return PatrolSegmentUserFactory.create_batch(5)
 
 
 @pytest.fixture

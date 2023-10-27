@@ -41,8 +41,7 @@ class TestThreadStorage:
     def test_no_tenant_in_main_thread_tenant_set_in_other_thread(self, tenant_response):
         def other_thread_proc():
             set_tenant_settings(tenant_response)
-            get_tenant_settings()
-            assert TENANT_DEFAULT_KEY in threading.local().__dict__.keys()
+            assert get_tenant_settings()
 
         other_thread = threading.Thread(target=other_thread_proc, name="other_thread_tenant_test")
         other_thread.start()
