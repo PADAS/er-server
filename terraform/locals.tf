@@ -488,6 +488,7 @@ locals {
     "rare"                      = "prod-asia"
     "cvr"                       = "prod1"
     "gundi-er"                  = "dev"
+    "mabula"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
