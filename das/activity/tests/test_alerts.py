@@ -299,7 +299,8 @@ class TestAlertsLimit:
         key = KEY_ALERT_LIMIT.format(superuser.id)
 
         mock.assert_called_once_with(key, 1)
-        assert f"Site zoo.com message sent {NOTIFICATION_METHOD_EMAIL} alert" in caplog.text
+        tenant_domain = tenant_response["domain"]
+        assert f"Site {tenant_domain} message sent {NOTIFICATION_METHOD_EMAIL} alert" in caplog.text
 
     @override_settings(ALERTS_RATE_LIMIT=20)
     @pytest.mark.usefixtures("tenant_settings")

@@ -2,15 +2,17 @@
 
 import logging
 
+from django.apps import apps
 from django.conf import settings
 from django.db import migrations
 
 from core.utils import DASTenantManagement, update_tenant_models
+from utils.tenant.managers import set_tenant
 
 logger = logging.getLogger(__name__)
 
 
-def populate_tenant_into_models(apps, schema_editor):
+def populate_tenant_into_models(unused, schema_editor):
     models_names = [
         "SourceGroup",
         "SourceProvider",
@@ -36,6 +38,7 @@ def populate_tenant_into_models(apps, schema_editor):
 
     das_tenant_management = DASTenantManagement(domain=settings.SERVER_FQDN)
     tenant = das_tenant_management.get_or_create_tenant()
+    set_tenant(settings.SERVER_FQDN)
 
     if tenant:
         update_tenant_models(models=class_models, tenant=tenant)

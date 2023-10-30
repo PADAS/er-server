@@ -73,6 +73,8 @@ class Tenant:
     id: Optional[uuid.UUID] = field(metadata=config(field_name="id"))
     name: str = field(metadata=config(field_name="name"))
     slug_name: str = field(metadata=config(field_name="slugName"))
+    cluster_name: Optional[str] = field(metadata=config(field_name="clusterName"))
+    cluster_namespace: Optional[str] = field(metadata=config(field_name="clusterNamespace"))
     domain: str = field(metadata=config(field_name="domain"))
     url: str = field(metadata=config(field_name="url"))
     created_at: datetime = field(

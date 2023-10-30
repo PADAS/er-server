@@ -38,6 +38,11 @@ def get_tenant_settings() -> Tenant:
         raise TenantNotFoundInLocalThreadException()
 
 
+def has_tenant_settings():
+    local_thread = _get_local_thread()
+    return hasattr(local_thread, TENANT_DEFAULT_KEY)
+
+
 def clear_tenant_settings():
     local_thread = _get_local_thread()
     if hasattr(local_thread, TENANT_DEFAULT_KEY):
