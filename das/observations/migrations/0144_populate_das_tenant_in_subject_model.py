@@ -2,6 +2,7 @@
 
 import logging
 
+from django.apps import apps
 from django.conf import settings
 from django.db import migrations
 
@@ -10,7 +11,7 @@ from core.utils import DASTenantManagement, update_tenant_models
 logger = logging.getLogger(__name__)
 
 
-def populate_das_tenant_in_subject_model(apps, schema_editor):
+def populate_das_tenant_in_subject_model(unused, schema_editor):
     Subject = apps.get_model("observations", "Subject")
 
     class_models = [Subject]

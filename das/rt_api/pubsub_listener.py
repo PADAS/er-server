@@ -138,9 +138,15 @@ def start(realtime_server):
             kwargs={"domain": data.pop("domain", None)},
         )
 
+    def das_tenant_updated_handler(data, message):
+        logger.info("das_tenant_updated_handler. data=%s, message=%s", data, message)
+        realtime_server.update_cors_allowed_origins()
+
     def pubsub_listener(listener_name: str):
         logger.info("Starting pubsub listener")
         subscriptions = [
+            {"routing_key": "das.tenant.new", "callback": das_tenant_updated_handler},
+            {"routing_key": "das.tenant.update", "callback": das_tenant_updated_handler},
             {"routing_key": "das.tracking.source.observations.new", "callback": new_observation_handler},
             {
                 "routing_key": "das.subjectstatus.update",

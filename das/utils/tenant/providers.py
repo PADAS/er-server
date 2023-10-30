@@ -3,6 +3,8 @@ import logging
 import time
 from typing import Callable
 
+from django.conf import settings
+
 from core import memory_store_client, tms_api_client
 from utils.features import features
 from utils.tenant.builder import DjangoSettingsTenantBuilder
@@ -60,9 +62,14 @@ class TenantData:
         tenant = DjangoSettingsTenantBuilder().build()
         return tenant.to_dict()
 
-    @classmethod
-    def get_all_tenant_domains(cls):
-        return [domain.decode("utf-8") for domain in memory_store_client.get_all_keys()]
+
+def get_current_cluster_domains():
+    current_cluster_name = settings.CLUSTER_NAME
+    current_cluster_namespace = settings.CLUSTER_NAMESPACE
+
+    key = f"{current_cluster_name}-{current_cluster_namespace}"
+
+    return [domain.decode("utf-8") for domain in memory_store_client.get_set_by_key(key=key)]
 
 
 def post_tenant_to_thread(domain):

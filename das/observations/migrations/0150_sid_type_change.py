@@ -2,7 +2,17 @@
 
 import uuid
 
+from django.apps import apps
 from django.db import migrations, models
+
+
+def cleanup_socket_table_data(unused, schema_editor):
+    db_alias = schema_editor.connection.alias
+    SocketClient = apps.get_model("observations", "SocketClient")
+    UserSession = apps.get_model("observations", "UserSession")
+
+    SocketClient.objects.using(db_alias).all().delete()
+    UserSession.objects.using(db_alias).all().delete()
 
 
 class Migration(migrations.Migration):
@@ -12,6 +22,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(code=cleanup_socket_table_data, reverse_code=migrations.RunPython.noop),
         migrations.AlterField(
             model_name="socketclient",
             name="id",

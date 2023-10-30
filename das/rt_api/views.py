@@ -3,7 +3,6 @@ import time
 
 import eventlet
 from socketio.kombu_manager import KombuManager
-from socketio.server import Server
 
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -15,9 +14,10 @@ import rt_api.pubsub_listener
 import utils.json
 from rt_api import client
 from rt_api.rest_api_interface.dummy_request import DummyRequest
+from rt_api.server import DasSocketIOServer
 from utils import stats
-from utils.db import close_old_shared_connections
 from utils.tenant import get_tenant_settings
+from utils.tenant.cors import get_tenant_aware_cors_allowed_origins
 from utils.tenant.managers import TenantContextManager
 
 logger = logging.getLogger("rt_api")
@@ -26,24 +26,6 @@ RT_NAMESPACE = "/das"
 LOGIN_NAMESPACE = "/"
 
 GLOBAL_SIO = None
-
-
-class DasSocketServer(Server):
-    """
-    Extend Server, to implement _trigger_event.
-
-    TODO: It will be better to create class-based namespaces, which formally allow hooking
-    into trigger_event.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def _trigger_event(self, event, namespace, *args):
-        try:
-            super()._trigger_event(event, namespace, *args)
-        finally:
-            close_old_shared_connections()
 
 
 def create_rt_socketio():
@@ -60,10 +42,10 @@ def create_rt_socketio():
         if getattr(settings, "CORS_ORIGIN_ALLOW_ALL", False):
             server_options["cors_allowed_origins"] = "*"
         else:
-            server_options["cors_allowed_origins"] = getattr(settings, "CORS_ORIGIN_WHITELIST", None)
+            server_options["cors_allowed_origins"] = get_tenant_aware_cors_allowed_origins()
 
         socketio_logger = logging.getLogger("rt_api.socketio")
-        sio = DasSocketServer(
+        sio = DasSocketIOServer(
             client_manager=client_mgr,
             json=utils.json,
             logger=socketio_logger,
@@ -457,6 +439,14 @@ def create_realtime_handler(sios):
             else:
                 host = environ["SERVER_NAME"]
             return host
+
+        @staticmethod
+        def update_cors_allowed_origins():
+            if not getattr(settings, "CORS_ORIGIN_ALLOW_ALL", False):
+                logger.info("Updating RT Server CORS_ALLOWED_ORIGINS list")
+                cors_allowed_origins = get_tenant_aware_cors_allowed_origins()
+                sios.set_cors_allowed_origins(cors_allowed_origins)
+                logger.debug("Updated RT Server CORS_ALLOWED_ORIGINS list", extra={"cors": cors_allowed_origins})
 
     # Start up recursive calls to clean up disconnected clients.
     eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL, cleanup_disconnected_clients, sios)

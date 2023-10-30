@@ -359,10 +359,6 @@ locals {
     "mindoro"                   = "prod-asia"
     "amatela"                   = "prod1"
     "erer-grumeti"              = "dev"
-    "erer-sabisand"             = "dev"
-    "erer-thornybush"           = "dev"
-    "erer-lewa"                 = "dev"
-    "erer-marataba"             = "dev"
     "ilmamusi"                  = "prod1"
     "sagebrush"                 = "prod1"
     "danubedelta"               = "prod1"
@@ -489,6 +485,11 @@ locals {
     "balemountains"             = "prod1"
     "sanbasilio"                = "prod1"
     "nazinga"                   = "prod1"
+    "rare"                      = "prod-asia"
+    "cvr"                       = "prod1"
+    "gundi-er"                  = "dev"
+    "mabula"                    = "prod1"
+    "wildriverspnr"             = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -530,7 +531,6 @@ locals {
     "abokouamekro"              = 1
     "southerncarpathians"       = 1
     "upemba"                    = 1
-    "eruc2020"                  = 1
     "rfcx"                      = 1
     "centralrift"               = 1
     "karuk"                     = 1

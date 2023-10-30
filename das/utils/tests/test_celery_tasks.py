@@ -1,5 +1,6 @@
 import importlib
 import logging
+import os
 from typing import Tuple
 from unittest.mock import MagicMock
 
@@ -33,10 +34,12 @@ def get_kwargs(task: Tuple):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("domain", [[b"zoo.com"]])
-def test_tenant_schedule_celery_task(memory_store_client_mock, tenant_response, tenant, domain, caplog, monkeypatch):
+def test_tenant_schedule_celery_task(memory_store_client_mock, tenant, domain, caplog, monkeypatch):
     caplog.set_level(logging.INFO)
-    memory_store_client_mock.get_all_keys.return_value = domain
+    memory_store_client_mock.get_set_by_key.return_value = domain
     monkeypatch.setattr("tracking.tasks.get_tenant_settings", MagicMock(return_value=tenant))
+    monkeypatch.setitem(os.environ, "CLUSTER_NAME", "R2D2")
+    monkeypatch.setitem(os.environ, "CLUSTER_NAMESPACE", "SPACE")
 
     for task in app.conf.beat_schedule.items():
         module_name, function_name = get_module_and_task_names(task)
