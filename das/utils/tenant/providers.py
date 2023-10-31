@@ -3,6 +3,8 @@ import logging
 import time
 from typing import Callable
 
+from redis.exceptions import ConnectionError
+
 from django.conf import settings
 
 from core import memory_store_client, tms_api_client
@@ -39,7 +41,12 @@ class TenantData:
     def _get_from_cache(self):
         logger.info("Getting tenant from cache for domain %s", self.domain)
         start_time = time.time()
-        cached_data = memory_store_client.get_key(key=self.domain)
+        try:
+            cached_data = memory_store_client.get_key(key=self.domain)
+        except ConnectionError:
+            logger.warning("Could not fetch tenant data from cache due to connection error")
+            return None
+
         if not cached_data:
             logger.info("Tenant not found at cache")
             return None
