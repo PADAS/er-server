@@ -2,7 +2,6 @@ import logging
 import time
 
 import eventlet
-from socketio.kombu_manager import KombuManager
 
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -20,6 +19,8 @@ from utils.tenant import get_tenant_settings
 from utils.tenant.cors import get_tenant_aware_cors_allowed_origins
 from utils.tenant.managers import TenantContextManager
 
+from .managers import DASKombuManager
+
 logger = logging.getLogger("rt_api")
 
 RT_NAMESPACE = "/das"
@@ -35,7 +36,7 @@ def create_rt_socketio():
     global GLOBAL_SIO
     if GLOBAL_SIO is None:
         connection_options = dict(transport_options=settings.REALTIME_BROKER_OPTIONS)
-        client_mgr = KombuManager(url=settings.REALTIME_BROKER_URL, connection_options=connection_options)
+        client_mgr = DASKombuManager(url=settings.REALTIME_BROKER_URL, connection_options=connection_options)
         server_options = dict(async_mode=settings.ASYNC_MODE)
         server_options["cors_credentials"] = getattr(settings, "CORS_ALLOW_CREDENTIALS", False)
 

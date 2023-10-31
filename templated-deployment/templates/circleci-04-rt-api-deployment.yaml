@@ -41,7 +41,6 @@ spec:
               memory: "700Mi"
           ports:
             - containerPort: 8000
-          
           volumeMounts:
             - name: google-credentials
               mountPath: "/etc/earthranger/"

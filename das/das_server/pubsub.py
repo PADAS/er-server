@@ -10,6 +10,7 @@ from functools import wraps
 from importlib import import_module
 
 from kombu import Connection, Consumer, Exchange, Queue
+from kombu.exceptions import OperationalError
 from kombu.utils import nested
 from redis.exceptions import ConnectionError
 
@@ -173,6 +174,8 @@ def stats_decorator(f, routing_key):
     return wrapper
 
 
+@retry_on_exception(exception_type=ConnectionError, retry_forever=True, delay=3)
+@retry_on_exception(exception_type=OperationalError, retry_forever=True, delay=3)
 def start_message_queue_listeners():
     logger.debug("begin start_message_queue_listeners")
 
