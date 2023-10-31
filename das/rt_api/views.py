@@ -25,6 +25,8 @@ from utils.tenant.providers import get_tenant_data_by_host
 
 from .managers import DASKombuManager
 
+from .managers import DASKombuManager
+
 logger = logging.getLogger("rt_api")
 
 RT_NAMESPACE = "/das"

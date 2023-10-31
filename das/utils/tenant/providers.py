@@ -5,6 +5,8 @@ import time
 
 from redis.exceptions import ConnectionError
 
+from redis.exceptions import ConnectionError
+
 from django.conf import settings
 
 from core import tenant_document_cache_client, tms_api_client
