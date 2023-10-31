@@ -2,7 +2,7 @@ name: Build das-server
 on:
   push:
     branches:
-      - main
+      - develop
       - 'release-**'
 
 jobs:
