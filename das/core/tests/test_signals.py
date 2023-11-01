@@ -51,7 +51,10 @@ class TestCoreSignals:
     @override_settings(ALLOWED_HOSTS=["localhost"])
     def test_post_save_tenant_signal_updates_allowed_hosts_setting(self, monkeypatch):
         transaction_mock = MagicMock()
+        get_tenant_domains_mock = MagicMock()
+        get_tenant_domains_mock.return_value = ["test-tenant.pamdas.org"]
         monkeypatch.setattr("core.signals.transaction", transaction_mock)
+        monkeypatch.setattr("utils.tenant.domains.get_current_cluster_domains", get_tenant_domains_mock)
 
         new_das_tenant = DASTenant.objects.create(id=uuid4(), domain="test-tenant.pamdas.org")
         from django.conf import settings
