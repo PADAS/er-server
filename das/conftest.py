@@ -495,3 +495,15 @@ def five_communities():
 @pytest.fixture
 def source_group():
     return SourceGroupFactory()
+
+
+@pytest.fixture
+def five_tenants():
+    previous_tenant = get_current_tenant()
+
+    yield TenantFactory.create_batch(
+        size=5,
+        id=Faker("uuid4"),
+        domain=Faker("domain_name"),
+    )
+    set_current_tenant(previous_tenant)
