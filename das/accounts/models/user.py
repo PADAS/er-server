@@ -12,6 +12,7 @@ from django.contrib.gis.db import models
 from django.core import validators
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.mail import send_mail
+from django.db.models import Index, UniqueConstraint
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -131,7 +132,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
     )
     first_name = models.CharField(_("first name"), max_length=30, null=True, blank=True)
     last_name = models.CharField(_("last name"), max_length=30, null=True, blank=True)
-    email = models.EmailField(_("email address"), unique=True, null=True, blank=True)
+    email = models.EmailField(_("email address"), null=True, blank=True)
     phone = models.CharField(validators=[phone_regex], max_length=15, blank=True)  # validators should be a list
     is_email_alert = models.BooleanField(
         _("email alert"),
@@ -184,6 +185,13 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         verbose_name = _("user")
         verbose_name_plural = _("users")
         abstract = True
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "email"],
+                name="%(app_label)s_%(class)s_unique_email_across_tenatns",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "email"], name="%(app_label)s_%(class)s_email_index")]
 
     @property
     def has_linked_subject(self):
@@ -253,7 +261,7 @@ class User(TenantModelMixin, AccountsAbstractUser):
     user_perms = {"accounts.view_user", "accounts.change_user"}
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
-    class Meta(AbstractBaseUser.Meta):
+    class Meta(AbstractBaseUser.Meta, AccountsAbstractUser.Meta):
         swappable = "AUTH_USER_MODEL"
         verbose_name = _("user")
         verbose_name_plural = _("users")
