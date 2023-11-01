@@ -1,3 +1,4 @@
+from random import choice
 from unittest.mock import MagicMock
 
 import pytest
@@ -57,22 +58,27 @@ class TestTenantCors:
         assert "http://foo.pamdas.org" in urls
         assert "https://foo.pamdas.org" in urls
 
-    def test_get_das_tenant_urls(self, five_tenants):
+    def test_get_das_tenant_urls(self, monkeypatch, five_tenants):
+        get_tenant_domains_mock = MagicMock()
+        get_tenant_domains_mock.return_value = [t.domain for t in five_tenants]
+        monkeypatch.setattr("utils.tenant.cors.get_current_cluster_domains", get_tenant_domains_mock)
         tenant = five_tenants[0]
+
         urls = get_das_tenant_urls()
 
-        assert f"http://zoo.com" in urls
-        assert f"https://zoo.com" in urls
         assert f"http://{tenant.domain}" in urls
         assert f"https://{tenant.domain}" in urls
 
-    @override_settings(CORS_ORIGIN_WHITELIST=["http://localhost"])
-    def test_get_tenant_aware_cors_allowed_origins(self, five_tenants):
-        tenant = five_tenants[0]
+    @override_settings(CORS_ORIGIN_WHITELIST=["http://localhost", "https://localhost"])
+    def test_get_tenant_aware_cors_allowed_origins(self, monkeypatch, five_tenants):
+        tenant = choice(five_tenants)
+        get_tenant_domains_mock = MagicMock()
+        get_tenant_domains_mock.return_value = [t.domain for t in five_tenants]
+        monkeypatch.setattr("utils.tenant.cors.get_current_cluster_domains", get_tenant_domains_mock)
+
         cors_origins = get_tenant_aware_cors_allowed_origins()
 
-        assert "http://localhost"
-        assert f"http://zoo.com" in cors_origins
-        assert f"https://zoo.com" in cors_origins
+        assert "http://localhost" in cors_origins
+        assert "https://localhost" in cors_origins
         assert f"http://{tenant.domain}" in cors_origins
         assert f"https://{tenant.domain}" in cors_origins

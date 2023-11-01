@@ -2,7 +2,7 @@ from typing import Iterable, List, NoReturn
 
 from django.conf import settings
 
-from core.models import DASTenant
+from utils.tenant.providers import get_current_cluster_domains
 
 SCHEMAS = ("http", "https")
 
@@ -11,13 +11,9 @@ def build_http_urls_from_domains(domains: Iterable[str]) -> List[str]:
     return [f"{schema}://{domain}" for domain in domains for schema in SCHEMAS]
 
 
-def get_das_tenant_domains() -> List[str]:
-    return [tenant["domain"] for tenant in DASTenant.objects.values("domain")]
-
-
 def add_new_tenant_domains_to_settings() -> NoReturn:
     allowed_hosts = set(settings.ALLOWED_HOSTS)
-    tenant_domains = set(get_das_tenant_domains())
+    tenant_domains = set(get_current_cluster_domains())
     new_tenant_domains = list(tenant_domains.difference(allowed_hosts))
 
     if not new_tenant_domains:
