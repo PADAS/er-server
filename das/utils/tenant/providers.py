@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Callable
 
-from redis.exceptions import ConnectionError
+from redis.exceptions import AuthenticationError, ConnectionError
 
 from django.conf import settings
 
@@ -76,7 +76,12 @@ def get_current_cluster_domains():
 
     key = f"{current_cluster_name}-{current_cluster_namespace}"
 
-    return [domain.decode("utf-8") for domain in memory_store_client.get_set_by_key(key=key)]
+    try:
+        return [domain.decode("utf-8") for domain in memory_store_client.get_set_by_key(key=key)]
+    except (ConnectionError, AuthenticationError):
+        logger.exception("Could not fetch tenant domains. Memory store is not available")
+
+        return []
 
 
 def post_tenant_to_thread(domain):
