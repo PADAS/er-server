@@ -79,7 +79,7 @@ def get_current_cluster_domains():
     try:
         return [domain.decode("utf-8") for domain in memory_store_client.get_set_by_key(key=key)]
     except (ConnectionError, AuthenticationError):
-        logger.exception("Could not fetch tenant domains. Memory store is not available")
+        logger.warning("Could not fetch tenant domains from cache due to connection error")
 
         return []
 
