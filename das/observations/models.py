@@ -44,6 +44,7 @@ from django.db.models import (
     ExpressionWrapper,
     F,
     FilteredRelation,
+    Index,
     Max,
     Q,
     Value,
@@ -247,7 +248,7 @@ def get_default_source_provider_id():
 
 class SourceProvider(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    provider_key = models.CharField("Natural key for source provider", max_length=100, null="False", unique=True)
+    provider_key = models.CharField("Natural key for source provider", max_length=100, null="False")
     display_name = models.CharField(
         "Display name for source provider.",
         max_length=100,
@@ -260,6 +261,15 @@ class SourceProvider(TenantModelMixin, TimestampedModel):
 
     objects = SourceProviderManager()
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "provider_key"],
+                name="%(app_label)s_%(class)s_unique_provider_key_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "provider_key"])]
 
     def __str__(self):
         return "{} ({})".format(self.display_name, self.provider_key)
@@ -862,7 +872,7 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(_("name"), max_length=80, unique=True)
+    name = models.CharField(_("name"), max_length=80)
     subjects = models.ManyToManyField("Subject", related_name="groups", blank=True)
     is_visible = models.BooleanField(
         _("visible"),
@@ -911,7 +921,12 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
                 condition=Q(is_default=True),
                 name="%(app_label)s_%(class)s_tenant_is_default_unique",
             ),
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            ),
         ]
+        indexes = [Index(fields=["das_tenant", "name"])]
 
     def __str__(self):
         return self.name
@@ -1906,19 +1921,28 @@ class Region(TenantModelMixin, models.Model):
     """Region of Africa a subject is in"""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    slug = models.SlugField("unique id", max_length=100, unique=True)
+    slug = models.SlugField("unique id", max_length=100)
     region = models.CharField("region or pa", max_length=100)
     country = models.CharField("country mostly containing region", max_length=100)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
 
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "slug"],
+                name="%(app_label)s_%(class)s_unique_slug_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "slug"], name="%(app_label)s_%(class)s_slug_idx")]
+
+    def __str__(self):
+        return "%s, %s" % (self.region, self.country)
+
     def save(self, *args, **kwargs):
         self.slug = slugify(self.region + " " + self.country)
         super(Region, self).save(*args, **kwargs)
-
-    def _____str__(self):
-        return "%s, %s" % (self.region, self.country)
 
 
 class QuerySetOnSharedConnection(models.QuerySet, SharedResourceHandler):

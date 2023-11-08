@@ -12,6 +12,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point
+from django.db.models import Index, UniqueConstraint
 
 import observations
 from core.models import TimestampedModel
@@ -193,7 +194,7 @@ class TrackingPlugin(TenantModelMixin, TimestampedModel):
     STATUS_CHOICES = ((STATUS_ENABLED, "Enabled"), (STATUS_DISABLED, "Disabled"))
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=50, null=True, unique=True, verbose_name="Unique name to identify the plugin.")
+    name = models.CharField(max_length=50, null=True, verbose_name="Unique name to identify the plugin.")
     status = models.CharField(max_length=15, default=STATUS_ENABLED, choices=STATUS_CHOICES)
     additional = models.JSONField(blank=True, default=dict)
 
@@ -205,6 +206,13 @@ class TrackingPlugin(TenantModelMixin, TimestampedModel):
 
     class Meta:
         abstract = True
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "name"])]
 
     source_plugin_reverse_relation = None
 

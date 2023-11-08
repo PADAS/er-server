@@ -9,10 +9,138 @@ import utils.schema_utils as schema_utils
 logger = logging.getLogger(__name__)
 
 
-EVENT_SCHEMA_A = """{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Shot Rep Report\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"shotrepTimeOfShot\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 1: Time when shot was heard\"\r\n            },\r\n            \"shotrepBearing\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 2: Bearing to Shot\",\r\n                \"minimum\": 0,\r\n                \"maximum\":  360\r\n            },                      \r\n            \"shotrepDistance\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 3: Distance of Shots\",\r\n                \"minimum\": 0\r\n            },                      \r\n            \"shotrepNumberOfShots\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 4: Number of Shots\",\r\n                \"minimum\": 0\r\n            },\r\n            \"shotrepTypeOfShots\": {\r\n            \t\"type\": \"string\",\r\n            \t\"title\": \"Line 5. Type of Shots\",\r\n                \"enum\": {{table___TypeOfShots___values}},\r\n                \"enumNames\": {{table___TypeOfShots___names}}\r\n            },              \r\n            \"shotrepEstimatedCaliber\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: Estimated Caliber\"\r\n            },\r\n            \"shotrepEstimatedTarget\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 7: Estimated Target\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   {\r\n   \"key\": \"shotrepTimeOfShot\",\r\n   \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n   \"readonly\": false\r\n   },\r\n   \"shotrepBearing\",\r\n   \"shotrepDistance\",\r\n   \"shotrepNumberOfShots\",\r\n   \"shotrepTypeOfShots\",\r\n   \"shotrepEstimatedCaliber\",\r\n   \"shotrepEstimatedTarget\"\r\n ]\r\n}"""
+EVENT_SCHEMA_A = """
+{
+    "schema":
+    {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "title": "Shot Rep Report",
+        "type": "object",
+        "properties":
+        {
+            "shotrepTimeOfShot":
+            {
+                "type": "string",
+                "title": "Line 1: Time when shot was heard"
+            },
+            "shotrepBearing":
+            {
+                "type": "number",
+                "title": "Line 2: Bearing to Shot",
+                "minimum": 0,
+                "maximum": 360
+            },
+            "shotrepDistance":
+            {
+                "type": "number",
+                "title": "Line 3: Distance of Shots",
+                "minimum": 0
+            },
+            "shotrepNumberOfShots":
+            {
+                "type": "number",
+                "title": "Line 4: Number of Shots",
+                "minimum": 0
+            },
+            "shotrepEstimatedCaliber":
+            {
+                "type": "string",
+                "title": "Line 5: Estimated Caliber"
+            },
+            "shotrepEstimatedTarget":
+            {
+                "type": "string",
+                "title": "Line 6: Estimated Target"
+            }
+        }
+    },
+    "definition":
+    [
+        {
+            "key": "shotrepTimeOfShot",
+            "fieldHtmlClass": "date-time-picker json-schema",
+            "readonly": false
+        },
+        "shotrepBearing",
+        "shotrepDistance",
+        "shotrepNumberOfShots",
+        "shotrepTypeOfShots",
+        "shotrepEstimatedCaliber",
+        "shotrepEstimatedTarget"
+    ]
+}
+"""
+
 EVENT_SCHEMA_A_CHOICE_TAGS = ("table___TypeOfShots___values", "table___TypeOfShots___names")
 
-BAD_SCHEMA = """{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Shot Rep Report\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"shotrepTimeOfShot\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 1: Time when shot was heard\"\r\n            },\r\n            \"shotrepBearing\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 2: Bearing to Shot\",\r\n                \"minimum\": 0,\r\n                \"maximum\":  360\r\n            },                      \r\n            \"shotrepDistance\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 3: Distance of Shots\",\r\n                \"minimum\": 0\r\n            },                      \r\n            \"shotrepNumberOfShots\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Line 4: Number of Shots\",\r\n                \"minimum\": 0\r\n            },\r\n            \"shotrepTypeOfShots\": {\r\n            \t\"type\": \"string\",\r\n            \t\"title\": \"Line 5. Type of Shots\",\r\n                \"enum\": {{table__TypeOfShots__values}},\r\n                \"enumNames\": {{table___TypeOfShots___names}}\r\n            },              \r\n            \"shotrepEstimatedCaliber\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 6: Estimated Caliber\"\r\n            },\r\n            \"shotrepEstimatedTarget\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Line 7: Estimated Target\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   {\r\n   \"key\": \"shotrepTimeOfShot\",\r\n   \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n   \"readonly\": false\r\n   },\r\n   \"shotrepBearing\",\r\n   \"shotrepDistance\",\r\n   \"shotrepNumberOfShots\",\r\n   \"shotrepTypeOfShots\",\r\n   \"shotrepEstimatedCaliber\",\r\n   \"shotrepEstimatedTarget\"\r\n ]\r\n}"""
+BAD_SCHEMA = """
+{
+    "schema":
+    {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "title": "Shot Rep Report",
+        "type": "object",
+        "properties":
+        {
+            "shotrepTimeOfShot":
+            {
+                "type": "string",
+                "title": "Line 1: Time when shot was heard"
+            },
+            "shotrepBearing":
+            {
+                "type": "number",
+                "title": "Line 2: Bearing to Shot",
+                "minimum": 0,
+                "maximum": 360
+            },
+            "shotrepDistance":
+            {
+                "type": "number",
+                "title": "Line 3: Distance of Shots",
+                "minimum": 0
+            },
+            "shotrepNumberOfShots":
+            {
+                "type": "number",
+                "title": "Line 4: Number of Shots",
+                "minimum": 0
+            },
+            "shotrepTypeOfShots":
+            {
+                "type": "string",
+                "title": "Line 5. Type of Shots",
+                "enum": {{table__TypeOfShots__values}},
+                "enumNames": {{table___TypeOfShots___names}}
+            },
+            "shotrepEstimatedCaliber":
+            {
+                "type": "string",
+                "title": "Line 6: Estimated Caliber"
+            },
+            "shotrepEstimatedTarget":
+            {
+                "type": "string",
+                "title": "Line 7: Estimated Target"
+            }
+        }
+    },
+    "definition":
+    [
+        {
+            "key": "shotrepTimeOfShot",
+            "fieldHtmlClass": "date-time-picker json-schema",
+            "readonly": false
+        },
+        "shotrepBearing",
+        "shotrepDistance",
+        "shotrepNumberOfShots",
+        "shotrepTypeOfShots",
+        "shotrepEstimatedCaliber",
+        "shotrepEstimatedTarget"
+    ]
+}
+"""
 
 
 @pytest.mark.usefixtures("tenant_settings")
