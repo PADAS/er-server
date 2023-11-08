@@ -93,6 +93,9 @@ class RedisStorage(PersistentStorageWithSortedSet):
     def get_set_size(self, key: str) -> int:
         return self._connection.scard(key)
 
+    def get_set_by_key(self, key: str):
+        return self._connection.smembers(key)
+
 
 class RedisStorageReadOnly(PersistentStorageReadOnly):
     def __init__(self, config):
