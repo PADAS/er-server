@@ -30,7 +30,8 @@ class FeatureProximityAnalyzerConfig(SubjectAnalyzerConfig):
         help_text=_("This analyzer applies to proximity features in this Feature Group."),
     )
 
-    class Meta:
+    class Meta(SubjectAnalyzerConfig.Meta):
+        abstract = False
         verbose_name = "Feature Proximity Analyzer"
 
 
@@ -76,5 +77,6 @@ class SubjectProximityAnalyzerConfig(SubjectAnalyzerConfig):
         help_text=_("A proximity event will only occur when the two subject's position points occur within this time."),
     )
 
-    class Meta:
+    class Meta(SubjectAnalyzerConfig.Meta):
+        abstract = False
         verbose_name = "Subject Proximity Analyzer"

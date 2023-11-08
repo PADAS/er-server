@@ -35,6 +35,7 @@ from django.db.models import (
     CharField,
     Exists,
     F,
+    Index,
     OuterRef,
     Prefetch,
     Q,
@@ -134,12 +135,21 @@ class EventBaseManager(TenantManagerMixin, models.Manager):
 
 class EventClass(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=40, unique=True)
+    value = models.CharField(max_length=40)
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventBaseManager()
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "value"],
+                name="%(app_label)s_%(class)s_unique_value_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "value"], name="%(class)s_val_idx")]
 
     def __str__(self):
         return self.display
@@ -150,12 +160,21 @@ class EventClass(TenantModelMixin, TimestampedModel):
 
 class EventFactor(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=40, unique=True)
+    value = models.CharField(max_length=40)
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventBaseManager()
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "value"],
+                name="%(app_label)s_%(class)s_unique_value_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "value"], name="%(class)s_val_idx")]
 
     def __str__(self):
         return self.display
@@ -166,7 +185,7 @@ class EventFactor(TenantModelMixin, TimestampedModel):
 
 class EventCategory(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=100, unique=True)
+    value = models.CharField(max_length=100)
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
@@ -178,6 +197,13 @@ class EventCategory(TenantModelMixin, TimestampedModel):
     class Meta:
         verbose_name = _("Event Category")
         verbose_name_plural = _("Event Categories")
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "value"],
+                name="%(app_label)s_%(class)s_unique_value_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "value"], name="%(class)s_val_idx")]
 
     def __str__(self):
         return self.display
@@ -243,7 +269,6 @@ class EventType(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(
         max_length=255,
-        unique=True,
         validators=[
             RegexValidator(
                 regex="^[A-Za-z0-9-_]*$",
@@ -289,7 +314,11 @@ class EventType(TenantModelMixin, TimestampedModel):
                 check=Q(auto_resolve=False, resolve_time__isnull=True)
                 | Q(auto_resolve=True, resolve_time__isnull=False),
                 name="auto_resolve_constraint",
-            )
+            ),
+            UniqueConstraint(
+                fields=["das_tenant", "value"],
+                name="%(app_label)s_%(class)s_unique_value_across_tenants",
+            ),
         ]
 
         ordering = ["display"]
@@ -297,6 +326,7 @@ class EventType(TenantModelMixin, TimestampedModel):
             models.Index(fields=["das_tenant", "geometry_type"]),
             models.Index(fields=["das_tenant", "is_active"]),
             models.Index(fields=["das_tenant", "is_collection"]),
+            Index(fields=["das_tenant", "value"], name="%(app_label)s_%(class)s_val_idx"),
         ]
 
     def save(self, *args, **kwargs):
@@ -600,12 +630,21 @@ class EventManager(TenantManagerMixin, models.Manager):
 
 class EventRelationshipType(TenantModelMixin, models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=50, unique=True)
+    value = models.CharField(max_length=50)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     symmetrical = models.BooleanField(default=False)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventBaseManager()
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "value"],
+                name="%(app_label)s_%(class)s_unique_value_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "value"], name="%(class)s_val_idx")]
 
     def __str__(self):
         return self.value
@@ -1591,10 +1630,19 @@ class Person(Subject):
 
 class MembershipType(TenantModelMixin, models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=100, unique=True)
+    value = models.CharField(max_length=100)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "value"],
+                name="%(app_label)s_%(class)s_unique_value_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "value"], name="%(class)s_val_idx")]
 
     def __str__(self):
         return self.value
@@ -1926,7 +1974,7 @@ class PatrolTypeManager(EventBaseManager):
 
 class PatrolType(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=50, unique=True)
+    value = models.CharField(max_length=50)
     display = models.CharField(max_length=255)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     icon = models.CharField(max_length=100, blank=True)
@@ -1935,6 +1983,18 @@ class PatrolType(TenantModelMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = PatrolTypeManager()
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "value"],
+                name="%(app_label)s_%(class)s_unique_value_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "value"], name="%(class)s_val_idx")]
+
+    def __str__(self):
+        return self.display
 
     @property
     def icon_id(self):
@@ -1952,9 +2012,6 @@ class PatrolType(TenantModelMixin, TimestampedModel):
     @property
     def image_url(self):
         return PatrolType.marker_icon(self.icon_id)
-
-    def __str__(self):
-        return self.display
 
 
 class PatrolSegmentMembershipManager(TenantManagerMixin, models.Manager):

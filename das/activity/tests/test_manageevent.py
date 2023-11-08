@@ -12,8 +12,7 @@ from rest_framework.fields import DateTimeField
 
 from activity.management.commands.manageevent import Command
 from activity.models import Event, EventDetails, EventType
-from choices.models import Choice, Color
-from utils import schema_utils
+from choices.models import Choice  # , Color
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +27,7 @@ migration_doc = [
         "category_value": "security",
         "category_id": "61d279a3-95fd-421f-bdb0-604ae8731761",
         "ordernum": 270,
-        "schema": '{\r\n   "schema": \r\n   {\r\n       "$schema": "http://json-schema.org/draft-04/schema#",\r\n       "title": "EventType Data",\r\n     \r\n       "type": "object",\r\n\r\n       "properties": \r\n       {\r\n           "post": {\r\n               "type":"string",\r\n               "title": "Line 1: Post",\r\n               "enum": {{table___color___values}},\r\n               "enumNames": {{table___color___names}}\r\n           }\r\n       }\r\n   },\r\n "definition": [\r\n  "post"\r\n ]\r\n}',
+        "schema": '{\r\n   "schema": \r\n   {\r\n       "$schema": "http://json-schema.org/draft-04/schema#",\r\n       "title": "EventType Data",\r\n     \r\n       "type": "object",\r\n\r\n       "properties": \r\n       {\r\n           "post": {\r\n               "type":"string",\r\n               "title": "Line 1: Post",\r\n           }\r\n       }\r\n   },\r\n "definition": [\r\n  "post"\r\n ]\r\n}',
         "is_collection": False,
         "count": 0,
         "rendered_schema": {
@@ -51,7 +50,7 @@ migration_doc = [
             "definition": ["post"],
         },
         "fields": ["post"],
-        "tables": [{"table_name": "color"}, {"table_name": "color"}],
+        "tables": [],
         "queries": [],
         "enums": [],
     }
@@ -80,19 +79,8 @@ class TestManageEvent(TestCase):
         call_command("loaddata_with_tenant", "test_events_schema")
 
         self.sample_event = self.create_event(self.event_data)
-        Color.objects.bulk_create(
-            [
-                Color(id=item_id, name=item)
-                for (item_id, item) in [
-                    ("753dbb6f-8b39-49c4-8d95-36d1f711f6a2", "Black"),
-                    ("b97b6d03-f669-4a1a-9024-479fa973c711", "White"),
-                ]
-            ]
-        )
-        self.schema = '{\r\n   "schema": \r\n   {\r\n       "$schema": "http://json-schema.org/draft-04/schema#",\r\n       "title": "EventType Data",\r\n     \r\n       "type": "object",\r\n\r\n       "properties": \r\n       {\r\n           "post": {\r\n               "type":"string",\r\n               "title": "Line 1: Post",\r\n               "enum": {{table___color___values}},\r\n               "enumNames": {{table___color___names}}\r\n           }\r\n       }\r\n   },\r\n "definition": [\r\n  "post"\r\n ]\r\n}'
 
         self.event_type = EventType.objects.get(id="74941f0d-4b89-48be-a62a-a74c78db8383")
-        self.event_type.schema = self.schema
         self.event_type.save()
 
         EventDetails.objects.create(
@@ -155,25 +143,12 @@ class TestManageEvent(TestCase):
         self.assertEqual(len(records_pre), len(records_post) + 1)
 
         # species table choices migrated to choice model
-        self.assertEqual(Choice.objects.all().count(), choices_count + 2)
+        self.assertEqual(Choice.objects.all().count(), choices_count)
 
     def perform_migration(self):
         self.migrate_ran = True
         command_under_test = Command()
         command_under_test.perform_migration_on_records(migration_doc)
-
-    def test_rendered_schema_display_values_after_migration(self):
-        pre_schema_properties = schema_utils.get_rendered_schema(self.schema)["properties"]
-        # perform migration
-        self.perform_migration()
-        ev_type = EventType.objects.get(id=self.event_type.id)
-        post_schema_properties = schema_utils.get_rendered_schema(ev_type.schema)["properties"]
-
-        # Check display values on rendered schema
-        self.assertEqual(
-            list(pre_schema_properties["post"]["enumNames"].values()),
-            list(post_schema_properties["post"]["enumNames"].values()),
-        )
 
     def test_event_details_after_migration(self):
         # Add event details update to migration doc

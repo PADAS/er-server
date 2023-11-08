@@ -6,11 +6,10 @@ from django_multitenant.mixins import TenantModelMixin
 
 from django.contrib.gis.db import models
 from django.core import checks, exceptions
-from django.db.models import UniqueConstraint
+from django.db.models import Index, UniqueConstraint
 from django.db.models.fields import BLANK_CHOICE_DASH
 from django.utils import timezone
 from django.utils.functional import lazy
-from django.utils.translation import gettext_lazy as _
 
 from core.models import DASTenant, UUIDModel
 from core.utils import static_image_finder
@@ -51,7 +50,7 @@ class ChoiceQuerySet(models.QuerySet):
 
 
 class DynamicChoice(TenantModelMixin, UUIDModel):
-    choice_name = models.CharField(max_length=100, blank=True, null=False, unique=True, verbose_name="Choice name")
+    choice_name = models.CharField(max_length=100, blank=True, null=False, verbose_name="Choice name")
     model_name = models.CharField(max_length=100, verbose_name="Model lookup")
     criteria = models.CharField(max_length=100, verbose_name="Criteria")
     value_col = models.CharField(max_length=100, verbose_name="Value column")
@@ -59,6 +58,15 @@ class DynamicChoice(TenantModelMixin, UUIDModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "choice_name"],
+                name="%(app_label)s_%(class)s_unique_choice_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "choice_name"], name="%(class)s_choice_name_idx")]
 
 
 class SoftDeleteModel(TenantModelMixin, models.Model):
@@ -281,492 +289,492 @@ class ChoiceCharField(models.CharField):
             )
 
 
-class ChoiceModel(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class ChoiceModel(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class SectionArea(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class SectionArea(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class Station(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class Station(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class FenceLocation(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class FenceLocation(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class FenceDamage(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class FenceDamage(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Fence Damage")
-        verbose_name_plural = _("Fence Damage")
+#     class Meta:
+#         verbose_name = _("Fence Damage")
+#         verbose_name_plural = _("Fence Damage")
 
 
-class KeySpecies(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class KeySpecies(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Key Species")
-        verbose_name_plural = _("Key Species")
+#     class Meta:
+#         verbose_name = _("Key Species")
+#         verbose_name_plural = _("Key Species")
 
 
-class Species(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class Species(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Species")
-        verbose_name_plural = _("Species")
+#     class Meta:
+#         verbose_name = _("Species")
+#         verbose_name_plural = _("Species")
 
 
-class AnimalSex(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class AnimalSex(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Animal Sex")
-        verbose_name_plural = _("Animal Sexes")
+#     class Meta:
+#         verbose_name = _("Animal Sex")
+#         verbose_name_plural = _("Animal Sexes")
 
 
-class AnimalAge(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class AnimalAge(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class CarcassAge(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class CarcassAge(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class TrophyStatus(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class TrophyStatus(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Trophy Status")
-        verbose_name_plural = _("Trophy Statuses")
+#     class Meta:
+#         verbose_name = _("Trophy Status")
+#         verbose_name_plural = _("Trophy Statuses")
 
 
-class CauseOfDeath(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class CauseOfDeath(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Cause of Death")
-        verbose_name_plural = _("Causes of Death")
+#     class Meta:
+#         verbose_name = _("Cause of Death")
+#         verbose_name_plural = _("Causes of Death")
 
 
-class InjuryCause(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class InjuryCause(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class InjuryType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class InjuryType(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class FireStatus(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class FireStatus(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Fire Status")
-        verbose_name_plural = _("Fire Statuses")
+#     class Meta:
+#         verbose_name = _("Fire Status")
+#         verbose_name_plural = _("Fire Statuses")
 
 
-class FireCause(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class FireCause(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class Direction(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class Direction(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class Crops(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class Crops(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Crops")
-        verbose_name_plural = _("Crops")
+#     class Meta:
+#         verbose_name = _("Crops")
+#         verbose_name_plural = _("Crops")
 
 
-class TypeOfIllegalActivity(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class TypeOfIllegalActivity(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Type of Illegal Activity")
-        verbose_name_plural = _("Type of Illegal Activities")
+#     class Meta:
+#         verbose_name = _("Type of Illegal Activity")
+#         verbose_name_plural = _("Type of Illegal Activities")
 
 
-class SnareAge(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class SnareAge(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class SnareStatus(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class SnareStatus(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Snare Status")
-        verbose_name_plural = _("Snare Statuses")
+#     class Meta:
+#         verbose_name = _("Snare Status")
+#         verbose_name_plural = _("Snare Statuses")
 
 
-class PoacherCampAge(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class PoacherCampAge(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class TypeOfShots(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class TypeOfShots(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Type of Shots")
-        verbose_name_plural = _("Type of Shots")
+#     class Meta:
+#         verbose_name = _("Type of Shots")
+#         verbose_name_plural = _("Type of Shots")
 
 
-class TypeOfTrophy(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class TypeOfTrophy(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Type of Trophy")
-        verbose_name_plural = _("Type of Trophies")
+#     class Meta:
+#         verbose_name = _("Type of Trophy")
+#         verbose_name_plural = _("Type of Trophies")
 
 
-class VehicleTypes(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class VehicleTypes(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Vehicle Types")
-        verbose_name_plural = _("Vehicle Types")
+#     class Meta:
+#         verbose_name = _("Vehicle Types")
+#         verbose_name_plural = _("Vehicle Types")
 
 
-class WeaponTypes(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class WeaponTypes(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Types of Weapons")
-        verbose_name_plural = _("Types of Weapons")
+#     class Meta:
+#         verbose_name = _("Types of Weapons")
+#         verbose_name_plural = _("Types of Weapons")
 
 
-class TrafficType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class TrafficType(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class TrafficActivity(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class TrafficActivity(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Traffic Activity")
-        verbose_name_plural = _("Traffic Activities")
+#     class Meta:
+#         verbose_name = _("Traffic Activity")
+#         verbose_name_plural = _("Traffic Activities")
 
 
-class AccidentType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class AccidentType(models.Model):
+# id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+# name = models.CharField(max_length=100)
+# ordernum = models.IntegerField(blank=True, null=True)
 
 
-class CriticalSightingType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class CriticalSightingType(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class TracksType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class TracksType(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Track Type")
-        verbose_name_plural = _("Track Types")
+#     class Meta:
+#         verbose_name = _("Track Type")
+#         verbose_name_plural = _("Track Types")
 
 
-class VehicleType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class VehicleType(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class MedicalEquipmentRequired(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class MedicalEquipmentRequired(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Medical Equipment Required")
-        verbose_name_plural = _("Medical Equipment Required")
+#     class Meta:
+#         verbose_name = _("Medical Equipment Required")
+#         verbose_name_plural = _("Medical Equipment Required")
 
 
-class MedicalEvacSecurity(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class MedicalEvacSecurity(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Medical Evac Security")
-        verbose_name_plural = _("Medical Evac Securities")
+#     class Meta:
+#         verbose_name = _("Medical Evac Security")
+#         verbose_name_plural = _("Medical Evac Securities")
 
 
-class DetectionType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class DetectionType(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class ActionTaken(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class ActionTaken(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Action Taken")
-        verbose_name_plural = _("Actions Taken")
+#     class Meta:
+#         verbose_name = _("Action Taken")
+#         verbose_name_plural = _("Actions Taken")
 
 
-class Conservancy(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class Conservancy(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Conservancy")
-        verbose_name_plural = _("Conservancies")
+#     class Meta:
+#         verbose_name = _("Conservancy")
+#         verbose_name_plural = _("Conservancies")
 
 
-class Behavior(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class Behavior(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class Color(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class Color(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class Health(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class Health(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Health")
-        verbose_name_plural = _("Health")
+#     class Meta:
+#         verbose_name = _("Health")
+#         verbose_name_plural = _("Health")
 
 
-class FenceSection(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class FenceSection(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class Team(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class Team(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class PoachingMean(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class PoachingMean(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class Tribe(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class Tribe(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class IllegalActivity(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class IllegalActivity(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Illegal Activity")
-        verbose_name_plural = _("Illegal Activities")
+#     class Meta:
+#         verbose_name = _("Illegal Activity")
+#         verbose_name_plural = _("Illegal Activities")
 
 
-class Livestock(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class Livestock(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Livestock")
-        verbose_name_plural = _("Livestock")
+#     class Meta:
+#         verbose_name = _("Livestock")
+#         verbose_name_plural = _("Livestock")
 
 
-class ContactType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class ContactType(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class WildlifeGap(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class WildlifeGap(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
 
-class IncidentStatus(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class IncidentStatus(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Incident Status")
-        verbose_name_plural = _("Incident Statuses")
+#     class Meta:
+#         verbose_name = _("Incident Status")
+#         verbose_name_plural = _("Incident Statuses")
 
 
-class Nationality(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class Nationality(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Nationality")
-        verbose_name_plural = _("Nationalities")
+#     class Meta:
+#         verbose_name = _("Nationality")
+#         verbose_name_plural = _("Nationalities")
 
 
-class Village(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class Village(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Village")
-        verbose_name_plural = _("Villages")
+#     class Meta:
+#         verbose_name = _("Village")
+#         verbose_name_plural = _("Villages")
 
 
-class ArrestViolation(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class ArrestViolation(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Arrest Violation")
-        verbose_name_plural = _("Arrest Violations")
+#     class Meta:
+#         verbose_name = _("Arrest Violation")
+#         verbose_name_plural = _("Arrest Violations")
 
 
 # Liwonde specific tables
-class AnimalCondition(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class AnimalCondition(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Animal Condition")
-        verbose_name_plural = _("Animal Conditions")
-
-
-class ArrestNationality(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _("Arrest Nationality")
-        verbose_name_plural = _("Arrest Nationalities")
+#     class Meta:
+#         verbose_name = _("Animal Condition")
+#         verbose_name_plural = _("Animal Conditions")
 
 
-class ReasonForArrest(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class ArrestNationality(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Reason for Arrest")
-        verbose_name_plural = _("Reasons for Arrest")
-
-
-class ArrestVillageName(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _("Arrest Village Name")
-        verbose_name_plural = _("Arrest Village Names")
+#     class Meta:
+#         verbose_name = _("Arrest Nationality")
+#         verbose_name_plural = _("Arrest Nationalities")
 
 
-class SpoorAge(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class ReasonForArrest(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("SPOOR Age")
-        verbose_name_plural = _("SPOOR Ages")
-
-
-class SpoorFootType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _("SPOOR Foot Type")
-        verbose_name_plural = _("SPOOR Foot Types")
+#     class Meta:
+#         verbose_name = _("Reason for Arrest")
+#         verbose_name_plural = _("Reasons for Arrest")
 
 
-class SnareAction(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
+# class ArrestVillageName(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = _("Snare Action")
-        verbose_name_plural = _("Snare Actions")
+#     class Meta:
+#         verbose_name = _("Arrest Village Name")
+#         verbose_name_plural = _("Arrest Village Names")
+
+
+# class SpoorAge(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
+
+#     class Meta:
+#         verbose_name = _("SPOOR Age")
+#         verbose_name_plural = _("SPOOR Ages")
+
+
+# class SpoorFootType(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
+
+#     class Meta:
+#         verbose_name = _("SPOOR Foot Type")
+#         verbose_name_plural = _("SPOOR Foot Types")
+
+
+# class SnareAction(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     name = models.CharField(max_length=100)
+#     ordernum = models.IntegerField(blank=True, null=True)
+
+#     class Meta:
+#         verbose_name = _("Snare Action")
+#         verbose_name_plural = _("Snare Actions")
