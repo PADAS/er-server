@@ -15,6 +15,7 @@ from django.contrib.gis import geos
 from django.contrib.gis.db import models
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.files.storage import FileSystemStorage
+from django.db.models import Index, UniqueConstraint
 from django.urls import NoReverseMatch, reverse
 from django.utils.deconstruct import deconstructible
 from django.utils.translation import gettext_lazy as _
@@ -44,7 +45,7 @@ FILE_TYPES = (
 
 class Map(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     attributes = models.JSONField(default=dict, blank=True)
     center = models.PointField(srid=4326)
     zoom = models.IntegerField()
@@ -53,6 +54,13 @@ class Map(TenantModelMixin, TimestampedModel):
 
     class Meta:
         verbose_name = "Map Quicklink"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "name"], name="%(app_label)s_%(class)s_name_idx")]
 
     def __str__(self):
         return self.name
@@ -65,7 +73,7 @@ class TileLayerQuerySet(models.QuerySet):
 
 class TileLayer(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     attributes = models.JSONField(default=dict, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
@@ -75,6 +83,13 @@ class TileLayer(TenantModelMixin, TimestampedModel):
     class Meta:
         verbose_name = "Basemap"
         ordering = ["name"]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "name"], name="%(app_label)s_%(class)s_name_idx")]
 
     def __str__(self):
         return self.name
@@ -96,7 +111,7 @@ class FeatureType(TenantModelMixin, TimestampedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     presentation = models.JSONField(default=dict, blank=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = FeatureTypeManager()
@@ -104,6 +119,13 @@ class FeatureType(TenantModelMixin, TimestampedModel):
 
     class Meta:
         ordering = ["name"]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "name"], name="%(app_label)s_%(class)s_name_idx")]
 
     def __str__(self):
         return self.name
@@ -133,7 +155,7 @@ class FeatureSet(TenantModelMixin, TimestampedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     types = models.ManyToManyField(to=FeatureType, related_name="featuresets")
     description = models.TextField(null=True, blank=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
@@ -142,6 +164,13 @@ class FeatureSet(TenantModelMixin, TimestampedModel):
 
     class Meta:
         ordering = ["name"]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "name"])]
 
     def __str__(self):
         return self.name
@@ -514,7 +543,7 @@ class SpatialFeatureGroup(TenantModelMixin, TimestampedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     objects = SpatialFeatureGroupManager()
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
@@ -523,6 +552,13 @@ class SpatialFeatureGroup(TenantModelMixin, TimestampedModel):
     class Meta:
         verbose_name = "Base Feature Group"
         ordering = ["name"]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "name"])]
 
     def __str__(self):
         return self.name
@@ -562,7 +598,7 @@ class DisplayCategory(TenantModelMixin, TimestampedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = DisplayCategoryManager()
@@ -572,6 +608,13 @@ class DisplayCategory(TenantModelMixin, TimestampedModel):
         verbose_name = "Display Category"
         verbose_name_plural = "Display Categories"
         ordering = ["name"]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "name"])]
 
     def __str__(self):
         return self.name
@@ -592,7 +635,7 @@ class SpatialFeatureTypeManager(TenantManagerMixin, models.Manager):
 
 class SpatialFeatureType(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = models.JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
@@ -617,6 +660,13 @@ class SpatialFeatureType(TenantModelMixin, TimestampedModel):
         verbose_name = "Feature Class"
         verbose_name_plural = "Feature Classes"
         ordering = ["name"]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "name"])]
 
     @property
     def default_presentation(self):
@@ -771,7 +821,7 @@ class ArcgisConfiguration(TenantModelMixin, TimestampedModel, UUIDModel):
         null=True,
         help_text="Leave blank to connect to ArcGIS Online, " "or enter your ArcGIS Enterprise service URL",
     )
-    config_name = models.CharField(max_length=100, blank=False, unique=True, verbose_name="Configuration name")
+    config_name = models.CharField(max_length=100, blank=False, verbose_name="Configuration name")
     search_text = models.CharField(
         max_length=100,
         blank=True,
@@ -812,15 +862,22 @@ class ArcgisConfiguration(TenantModelMixin, TimestampedModel, UUIDModel):
 
     class Meta:
         verbose_name = "Feature Service Configuration"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "config_name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "config_name"])]
+
+    def __str__(self):
+        return self.config_name
 
     @property
     def last_download_time(self):
         t_zone = timezone(settings.TIME_ZONE)
         fmt = "%d %b %Y, %H:%M %p (%Z)"
         return self.last_download.astimezone(t_zone).strftime(fmt)
-
-    def __str__(self):
-        return self.config_name
 
 
 # Minimal model for an arcgis.gis.Item
