@@ -48,7 +48,6 @@ SERVER_NAMES = [
     SERVER_FQDN.replace("pamdas.org", "wps.pamdas.org"),
     SERVER_FQDN.replace("pamdas.org", "fzs.pamdas.org"),
     "localhost:9000",
-    "*.pamdas.org",
 ]
 
 # Allow providing a list of alternate server names on environment.
