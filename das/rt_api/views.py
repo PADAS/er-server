@@ -411,6 +411,8 @@ def create_realtime_handler(sios):
                     # Sample 10% of realtime messages per message-type.
                     stats.increment("rt.emit", tags=["service:realtime", f"name:{message_type}"], sample_rate=0.1)
 
+                    extra = {"socket_id": str(socketid), "namespace": RT_NAMESPACE}
+                    logger.debug("Emit message from SocketIO server", extra=extra)
                     sios.emit(message_type, data, room=str(socketid), namespace=RT_NAMESPACE, callback=receipt_callback)
 
             except Exception:

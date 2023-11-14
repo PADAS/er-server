@@ -1,8 +1,11 @@
 import datetime
+import json
 import random
 from unittest import mock
+from unittest.mock import MagicMock
 
 import pytest
+from django_multitenant.utils import set_current_tenant
 from pytz import UTC
 
 from django.contrib.auth import authenticate
@@ -13,7 +16,8 @@ from core.tests import BaseAPITest, User, fake_get_pool
 from observations.serializers import ObservationSerializer
 from observations.views import SubjectStatusView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
-from rt_api.tasks import get_subjectstatus_view
+from rt_api.tasks import get_subjectstatus_view, get_username_sids_map
+from utils.tenant.managers import UnsetDASTenantContextManager
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
@@ -69,3 +73,54 @@ class RTTasksTestCase(TestCase):
         result = get_subjectstatus_view(SubjectStatusView.as_view(), user, subject_id)
 
         self.assertIn("last_voice_call_start_at", result["properties"])
+
+
+@pytest.mark.django_db
+class TestUsernameSidMap:
+    def test_get_username_sid_map(self, monkeypatch, five_tenants):
+        tenant = five_tenants[0]
+        connections = {
+            b"xxLSSE8pJyXjB-YgAAAH": bytes(
+                json.dumps(
+                    {
+                        "username": "admin",
+                        "sid": "xxLSSE8pJyXjB-YgAAAH",
+                        "bbox": None,
+                        "tenantId": "c0973be2-8e11-4cb8-8463-897fb96391d0",
+                        "domain": "localhost",
+                    }
+                ),
+                "utf-8",
+            ),
+            b"68rT86c1Xq_-u6ziAAAF": bytes(
+                json.dumps(
+                    {
+                        "username": "admin",
+                        "sid": "68rT86c1Xq_-u6ziAAAF",
+                        "bbox": None,
+                        "tenantId": tenant.id,
+                        "domain": tenant.domain,
+                    }
+                ),
+                "utf-8",
+            ),
+            b"AAF68r86c1Xqzi_-u6TA": bytes(
+                json.dumps(
+                    {
+                        "username": "admin",
+                        "sid": "AAF68r86c1Xqzi_-u6TA",
+                        "bbox": None,
+                        "tenantId": tenant.id,
+                        "domain": tenant.domain,
+                    }
+                ),
+                "utf-8",
+            ),
+        }
+        monkeypatch.setattr("rt_api.tasks.client.get_all_connections_list", MagicMock(return_value=connections))
+
+        with UnsetDASTenantContextManager():
+            set_current_tenant(tenant)
+            username_sid_map = get_username_sids_map()
+
+        assert username_sid_map == {"admin": {"AAF68r86c1Xqzi_-u6TA", "68rT86c1Xq_-u6ziAAAF"}}
