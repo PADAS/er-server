@@ -5,6 +5,8 @@ from collections import namedtuple
 from functools import partial
 from uuid import UUID
 
+from django_multitenant.utils import get_current_tenant
+
 from django.db import close_old_connections
 from django.urls import reverse
 from rest_framework.exceptions import PermissionDenied
@@ -45,14 +47,21 @@ def dumps_helper(obj):
 
 def get_username_sids_map():
     all_connections = client.get_all_connections_list()
+    current_tenant = get_current_tenant()
+
+    logger.debug("Getting all connections", extra={"all_connections": str(all_connections)})
 
     user_sids_map = {}
     for sid, session_data in all_connections.items():
         try:
             session_data = json.loads(session_data.decode("utf-8"))
-            sid = sid.decode("UTF-8")
-            username = session_data["username"]
-            user_sids_map.setdefault(username, set()).add(sid)
+            if current_tenant is None or session_data["domain"] == current_tenant.domain:
+                sid = sid.decode("UTF-8")
+                username = session_data["username"]
+                user_sids_map.setdefault(username, set()).add(sid)
+                logger.debug("Added session to user_sids_map", extra={"sid": sid, "session_data": session_data})
+            else:
+                logger.debug("Discard session data for sid=%s. Not associated to the current tenant domain: %s", sid)
         except (UnicodeDecodeError, KeyError):
             logger.warning("Failed to parse session_data=%s", session_data)
 
