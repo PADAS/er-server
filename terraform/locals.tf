@@ -491,6 +491,9 @@ locals {
     "mabula"                    = "prod1"
     "wildriverspnr"             = "prod1"
     "mamabay"                   = "prod1"
+    "kawdcp"                    = "prod1"
+    "singitassw"                = "prod1"
+    "ivanueckermann"            = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
