@@ -5,7 +5,7 @@ from corsheaders.signals import check_request_enabled
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models.signals import post_save
+from django.db.models.signals import post_migrate, post_save
 from django.dispatch import receiver
 
 from core.models import DASTenant
@@ -46,3 +46,11 @@ def is_cors_origin_a_valid_tenant(sender, request, **kwargs):
         return True
     except:
         return False
+
+
+@receiver(post_migrate)
+def on_django_setup(sender, **kwargs):
+    if not settings.configured:
+        return
+
+    add_new_tenant_domains_to_settings()
