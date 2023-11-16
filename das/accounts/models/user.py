@@ -2,7 +2,7 @@ import logging
 import uuid
 
 import dateutil.parser
-from django_multitenant.mixins import TenantModelMixin
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from sendsms import api
 
 from django.apps import apps
@@ -45,7 +45,7 @@ class UserQuerySet(models.QuerySet):
         return super()._filter_or_exclude(mapper, args, kwargs)
 
 
-class UserManager(BaseUserManager):
+class UserManager(TenantManagerMixin, BaseUserManager):
     use_in_migrations = True
 
     def _create_user(self, username, email, password, **extra_fields):
