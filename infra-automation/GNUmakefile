@@ -252,7 +252,7 @@ install_er_cli: ## Installs the ER CLI used to interact with the TMS. Repo: http
 	echo $$ENCODED_GOOGLE_CREDENTIALS | base64 -d > google_credentials.json && \
 		export GOOGLE_APPLICATION_CREDENTIALS='/root/project/infra-automation/google_credentials.json' && \
 			pip3 install tms-services --extra-index-url https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/ && \
-		pip3 install earthranger-cli==0.0.5 --extra-index-url https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/ && \
+		pip3 install earthranger-cli==0.0.6 --extra-index-url https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/ && \
 		echo "Successfully installed the er cli" && \
 		export PROJECT_ID=earthranger-dev && \
 		$(CURDIR)/tenant-exists.sh $(current_branch) && echo "tenant already exists" || $(CURDIR)/create-tenant.sh '$(current_branch)' $$K8S_NAMESPACE $$CLUSTER_NAME
