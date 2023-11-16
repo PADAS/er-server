@@ -76,9 +76,6 @@ class UserManager(TenantManagerMixin, BaseUserManager):
 
         return self._create_user(username, email, password, **extra_fields)
 
-    def get_queryset(self):
-        return UserQuerySet(self.model, using=self._db)
-
     def by_linked_subject_id(self, subject_id: str):
         Subject = apps.get_model("observations.Subject")
         subjects = Subject.objects.filter(id=subject_id)
@@ -174,7 +171,8 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
     accepted_eula = models.BooleanField(default=False)
     pin = models.CharField(max_length=4, blank=True, null=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
-    objects = UserManager()
+
+    objects = UserManager.from_queryset(UserQuerySet)()
     tenant_id = "das_tenant_id"
 
     USERNAME_FIELD = "username"
