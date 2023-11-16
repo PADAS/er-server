@@ -258,6 +258,7 @@ class Revision(object):
     def get_meta_options(self, model):
         result = {
             "unique_together": (
+                "das_tenant",
                 "object_id",
                 "sequence",
             ),
