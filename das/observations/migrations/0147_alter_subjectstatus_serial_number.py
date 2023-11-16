@@ -36,6 +36,7 @@ def regenerate_primary_keys(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
+        ("analyzers", "0043_add_tenant_mixing_to_models_with_no_relations"),
         ("observations", "0146_populate_obsevations_with_tenant"),
     ]
 

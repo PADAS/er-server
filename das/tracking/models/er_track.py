@@ -1,6 +1,7 @@
 import logging
 import uuid
 
+from django_multitenant.fields import TenantOneToOneField
 from django_multitenant.mixins import TenantModelMixin
 
 from django.contrib.gis.db import models
@@ -62,7 +63,7 @@ class SourceProviderConfiguration(TenantModelMixin, TimestampedModel):
         verbose_name=_("Use as default?"), help_text=_("Used this as the default configuration"), default=True
     )
 
-    source_provider = models.OneToOneField(
+    source_provider = TenantOneToOneField(
         to=SourceProvider,
         null=True,
         blank=True,

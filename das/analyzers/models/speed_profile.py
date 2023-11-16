@@ -1,6 +1,6 @@
 import uuid
 
-from django_multitenant.fields import TenantForeignKey
+from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
 from django_multitenant.mixins import TenantModelMixin
 
 from django.contrib.postgres.fields import ArrayField
@@ -13,7 +13,7 @@ from utils.migrations.columns import default_tenant_id
 
 class SubjectSpeedProfile(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    subject = models.OneToOneField(to=Subject, on_delete=models.CASCADE, null=True, blank=True)
+    subject = TenantOneToOneField(to=Subject, on_delete=models.CASCADE, null=True, blank=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"

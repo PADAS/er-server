@@ -7,6 +7,7 @@ from django.utils.module_loading import import_string
 logger = logging.getLogger(__name__)
 
 EDGE_CASE_TABLES = ["observations_usersession", "observations_socketclient"]
+VALUE_CASE_TABLES = ["observations_subjecttype", "observations_subjectsubtype", "observations_commonname"]
 
 
 def add_tenant_to_primary_key(app: str, models: []):
@@ -40,6 +41,8 @@ class QueryManager:
         create_pk_query = f"ALTER TABLE {table} ADD CONSTRAINT {primary_key} PRIMARY KEY (das_tenant_id, id);"
         if table in EDGE_CASE_TABLES:
             create_pk_query = f"ALTER TABLE {table} ADD CONSTRAINT {primary_key} PRIMARY KEY (das_tenant_id, sid);"
+        elif table in VALUE_CASE_TABLES:
+            create_pk_query = f"ALTER TABLE {table} ADD CONSTRAINT {primary_key} PRIMARY KEY (das_tenant_id, value);"
         with connection.cursor() as cursor:
             cursor.execute(create_pk_query)
 

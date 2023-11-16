@@ -71,6 +71,11 @@ class PermissionSet(HierarchyModel, TimestampedModel):
         return self.name
 
 
+class PermissionSetPermissionManager(models.Manager):
+    def get_by_natural_key(self, permissionset, permission):
+        return self.get(permissionset=permissionset, permission=permission)
+
+
 class PermissionSetPermission(UUIDModel, TenantModelMixin):
     permissionset = models.ForeignKey(PermissionSet, on_delete=models.CASCADE)
     permission = models.ForeignKey(Permission, on_delete=models.CASCADE)
@@ -81,3 +86,8 @@ class PermissionSetPermission(UUIDModel, TenantModelMixin):
         related_name="%(app_label)s_%(class)s",
     )
     tenant_id = "das_tenant_id"
+
+    objects = PermissionSetPermissionManager()
+
+    def natural_key(self):
+        return (self.permissionset, self.permission)
