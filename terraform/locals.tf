@@ -495,6 +495,7 @@ locals {
     "singitassw"                = "prod1"
     "ivanueckermann"            = "prod1"
     "awcf"                      = "prod1"
+    "espejillos"                = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
