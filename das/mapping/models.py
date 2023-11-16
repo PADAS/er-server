@@ -678,7 +678,7 @@ class SpatialFeatureType(TenantModelMixin, TimestampedModel):
         return self.name
 
     def natural_key(self):
-        return self.name
+        return (self.name,)
 
     @property
     def feature_count(self):

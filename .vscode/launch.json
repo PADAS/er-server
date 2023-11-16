@@ -251,6 +251,52 @@
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
                 "IS_OAUTH2_PROVIDER_MIGRATION": "True"
             }
+        },
+        {
+            "name": "New tenant initial data",
+            "type": "python",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "${workspaceFolder}/das/manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "loaddata_with_tenant",
+                "--tenant_domain",
+                "localhost",
+                "initial_data"
+            ],
+            "django": true,
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+            }
+        },
+        {
+            "name": "Django dumpdata",
+            "type": "python",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "${workspaceFolder}/das/manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "dumpdata",
+                "--natural-primary",
+                "--natural-foreign",
+                "--all",
+                "--format",
+                "json",
+                "--indent",
+                "2",
+                "--output",
+                "das_server/fixtures/initial_data.json",
+            ],
+            "django": true,
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+            }
         }
     ],
     "inputs": [

@@ -7,7 +7,7 @@ from enum import Enum
 from operator import attrgetter, itemgetter
 
 import pytz
-from django_multitenant.fields import TenantForeignKey
+from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from versatileimagefield.fields import VersatileImageField
 
@@ -1583,7 +1583,7 @@ class EventNotification(TenantModelMixin, UUIDModel, TimestampedModel):
 
 class TSVectorModel(TenantModelMixin, models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    event = models.OneToOneField(Event, on_delete=models.CASCADE)
+    event = TenantOneToOneField(Event, on_delete=models.CASCADE)
     tsvector_event = SearchVectorField(null=True)
     tsvector_event_note = SearchVectorField(null=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)

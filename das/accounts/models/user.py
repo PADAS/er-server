@@ -114,7 +114,6 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(
         _("username"),
         max_length=30,
-        unique=True,
         help_text=_("Required. 30 characters or fewer." " Letters, digits and @/./+/-/_ only."),
         validators=[
             validators.RegexValidator(
@@ -189,9 +188,16 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
             UniqueConstraint(
                 fields=["das_tenant", "email"],
                 name="%(app_label)s_%(class)s_unique_email_across_tenatns",
-            )
+            ),
+            UniqueConstraint(
+                fields=["das_tenant", "username"],
+                name="%(app_label)s_%(class)s_unique_username_across_tenatns",
+            ),
         ]
-        indexes = [Index(fields=["das_tenant", "email"], name="%(app_label)s_%(class)s_email_index")]
+        indexes = [
+            Index(fields=["das_tenant", "email"], name="%(app_label)s_%(class)s_email_index"),
+            Index(fields=["das_tenant", "username"], name="%(app_label)s_%(class)s_username_index"),
+        ]
 
     @property
     def has_linked_subject(self):

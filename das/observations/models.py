@@ -24,7 +24,7 @@ import pymet
 import pytz
 from bitfield import BitField
 from dateutil.parser import parse as parse_date
-from django_multitenant.fields import TenantForeignKey
+from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from psycopg2.extras import DateTimeTZRange
 
@@ -128,7 +128,7 @@ class SourceGroupManager(HierarchyManager):
         return self.get(id=DEFAULT_SOURCE_GROUP_ID)
 
     def get_by_natural_key(self, name):
-        return self.get(**{name: name})
+        return self.get(**{"name": name})
 
 
 class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
@@ -141,7 +141,7 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(_("name"), max_length=80, unique=True)
+    name = models.CharField(_("name"), max_length=80)
     sources = models.ManyToManyField("Source", related_name="groups", blank=True)
 
     objects = SourceGroupManager()
@@ -149,6 +149,15 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
     class Meta:
         verbose_name = _("source group")
         verbose_name_plural = _("source groups")
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            ),
+        ]
+        indexes = [
+            Index(fields=["das_tenant", "name"]),
+        ]
 
     def __str__(self):
         return self.name
@@ -739,22 +748,13 @@ class SubjectSourceSummary(SubjectSource):
         verbose_name = "Subject Configuration"
 
 
-class SubjectTypeManager(models.Manager):
+class SubjectTypeManager(TenantManagerMixin, models.Manager):
     def get_by_natural_key(self, value):
         return self.get(value=value)
 
     class Meta:
         verbose_name = _("subject type")
         verbose_name_plural = _("subject types")
-
-
-class SubjectSubTypeManager(models.Manager):
-    def get_by_natural_key(self, value):
-        return self.get(value=value)
-
-    class Meta:
-        verbose_name = _("subject sub-type")
-        verbose_name_plural = _("subject sub-types")
 
 
 def get_default_subject_subtype():
@@ -786,11 +786,34 @@ class SubjectType(TenantModelMixin, TimestampedModel):
 
     tenant_id = "das_tenant_id"
 
+    objects = SubjectTypeManager()
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "value"],
+                name="%(app_label)s_%(class)s_unique_value_across_tenants",
+            ),
+        ]
+        indexes = [
+            Index(fields=["das_tenant", "value"]),
+        ]
+
     def __str__(self):
         return self.display
 
     def natural_key(self):
-        return self.value
+        return (self.value,)
+
+
+class SubjectSubTypeManager(TenantManagerMixin, models.Manager):
+    def get_by_natural_key(self, value):
+        obj = self.get(value=value)
+        return obj
+
+    class Meta:
+        verbose_name = _("subject sub-type")
+        verbose_name_plural = _("subject sub-types")
 
 
 class SubjectSubType(TenantModelMixin, TimestampedModel):
@@ -812,11 +835,24 @@ class SubjectSubType(TenantModelMixin, TimestampedModel):
     ordernum = models.SmallIntegerField(blank=True, null=True)
     tenant_id = "das_tenant_id"
 
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "value"],
+                name="%(app_label)s_%(class)s_unique_value_across_tenants",
+            ),
+        ]
+        indexes = [
+            Index(fields=["das_tenant", "value"]),
+        ]
+
+    objects = SubjectSubTypeManager()
+
     def __str__(self):
         return str(self.value)
 
     def natural_key(self):
-        return self.value
+        return (self.value,)
 
 
 class SubjectTrackSegmentFilter(TenantModelMixin, TimestampedModel):
@@ -1241,7 +1277,7 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
         related_name="subjects",
         related_query_name="subject",
     )
-    linked_user = models.OneToOneField(
+    linked_user = TenantOneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
