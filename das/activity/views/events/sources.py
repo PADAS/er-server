@@ -14,7 +14,6 @@ from utils.drf import StandardResultsSetPagination
 class EventSourceView(RetrieveUpdateDestroyAPIView):
     serializer_class = EventSourceSerializer
     permission_classes = (IsAuthenticated, IsEventProviderOwnerPermission)
-    queryset = EventSource.objects.all()
 
     lookup_fields = ("eventprovider_id", "id", "external_event_type")
 
@@ -30,12 +29,11 @@ class EventSourceView(RetrieveUpdateDestroyAPIView):
         self.check_object_permissions(self.request, obj)
         return obj
 
+    def get_queryset(self):
+        return EventSource.objects.all()
+
 
 class EventSourcesView(ListCreateAPIView):
-    def post(self, request, *args, **kwargs):
-        request.data["eventprovider"] = kwargs["eventprovider_id"]
-        return super().post(request, *args, **kwargs)
-
     serializer_class = EventSourceSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = (IsAuthenticated,)
@@ -43,3 +41,7 @@ class EventSourcesView(ListCreateAPIView):
     def get_queryset(self):
         eventprovider_id = self.kwargs["eventprovider_id"]
         return EventSource.objects.filter(eventprovider_id=eventprovider_id)
+
+    def post(self, request, *args, **kwargs):
+        request.data["eventprovider"] = kwargs["eventprovider_id"]
+        return super().post(request, *args, **kwargs)
