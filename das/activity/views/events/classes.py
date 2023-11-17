@@ -16,4 +16,6 @@ class EventClassFactorsView(ListAPIView):
 
 class EventClassesView(ListAPIView):
     serializer_class = EventClassSerializer
-    queryset = EventClass.objects.all().order_by("ordernum")
+
+    def get_queryset(self):
+        return EventClass.objects.all().order_by("ordernum")

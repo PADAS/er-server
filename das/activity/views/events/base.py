@@ -80,7 +80,8 @@ class EventAlertTargetsListView(ListAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = UserDisplaySerializer
 
-    queryset = User.objects.none()
+    def get_queryset(self):
+        return User.objects.none()
 
 
 class EventCountView(APIView):
@@ -117,7 +118,9 @@ class EventCountView(APIView):
 
 class EventFactorsView(ListAPIView):
     serializer_class = EventFactorSerializer
-    queryset = EventFactor.objects.all().order_by("ordernum")
+
+    def get_queryset(self):
+        return EventFactor.objects.all().order_by("ordernum")
 
 
 class EventFiltersView(ListCreateAPIView):
@@ -141,7 +144,6 @@ class EventGeometryView(ListAPIView):
 class EventProvidersView(ListCreateAPIView):
     serializer_class = EventProviderSerializer
     pagination_class = StandardResultsSetPagination
-    queryset = EventProvider.objects.all()
     permission_classes = (IsOwner,)
 
     def get_queryset(self):

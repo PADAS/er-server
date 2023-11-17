@@ -24,11 +24,13 @@ class EventTypeView(RetrieveUpdateDestroyAPIView):
     lookup_url_kwarg = "eventtype_id"
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventTypeSerializer
-    queryset = EventType.objects.all()
 
     @condition(etag_func=build_event_type_etag_header, last_modified_func=build_event_type_last_modified_header)
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return EventType.objects.all()
 
     def perform_destroy(self, instance):
         instance.set_to_inactive()

@@ -49,12 +49,12 @@ class EventRelationshipView(RetrieveUpdateDestroyAPIView):
 
 
 class EventRelationshipsView(ListCreateAPIView):
-    def perform_create(self, serializer):
-        super().perform_create(serializer)
-
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventRelationshipSerializer
     pagination_class = StandardResultsSetPagination
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
 
     def create(self, request, *args, **kwargs):
         type = request.data.get("type")
