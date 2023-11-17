@@ -43,6 +43,11 @@ FILE_TYPES = (
 )
 
 
+class MapManager(TenantManagerMixin, models.Manager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
 class Map(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255)
@@ -51,6 +56,7 @@ class Map(TenantModelMixin, TimestampedModel):
     zoom = models.IntegerField()
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
+    objects = MapManager()
 
     class Meta:
         verbose_name = "Map Quicklink"
@@ -71,13 +77,18 @@ class TileLayerQuerySet(models.QuerySet):
         return self.order_by("ordernum", "name")
 
 
+class TileLayerManager(TenantManagerMixin, models.Manager.from_queryset(TileLayerQuerySet)):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
 class TileLayer(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255)
     attributes = models.JSONField(default=dict, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
-    objects = TileLayerQuerySet.as_manager()
+    objects = TileLayerManager()
     tenant_id = "das_tenant_id"
 
     class Meta:
@@ -206,6 +217,11 @@ def upload_to(instance, filename):
     return file_path
 
 
+class SpatialFileBaseManager(TenantManagerMixin, models.Manager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
 class SpatialFilesBase(TenantModelMixin, TimestampedModel):
     """
     Base model for uploading Spatial files such as shapefile
@@ -221,6 +237,7 @@ class SpatialFilesBase(TenantModelMixin, TimestampedModel):
     status = models.CharField(max_length=1000, blank=True, null=True, verbose_name="Feature Load Status")
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
+    objects = SpatialFileBaseManager()
 
     class Meta:
         abstract = True
@@ -260,6 +277,11 @@ class SpatialFile(SpatialFilesBase):
         verbose_name = "Spatial File"
 
 
+class FeatureManager(TenantManagerMixin, models.Manager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
 class Feature(TenantModelMixin, TimestampedModel):
     """
     A vector feature, e.g. a boundary, a hut, a village, a river ...
@@ -281,6 +303,7 @@ class Feature(TenantModelMixin, TimestampedModel):
     spatialfile = TenantForeignKey(to=SpatialFile, null=True, blank=True, on_delete=models.SET_NULL)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
+    objects = FeatureManager()
 
     @property
     def default_presentation(self):
@@ -529,7 +552,7 @@ class MBTiles(object):
 """Below are new classes proposed by Jake for structuring spatial data in DAS"""
 
 
-class SpatialFeatureGroupManager(InheritanceManager):
+class SpatialFeatureGroupManager(TenantManagerMixin, InheritanceManager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
@@ -710,7 +733,7 @@ class SpatialFeatureFile(SpatialFilesBase):
         verbose_name = "Feature Import File"
 
 
-class SpatialFeatureManager(models.Manager):
+class SpatialFeatureManager(TenantManagerMixin, models.Manager):
     def create_spatialfeature(self, **values):
         return self.create(**values)
 
@@ -802,15 +825,25 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
         return "{0}-{1}-{2}".format(self.name, self.feature_type.name, self.id)
 
 
+class ArcgisGroupManager(TenantManagerMixin, models.Manager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
 class ArcgisGroup(TenantModelMixin, TimestampedModel, UUIDModel):
     name = models.CharField(max_length=100, blank=True, null=True)
     group_id = models.CharField(max_length=100, blank=False)
     config_id = models.CharField(max_length=100, blank=False)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
+    objects = ArcgisGroupManager()
 
     def __str__(self):
         return self.name
+
+
+class ArcgisConfigurationManager(TenantManagerMixin, models.Manager):
+    pass
 
 
 class ArcgisConfiguration(TenantModelMixin, TimestampedModel, UUIDModel):
@@ -859,6 +892,7 @@ class ArcgisConfiguration(TenantModelMixin, TimestampedModel, UUIDModel):
     last_download = models.DateTimeField(blank=True, null=True, verbose_name="Last Download Time")
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
+    objects = ArcgisConfigurationManager()
 
     class Meta:
         verbose_name = "Feature Service Configuration"
@@ -880,6 +914,11 @@ class ArcgisConfiguration(TenantModelMixin, TimestampedModel, UUIDModel):
         return self.last_download.astimezone(t_zone).strftime(fmt)
 
 
+class ArcgisItemManager(TenantManagerMixin, models.Manager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
 # Minimal model for an arcgis.gis.Item
 class ArcgisItem(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True)
@@ -887,6 +926,7 @@ class ArcgisItem(TenantModelMixin, TimestampedModel):
     arcgis_config = TenantForeignKey(to=ArcgisConfiguration, on_delete=models.SET_NULL, null=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
+    objects = ArcgisItemManager()
 
     @property
     def features(self):
