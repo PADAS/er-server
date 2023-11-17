@@ -1887,7 +1887,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
 
 class PatrolManager(TenantManagerMixin, models.Manager.from_queryset(PatrolFilteringQuerySet)):
-    pass
+    use_in_migrations = True
 
 
 class Patrol(TenantModelMixin, SerialNumberModelMixin, TimestampedModel, RevisionMixin):
