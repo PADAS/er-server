@@ -121,8 +121,10 @@ def get_subjects_with_observations_in_daterange(start_date=None, end_date=None):
 
 class RegionsView(generics.ListAPIView):
     lookup_field = "slug"
-    queryset = models.Region.objects.all()
     serializer_class = serializers.RegionSerializer
+
+    def get_queryset(self):
+        return models.Region.objects.all()
 
 
 class SubjectGroupsViewSchema(CustomSchema):
@@ -175,6 +177,9 @@ class RegionView(generics.RetrieveAPIView):
     queryset = models.Region.objects.all()
     serializer_class = serializers.RegionSerializer
 
+    def get_queryset(self):
+        return models.Region.objects.all()
+
 
 class SubjectGroupsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
     """
@@ -224,7 +229,6 @@ class SubjectGroupView(generics.RetrieveAPIView, TwoWaySubjectSourceMixin):
     Returns a single SubjectGroup
     """
 
-    queryset = models.SubjectGroup.objects.all()
     serializer_class = serializers.create_sg_serializer("subjectgs", models.SubjectGroup, serializers.SubjectSerializer)
     permission_classes = (StandardObjectPermissions,)
     lookup_field = "id"
@@ -686,7 +690,6 @@ class SubjectSourceView(generics.RetrieveAPIView):
 class SubjectSourceTrackView(generics.RetrieveAPIView):
     lookup_field = "id"
     serializer_class = serializers.TrackSerializer
-    queryset = models.Subject.objects.all()  # .annotate_with_subjectstatus()
     permission_classes = (StandardObjectPermissions,)
     schema = None
 
@@ -720,6 +723,9 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
         context["coordinates"] = coordinates
         return context
 
+    def get_queryset(self):
+        return models.Subject.objects.all()
+
 
 class SubjectStatusView(generics.RetrieveAPIView):
     lookup_url_kwarg = "subject_id"
@@ -728,7 +734,6 @@ class SubjectStatusView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         ss = models.SubjectStatus.objects.select_related("subject").filter(delay_hours=0)
-
         return ss
 
     def check_object_permissions(self, request, obj):
@@ -836,8 +841,6 @@ class ObservationView(generics.RetrieveUpdateDestroyAPIView):
 
 class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
     lookup_fields = ("id", "manufacturer_id")
-
-    queryset = models.Source.objects.all()
     serializer_class = serializers.SourceSerializer
 
     def get_object(self):
@@ -852,6 +855,9 @@ class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
                 filter[p] = pval
 
         return generics.get_object_or_404(queryset, **filter)
+
+    def get_queryset(self):
+        return models.Source.objects.all()
 
 
 class SourcesView(
@@ -1891,7 +1897,6 @@ class MessageView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = "id"
     serializer_class = serializers.MessageSerializer
     permission_classes = (IsAuthenticated,)
-    queryset = models.Message.objects.all()
 
     def get_queryset(self):
         return get_user_messages(self.request.user)
