@@ -181,7 +181,9 @@ class PatrolTypeView(RetrieveAPIView):
     lookup_field = "id"
     serializer_class = PatrolTypeSerializer
     permission_classes = (PatrolTypePermissions,)
-    queryset = PatrolType.objects.all()
+
+    def get_queryset(self):
+        PatrolType.objects.all()
 
     @condition(etag_func=build_patrol_type_etag_header, last_modified_func=build_patrol_type_last_modified_header)
     def get(self, request, *args, **kwargs):
@@ -191,7 +193,9 @@ class PatrolTypeView(RetrieveAPIView):
 class PatrolTypesView(ListAPIView):
     serializer_class = PatrolTypeSerializer
     permission_classes = (PatrolTypePermissions,)
-    queryset = PatrolType.objects.all()
+
+    def get_queryset(self):
+        return PatrolType.objects.all()
 
     @condition(etag_func=build_patrol_types_etag_header, last_modified_func=build_patrol_types_last_modified_header)
     def get(self, request, *args, **kwargs):
@@ -202,7 +206,9 @@ class PatrolView(RetrieveUpdateDestroyAPIView):
     lookup_field = "id"
     serializer_class = PatrolSerializer
     permission_classes = (PatrolObjectPermissions,)
-    queryset = Patrol.objects.all()
+
+    def get_queryset(self):
+        return Patrol.objects.all()
 
 
 class PatrolsView(ListCreateAPIView):
@@ -280,9 +286,8 @@ class PatrolSegmentsView(ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     serializer_class = PatrolSegmentSerializer
     permission_classes = (PatrolObjectPermissions,)
-    queryset = PatrolSegment.objects.select_related("patrol_type", "patrol").all()
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = PatrolSegment.objects.select_related("patrol_type", "patrol").all()
         queryset.prefetch_related(Prefetch("events"), Prefetch("eventrelatedsegments_set"))
         return get_segments(self.kwargs, queryset)
