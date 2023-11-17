@@ -1,3 +1,5 @@
+from das_server.local_settings_docker import *  # fmt: skip
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
