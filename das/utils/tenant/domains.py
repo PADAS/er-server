@@ -12,6 +12,10 @@ def build_http_urls_from_domains(domains: Iterable[str]) -> List[str]:
 
 
 def add_new_tenant_domains_to_settings() -> NoReturn:
+    # if we are running in management collect static, then there is no config
+    if getattr(settings, "COLLECT_STATIC_NO_DB", False):
+        return
+
     allowed_hosts = set(settings.ALLOWED_HOSTS)
     tenant_domains = set(get_current_cluster_domains())
     new_tenant_domains = list(tenant_domains.difference(allowed_hosts))
