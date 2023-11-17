@@ -27,18 +27,22 @@ logger = logging.getLogger(__name__)
 
 
 class UsersView(generics.ListAPIView):
-    queryset = get_user_model().objects.all()
     serializer_class = UserSerializer
     permission_classes = (UserObjectPermissions,)
     filter_backends = (UserObjectPermissionsFilter,)
+
+    def get_queryset(self):
+        return get_user_model().objects.all()
 
 
 class UserView(generics.RetrieveAPIView):
     lookup_field = "id"
-    queryset = get_user_model().objects.all()
     serializer_class = UserSerializer
     permission_classes = (UserObjectPermissions,)
     filter_backends = (UserObjectPermissionsFilter,)
+
+    def get_queryset(self):
+        return get_user_model().objects.all()
 
     def get_object(self):
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
@@ -59,7 +63,6 @@ class UserView(generics.RetrieveAPIView):
 
 class UserProfilesView(generics.ListAPIView):
     lookup_field = "id"
-    queryset = get_user_model().objects.all()
     serializer_class = UserSerializer
     permission_classes = (UserObjectPermissions,)
 
@@ -117,7 +120,9 @@ class UsersCsvView(APIView):
 class AcceptEulaAPIView(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, EulaPermission)
     serializer_class = AcceptEulaSerializer
-    queryset = UserAgreement.objects.all()
+
+    def get_queryset(self):
+        return UserAgreement.objects.all()
 
     def create(self, request, *args, **kwargs):
         user_id = request.data.get("user")
@@ -151,7 +156,9 @@ class AcceptEulaAPIView(generics.CreateAPIView):
 class GetActiveEulaAPIView(generics.RetrieveAPIView):
     permission_classes = (AllowAny,)
     serializer_class = EulaSerializer
-    queryset = EULA.objects.all()
+
+    def get_queryset(self):
+        return EULA.objects.all()
 
     def dispatch(self, request, *args, **kwargs):
         if not get_tenant_settings().env_settings.accept_eula:
