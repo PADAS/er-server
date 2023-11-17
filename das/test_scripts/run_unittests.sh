@@ -23,7 +23,7 @@ function run_test_suite_one() {
 
 function run_test_suite_two() {
   echo_b "Running test suite two...";
-  pytest --reuse-db --junitxml=/testresults/junit/result_suite_two.xml --maxfail=15 activity/tests sensors/tests
+  pytest --reuse-db --junitxml=/testresults/junit/result_suite_two.xml --maxfail=15 activity/tests sensors/tests revision/test
   review_results
 }
 
