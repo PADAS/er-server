@@ -12,12 +12,14 @@ from utils.text import humanize_field_name
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventRevisionsMessage:
     def test_new_event(self, event_with_detail):
         event = event_with_detail.event
 
         data = EventSerializer(event).data["updates"]
         assert data[0]["message"] == "Created"
+        assert len(data) == 1
 
     def test_event_change_state_message(self, event_with_detail):
         event = event_with_detail.event
@@ -26,6 +28,7 @@ class TestEventRevisionsMessage:
 
         data = EventSerializer(event).data["updates"]
         assert data[0]["message"] == f"Changed State: new \u2192 {SC_ACTIVE}"
+        assert len(data) == 2
 
     def test_event_change_priority(self, event_with_detail):
         event = event_with_detail.event
@@ -34,6 +37,7 @@ class TestEventRevisionsMessage:
 
         data = EventSerializer(event).data["updates"]
         assert "Changed Priority: Gray \u2192 Red" in data[0]["message"]
+        assert len(data) == 2
 
     @pytest.mark.parametrize(
         "fields",
@@ -93,6 +97,7 @@ class TestEventRevisionsMessage:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventNoteRevisionsMessages:
     @pytest.mark.parametrize(
         "data",
@@ -129,6 +134,7 @@ class TestEventNoteRevisionsMessages:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventFileRevisionsMessages:
     @pytest.mark.parametrize(
         "payload",
@@ -157,6 +163,7 @@ class TestEventFileRevisionsMessages:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestGetObjectById:
     def test_get_subject_object(self, subject):
         uuid = str(subject.id)
