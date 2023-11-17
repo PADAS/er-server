@@ -45,7 +45,7 @@ class UserQuerySet(models.QuerySet):
         return super()._filter_or_exclude(mapper, args, kwargs)
 
 
-class UserManager(TenantManagerMixin, BaseUserManager):
+class UserManager(TenantManagerMixin, BaseUserManager.from_queryset(UserQuerySet)):
     use_in_migrations = True
 
     def _create_user(self, username, email, password, **extra_fields):
@@ -172,7 +172,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
     pin = models.CharField(max_length=4, blank=True, null=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
-    objects = UserManager.from_queryset(UserQuerySet)()
+    objects = UserManager()
     tenant_id = "das_tenant_id"
 
     USERNAME_FIELD = "username"
