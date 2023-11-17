@@ -183,7 +183,7 @@ class PatrolTypeView(RetrieveAPIView):
     permission_classes = (PatrolTypePermissions,)
 
     def get_queryset(self):
-        PatrolType.objects.all()
+        return PatrolType.objects.all()
 
     @condition(etag_func=build_patrol_type_etag_header, last_modified_func=build_patrol_type_last_modified_header)
     def get(self, request, *args, **kwargs):
