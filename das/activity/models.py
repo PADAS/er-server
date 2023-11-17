@@ -100,6 +100,9 @@ def get_sentinel_user():
 
 
 class CommunityManager(TenantManagerMixin, models.Manager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
     def create_member(self, **values):
         return self.create(**values)
 

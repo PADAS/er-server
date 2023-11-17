@@ -391,6 +391,6 @@ def get_object_by_id(id: str):
     return (
         Subject.objects.filter(id=id).first()
         or Source.objects.filter(id=id).first()
-        or Community.objects.filter(id=id).first()
+        or Community.objects.all().filter(id=id).first()
         or User.objects.filter(id=id).first()
     )
