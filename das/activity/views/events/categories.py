@@ -28,4 +28,6 @@ class EventCategoryView(RetrieveUpdateDestroyAPIView):
     lookup_url_kwarg = "eventcategory_id"
     permission_classes = (EventCategoryObjectPermissions,)
     serializer_class = EventCategorySerializer
-    queryset = EventCategory.objects.all()
+
+    def get_queryset(self):
+        return EventCategory.objects.all()

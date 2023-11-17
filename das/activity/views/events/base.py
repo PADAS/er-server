@@ -88,7 +88,9 @@ class EventCountView(APIView):
     Returns the count of New Events.
     """
     permission_classes = (EventCategoryPermissions,)
-    queryset = Event.objects.all()
+
+    def get_queryset(self):
+        return Event.objects.all()
 
     def get(self, request, *args, **kwargs):
         queryset = Event.objects.new()
@@ -149,8 +151,11 @@ class EventProvidersView(ListCreateAPIView):
 class EventStateView(RetrieveUpdateAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventStateSerializer
-    queryset = Event.objects.all()
+
     lookup_field = "id"
+
+    def get_queryset(self):
+        return Event.objects.all()
 
 
 class EventView(RetrieveUpdateDestroyAPIView):

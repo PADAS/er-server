@@ -140,7 +140,9 @@ class EventSchemaView(ListCreateAPIView):
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
-    queryset = Event.objects.all()
+
+    def get_queryset(self):
+        return Event.objects.all()
 
     choices = Choice.objects.order_by("is_active", "ordernum")
 
@@ -159,7 +161,9 @@ class EventTypeSchemaView(ListCreateAPIView):
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
-    queryset = Event.objects.all()
+
+    def get_queryset(self):
+        return Event.objects.all()
 
     def get(self, request, *args, **kwargs):
         eventtype = get_object_or_404(EventType.objects.all(), value__iexact=self.kwargs["eventtype"])
