@@ -271,6 +271,7 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
         self.fields["region"].choices = self.fetch_region_choices()
         self.fields["country"].choices = self.fetch_country_choices()
         self.fields["subject_subtype"] = forms.ChoiceField(choices=get_subject_subtype_choices())
+        self.fields["groups"].queryset = SubjectGroup.objects.all()
 
     def _save_m2m(self):
         groups = self.cleaned_data["groups"]
