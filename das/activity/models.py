@@ -1886,6 +1886,10 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self.annotate(serial_number_string=Cast("serial_number", CharField()))
 
 
+class PatrolManager(TenantManagerMixin, models.Manager.from_queryset(PatrolFilteringQuerySet)):
+    pass
+
+
 class Patrol(TenantModelMixin, SerialNumberModelMixin, TimestampedModel, RevisionMixin):
     PRIORITY_CHOICES = PRIORITY_CHOICES
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -1896,7 +1900,7 @@ class Patrol(TenantModelMixin, SerialNumberModelMixin, TimestampedModel, Revisio
     objective = models.TextField(blank=True, null=True)
     revision = Revision()
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
-    objects = models.Manager.from_queryset(PatrolFilteringQuerySet)()
+    objects = PatrolManager()
     tenant_id = "das_tenant_id"
 
     class Meta:
