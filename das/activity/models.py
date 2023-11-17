@@ -569,7 +569,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             return self.filter(updated_at__lte=upper)
 
 
-class EventManager(TenantManagerMixin, models.Manager):
+class EventManager(TenantManagerMixin, models.Manager.from_queryset(EventFilteringQuerySet)):
     def create_event(self, **values):
         patrol_segments = values.pop("patrol_segments", None)
         event = self.create(**values)
@@ -942,7 +942,7 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
         to="PatrolSegment", through="EventRelatedSegments", related_name="events", related_query_name="event"
     )
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
-    objects = EventManager.from_queryset(EventFilteringQuerySet)()
+    objects = EventManager()
     tenant_id = "das_tenant_id"
 
     @property
