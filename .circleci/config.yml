@@ -372,13 +372,25 @@ workflows:
           requires:
             - 'docker_build_image'
           terraform_workspace: "$CIRCLE_BRANCH"
+          filters:
+            branches:
+              ignore:
+                - '/release-*'
       - review_plan:
           requires:
             - 'terraform_plan'
           type: 'approval'
+          filters:
+            branches:
+              ignore:
+                - '/release-*'
       - terraform_apply_feature_branch:
           requires:
             - 'review_plan'
+          filters:
+            branches:
+              ignore:
+                - '/release-*'
 
   build_and_terraform_release_branch:
     jobs:
