@@ -20,6 +20,10 @@ from core.models import DASTenant
 from utils.migrations.columns import default_tenant_id
 
 
+class DASAccessTokenManager(TenantManagerMixin, models.Manager):
+    pass
+
+
 class DASAccessToken(TenantModelMixin, AbstractAccessToken):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = TenantForeignKey(
@@ -52,6 +56,7 @@ class DASAccessToken(TenantModelMixin, AbstractAccessToken):
     das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
+    objects = DASAccessTokenManager()
 
     class Meta:
         verbose_name = "DAS Access Token"
@@ -102,6 +107,10 @@ class DASApplication(TenantModelMixin, AbstractApplication):
         ]
 
 
+class DASGrantManager(TenantManagerMixin, models.Manager):
+    pass
+
+
 class DASGrant(TenantModelMixin, AbstractGrant):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = TenantForeignKey(
@@ -117,6 +126,7 @@ class DASGrant(TenantModelMixin, AbstractGrant):
     )
 
     tenant_id = "das_tenant_id"
+    objects = DASGrantManager()
 
     class Meta:
         verbose_name = "DAS Grant"
@@ -131,6 +141,10 @@ class DASGrant(TenantModelMixin, AbstractGrant):
         indexes = [
             models.Index(fields=["das_tenant", "code"]),
         ]
+
+
+class DASIDTokenManager(TenantManagerMixin, models.Manager):
+    pass
 
 
 class DASIDToken(TenantModelMixin, AbstractIDToken):
@@ -151,6 +165,7 @@ class DASIDToken(TenantModelMixin, AbstractIDToken):
     das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
+    objects = DASIDTokenManager()
 
     class Meta:
         verbose_name = "DAS ID Token"
@@ -165,6 +180,10 @@ class DASIDToken(TenantModelMixin, AbstractIDToken):
         indexes = [
             models.Index(fields=["das_tenant", "jti"]),
         ]
+
+
+class DASRefreshTokenManager(TenantManagerMixin, models.Manager):
+    pass
 
 
 class DASRefreshToken(TenantModelMixin, AbstractRefreshToken):
@@ -186,6 +205,7 @@ class DASRefreshToken(TenantModelMixin, AbstractRefreshToken):
     das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
+    objects = DASRefreshTokenManager()
 
     class Meta:
         verbose_name = "DAS Refresh Token"
