@@ -6159,40 +6159,6 @@
   }
 },
 {
-  "model": "activity.patrolrevision",
-  "pk": "60cb51e5-abf4-4d24-95db-cc7874915a0b",
-  "fields": {
-    "user": null,
-    "object_id": "d8ce8e8f-e191-4d71-bc98-40949b5f0939",
-    "action": "updated",
-    "revision_at": "2023-11-15T21:06:44.539Z",
-    "sequence": 1,
-    "data": {
-      "state": "open",
-      "title": "Dummy Patrol",
-      "priority": 0,
-      "objective": "Collect orphaned Patrol Segments.",
-      "created_at": "2023-11-15T20:55:13.093Z",
-
-      "updated_at": "2023-11-15T20:55:13.093Z",
-      "serial_number": null
-    }
-  }
-},
-{
-  "model": "activity.patrol",
-  "pk": "d8ce8e8f-e191-4d71-bc98-40949b5f0939",
-  "fields": {
-    "created_at": "2023-11-15T20:55:13.093Z",
-    "updated_at": "2023-11-15T20:55:13.093Z",
-    "serial_number": null,
-    "priority": 0,
-    "state": "open",
-    "title": "Dummy Patrol",
-    "objective": "Collect orphaned Patrol Segments."
-  }
-},
-{
   "model": "activity.patroltype",
   "pk": "2c085d62-67f3-472a-b524-1c598c54dcc0",
   "fields": {
@@ -8204,7 +8170,7 @@
     "model": "activity.event",
     "field": "confiscationrep_itemsconfiscated",
     "value": "bushmeat",
-    "display": "Bush Beat",
+    "display": "Bush Meat",
     "icon": null,
     "ordernum": 30,
     "updated_at": null

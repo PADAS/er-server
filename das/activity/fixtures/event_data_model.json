@@ -1374,7 +1374,7 @@
     "model": "activity.event",
     "field": "confiscationrep_itemsconfiscated",
     "value": "bushmeat",
-    "display": "Bush Beat",
+    "display": "Bush Meat",
     "ordernum": 30,
     "sub_choice_of": []
   }
