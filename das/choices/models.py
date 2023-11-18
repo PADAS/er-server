@@ -2,7 +2,7 @@ import uuid
 from functools import partialmethod
 
 from django_multitenant.fields import TenantForeignKey
-from django_multitenant.mixins import TenantModelMixin
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 
 from django.contrib.gis.db import models
 from django.core import checks, exceptions
@@ -49,6 +49,10 @@ class ChoiceQuerySet(models.QuerySet):
         return self.disable_choices()
 
 
+class DynamicChoiceManager(TenantManagerMixin, models.Manager):
+    pass
+
+
 class DynamicChoice(TenantModelMixin, UUIDModel):
     choice_name = models.CharField(max_length=100, blank=True, null=False, verbose_name="Choice name")
     model_name = models.CharField(max_length=100, verbose_name="Model lookup")
@@ -58,6 +62,7 @@ class DynamicChoice(TenantModelMixin, UUIDModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
+    objects = DynamicChoiceManager()
 
     class Meta:
         constraints = [
@@ -67,6 +72,10 @@ class DynamicChoice(TenantModelMixin, UUIDModel):
             )
         ]
         indexes = [Index(fields=["das_tenant", "choice_name"], name="%(class)s_choice_name_idx")]
+
+
+class SoftDeleteModelManager(TenantManagerMixin, models.Manager):
+    pass
 
 
 class SoftDeleteModel(TenantModelMixin, models.Model):
@@ -80,6 +89,7 @@ class SoftDeleteModel(TenantModelMixin, models.Model):
     )
 
     tenant_id = "das_tenant_id"
+    objects = SoftDeleteModelManager()
 
     class Meta:
         abstract = True
@@ -88,6 +98,10 @@ class SoftDeleteModel(TenantModelMixin, models.Model):
         self.delete_on = timezone.now()
         self.is_active = False
         self.save()
+
+
+class ChoiceManager(TenantManagerMixin, models.Manager):
+    pass
 
 
 class Choice(SoftDeleteModel):
@@ -116,7 +130,7 @@ class Choice(SoftDeleteModel):
     ordernum = models.SmallIntegerField(blank=True, null=True)
     sub_choice_of = models.ManyToManyField("self", blank=True, symmetrical=False, through="choices.SubChoiceOf")
 
-    objects = ChoiceQuerySet.as_manager()
+    objects = ChoiceManager.from_queryset(ChoiceQuerySet)()
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     class Meta:
@@ -149,6 +163,10 @@ class Choice(SoftDeleteModel):
         return image_url or default
 
 
+class SubChoiceOfManager(TenantManagerMixin, models.Manager):
+    pass
+
+
 class SubChoiceOf(TenantModelMixin, UUIDModel):
     from_choice = TenantForeignKey(
         default=uuid.uuid4, on_delete=models.CASCADE, related_name="from_choice", to="choices.choice"
@@ -164,6 +182,7 @@ class SubChoiceOf(TenantModelMixin, UUIDModel):
     )
 
     tenant_id = "das_tenant_id"
+    objects = SubChoiceOfManager()
 
 
 class DisableChoice(Choice):
