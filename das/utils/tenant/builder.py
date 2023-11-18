@@ -53,7 +53,7 @@ class DjangoSettingsTenantBuilder:
             tableau_default_dashboard=getattr(settings, "TABLEAU_DEFAULT_DASHBOARD"),
             show_track_days=int(getattr(settings, "SHOW_TRACK_DAYS", 16)),
             show_stationary_subjects_on_map=parse_bool(getattr(settings, "SHOW_STATIONARY_SUBJECTS_ON_MAP", True)),
-            gd_bucket_name=getattr(settings, "GS_BUCKET_NAME", None),
+            gs_bucket_name=getattr(settings, "GS_BUCKET_NAME", None),
             geo_permission_radius_meters=int(getattr(settings, "GEO_PERMISSION_RADIUS_METERS")),
             geo_permission_speed_km_h=int(getattr(settings, "GEO_PERMISSION_SPEED_KM_H")),
             geo_permission_violation_ban_duration_min=int(getattr(settings, "GEO_PERMISSION_BAN_DURATON_MIN", 0)),
