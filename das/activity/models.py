@@ -100,6 +100,8 @@ def get_sentinel_user():
 
 
 class CommunityManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
@@ -117,6 +119,7 @@ class Community(TenantModelMixin, TimestampedModel):
     class Meta:
         verbose_name = _("Event Reporters")
         verbose_name_plural = _("Event Reporters")
+        base_manager_name = "objects"
 
     def __str__(self):
         return self.name
@@ -932,7 +935,7 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
         | models.Q(app_label=_usermodel[0], model=_usermodel[1])
     )
 
-    reported_by_content_type = models.ForeignKey(
+    reported_by_content_type = TenantForeignKey(
         ContentType, on_delete=models.CASCADE, limit_choices_to=reported_by_limits, null=True, blank=True
     )
 
