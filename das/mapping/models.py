@@ -32,6 +32,7 @@ from mapping.utils import SPATIAL_FILES_FOLDER, check_file_extension
 from revision.manager import Revision, RevisionMixin
 from utils.decorator import reify
 from utils.migrations.columns import default_tenant_id
+from utils.tenant.thread import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
@@ -213,7 +214,8 @@ def upload_to(instance, filename):
     """
     filename = filename.split("/")[-1]
     timestamp = "{:%Y%m%d%H%s}".format(datetime.datetime.now())
-    file_path = f"{SPATIAL_FILES_FOLDER}/{timestamp}-{filename}"
+    tenant = get_tenant_settings()
+    file_path = f"{tenant.slug_name}/{SPATIAL_FILES_FOLDER}/{timestamp}-{filename}"
     return file_path
 
 
