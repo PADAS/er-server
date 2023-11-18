@@ -20,7 +20,7 @@ class EnvironmentSettings:
     )
     eus_org: Optional[str] = field(metadata=config(field_name="eusOrg"), default=None)
     fqdn: Optional[str] = field(metadata=config(field_name="fqdn"), default=None)
-    gd_bucket_name: Optional[str] = field(metadata=config(field_name="gsBucketName"), default=None)
+    gs_bucket_name: Optional[str] = field(metadata=config(field_name="gsBucketName"), default=None)
     geo_permission_radius_meters: Optional[int] = field(
         metadata=config(field_name="geoPermissionRadiusMeters"), default=3704
     )
