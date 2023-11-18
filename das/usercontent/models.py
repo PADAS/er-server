@@ -15,6 +15,7 @@ from core.models.core import DASTenant
 from core.serializers import ContentTypeField
 from revision.manager import Revision, RevisionMixin
 from utils.migrations.columns import default_tenant_id
+from utils.tenant.thread import get_tenant_settings
 
 # Load UserContent settings once from settings.
 USERCONTENT_SETTINGS = getattr(settings, "USERCONTENT_SETTINGS", {})
@@ -63,8 +64,16 @@ def _upload_to(root, instance, filename):
         extension = extension + ".txt"
 
     d = pytz.utc.localize(datetime.utcnow())
-    file_path = "{root}/{year:04}/{month:02}/{day:02}/{pk!s}/{name}.{extension}".format(
-        root=root, year=d.year, month=d.month, day=d.day, pk=instance.id, extension=extension, name=name
+    tenant = get_tenant_settings()
+    file_path = "{tenant_dir}/{root}/{year:04}/{month:02}/{day:02}/{pk!s}/{name}.{extension}".format(
+        tenant_dir=tenant.slug_name,
+        root=root,
+        year=d.year,
+        month=d.month,
+        day=d.day,
+        pk=instance.id,
+        extension=extension,
+        name=name,
     )
     return file_path
 
