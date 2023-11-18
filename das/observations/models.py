@@ -82,6 +82,7 @@ from utils.interfaces import SharedResourceHandler
 from utils.json import zeroout_microseconds
 from utils.migrations.columns import default_tenant_id
 from utils.models import get_next_int_val
+from utils.tenant.thread import get_tenant_settings
 
 User = get_user_model()
 
@@ -2129,7 +2130,8 @@ class GPXManager(TenantManagerMixin, models.Manager):
 def upload_to(instance, filename):
     filename = filename.split("/")[-1]
     timestamp = "{:%Y%m%d%H%M}".format(datetime.now(tz=pytz.utc))
-    file_path = f"{GPX_FILES_FOLDER}/{timestamp}-{filename}"
+    tenant = get_tenant_settings()
+    file_path = f"{tenant.slug_name}/{GPX_FILES_FOLDER}/{timestamp}-{filename}"
     return file_path
 
 
