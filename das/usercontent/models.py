@@ -65,16 +65,7 @@ def _upload_to(root, instance, filename):
 
     d = pytz.utc.localize(datetime.utcnow())
     tenant = get_tenant_settings()
-    file_path = "{tenant_dir}/{root}/{year:04}/{month:02}/{day:02}/{pk!s}/{name}.{extension}".format(
-        tenant_dir=tenant.slug_name,
-        root=root,
-        year=d.year,
-        month=d.month,
-        day=d.day,
-        pk=instance.id,
-        extension=extension,
-        name=name,
-    )
+    file_path = f"{tenant.slug_name}/{root}/{d.year}/{d.month}/{d.day}/{instance.id}/{name}.{extension}"
     return file_path
 
 
