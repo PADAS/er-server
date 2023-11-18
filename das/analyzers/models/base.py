@@ -31,6 +31,10 @@ EVENT_PRIORITY_MAP = {
 }
 
 
+class SubjectAnalyzerConfigManager(TenantManagerMixin, models.Manager):
+    pass
+
+
 class SubjectAnalyzerConfig(TenantModelMixin, TimestampedModel):
     """
     An implementation of SubjectAnalyzerConfig is meant to associate a specific set of parameter values with
@@ -79,7 +83,7 @@ class SubjectAnalyzerConfig(TenantModelMixin, TimestampedModel):
         help_text=_("This will be used to override the configured quiet period."),
     )
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
-
+    objects = SubjectAnalyzerConfigManager()
     tenant_id = "das_tenant_id"
 
     class Meta:
