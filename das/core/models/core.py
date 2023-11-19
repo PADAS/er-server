@@ -117,8 +117,11 @@ class HierarchyModel(TenantModelMixin, models.Model):
         return [a.id for a in self.get_ancestors()]
 
 
-class SingletonModel(UUIDModel):
+class TenantSingletonModel(TenantModelMixin, UUIDModel):
     instance_id = None
+
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    tenant_id = "das_tenant_id"
 
     class Meta:
         abstract = True
@@ -128,7 +131,7 @@ class SingletonModel(UUIDModel):
 
     def save(self, *args, **kwargs):
         self.pk = self.instance_id
-        super(SingletonModel, self).save(*args, **kwargs)
+        super(TenantSingletonModel, self).save(*args, **kwargs)
 
     def delete(self, using=None, keep_parents=False):
         pass

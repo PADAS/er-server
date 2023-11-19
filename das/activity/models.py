@@ -52,7 +52,7 @@ from django.utils.translation import gettext_lazy as _
 from accounts.models.permissionset import PermissionSet
 from accounts.models.user import User
 from core.mixins import SerialNumberModelMixin
-from core.models import DASTenant, SingletonModel, TimestampedModel, UUIDModel
+from core.models import DASTenant, TenantSingletonModel, TimestampedModel, UUIDModel
 from core.utils import static_image_finder
 from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import dateparse as dparse
@@ -2179,12 +2179,13 @@ class PatrolSegment(TenantModelMixin, TimestampedModel, RevisionMixin):
     tenant_id = "das_tenant_id"
 
 
-class PatrolConfiguration(SingletonModel):
-    instance_id = uuid.UUID("deb99202-2373-4c6c-b05f-e71d29cb2b26")
+class PatrolConfiguration(TenantSingletonModel):
+    instance_id = models.UUIDField(default=uuid.uuid4)
     name = models.CharField(max_length=255)
     subject_groups = models.ManyToManyField(
         SubjectGroup, related_name="groups", blank=True, through="activity.PatrolConfigurationSubjectGroup"
     )
+    objects = CommonTenantManager()
 
     @property
     def effective_subject_groups(self):
@@ -2196,9 +2197,12 @@ class PatrolConfiguration(SingletonModel):
         return SubjectGroup.objects.filter(id__in=effective_subject_groups)
 
 
-class PatrolConfigurationSubjectGroup(UUIDModel):
-    patrolconfiguration = models.ForeignKey(blank=True, on_delete=models.CASCADE, to="activity.patrolconfiguration")
-    subjectgroup = models.ForeignKey(blank=True, on_delete=models.CASCADE, to="observations.subjectgroup")
+class PatrolConfigurationSubjectGroup(TenantModelMixin, UUIDModel):
+    patrolconfiguration = TenantForeignKey(blank=True, on_delete=models.CASCADE, to="activity.patrolconfiguration")
+    subjectgroup = TenantForeignKey(blank=True, on_delete=models.CASCADE, to="observations.subjectgroup")
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    tenant_id = "das_tenant_id"
+    objects = CommonTenantManager()
 
 
 class EventGeometry(TenantModelMixin, RevisionMixin, TimestampedModel):
