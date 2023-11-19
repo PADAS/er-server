@@ -1,9 +1,11 @@
 from typing import overload
 
+from django_multitenant.mixins import TenantManagerMixin
+
 import django
 from django.apps import apps
 from django.contrib.auth.management import create_permissions
-from django.db.models import Max
+from django.db.models import Manager, Max
 
 
 def migrate_permissions(apps):
@@ -110,3 +112,11 @@ def get_next_int_val(app_label: str, model_name: str, column_name: str) -> int:
     max_value = getattr(max_queryset[0], column_name) if max_queryset.exists() else 0
 
     return max_value + 1
+
+
+class CommonTenantManager(TenantManagerMixin, Manager):
+    """
+    Generic Manager without special methods, just to use TenantManagerMixin
+    """
+
+    use_in_migrations = True

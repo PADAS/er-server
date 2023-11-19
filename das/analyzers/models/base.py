@@ -2,7 +2,7 @@ import logging
 import uuid
 
 from django_multitenant.fields import TenantForeignKey
-from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
+from django_multitenant.mixins import TenantModelMixin
 
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -15,6 +15,7 @@ from activity.models import Event
 from core.models import DASTenant, TimestampedModel
 from observations.models import Observation, Subject, SubjectGroup
 from utils.migrations.columns import default_tenant_id
+from utils.models import CommonTenantManager
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +30,6 @@ EVENT_PRIORITY_MAP = {
     WARNING: Event.PRI_IMPORTANT,
     OK: Event.PRI_REFERENCE,
 }
-
-
-class SubjectAnalyzerConfigManager(TenantManagerMixin, models.Manager):
-    pass
 
 
 class SubjectAnalyzerConfig(TenantModelMixin, TimestampedModel):
@@ -83,7 +80,7 @@ class SubjectAnalyzerConfig(TenantModelMixin, TimestampedModel):
         help_text=_("This will be used to override the configured quiet period."),
     )
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
-    objects = SubjectAnalyzerConfigManager()
+    objects = CommonTenantManager()
     tenant_id = "das_tenant_id"
 
     class Meta:
@@ -100,14 +97,10 @@ class SubjectAnalyzerConfig(TenantModelMixin, TimestampedModel):
     analyzer_category = "generic"
 
 
-class SubjectAnalyzerResultManager(TenantManagerMixin, models.Manager):
-    pass
-
-
 class SubjectAnalyzerResult(TenantModelMixin, TimestampedModel):
     LEVEL_OK = OK
 
-    objects = SubjectAnalyzerResultManager()
+    objects = CommonTenantManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     analyzer_revision = models.IntegerField(default=1)
