@@ -13,6 +13,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ("core", "0008_migrate_oauth_tables_to_das_custom_models"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ("reports", "0005_add_event_source_history_models"),
         ("observations", "0144_populate_das_tenant_in_subject_model"),
         ("tracking", "0018_source_provider_configuration"),
     ]
