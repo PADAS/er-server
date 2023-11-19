@@ -4,7 +4,7 @@ from .core import (
     HierarchQuerySet,
     HierarchyManager,
     HierarchyModel,
-    SingletonModel,
+    TenantSingletonModel,
     TimestampedModel,
     UUIDModel,
 )
@@ -21,7 +21,7 @@ __all__ = (
     "HierarchQuerySet",
     "HierarchyManager",
     "HierarchyModel",
-    "SingletonModel",
+    "TenantSingletonModel",
     "TimestampedModel",
     "UUIDModel",
 )
