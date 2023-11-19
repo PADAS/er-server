@@ -1,6 +1,6 @@
 import uuid
 
-from django_multitenant.mixins import TenantModelMixin
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 
 import django.db.models as models
 from django.contrib.auth.models import Permission
@@ -71,7 +71,9 @@ class PermissionSet(HierarchyModel, TimestampedModel):
         return self.name
 
 
-class PermissionSetPermissionManager(models.Manager):
+class PermissionSetPermissionManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
     def get_by_natural_key(self, permissionset, permission):
         return self.get(permissionset=permissionset, permission=permission)
 
