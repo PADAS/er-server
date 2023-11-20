@@ -1,3 +1,4 @@
+import copy
 import os
 import random
 from datetime import datetime, timedelta, timezone
@@ -74,6 +75,84 @@ class ObservationTestCase(BaseAPITest):
         expected = 0
 
         self.assertEqual(actual, expected)
+
+    def test_observation_post_two_observations(self):
+        # These are known IDs for subject and source, from test fixtures.
+        source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
+
+        # Generate some random data for the observation.
+        observation_time = UTC.localize(datetime.now())
+        fixed_latitude = float(random.randint(3000, 3000)) / 100
+        fixed_longitude = float(random.randint(2800, 4000)) / 100
+
+        fixed_location = dict(longitude=fixed_longitude, latitude=fixed_latitude)
+        observation_one = {
+            "location": fixed_location,
+            "recorded_at": observation_time,
+            "source": source_id,
+            "additional": {},
+        }
+        observation_two = copy.copy(observation_one)
+        observation_two["recorded_at"] = observation_two["recorded_at"] + timedelta(seconds=1)
+
+        request = self.factory.post(self.api_base + "/observations/", (observation_one, observation_two))
+        self.force_authenticate(request, self.user)
+        response = ObservationsView.as_view()(request)
+
+        assert response.status_code == 201
+
+    def test_observation_post_two_observations_one_a_duplicate(self):
+        # These are known IDs for subject and source, from test fixtures.
+        source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
+
+        # Generate some random data for the observation.
+        observation_time = UTC.localize(datetime.now())
+        fixed_latitude = float(random.randint(3000, 3000)) / 100
+        fixed_longitude = float(random.randint(2800, 4000)) / 100
+
+        fixed_location = dict(longitude=fixed_longitude, latitude=fixed_latitude)
+        observation_one = {
+            "location": fixed_location,
+            "recorded_at": observation_time,
+            "source": source_id,
+            "additional": {},
+        }
+
+        request = self.factory.post(self.api_base + "/observations/", (observation_one, observation_one))
+        self.force_authenticate(request, self.user)
+        response = ObservationsView.as_view()(request)
+
+        assert response.status_code == 201
+
+    def test_observation_post_duplicate_observations(self):
+        # These are known IDs for subject and source, from test fixtures.
+        source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
+
+        # Generate some random data for the observation.
+        observation_time = UTC.localize(datetime.now())
+        fixed_latitude = float(random.randint(3000, 3000)) / 100
+        fixed_longitude = float(random.randint(2800, 4000)) / 100
+
+        fixed_location = dict(longitude=fixed_longitude, latitude=fixed_latitude)
+
+        observation = {
+            "location": fixed_location,
+            "recorded_at": observation_time,
+            "source": source_id,
+            "additional": {},
+        }
+
+        request = self.factory.post(self.api_base + "/observations/", observation)
+        self.force_authenticate(request, self.user)
+        response = ObservationsView.as_view()(request)
+
+        assert response.status_code == 201
+
+        request = self.factory.post(self.api_base + "/observations/", observation)
+        self.force_authenticate(request, self.user)
+        response = ObservationsView.as_view()(request)
+
+        assert response.status_code == 409
 
     def test_observation_post_save_subject_status(self):
         """

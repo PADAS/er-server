@@ -1,5 +1,6 @@
 import logging
 
+from django.db import IntegrityError, transaction
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import ListAPIView, ListCreateAPIView, get_object_or_404
@@ -10,7 +11,11 @@ from observations.models import Observation, Subject
 from observations.permissions import StandardObjectPermissions
 from observations.serializers import FlattenObservationSerializer, ObservationSerializer
 from observations.utils import VIEW_OBSERVATION_PERMS, VIEW_SUBJECT_PERMS, dateparse
-from utils.drf import StandardResultsSetCursorPagination, StandardResultsSetPagination
+from utils.drf import (
+    StandardResultsSetCursorPagination,
+    StandardResultsSetPagination,
+    return_409_response,
+)
 from utils.json import parse_bool
 
 from .exceptions import UnauthorizedView
@@ -197,7 +202,31 @@ class ObservationsView(ListCreateAPIView):
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        self.perform_create(serializer)
+        try:
+            with transaction.atomic():
+                self.perform_create(serializer)
+        except IntegrityError:
+            if not isinstance(request.data, list):
+                return return_409_response()
+
+            at_least_one_added = False
+            for observation in request.data:
+                serializer = ObservationSerializer(data=observation)
+                if not serializer.is_valid():
+                    return Response(
+                        serializer.errors,
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                try:
+                    with transaction.atomic():
+                        self.perform_create(serializer)
+                    at_least_one_added = True
+                except IntegrityError:
+                    pass
+
+            if not at_least_one_added:
+                return return_409_response()
+
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
