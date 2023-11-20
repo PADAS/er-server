@@ -15,6 +15,7 @@ from core.models.core import DASTenant
 from core.serializers import ContentTypeField
 from revision.manager import Revision, RevisionMixin
 from utils.migrations.columns import default_tenant_id
+from utils.models import CommonTenantManager
 from utils.tenant.thread import get_tenant_settings
 
 # Load UserContent settings once from settings.
@@ -88,6 +89,7 @@ class FileContent(TenantModelMixin, TimestampedModel, RevisionMixin):
     revision = Revision()
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
+    objects = CommonTenantManager()
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -122,6 +124,7 @@ class ImageFileContent(TenantModelMixin, TimestampedModel, RevisionMixin):
     content_type = ContentTypeField()
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
+    objects = CommonTenantManager()
 
     def save(self, *args, **kwargs):
         self.full_clean()
