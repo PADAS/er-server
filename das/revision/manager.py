@@ -3,6 +3,7 @@ import re
 import uuid
 
 import simplejson as json
+from django_multitenant.fields import TenantForeignKey
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from django_multitenant.utils import get_current_tenant
 
@@ -64,7 +65,7 @@ class RevisionDescriptor(object):
         return self.manager_class(self.model, instance)
 
 
-class UserField(models.ForeignKey):
+class UserField(TenantForeignKey):
     def __init__(self, to=getattr(settings, "AUTH_USER_MODEL", "auth.User"), null=True, editable=False, **kwargs):
         super().__init__(to=to, null=null, editable=editable, **kwargs)
 

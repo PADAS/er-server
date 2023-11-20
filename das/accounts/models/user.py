@@ -100,7 +100,7 @@ def _user_has_module_perms(user, app_label):
     return False
 
 
-class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
+class AccountsAbstractUser(TenantModelMixin, AbstractBaseUser, PermissionsMixin):
     """
     An abstract base class implementing a fully featured User model with
     admin-compliant permissions.
@@ -181,6 +181,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
     class Meta:
         verbose_name = _("user")
         verbose_name_plural = _("users")
+        base_manager_name = "objects"
         abstract = True
         constraints = [
             UniqueConstraint(
@@ -261,7 +262,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         return self.additional.get("role") or ""
 
 
-class User(TenantModelMixin, AccountsAbstractUser):
+class User(AccountsAbstractUser):
     user_perms = {"accounts.view_user", "accounts.change_user"}
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
