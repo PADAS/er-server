@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Count, Q
+from django.shortcuts import get_object_or_404
 
 from activity.models import EventCategory
 from choices.models import Choice
@@ -134,7 +135,7 @@ def get_user_etag(request, *args, **kwargs) -> str:
     param = kwargs["id"]
     user = request.user
     if param != "me":
-        user = User.objects.get(id=param)
+        user = get_object_or_404(User, pk=param)
 
     etag_string = generate_user_string_etag(user=user)
     return hashlib.md5(etag_string.encode("utf-8")).hexdigest()
