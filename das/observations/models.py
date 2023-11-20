@@ -326,6 +326,8 @@ class Source(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
         constraints = [
             UniqueConstraint(
                 fields=["das_tenant", "provider", "manufacturer_id"],
@@ -1330,6 +1332,8 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
         return self.subject_type == STATIONARY_SUBJECT_VALUE
 
     class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
         permissions = (
             ("view_last_position", "Permission to view the last reported position of a Subject only."),
             ("view_real_time", "Access to real-time observations."),

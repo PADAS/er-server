@@ -328,6 +328,8 @@ class EventType(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
         constraints = [
             models.CheckConstraint(
                 check=Q(auto_resolve=False, resolve_time__isnull=True)
