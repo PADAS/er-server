@@ -68,7 +68,7 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
         validators=[validate_assigned_range],
     )
     source = forms.ModelChoiceField(
-        queryset=Source.objects.all()
+        queryset=Source.objects.none()
         .order_by("manufacturer_id")
         .prefetch_related(
             "provider",
@@ -99,6 +99,13 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(SubjectSourceForm, self).__init__(*args, **kwargs)
         self.fields["data_stops_reason"].choices = self.fetch_stop_reasons()
+        self.fields["source"].queryset = (
+            Source.objects.all()
+            .order_by("manufacturer_id")
+            .prefetch_related(
+                "provider",
+            )
+        )
 
     @staticmethod
     def fetch_stop_reasons():
