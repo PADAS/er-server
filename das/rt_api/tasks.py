@@ -18,7 +18,7 @@ from activity.serializers import EventSerializer, PatrolSerializer
 from activity.views import EventView, PatrolView
 from das_server import celery, pubsub
 from observations import servicesutils
-from observations.models import Announcement, Message, SocketClient
+from observations.models import Announcement, Message, SocketClient, Subject
 from observations.serializers import AnnouncementSerializer, MessageSerializer
 from observations.utils import LOCATION, get_position, get_user_key
 from observations.views import FlattenObservationsView, SubjectStatusView
@@ -359,11 +359,28 @@ def handle_delete_event(event_id, **kwargs):
 
 
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
+def handle_new_source_observation(source_id, **kwargs):
+
+        logger.debug('Handling new observation for source_id=%s', source_id)
+
+        # Typically this will be only one subject.  But it could be more.
+        for subject in Subject.objects.filter(subjectsource__source__id=source_id, is_active=True):
+            logger.info(
+                "Handling new observation for source_id=%s.", source_id,
+                extra={"source_id": source_id, "subject_id": str(subject.id), "rt.event": "new_subject_obs"}
+            )
+            _observation_handler(str(subject.id))
+
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
 def handle_new_subject_observation(subject_id, **kwargs):
-    logger.info(
-        "Celery worker handling new observation.", extra={"subject_id": subject_id, "rt.event": "new_subject_obs"}
-    )
-    _observation_handler(subject_id)
+
+    if Subject.objects.filter(subject_id=subject_id, is_active=True).exists():
+        logger.info(
+            "Handling new observation for subject_id=%s.", subject_id, extra={"subject_id": subject_id, "rt.event": "new_subject_obs"}
+        )
+        _observation_handler(subject_id)
+    else:
+        logger.info('Handling new observation for subject_id=%s, but it is inactive or does not exist.', extra={"subject_id": subject_id})
 
 
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})

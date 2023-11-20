@@ -12,6 +12,7 @@ from rt_api.tasks import (
     handle_new_message,
     handle_new_patrol,
     handle_new_subject_observation,
+    handle_new_source_observation,
     handle_subjectstatus_update,
     handle_update_event,
     handle_update_message,
@@ -45,32 +46,17 @@ def start(realtime_server):
         )
 
     def new_observation_handler(data, message):
-        # Resolve the subject from either subject_id or source_id provided in data dict.
-        # TODO: Move this resolution logic into Subject Manager.
-        if "subject_id" in data:
-            subject_id = data["subject_id"]
-        elif "source_id" in data:
-            from observations.models import Subject
 
-            try:
-                subject = Subject.objects.filter(subjectsource__source__id=data["source_id"]).latest(
-                    "subjectsource__assigned_range"
-                )
-                subject_id = str(subject.id)
-            except Subject.DoesNotExist:
-                subject_id = None
-
-        if subject_id:
-            from observations.models import Subject
-
-            try:
-                if Subject.objects.get(id=subject_id).is_active:
-                    handle_new_subject_observation.apply_async(
-                        args=(subject_id,),
-                        kwargs={"domain": data.pop("domain", None)},
-                    )
-            except Subject.DoesNotExist:
-                pass
+        if subject_id := data.get('subject_id'):
+            handle_new_subject_observation.apply_async(
+                args=(subject_id,),
+                kwargs={"domain": data.pop("domain", None)},
+            )
+        elif source_id := data.get('source_id'):
+            handle_new_source_observation.apply_async(
+                args=(source_id,),
+                kwargs={"domain": data.pop("domain", None)},
+            )
 
     def subjectstatus_update_handler(data, message):
         logger.debug("das.subjectstatus.update %s", data)
