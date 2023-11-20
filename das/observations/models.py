@@ -790,6 +790,7 @@ class SubjectType(TenantModelMixin, TimestampedModel):
     objects = SubjectTypeManager()
 
     class Meta:
+        base_manager_name = "objects"
         constraints = [
             UniqueConstraint(
                 fields=["das_tenant", "value"],
@@ -837,6 +838,7 @@ class SubjectSubType(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        base_manager_name = "objects"
         constraints = [
             UniqueConstraint(
                 fields=["das_tenant", "value"],
