@@ -104,6 +104,7 @@ class CustomUserCreationForm(UserFormValidatorMixin, JSONFieldFormMixin, UserCre
         self.fields["organization"].choices = fetch_organization_choices()
         if hasattr(self, "request_user") and self.request_user or hasattr(self, "current_user") and self.current_user:
             self.fields["act_as_profiles"].queryset = get_profiles(users=self._get_exclude_users())
+        self.fields["linked_subject"].queryset = Subject.objects.filter(linked_user=None)
 
     class Meta:
         model = User
@@ -161,6 +162,7 @@ class UserAdditionalForm(UserFormValidatorMixin, JSONFieldFormMixin, UserChangeF
         self.fields["organization"].choices = fetch_organization_choices()
         if hasattr(self, "request_user") and self.request_user or hasattr(self, "current_user") and self.current_user:
             self.fields["act_as_profiles"].queryset = get_profiles(users=self._get_exclude_users())
+        self.fields["linked_subject"].queryset = Subject.objects.filter(linked_user=None)
 
     class Meta:
         model = User
@@ -207,6 +209,8 @@ class PermissionSetAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["user_set"].queryset = User.objects.all()
+        self.fields["acquire_from"].queryset = PermissionSet.objects.all().order_by("name")
 
         if self.instance and self.instance.pk:
             self.fields["user_set"].initial = self.instance.user_set.all()
