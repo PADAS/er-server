@@ -61,7 +61,8 @@ def get_username_sids_map():
                 user_sids_map.setdefault(username, set()).add(sid)
                 logger.debug("Added session to user_sids_map", extra={"sid": sid, "session_data": session_data})
             else:
-                logger.debug("Discard session data for sid=%s. Not associated to the current tenant domain: %s", sid)
+                logger.debug("Discard session data for sid=%s. Not associated to the current tenant domain: %s",
+                             sid, current_tenant.domain)
         except (UnicodeDecodeError, KeyError):
             logger.warning("Failed to parse session_data=%s", session_data)
 
