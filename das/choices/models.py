@@ -14,6 +14,7 @@ from django.utils.functional import lazy
 from core.models import DASTenant, UUIDModel
 from core.utils import static_image_finder
 from utils.migrations.columns import default_tenant_id
+from utils.models import CommonTenantManager
 
 
 class ChoiceQuerySet(models.QuerySet):
@@ -49,10 +50,6 @@ class ChoiceQuerySet(models.QuerySet):
         return self.disable_choices()
 
 
-class DynamicChoiceManager(TenantManagerMixin, models.Manager):
-    pass
-
-
 class DynamicChoice(TenantModelMixin, UUIDModel):
     choice_name = models.CharField(max_length=100, blank=True, null=False, verbose_name="Choice name")
     model_name = models.CharField(max_length=100, verbose_name="Model lookup")
@@ -62,7 +59,7 @@ class DynamicChoice(TenantModelMixin, UUIDModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
-    objects = DynamicChoiceManager()
+    objects = CommonTenantManager()
 
     class Meta:
         constraints = [
@@ -100,8 +97,8 @@ class SoftDeleteModel(TenantModelMixin, models.Model):
         self.save()
 
 
-class ChoiceManager(TenantManagerMixin, models.Manager):
-    pass
+class ChoiceManager(TenantManagerMixin, models.Manager.from_queryset(ChoiceQuerySet)):
+    use_in_migrations = True
 
 
 class Choice(SoftDeleteModel):
@@ -129,9 +126,9 @@ class Choice(SoftDeleteModel):
     icon = models.CharField(max_length=100, blank=True, null=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     sub_choice_of = models.ManyToManyField("self", blank=True, symmetrical=False, through="choices.SubChoiceOf")
-
-    objects = ChoiceManager.from_queryset(ChoiceQuerySet)()
     updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    objects = ChoiceManager()
 
     class Meta:
         constraints = [
@@ -163,10 +160,6 @@ class Choice(SoftDeleteModel):
         return image_url or default
 
 
-class SubChoiceOfManager(TenantManagerMixin, models.Manager):
-    pass
-
-
 class SubChoiceOf(TenantModelMixin, UUIDModel):
     from_choice = TenantForeignKey(
         default=uuid.uuid4, on_delete=models.CASCADE, related_name="from_choice", to="choices.choice"
@@ -182,7 +175,7 @@ class SubChoiceOf(TenantModelMixin, UUIDModel):
     )
 
     tenant_id = "das_tenant_id"
-    objects = SubChoiceOfManager()
+    objects = CommonTenantManager()
 
 
 class DisableChoice(Choice):
