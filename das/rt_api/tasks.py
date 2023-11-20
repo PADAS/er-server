@@ -361,15 +361,15 @@ def handle_delete_event(event_id, **kwargs):
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
 def handle_new_source_observation(source_id, **kwargs):
 
-        logger.debug('Handling new observation for source_id=%s', source_id)
+    logger.debug('Handling new observation for source_id=%s', source_id)
 
-        # Typically this will be only one subject.  But it could be more.
-        for subject in Subject.objects.filter(subjectsource__source__id=source_id, is_active=True):
-            logger.info(
-                "Handling new observation for source_id=%s.", source_id,
-                extra={"source_id": source_id, "subject_id": str(subject.id), "rt.event": "new_subject_obs"}
-            )
-            _observation_handler(str(subject.id))
+    # Typically this will be only one subject.  But it could be more.
+    for subject in Subject.objects.filter(subjectsource__source__id=source_id, is_active=True):
+        logger.info(
+            "Handling new observation for source_id=%s.", source_id,
+            extra={"source_id": source_id, "subject_id": str(subject.id), "rt.event": "new_subject_obs"}
+        )
+        _observation_handler(str(subject.id))
 
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
 def handle_new_subject_observation(subject_id, **kwargs):
