@@ -54,7 +54,8 @@ class UserManager(TenantManagerMixin, BaseUserManager.from_queryset(UserQuerySet
         """
         if not username:
             raise ValueError("The given username must be set")
-        email = self.normalize_email(email)
+        if email:
+            email = self.normalize_email(email)
         user = self.model(username=username, email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -172,7 +173,6 @@ class AccountsAbstractUser(TenantModelMixin, AbstractBaseUser, PermissionsMixin)
     pin = models.CharField(max_length=4, blank=True, null=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
-    objects = UserManager()
     tenant_id = "das_tenant_id"
 
     USERNAME_FIELD = "username"
@@ -181,7 +181,7 @@ class AccountsAbstractUser(TenantModelMixin, AbstractBaseUser, PermissionsMixin)
     class Meta:
         verbose_name = _("user")
         verbose_name_plural = _("users")
-        base_manager_name = "objects"
+
         abstract = True
         constraints = [
             UniqueConstraint(
@@ -265,11 +265,13 @@ class AccountsAbstractUser(TenantModelMixin, AbstractBaseUser, PermissionsMixin)
 class User(AccountsAbstractUser):
     user_perms = {"accounts.view_user", "accounts.change_user"}
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    objects = UserManager()
 
     class Meta(AbstractBaseUser.Meta, AccountsAbstractUser.Meta):
         swappable = "AUTH_USER_MODEL"
         verbose_name = _("user")
         verbose_name_plural = _("users")
+        base_manager_name = "objects"
 
     def get_user_permissions(self, obj=None):
         """
