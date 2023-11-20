@@ -78,7 +78,7 @@ class PermissionSetPermissionManager(TenantManagerMixin, models.Manager):
         return self.get(permissionset=permissionset, permission=permission)
 
 
-class PermissionSetPermission(UUIDModel, TenantModelMixin):
+class PermissionSetPermission(TenantModelMixin, UUIDModel):
     permissionset = models.ForeignKey(PermissionSet, on_delete=models.CASCADE)
     permission = models.ForeignKey(Permission, on_delete=models.CASCADE)
     das_tenant = models.ForeignKey(
