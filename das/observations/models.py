@@ -81,7 +81,7 @@ from utils.decorator import use_shared_resource
 from utils.interfaces import SharedResourceHandler
 from utils.json import zeroout_microseconds
 from utils.migrations.columns import default_tenant_id
-from utils.models import get_next_int_val
+from utils.models import CommonTenantManager, get_next_int_val
 from utils.tenant.thread import get_tenant_settings
 
 User = get_user_model()
@@ -125,6 +125,8 @@ def Condition(*args, **kwargs):
 
 
 class SourceGroupManager(HierarchyManager):
+    use_in_migrations = True
+
     def get_default(self):
         return self.get(id=DEFAULT_SOURCE_GROUP_ID)
 
@@ -187,6 +189,8 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
 
 
 class SourceManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
     # Helper functions for hydrating Source and Subject for the given message.
     def ensure_source(self, *args, **kwargs):
         subject_info = kwargs.get("subject")
@@ -236,6 +240,8 @@ class SourceManager(TenantManagerMixin, models.Manager):
 
 
 class SourceProviderManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
     def create_provider(self, **kwargs):
         provider_key = kwargs.get("provider_key")
         if provider_key:
@@ -389,7 +395,9 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return self.annotate(source_transforms=F("source__provider__transforms"))
 
 
-class ObservationManager(TenantManagerMixin, models.Manager):
+class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(ObservationQuerySet)):
+    use_in_migrations = True
+
     def get_subjectsource_observations(
         self, subjectsource, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
     ):
@@ -559,7 +567,7 @@ class Observation(TenantModelMixin, models.Model):
     exclusion_flags = BitField(flags=BITMAP_FILTER_CHOICES, default=0)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
-    objects = ObservationManager.from_queryset(ObservationQuerySet)()
+    objects = ObservationManager()
     tenant_id = "das_tenant_id"
 
     def __str__(self):
@@ -596,7 +604,9 @@ class SubjectSourceQuerySet(models.QuerySet, FilterMixin):
         )
 
 
-class SubjectSourceManager(TenantManagerMixin, models.Manager):
+class SubjectSourceManager(TenantManagerMixin, models.Manager.from_queryset(SubjectSourceQuerySet)):
+    use_in_migrations = True
+
     def get_subject_sources(self, subject):
         sds = SubjectSource.objects.filter(subject_id=subject.id)
         return sds
@@ -700,7 +710,7 @@ class SubjectSource(TenantModelMixin, models.Model):
     location = models.PointField(verbose_name="Assigned location", blank=True, null=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
-    objects = SubjectSourceManager.from_queryset(SubjectSourceQuerySet)()
+    objects = SubjectSourceManager()
     tenant_id = "das_tenant_id"
 
     class Meta:
@@ -750,6 +760,8 @@ class SubjectSourceSummary(SubjectSource):
 
 
 class SubjectTypeManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
     def get_by_natural_key(self, value):
         return self.get(value=value)
 
@@ -809,6 +821,8 @@ class SubjectType(TenantModelMixin, TimestampedModel):
 
 
 class SubjectSubTypeManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
     def get_by_natural_key(self, value):
         obj = self.get(value=value)
         return obj
@@ -868,6 +882,8 @@ class SubjectTrackSegmentFilter(TenantModelMixin, TimestampedModel):
 
     tenant_id = "das_tenant_id"
 
+    objects = CommonTenantManager()
+
 
 DEFAULT_SOURCE_GROUP_ID = "654e592c-fc5a-436d-98dd-fd1b36436a85"
 
@@ -877,7 +893,9 @@ class SubjectGroupQuerySet(models.QuerySet, FilterMixin):
         return self.filter(name__exact=value)
 
 
-class SubjectGroupManager(HierarchyManager):
+class SubjectGroupManager(HierarchyManager, models.Manager.from_queryset(SubjectGroupQuerySet)):
+    use_in_migrations = True
+
     def get_default(self):
         return self.get(is_default=True)
 
@@ -925,7 +943,7 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
         help_text=_("This Subject group is the default for new subjects."),
     )
 
-    objects = SubjectGroupManager.from_queryset(SubjectGroupQuerySet)()
+    objects = SubjectGroupManager()
 
     def get_all_subjects(self, user=None, active=None, include_from_subgroups=True, mou_expiry_date=None):
         min_age_days = get_minimum_allowed_age(user) or 0 if user else 0
@@ -1208,7 +1226,9 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             return None
 
 
-class SubjectManager(TenantManagerMixin, models.Manager):
+class SubjectManager(TenantManagerMixin, models.Manager.from_queryset(SubjectQuerySet)):
+    use_in_migrations = True
+
     def create_subject(self, **kwargs):
         # all subjects are added to the default subject group
         subject_groups = kwargs.pop("subject_groups", []) or []
@@ -1298,7 +1318,7 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
     import_gpx_data = TenantForeignKey("observations.GPXTrackFile", on_delete=models.SET_NULL, null=True, blank=True)
 
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
-    objects = SubjectManager.from_queryset(SubjectQuerySet)()
+    objects = SubjectManager()
     tenant_id = "das_tenant_id"
 
     @property
@@ -1526,7 +1546,9 @@ DEFAULT_STATUS_VALUE_DATE = datetime(1970, 1, 1, tzinfo=pytz.utc)
 DEFAULT_STATUS_VALUE_LOCATION = EMPTY_POINT
 
 
-class SubjectStatusManager(TenantManagerMixin, models.Manager):
+class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(SubjectStatusQuerySet)):
+    use_in_migrations = True
+
     DEFAULT_STATUS_VALUES = {
         "location": DEFAULT_STATUS_VALUE_LOCATION,
         "recorded_at": DEFAULT_STATUS_VALUE_DATE,
@@ -1859,6 +1881,8 @@ def notify_all_subjectstatus_updates(source, recorded_at):
 
 
 class CommonNameManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
     def get_by_natural_key(self, value):
         return self.get(**{value: value})
 
@@ -1922,7 +1946,7 @@ class SubjectStatus(TenantModelMixin, PermissionSetGroupMixin, TimestampedModel,
     location_requested_at = models.DateTimeField("Last time location was requested", null=True, blank=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
-    objects = SubjectStatusManager.from_queryset(SubjectStatusQuerySet)()
+    objects = SubjectStatusManager()
     tenant_id = "das_tenant_id"
 
     class Meta:
@@ -1944,7 +1968,9 @@ class SubjectStatus(TenantModelMixin, PermissionSetGroupMixin, TimestampedModel,
         return self.subject.groups
 
 
-class SubjectStatusLatestManager(models.Manager):
+class SubjectStatusLatestManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
     def get_queryset(self):
         return super().get_queryset().filter(delay_hours=0)
 
@@ -1966,6 +1992,8 @@ class Region(TenantModelMixin, models.Model):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
+
+    objects = CommonTenantManager()
 
     class Meta:
         constraints = [
@@ -2007,8 +2035,8 @@ class QuerySetOnSharedConnection(models.QuerySet, SharedResourceHandler):
         return super().delete(*args, **kwargs)
 
 
-class SocketClientManager(TenantManagerMixin, models.Manager):
-    pass
+class SocketClientManager(TenantManagerMixin, models.Manager.from_queryset(QuerySetOnSharedConnection)):
+    use_in_migrations = True
 
 
 class SocketClient(TenantModelMixin, TimestampedModel):
@@ -2025,7 +2053,7 @@ class SocketClient(TenantModelMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
-    objects = SocketClientManager.from_queryset(QuerySetOnSharedConnection)()
+    objects = SocketClientManager()
 
     class Meta:
         constraints = [
@@ -2036,8 +2064,8 @@ class SocketClient(TenantModelMixin, TimestampedModel):
         ]
 
 
-class UserSessionManager(models.Manager):
-    pass
+class UserSessionManager(TenantManagerMixin, models.Manager.from_queryset(QuerySetOnSharedConnection)):
+    use_in_migrations = True
 
 
 class UserSession(TenantModelMixin, TimestampedModel, SharedResourceHandler):
@@ -2046,7 +2074,7 @@ class UserSession(TenantModelMixin, TimestampedModel, SharedResourceHandler):
     time_range = DateTimeRangeField("user session time", null=True, blank=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
-    objects = UserSessionManager.from_queryset(QuerySetOnSharedConnection)()
+    objects = UserSessionManager()
     tenant_id = "das_tenant_id"
 
     class Meta:
@@ -2117,6 +2145,8 @@ class GPXLogRecord(TenantModelMixin, models.Model):
 
 
 class GPXManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
     def get_by_natural_key(self, value):
         return self.get(value=value)
 
@@ -2180,8 +2210,8 @@ class MessageFilteringQuerySet(models.QuerySet, FilterMixin):
         return self.filter(read=read)
 
 
-class MessagesManager(TenantManagerMixin, models.Manager):
-    pass
+class MessagesManager(TenantManagerMixin, models.Manager.from_queryset(MessageFilteringQuerySet)):
+    use_in_migrations = True
 
 
 class Message(TenantModelMixin, TimestampedModel):
@@ -2218,7 +2248,7 @@ class Message(TenantModelMixin, TimestampedModel):
     additional = models.JSONField("additional data", default=dict, blank=True, null=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
-    objects = MessagesManager.from_queryset(MessageFilteringQuerySet)()
+    objects = MessagesManager()
     tenant_id = "das_tenant_id"
 
     class Meta:
@@ -2227,10 +2257,6 @@ class Message(TenantModelMixin, TimestampedModel):
             ("das_tenant", "receiver_id", "message_time"),
         ]
         ordering = ("-message_time",)
-
-
-class AnnouncementManager(TenantManagerMixin, models.Manager):
-    pass
 
 
 class AnnouncementFilteringQuerySet(models.QuerySet, FilterMixin):
@@ -2243,6 +2269,10 @@ class AnnouncementFilteringQuerySet(models.QuerySet, FilterMixin):
         return qs
 
 
+class AnnouncementManager(TenantManagerMixin, models.Manager.from_queryset(AnnouncementFilteringQuerySet)):
+    use_in_migrations = True
+
+
 class Announcement(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     related_users = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True)
@@ -2253,7 +2283,7 @@ class Announcement(TenantModelMixin, TimestampedModel):
     announcement_at = models.DateTimeField(db_index=True, null=True, blank=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
-    objects = AnnouncementManager.from_queryset(AnnouncementFilteringQuerySet)()
+    objects = AnnouncementManager()
     tenant_id = "das_tenant_id"
 
 
@@ -2274,6 +2304,8 @@ class LatestObservationSource(TenantModelMixin, models.Model):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
+
+    objects = CommonTenantManager()
 
     class Meta:
         constraints = [
