@@ -63,8 +63,12 @@ class AlertRuleSerializer(ModelSerializer):
             "owner_username",
         )
 
-    def validate_schedule(self, value):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["notification_method_ids"].queryset = NotificationMethod.objects.all()
+        self.fields["reportTypes"].queryset = EventType.objects.all()
 
+    def validate_schedule(self, value):
         try:
             jsonschema.validate(value, OneWeekSchedule.json_schema)
 
@@ -84,7 +88,6 @@ class AlertRuleSerializer(ModelSerializer):
 
     def validate_conditions(self, value):
         try:
-
             # Guardrail: If the request includes an empty array for either
             # conditions-list, then delete it.
             for key in ("all", "any"):
@@ -103,7 +106,6 @@ class AlertRuleSerializer(ModelSerializer):
             raise ValidationError(error_message)
 
     def to_representation(self, instance):
-
         rep = super().to_representation(instance)
         rep["owner"] = {"username": instance.owner.username}
 
@@ -123,7 +125,6 @@ class AlertRuleSerializer(ModelSerializer):
         return rep
 
     def update(self, instance, validated_data):
-
         notification_method_ids = validated_data.pop("notification_method_ids", None)
 
         if notification_method_ids:

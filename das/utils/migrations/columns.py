@@ -64,14 +64,14 @@ def propagate_uuid_reference(instance, relationship_field, uuid_column, referrer
 
 
 def default_tenant_id():
-    from core.utils import DASTenantManagement
-    from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
-    from utils.tenant.thread import get_tenant_settings
+    from django_multitenant.utils import get_current_tenant
 
-    try:
-        tenant_data = get_tenant_settings()
-        tenant_id = tenant_data.id
-    except TenantNotFoundInLocalThreadException:
+    from core.utils import DASTenantManagement
+
+    tenant = get_current_tenant()
+    if tenant:
+        tenant_id = tenant.id
+    else:
         das_tenant_management = DASTenantManagement(domain=settings.SERVER_FQDN)
         tenant_id = das_tenant_management.get_tenant_id()
 
