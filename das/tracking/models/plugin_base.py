@@ -21,6 +21,7 @@ from observations.models import Source, SourceProvider, get_default_source_provi
 from tracking.pubsub_registry import notify_new_tracks
 from utils import stats
 from utils.migrations.columns import default_tenant_id
+from utils.models import CommonTenantManager
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +204,7 @@ class TrackingPlugin(TenantModelMixin, TimestampedModel):
     )
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
+    objects = CommonTenantManager()
 
     class Meta:
         abstract = True
