@@ -30,6 +30,8 @@ User = get_user_model()
 
 
 class RevisionManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
     def __init__(self, model, instance=None):
         super().__init__()
         self.model = model
