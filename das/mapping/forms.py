@@ -184,13 +184,14 @@ class DisplayCategoryForm(forms.ModelForm):
         ]
 
     feature_classes = forms.ModelMultipleChoiceField(
-        queryset=SpatialFeatureType.objects.all().order_by("name"),
+        queryset=SpatialFeatureType.objects.none(),
         required=False,
         widget=FilteredSelectMultiple(verbose_name=_("Feature Classes"), is_stacked=False),
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["feature_classes"].queryset = SpatialFeatureType.objects.all().order_by("name")
 
         if self.instance and self.instance.pk:
             self.fields["feature_classes"].initial = self.instance.spatialfeaturetype_set.all()
