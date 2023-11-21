@@ -1365,7 +1365,7 @@ class SubjectGroupChangeForm(forms.ModelForm):
     )
 
     active_subjects = forms.ModelMultipleChoiceField(
-        queryset=models.Subject.objects.order_by("name").by_is_active(True),
+        queryset=models.Subject.objects.none(),
         required=False,
         widget=FilteredSelectMultiple(verbose_name=_("Subjects"), is_stacked=False),
     )
@@ -1388,6 +1388,7 @@ class SubjectGroupChangeForm(forms.ModelForm):
             initial["inactive_subjects"] = [subject.id if not subject.is_active else None for subject in subjects]
         super().__init__(*args, **kwargs)
         self.fields["children"].queryset = models.SubjectGroup.objects.exclude(id__exact=self.instance.id)
+        self.fields["active_subjects"].queryset = models.Subject.objects.order_by("name").by_is_active(True)
 
     def save(self, commit=True):
         instance = forms.ModelForm.save(self, False)
