@@ -11,6 +11,7 @@ import humanize
 import pytz
 from bitfield import BitField
 from bitfield.forms import BitFieldCheckboxSelectMultiple
+from django_multitenant.utils import get_current_tenant
 
 from django import forms
 from django.conf import settings
@@ -1932,6 +1933,11 @@ class ObservationAnnotatorAdmin(admin.ModelAdmin):
 
     def subject_subtype(self, o):
         return o.subject.subject_subtype.value
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        tenant = get_current_tenant()
+        return queryset.filter(das_tenant=tenant)
 
 
 class SubjectMessagesFilter(SimpleListFilter):
