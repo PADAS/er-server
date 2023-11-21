@@ -93,14 +93,14 @@ class SubjectAnalyzerConfig(TenantModelMixin, TimestampedModel):
             )
         ]
         indexes = [Index(fields=["das_tenant", "name"])]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     analyzer_category = "generic"
 
 
 class SubjectAnalyzerResult(TenantModelMixin, TimestampedModel):
     LEVEL_OK = OK
-
-    objects = CommonTenantManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     analyzer_revision = models.IntegerField(default=1)
@@ -131,6 +131,11 @@ class SubjectAnalyzerResult(TenantModelMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
+    objects = CommonTenantManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def __str__(self):
         _tmp_str = (
@@ -147,6 +152,7 @@ class Annotator(TenantModelMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
+    objects = CommonTenantManager()
 
     @property
     def name(self):
@@ -158,3 +164,5 @@ class Annotator(TenantModelMixin, TimestampedModel):
     class Meta:
         abstract = True
         app_label = "analyzers"
+        base_manager_name = "objects"
+        default_manager_name = "objects"
