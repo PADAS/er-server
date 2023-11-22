@@ -130,7 +130,7 @@ def test_set_eventtype_to_inactive(event_type, superuser_client, memory_store_cl
 
     response = superuser_client.delete(url)
 
-    assert response.status_code == 204
+    assert response.status_code == 200
     assert EventType.objects.filter(is_active=False).count() == 1
 
 

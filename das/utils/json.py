@@ -4,7 +4,7 @@ import json
 import uuid
 from itertools import chain
 from types import GeneratorType
-
+from http import HTTPStatus
 import dateutil.parser as dp
 import simplejson
 import six
@@ -20,18 +20,21 @@ except ImportError:
 
 try:
     from bson import ObjectId
+
     bson_imported = True
 except ImportError:
     bson_imported = False
 
 try:
     from django.contrib.gis.geos import Point
+
     geos_imported = True
 except ImportError:
     geos_imported = False
 
 try:
     import django.utils.functional as d_proxy
+
     d_proxy_imported = True
 except ImportError:
     d_proxy_imported = False
@@ -51,12 +54,11 @@ class JsonEncodedString(object):
 
 def date_to_isoformat(o):
     datetime.MINYEAR
-    if not hasattr(o, 'second'):
+    if not hasattr(o, "second"):
         tmpval = datetime.datetime(o.year, o.month, o.day)
         formatted_value = tmpval.isoformat()
     else:
-        formatted_value = o.isoformat() if o.microsecond is None \
-            else o.replace(microsecond=0).isoformat()
+        formatted_value = o.isoformat() if o.microsecond is None else o.replace(microsecond=0).isoformat()
     return formatted_value
 
 
@@ -91,6 +93,7 @@ class ExtendedGEOJSONRenderer(JSONRenderer):
     """
     Don't wrap the return with a data and status block.
     """
+
     encoder_class = ExtendedJSONEncoder
 
     def render(self, data, *args, **kwargs):
@@ -101,13 +104,13 @@ class ExtendedJSONRenderer(JSONRenderer):
     encoder_class = ExtendedJSONEncoder
 
     def render(self, data, *args, **kwargs):
-        response = args[1]['response']
+        response = args[1]["response"]
 
         # Some responses will have data=None (Ex. 204 No Content)
-        if not data or ('swaggerVersion' not in data and 'status' not in data):
-            data = {'data': data,
-                    'status': {'code': response.status_code,
-                               'message': response.status_text}}
+        if not data or ("swaggerVersion" not in data and "status" not in data):
+            data = {"data": data, "status": {"code": response.status_code, "message": response.status_text}}
+            if response.status_code == HTTPStatus.NO_CONTENT:
+                response.status_code = HTTPStatus.OK
         return super(ExtendedJSONRenderer, self).render(data, *args, **kwargs)
 
 
@@ -115,7 +118,8 @@ class JSONTextParser(BaseParser):
     """
     Parses JSON-serialized data sent with a text/json content type.
     """
-    media_type = 'text/json'
+
+    media_type = "text/json"
     renderer_class = JSONRenderer
 
     def parse(self, stream, media_type=None, parser_context=None):
@@ -123,31 +127,28 @@ class JSONTextParser(BaseParser):
         Parses the incoming bytestream as JSON and returns the resulting data.
         """
         parser_context = parser_context or {}
-        encoding = parser_context.get('encoding', settings.DEFAULT_CHARSET)
+        encoding = parser_context.get("encoding", settings.DEFAULT_CHARSET)
 
         try:
             data = stream.read().decode(encoding)
             return json.loads(data)
         except ValueError as exc:
-            raise ParseError('JSON parse error - %s' % six.text_type(exc))
+            raise ParseError("JSON parse error - %s" % six.text_type(exc))
 
 
 class ExtendedBrowsableAPIRenderer(BrowsableAPIRenderer):
     def render(self, data, *args, **kwargs):
-        response = args[1]['response']
+        response = args[1]["response"]
 
         # Some responses will have data=None (Ex. 204 No Content)
-        if not data or 'status' not in data:
-            data = {'data': data,
-                    'status': {'code': response.status_code,
-                               'message': response.status_text}}
+        if not data or "status" not in data:
+            data = {"data": data, "status": {"code": response.status_code, "message": response.status_text}}
         return super(ExtendedBrowsableAPIRenderer, self).render(data, *args, **kwargs)
 
 
 def dumps(obj, **kwargs):
     dumps_args = copy.copy(kwargs)
-    custom_args = dict(cls=ExtendedJSONEncoder, ensure_ascii=True,
-                       bigint_as_string=True)
+    custom_args = dict(cls=ExtendedJSONEncoder, ensure_ascii=True, bigint_as_string=True)
     dumps_args.update(custom_args)
     return simplejson.dumps(obj, **dumps_args)
 
@@ -158,7 +159,7 @@ def loads(s, **kwargs):
 
 def parse_bool(text):
     """Return a boolean from the passed in text"""
-    TRUE_VALUES = ['true', '1', 'yes', 'ok', 'okay']
+    TRUE_VALUES = ["true", "1", "yes", "ok", "okay"]
     if isinstance(text, bool):
         return text
     if isinstance(text, str) and text.lower() in TRUE_VALUES:
@@ -173,29 +174,22 @@ def json_string(objects, pretty_output=False):
     charset=UTF-8
     """
     if pretty_output is True:
-        return simplejson.dumps(objects, sort_keys=True, indent=4,
-                                cls=ExtendedJSONEncoder, ensure_ascii=True, bigint_as_string=True)
+        return simplejson.dumps(
+            objects, sort_keys=True, indent=4, cls=ExtendedJSONEncoder, ensure_ascii=True, bigint_as_string=True
+        )
     return simplejson.dumps(objects, cls=ExtendedJSONEncoder, ensure_ascii=True, bigint_as_string=True)
 
 
 def empty_geojson_featurecollection():
-    return {
-        "type": "FeatureCollection",
-        "features": []
-    }
+    return {"type": "FeatureCollection", "features": []}
 
 
 def empty_geojson_feature():
-    return {
-        "type": "Feature",
-        "geometry": {},
-        "properties": {}
-    }
+    return {"type": "Feature", "geometry": {}, "properties": {}}
 
 
 def zeroout_microseconds(value):
-    if (not value or not hasattr(value, 'microsecond') or
-            value.microsecond is None):
+    if not value or not hasattr(value, "microsecond") or value.microsecond is None:
         return value
     return value.replace(microsecond=0)
 
@@ -209,16 +203,16 @@ class DateTimeAwareJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime.datetime):
             return {
-                '__type__': 'datetime',
-                'value': obj.isoformat(),
+                "__type__": "datetime",
+                "value": obj.isoformat(),
             }
 
         elif isinstance(obj, datetime.timedelta):
             return {
-                '__type__': 'timedelta',
-                'days': obj.days,
-                'seconds': obj.seconds,
-                'microseconds': obj.microseconds,
+                "__type__": "timedelta",
+                "days": obj.days,
+                "seconds": obj.seconds,
+                "microseconds": obj.microseconds,
             }
 
         else:
@@ -235,14 +229,14 @@ class DateTimeAwareJSONDecoder(json.JSONDecoder):
         json.JSONDecoder.__init__(self, object_hook=self.dict_to_object)
 
     def dict_to_object(self, d):
-        if '__type__' not in d:
+        if "__type__" not in d:
             return d
 
-        type = d.get('__type__')
-        if type == 'datetime':
-            return dp.parse(d['value'])
-        elif type == 'timedelta':
-            d.pop('__type__', None)
+        type = d.get("__type__")
+        if type == "datetime":
+            return dp.parse(d["value"])
+        elif type == "timedelta":
+            d.pop("__type__", None)
             return datetime.timedelta(**d)
         else:
             return d

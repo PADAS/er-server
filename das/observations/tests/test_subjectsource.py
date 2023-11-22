@@ -316,7 +316,8 @@ class TestSourceAPITestCase:
         urlpath = reverse("source-view", kwargs={"id": source_id})
 
         response = superuser_client.delete(urlpath, data=source_data)
-        assert response.status_code == status.HTTP_204_NO_CONTENT
+        response.render()
+        assert response.status_code == status.HTTP_200_OK
         unset_current_tenant()
 
     def test_delete_observation_api(self, superuser_client):
@@ -341,7 +342,7 @@ class TestSourceAPITestCase:
 
         response = superuser_client.delete(urlpath, data=source_data)
 
-        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert response.status_code == status.HTTP_200_OK
 
     def _get_tenant(self):
         return das_tenant_management.get_or_create_tenant()
