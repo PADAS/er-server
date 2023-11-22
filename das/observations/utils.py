@@ -268,7 +268,7 @@ def get_cyclic_subjectgroup():
         SELECT DISTINCT graph.from_subjectgroup_id
         FROM   graph
         JOIN observations_subjectgroup sg ON sg.id = graph.from_subjectgroup_id
-        WHERE observations_subjectgroup.das_tenant_id = "%(das_tenant_id)" and  cycle;
+        WHERE observations_subjectgroup.das_tenant_id = '%(das_tenant_id)' and  cycle;
     """
     tenant = get_current_tenant()
 
