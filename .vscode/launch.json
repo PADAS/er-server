@@ -9,6 +9,7 @@
             "type": "python",
             "request": "launch",
             "stopOnEntry": false,
+            "justMyCode": false,
             "module": "pytest",
             "args": [
                 "--reuse-db",
@@ -19,8 +20,6 @@
             "cwd": "${workspaceRoot}/das",
             "env": {},
             "debugOptions": [
-                "WaitOnAbnormalExit",
-                "WaitOnNormalExit",
                 "RedirectOutput"
             ]
         },
@@ -42,8 +41,7 @@
                 "IS_OAUTH2_PROVIDER_MIGRATION": "True"
             },
             "debugOptions": [
-                "WaitOnAbnormalExit",
-                "WaitOnNormalExit",
+
                 "RedirectOutput"
             ]
         },

@@ -65,8 +65,8 @@ class AlertRuleSerializer(ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["notification_method_ids"].queryset = NotificationMethod.objects.all()
-        self.fields["reportTypes"].queryset = EventType.objects.all()
+        self.fields["notification_method_ids"].child_relation.queryset = NotificationMethod.objects.all()
+        self.fields["reportTypes"].child_relation.queryset = EventType.objects.all()
 
     def validate_schedule(self, value):
         try:
