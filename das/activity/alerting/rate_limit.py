@@ -27,7 +27,7 @@ def prepend_alert_warning_message(user: User) -> bool:
 
 def increment_alert_counter(user: User, notification_method: str):
     alerts_storage.increment_key_by_value(KEY_ALERT_LIMIT.format(user.id), 1)
-    logger.info("Site %s message sent %s alert", get_tenant_settings().env_settings.fqdn, notification_method)
+    logger.info("Site %s message sent %s alert", get_tenant_settings().domain, notification_method)
     stats.increment("alert", tags=[f"method:{notification_method}"])
 
 
@@ -68,6 +68,7 @@ def update_stats():
 
 
 def publish_user_alert_quota_percentage(user: User, counter: int) -> None:
+    domain = get_tenant_settings().domain
     env_settings = get_tenant_settings().env_settings
     percentage = (counter / env_settings.alert_rate_limit) * 100
 
@@ -75,6 +76,6 @@ def publish_user_alert_quota_percentage(user: User, counter: int) -> None:
         alerts_storage.insert_set(KEY_ALERT_100_PERCENT, str(user.id))
         alerts_storage.delete_set(KEY_ALERT_90_PERCENT, str(user.id))
     elif percentage >= 90:
-        logger.info("Site %s user: %s hit %s%% alert limit.", env_settings.fqdn, user.username, percentage)
+        logger.info("Site %s user: %s hit %s%% alert limit.", domain, user.username, percentage)
         alerts_storage.insert_set(KEY_ALERT_90_PERCENT, str(user.id))
     update_stats()

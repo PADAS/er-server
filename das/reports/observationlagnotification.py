@@ -4,7 +4,6 @@ import logging
 import pytz
 from celery_once import QueueOnce
 
-from django.conf import settings
 from django.db.models import Avg, Count, F
 from django.utils.dateparse import parse_duration
 
@@ -18,6 +17,7 @@ from reports.distribution import (
 )
 from reports.models import SourceEvent, SourceProviderEvent
 from reports.serializers import EventSerializer
+from utils.tenant import get_tenant_settings, get_ui_site_name, get_ui_site_url
 
 logger = logging.getLogger(__name__)
 
@@ -60,12 +60,13 @@ def get_lagging_providers():
 # return the config for this provider's lag alert report
 def get_provider_lag_alert_config(provider_key):
     # hard coded for now, but could come from file, etc.
+    tenant_settings = get_tenant_settings()
     provider = SourceProvider.objects.get(provider_key=provider_key)
     threshold = provider.additional.get("lag_notification_threshold", None)
     configured_lag_threshold = {
         "lag_notification_threshold": threshold,
-        "site_name": settings.UI_SITE_NAME,
-        "site_url": settings.UI_SITE_URL,
+        "site_name": get_ui_site_name(tenant_settings),
+        "site_url": get_ui_site_url(tenant_settings),
     }
 
     return configured_lag_threshold
