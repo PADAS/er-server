@@ -13,6 +13,7 @@ from accounts.models import PermissionSet, User
 from core.tests import API_BASE, BaseAPITest
 from observations.admin import SubjectGroupChangeForm
 from observations.models import Subject, SubjectGroup
+from observations.utils import get_cyclic_subjectgroup
 from observations.views import SubjectGroupsView, SubjectGroupView, SubjectsView
 
 
@@ -55,6 +56,11 @@ class SubjectGroupTest(BaseAPITest):
         lewa_elephants = subject_group.get_all_subjects()
         # Check inactive subjects are in subject group's subject list
         self.assertTrue(self.alpha in lewa_elephants and self.beta in lewa_elephants)
+
+    def test_get_cyclic_subjectgroup_syntax_check(self):
+        groups = get_cyclic_subjectgroup()
+
+        assert groups is not None
 
     def test_subject_groups_api(self):
         # Test subjectgroups api(lists subjectgroups and linked subjects)
