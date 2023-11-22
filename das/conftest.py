@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -13,6 +14,7 @@ from pytest_factoryboy import register
 from django.apps import apps
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.core.management import call_command
 from rest_framework.test import APIClient
 
 from core.models import DASTenant
@@ -402,6 +404,46 @@ def tenant(tenant_response):
 @pytest.fixture
 def das_tenant(tenant):
     return TenantFactory.create(id=tenant.id, domain=tenant.domain)
+
+
+@pytest.fixture
+def one_tenant():
+    """Return a DASTenant and a matching tenant settings object"""
+
+    tenant = TenantFactory(id=Faker("uuid4"), domain=Faker("hostname"))
+    tenant_settings = copy.deepcopy(TENANT_RESPONSE)
+    tenant_settings["domain"] = tenant.domain
+    tenant_settings["id"] = tenant.id
+    tenant_settings["slugName"] = Faker("slug")
+    tenant_settings["name"] = Faker("company")
+    tenant_settings["url"] = f"https://{tenant.domain}"
+    tenant_settings = Tenant.from_dict(tenant_settings)
+
+    return (tenant, tenant_settings)
+
+
+@pytest.fixture()
+def tenant_two(request, monkeypatch, one_tenant):
+    """Return a DASTenant and a matching tenant settings object. Additionally the initial data has been loaded into the db for this tenant"""
+    das_tenant = one_tenant[0]
+    tenant_settings = one_tenant[1]
+
+    previous_tenant = get_current_tenant()
+
+    with monkeypatch.context() as m:
+        set_current_tenant(das_tenant)
+        thread = MagicMock()
+        thread.tenant_object = tenant_settings
+        m.setattr("utils.tenant.thread._get_local_thread", MagicMock(return_value=thread))
+
+        call_command("loaddata_with_tenant", "initial_data")
+
+    set_current_tenant(previous_tenant)
+
+    if getattr(request, "cls", None):
+        request.cls.tenant_two = one_tenant
+
+    yield one_tenant
 
 
 @pytest.fixture

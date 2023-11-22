@@ -4,6 +4,7 @@ import time
 from unittest.mock import MagicMock, patch
 
 import pytest
+from django_multitenant.utils import get_current_tenant, set_current_tenant
 from mockredis import MockRedis
 
 from django.conf import settings
@@ -11,7 +12,7 @@ from django.contrib.auth.models import Permission
 from django.core import mail
 from django.core.management import call_command
 from django.db.models.signals import post_save
-from django.test import TestCase, override_settings
+from django.test import override_settings
 
 from accounts.models import PermissionSet, User
 from activity.alerting.message import (
@@ -30,6 +31,7 @@ from activity.alerting.rate_limit import (
     publish_user_alert_quota_percentage,
     reset_alerts_counter,
 )
+from activity.alerts_views import AlertRuleListView
 from activity.models import (
     NOTIFICATION_METHOD_EMAIL,
     AlertRule,
@@ -42,6 +44,7 @@ from activity.models import (
 from activity.signals import event_post_save
 from activity.tasks import execute_evaluate_alert_rules
 from choices.models import DynamicChoice
+from core.tests import BaseAPITest
 from observations.models import SEX_FEMALE, Subject, SubjectSubType, SubjectType
 from utils.tenant import Tenant
 
@@ -51,9 +54,9 @@ user_permissions = ["security_read", "security_create", "security_update", "secu
 
 
 @patch("redis.StrictRedis", MockRedis)
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-class TestAlerts(TestCase):
+class TestAlerts(BaseAPITest):
     def setUp(self) -> None:
+        super().setUp()
         call_command("loaddata_with_tenant", "event_data_model")
         self.states = [
             {"name": "New", "value": "new"},
@@ -72,7 +75,7 @@ class TestAlerts(TestCase):
 
         self.owner.permission_sets.add(self.alerts_permissionset)
 
-        category = EventCategory.objects.get(value="security")
+        self.category = EventCategory.objects.get(value="security")
 
         self.event_type = EventType.objects.create(
             display="AlertTest",
@@ -91,7 +94,7 @@ class TestAlerts(TestCase):
                     "definition": ["sex"],
                 }
             ),
-            category=category,
+            category=self.category,
         )
 
         self.notification_method = NotificationMethod.objects.create(
@@ -116,6 +119,41 @@ class TestAlerts(TestCase):
     def test_alert_coerces_to_the_right_state_val(self):
         for state in self.states:
             self.assertEqual(state.get("name"), coerce_state_value(val=state.get("value")))
+
+    @pytest.mark.skip(
+        reason="expensive test loading up a second tenants data for one test, was used to figure out an issue"
+    )
+    @pytest.mark.usefixtures("tenant_two")
+    def test_create_alert_in_one_tenant_with_common_eventtype(self):
+        # activity/tests/test_alerts.py::TestAlerts::test_create_alert_in_one_tenant_with_common_eventtype
+        tenant_two_tenant = self.tenant_two[0]
+
+        previous_tenant = get_current_tenant()
+        set_current_tenant(tenant_two_tenant)
+        tenant_two_event_type = EventType.objects.get(value="animal_control_rep")
+        set_current_tenant(previous_tenant)
+
+        defaults = dict(
+            display=tenant_two_event_type.display, schema=tenant_two_event_type.schema, category=self.category
+        )
+        event_type, created = EventType.objects.get_or_create(value=tenant_two_event_type.value, defaults=defaults)
+
+        alert_rule = {
+            "title": "Alert Test",
+            "conditions": {"all": []},
+            "reportTypes": ["animal_control_rep"],
+            "schedule": {},
+            "is_active": True,
+            "notifications": [self.notification_method.id],
+            "notification_method_ids": [self.notification_method.id],
+        }
+
+        request = self.factory.post(self.api_base + "/activity/alerts", alert_rule)
+        self.force_authenticate(request, self.owner)
+
+        response = AlertRuleListView.as_view()(request)
+
+        assert response.status_code == 201
 
     @patch("activity.alerting.message.send_report")
     def test_sending_email_alert(self, mock_send_report):
