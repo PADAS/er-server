@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import dateutil.parser
 import pytz
 from dateutil.parser import parse
+from django_multitenant.utils import get_current_tenant
 from geopy.distance import geodesic
 from pytz import timezone
 
@@ -245,10 +246,11 @@ def ensure_timezone_aware(dt: datetime, default_timezone: timezone = pytz.utc):
 
 
 def get_cyclic_subjectgroup():
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-        WITH RECURSIVE graph AS (
+    # TODO: To improve performace add WHERE clause condition to inner select, when all tables have das_tenant_id column
+    # See ticket: ERA-9036
+
+    query = """
+    WITH RECURSIVE graph AS (
             SELECT from_subjectgroup_id
             , ARRAY[to_subjectgroup_id, from_subjectgroup_id] AS path
             , (to_subjectgroup_id = from_subjectgroup_id) AS cycle
@@ -266,8 +268,14 @@ def get_cyclic_subjectgroup():
         SELECT DISTINCT graph.from_subjectgroup_id
         FROM   graph
         JOIN observations_subjectgroup sg ON sg.id = graph.from_subjectgroup_id
-        WHERE  cycle;
-        """
+        WHERE observations_subjectgroup.das_tenant_id = "%(das_tenant_id)" and  cycle;
+    """
+    tenant = get_current_tenant()
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            sql=query,
+            params={"das_tenant_id": tenant.id},
         )
         return [row[0] for row in cursor.fetchall()]
 
