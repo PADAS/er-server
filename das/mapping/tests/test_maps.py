@@ -67,4 +67,5 @@ class TestMaps(BaseAPITest):
         request = self.factory.delete(layer_url)
         self.force_authenticate(request, self.app_user)
         response = views.LayerJsonView.as_view()(request, id=layer_id)
-        assert response.status_code == 204
+        response.render()
+        assert response.status_code == 200

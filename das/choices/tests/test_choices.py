@@ -102,7 +102,7 @@ def test_softdelete_choice(choices_fixture, client, memory_store_client_mock):
     client.force_login(user)
     url = reverse("choice", kwargs={"id": choice_id})
     response = client.delete(url)
-    assert response.status_code == 204
+    assert response.status_code == 200
 
     disabled_choices = Choice.objects.filter_inactive_choices().count()
     assert disabled_choices == 1

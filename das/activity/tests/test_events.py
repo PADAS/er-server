@@ -414,7 +414,8 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         request = self.factory.delete(self.api_base + f'/event/{str(self.sample_event.id)}/note/{note_data["id"]}')
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventNoteView.as_view()(request, id=str(self.sample_event.id), note_id=note_data["id"])
-        assert response.status_code == 204
+        response.render()
+        assert response.status_code == 200
 
     def test_add_note_but_not_delete(self):
         note_data = {"text": lorem_ipsum.paragraph()}
@@ -1614,7 +1615,8 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         request = self.factory.delete(self.api_base + "/event/{0}".format(str(event.id)) + str(event.id))
         self.force_authenticate(request, user)
         response = views.EventView.as_view()(request, id=str(event.id))
-        results["{0}_delete".format(event_type_name)] = response.status_code == 204
+        response.render()
+        results["{0}_delete".format(event_type_name)] = response.status_code == 200
 
         return results
 

@@ -176,7 +176,7 @@ class TestEventGeometryPermissions:
     @pytest.mark.parametrize(
         "location,expected_status_code",
         [
-            ["-114.85910156249999,33.17434155100208", 204],
+            ["-114.85910156249999,33.17434155100208", 200],
             ["-114.89910156249999,33.17434155100208", 403],
         ],
     )
@@ -193,7 +193,7 @@ class TestEventGeometryPermissions:
         client.app_user.permission_sets.add(perm_set)
 
         response = EventView.as_view()(request, id=event_id)
-
+        response.render()
         assert response.status_code == expected_status_code
 
 

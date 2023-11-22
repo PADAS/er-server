@@ -96,4 +96,5 @@ class EventCategoryTest(BaseAPITest):
         request = self.factory.delete(url)
         self.force_authenticate(request, self.user)
         response = EventCategoryView.as_view()(request, eventcategory_id=eventcategory_id)
-        self.assertEqual(response.status_code, 204)
+        response.render()
+        self.assertEqual(response.status_code, 200)
