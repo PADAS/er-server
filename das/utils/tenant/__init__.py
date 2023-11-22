@@ -14,3 +14,11 @@ __all__ = (
     "set_tenant_settings",
     "set_tenant",
 )
+
+
+def get_ui_site_name(tenant_settings):
+    return f"EarthRanger {tenant_settings.domain}"
+
+
+def get_ui_site_url(tenant_settings):
+    return tenant_settings.url

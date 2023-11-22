@@ -5,7 +5,6 @@ from datetime import datetime
 import pytz
 import sendsms.api
 
-from django.conf import settings
 from django.db.models import ObjectDoesNotExist
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -33,6 +32,7 @@ from activity.models import (
 from reports.distribution import send_report
 from utils import schema_utils
 from utils.features import features
+from utils.tenant import get_tenant_settings, get_ui_site_name, get_ui_site_url
 from utils.whatsapp import send_whatsapp
 
 logger = logging.getLogger(__name__)
@@ -278,7 +278,9 @@ def render_event_alert_context(
     :param notification_method: The method for sending the alert.
     :return: A dict containing the alert context.
     """
+    tenant_settings = get_tenant_settings()
     eventdata = render_event(event, notification_method.owner)
+    domain = get_tenant_settings().domain
 
     if not eventdata:
         return None
@@ -309,8 +311,8 @@ def render_event_alert_context(
 
             if old_internal_value:
                 old_internal_value = old_internal_value.get("old")
-                pretty_details[k]["old_value"] = render_pretty_value(old_internal_value)
 
+                pretty_details[k]["old_value"] = render_pretty_value(old_internal_value)
     priority_color = priority_label_colors.get(event.priority_label, priority_label_color_default)
 
     if event.location:
@@ -319,7 +321,7 @@ def render_event_alert_context(
             "latitude": event.location.y,
             "title": "Location",
             "value": f"lon: {event.location.x:.3f}, lat: {event.location.y:.3f}",
-            "href": f"https://{settings.SERVER_FQDN}?lnglat={event.location.x:.4f},{event.location.y:.4f}",
+            "href": f"https://{domain}?lnglat={event.location.x:.4f},{event.location.y:.4f}",
         }
     else:
         location = {
@@ -374,8 +376,8 @@ def render_event_alert_context(
         "alert": {
             "time": {"title": "Alert Time", "value": timezone.now()},
         },
-        "site_name": settings.UI_SITE_NAME,
-        "site_url": settings.UI_SITE_URL,
+        "site_name": get_ui_site_name(tenant_settings),
+        "site_url": get_ui_site_url(tenant_settings),
         "message_subject": message_subject,
         "alert_rule": alert_rule.display_title,
         "event": {
