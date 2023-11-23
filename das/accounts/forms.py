@@ -65,7 +65,7 @@ class RelatedFieldWidgetCanAdd(forms.widgets.Select):
 def validate_email(value):
     if get_user_model().objects.filter(email=value).exists():
         raise ValidationError(
-            _("A user with this email already exists: '%(value)s'"),
+            _("This email address is already in use: '%(value)s'"),
             params={"value": value},
         )
 
