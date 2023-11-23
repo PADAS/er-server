@@ -135,7 +135,7 @@ class CustomUserCreationForm(UserFormValidatorMixin, JSONFieldFormMixin, UserCre
 class UserAdditionalForm(UserFormValidatorMixin, JSONFieldFormMixin, UserChangeForm):
     first_name = forms.CharField(required=False)
     last_name = forms.CharField(required=False)
-    email = forms.EmailField(required=False)
+    email = forms.EmailField(required=False, validators=[validate_email])
     phone = forms.CharField(required=False)
     pin = forms.CharField(
         label="PIN",
