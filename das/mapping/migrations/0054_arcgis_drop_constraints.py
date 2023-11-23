@@ -8,15 +8,18 @@ APP_NAME = "mapping"
 
 
 def drop_constraints(apps, schema_editor):
+    drop_constraint(app=APP_NAME, model="ArcgisGroup", constraint="mapping_arcgisgroup_id_ff9f5808_uniq", cascade=True)
     drop_constraint(
         app=APP_NAME,
         model="ArcgisItem",
         constraint="mapping_arcgisitem_arcgis_config_id_a4990d36_fk_mapping_a",
+        cascade=True,
     )
     drop_constraint(
         app=APP_NAME,
         model="ArcgisConfiguration",
         constraint="mapping_arcgisconfiguration_id_2d76956c_uniq",
+        cascade=True,
     )
 
 
