@@ -177,7 +177,12 @@ class FeatureSet(TenantModelMixin, TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255)
-    types = models.ManyToManyField(to=FeatureType, related_name="featuresets")
+    types = models.ManyToManyField(
+        to=FeatureType,
+        related_name="feature_sets",
+        through="mapping.FeatureSetFeatureType",
+        through_fields=("featureset", "featuretype"),
+    )
     description = models.TextField(null=True, blank=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = FeatureSetManager()
@@ -198,6 +203,19 @@ class FeatureSet(TenantModelMixin, TimestampedModel):
 
     def natural_key(self):
         return self.name
+
+
+class FeatureSetFeatureType(TenantModelMixin, UUIDModel):
+    """
+    Intermediate model to store the many-to-many relationship between FeatureSets and FeatureTypes
+    """
+
+    featureset = TenantForeignKey(FeatureSet, on_delete=models.CASCADE)
+    featuretype = TenantForeignKey(FeatureType, on_delete=models.CASCADE)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+
+    objects = CommonTenantManager()
+    tenant_id = "das_tenant_id"
 
 
 @deconstructible
