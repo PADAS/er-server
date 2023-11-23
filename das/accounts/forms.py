@@ -1,8 +1,10 @@
 from django import forms
 from django.conf import settings
 from django.contrib.admin.widgets import AdminDateWidget, FilteredSelectMultiple
+from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from django.contrib.sites.shortcuts import get_current_site
+from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
 from django.template import loader
 from django.urls import reverse
@@ -60,10 +62,18 @@ class RelatedFieldWidgetCanAdd(forms.widgets.Select):
         return mark_safe("".join(output))
 
 
+def validate_email(value):
+    if get_user_model().objects.filter(email=value).exists():
+        raise ValidationError(
+            _("This email address is already in use: '%(value)s'"),
+            params={"value": value},
+        )
+
+
 class CustomUserCreationForm(UserFormValidatorMixin, JSONFieldFormMixin, UserCreationForm):
     first_name = forms.CharField(required=False)
     last_name = forms.CharField(required=False)
-    email = forms.EmailField(required=False)
+    email = forms.EmailField(required=False, validators=[validate_email])
     phone = forms.CharField(required=False)
     pin = forms.CharField(
         label="PIN",
@@ -125,7 +135,7 @@ class CustomUserCreationForm(UserFormValidatorMixin, JSONFieldFormMixin, UserCre
 class UserAdditionalForm(UserFormValidatorMixin, JSONFieldFormMixin, UserChangeForm):
     first_name = forms.CharField(required=False)
     last_name = forms.CharField(required=False)
-    email = forms.EmailField(required=False)
+    email = forms.EmailField(required=False, validators=[validate_email])
     phone = forms.CharField(required=False)
     pin = forms.CharField(
         label="PIN",
