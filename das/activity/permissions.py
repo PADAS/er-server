@@ -2,6 +2,7 @@ from typing import Union
 
 from django.contrib.gis.geos import Polygon
 from django.db import ProgrammingError
+from django.shortcuts import get_object_or_404
 from rest_framework import exceptions
 from rest_framework.permissions import (
     SAFE_METHODS,
@@ -66,9 +67,9 @@ class EventCategoryPermissions(IsAuthenticated):
                     if "event_type" in request.data:
                         event_type = EventType.objects.get_by_natural_key(request.data["event_type"])
                     elif "eventtype_id" in view.kwargs:
-                        event_type = EventType.objects.get(id=view.kwargs["eventtype_id"])
+                        event_type = get_object_or_404(EventType, id=view.kwargs["eventtype_id"])
                     else:
-                        event_type = Event.objects.get(id=view.kwargs["id"]).event_type
+                        event_type = get_object_or_404(Event, id=view.kwargs["id"]).event_type
 
                     permission_name = "activity.{0}_{1}".format(event_type.category.value, v)
 
