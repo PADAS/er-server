@@ -8,9 +8,9 @@ from rest_framework_extensions.etag.decorators import etag
 from django.core.serializers import serialize
 from django.db.models import F
 from django.http import Http404, HttpResponse
+from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import JSONParser
@@ -186,7 +186,6 @@ class LayerListJsonView(generics.ListCreateAPIView):
     List of available map layers.
     """
 
-    queryset = TileLayer.objects.all().by_ordernum()
     serializer_class = serializers.TileLayerSerializer
     permission_classes = (LayerObjectPermissions,)
 
@@ -201,7 +200,7 @@ class LayerListJsonView(generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def get_queryset(self):
-        return super().get_queryset()
+        return TileLayer.objects.all().by_ordernum()
 
 
 class LayerJsonView(generics.RetrieveUpdateDestroyAPIView):
