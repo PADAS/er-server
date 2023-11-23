@@ -7,6 +7,7 @@ from sendsms import api
 
 from django.apps import apps
 from django.contrib import auth
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.contrib.gis.db import models
 from django.core import validators
@@ -101,6 +102,14 @@ def _user_has_module_perms(user, app_label):
     return False
 
 
+def validate_email(value):
+    if get_user_model().objects.filter(email=value).exists():
+        raise ValidationError(
+            _("A user with this email already exists: '%(value)s'"),
+            params={"value": value},
+        )
+
+
 class AccountsAbstractUser(TenantModelMixin, AbstractBaseUser, PermissionsMixin):
     """
     An abstract base class implementing a fully featured User model with
@@ -129,7 +138,7 @@ class AccountsAbstractUser(TenantModelMixin, AbstractBaseUser, PermissionsMixin)
     )
     first_name = models.CharField(_("first name"), max_length=30, null=True, blank=True)
     last_name = models.CharField(_("last name"), max_length=30, null=True, blank=True)
-    email = models.EmailField(_("email address"), null=True, blank=True)
+    email = models.EmailField(_("email address"), null=True, blank=True, validators=(validate_email,))
     phone = models.CharField(validators=[phone_regex], max_length=15, blank=True)  # validators should be a list
     is_email_alert = models.BooleanField(
         _("email alert"),
