@@ -139,8 +139,7 @@ class FeatureSetGeoJsonView(APIView):
 
     @etag(etag_func=calculate_featureset_etag)
     def get(self, request, **kwargs):
-        # todo:  better 404 handling, what to do with empty featureset
-        featureset = DisplayCategory.objects.get(id=kwargs["id"])
+        featureset = get_object_or_404(DisplayCategory, id=kwargs["id"])
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
         querysets = (
             SpatialFeature.objects.filter(feature_type__display_category=featureset)
