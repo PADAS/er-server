@@ -10,6 +10,7 @@ from django.db.models import F
 from django.http import Http404, HttpResponse
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import JSONParser
@@ -116,7 +117,7 @@ class FeatureSetListJsonView(APIView):
 
 def calculate_featureset_etag(view_instance, view_method, request, args, kwargs):
     include_hidden = parse_bool(request.GET.get("include_hidden", False))
-    featureset = DisplayCategory.objects.get(id=kwargs["id"])
+    featureset = get_object_or_404(DisplayCategory, id=kwargs["id"])
     field_list = ("updated_at", "feature_type__updated_at")
     qs = (
         SpatialFeature.objects.filter(feature_type__display_category=featureset)
@@ -138,8 +139,7 @@ class FeatureSetGeoJsonView(APIView):
 
     @etag(etag_func=calculate_featureset_etag)
     def get(self, request, **kwargs):
-        # todo:  better 404 handling, what to do with empty featureset
-        featureset = DisplayCategory.objects.get(id=kwargs["id"])
+        featureset = get_object_or_404(DisplayCategory, id=kwargs["id"])
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
         querysets = (
             SpatialFeature.objects.filter(feature_type__display_category=featureset)
