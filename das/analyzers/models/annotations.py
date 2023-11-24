@@ -10,6 +10,7 @@ from django.utils.translation import gettext as _
 
 from analyzers.models.base import Annotator
 from observations.models import Observation, SubjectSource
+from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +64,11 @@ class ObservationAnnotator(Annotator):
         date_range = psycopg2.extras.DateTimeTZRange(lower=start_date, upper=end_date)
         subject_sources = SubjectSource.objects.filter(subject=self.subject, assigned_range__contains=date_range)
 
+        tenant = get_tenant_settings()
         for ss in subject_sources:
-            self.annotate_by_subject_source(ss, start_date, end_date)
+            self.annotate_by_subject_source(ss, start_date, end_date, tenant_id=str(tenant.id))
 
-    def annotate_by_subject_source(self, subject_source, start_date, end_date):
+    def annotate_by_subject_source(self, subject_source, start_date, end_date, tenant_id: str):
         """For my first crack at this, I'm going to let speeds be calculated within the database."""
         sql = """
         with path as (select obs.*,
@@ -78,6 +80,7 @@ class ObservationAnnotator(Annotator):
         from observations_observation obs join observations_subjectsource ss on ss.source_id = obs.source_id and
                                          ss.assigned_range @> obs.recorded_at
           where ss.id = %(subject_source_id)s
+             and obs.das_tenant_id=%(tenant_id)s
              and %(start_date)s <= obs.recorded_at and obs.recorded_at <= %(end_date)s
              and obs.location::Point <> ST_GeomFromText('POINT(0 0)', 4326)::Point
              and obs.exclusion_flags = 0
@@ -96,6 +99,7 @@ class ObservationAnnotator(Annotator):
             sql,
             dict(
                 subject_source_id=str(subject_source.id),
+                tenant_id=tenant_id,
                 start_date=start_date,
                 end_date=end_date,
                 speed_threshold=self.max_speed,
