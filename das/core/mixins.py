@@ -1,3 +1,5 @@
+from random import uniform
+
 from django.conf import settings
 from django.db import IntegrityError
 from django.db.models import BigIntegerField, Subquery, Value
@@ -34,7 +36,7 @@ class SerialNumberModelMixin:
     'serial_number_field = "your_field_name"' in the model.
     """
 
-    @retry_on_exception(exception_type=IntegrityError, max_retries=5, delay=0.1)
+    @retry_on_exception(exception_type=IntegrityError, max_retries=40, delay=uniform(0.1, 0.6))
     def save(self, *args, **kwargs):
         if self._state.adding:
             serial_number_field_name = self._get_serial_number_field_name()
