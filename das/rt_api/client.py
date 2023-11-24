@@ -26,6 +26,7 @@ redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
 EXPIRED_CLIENT_TRACES_LIST = "rt_api.expired_traces"
 REALTIME_SERVICES_KEY = "rt_api.services"
 TRACE_TTL = 60
+CLIENT_REALTIME_SERVICES_TTL = 3600  # 1 hour
 
 
 @dataclass_json
@@ -72,6 +73,7 @@ def init_redis_storage():
 
     cleanup_socketclient()
     cleanup_usersessions()
+    cleanup_rt_service_list()
 
     # add the service as a member of services set
     redis_client.sadd(REALTIME_SERVICES_KEY, get_client_list_key())
@@ -124,7 +126,9 @@ def create_update_user_session_by_sid(sid):
 
 
 def get_all_connections():
-    all_conns = redis_client.hgetall(get_client_list_key())
+    client_list_key = get_client_list_key()
+    all_conns = redis_client.hgetall(client_list_key)
+    redis_client.expire(client_list_key, CLIENT_REALTIME_SERVICES_TTL)
     return all_conns
 
 
@@ -166,12 +170,12 @@ def get_expired_traces_client_list():
 
 
 def add_client(sid, client: ClientData):
+    client_list_key = get_client_list_key()
     sid = str(sid)
     logger.info(f"Adding socket client. {sid}")
-    logger.info(
-        f"Adding client to session list. {get_client_list_key()} {sid}", extra={"client_data": client.to_json()}
-    )
-    redis_client.hset(get_client_list_key(), sid, client.to_json())
+    logger.info(f"Adding client to session list. {client_list_key} {sid}", extra={"client_data": client.to_json()})
+    redis_client.hset(client_list_key, sid, client.to_json())
+    redis_client.expire(client_list_key, CLIENT_REALTIME_SERVICES_TTL)
 
 
 def _restore_client_data(data):
@@ -223,9 +227,11 @@ def remove_clients(sids: set):
     """
     if not sids:
         return
-    logger.info("Removing clients for sids: %s from key %s", sids, get_client_list_key())
-    count = redis_client.hdel(get_client_list_key(), *sids)
-    logger.info("Removed %s clients (of %s listed) from %s", count, len(sids), get_client_list_key())
+    client_list_key = get_client_list_key()
+    logger.info("Removing clients for sids: %s from key %s", sids, client_list_key)
+    count = redis_client.hdel(client_list_key, *sids)
+    redis_client.expire(client_list_key, CLIENT_REALTIME_SERVICES_TTL)
+    logger.info("Removed %s clients (of %s listed) from %s", count, len(sids), client_list_key)
 
     logger.info("Removing clients for sids: %s from key %s", sids, EXPIRED_CLIENT_TRACES_LIST)
     count = redis_client.hdel(EXPIRED_CLIENT_TRACES_LIST, *sids)
@@ -291,6 +297,24 @@ def get_rt_service_list():
     return services
 
 
+def cleanup_rt_service_list():
+    """walk the list of servers mentioned in the REALTIME_SERVICES_KEY
+    and remove any servers that don't have client keys existing
+    """
+    registered_services = get_rt_service_list()
+    current_alive_service = get_client_list_key()
+    service_to_avoid = bytes(current_alive_service, "utf-8")
+    registered_services.discard(service_to_avoid)
+    if not registered_services:
+        logger.info("empty services list to cleanup, doing nothing.")
+        return
+    for service in registered_services:
+        service_key = service.decode("utf-8")
+        if not redis_client.exists(service_key):
+            logger.warning("service is abandoned: %s. Remove it from REALTIME_SERVICES_KEY", service_key)
+            remove_rt_service(service_key=service_key)
+
+
 def remove_rt_service(service_key):
     """
     Removes service key, and connection list for that key
@@ -303,6 +327,7 @@ def remove_rt_service(service_key):
 def remove_invalid_rt_service_key() -> None:
     """
     Removes invalid rt services from `REALTIME_SERVICES_KEY`
+    This removed all of the services in the list except for the current server
     """
     registered_services = get_rt_service_list()
     logger.warning("registered services", extra={"services": registered_services})
