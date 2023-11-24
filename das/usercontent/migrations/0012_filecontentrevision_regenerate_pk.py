@@ -6,9 +6,7 @@ from utils.migrations.update_primary_key import add_tenant_to_primary_key
 
 APP_NAME = "usercontent"
 
-models = [
-    "FileContentRevision",
-]
+models = ["FileContentRevision", "ImageFileContentRevision"]
 
 
 def regenerate_primary_keys(apps, schema_editor):
