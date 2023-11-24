@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import pytest
 import pytz
 
 from django.core.management import call_command
@@ -9,6 +10,7 @@ from analyzers.models import ObservationAnnotator
 from observations.models import Observation, Subject
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestAnnotator(TestCase):
     def setUp(self):
         call_command(
