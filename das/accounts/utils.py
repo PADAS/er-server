@@ -8,8 +8,10 @@ from django.contrib import auth
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
+from django.utils.translation import gettext_lazy as _
 
 from activity.models import EventCategory
 from choices.models import Choice
@@ -181,3 +183,11 @@ def get_profiles(users: List[uuid4]):
         .exclude(Q(id__in=users) | Q(profiles_count__gt=0))
         .order_by("username")
     )
+
+
+def validate_email_available(value):
+    if User.objects.filter(email=value).exists():
+        raise ValidationError(
+            _("This email address is already in use: '%(value)s'"),
+            params={"value": value},
+        )
