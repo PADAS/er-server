@@ -727,7 +727,10 @@ class SpatialFeatureType(TenantModelMixin, TimestampedModel):
             UniqueConstraint(
                 fields=["das_tenant", "name"],
                 name="%(app_label)s_%(class)s_unique_name_across_tenants",
-            )
+            ),
+            UniqueConstraint(
+                fields=["das_tenant", "external_id"], name="%(app_label)s_%(class)s_unique_external_id_across_tenants"
+            ),
         ]
         indexes = [Index(fields=["das_tenant", "name"])]
 
