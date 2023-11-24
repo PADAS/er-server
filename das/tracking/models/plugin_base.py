@@ -6,6 +6,7 @@ from typing import NamedTuple
 
 import pytz
 from dateutil.parser import parse as parse_date
+from django_multitenant.fields import TenantForeignKey
 from django_multitenant.mixins import TenantModelMixin
 
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -101,7 +102,7 @@ class SourcePlugin(TenantModelMixin, TimestampedModel):
     plugin_id = models.UUIDField()
     plugin = GenericForeignKey("plugin_type", "plugin_id")
 
-    source = models.ForeignKey(
+    source = TenantForeignKey(
         Source, on_delete=models.CASCADE, related_name="source_plugins", related_query_name="source_plugin"
     )
 
@@ -199,7 +200,7 @@ class TrackingPlugin(TenantModelMixin, TimestampedModel):
     status = models.CharField(max_length=15, default=STATUS_ENABLED, choices=STATUS_CHOICES)
     additional = models.JSONField(blank=True, default=dict)
 
-    provider = models.ForeignKey(
+    provider = TenantForeignKey(
         SourceProvider, related_name="+", null=False, default=get_default_source_provider_id, on_delete=models.PROTECT
     )
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)

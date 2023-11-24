@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import pytz
 import requests
 from dateutil.parser import parse as parse_date
+from django_multitenant.fields import TenantForeignKey
 from shapely.ops import unary_union
 
 from django.contrib.contenttypes.fields import GenericRelation
@@ -256,7 +257,7 @@ class FirmsPlugin(TrackingPlugin):
     """
     firms_region_name = models.CharField(max_length=100, help_text=ht, choices=FIRMS_FTP_REGIONS)
 
-    spatial_feature_group = models.ForeignKey(
+    spatial_feature_group = TenantForeignKey(
         SpatialFeatureGroupStatic,
         related_name="+",
         on_delete=models.PROTECT,
