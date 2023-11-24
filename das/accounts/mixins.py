@@ -253,6 +253,10 @@ class UserFormValidatorMixin:
         email = self.cleaned_data.get("email")
         if email.strip() == "":
             return None
+        if email != getattr(self.instance, "email", None):
+            from accounts.utils import validate_email_available
+
+            validate_email_available(email)
         return email
 
     def clean_pin(self):
