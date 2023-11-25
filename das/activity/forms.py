@@ -1,4 +1,5 @@
 import json
+import logging
 
 import jsonschema
 
@@ -35,6 +36,8 @@ from utils.schema_utils import (
     get_schema_renderer_method,
     validate_rendered_schema_is_wellformed,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class MonospaceTextWidget(forms.Textarea):
@@ -106,7 +109,6 @@ class AutoResolveField(forms.fields.MultiValueField):
 
 
 def validate_schema_is_well_formed(schema):
-
     try:
         rendered_schema = get_schema_renderer_method()(schema)
     except NameError as ne:
@@ -188,7 +190,11 @@ class EventTypeForm(forms.ModelForm):
 
 class NotificationMethodSelectField(forms.ModelMultipleChoiceField):
     def label_from_instance(self, obj):
-        return f"owner > {obj.owner.username} | {obj.method} : {obj.value}"
+        try:
+            return f"owner > {obj.owner.username} | {obj.method} : {obj.value}"
+        except:
+            logger.exception("notification method owner not found in AlertRule admin")
+        return f"owner > unknown | {obj.method} : {obj.value}"
 
 
 class AlertRuleForm(forms.ModelForm):
@@ -223,8 +229,12 @@ class AlertRuleForm(forms.ModelForm):
         widget=FilteredSelectMultiple(verbose_name=_("Event Types"), is_stacked=False),
     )
 
-    def clean_conditions(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["notification_methods"].queryset = NotificationMethod.objects.all()
+        self.fields["event_types"].queryset = EventType.objects.all()
 
+    def clean_conditions(self):
         value = self.clean_jsonfield("conditions")
         try:
             Conditions(value)
@@ -259,7 +269,6 @@ class AlertRuleForm(forms.ModelForm):
 
 
 class EventProviderForm(JSONFieldFormMixin, forms.ModelForm):
-
     provider_api = forms.URLField(
         label="Provider API",
         required=True,
