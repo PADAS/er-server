@@ -79,7 +79,7 @@ class PermissionSetAdmin(ModelAdminDisplayingManyToManyFieldMixin, DjangoGroupAd
     )
 
     def get_queryset(self, request):
-        queryset = super(PermissionSetAdmin, self).get_queryset(request)
+        queryset = PermissionSet.objects.all()
         if not get_tenant_settings().env_settings.patrol_enabled:
             return queryset.exclude(permissions__in=patrol_mgmt_permissions())
         return queryset
