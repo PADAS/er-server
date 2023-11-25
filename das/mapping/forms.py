@@ -129,6 +129,10 @@ class SpatialFeatureGroupStaticForm(forms.ModelForm):
         queryset=SpatialFeatureGroupStatic.objects.all(), label="Feature Groups"
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["spatialfeaturegroupstatic"].queryset = SpatialFeatureGroupStatic.objects.all()
+
     class Meta:
         model = SpatialFeatureGroupStatic
         fields = ("spatialfeaturegroupstatic",)
