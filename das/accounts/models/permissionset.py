@@ -66,6 +66,8 @@ class PermissionSet(HierarchyModel, TimestampedModel):
         ]
         verbose_name = _("permission set")
         verbose_name_plural = _("permission sets")
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def __str__(self):
         return self.name
