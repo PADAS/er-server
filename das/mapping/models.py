@@ -64,6 +64,8 @@ class Map(TenantModelMixin, TimestampedModel):
 
     class Meta:
         verbose_name = "Map Quicklink"
+        base_manager_name = "objects"
+        default_manager_name = "objects"
         constraints = [
             UniqueConstraint(
                 fields=["das_tenant", "name"],
@@ -98,6 +100,8 @@ class TileLayer(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
         verbose_name = "Basemap"
         ordering = ["name"]
         constraints = [
@@ -137,6 +141,8 @@ class FeatureType(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
         ordering = ["name"]
         constraints = [
             UniqueConstraint(
@@ -189,6 +195,8 @@ class FeatureSet(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
         ordering = ["name"]
         constraints = [
             UniqueConstraint(
@@ -272,6 +280,8 @@ class SpatialFilesBase(TenantModelMixin, TimestampedModel):
 
     class Meta:
         abstract = True
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     # Clean method is used for better error handling within the admin form
     # itself. To have the file data available, save method needs to be invoked.
@@ -350,6 +360,8 @@ class Feature(TenantModelMixin, TimestampedModel):
     class Meta:
         abstract = True
         ordering = ["name"]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     # todo:  perhaps type and name?
     def __str__(self):
@@ -609,6 +621,8 @@ class SpatialFeatureGroup(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
         verbose_name = "Base Feature Group"
         ordering = ["name"]
         constraints = [
@@ -668,6 +682,8 @@ class DisplayCategory(TenantModelMixin, TimestampedModel):
     class Meta:
         verbose_name = "Display Category"
         verbose_name_plural = "Display Categories"
+        base_manager_name = "objects"
+        default_manager_name = "objects"
         ordering = ["name"]
         constraints = [
             UniqueConstraint(
@@ -722,6 +738,8 @@ class SpatialFeatureType(TenantModelMixin, TimestampedModel):
     class Meta:
         verbose_name = "Feature Class"
         verbose_name_plural = "Feature Classes"
+        base_manager_name = "objects"
+        default_manager_name = "objects"
         ordering = ["name"]
         constraints = [
             UniqueConstraint(
@@ -839,6 +857,8 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
     class Meta:
         verbose_name = "Feature"
         ordering = ["name"]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     @property
     def default_presentation(self):
@@ -884,6 +904,10 @@ class ArcgisGroup(TenantModelMixin, TimestampedModel, UUIDModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
     objects = ArcgisGroupManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def __str__(self):
         return self.name
@@ -938,6 +962,8 @@ class ArcgisConfiguration(TenantModelMixin, TimestampedModel, UUIDModel):
     objects = CommonTenantManager()
 
     class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
         verbose_name = "Feature Service Configuration"
         constraints = [
             UniqueConstraint(
@@ -972,6 +998,10 @@ class ArcgisItem(TenantModelMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
     objects = ArcgisItemManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     @property
     def features(self):
