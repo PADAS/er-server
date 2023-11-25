@@ -8,6 +8,7 @@ from django.utils.translation import gettext_lazy as _
 
 from core.models import DASTenant, TimestampedModel
 from utils.migrations.columns import default_tenant_id
+from utils.models import CommonTenantManager
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +49,11 @@ class GlobalForestWatchSubscription(TenantModelMixin, TimestampedModel):
     last_check_status = models.CharField(max_length=100, blank=True)
     glad_confirmed_backfill_days = models.IntegerField(default=180)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
-
     tenant_id = "das_tenant_id"
+    objects = CommonTenantManager()
 
     class Meta:
         verbose_name = "Global Forest Watch Subscription"
         verbose_name_plural = "Global Forest Watch Subscriptions"
+        base_manager_name = "objects"
+        default_manager_name = "objects"
