@@ -2190,7 +2190,9 @@ class PatrolSegment(TenantModelMixin, TimestampedModel, RevisionMixin):
 
 
 class PatrolConfiguration(TenantSingletonModel):
-    instance_id = models.UUIDField(default=uuid.uuid4)
+    # The SingletonModel requires us to create a static single instance_id
+    # this instance_id is used to ensure there is only one record per tenant
+    instance_id = uuid.UUID("deb99202-2373-4c6c-b05f-e71d29cb2b26")
     name = models.CharField(max_length=255)
     subject_groups = models.ManyToManyField(
         SubjectGroup, related_name="groups", blank=True, through="activity.PatrolConfigurationSubjectGroup"
