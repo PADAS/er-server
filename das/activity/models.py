@@ -1547,6 +1547,10 @@ class NotificationMethod(TenantModelMixin, TimestampedModel):
     objects = CommonTenantManager()
     tenant_id = "das_tenant_id"
 
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+
     def __str__(self):
         return f"{self.owner.username}, {self.method}, {self.value}"
 
@@ -1581,6 +1585,10 @@ class AlertRule(TenantModelMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = CommonTenantManager()
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     @property
     def is_conditional(self):
