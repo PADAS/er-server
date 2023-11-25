@@ -9,14 +9,20 @@ from django.db import models
 from core.models import DASTenant, TimestampedModel
 from observations.models import Subject
 from utils.migrations.columns import default_tenant_id
+from utils.models import CommonTenantManager
 
 
 class SubjectSpeedProfile(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     subject = TenantOneToOneField(to=Subject, on_delete=models.CASCADE, null=True, blank=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    objects = CommonTenantManager()
 
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
 
 class SpeedDistro(TenantModelMixin, TimestampedModel):
@@ -36,8 +42,13 @@ class SpeedDistro(TenantModelMixin, TimestampedModel):
     )
     speeds_kmhr = ArrayField(base_field=models.FloatField(), null=True, blank=True)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    objects = CommonTenantManager()
 
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def update_percentiles(self, percentiles, trajectory_filter=None, end=None, ignore_zeroes=True):
         """Determine the speed distribution based on the current subject + schedule"""
