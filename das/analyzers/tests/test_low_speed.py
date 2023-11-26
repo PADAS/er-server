@@ -2,6 +2,7 @@ import datetime as dt
 import json
 import logging
 
+import pytest
 import pytz
 import yaml
 
@@ -35,6 +36,7 @@ from observations.models import (
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestLowSpeedAnalyzer(TestCase):
     @classmethod
     def low_speed_percentile_event_schema_json(cls):
