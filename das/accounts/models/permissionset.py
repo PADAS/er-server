@@ -1,5 +1,6 @@
 import uuid
 
+from django_multitenant.fields import TenantForeignKey
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 
 import django.db.models as models
@@ -81,7 +82,7 @@ class PermissionSetPermissionManager(TenantManagerMixin, models.Manager):
 
 
 class PermissionSetPermission(TenantModelMixin, UUIDModel):
-    permissionset = models.ForeignKey(PermissionSet, on_delete=models.CASCADE)
+    permissionset = TenantForeignKey(PermissionSet, on_delete=models.CASCADE)
     permission = models.ForeignKey(Permission, on_delete=models.CASCADE)
     das_tenant = models.ForeignKey(
         DASTenant,
