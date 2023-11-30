@@ -12,6 +12,7 @@ from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import error_reporting
 from oauth2_provider.models import get_access_token_model
 
+from django.core.exceptions import DisallowedHost
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -29,6 +30,7 @@ from utils import add_base_url, stats
 from utils.categories import should_apply_geographic_features
 from utils.gis import convert_to_point
 from utils.tenant import get_tenant_settings, set_tenant
+from utils.tenant.domains import add_new_tenant_domains_to_settings
 from utils.tenant.exceptions import TenantNotFoundException
 
 logger = logging.getLogger(__name__)
@@ -254,7 +256,7 @@ class TenantSettingsMiddleware:
 
     def __call__(self, request):
         try:
-            set_tenant(domain=request.get_host())
+            set_tenant(domain=self._get_host(request))
         except TenantNotFoundException as ex:
             return JsonResponse(
                 data={
@@ -264,6 +266,14 @@ class TenantSettingsMiddleware:
             )
         response = self.get_response(request)
         return response
+
+    def _get_host(self, request):
+        try:
+            return request.get_host()
+        except DisallowedHost:
+            add_new_tenant_domains_to_settings()
+
+        return request.get_host()
 
 
 def is_check_eula_path(path):
