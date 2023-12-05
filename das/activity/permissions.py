@@ -1,3 +1,4 @@
+import logging
 from typing import Union
 
 from django.conf import settings
@@ -18,6 +19,8 @@ from observations.utils import get_distance_points, is_banned
 from utils.features import features
 from utils.gis import convert_to_point, get_circle_polygon_from_point
 from utils.tenant import get_tenant_settings
+
+logger = logging.getLogger(__name__)
 
 
 class EventObjectPermissions(DjangoModelPermissions):
@@ -349,35 +352,46 @@ class PatrolObjectPermissions(DjangoObjectPermissions):
         if user.is_superuser:
             return True
 
-        if isinstance(obj, Patrol) and user.has_linked_subject:
-            return obj.patrol_segments.last().leader == user.linked_subject
-
         perms = self.get_required_object_permissions(request.method, model_cls)
 
-        if not user.has_perms(perms, obj):
-            # If the user does not have permissions we need to determine if
-            # they have read permissions to see 403, or not, and simply raise
-            # PermissionDenied.
-            if request.method in SAFE_METHODS:
-                raise exceptions.PermissionDenied
+        patrol = self.get_patrol_from_obj(obj)
+        if patrol:
+            if user.has_perms(perms, obj) and self.has_tracked_subject_permission(patrol, user):
+                return True
+        else:
+            logger.error(
+                "PatrolObjectPermissions::has_object_permission called with an obj that is not a Patrol or related to a Patrol, it's of type %s",
+                type(obj),
+            )
 
-            read_perms = self.get_required_object_permissions("GET", model_cls)
-            if not user.has_perms(read_perms, obj):
-                raise exceptions.PermissionDenied
-            return False
-        return True
+        # If the user does not have permissions we need to determine if
+        # they have read permissions to see 403, or not, and simply raise
+        # PermissionDenied.
+        if request.method in SAFE_METHODS:
+            raise exceptions.PermissionDenied
+
+        read_perms = self.get_required_object_permissions("GET", model_cls)
+        if not user.has_perms(read_perms, obj):
+            raise exceptions.PermissionDenied
+        return False
 
     def has_tracked_subject_permission(self, obj, user):
-        if user.is_superuser:
+        # shortcut if the tracked by subject is the user linked subject, they can always see patrols lead by themselves
+        if user.has_linked_subject and obj.patrol_segments.last().leader == user.linked_subject:
             return True
 
-        patrol_segments = obj.patrol_segments.last()
-        if patrol_segments and self._is_content_type_subject(patrol_segments.leader_content_type):
-            return Subject.objects.filter(id__in=[patrol_segments.leader_id]).by_user_subjects(user).exists()
+        patrol_segment = obj.patrol_segments.last()
+        if patrol_segment and self._is_content_type_subject(patrol_segment.leader_content_type):
+            return Subject.objects.filter(id__in=[patrol_segment.leader_id]).by_user_subjects(user).exists()
         return True
 
     def _is_content_type_subject(self, content_type):
         return content_type and content_type.app_label == "observations" and content_type.model == "subject"
+
+    def get_patrol_from_obj(self, obj):
+        if isinstance(obj, Patrol):
+            return obj
+        return getattr(obj, "patrol", None)
 
 
 class PatrolTypePermissions(DjangoModelPermissions):

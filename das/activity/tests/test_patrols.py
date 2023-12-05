@@ -41,7 +41,7 @@ from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest
 from das_server.celery import app
 from observations.materialized_views import patrols_view
-from observations.models import Source, Subject, SubjectSource
+from observations.models import Source, Subject, SubjectGroup, SubjectSource
 from utils.tenant import Tenant
 
 pytestmark = pytest.mark.django_db
@@ -60,6 +60,7 @@ def send_task(name, args=(), kwargs={}, **opts):
     return task(*args, **kwargs)
 
 
+@pytest.mark.django_db
 class TestPatrol(BaseAPITest):
     def setUp(self):
         super().setUp()
@@ -76,6 +77,32 @@ class TestPatrol(BaseAPITest):
         self.radio_room_user = User.objects.create_user(
             "radio_room_user", "das_radio_room@vulcan.com", "radio_room_user", **user_const
         )
+        self.ops_room_user = User.objects.create_user(username="ops_room_user", password="ops_room_user", **user_const)
+
+        # there is a signal to create a permissionset for any new subject group
+        # but in unit tests the transaction.on_commit() call is not made without this workaround
+        # See https://docs.djangoproject.com/en/5.0/topics/testing/tools/#django.test.TestCase.captureOnCommitCallbacks
+        with self.captureOnCommitCallbacks(execute=True) as callbacks:
+            rangers_subject_group = SubjectGroup.objects.create(name="Rangers")
+        rangers_subject_group_permission_set = PermissionSet.objects.get(name="View Rangers Subject Group")
+
+        self.ranger_sari = Subject.objects.create_subject(
+            name="Ranger Sari",
+            subject_groups=[
+                rangers_subject_group,
+            ],
+        )
+        self.ops_room_user_linked_subject = Subject.objects.create_subject(
+            name=self.ops_room_user.get_full_name(),
+            subject_groups=[
+                rangers_subject_group,
+            ],
+        )
+        self.ops_room_user_linked_subject.linked_user = self.ops_room_user
+        self.ops_room_user_linked_subject.save()
+        full_patrol_permissionset = PermissionSet.objects.get(name="Full Patrols Permissions")
+        self.ops_room_user.permission_sets.add(full_patrol_permissionset)
+        self.ops_room_user.permission_sets.add(rangers_subject_group_permission_set)
 
         self.sample_patrol_id = "b14bc72f-96d6-4248-9fea-7dd0bbc8c196"
         Patrol.objects.create(id=self.sample_patrol_id, title="Test Patrol", objective="Test Objective"),
@@ -290,6 +317,34 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
+
+    def test_create_patrol_with_app_user_edit_with_ops_room_user(self):
+        patrol_data = {
+            "title": "Patrol created by one user, edited with another",
+            "patrol_segments": [
+                {
+                    "patrol_type": "routine_patrol",
+                    "leader": {"content_type": "observations.subject", "id": self.ranger_sari.id},
+                }
+            ],
+        }
+
+        url = reverse("patrols")
+        request = self.factory.post(url, data=patrol_data)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        patrol_id = response.data["id"]
+
+        patrol_update_data = {"title": "Title Change"}
+
+        url = reverse("patrol", kwargs={"id": patrol_id})
+        request = self.factory.patch(url, data=patrol_update_data)
+        self.force_authenticate(request, self.ops_room_user)
+        response = views.PatrolView.as_view()(request, id=patrol_id)
+
+        self.assertEqual(response.status_code, 200)
 
     def test_add_note(self):
         note_data = {"text": lorem_ipsum.paragraph()}
