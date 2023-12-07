@@ -2,6 +2,7 @@ import logging
 
 from django.contrib import admin
 from django.contrib.admin import widgets
+from django.contrib.admin.checks import BaseModelAdminChecks
 from django.forms.widgets import SelectMultiple
 from django.utils.text import format_lazy
 from django.utils.translation import gettext as _
@@ -13,7 +14,28 @@ from core.models import DASTenant
 logger = logging.getLogger("django.contrib.gis")
 
 
-class HierarchyModelAdmin(admin.ModelAdmin):
+class ModelAdminDisplayingManyToManyFieldMixin(admin.ModelAdmin):
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        db = kwargs.get("using")
+
+        if "widget" not in kwargs:
+            if db_field.name in self.filter_horizontal:
+                kwargs["widget"] = widgets.FilteredSelectMultiple(db_field.verbose_name, False)
+        if "queryset" not in kwargs:
+            queryset = self.get_field_queryset(db, db_field, request)
+            if queryset is not None:
+                kwargs["queryset"] = queryset
+
+        form_field = db_field.formfield(**kwargs)
+        if isinstance(form_field.widget, SelectMultiple):
+            msg = _("Hold down “Control”, or “Command” on a Mac, to select more than one.")
+            help_text = form_field.help_text
+            form_field.help_text = format_lazy("{} {}", help_text, msg) if help_text else msg
+
+        return form_field
+
+
+class HierarchyModelAdmin(ModelAdminDisplayingManyToManyFieldMixin, admin.ModelAdmin):
     pass
 
 
@@ -60,27 +82,6 @@ class SaveCoordinatesToCookieMixin:
         return http_response
 
 
-class ModelAdminDisplayingManyToManyFieldMixin(admin.ModelAdmin):
-    def formfield_for_manytomany(self, db_field, request, **kwargs):
-        db = kwargs.get("using")
-
-        if "widget" not in kwargs:
-            if db_field.name in self.filter_horizontal:
-                kwargs["widget"] = widgets.FilteredSelectMultiple(db_field.verbose_name, False)
-        if "queryset" not in kwargs:
-            queryset = self.get_field_queryset(db, db_field, request)
-            if queryset is not None:
-                kwargs["queryset"] = queryset
-
-        form_field = db_field.formfield(**kwargs)
-        if isinstance(form_field.widget, SelectMultiple):
-            msg = _("Hold down “Control”, or “Command” on a Mac, to select more than one.")
-            help_text = form_field.help_text
-            form_field.help_text = format_lazy("{} {}", help_text, msg) if help_text else msg
-
-        return form_field
-
-
 @admin.register(DASTenant)
 class DASTenantAdmin(admin.ModelAdmin):
     readonly_fields = [
@@ -93,3 +94,8 @@ class DASTenantAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return False
+
+
+class CustomM2MChecks(BaseModelAdminChecks):
+    def _check_field_spec_item(self, obj, field_name, label):
+        return []  # This disables error admin.E013

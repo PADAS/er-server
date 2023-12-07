@@ -8,12 +8,10 @@ from django.contrib.auth.models import Permission
 from django.db.models import UniqueConstraint
 from django.utils.translation import gettext_lazy as _
 
-from core.models import (
-    DASTenant,
-    HierarchyManager,
-    HierarchyModel,
-    TimestampedModel,
-    UUIDModel,
+from core.models import DASTenant, HierarchyManager, TimestampedModel, UUIDModel
+from core.models.hierachy import (
+    TenantHierarchyModel,
+    create_tenanthierarchychildren_model,
 )
 from utils.migrations.columns import default_tenant_id
 
@@ -29,7 +27,7 @@ class PermissionSetManager(HierarchyManager):
         return self.get(**{"name": name})
 
 
-class PermissionSet(HierarchyModel, TimestampedModel):
+class PermissionSet(TenantHierarchyModel, TimestampedModel):
     """
     PermissionSets are a generic way of categorizing users to apply permissions, or
     some other label, to those users. A user can belong to any number of
@@ -55,6 +53,13 @@ class PermissionSet(HierarchyModel, TimestampedModel):
         through="accounts.PermissionSetPermission",
         through_fields=("permissionset", "permission"),
     )
+    children = models.ManyToManyField(
+        "self",
+        blank=True,
+        symmetrical=False,
+        related_name="_parents",
+        through="accounts.PermissionSetChildren",
+    )
 
     objects = PermissionSetManager()
 
@@ -72,6 +77,9 @@ class PermissionSet(HierarchyModel, TimestampedModel):
 
     def __str__(self):
         return self.name
+
+
+PermissionSetChildren = create_tenanthierarchychildren_model(PermissionSet)
 
 
 class PermissionSetPermissionManager(TenantManagerMixin, models.Manager):

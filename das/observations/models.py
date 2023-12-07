@@ -58,12 +58,10 @@ from django.utils.translation import gettext_lazy as _
 
 from accounts.mixins import PermissionSetGroupMixin, PermissionSetHierarchyMixin
 from accounts.models import PermissionSet
-from core.models import (
-    DASTenant,
-    HierarchyManager,
-    HierarchyModel,
-    TimestampedModel,
-    UUIDModel,
+from core.models import DASTenant, HierarchyManager, TimestampedModel, UUIDModel
+from core.models.hierachy import (
+    TenantHierarchyModel,
+    create_tenanthierarchychildren_model,
 )
 from core.utils import static_image_finder
 from das_server import settings
@@ -134,7 +132,7 @@ class SourceGroupManager(HierarchyManager):
         return self.get(**{"name": name})
 
 
-class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
+class SourceGroup(TenantHierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
     """
     Manage Groups of sources so that we can easily set permissions on a group
     rather than each individual Source. Additionally there are requests to
@@ -146,6 +144,14 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_("name"), max_length=80)
     sources = models.ManyToManyField("Source", related_name="groups", blank=True)
+
+    children = models.ManyToManyField(
+        "self",
+        blank=True,
+        symmetrical=False,
+        related_name="_parents",
+        through="observations.SourceGroupChildren",
+    )
 
     objects = SourceGroupManager()
 
@@ -186,6 +192,9 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
 
     def natural_key(self):
         return (self.name,)
+
+
+SourceGroupChildren = create_tenanthierarchychildren_model(SourceGroup, through_fieldname="sources")
 
 
 class SourceManager(TenantManagerMixin, models.Manager):
@@ -921,7 +930,7 @@ class SubjectGroupManager(HierarchyManager, models.Manager.from_queryset(Subject
         return queryset
 
 
-class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
+class SubjectGroup(TenantHierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
     """
     Manage Groups of subjects so that we can easily set permissions on a group
     rather than each individual Subject. Additionally there are requests to
@@ -943,6 +952,13 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
         _("default subject group"),
         default=False,
         help_text=_("This Subject group is the default for new subjects."),
+    )
+    children = models.ManyToManyField(
+        "self",
+        blank=True,
+        symmetrical=False,
+        related_name="_parents",
+        through="observations.SubjectGroupChildren",
     )
 
     objects = SubjectGroupManager()
@@ -993,6 +1009,9 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
     @property
     def auto_permissionset_name(self):
         return _("View {} Subject Group").format(self.name)
+
+
+SubjectGroupChildren = create_tenanthierarchychildren_model(SubjectGroup)
 
 
 class SubjectQuerySet(models.QuerySet, FilterMixin):
