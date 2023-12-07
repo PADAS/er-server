@@ -55,6 +55,7 @@ import observations.forms
 import observations.models as models
 from accounts.models import PermissionSet
 from core.admin import (
+    CustomM2MChecks,
     HierarchyModelAdmin,
     InlineExtraDynamicMixin,
     SaveCoordinatesToCookieMixin,
@@ -1444,6 +1445,7 @@ class DeleteDefaultSubjectGroupException(SubjectGroupException):
 @admin.register(models.SubjectGroup)
 class SubjectGroupAdmin(HierarchyModelAdmin):
     form = SubjectGroupChangeForm
+    checks_class = CustomM2MChecks
     search_fields = ("name",)
     ordering = ("name",)
     fieldsets = (
@@ -1545,6 +1547,7 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
 class SourceGroupAdmin(HierarchyModelAdmin):
     search_fields = ("name",)
     ordering = ("name",)
+    checks_class = CustomM2MChecks
     fieldsets = (
         (None, {"fields": ("name", "id")}),
         (_("Sources in Group"), {"fields": ("sources",)}),

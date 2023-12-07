@@ -254,7 +254,8 @@ def get_cyclic_subjectgroup():
             SELECT from_subjectgroup_id
             , ARRAY[to_subjectgroup_id, from_subjectgroup_id] AS path
             , (to_subjectgroup_id = from_subjectgroup_id) AS cycle
-            FROM  observations_subjectgroup_children
+            FROM  observations_subjectgroupchildren
+            WHERE observations_subjectgroupchildren.das_tenant_id = %(das_tenant_id)s
 
             UNION ALL
 
@@ -262,13 +263,13 @@ def get_cyclic_subjectgroup():
                 sgc.to_subjectgroup_id || path ,
                 sgc.to_subjectgroup_id = ANY(path)
             FROM   graph g
-            JOIN   observations_subjectgroup_children sgc ON sgc.from_subjectgroup_id = g.path[1]
-            WHERE  NOT g.cycle
+            JOIN   observations_subjectgroupchildren sgc ON sgc.from_subjectgroup_id = g.path[1]
+            WHERE  sgc.das_tenant_id = %(das_tenant_id)s AND NOT g.cycle
         )
         SELECT DISTINCT graph.from_subjectgroup_id
         FROM   graph
         JOIN observations_subjectgroup sg ON sg.id = graph.from_subjectgroup_id
-        WHERE sg.das_tenant_id = %(das_tenant_id)s and cycle;
+        WHERE sg.das_tenant_id = %(das_tenant_id)s AND cycle;
     """
     tenant = get_current_tenant()
 
