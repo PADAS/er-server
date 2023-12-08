@@ -2,6 +2,7 @@ import base64
 import datetime
 import logging
 from io import BytesIO
+from unittest.mock import patch
 
 import piexif
 import pytz
@@ -15,6 +16,7 @@ from django.http import HttpResponse
 from django.urls import resolve
 
 from accounts.models import PermissionSet
+from accounts.utils import permission_get_by_natural_key
 from core.tests import BaseAPITest
 from sensors import camera_trap
 from sensors.views import CameraTrapHandlerView
@@ -24,7 +26,12 @@ logger = logging.getLogger(__name__)
 User = django.contrib.auth.get_user_model()
 
 
-sensor_user_permissions = ["add_observation", "change_observation", "add_source", "security_create"]
+sensor_user_permissions = [
+    "add_observation",
+    "change_observation",
+    "add_source",
+]
+sensor_user_event_permissions = ["security_create"]
 
 
 SAMPLES = [
@@ -45,6 +52,7 @@ NO_LOCATION_SAMPLES = [
 ]
 
 
+@patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
 class CameraTrapTest(BaseAPITest):
     user_const = dict(last_name="last", first_name="first")
     sensor_type = "camera-trap"
@@ -60,6 +68,10 @@ class CameraTrapTest(BaseAPITest):
         self.sensor_permissionset = PermissionSet.objects.create(name="sensor_set")
         for perm in sensor_user_permissions:
             self.sensor_permissionset.permissions.add(Permission.objects.get(codename=perm))
+        for perm in sensor_user_event_permissions:
+            self.sensor_permissionset.permissions.add(
+                Permission.objects.get_by_natural_key(codename=perm, app_label="activity", model="event")
+            )
 
     def get_image(self, sample):
         exif_dict = piexif.load(base64.b64decode(sample["EXIF"]))

@@ -10,7 +10,7 @@ import string
 import tempfile
 from datetime import datetime, timedelta
 from unittest import mock
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from urllib.parse import urlencode
 
 import pytest
@@ -31,6 +31,10 @@ from rest_framework.fields import DateTimeField
 
 from accounts.models import PermissionSet
 from accounts.serializers import UserDisplaySerializer
+from accounts.utils import (
+    add_tenant_to_permission_codename,
+    permission_get_by_natural_key,
+)
 from activity import views
 from activity.models import (
     Event,
@@ -55,7 +59,11 @@ from core.tests import BaseAPITest
 from core.utils import DASTenantManagement
 from observations.models import Subject, SubjectSubType, SubjectType
 from observations.serializers import SubjectSerializer
-from utils.categories import get_categories_and_geo_categories
+from utils.categories import (
+    ACTIONS,
+    get_categories_and_geo_categories,
+    make_eventcategory_permission_codename,
+)
 from utils.gis import convert_to_point
 from utils.html import clean_user_text
 from utils.schema_utils import format_key_for_title
@@ -113,12 +121,16 @@ radio_room_user_permissions = [
 ]
 
 eventsource_user_permissions = [
-    "security_create",
     "add_eventsource",
     "change_eventsource",
     "delete_eventsource",
     "create_event_for_eventsource",
 ]
+
+eventsource_user_event_permissions = [
+    "security_create",
+]
+
 # Guest users can see logistics events and nothing else
 guest_user_permissions = ["logistics_read"]
 
@@ -130,6 +142,7 @@ def fake_get_pool():
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
 class TestEventView(BaseTestToolMixin, BaseAPITest):
     user_const = dict(last_name="last", first_name="first")
 
@@ -187,31 +200,43 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.all_perms_permissionset = PermissionSet.objects.create(name="all_perms_set")
 
-        for perm in all_permissions:
-            logger.info("permission: %s", perm)
-            self.all_perms_permissionset.permissions.add(Permission.objects.get(codename=perm))
+        for permission_name in all_permissions:
+            logger.info("permission: %s", permission_name)
+            self.all_perms_permissionset.permissions.add(
+                Permission.objects.get_by_natural_key(codename=permission_name, app_label="activity", model="event")
+            )
         self.all_perms_user.permission_sets.add(self.all_perms_permissionset)
         self.all_perms_user.permission_sets.add(self.reported_by_permission_set)
 
         self.power_user_permissionset = PermissionSet.objects.create(name="power_set")
-        for perm in power_user_permissions:
-            self.power_user_permissionset.permissions.add(Permission.objects.get(codename=perm))
+        for permission_name in power_user_permissions:
+            self.power_user_permissionset.permissions.add(
+                Permission.objects.get_by_natural_key(codename=permission_name, app_label="activity", model="event")
+            )
         self.power_user.permission_sets.add(self.power_user_permissionset)
         self.power_user.permission_sets.add(self.reported_by_permission_set)
 
         self.radio_room_user_permissionset = PermissionSet.objects.create(name="radio_room_perms_set")
-        for perm in radio_room_user_permissions:
-            self.radio_room_user_permissionset.permissions.add(Permission.objects.get(codename=perm))
+        for permission_name in radio_room_user_permissions:
+            self.radio_room_user_permissionset.permissions.add(
+                Permission.objects.get_by_natural_key(codename=permission_name, app_label="activity", model="event")
+            )
         self.radio_room_user.permission_sets.add(self.radio_room_user_permissionset)
 
         self.guest_user_permissionset = PermissionSet.objects.create(name="guest_set")
-        for perm in guest_user_permissions:
-            self.guest_user_permissionset.permissions.add(Permission.objects.get(codename=perm))
+        for permission_name in guest_user_permissions:
+            self.guest_user_permissionset.permissions.add(
+                Permission.objects.get_by_natural_key(codename=permission_name, app_label="activity", model="event")
+            )
         self.guest_user.permission_sets.add(self.guest_user_permissionset)
 
         self.eventsource_user_permissionset = PermissionSet.objects.create(name="eventsource_permissionset")
-        for perm in eventsource_user_permissions:
-            self.eventsource_user_permissionset.permissions.add(Permission.objects.get(codename=perm))
+        for permission_name in eventsource_user_permissions:
+            self.eventsource_user_permissionset.permissions.add(Permission.objects.get(codename=permission_name))
+        for permission_name in eventsource_user_event_permissions:
+            self.eventsource_user_permissionset.permissions.add(
+                Permission.objects.get_by_natural_key(codename=permission_name, app_label="activity", model="event")
+            )
         for u in (self.eventsource_user_no1, self.eventsource_user_no2):
             u.permission_sets.add(self.radio_room_user_permissionset)
 
@@ -901,7 +926,9 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         # Grant user security_read permissions
 
-        self.guest_user_permissionset.permissions.add(Permission.objects.get(codename="security_read"))
+        self.guest_user_permissionset.permissions.add(
+            Permission.objects.get_by_natural_key(codename="security_read", app_label="activity", model="event")
+        )
 
         self.guest_user.permission_sets.add(self.guest_user_permissionset)
 
@@ -1509,8 +1536,9 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.assertEqual(permissionset_list.count(), 1)
 
-        for operation in ["create", "read", "update", "delete"]:
-            codename = "{0}_{1}".format(value, operation)
+        for operation in ACTIONS:
+            codename = make_eventcategory_permission_codename(eventcategory_value=value, action=operation)
+            codename = add_tenant_to_permission_codename(tenant_id=self.das_tenant.id, codename=codename)
             permission_list = Permission.objects.filter(codename=codename)
 
             self.assertEqual(permission_list.count(), 1)
@@ -3430,10 +3458,10 @@ class TestEventFilterQueryset:
         "get_geo_permission_set",
         [
             [
-                "view_analyzer_event_geographic_distance",
-                "view_logistics_geographic_distance",
-                "view_monitoring_geographic_distance",
-                "view_security_geographic_distance",
+                "view_analyzer_event_gd",
+                "view_logistics_gd",
+                "view_monitoring_gd",
+                "view_security_gd",
             ]
         ],
         indirect=True,
@@ -3682,8 +3710,10 @@ class TestEventView2(BaseTestToolMixin):
         geojson_set = PermissionSet.objects.create(name="geojson_set")
 
         for permission in permissions:
-            permission_name = f"view_{permission}_geographic_distance"
-            geojson_set.permissions.add(Permission.objects.get(codename=permission_name))
+            permission_name = f"view_{permission}_gd"
+            geojson_set.permissions.add(
+                Permission.objects.get_by_natural_key(codename=permission_name, app_label="activity", model="event")
+            )
 
         url = f"{reverse('events')}?location=0,0"
         client = HTTPClient()
@@ -3707,8 +3737,10 @@ class TestEventView2(BaseTestToolMixin):
         geojson_set = PermissionSet.objects.create(name="geojson_set")
 
         for permission in permissions:
-            permission_name = f"view_{permission}_geographic_distance"
-            geojson_set.permissions.add(Permission.objects.get(codename=permission_name))
+            permission_name = f"view_{permission}_gd"
+            geojson_set.permissions.add(
+                Permission.objects.get_by_natural_key(codename=permission_name, app_label="activity", model="event")
+            )
 
         url = f"{reverse('events')}"
         client = HTTPClient()
@@ -3871,7 +3903,9 @@ class TestEventView2(BaseTestToolMixin):
         client = HTTPClient()
 
         permission_set = PermissionSet.objects.create(name="Only create Events")
-        permission = Permission.objects.get(codename="analyzer_event_create")
+        permission = Permission.objects.get_by_natural_key(
+            codename="analyzer_event_create", app_label="activity", model="event"
+        )
         permission_set.permissions.add(permission)
         client.app_user.permission_sets.add(permission_set)
 

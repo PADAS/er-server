@@ -3,43 +3,72 @@
 from django.db import migrations
 
 
-class Migration(migrations.Migration):
+def create_event_permissions(apps, schema_editor):
+    """Actually create the auth_permissions. Django will do that, but instead, Django
+    goes directly to the Model to find "permissions" in the meta decleration.
+    We later pulled those permissions out of the model so leaves us with broken follow-on permissions.
+    Solution is to manually create those now. And let follow-on migrations make appropriate changes.
+    """
+    db_alias = schema_editor.connection.alias
+    ContentType = apps.get_model("contenttypes", "ContentType")
+    Event = apps.get_model("activity", "Event")
+    Permission = apps.get_model("auth", "Permission")
 
+    content_type = ContentType.objects.get(app_label="activity", model="event")
+
+    for permission in Event._meta.permissions:
+        codename, name = permission
+        Permission.objects.using(db_alias).create(codename=codename, name=name, content_type=content_type)
+
+
+class Migration(migrations.Migration):
     dependencies = [
-        ('activity', '0124_event_time_index'),
+        ("activity", "0124_event_time_index"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='event',
-            options={'permissions': (
-            ('security_create', 'Create security reports'), ('security_read', 'View security reports'),
-            ('security_update', 'Modify security reports'), ('security_delete', 'Delete security reports'),
-            ('monitoring_create', 'Create monitoring reports'), ('monitoring_read', 'View monitoring reports'),
-            ('monitoring_update', 'Modify monitoring reports'), ('monitoring_delete', 'Delete monitoring reports'),
-            ('logistics_create', 'Create logistics reports'), ('logistics_read', 'View logistics reports'),
-            ('logistics_update', 'Modify logistics reports'), ('logistics_delete', 'Delete logistics reports'),
-            ('analyzer_event_create', 'Create analyzer reports'), ('analyzer_event_read', 'View analyzer reports'),
-            ('analyzer_event_update', 'Modify analyzer reports'), ('analyzer_event_delete', 'Delete analyzer reports'),
-            ('add_security_geographic_distance', 'Create security reports in a certain distance'),
-            ('view_security_geographic_distance', 'View security reports in a certain distance'),
-            ('change_security_geographic_distance', 'Modify security reports in a certain distance'),
-            ('delete_security_geographic_distance', 'Delete security reports in a certain distance'),
-            ('add_monitoring_geographic_distance', 'Create monitoring reports in a certain distance'),
-            ('view_monitoring_geographic_distance', 'View monitoring reports in a certain distance'),
-            ('change_monitoring_geographic_distance', 'Modify monitoring reports in a certain distance'),
-            ('delete_monitoring_geographic_distance', 'Delete monitoring reports in a certain distance'),
-            ('add_logistics_geographic_distance', 'Create logistics reports in a certain distance'),
-            ('view_logistics_geographic_distance', 'View logistics reports in a certain distance'),
-            ('change_logistics_geographic_distance', 'Modify logistics reports in a certain distance'),
-            ('delete_logistics_geographic_distance', 'Delete logistics reports in a certain distance'),
-            ('add_analyzer_event_geographic_distance', 'Create analyzer reports in a certain distance'),
-            ('view_analyzer_event_geographic_distance', 'View analyzer reports in a certain distance'),
-            ('change_analyzer_event_geographic_distance', 'Modify analyzer reports in a certain distance'),
-            ('delete_analyzer_event_geographic_distance', 'Delete analyzer reports in a certain distance'),
-            ('standard__deprecated_read', 'View DEPRECATED monitoring reports'),
-            ('standard__deprecated_update', 'Modify DEPRECATED monitoring reports'),
-            ('security__deprecated_read', 'View DEPRECATED security reports'),
-            ('security__deprecated_update', 'Modify DEPRECATED security reports'))},
+            name="event",
+            options={
+                "permissions": (
+                    ("security_create", "Create security reports"),
+                    ("security_read", "View security reports"),
+                    ("security_update", "Modify security reports"),
+                    ("security_delete", "Delete security reports"),
+                    ("monitoring_create", "Create monitoring reports"),
+                    ("monitoring_read", "View monitoring reports"),
+                    ("monitoring_update", "Modify monitoring reports"),
+                    ("monitoring_delete", "Delete monitoring reports"),
+                    ("logistics_create", "Create logistics reports"),
+                    ("logistics_read", "View logistics reports"),
+                    ("logistics_update", "Modify logistics reports"),
+                    ("logistics_delete", "Delete logistics reports"),
+                    ("analyzer_event_create", "Create analyzer reports"),
+                    ("analyzer_event_read", "View analyzer reports"),
+                    ("analyzer_event_update", "Modify analyzer reports"),
+                    ("analyzer_event_delete", "Delete analyzer reports"),
+                    ("add_security_gd", "Create security reports in a certain distance"),
+                    ("view_security_gd", "View security reports in a certain distance"),
+                    ("change_security_gd", "Modify security reports in a certain distance"),
+                    ("delete_security_gd", "Delete security reports in a certain distance"),
+                    ("add_monitoring_gd", "Create monitoring reports in a certain distance"),
+                    ("view_monitoring_gd", "View monitoring reports in a certain distance"),
+                    ("change_monitoring_gd", "Modify monitoring reports in a certain distance"),
+                    ("delete_monitoring_gd", "Delete monitoring reports in a certain distance"),
+                    ("add_logistics_gd", "Create logistics reports in a certain distance"),
+                    ("view_logistics_gd", "View logistics reports in a certain distance"),
+                    ("change_logistics_gd", "Modify logistics reports in a certain distance"),
+                    ("delete_logistics_gd", "Delete logistics reports in a certain distance"),
+                    ("add_analyzer_event_gd", "Create analyzer reports in a certain distance"),
+                    ("view_analyzer_event_gd", "View analyzer reports in a certain distance"),
+                    ("change_analyzer_event_gd", "Modify analyzer reports in a certain distance"),
+                    ("delete_analyzer_event_gd", "Delete analyzer reports in a certain distance"),
+                    ("standard__deprecated_read", "View DEPRECATED monitoring reports"),
+                    ("standard__deprecated_update", "Modify DEPRECATED monitoring reports"),
+                    ("security__deprecated_read", "View DEPRECATED security reports"),
+                    ("security__deprecated_update", "Modify DEPRECATED security reports"),
+                )
+            },
         ),
+        migrations.RunPython(create_event_permissions, reverse_code=migrations.RunPython.noop),
     ]

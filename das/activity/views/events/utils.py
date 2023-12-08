@@ -1,8 +1,10 @@
 from activity.models import EventCategory, EventType
+from utils.categories import (
+    ACTIONS,
+    GEO_ACTIONS,
+    make_eventcategory_permission_codename,
+)
 from utils.json import parse_bool
-
-ACTIONS = ("create", "update", "read", "delete")
-GEO_ACTIONS = ("view", "add", "change", "delete")
 
 
 class EventTypeQuerysetMixin:
@@ -48,7 +50,11 @@ class EventTypeQuerysetMixin:
         return any((user.has_perm(permission_name) for permission_name in permission_names))
 
     def _build_permission_names(self, event_category):
-        action_permissions = [f"activity.{event_category}_{action}" for action in ACTIONS]
-        geoaction_permissions = [f"activity.{action}_{event_category}_geographic_distance" for action in GEO_ACTIONS]
+        action_permissions = [
+            f"activity.{make_eventcategory_permission_codename(event_category, action)}" for action in ACTIONS
+        ]
+        geoaction_permissions = [
+            f"activity.{make_eventcategory_permission_codename(event_category, action, True)}" for action in GEO_ACTIONS
+        ]
 
         return action_permissions + geoaction_permissions

@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 from unittest import mock
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import jsonschema
 import pytest
@@ -16,6 +16,7 @@ from django.template.loader import get_template
 from django.utils import timezone
 
 from accounts.models import PermissionSet, User
+from accounts.utils import permission_get_by_natural_key
 from activity.alerting.businessrules import (
     EventActions,
     EventVariables,
@@ -61,6 +62,7 @@ power_user_permissions = [
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
 class BusinessRulesTestCase(BaseAPITest):
     def setUp(self):
         super().setUp()
@@ -83,8 +85,10 @@ class BusinessRulesTestCase(BaseAPITest):
         )
 
         self.power_user_permissionset = PermissionSet.objects.create(name="power_set")
-        for perm in power_user_permissions:
-            self.power_user_permissionset.permissions.add(Permission.objects.get(codename=perm))
+        for permission_name in power_user_permissions:
+            self.power_user_permissionset.permissions.add(
+                Permission.objects.get_by_natural_key(codename=permission_name, app_label="activity", model="event")
+            )
         self.power_user.permission_sets.add(self.power_user_permissionset)
 
         self.subjectgroup_test_perm = PermissionSet.objects.create(name="subject_view")
@@ -330,8 +334,7 @@ class BusinessRulesTestCase(BaseAPITest):
                 stop_on_first_trigger=False,
             )
 
-    @staticmethod
-    def test_generate_global_eventvariables():
+    def test_generate_global_eventvariables(self):
         variables_class, _ = _generate_aggregate_event_variables_class(
             EventType.objects.all(), only_common_factors=True
         )
@@ -339,8 +342,7 @@ class BusinessRulesTestCase(BaseAPITest):
         export_rule_data(variables_class, EventActions)
         # print(json.dumps(exported_rule_data, indent=2))
 
-    @staticmethod
-    def test_filtered_eventvariables():
+    def test_filtered_eventvariables(self):
         variables_class, _ = _generate_aggregate_event_variables_class(
             EventType.objects.filter(value__in=["sit_rep", "fence_rep"])
         )

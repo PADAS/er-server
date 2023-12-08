@@ -11,24 +11,6 @@
   {
     "model": "accounts.permissionset",
     "fields": {
-      "created_at": "2023-11-15T21:02:08.639Z",
-      "updated_at": "2023-11-15T21:02:08.639Z",
-      "name": "View Monitoring Event Permissions",
-      "children": []
-    }
-  },
-  {
-    "model": "accounts.permissionset",
-    "fields": {
-      "created_at": "2023-11-15T21:02:08.493Z",
-      "updated_at": "2023-11-15T21:02:08.493Z",
-      "name": "View Logistics Event Geographic Permissions",
-      "children": []
-    }
-  },
-  {
-    "model": "accounts.permissionset",
-    "fields": {
       "created_at": "2016-07-07T01:00:00Z",
       "updated_at": "2016-07-07T01:00:00Z",
       "name": "View Elephants",
@@ -114,31 +96,9 @@
   {
     "model": "accounts.permissionset",
     "fields": {
-      "created_at": "2023-11-15T20:56:01.634Z",
-      "updated_at": "2023-11-15T20:56:01.634Z",
-      "name": "Proximity Analyzer View Permisssions",
-      "children": [
-        [
-          "Analyzer View Permissions"
-        ]
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionset",
-    "fields": {
       "created_at": "2023-11-15T21:02:02.519Z",
       "updated_at": "2023-11-15T21:02:02.519Z",
       "name": "View Rangers Subject Group",
-      "children": []
-    }
-  },
-  {
-    "model": "accounts.permissionset",
-    "fields": {
-      "created_at": "2023-11-15T21:02:08.337Z",
-      "updated_at": "2023-11-15T21:02:08.337Z",
-      "name": "View Security Event Permissions",
       "children": []
     }
   },
@@ -172,24 +132,6 @@
   {
     "model": "accounts.permissionset",
     "fields": {
-      "created_at": "2023-11-15T20:55:24.831Z",
-      "updated_at": "2023-11-15T20:55:24.869Z",
-      "name": "Geographic Permissions by Distance - View",
-      "children": []
-    }
-  },
-  {
-    "model": "accounts.permissionset",
-    "fields": {
-      "created_at": "2023-11-15T21:02:08.586Z",
-      "updated_at": "2023-11-15T21:02:08.587Z",
-      "name": "View HIDDEN Event Geographic Permissions",
-      "children": []
-    }
-  },
-  {
-    "model": "accounts.permissionset",
-    "fields": {
       "created_at": "2023-11-15T20:57:13.808Z",
       "updated_at": "2023-11-15T20:57:13.808Z",
       "name": "Alert Rule Permissions",
@@ -212,15 +154,6 @@
   {
     "model": "accounts.permissionset",
     "fields": {
-      "created_at": "2023-11-15T20:55:24.831Z",
-      "updated_at": "2023-11-15T20:55:24.869Z",
-      "name": "View Analyzer Event Event Geographic Permissions",
-      "children": []
-    }
-  },
-  {
-    "model": "accounts.permissionset",
-    "fields": {
       "created_at": "2016-07-07T01:00:00Z",
       "updated_at": "2016-07-07T01:00:00Z",
       "name": "View Rangers",
@@ -238,15 +171,6 @@
           "Analyzer Admin Permissions"
         ]
       ]
-    }
-  },
-  {
-    "model": "accounts.permissionset",
-    "fields": {
-      "created_at": "2023-11-15T21:02:08.675Z",
-      "updated_at": "2023-11-15T21:02:08.675Z",
-      "name": "View Monitoring Event Geographic Permissions",
-      "children": []
     }
   },
   {
@@ -297,15 +221,6 @@
   {
     "model": "accounts.permissionset",
     "fields": {
-      "created_at": "2023-11-15T21:02:08.538Z",
-      "updated_at": "2023-11-15T21:02:08.538Z",
-      "name": "View HIDDEN Event Permissions",
-      "children": []
-    }
-  },
-  {
-    "model": "accounts.permissionset",
-    "fields": {
       "created_at": "2016-07-07T01:00:00Z",
       "updated_at": "2016-07-07T01:00:00Z",
       "name": "View Delayed Elephants",
@@ -342,15 +257,6 @@
   {
     "model": "accounts.permissionset",
     "fields": {
-      "created_at": "2023-11-15T21:02:08.385Z",
-      "updated_at": "2023-11-15T21:02:08.385Z",
-      "name": "View Security Event Geographic Permissions",
-      "children": []
-    }
-  },
-  {
-    "model": "accounts.permissionset",
-    "fields": {
       "created_at": "2016-07-07T01:00:00Z",
       "updated_at": "2016-07-07T01:00:00Z",
       "name": "View Last Point Elephants",
@@ -381,15 +287,6 @@
       "created_at": "2023-11-15T20:56:13.680Z",
       "updated_at": "2023-11-15T20:56:13.680Z",
       "name": "View Message Permission",
-      "children": []
-    }
-  },
-  {
-    "model": "accounts.permissionset",
-    "fields": {
-      "created_at": "2023-11-15T21:02:08.439Z",
-      "updated_at": "2023-11-15T21:02:08.439Z",
-      "name": "View Logistics Event Permissions",
       "children": []
     }
   },
@@ -9602,45 +9499,6 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "View Security Event Geographic Permissions"
-      ],
-      "permission": [
-        "view_security_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "Admin User Event Permissions"
-      ],
-      "permission": [
-        "security__deprecated_update",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Logistics Event Permissions"
-      ],
-      "permission": [
-        "logistics_create",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "Admin User Event Permissions"
       ],
       "permission": [
@@ -9660,32 +9518,6 @@
         "view_geofenceanalyzerconfig",
         "analyzers",
         "geofenceanalyzerconfig"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Security Event Geographic Permissions"
-      ],
-      "permission": [
-        "add_security_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Monitoring Event Permissions"
-      ],
-      "permission": [
-        "monitoring_update",
-        "activity",
-        "event"
       ]
     }
   },
@@ -9849,19 +9681,6 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "Geographic Permissions by Distance - View"
-      ],
-      "permission": [
-        "view_analyzer_event_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "Admin User Event Permissions"
       ],
       "permission": [
@@ -9914,38 +9733,12 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "View Security Event Permissions"
-      ],
-      "permission": [
-        "security_read",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "Receive observation lag notification"
       ],
       "permission": [
         "receive_lag_notification",
         "accounts",
         "user"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Security Event Permissions"
-      ],
-      "permission": [
-        "security_delete",
-        "activity",
-        "event"
       ]
     }
   },
@@ -9966,49 +9759,10 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "View Security Event Geographic Permissions"
-      ],
-      "permission": [
-        "delete_security_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Logistics Event Geographic Permissions"
-      ],
-      "permission": [
-        "add_logistics_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "Admin User Event Permissions"
       ],
       "permission": [
         "analyzer_event_update",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Monitoring Event Geographic Permissions"
-      ],
-      "permission": [
-        "change_monitoring_geographic_distance",
         "activity",
         "event"
       ]
@@ -10024,19 +9778,6 @@
         "view_subjectgroup",
         "observations",
         "subjectgroup"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Logistics Event Permissions"
-      ],
-      "permission": [
-        "logistics_read",
-        "activity",
-        "event"
       ]
     }
   },
@@ -10083,51 +9824,12 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "View Logistics Event Geographic Permissions"
-      ],
-      "permission": [
-        "change_logistics_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View HIDDEN Event Geographic Permissions"
-      ],
-      "permission": [
-        "add_hidden_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "Administer All Users"
       ],
       "permission": [
         "change_user",
         "accounts",
         "user"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Monitoring Event Permissions"
-      ],
-      "permission": [
-        "monitoring_delete",
-        "activity",
-        "event"
       ]
     }
   },
@@ -10174,38 +9876,12 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "View Logistics Event Geographic Permissions"
-      ],
-      "permission": [
-        "delete_logistics_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "View Tracks Last 16 Days Delayed"
       ],
       "permission": [
         "view_subjectgroup",
         "observations",
         "subjectgroup"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Analyzer Event Event Geographic Permissions"
-      ],
-      "permission": [
-        "add_analyzer_event_geographic_distance",
-        "activity",
-        "event"
       ]
     }
   },
@@ -10232,19 +9908,6 @@
         "view_message",
         "observations",
         "message"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View HIDDEN Event Geographic Permissions"
-      ],
-      "permission": [
-        "change_hidden_geographic_distance",
-        "activity",
-        "event"
       ]
     }
   },
@@ -10421,45 +10084,6 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "View Monitoring Event Permissions"
-      ],
-      "permission": [
-        "monitoring_create",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View HIDDEN Event Permissions"
-      ],
-      "permission": [
-        "hidden_create",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Security Event Permissions"
-      ],
-      "permission": [
-        "security_create",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "View Tracks Last 60 Days"
       ],
       "permission": [
@@ -10616,19 +10240,6 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "Geographic Permissions by Distance - View"
-      ],
-      "permission": [
-        "view_security_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "Administer Subjects"
       ],
       "permission": [
@@ -10681,19 +10292,6 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "View Logistics Event Geographic Permissions"
-      ],
-      "permission": [
-        "view_logistics_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "View Rangers"
       ],
       "permission": [
@@ -10707,38 +10305,12 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "View Monitoring Event Permissions"
-      ],
-      "permission": [
-        "monitoring_read",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "Full Patrols Permissions"
       ],
       "permission": [
         "change_patroltype",
         "activity",
         "patroltype"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Monitoring Event Geographic Permissions"
-      ],
-      "permission": [
-        "delete_monitoring_geographic_distance",
-        "activity",
-        "event"
       ]
     }
   },
@@ -10785,36 +10357,10 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "View HIDDEN Event Geographic Permissions"
-      ],
-      "permission": [
-        "view_hidden_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "Radio Room Operator Event Permissions"
       ],
       "permission": [
         "monitoring_update",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Logistics Event Permissions"
-      ],
-      "permission": [
-        "logistics_update",
         "activity",
         "event"
       ]
@@ -10872,45 +10418,7 @@
       ]
     }
   },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "Radio Room Operator Event Permissions"
-      ],
-      "permission": [
-        "standard__deprecated_read",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Logistics Event Permissions"
-      ],
-      "permission": [
-        "logistics_delete",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Monitoring Event Geographic Permissions"
-      ],
-      "permission": [
-        "view_monitoring_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
+
   {
     "model": "accounts.permissionsetpermission",
     "fields": {
@@ -10924,19 +10432,7 @@
       ]
     }
   },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "Admin User Event Permissions"
-      ],
-      "permission": [
-        "standard__deprecated_update",
-        "activity",
-        "event"
-      ]
-    }
-  },
+
   {
     "model": "accounts.permissionsetpermission",
     "fields": {
@@ -10976,19 +10472,7 @@
       ]
     }
   },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "Admin User Event Permissions"
-      ],
-      "permission": [
-        "standard__deprecated_read",
-        "activity",
-        "event"
-      ]
-    }
-  },
+
   {
     "model": "accounts.permissionsetpermission",
     "fields": {
@@ -11041,32 +10525,7 @@
       ]
     }
   },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "Radio Room Operator Event Permissions"
-      ],
-      "permission": [
-        "standard__deprecated_update",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Analyzer Event Event Geographic Permissions"
-      ],
-      "permission": [
-        "view_analyzer_event_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
+
   {
     "model": "accounts.permissionsetpermission",
     "fields": {
@@ -11100,19 +10559,6 @@
         "Admin User Event Permissions"
       ],
       "permission": [
-        "security_create",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "Admin User Event Permissions"
-      ],
-      "permission": [
         "analyzer_event_read",
         "activity",
         "event"
@@ -11127,19 +10573,6 @@
       ],
       "permission": [
         "monitoring_create",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "Geographic Permissions by Distance - View"
-      ],
-      "permission": [
-        "view_monitoring_geographic_distance",
         "activity",
         "event"
       ]
@@ -11181,19 +10614,6 @@
         "view_subjectgroup",
         "observations",
         "subjectgroup"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Analyzer Event Event Geographic Permissions"
-      ],
-      "permission": [
-        "change_analyzer_event_geographic_distance",
-        "activity",
-        "event"
       ]
     }
   },
@@ -11253,19 +10673,6 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "View HIDDEN Event Permissions"
-      ],
-      "permission": [
-        "hidden_update",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "Full Access Message Permissions"
       ],
       "permission": [
@@ -11285,32 +10692,6 @@
         "delete_patroltype",
         "activity",
         "patroltype"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Analyzer Event Event Geographic Permissions"
-      ],
-      "permission": [
-        "delete_analyzer_event_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View HIDDEN Event Permissions"
-      ],
-      "permission": [
-        "hidden_read",
-        "activity",
-        "event"
       ]
     }
   },
@@ -11448,32 +10829,6 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "View HIDDEN Event Permissions"
-      ],
-      "permission": [
-        "hidden_delete",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Security Event Permissions"
-      ],
-      "permission": [
-        "security_update",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "View Message Permission"
       ],
       "permission": [
@@ -11487,38 +10842,12 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "Admin User Event Permissions"
-      ],
-      "permission": [
-        "security__deprecated_read",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "Alert Rule Permissions"
       ],
       "permission": [
         "delete_alertrule",
         "activity",
         "alertrule"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View Security Event Geographic Permissions"
-      ],
-      "permission": [
-        "change_security_geographic_distance",
-        "activity",
-        "event"
       ]
     }
   },
@@ -11630,19 +10959,6 @@
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
-        "View Monitoring Event Geographic Permissions"
-      ],
-      "permission": [
-        "add_monitoring_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
         "View Rangers Subject Group"
       ],
       "permission": [
@@ -11662,32 +10978,6 @@
         "view_subjectgroup",
         "observations",
         "subjectgroup"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "View HIDDEN Event Geographic Permissions"
-      ],
-      "permission": [
-        "delete_hidden_geographic_distance",
-        "activity",
-        "event"
-      ]
-    }
-  },
-  {
-    "model": "accounts.permissionsetpermission",
-    "fields": {
-      "permissionset": [
-        "Geographic Permissions by Distance - View"
-      ],
-      "permission": [
-        "view_logistics_geographic_distance",
-        "activity",
-        "event"
       ]
     }
   }

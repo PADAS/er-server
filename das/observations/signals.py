@@ -86,6 +86,7 @@ def create_proxy_permissions(**kwargs):
     in Django release 2.2
     What this method does is create new permissions for all proxy models,
     using their own content type instead of the content type of the concrete model.
+    Multi-Tenant: these are global permissions
     """
     for model in apps.get_models():
         opts = model._meta
@@ -111,14 +112,15 @@ def create_proxy_permissions(**kwargs):
             )
 
 
+# TODO: do we still need this? I believe it has been addressed by now
 post_migrate.connect(create_proxy_permissions)
 
 
-def create_view_permissionset(permission_name):
+def create_view_permissionset(permission_set_name):
     if not get_current_tenant():
         raise TenantNotFoundInLocalThreadException()
 
-    permission_set, _ = PermissionSet.objects.get_or_create(name=permission_name)
+    permission_set, _ = PermissionSet.objects.get_or_create(name=permission_set_name)
 
     for codename in ["view_real_time", "view_subject", "subscribe_alerts", "view_subjectgroup"]:
         perms = models.Permission.objects.filter(codename=codename)
@@ -130,8 +132,8 @@ def create_view_permissionset(permission_name):
 @receiver(post_save, sender=SubjectGroup)
 def auto_create_view_perm(sender, instance, created, **kwargs):
     if created:
-        permission_name = instance.auto_permissionset_name
-        perm_set = create_view_permissionset(permission_name)
+        permission_set_name = instance.auto_permissionset_name
+        perm_set = create_view_permissionset(permission_set_name)
         permission_set = PermissionSet.objects.get(id=perm_set.id)
 
         # Add PermissionSet after commit

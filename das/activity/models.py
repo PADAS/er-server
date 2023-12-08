@@ -194,7 +194,10 @@ class EventFactor(TenantModelMixin, TimestampedModel):
 
 class EventCategory(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=100)
+    # the value field is used as part of the codename of a set of permissions created for each EventCategory
+    # this limits us to the size of the EventCategory value field as the codename field has a limit of 100 chars
+    # we add some prefixs and suffixes when generating the codename, effectively limiting us to 67 chars here
+    value = models.CharField(max_length=67)
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
@@ -869,46 +872,12 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
     PRIORITY_LABELS_MAP = dict((x, y) for (x, y) in PRIORITY_CHOICES)
 
     class Meta:
-        permissions = (
-            ("security_create", "Create security reports"),
-            ("security_read", "View security reports"),
-            ("security_update", "Modify security reports"),
-            ("security_delete", "Delete security reports"),
-            ("monitoring_create", "Create monitoring reports"),
-            ("monitoring_read", "View monitoring reports"),
-            ("monitoring_update", "Modify monitoring reports"),
-            ("monitoring_delete", "Delete monitoring reports"),
-            ("logistics_create", "Create logistics reports"),
-            ("logistics_read", "View logistics reports"),
-            ("logistics_update", "Modify logistics reports"),
-            ("logistics_delete", "Delete logistics reports"),
-            ("analyzer_event_create", "Create analyzer reports"),
-            ("analyzer_event_read", "View analyzer reports"),
-            ("analyzer_event_update", "Modify analyzer reports"),
-            ("analyzer_event_delete", "Delete analyzer reports"),
-            ("add_security_geographic_distance", "Create security reports in a certain distance"),
-            ("view_security_geographic_distance", "View security reports in a certain distance"),
-            ("change_security_geographic_distance", "Modify security reports in a certain distance"),
-            ("delete_security_geographic_distance", "Delete security reports in a certain distance"),
-            ("add_monitoring_geographic_distance", "Create monitoring reports in a certain distance"),
-            ("view_monitoring_geographic_distance", "View monitoring reports in a certain distance"),
-            ("change_monitoring_geographic_distance", "Modify monitoring reports in a certain distance"),
-            ("delete_monitoring_geographic_distance", "Delete monitoring reports in a certain distance"),
-            ("add_logistics_geographic_distance", "Create logistics reports in a certain distance"),
-            ("view_logistics_geographic_distance", "View logistics reports in a certain distance"),
-            ("change_logistics_geographic_distance", "Modify logistics reports in a certain distance"),
-            ("delete_logistics_geographic_distance", "Delete logistics reports in a certain distance"),
-            ("add_analyzer_event_geographic_distance", "Create analyzer reports in a certain distance"),
-            ("view_analyzer_event_geographic_distance", "View analyzer reports in a certain distance"),
-            ("change_analyzer_event_geographic_distance", "Modify analyzer reports in a certain distance"),
-            ("delete_analyzer_event_geographic_distance", "Delete analyzer reports in a certain distance"),
-            # These 4 permissions are deprecated (obviously) and should
-            # eventually be removed
-            ("standard__deprecated_read", "View DEPRECATED monitoring reports"),
-            ("standard__deprecated_update", "Modify DEPRECATED monitoring reports"),
-            ("security__deprecated_read", "View DEPRECATED security reports"),
-            ("security__deprecated_update", "Modify DEPRECATED security reports"),
-        )
+        # Django at the end of each migration in post_migrate signal ensures that these permissions
+        # have been created for all models. This is a problem for our special case of Tenant Permissions
+        # in that after each migration, the permissions here were being re-generated and assigned to the global
+        # permission list. That's not the effect we want, so they have been removed from here.
+        # Any permissions for events are created at the tenant level now and associated with the tenant.
+        permissions = ()
         indexes = [
             models.Index(fields=["das_tenant", "created_at"]),
             models.Index(fields=["das_tenant", "updated_at"]),

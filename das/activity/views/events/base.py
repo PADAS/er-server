@@ -67,7 +67,10 @@ from activity.views.helpers import (
 )
 from activity.views.schemas import EventsViewSchema
 from observations.models import Subject
-from utils.categories import get_categories_and_geo_categories
+from utils.categories import (
+    get_categories_and_geo_categories,
+    make_eventcategory_permission_codename,
+)
 from utils.drf import StandardResultsSetGeoJsonPagination, StandardResultsSetPagination
 from utils.json import ExtendedGEOJSONRenderer, parse_bool
 
@@ -648,7 +651,7 @@ class EventsView(ListCreateAPIView):
         allowed_event_categories = []
         for event_category in event_categories:
             permission_name = "activity.{0}_read".format(event_category)
-            geo_permission_name = f"activity.view_{event_category}_geographic_distance"
+            geo_permission_name = f"activity.{make_eventcategory_permission_codename(event_category, 'view', True)}"
             if self.request.user.has_perm(permission_name) or self.request.user.has_perm(geo_permission_name):
                 allowed_event_categories.append(event_category)
 

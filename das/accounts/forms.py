@@ -2,6 +2,7 @@ from django import forms
 from django.conf import settings
 from django.contrib.admin.widgets import AdminDateWidget, FilteredSelectMultiple
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
+from django.contrib.auth.models import Permission
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.mail import EmailMultiAlternatives
 from django.template import loader
@@ -10,7 +11,11 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from accounts.models import PermissionSet, User
-from accounts.utils import get_profiles, patrol_mgmt_permissions
+from accounts.utils import (
+    filter_permissions_by_tenant,
+    get_profiles,
+    patrol_mgmt_permissions,
+)
 from core.common import TIMEZONE_USED
 from core.forms_utils import JSONFieldFormMixin
 from observations import kmlutils
@@ -215,6 +220,10 @@ class PermissionSetAdminForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             self.fields["user_set"].initial = self.instance.user_set.all()
             self.fields["acquire_from"].initial = self.instance._parents.all()
+
+        self.fields["permissions"].queryset = filter_permissions_by_tenant(
+            tenant_settings=get_tenant_settings(), queryset=Permission.objects.all()
+        )
 
         if not get_tenant_settings().env_settings.patrol_enabled:
             self.fields["children"].queryset = self.fields["children"].queryset.exclude(

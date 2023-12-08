@@ -15,6 +15,7 @@ from django.db.models.signals import post_save
 from django.test import override_settings
 
 from accounts.models import PermissionSet, User
+from accounts.utils import permission_get_by_natural_key
 from activity.alerting.message import (
     coerce_state_value,
     render_event_alert_context,
@@ -54,6 +55,7 @@ user_permissions = ["security_read", "security_create", "security_update", "secu
 
 
 @patch("redis.StrictRedis", MockRedis)
+@patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
 class TestAlerts(BaseAPITest):
     def setUp(self) -> None:
         super().setUp()
@@ -67,7 +69,9 @@ class TestAlerts(BaseAPITest):
         self.alerts_permissionset = PermissionSet.objects.get(name="Alert Rule Permissions")
 
         for perm in user_permissions:
-            self.alerts_permissionset.permissions.add(Permission.objects.get(codename=perm))
+            self.alerts_permissionset.permissions.add(
+                Permission.objects.get_by_natural_key(codename=perm, app_label="activity", model="event")
+            )
 
         self.owner = User.objects.create_user(
             username="owner", password="asdfo9823sfdsdsiu23$", email="alertsuser@tempuri.org"

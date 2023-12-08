@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -7,14 +7,18 @@ from django.urls import reverse
 from rest_framework import status
 
 from accounts.models import PermissionSet
+from accounts.utils import permission_get_by_natural_key
 from activity.models import Event, EventCategory, Patrol
 from activity.permissions import EventCategoryGeographicPermission
 from activity.views import EventsView, EventView
 from client_http import HTTPClient
+from utils.categories import make_eventcategory_permission_codename
 from utils.gis import convert_to_point
 
 
 @pytest.mark.django_db
+@patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventGeoJsonPermissions:
     @pytest.mark.parametrize(
         "known_location",
@@ -55,9 +59,13 @@ class TestEventGeoJsonPermissions:
         request = rf.get(url)
         client = HTTPClient()
 
-        permission_name = f"view_{known_location['category']}_geographic_distance"
+        permission_name = make_eventcategory_permission_codename(
+            eventcategory_value=known_location["category"], action="view", is_geographic=True
+        )
         geojson_set = PermissionSet.objects.create(name="geojson_set")
-        geojson_set.permissions.add(Permission.objects.get(codename=permission_name))
+        geojson_set.permissions.add(
+            Permission.objects.get_by_natural_key(codename=permission_name, app_label="activity", model="event")
+        )
         client.app_user.permission_sets.add(geojson_set)
         request.user = client.app_user
 
@@ -78,14 +86,12 @@ class TestEventGeoJsonPermissions:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventGeometryPermissions:
     def _get_permission_set(self, event: Event):
         category = event.event_type.category
 
-        perm_set = PermissionSet.objects.filter(
-            permissions__codename__icontains=f"{category.value}_geographic_distance"
-        ).first()
+        perm_set = PermissionSet.objects.filter(permissions__codename__icontains=f"{category.value}_gd").first()
         return perm_set
 
     @pytest.mark.parametrize(
