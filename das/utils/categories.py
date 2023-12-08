@@ -46,6 +46,32 @@ def make_eventcategory_permission_codename_with_tenant(
 
     return codename
 
+ACTIONS = ("create", "update", "read", "delete")
+GEO_ACTIONS = ("view", "add", "change", "delete")
+GEOGRAPHIC_DISTANCE = "gd"
+GEOGRAPHIC_DISTANCE_SUFIX = "_gd"
+
+
+def make_eventcategory_permission_codename(
+    eventcategory_value: str, action: str, is_geographic=False, app_label=None
+) -> str:
+    """make an eventcategory based permission codename
+
+    Args:
+        eventcategory_value (str): EventCategory name
+        action (str): the CRUD operation
+        is_geographic (bool, optional): Is this a geographic distance permission. Defaults to False.
+    Returns:
+        (str): the codename
+    """
+    if is_geographic:
+        return (
+            f"{app_label}.{action}_{eventcategory_value}_gd"
+            if app_label
+            else f"{action}_{eventcategory_value}_{GEOGRAPHIC_DISTANCE}"
+        )
+    return f"{app_label}.{eventcategory_value}_{action}" if app_label else f"{eventcategory_value}_{action}"
+
 
 def get_categories_and_geo_categories(user: User):
     results = {"categories": [], "geo_categories": []}
