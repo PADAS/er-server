@@ -8,7 +8,8 @@ from django_multitenant.fields import TenantForeignKey
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from model_utils.managers import InheritanceManager
 from pytz import timezone
-from tagulous.models import TagField, TagModel
+from tagulous.models import TagField as TagulousTagField
+from tagulous.models import TagModel
 
 from django.conf import settings
 from django.contrib.gis import geos
@@ -700,9 +701,32 @@ class DisplayCategory(TenantModelMixin, TimestampedModel):
         return (self.name,)
 
 
-class SpatialFeatureTypeTag(TagModel):
+class SpatialFeatureTypeTag(TenantModelMixin, TagModel):
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    tenant_id = "das_tenant_id"
+
     class TagMeta:
         pass
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        ordering = ["name"]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            ),
+            UniqueConstraint(fields=["das_tenant", "slug"], name="%(app_label)s_%(class)s_unique_slug_across_tenants"),
+        ]
+        indexes = [
+            Index(fields=["das_tenant", "name"]),
+            Index(fields=["das_tenant", "slug"]),
+        ]
+
+
+class TagField(TagulousTagField):
+    forbidden_fields = ("db_table", "symmetrical")
 
 
 class SpatialFeatureTypeManager(TenantManagerMixin, models.Manager):
@@ -718,7 +742,7 @@ class SpatialFeatureType(TenantModelMixin, TimestampedModel):
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = models.JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
-    tags = TagField(to=SpatialFeatureTypeTag, blank=True)
+    tags = TagField(to=SpatialFeatureTypeTag, blank=True, through="mapping.SpatialFeatureTypeTags")
     # presentation fields
     # Boundaries, Water, Security etc.
     display_category = TenantForeignKey(to="DisplayCategory", on_delete=models.PROTECT, blank=True, null=True)
@@ -778,6 +802,27 @@ class SpatialFeatureType(TenantModelMixin, TimestampedModel):
             logger.warning(exc)
         finally:
             super(SpatialFeatureType, self).save(*args, **kwargs)
+
+
+class SpatialFeatureTypeTags(TenantModelMixin, UUIDModel):
+    spatialfeaturetype = TenantForeignKey(
+        default=uuid.uuid4, on_delete=models.CASCADE, related_name="spatialfeaturetype", to="mapping.SpatialFeatureType"
+    )
+    spatialfeaturetypetag = TenantForeignKey(
+        default=uuid.uuid4,
+        on_delete=models.CASCADE,
+        related_name="spatialfeaturetypetag",
+        to="mapping.SpatialFeatureTypeTag",
+    )
+    das_tenant = models.ForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        default=default_tenant_id,
+        related_name="%(app_label)s_%(class)s",
+    )
+
+    tenant_id = "das_tenant_id"
+    objects = CommonTenantManager()
 
 
 class SpatialFeatureFile(SpatialFilesBase):

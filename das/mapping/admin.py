@@ -29,6 +29,7 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 import mapping.models as models
+from core.admin import CustomM2MChecks, ModelAdminDisplayingManyToManyFieldMixin
 from core.openlayers import OSMGeoExtendedAdmin
 from mapping.esri_integration import arcgis_integration, update_db_groups
 from mapping.forms import (
@@ -142,7 +143,8 @@ class SpatialFeatureGroupStaticAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.SpatialFeatureType)
-class SpatialFeatureTypeAdmin(admin.ModelAdmin):
+class SpatialFeatureTypeAdmin(ModelAdminDisplayingManyToManyFieldMixin):
+    checks_class = CustomM2MChecks
     list_display = (
         "name",
         "is_visible",
