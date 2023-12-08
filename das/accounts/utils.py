@@ -2,7 +2,9 @@ import hashlib
 import re
 from collections import defaultdict
 from typing import Iterator, List, Optional
-from uuid import uuid4
+from uuid import UUID, uuid4
+
+from django_multitenant.utils import get_current_tenant
 
 from django.contrib import auth
 from django.contrib.auth import get_user_model
@@ -15,7 +17,13 @@ from django.utils.translation import gettext_lazy as _
 
 from activity.models import EventCategory
 from choices.models import Choice
-from utils.categories import get_categories_and_geo_categories
+from utils.categories import (
+    ACTIONS,
+    GEO_ACTIONS,
+    GEOGRAPHIC_DISTANCE_SUFIX,
+    get_categories_and_geo_categories,
+)
+from utils.tenant import Tenant, lengthen_tenant_id, shorten_tenant_id
 
 User = get_user_model()
 
@@ -34,6 +42,44 @@ def patrol_mgmt_permissions(modelnames=None):
     return Permission.objects.filter(content_type__in=content_types)
 
 
+def add_tenant_to_permission_codename(tenant_id: UUID, codename: str) -> str:
+    existing_tenant_id, existing_codename = parse_permission_codename(codename)
+    if existing_tenant_id:
+        if existing_tenant_id == tenant_id:
+            return codename
+        raise ValueError(f"codename already has different tenant_id. {tenant_id} != {existing_tenant_id}")
+    short_id = shorten_tenant_id(tenant_id=tenant_id)
+    return f"{short_id}:{codename}"
+
+
+def parse_permission_codename(codename: str) -> tuple:
+    """parse the tenant id from a codename
+
+    Args:
+        codename (str): Permission codename
+    Returns:
+        tuple(uuid.UUID, str): returns tuple(tenant_id or none, codename)
+
+    """
+    tenant_regex = r"^([A-Za-z0-9_+/-]{22})(?::)([\sa-z0-9_-]+)"
+    match = re.search(tenant_regex, codename)
+    return (lengthen_tenant_id(match.group(1)), match.group(2)) if match else (None, codename)
+
+
+def filter_permissions_by_tenant(tenant_settings: Tenant, queryset):
+    """Apply filter to the Permissions queryset, to only return global and tenant specific permissions.
+
+    Args:
+        tenant_settings (Tenant): current tenant
+        queryset (Permission.objects.all()): the Permissions queryset to filter on
+    """
+    tenant_id_reqex = r"^([A-Za-z0-9_+/-]{22})(?::)"
+
+    short_id = shorten_tenant_id(tenant_id=tenant_settings.id)
+    queryset = queryset.filter(Q(codename__startswith=short_id)) | queryset.exclude(Q(codename__regex=tenant_id_reqex))
+    return queryset
+
+
 def get_category_name_from_perm(perm_name: str) -> str:
     """
     It takes a permission name as a string and returns the name of the category that the permission belongs to
@@ -43,9 +89,12 @@ def get_category_name_from_perm(perm_name: str) -> str:
     :return: The name of the category that the permission is for.
     """
 
-    geo_perm_regex = r"(?:(?<=add_)|(?<=view_)|(?<=change_)|(?<=delete_))([\sa-z0-9_-]+)(?=_geographic_distance)"
+    tenant_id, codename = parse_permission_codename(perm_name)
 
-    result = re.search(geo_perm_regex, perm_name)
+    # GEOGRAPHIC_DISTANCE_SUFFIX
+    geo_perm_regex = r"(?:(?<=add_)|(?<=view_)|(?<=change_)|(?<=delete_))([\sa-z0-9_-]+)(?=_gd)"
+
+    result = re.search(geo_perm_regex, codename)
     return result.group() if result else result
 
 
@@ -65,7 +114,7 @@ def ignore_permission(
         ]
     ):
         return True
-    elif "geographic" in perm and user:
+    elif GEOGRAPHIC_DISTANCE_SUFIX in perm and user:
         if geo_category_name not in event_categories:
             return True
 
@@ -102,7 +151,7 @@ def allowed_permissions(user_instance):
 
     for permission in permissions:
         app_name, perm = permission.split(".", maxsplit=1)
-        if perm.endswith(("create", "read", "update", "delete")):
+        if perm.endswith(ACTIONS):
             resource, verb = perm.rsplit("_", maxsplit=1)
         else:
             verb, resource = perm.split("_", maxsplit=1)
@@ -113,7 +162,7 @@ def allowed_permissions(user_instance):
             continue
 
         # The non-standard permissions are a bit messy, so limit to CRUD verbs.
-        if verb in ("add", "change", "view", "delete") + tuple(method_map.keys()):
+        if verb in GEO_ACTIONS + tuple(method_map.keys()):
             if verb in method_map:
                 verb = method_map[verb]
             container[resource].append(verb)
@@ -191,3 +240,34 @@ def validate_email_available(value):
             _("This email address is already in use: '%(value)s'"),
             params={"value": value},
         )
+
+
+def permission_get_by_natural_key(self, codename, app_label, model):
+    """Support retrieving the Permission by our tenant annotated "activity.event" natural key
+       This is used during a loaddata django command so that we don't need the
+       data to have the tenant_id in the actual json data being loaded.
+
+    Args:
+        codename (str): _description_
+        app_label (str): _description_
+        model (str): _description_
+
+    Returns:
+        Permission: the permission
+    """
+    content_type = ContentType.objects.db_manager(self.db).get_by_natural_key(app_label, model)
+    if app_label == "activity" and model == "event":
+        das_tenant = get_current_tenant()
+        tenant_codename = add_tenant_to_permission_codename(das_tenant.id, codename)
+        try:
+            return self.get(
+                codename=tenant_codename,
+                content_type=content_type,
+            )
+        except Permission.DoesNotExist:
+            pass
+
+    return self.get(
+        codename=codename,
+        content_type=content_type,
+    )

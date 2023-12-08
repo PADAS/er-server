@@ -1,4 +1,5 @@
 from unittest import mock
+from unittest.mock import patch
 
 import pytest
 from django_multitenant.utils import set_current_tenant
@@ -10,6 +11,7 @@ from django.core.management import call_command
 from django.db import transaction
 
 import analyzers.exceptions
+from accounts.utils import permission_get_by_natural_key
 from activity import views
 from activity.models import Event
 from analyzers.immobility import ImmobilityAnalyzer
@@ -23,6 +25,7 @@ from .immobility_test_data import *
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
 class TestImmobilityAnalyzer(BaseAPITest):
     def setUp(self):
         set_current_tenant(self.das_tenant)
@@ -182,7 +185,9 @@ class TestImmobilityAnalyzer(BaseAPITest):
 
         analyze_subject_(str(sub.id))
 
-        permission = Permission.objects.get(codename="analyzer_event_read")
+        permission = Permission.objects.get_by_natural_key(
+            codename="analyzer_event_read", app_label="activity", model="event"
+        )
         perm_set = models.PermissionSet.objects.create(name="Analyzer Event PermissionSet")
         perm_set.permissions.add(permission)
 

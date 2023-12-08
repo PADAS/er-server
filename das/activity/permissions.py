@@ -16,6 +16,7 @@ from rest_framework.permissions import (
 from activity.models import Event, EventCategory, EventType, Patrol, PatrolType
 from observations.models import Subject
 from observations.utils import get_distance_points, is_banned
+from utils.categories import make_eventcategory_permission_codename
 from utils.gis import convert_to_point, get_circle_polygon_from_point
 from utils.tenant import get_tenant_settings
 
@@ -151,8 +152,7 @@ class EventCategoryGeographicPermission(EventCategoryPermissions):
                         else:
                             event_type = Event.objects.get(id=view.kwargs["id"]).event_type
                         geo_perm_name = (
-                            f"activity.{self.http_method_map[request.method]}_"
-                            f"{event_type.category.value}_geographic_distance"
+                            f"activity.{make_eventcategory_permission_codename(event_type.category.value, self.http_method_map[request.method], True)}"
                         ).lower()
                         permitted = user.has_perm(geo_perm_name) and not is_banned(request.user)
                         if key == "GET" and not permitted and user.is_authenticated:
@@ -201,10 +201,7 @@ class EventCategoryGeographicPermission(EventCategoryPermissions):
     def has_object_permission(self, request, view, obj):
         has_perm = super().has_object_permission(request, view, obj)
         if not has_perm:
-            permission_name = (
-                f"activity.{self.http_method_map[request.method]}_"
-                f"{obj.event_type.category.value}_geographic_distance"
-            )
+            permission_name = f"activity.{make_eventcategory_permission_codename(obj.event_type.category.value, self.http_method_map[request.method], True)}"
 
             if request.user.is_superuser or not request.user.has_perm(permission_name):
                 return super().has_object_permission(request, view, obj)
@@ -261,10 +258,7 @@ class EventNotesCategoryGeographicPermissions(EventNotesCategoryPermissions):
                 event = view.get_event()
                 event_type = event.event_type
 
-                geo_perm_name = (
-                    f"activity.{self.http_method_map[request.method]}_"
-                    f"{event_type.category.value}_geographic_distance"
-                )
+                geo_perm_name = f"activity.{make_eventcategory_permission_codename(event_type.category.value, self.http_method_map[request.method], True)}"
                 return request.user.has_perm(geo_perm_name)
         return has_perm
 

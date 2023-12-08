@@ -45,13 +45,13 @@ class TestActivityModelsValuesPerTenant:
             {"model_name": "PatrolType", "values": {}},
         ],
     )
-    def test_create_models_with_same_value_same_tenant(self, data, das_tenant):
+    def test_create_models_with_same_value_same_tenant(self, data, tenant_settings, das_tenant_monkeypatch):
         model_name = data["model_name"]
         model_class = apps.get_model("activity", model_name)
 
         with pytest.raises((IntegrityError, ValidationError)) as error:
             for _ in range(0, 2):
-                model_class.objects.create(value="same-value", das_tenant=das_tenant, **data["values"])
+                model_class.objects.create(value="same-value", das_tenant=das_tenant_monkeypatch, **data["values"])
 
         assert f"activity_{model_name.lower()}_unique_value_across_tenants" in str(
             error

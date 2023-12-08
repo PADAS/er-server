@@ -17,6 +17,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.management import call_command
 from rest_framework.test import APIClient
 
+from accounts.utils import add_tenant_to_permission_codename
 from core.models import DASTenant
 from factories import (
     AccessTokenFactory,
@@ -299,7 +300,11 @@ def events_with_category(request):
 
 @pytest.fixture
 def get_geo_permission_set(request):
-    permissions = Permission.objects.filter(codename__in=request.param)
+    das_tenant = get_current_tenant()
+    permission_codenames = [
+        add_tenant_to_permission_codename(tenant_id=das_tenant.id, codename=codename) for codename in request.param
+    ]
+    permissions = Permission.objects.filter(codename__in=permission_codenames)
     return PermissionSetFactory.create(name="Test Geo Permissions - View", permissions=permissions)
 
 

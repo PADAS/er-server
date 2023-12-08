@@ -3,11 +3,13 @@ import warnings
 
 from django_multitenant.utils import get_current_tenant
 
+from django.contrib.auth.models import PermissionManager
 from django.core import serializers
 from django.core.management.base import CommandError
 from django.core.management.commands.loaddata import Command as LoadDataCommand
 from django.db import DatabaseError, IntegrityError, router
 
+from accounts.utils import permission_get_by_natural_key
 from utils.tenant.commands import TenantCommandMixin
 
 
@@ -16,6 +18,10 @@ class Command(TenantCommandMixin, LoadDataCommand):
         """Load fixtures files for a given label."""
         das_tenant = get_current_tenant()
         show_progress = self.verbosity >= 3
+
+        # here we are monkeypatching Permission get_by_natural_key to search by our tenant codename
+        PermissionManager.get_by_natural_key = permission_get_by_natural_key
+
         for fixture_file, fixture_dir, fixture_name in self.find_fixtures(fixture_label):
             _, ser_fmt, cmp_fmt = self.parse_name(os.path.basename(fixture_file))
             open_method, mode = self.compression_formats[cmp_fmt]

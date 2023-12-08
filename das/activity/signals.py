@@ -3,14 +3,11 @@ import logging
 
 from django_multitenant.utils import get_current_tenant
 
-from django.contrib.auth.models import Permission
-from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.db.models.signals import m2m_changed, post_delete, post_save, pre_save
 from django.dispatch import receiver
 from django.utils.text import slugify
 
-from accounts.models.permissionset import PermissionSet
 from activity.models import (
     PC_DONE,
     PC_OPEN,
@@ -23,6 +20,7 @@ from activity.models import (
     PatrolNote,
     PatrolSegment,
 )
+from activity.util import ensure_eventcategory_perms_exist
 from das_server import celery, pubsub
 from usercontent.tasks import imagefile_rendered
 from utils.features import features
@@ -179,44 +177,8 @@ def ensure_perms_exist(sender, **kwargs):
         raise TenantNotFoundInLocalThreadException()
 
     if kwargs.get("created", False):
-        content_type = ContentType.objects.get(app_label="activity", model="event")
-        category_name = kwargs["instance"].value
-
-        kwargs["instance"].display
-        permissionset_name = kwargs["instance"].auto_permissionset_name
-
-        permissionset, _ = PermissionSet.objects.get_or_create(name=permissionset_name)
-
-        for operation in ["create", "read", "update", "delete"]:
-            codename = "{0}_{1}".format(category_name, operation)
-            defaults = {"name": "Can {1} {0} events".format(category_name, operation), "content_type": content_type}
-            permission, _ = Permission.objects.get_or_create(codename=codename, defaults=defaults)
-
-            permissionset.permissions.add(permission)
-
-
-@receiver(post_save, sender=EventCategory)
-def ensure_geographic_perms_exists(sender, **kwargs):
-    if not get_current_tenant():
-        raise TenantNotFoundInLocalThreadException()
-
-    if kwargs.get("created", False):
-        content_type = ContentType.objects.get(app_label="activity", model="event")
-        category_name = kwargs["instance"].value
-
-        permission_set_name = kwargs["instance"].auto_geographic_permission_set_name
-
-        permission_set, _ = PermissionSet.objects.get_or_create(name=permission_set_name)
-
-        for operation in ["add", "view", "change", "delete"]:
-            codename = f"{operation}_{category_name}_geographic_distance"
-
-            defaults = {
-                "name": f"Can {operation} {category_name} reports in a certain distance",
-                "content_type": content_type,
-            }
-            permission, _ = Permission.objects.get_or_create(codename=codename, defaults=defaults)
-            permission_set.permissions.add(permission)
+        tenant_settings = get_tenant_settings()
+        ensure_eventcategory_perms_exist(kwargs["instance"], tenant_settings.id)
 
 
 @receiver(pre_save, sender=EventCategory)

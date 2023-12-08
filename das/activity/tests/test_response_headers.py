@@ -9,6 +9,7 @@ from activity.models import EventType, PatrolType
 from activity.views.response_headers import (
     EVENT_TYPE_FIELDS,
     PATROL_TYPE_FIELDS,
+    EventTypeQueryset,
     build_etag_header,
     build_event_type_etag_header,
     build_event_type_last_modified_header,
@@ -20,12 +21,12 @@ from activity.views.response_headers import (
     build_patrol_types_last_modified_header,
     concatenate_fields_from_model,
     get_most_recent_update_datetime_by_queryset,
-    EventTypeQueryset
 )
 from factories import EventTypeFactory
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestResponseHeaderBuilders:
     @pytest.fixture
     def empty_request(self, superuser):

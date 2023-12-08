@@ -2,6 +2,11 @@ from django.contrib.gis.geos import Point
 
 from activity.models import Event, EventSource
 from utils import add_base_url
+from utils.categories import (
+    ACTIONS,
+    GEO_ACTIONS,
+    make_eventcategory_permission_codename,
+)
 from utils.json import empty_geojson_feature
 
 
@@ -68,7 +73,6 @@ def resolve_external_event_source(user, external_event_type):
 
 def get_allowed_actions_for_category(user, category_name):
     allowed_actions = set()
-    geo_perm_actions = ("view", "add", "change", "delete")
 
     actions = {
         "create": "create",
@@ -80,9 +84,9 @@ def get_allowed_actions_for_category(user, category_name):
         "view": "read",
     }
 
-    for action in ("create", "update", "read", "delete") + geo_perm_actions:
-        perm_name = f"activity.{category_name}_{action}"
-        geo_perm_name = f"activity.{action}_{category_name}_geographic_distance"
+    for action in ACTIONS + GEO_ACTIONS:
+        perm_name = make_eventcategory_permission_codename(category_name, action, app_label="activity")
+        geo_perm_name = make_eventcategory_permission_codename(category_name, action, True, app_label="activity")
         if user.has_perm(perm_name) or user.has_perm(geo_perm_name):
             action = actions[action]
             allowed_actions.add(action)

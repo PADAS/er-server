@@ -61,6 +61,7 @@ from core.serializers import PointValidator
 from observations.serializers import SubjectRelatedField, SubjectSerializer
 from revision.manager import ACTION_ADDED, ACTION_UPDATED, RevisionMessage
 from usercontent.serializers import UserContentSerializer
+from utils.categories import make_eventcategory_permission_codename
 from utils.feature_representation import FeatureRepresentation
 from utils.gis import get_polygon_info
 from utils.json import parse_bool
@@ -995,7 +996,9 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                 category_name = event.event_type.category.value
                 rep["event_category"] = category_name
                 permission_name = f"activity.{category_name}_read"
-                geo_permission_name = f"activity.view_{event.event_type.category.value}_geographic_distance"
+                geo_permission_name = make_eventcategory_permission_codename(
+                    event.event_type.category.value, "view", True, "activity"
+                )
 
                 if not request.user.has_perm(permission_name) and not request.user.has_perm(geo_permission_name):
                     rep = {"id": rep["id"]}

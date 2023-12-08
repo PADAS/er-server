@@ -1,7 +1,7 @@
 import uuid
 
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
-from django_multitenant.models import TenantModel
+from django_multitenant.models import TenantManager, TenantModel
 
 from django.conf import settings
 from django.contrib.gis.db import models
@@ -32,10 +32,22 @@ class AuditableModel(TimestampedModel):
         abstract = True
 
 
+class DASTenantManager(TenantManager):
+    def get_origin(self):
+        """get the DASTenant origin tenant. The origin is the first tenant and was created with migrations
+
+        Returns:
+            DASTenent: the origin tenant
+
+        """
+        return self.get(domain=settings.SERVER_FQDN)
+
+
 class DASTenant(TenantModel):
     id = models.UUIDField(primary_key=True)
     domain = models.CharField(max_length=100)
     tenant_id = "id"
+    objects = DASTenantManager()
 
     def __str__(self):
         return self.domain
