@@ -2,6 +2,7 @@ import logging
 import uuid
 
 import dateutil.parser
+from django_multitenant.fields import TenantForeignKey
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from sendsms import api
 
@@ -17,8 +18,9 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from accounts.mixins import PermissionsMixin
-from core.models import DASTenant
+from core.models import DASTenant, UUIDModel
 from utils.migrations.columns import default_tenant_id
+from utils.models import CommonTenantManager
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +103,17 @@ def _user_has_module_perms(user, app_label):
     return False
 
 
+class ActAsProfiles(TenantModelMixin, UUIDModel):
+    from_user = TenantForeignKey(
+        "accounts.User", on_delete=models.CASCADE, related_name="others", related_query_name="others"
+    )
+    to_user = TenantForeignKey("accounts.User", on_delete=models.CASCADE)
+
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    objects = CommonTenantManager()
+    tenant_id = "das_tenant_id"
+
+
 class AccountsAbstractUser(TenantModelMixin, AbstractBaseUser, PermissionsMixin):
     """
     An abstract base class implementing a fully featured User model with
@@ -168,6 +181,7 @@ class AccountsAbstractUser(TenantModelMixin, AbstractBaseUser, PermissionsMixin)
         verbose_name=_("user profiles"),
         symmetrical=False,
         help_text=_("The list of user profiles that this user can act as."),
+        through=ActAsProfiles,
     )
     accepted_eula = models.BooleanField(default=False)
     pin = models.CharField(max_length=4, blank=True, null=True)

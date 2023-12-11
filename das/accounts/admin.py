@@ -103,7 +103,8 @@ class PermissionSetAdmin(ModelAdminDisplayingManyToManyFieldMixin, DjangoGroupAd
         }
 
 
-class UserAdmin(DefaultFilterMixin, FieldSetElementMixin, DjangoUserAdmin):
+class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, FieldSetElementMixin, DjangoUserAdmin):
+    checks_class = CustomM2MChecks
     readonly_fields = ("_last_login", "_profiles", "_linked_subject_warning")
     ordering = (
         "username",
