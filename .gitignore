@@ -330,3 +330,5 @@ flycheck_*.el
 pyrightconfig.json
 .env
 .envrc
+
+/.devcontainer/docker-compose-dev.yml
