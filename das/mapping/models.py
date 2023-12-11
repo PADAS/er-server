@@ -4,6 +4,7 @@ import logging
 import os
 import uuid
 
+import tagulous.settings
 from django_multitenant.fields import TenantForeignKey
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from model_utils.managers import InheritanceManager
@@ -704,6 +705,7 @@ class DisplayCategory(TenantModelMixin, TimestampedModel):
 class SpatialFeatureTypeTag(TenantModelMixin, TagModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
+    name = models.CharField(unique=False, max_length=tagulous.settings.NAME_MAX_LENGTH)
 
     class TagMeta:
         pass
