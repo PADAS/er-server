@@ -1,7 +1,7 @@
 import logging
 import uuid
 
-from django_multitenant.fields import TenantOneToOneField
+from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
 from django_multitenant.mixins import TenantModelMixin
 
 from django.contrib.gis.db import models
@@ -10,7 +10,7 @@ from django.db.models.constraints import UniqueConstraint
 from django.utils.translation import gettext_lazy as _
 
 from core.models import TimestampedModel
-from core.models.core import DASTenant
+from core.models.core import DASTenant, UUIDModel
 from observations.models import SourceProvider, SubjectType
 from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager
@@ -28,6 +28,46 @@ NAME_CHANGE_CONFIG_CHOICES = (
     (USE_EXISTING, "Use existing matching subject"),
     (UPDATE_NAME, "Update the name of the existing subject"),
 )
+
+
+class SourceProviderConfigurationNewSubjectExcludedSubjectTypes(TenantModelMixin, UUIDModel):
+    subjecttype = TenantForeignKey(
+        SubjectType,
+        on_delete=models.CASCADE,
+        related_name="new_subjects_excluded_subject_types",
+    )
+    sourceproviderconfiguration = TenantForeignKey(
+        "SourceProviderConfiguration",
+        on_delete=models.CASCADE,
+        related_name="source_provider_from_new_subjects_excluded_subject_types",
+    )
+
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    tenant_id = "das_tenant_id"
+    objects = CommonTenantManager()
+
+    class Meta:
+        db_table = "tracking_newsubjectexcludedsubjecttypes"
+
+
+class SourceProviderConfigurationNameChangeExcludedSubjectTypes(TenantModelMixin, UUIDModel):
+    subjecttype = TenantForeignKey(
+        SubjectType,
+        on_delete=models.CASCADE,
+        related_name="namechange_excluded_subject_types",
+    )
+    sourceproviderconfiguration = TenantForeignKey(
+        "SourceProviderConfiguration",
+        on_delete=models.CASCADE,
+        related_name="source_provider_from_name_change_excluded_subject_types",
+    )
+
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    tenant_id = "das_tenant_id"
+    objects = CommonTenantManager()
+
+    class Meta:
+        db_table = "tracking_namechangeexcludedsubjecttypes"
 
 
 class SourceProviderConfiguration(TenantModelMixin, TimestampedModel):
@@ -53,11 +93,23 @@ class SourceProviderConfiguration(TenantModelMixin, TimestampedModel):
     )
 
     new_subject_excluded_subject_types = models.ManyToManyField(
-        SubjectType, related_name="new_subject_excluded_subject_types", default="wildlife", blank=True, verbose_name=""
+        "observations.SubjectType",
+        related_name="new_subject_excluded_subject_types",
+        through=SourceProviderConfigurationNewSubjectExcludedSubjectTypes,
+        through_fields=("sourceproviderconfiguration", "subjecttype"),
+        default="wildlife",
+        blank=True,
+        verbose_name="",
     )
 
     name_change_excluded_subject_types = models.ManyToManyField(
-        SubjectType, related_name="name_change_excluded_subject_types", default="wildlife", blank=True, verbose_name=""
+        "observations.SubjectType",
+        related_name="name_change_excluded_subject_types",
+        through=SourceProviderConfigurationNameChangeExcludedSubjectTypes,
+        through_fields=("sourceproviderconfiguration", "subjecttype"),
+        default="wildlife",
+        blank=True,
+        verbose_name="",
     )
 
     is_default = models.BooleanField(

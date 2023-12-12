@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.contrib.gis import admin
 from django.db import transaction
 from django.db.utils import IntegrityError
-from django.forms import CheckboxSelectMultiple, modelformset_factory
+from django.forms import modelformset_factory
 from django.http.response import HttpResponseRedirect
 from django.utils.translation import gettext_lazy as _
 
@@ -202,6 +202,20 @@ class AwtAdmin(admin.ModelAdmin):
     list_display = ("name", "username", "host")
 
 
+class SourceProviderConfigurationNewSubjectExcludedSubjectTypesFormInline(admin.TabularInline):
+    model = models.SourceProviderConfigurationNewSubjectExcludedSubjectTypes
+    fields = ("subjecttype", "sourceproviderconfiguration")
+    verbose_name_plural = "New device subject relation"
+    extra = 1
+
+
+class SourceProviderConfigurationNameChangeExcludedSubjectTypesFormInline(admin.TabularInline):
+    model = models.SourceProviderConfigurationNameChangeExcludedSubjectTypes
+    fields = ("subjecttype", "sourceproviderconfiguration")
+    verbose_name_plural = "Device name change relation"
+    extra = 1
+
+
 @admin.register(models.SourceProviderConfiguration)
 class SourceProviderConfigurationAdmin(admin.ModelAdmin):
     list_display = (
@@ -211,15 +225,20 @@ class SourceProviderConfigurationAdmin(admin.ModelAdmin):
         "is_default",
     )
     list_editable = ("is_default",)
+    exclude = (
+        "id",
+        "is_default",
+        "source_provider",
+        "das_tenant",
+    )
 
-    formfield_overrides = {
-        django.db.models.ManyToManyField: {"widget": CheckboxSelectMultiple},
-    }
     fieldsets = (
         ("New device subject handling", {"fields": (("new_device_config", "new_device_match_case"),)}),
-        (None, {"classes": ("new_subject_types",), "fields": ("new_subject_excluded_subject_types",)}),
         ("Device name change handling", {"fields": (("name_change_config", "name_change_match_case"),)}),
-        (None, {"classes": ("name_change_types",), "fields": ("name_change_excluded_subject_types",)}),
+    )
+    inlines = (
+        SourceProviderConfigurationNewSubjectExcludedSubjectTypesFormInline,
+        SourceProviderConfigurationNameChangeExcludedSubjectTypesFormInline,
     )
 
     def has_add_permission(self, request, obj=None):
@@ -239,12 +258,6 @@ class SourceProviderConfigurationAdmin(admin.ModelAdmin):
         js = [
             "admin/js/toggle_subject_types.js",
         ]
-
-    def get_form(self, request, obj=None, change=False, **kwargs):
-        form = super(SourceProviderConfigurationAdmin, self).get_form(request, obj, change, **kwargs)
-        form.base_fields["new_subject_excluded_subject_types"].widget.can_add_related = False
-        form.base_fields["name_change_excluded_subject_types"].widget.can_add_related = False
-        return form
 
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
         try:
