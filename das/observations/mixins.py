@@ -69,7 +69,7 @@ class TwoWaySubjectSourceMixin(object):
         for subject_group in queryset:
             subject_groups_id |= self._get_nested_subject_groups_id(subject_group.id)
 
-        return models.SubjectGroup.objects.filter(id__in=subject_groups_id)
+        return models.SubjectGroup.objects.prefetch_related("children").filter(id__in=subject_groups_id)
 
     def _get_nested_subject_groups_id(self, subject_group_id: str) -> set:
         subject_groups = models.SubjectGroup.objects.get_nested_groups(subject_group_id)
