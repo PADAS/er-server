@@ -197,7 +197,7 @@ class SubjectGroupsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
 
         qparams = self.request.query_params
         if parse_bool(qparams.get("flat")):
-            queryset = models.SubjectGroup.objects.all()
+            queryset = models.SubjectGroup.objects.prefetch_related("children").all()
         else:
             queryset = models.SubjectGroup.objects.get_non_cyclic_subjectgroups()
 
