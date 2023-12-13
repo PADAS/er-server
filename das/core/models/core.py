@@ -69,7 +69,7 @@ class HierarchyManager(TenantManagerMixin, models.Manager):
         children = set() if not children else children
         if node not in children:
             children.add(node)
-            for f in node.children.all():
+            for f in node.children.prefetch_related("children").all():
                 if f not in children:
                     yield f
                     for gchild in self.get_descendants(f, children):
