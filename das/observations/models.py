@@ -856,7 +856,7 @@ class SubjectSubType(TenantModelMixin, TimestampedModel):
     display = models.CharField(
         help_text=_("Subject Sub-Type description"), max_length=100, blank=True, verbose_name="Subject Sub-Type"
     )
-    subject_type = TenantForeignKey(SubjectType, null=False, on_delete=models.PROTECT, default=get_default_subject_type)
+    subject_type = TenantForeignKey(SubjectType, null=False, on_delete=models.PROTECT)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     ordernum = models.SmallIntegerField(blank=True, null=True)
@@ -875,6 +875,11 @@ class SubjectSubType(TenantModelMixin, TimestampedModel):
         ]
 
     objects = SubjectSubTypeManager()
+
+    def save(self, *args, **kwargs):
+        if not self.subject_type_id:
+            self.subject_type_id = get_default_subject_type()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return str(self.value)
@@ -923,7 +928,7 @@ class SubjectGroupManager(HierarchyManager, models.Manager.from_queryset(Subject
         queryset = self.all() if single_sg else self.filter(_parents=None)
         cyclic_sg = get_cyclic_subjectgroup()
 
-        for o in queryset:
+        for o in queryset.prefetch_related("children"):
             descendents = [q.id for q in o.get_descendants()]
             if bool(set(descendents) & set(cyclic_sg)):
                 queryset = queryset.exclude(id=o.id)
@@ -1335,7 +1340,7 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
         help_text=_("This subject is actively shown in visualizations."),
     )
     common_name = TenantForeignKey("observations.CommonName", on_delete=models.PROTECT, blank=True, null=True)
-    subject_subtype = TenantForeignKey(SubjectSubType, default=get_default_subject_subtype, on_delete=models.PROTECT)
+    subject_subtype = TenantForeignKey(SubjectSubType, on_delete=models.PROTECT)
     import_gpx_data = TenantForeignKey("observations.GPXTrackFile", on_delete=models.SET_NULL, null=True, blank=True)
 
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
@@ -1519,6 +1524,11 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
             subject_groups.add(subject_group)
             subject_groups = subject_groups.union(set(subject_group.get_ancestors()))
         return subject_groups
+
+    def save(self, *args, **kwargs):
+        if not self.subject_subtype_id:
+            self.subject_subtype_id = get_default_subject_subtype()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.name}"  # ({self.subject_subtype.display})'
