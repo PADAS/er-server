@@ -228,7 +228,7 @@ def generate_user_string_etag(user: User, include_profiles: Optional[bool] = Tru
 def get_profiles(users: List[uuid4]):
     return (
         User.objects.annotate(profiles_count=Count("act_as_profiles"))
-        .filter(is_staff=False, is_active=True)
+        .filter(is_staff=False, is_superuser=False, is_active=True)
         .exclude(Q(id__in=users) | Q(profiles_count__gt=0))
         .order_by("username")
     )
