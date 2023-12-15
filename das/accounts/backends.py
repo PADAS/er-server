@@ -32,7 +32,7 @@ def act_as_user_in_request(user, request):
             message = 'User Profile %s is staff or superuser' % (
                 profile_user.pk,)
             logger.info(message)
-            return exceptions.PermissionDenied(message)
+            raise exceptions.PermissionDenied(message)
 
         logger.info('User %s is acting as user %s.', logged_in_user.pk,
                     profile_user.pk)
