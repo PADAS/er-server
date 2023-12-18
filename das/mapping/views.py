@@ -6,7 +6,7 @@ import simplejson as json
 from rest_framework_extensions.etag.decorators import etag
 
 from django.core.serializers import serialize
-from django.db.models import F
+from django.db.models import Count, F
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -89,14 +89,17 @@ class FeatureSetListJsonView(APIView):
 
     def get(self, request):
         def feature_types(featureset, include_hidden):
-            feature_types_qs = (
-                featureset.spatialfeaturetype_set.all()
-                if include_hidden
-                else featureset.spatialfeaturetype_set.filter(is_visible=True)
-            )
+            if include_hidden:
+                feature_types_qs = featureset.spatialfeaturetype_set.annotate(
+                    spatialfeature_count=Count("spatialfeature")
+                ).all()
+            else:
+                feature_types_qs = featureset.spatialfeaturetype_set.annotate(
+                    spatialfeature_count=Count("spatialfeature")
+                ).filter(is_visible=True)
 
             for t in feature_types_qs:
-                yield dict(name=t.name, id=str(t.id), feature_count=t.feature_count)
+                yield dict(name=t.name, id=str(t.id), feature_count=t.spatialfeature_count)
 
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
         response_data = {"features": []}
