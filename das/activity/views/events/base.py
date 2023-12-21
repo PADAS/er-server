@@ -663,12 +663,15 @@ class EventsView(ListCreateAPIView):
         user_subjects = list(Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True))
         queryset = queryset.filter(Q(related_subjects__isnull=True) | Q(related_subjects__in=user_subjects))
 
+        queryset = queryset.select_related("event_type")
         queryset = queryset.prefetch_related(Prefetch("related_subjects"))
         queryset = queryset.prefetch_related(Prefetch("event_type"))
         queryset = queryset.prefetch_related(Prefetch("created_by_user"))
         queryset = queryset.prefetch_related(Prefetch("reported_by"))
         queryset = queryset.prefetch_related(Prefetch("out_relationships"))
         queryset = queryset.prefetch_related(Prefetch("patrol_segments"))
+        queryset = queryset.prefetch_related(Prefetch("geometries"))
+        queryset = queryset.prefetch_related(Prefetch("event_type__category"))
 
         permitted_categories = get_permitted_event_categories(self.request)
 
