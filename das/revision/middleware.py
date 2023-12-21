@@ -1,13 +1,25 @@
-from functools import partial
+import logging
+from threading import local
 
 from django.db.models import signals
 
 from revision.manager import RevisionMixin
 
+logger = logging.getLogger(__name__)
+request_context = local()
+request_context.user = None
+
+
+def attach_revision_user_to_instance(sender, instance, **kwargs):
+    if issubclass(sender, RevisionMixin):
+        setattr(instance, "revision_user", request_context.user)
+        logger.debug("Setting revision user to '%s'", request_context.user)
+
 
 class RevisionMiddleware(object):
     def __init__(self, get_response):
         self.get_response = get_response
+        signals.pre_save.connect(attach_revision_user_to_instance, weak=False)
         # One-time configuration and initialization.
 
     def __call__(self, request):
@@ -25,23 +37,13 @@ class RevisionMiddleware(object):
         return response
 
     def _process_request(self, request):
-        if request.method not in ('GET', 'HEAD', 'OPTIONS', 'TRACE'):
-            if hasattr(request, 'user') and request.user.is_authenticated:
-                user = request.user
+        if request.method not in ("GET", "HEAD", "OPTIONS", "TRACE"):
+            if hasattr(request, "user") and request.user.is_authenticated:
+                request_context.user = request.user
             else:
-                user = None
-            pre_save_info = partial(self._pre_save_info, user)
-
-            signals.pre_save.connect(
-                pre_save_info,
-                dispatch_uid=(self.__class__, request,),
-                weak=False,
-            )
+                request_context.user = None
 
     def _process_response(self, request, response):
-        signals.pre_save.disconnect(dispatch_uid=(self.__class__, request,))
+        request_context.user = None
+        logger.debug("Clear revision user in current thread")
         return response
-
-    def _pre_save_info(self, user, sender, instance, **kwargs):
-        if issubclass(sender, RevisionMixin):
-            setattr(instance, 'revision_user', user)
