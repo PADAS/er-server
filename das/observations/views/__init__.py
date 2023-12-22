@@ -762,7 +762,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
         self.subject_linked_sources = []
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
-        queryset = models.Subject.objects.all()
+        queryset = models.Subject.objects.all().select_related("subject_subtype__subject_type")
         queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24)
 
         return queryset
