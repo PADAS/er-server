@@ -60,7 +60,6 @@ from .fields import (
     LeaderRelatedField,
     PatrolTypeRelatedField,
 )
-from .helpers import make_feature
 
 
 def update_patrol_state(validated_data):
@@ -192,9 +191,7 @@ class PatrolSegmentEventSerializer(EventSerializerMixin, ModelSerializer):
 
     def to_representation(self, event):
         rep = super().to_representation(event)
-        if event.location is not None:
-            geodata = make_feature(self.context["request"], event)
-            rep["geojson"] = geodata
+        rep["geojson"] = self.get_geojson(self.context["request"], event)
 
         if event.event_type:
             rep["is_collection"] = event.event_type.is_collection
