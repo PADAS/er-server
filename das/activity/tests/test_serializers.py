@@ -12,11 +12,13 @@ from activity.libs import constants as activities_constants
 from activity.models import Event, EventGeometry, EventType, Patrol
 from activity.serializers import (
     DuplicateResourceException,
+    EventHeaderSerializer,
     EventSerializer,
     PatrolSerializer,
 )
 from activity.serializers.fields import CoordinateField
 from activity.serializers.geometries import EventGeometryRevisionSerializer
+from core.utils import NonHttpRequest
 
 
 class TestCoordinateField(TestCase):
@@ -558,3 +560,70 @@ class TestEventGeometrySerializer:
             "last_name": "",
             "username": "",
         }
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestEventHeaderSerializer:
+    def test_serialized_event_format(self, event):
+        event.end_time = datetime.now()
+
+        request = NonHttpRequest()
+        serialized_event = EventHeaderSerializer(event, context={"request": request}).data
+
+        assert isinstance(serialized_event["id"], str)
+        assert isinstance(serialized_event["message"], str)
+        assert isinstance(serialized_event["time"], datetime)
+        assert isinstance(serialized_event["end_time"], str)
+        assert isinstance(serialized_event["serial_number"], int)
+        assert isinstance(serialized_event["priority"], int)
+        assert isinstance(serialized_event["event_type"], str)
+        assert isinstance(serialized_event["icon_id"], str)
+        assert isinstance(serialized_event["created_at"], str)
+        assert isinstance(serialized_event["title"], str)
+        assert isinstance(serialized_event["state"], str)
+        assert isinstance(serialized_event["event_category"], str)
+        assert isinstance(serialized_event["is_collection"], bool)
+
+    def test_serialized_event_with_point(self, event):
+        event.location = Point(-103.313486, 20.420935)
+        event.save()
+        request = NonHttpRequest()
+
+        serialized_event = EventHeaderSerializer(event, context={"request": request}).data
+
+        self._assert_event_fields(serialized_event, event)
+        assert serialized_event["geojson"]["type"] == "Feature"
+        assert serialized_event["geojson"]["geometry"]["type"] == "Point"
+        assert serialized_event["geojson"]["geometry"]["coordinates"] == [
+            event.location.coords[0],
+            event.location.coords[1],
+        ]
+
+    def test_serialized_event_with_polygon(self, event, event_geometry_with_polygon):
+        event = event_geometry_with_polygon.event
+        request = NonHttpRequest()
+
+        serialized_event = EventHeaderSerializer(event, context={"request": request}).data
+
+        self._assert_event_fields(serialized_event, event)
+        assert serialized_event["geojson"]["type"] == "Feature"
+        assert serialized_event["geojson"]["geometry"]["type"] == "Polygon"
+        assert serialized_event["geojson"]["geometry"]["coordinates"] == [
+            [[coords[0], coords[1]] for coords in event.geometries.first().geometry.coords[0]]
+        ]
+
+    def _assert_event_fields(self, serialized_event, event):
+        assert serialized_event["id"] == str(event.id)
+        assert serialized_event["message"] == str(event.message)
+        assert serialized_event["time"] == event.event_time
+        assert serialized_event["end_time"] == event.end_time
+        assert serialized_event["serial_number"] == event.serial_number
+        assert serialized_event["priority"] == event.priority
+        assert serialized_event["event_type"] == event.event_type.value
+        assert serialized_event["icon_id"] == event.event_type.icon_id
+        assert serialized_event["created_at"] == event.created_at.astimezone().isoformat()
+        assert serialized_event["title"] == event.title
+        assert serialized_event["state"] == event.state
+        assert serialized_event["event_category"] == event.event_type.category.value
+        assert serialized_event["is_collection"] == event.event_type.is_collection

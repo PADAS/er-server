@@ -288,6 +288,11 @@ def dummy_cache(settings):
 
 
 @pytest.fixture
+def event():
+    return EventFactory.create()
+
+
+@pytest.fixture
 def five_events():
     return EventFactory.create_batch(5)
 

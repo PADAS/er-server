@@ -325,6 +325,8 @@ class EventNoteSerializer(ModelSerializer):
 
 
 class EventSerializerMixin:
+    feature_representation = FeatureRepresentation()
+
     def to_internal_value(self, data):
         internal_value = super().to_internal_value(data)
 
@@ -486,6 +488,20 @@ class EventSerializerMixin:
             "username": event.provenance,
         }
 
+    def get_geojson(self, request, event):
+        geojson = None
+        if geometry := event.geometries.first():
+            geojson = self.feature_representation.get_feature(request, geometry)
+        if hasattr(event, "location") and event.location:
+            point_geojson = self.feature_representation.get_feature(request, event)
+            if geojson:
+                geo_collection = utils.json.empty_geojson_featurecollection()
+                geo_collection["features"].extend((geojson, point_geojson))
+                geojson = geo_collection
+            else:
+                geojson = point_geojson
+        return geojson
+
 
 class EventHeaderSerializer(EventSerializerMixin, ModelSerializer):
     """
@@ -529,10 +545,7 @@ class EventHeaderSerializer(EventSerializerMixin, ModelSerializer):
 
             image_url = resolve_image_url(event)
             rep["image_url"] = utils.add_base_url(request, image_url)
-
-            if event.location is not None:
-                geodata = make_feature(self.context["request"], event)
-                rep["geojson"] = geodata
+            rep["geojson"] = self.get_geojson(request, event)
 
         if event.event_type and event.event_type.category:
             rep["event_category"] = event.event_type.category.value
@@ -733,7 +746,6 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
     related_subjects = SubjectRelatedField(many=True, required=False)
 
     patrol_segments = PrimaryKeyRelatedField(many=True, required=False, queryset=PatrolSegment.objects.all())
-    feature_representation = FeatureRepresentation()
 
     def create(self, validated_data):
         geometries = validated_data.pop("geometries", None)
@@ -1002,11 +1014,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             image_url = resolve_image_url(event)
             rep["image_url"] = utils.add_base_url(request, image_url)
 
-            rep["geojson"] = None
-            if self._has_instance_feature(event):
-                rep["geojson"] = self._get_geojson(request, event)
-                if self._has_both_features(event):
-                    rep["geojson"] = self._append_point_feature(request, event, rep)
+            rep["geojson"] = self.get_geojson(request, event)
 
         if event.event_type:
             rep["is_collection"] = event.event_type.is_collection
@@ -1046,24 +1054,6 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             EventGeometryRevisionSerializer(geometry.revision.all(), many=True).data
             for geometry in event.geometries.all()
         ]
-
-    def _has_both_features(self, instance):
-        return hasattr(instance, "location") and instance.location and instance.geometries.last()
-
-    def _has_instance_feature(self, instance):
-        return hasattr(instance, "location") and instance.location or instance.geometries.last()
-
-    def _get_geojson(self, request, instance):
-        if hasattr(instance, "location") and instance.location:
-            pass
-        elif instance.geometries.last():
-            instance = instance.geometries.last()
-        return self.feature_representation.get_feature(request, instance)
-
-    def _append_point_feature(self, request, instance, representation):
-        geometry_rep = copy.deepcopy(representation.get("geometry", {}))
-        geometry_rep["features"].append(self.feature_representation.get_feature(request, instance))
-        return geometry_rep
 
     def _create_geometries(self, event: Event, geometry: dict):
         geometry_type = geometry.get("type")
