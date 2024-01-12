@@ -82,16 +82,21 @@ method_map = {
 }
 
 
+def get_user_permissions(user):
+    permissions = set()
+    for backend in auth.get_backends():
+        if hasattr(backend, "get_all_permissions"):
+            permissions.update(backend.get_all_permissions(user))
+    return permissions
+
+
 def allowed_permissions(user_instance):
     """
     Get Permission from available backends.
     :param user_instance: The user who's permissions we're resolving.
     :return: a dictionary as content for our API.
     """
-    permissions = set()
-    for backend in auth.get_backends():
-        if hasattr(backend, "get_all_permissions"):
-            permissions.update(backend.get_all_permissions(user_instance))
+    permissions = get_user_permissions(user_instance)
 
     container = defaultdict(list)
     user_categories_and_geo_categories = get_categories_and_geo_categories(user_instance)
@@ -147,9 +152,13 @@ def generate_user_string_etag(user: User, include_profiles: Optional[bool] = Tru
         profiles = user.act_as_profiles.all()
         for profile in profiles:
             base_string += ":" + generate_user_string_etag(user=profile, include_profiles=False)
-    permissions = user.permission_sets.all()
-    if permissions.exists():
-        base_string += ":" + ":".join((str(permission.id) for permission in permissions))
+    permission_sets = user.permission_sets.all()
+    if permission_sets.exists():
+        base_string += ":" + ":".join((str(permission_set.id) for permission_set in permission_sets))
+    permissions = get_user_permissions(user)
+    if permissions:
+        base_string += ":" + ":".join((permission for permission in permissions))
+
     return base_string
 
 
