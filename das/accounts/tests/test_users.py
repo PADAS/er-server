@@ -1,5 +1,3 @@
-import uuid
-
 import pytest
 from django_multitenant.utils import get_current_tenant, set_current_tenant
 from faker import Faker
@@ -21,7 +19,7 @@ class TestUserTenant:
         for tenant in five_tenants:
             set_current_tenant(tenant)
             user = User.objects.create_user(username=faker.profile()["username"], password="password", email=same_email)
-            assert uuid.UUID(tenant.id) == user.das_tenant.id
+            assert tenant.id == user.das_tenant.id
             assert same_email == user.email
 
         set_current_tenant(previous_tenant)
