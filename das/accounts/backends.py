@@ -10,7 +10,8 @@ from django.contrib.contenttypes.models import ContentType
 from rest_framework import exceptions
 
 from accounts.models import User
-from accounts.utils import parse_permission_codename
+from accounts.utils import filter_permissions_by_tenant, parse_permission_codename
+from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger("django.request")
 
@@ -113,7 +114,9 @@ class AccountsModelBackend(ModelBackend):
         can_cache = user_obj.is_superuser or not (obj and hasattr(obj, "get_obj_permission_set_ids"))
         if not can_cache or not hasattr(user_obj, "_group_perm_cache"):
             if user_obj.is_superuser:
-                queryset = Permission.objects.all()
+                queryset = filter_permissions_by_tenant(
+                    tenant_settings=get_tenant_settings(), queryset=Permission.objects.all()
+                )
             else:
                 user_ps_ids = user_obj.get_all_permission_sets(only_ids=True)
                 if obj and hasattr(obj, "get_obj_permission_set_ids"):
