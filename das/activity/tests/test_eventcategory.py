@@ -1,11 +1,13 @@
 from copy import deepcopy
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import django_multitenant.utils
 import pytest
 
 import django.contrib.auth
 from django.urls import reverse
 
+import utils.tenant.thread
 from accounts.views import UserView
 from activity.models import EventCategory
 from activity.views import EventCategoriesView, EventCategoryView
@@ -14,6 +16,7 @@ from core.tests import BaseAPITest
 User = django.contrib.auth.get_user_model()
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class EventCategoryTest(BaseAPITest):
     def setUp(self):
         super().setUp()
@@ -55,6 +58,24 @@ class EventCategoryTest(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = UserView.as_view()(request, id=self.user.id)
         self.assertEqual(response.status_code, 200)
+
+    @pytest.mark.usefixtures("tenant_two")
+    def test_superuser_does_not_see_permissions_from_other_tenant(self):
+        thread_locals = MagicMock()
+        thread_locals.tenant = self.tenant_two_object
+        with patch.object(django_multitenant.utils, "_thread_locals", thread_locals):
+            thread = MagicMock()
+            thread.tenant_object = self.tenant_two_settings
+            with patch.object(utils.tenant.thread, "_local_thread", thread):
+                EventCategory.objects.create(value="superuser_test", display="Testing")
+
+        url = "api/v1.0/user/me"
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.user)
+        response = UserView.as_view()(request, id=self.user.id)
+        self.assertEqual(response.status_code, 200)
+
+        assert "superuser_test" not in response.data["permissions"].keys()
 
     def test_create_event_categories_perms(self):
         # add new event-category (user with event-category permission)
