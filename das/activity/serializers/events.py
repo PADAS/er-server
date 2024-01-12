@@ -189,7 +189,10 @@ class EventTypeSerializer(ModelSerializer):
                 "is_active",
                 "schema",
                 "default_priority",
+                "default_state",
                 "geometry_type",
+                "resolve_time",
+                "auto_resolve",
             )
         )
 
