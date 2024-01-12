@@ -447,6 +447,8 @@ def tenant_two(request, monkeypatch, one_tenant):
 
     if getattr(request, "cls", None):
         request.cls.tenant_two = one_tenant
+        request.cls.tenant_two_settings = tenant_settings
+        request.cls.tenant_two_object = das_tenant
 
     yield one_tenant
 
@@ -469,7 +471,7 @@ def tenant_settings(request, monkeypatch, tenant):
     For example self.tenant_settings.domain="test.com" """
     thread = MagicMock()
     thread.tenant_object = tenant
-    monkeypatch.setattr("utils.tenant.thread._get_local_thread", MagicMock(return_value=thread))
+    monkeypatch.setattr("utils.tenant.thread._local_thread", thread)
     monkeypatch.setattr("utils.tenant.thread.set_tenant_settings", MagicMock(return_value=None))
     monkeypatch.setattr("utils.tenant.thread.clear_tenant_settings", MagicMock(return_value=None))
     if getattr(request, "cls", None):
@@ -543,15 +545,3 @@ def five_communities():
 @pytest.fixture
 def source_group():
     return SourceGroupFactory()
-
-
-@pytest.fixture
-def five_tenants():
-    previous_tenant = get_current_tenant()
-
-    yield TenantFactory.create_batch(
-        size=5,
-        id=Faker("uuid4"),
-        domain=Faker("domain_name"),
-    )
-    set_current_tenant(previous_tenant)

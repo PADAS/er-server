@@ -98,7 +98,7 @@ class TestUsernameSidMap:
                         "username": "admin",
                         "sid": "68rT86c1Xq_-u6ziAAAF",
                         "bbox": None,
-                        "tenantId": tenant.id,
+                        "tenantId": str(tenant.id),
                         "domain": tenant.domain,
                     }
                 ),
@@ -110,7 +110,7 @@ class TestUsernameSidMap:
                         "username": "admin",
                         "sid": "AAF68r86c1Xqzi_-u6TA",
                         "bbox": None,
-                        "tenantId": tenant.id,
+                        "tenantId": str(tenant.id),
                         "domain": tenant.domain,
                     }
                 ),

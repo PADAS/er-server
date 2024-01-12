@@ -320,6 +320,12 @@ class SubjectChangeListForm(forms.ModelForm):
         queryset=SubjectSubType.objects.order_by("display").select_related("subject_type")
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["subject_subtype"].queryset = SubjectSubType.objects.order_by("display").select_related(
+            "subject_type"
+        )
+
     class Meta:
         model = Subject
         fields = ("name", "is_active")

@@ -51,7 +51,13 @@ class TenantFactory(factory.django.DjangoModelFactory):
         model = DASTenant
         django_get_or_create = ("id",)
 
-    id = "c0973be2-8e11-4cb8-8463-897fb96391d0"
+    @classmethod
+    def _adjust_kwargs(cls, **kwargs):
+        if not isinstance(kwargs["id"], uuid.UUID):
+            kwargs["id"] = uuid.UUID(kwargs["id"])
+        return kwargs
+
+    id = uuid.UUID("c0973be2-8e11-4cb8-8463-897fb96391d0")
     domain = "zoo.com"
 
 
