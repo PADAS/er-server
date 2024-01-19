@@ -126,7 +126,9 @@ class SourceGroupManager(HierarchyManager):
     use_in_migrations = True
 
     def get_default(self):
-        return self.get(id=DEFAULT_SOURCE_GROUP_ID)
+        defaults = dict(name="Sources")
+        sg, created = self.get_or_create(id=DEFAULT_SOURCE_GROUP_ID, defaults=defaults)
+        return sg
 
     def get_by_natural_key(self, name):
         return self.get(**{"name": name})
