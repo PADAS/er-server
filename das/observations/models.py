@@ -127,8 +127,8 @@ class SourceGroupManager(HierarchyManager):
 
     def get_default(self):
         defaults = dict(name="Sources")
-        sg, created = self.get_or_create(id=DEFAULT_SOURCE_GROUP_ID, defaults=defaults)
-        return sg
+        source_group, created = self.get_or_create(id=DEFAULT_SOURCE_GROUP_ID, defaults=defaults)
+        return source_group
 
     def get_by_natural_key(self, name):
         return self.get(**{"name": name})
@@ -1039,9 +1039,9 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         allowed_subject_groups = SubjectGroup.objects.all().filter(permission_sets__in=user.get_all_permission_sets())
 
         effective_subject_group_set = set()
-        for sg in allowed_subject_groups:
-            effective_subject_group_set.add(sg)
-            effective_subject_group_set.update(sg.get_descendants())
+        for subject_group in allowed_subject_groups:
+            effective_subject_group_set.add(subject_group)
+            effective_subject_group_set.update(subject_group.get_descendants())
 
         if include_linked:
             return self.filter(Q(groups__in=effective_subject_group_set) | Q(linked_user=user))
