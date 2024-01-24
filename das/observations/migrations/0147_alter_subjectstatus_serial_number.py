@@ -23,7 +23,6 @@ observations_models = [
     "SubjectStatusLatest",
     "UserSession",
     "Region",
-    "SubjectMaximumSpeed",
     "GPXTrackFile",
     "Message",
     "Announcement",
