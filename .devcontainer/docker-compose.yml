@@ -3,7 +3,7 @@ services:
   ## ----------------------------- DB -----------------------------
   postgis:
     container_name: postgis
-    image: kartoza/postgis:14-3.3
+    image: kartoza/postgis:9.6-2.4
     environment:
       - POSTGRES_USER=das
       - POSTGRES_DB=das
