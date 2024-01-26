@@ -295,7 +295,7 @@ temp_content_type_id INTEGER;
 distinct_records INTEGER;
 BEGIN
 -- disable triggers
-ALTER TABLE public.django_content_type DISABLE TRIGGER ALL;
+set session_replication_role to replica;
 
 select count(*) into distinct_records
 from django_content_type dct
@@ -356,7 +356,7 @@ END LOOP;
 END IF;
 
 -- enable triggers
-ALTER TABLE public.django_content_type ENABLE TRIGGER ALL;
+set session_replication_role to default;
 
 END;
 $$
