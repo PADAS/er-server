@@ -1,6 +1,7 @@
 
 -- Role assignments --
 ALTER ROLE :app_role_name WITH LOGIN;
+ALTER ROLE :app_role_name REPLICATION;
 ALTER ROLE :migration_role_name WITH LOGIN;
 ALTER ROLE :analytics_role_name WITH LOGIN;
 
@@ -13,6 +14,7 @@ ALTER DATABASE :db_name OWNER to :app_role_name;
 GRANT :app_role_name to :app_user_name WITH ADMIN OPTION;
 GRANT :app_role_name, :migration_role_name to :migration_user_name WITH ADMIN OPTION;
 GRANT :analytics_role_name to :analytics_user_name;
+ALTER ROLE :app_user_name REPLICATION;
 
 -- Temporarily give superpowers to :app_role_name
 GRANT cloudsqlsuperuser to :app_role_name;
@@ -55,4 +57,3 @@ ALTER DEFAULT PRIVILEGES FOR ROLE :app_user_name IN SCHEMA public, topology GRAN
 ALTER DEFAULT PRIVILEGES FOR ROLE :app_user_name IN SCHEMA public, topology GRANT ALL PRIVILEGES ON SEQUENCES TO :app_role_name, :migration_role_name WITH GRANT OPTION;
 ALTER DEFAULT PRIVILEGES FOR ROLE :app_user_name IN SCHEMA public, topology GRANT SELECT ON TABLES TO :analytics_role_name;
 ALTER DEFAULT PRIVILEGES FOR ROLE :app_user_name IN SCHEMA public, topology GRANT USAGE, SELECT ON SEQUENCES TO :analytics_role_name;
-
