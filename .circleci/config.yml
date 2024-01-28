@@ -204,7 +204,7 @@ jobs:
     steps:
       - checkout
       # TODO: Add "RELYANCE_TOKEN" as circleCI environment variable. The token is available in Step 2 on the "Source Code Integration" tab in the platform.
-      - run: docker pull gcr.io/relyance-ext/compliance_inspector:release && docker run --rm -v `pwd`:/repo --env 'API_KEY=$RELYANCE_TOKEN' gcr.io/relyance-ext/compliance_inspector:release
+      - run: docker pull gcr.io/relyance-ext/compliance_inspector:release && docker run --rm -v `pwd`:/repo --env 'API_KEY=$RELYANCE_TOKEN_V2' gcr.io/relyance-ext/compliance_inspector:release
   check_for_abandoned_workspaces:
     executor: circleci_executor
     steps:
