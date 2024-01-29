@@ -287,78 +287,129 @@ base_content_types = [
 ]
 
 SQL = """
-DO $$
-DECLARE row RECORD;
-old_id INTEGER;
-new_id INTEGER;
-temp_content_type_id INTEGER;
-distinct_records INTEGER;
-BEGIN
--- disable triggers
-set session_replication_role to replica;
+DO
+$$
+    DECLARE
+        row                  RECORD;
+        old_id               INTEGER;
+        new_id               INTEGER;
+        temp_content_type_id INTEGER;
+        distinct_records     INTEGER;
+    BEGIN
+        select count(*)
+        into distinct_records
+        from django_content_type dct
+                 full outer join temp_content_type tct on dct.id = tct.id
+        where dct is distinct from tct;
 
-select count(*) into distinct_records
-from django_content_type dct
-         full outer join temp_content_type tct on dct.id = tct.id
-where dct is distinct from tct;
+        if distinct_records > 0 then
+            -- DROP FK
+            alter table auth_permission
+                drop constraint auth_permission_content_type_id_2f476e4b_fk_django_co;
+            alter table activity_event
+                drop constraint activity_event_reported_by_content__81040fb0_fk_django_co;
+            alter table activity_eventattachment
+                drop constraint activity_eventattach_content_type_id_b6440fce_fk_django_co;
+            alter table activity_eventfile
+                drop constraint activity_eventfile_usercontent_type_id_b3a3b1ed_fk_django_co;
+            alter table activity_patrolfile
+                drop constraint activity_patrolfile_usercontent_type_id_031d6880_fk_django_co;
+            alter table activity_patrolsegment
+                drop constraint activity_patrolsegme_leader_content_type__165f10e0_fk_django_co;
+            alter table observations_message
+                drop constraint observations_message_receiver_content_typ_56719c81_fk_django_co;
+            alter table observations_message
+                drop constraint observations_message_sender_content_type__ec59feb7_fk_django_co;
+            alter table tracking_sourceplugin
+                drop constraint tracking_sourceplugi_plugin_type_id_0e392da4_fk_django_co;
 
-if distinct_records > 0 then
-    for row in select * from django_content_type
-LOOP
+            for row in select * from django_content_type
+                LOOP
+                    select id
+                    into temp_content_type_id
+                    from temp_content_type
+                    where app_label = row.app_label and model = row.model;
+                    if not row.id = temp_content_type_id then
+                        update django_content_type set id = row.id + 1000 where id = row.id;
+                    end if;
+                END LOOP;
 
-    select id into temp_content_type_id from temp_content_type where app_label = row.app_label and model = row.model;
-    if not row.id = temp_content_type_id then
-        update django_content_type set id = row.id + 1000 where id = row.id;
-    end if;
-END LOOP;
+            for row in select * from django_content_type
+                LOOP
+                    if not row.model = 'tempcontenttype' then
+                        if row.id > 1000 then
+                            old_id = row.id - 1000;
+                            select id into new_id from temp_content_type where app_label = row.app_label
+                                                                           and model = row.model;
+                            update public.django_content_type set id = new_id where id = row.id;
+                            update auth_permission set content_type_id = new_id where content_type_id = old_id;
+                            update activity_event
+                            set reported_by_content_type_id = new_id
+                            where reported_by_content_type_id = old_id;
+                            update activity_eventattachment set content_type_id = new_id where content_type_id = old_id;
+                            update activity_eventfile
+                            set usercontent_type_id = new_id
+                            where usercontent_type_id = old_id;
+                            update activity_patrolfile
+                            set usercontent_type_id = new_id
+                            where usercontent_type_id = old_id;
+                            update activity_patrolsegment
+                            set leader_content_type_id = new_id
+                            where leader_content_type_id = old_id;
+                            update django_admin_log set content_type_id = new_id where content_type_id = old_id;
+                            update analyzers_subjectanalyzerresult
+                            set subject_analyzer_content_type_id = new_id
+                            where subject_analyzer_content_type_id = old_id;
+                            update observations_message
+                            set sender_content_type_id = new_id
+                            where sender_content_type_id = old_id;
+                            update observations_message
+                            set receiver_content_type_id = new_id
+                            where receiver_content_type_id = old_id;
+                            update tracking_sourceplugin set plugin_type_id = new_id where plugin_type_id = old_id;
+                        end if;
+                    end if;
+                END LOOP;
 
--- second loop
-for row in select * from django_content_type
-LOOP
-
-    if not row.model = 'tempcontenttype' then
-        if row.id > 1000 then
-
-        old_id = row.id - 1000;
-
-            select id into new_id from temp_content_type where app_label = row.app_label and model = row.model;
-
-            update public.django_content_type set id = new_id where id = row.id;
-
-            update auth_permission set content_type_id = new_id where content_type_id = old_id;
-
-            update activity_event set reported_by_content_type_id = new_id where reported_by_content_type_id=old_id;
-
-            update activity_eventattachment set content_type_id = new_id where content_type_id=old_id;
-
-            update activity_eventfile set usercontent_type_id = new_id where usercontent_type_id=old_id;
-
-            update activity_patrolfile set usercontent_type_id = new_id where usercontent_type_id=old_id;
-
-            update activity_patrolsegment set leader_content_type_id = new_id where leader_content_type_id=old_id;
-
-            update django_admin_log set content_type_id = new_id where content_type_id=old_id;
-
-            update analyzers_subjectanalyzerresult set subject_analyzer_content_type_id = new_id where subject_analyzer_content_type_id=old_id;
-
-            update auth_permission set content_type_id = new_id where content_type_id = old_id;
-
-            update observations_message set sender_content_type_id = new_id where sender_content_type_id=old_id;
-
-            update observations_message set receiver_content_type_id = new_id where receiver_content_type_id=old_id;
-
-            update tracking_sourceplugin set plugin_type_id = new_id where plugin_type_id=old_id;
-        end if;
-    end if;
-
-
-END LOOP;
-END IF;
-
--- enable triggers
-set session_replication_role to default;
-
-END;
+            -- RE-CREATE FK
+            alter table auth_permission
+                add constraint auth_permission_content_type_id_2f476e4b_fk_django_co
+                    foreign key (content_type_id) references django_content_type
+                        deferrable initially deferred;
+            alter table activity_event
+                add constraint activity_event_reported_by_content__81040fb0_fk_django_co
+                    foreign key (reported_by_content_type_id) references django_content_type
+                        deferrable initially deferred;
+            alter table activity_eventattachment
+                add constraint activity_eventattach_content_type_id_b6440fce_fk_django_co
+                    foreign key (content_type_id) references django_content_type
+                        deferrable initially deferred;
+            alter table activity_eventfile
+                add constraint activity_eventfile_usercontent_type_id_b3a3b1ed_fk_django_co
+                    foreign key (usercontent_type_id) references django_content_type
+                        deferrable initially deferred;
+            alter table activity_patrolfile
+                add constraint activity_patrolfile_usercontent_type_id_031d6880_fk_django_co
+                    foreign key (usercontent_type_id) references django_content_type
+                        deferrable initially deferred;
+            alter table activity_patrolsegment
+                add constraint activity_patrolsegme_leader_content_type__165f10e0_fk_django_co
+                    foreign key (leader_content_type_id) references django_content_type
+                        deferrable initially deferred;
+            alter table observations_message
+                add constraint observations_message_receiver_content_typ_56719c81_fk_django_co
+                    foreign key (receiver_content_type_id) references django_content_type
+                        deferrable initially deferred;
+            alter table observations_message
+                add constraint observations_message_sender_content_type__ec59feb7_fk_django_co
+                    foreign key (sender_content_type_id) references django_content_type
+                        deferrable initially deferred;
+            alter table tracking_sourceplugin
+                add constraint tracking_sourceplugi_plugin_type_id_0e392da4_fk_django_co
+                    foreign key (plugin_type_id) references django_content_type
+                        deferrable initially deferred;
+        END IF;
+    END;
 $$
 """
 
