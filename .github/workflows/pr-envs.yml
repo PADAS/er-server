@@ -1,0 +1,15 @@
+name: Build das-server on Pull Request
+on:
+  pull_request:
+    types: [ labeled ]
+
+jobs:
+  build:
+    if: ${{ github.event.label.name == 'build' }}
+    uses: PADAS/gundi-workflows/.github/workflows/build_docker.yml@v1-stable
+    with:
+      environment: padas-app
+      repository: europe-west3-docker.pkg.dev/padas-app/er-mt/das-server
+      tag: ${{ github.head_ref || github.ref_name }}-${{ github.run_number }}
+      dockerfile: circleci-docker/Dockerfile
+
