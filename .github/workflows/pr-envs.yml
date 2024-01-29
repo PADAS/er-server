@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    if: ${{ github.event.label.name == 'build' }}
+    if: ${{ github.event.label.name == 'deploy' }}
     uses: PADAS/gundi-workflows/.github/workflows/build_docker.yml@v1-stable
     with:
       environment: padas-app
