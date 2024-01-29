@@ -1,0 +1,6 @@
+# pg_dump -U postgres --format=plain --no-owner --no-acl -d earthranger --verbose > /tmp/db_backup.sql
+# kubectl cp postgresql-0:/tmp/db_backup.sql ./db-backup.sql -n <namespace>
+
+FROM docker.io/bitnami/postgresql:16.1.0-debian-11-r22
+
+COPY db-backup.sql /docker-entrypoint-initdb.d/
