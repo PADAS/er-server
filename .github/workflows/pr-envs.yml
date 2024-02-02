@@ -8,6 +8,20 @@ on:
       - reopened
 
 jobs:
+  create_tenant:
+    uses: fjogeleit/http-request-action@v1
+    with:
+      url: 'https://er-tms-api-gateway-5sf422kw.uc.gateway.dev/v1.0/tenants?key=${{ secrets.TMS_API_KEY }}'
+      method: 'POST'
+      customHeaders: '{"Content-Type": "application/json"}'
+      data: >
+        {"clusterName": "er-dev",
+        "clusterNamespace": "${{ github.head_ref }}",
+        "domain": "${{ github.head_ref }}.dev.pamdas.org",
+        "name": "${{ github.head_ref }}",
+        "slugName": "${{ github.head_ref }}",
+        "url": "https://${{ github.head_ref }}.dev.pamdas.org"}
+        
   build:
     if: contains(github.event.pull_request.labels.*.name, 'deploy')
     uses: PADAS/gundi-workflows/.github/workflows/build_docker.yml@v1-stable
