@@ -16,6 +16,7 @@ jobs:
         url: 'https://er-tms-api-gateway-5sf422kw.uc.gateway.dev/v1.0/tenants?key=${{ secrets.TMS_API_KEY }}'
         method: 'POST'
         customHeaders: '{"Content-Type": "application/json"}'
+        ignoreStatusCodes: '409'
         data: >
           {"clusterName": "er-dev",
           "clusterNamespace": "${{ github.head_ref }}",
