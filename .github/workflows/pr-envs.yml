@@ -13,8 +13,10 @@ permissions:
 jobs:
   create_tenant:
     runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'deploy')
     steps:
-    - uses: fjogeleit/http-request-action@v1
+    - name: Create tenant in TMS
+      uses: fjogeleit/http-request-action@v1
       with:
         url: 'https://er-tms-api-gateway-5sf422kw.uc.gateway.dev/v1.0/tenants?key=${{ secrets.TMS_API_KEY }}'
         method: 'POST'
@@ -28,11 +30,13 @@ jobs:
           "name": "${{ github.head_ref }}",
           "slugName": "${{ github.head_ref }}",
           "url": "https://${{ github.head_ref }}.dev.pamdas.org"}
-    - uses: aws-actions/configure-aws-credentials@v4
+    - name: AWS login
+      uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-region: us-east-2
         role-to-assume: arn:aws:iam::074677080781:role/GithubOIDC-Role-CvNXPW1G39o4
-    - run: |
+    - name: create DNS record
+      run: |
         aws route53 change-resource-record-sets \
         --hosted-zone-id Z06812903QMRULNOCKPL8 \
         --change-batch '{"Changes":[{"Action":"UPSERT","ResourceRecordSet":{"Name":"${{ github.head_ref }}.dev.pamdas.org.","Type":"A","TTL":300,"ResourceRecords":[{"Value":"34.102.221.194"}]}}]}'
