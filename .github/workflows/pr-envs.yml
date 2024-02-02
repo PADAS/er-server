@@ -17,6 +17,7 @@ jobs:
         method: 'POST'
         customHeaders: '{"Content-Type": "application/json"}'
         ignoreStatusCodes: '409'
+        timeout: 60000
         data: >
           {"clusterName": "er-dev",
           "clusterNamespace": "${{ github.head_ref }}",
