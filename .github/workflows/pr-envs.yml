@@ -8,9 +8,8 @@ on:
       - reopened
 
 jobs:
-  build:
+  create_tenant:
     runs-on: ubuntu-latest
-
     steps:
     - uses: fjogeleit/http-request-action@v1
       with:
@@ -25,11 +24,12 @@ jobs:
           "slugName": "${{ github.head_ref }}",
           "url": "https://${{ github.head_ref }}.dev.pamdas.org"}
 
-    - uses: PADAS/gundi-workflows/.github/workflows/build_docker.yml@v1-stable
-      if: contains(github.event.pull_request.labels.*.name, 'deploy')
-      with:
-        environment: padas-app
-        repository: europe-west3-docker.pkg.dev/padas-app/er-mt/das-server
-        tag: ${{ github.event.pull_request.head.sha }}
-        dockerfile: circleci-docker/Dockerfile
+  build:
+    if: contains(github.event.pull_request.labels.*.name, 'deploy')
+    uses: PADAS/gundi-workflows/.github/workflows/build_docker.yml@v1-stable
+    with:
+      environment: padas-app
+      repository: europe-west3-docker.pkg.dev/padas-app/er-mt/das-server
+      tag: ${{ github.event.pull_request.head.sha }}
+      dockerfile: circleci-docker/Dockerfile
 
