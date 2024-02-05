@@ -227,6 +227,8 @@ class GenericSensorHandler:
 
 class ErTrackHandler(GenericSensorHandler):
     SENSOR_TYPE = "ertrack"
+    DEFAULT_SUBJECT_SUBTYPE = "er_mobile"
+    OVERRIDE_SUBJECT_SUBTYPE = "ranger"
 
     @classmethod
     def post(cls, request, provider_key, sensor_type=None):
@@ -287,6 +289,8 @@ class ErTrackHandler(GenericSensorHandler):
         lon = location.get("lon", None)
         location = {"latitude": float(lat), "longitude": float(lon)}
         subject_subtype = an_observation.get("subject_subtype") or cls.DEFAULT_SUBJECT_SUBTYPE
+        if subject_subtype == cls.OVERRIDE_SUBJECT_SUBTYPE:
+            subject_subtype = cls.DEFAULT_SUBJECT_SUBTYPE
         source_type = an_observation.get("source_type", provider_key) or provider_key
         model_name = an_observation.get("model_name", None) or "{}:{}".format(sensor_type, provider_key)
         subject_name = an_observation.get("subject_name") or manufacturer_id

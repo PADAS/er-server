@@ -2,7 +2,7 @@
 
 from django.db import migrations
 
-from utils.migrations import SubjectSubTypeLoader
+from observations.migration_utils import SubjectSubTypeLoader
 
 subject_subtype_loader = SubjectSubTypeLoader(subject_type_value="stationary-object").add_subject_subtype(
     display="Pump Station", value="static_pump_station"
@@ -10,7 +10,6 @@ subject_subtype_loader = SubjectSubTypeLoader(subject_type_value="stationary-obj
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("observations", "0136_add_ocelot_subject_subtypes"),
     ]

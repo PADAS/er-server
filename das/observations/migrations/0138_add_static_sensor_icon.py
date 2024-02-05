@@ -2,7 +2,7 @@
 
 from django.db import migrations
 
-from utils.migrations import SubjectSubTypeLoader
+from observations.migration_utils import SubjectSubTypeLoader
 
 subject_subtype_loader = SubjectSubTypeLoader(subject_type_value="stationary-object").add_subject_subtype(
     display="Sensor", value="static-sensor"
