@@ -121,6 +121,7 @@ class Community(TenantModelMixin, TimestampedModel):
         verbose_name = _("Event Reporters")
         verbose_name_plural = _("Event Reporters")
         base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def __str__(self):
         return self.name
@@ -216,6 +217,8 @@ class EventCategory(TenantModelMixin, TimestampedModel):
             )
         ]
         indexes = [Index(fields=["das_tenant", "value"], name="%(class)s_val_idx")]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def __str__(self):
         return self.display
@@ -434,6 +437,8 @@ class RefreshRecreateEventDetailView(TenantModelMixin, UUIDModel):
 
     class Meta:
         verbose_name_plural = "Refresh Data for Tableau"
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
 
 class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
@@ -680,6 +685,8 @@ class EventRelationshipType(TenantModelMixin, models.Model):
             )
         ]
         indexes = [Index(fields=["das_tenant", "value"], name="%(class)s_val_idx")]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def __str__(self):
         return self.value
@@ -759,6 +766,8 @@ class EventFile(TenantModelMixin, TimestampedModel, RevisionMixin):
 
     class Meta:
         ordering = ["ordernum", "-updated_at"]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     @property
     def event_type(self):
@@ -805,6 +814,8 @@ class EventRelationship(TenantModelMixin, TimestampedModel):
             "type",
             "ordernum",
         ]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def __str__(self):
         return "<%s> : %s : <%s>" % (str(self.from_event), self.type.value, self.to_event)
@@ -888,6 +899,8 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
                 fields=["das_tenant", "serial_number"], name="%(app_label)s_%(class)s_tenant_serial_number_unique"
             ),
         ]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
@@ -1139,6 +1152,10 @@ class EventRelatedSegments(TenantModelMixin, UUIDModel):
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
 
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+
 
 class EventRelatedSubject(TenantModelMixin, UUIDModel, models.Model):
     event = TenantForeignKey(Event, on_delete=models.CASCADE)
@@ -1159,6 +1176,8 @@ class EventRelatedSubject(TenantModelMixin, UUIDModel, models.Model):
                 fields=["das_tenant", "event", "subject"], name="%(app_label)s_%(class)s_tenant_event_subject_unique"
             ),
         ]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
 
 class EventAttachmentManager(TenantManagerMixin, models.Manager):
@@ -1197,6 +1216,10 @@ class EventAttachment(TenantModelMixin, RevisionMixin, models.Model):
     objects = EventAttachmentManager()
     tenant_id = "das_tenant_id"
 
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+
     def save(self, *args, **kwargs):
         result = super().save(*args, **kwargs)
         self.event.dependent_table_updated()
@@ -1223,6 +1246,10 @@ class EventNote(TenantModelMixin, RevisionMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventNoteManager()
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -1261,6 +1288,10 @@ class EventDetails(TenantModelMixin, RevisionMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventDetailsManager()
     tenant_id = "das_tenant_id"
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def save(self, *args, update_parent_event=True, **kwargs):
         result = super().save(*args, **kwargs)
@@ -1301,6 +1332,10 @@ class EventPhoto(TenantModelMixin, RevisionMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -1357,6 +1392,10 @@ class EventFilter(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
 
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+
 
 class EventProvider(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -1380,6 +1419,10 @@ class EventProvider(TenantModelMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def __str__(self):
         return self.display
@@ -1426,6 +1469,8 @@ class EventSource(TenantModelMixin, TimestampedModel):
                 name="%(app_label)s_%(class)s_tenant_provider_unique",
             ),
         ]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def __str__(self):
         epname = self.eventprovider.display if self.eventprovider else "unspecified-provider"
@@ -1482,6 +1527,8 @@ class EventsourceEvent(TenantModelMixin, TimestampedModel):
                 name="%(app_label)s_%(class)s_tenant_source_unique",
             ),
         ]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def clean(self):
         super().clean()
@@ -1593,6 +1640,8 @@ class EventNotification(TenantModelMixin, UUIDModel, TimestampedModel):
 
     class Meta:
         indexes = [models.Index(fields=["das_tenant", "event"])]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
 
 class TSVectorModel(TenantModelMixin, models.Model):
@@ -1603,6 +1652,10 @@ class TSVectorModel(TenantModelMixin, models.Model):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
 
 PC_OPEN = "open"
@@ -1661,6 +1714,8 @@ class MembershipType(TenantModelMixin, models.Model):
             )
         ]
         indexes = [Index(fields=["das_tenant", "value"], name="%(class)s_val_idx")]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def __str__(self):
         return self.value
@@ -1672,6 +1727,10 @@ class Team(TenantModelMixin, models.Model):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
 
 class TeamMembership(TenantModelMixin, TimestampedModel):
@@ -1697,6 +1756,8 @@ class TeamMembership(TenantModelMixin, TimestampedModel):
             "type",
             "ordernum",
         ]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
 
 class StateFilters(Enum):
@@ -1924,6 +1985,8 @@ class Patrol(TenantModelMixin, SerialNumberModelMixin, TimestampedModel, Revisio
                 fields=["das_tenant", "serial_number"], name="%(app_label)s_%(class)s_tenant_serial_number_unique"
             ),
         ]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def __str__(self):
         return self.title or f"Patrol #{self.serial_number}"
@@ -1958,6 +2021,10 @@ class PatrolNote(TenantModelMixin, RevisionMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
 
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+
 
 class PatrolFile(TenantModelMixin, TimestampedModel, RevisionMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -1983,6 +2050,10 @@ class PatrolFile(TenantModelMixin, TimestampedModel, RevisionMixin):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
 
 class PatrolTypeManager(EventBaseManager):
@@ -2013,6 +2084,8 @@ class PatrolType(TenantModelMixin, TimestampedModel):
             )
         ]
         indexes = [Index(fields=["das_tenant", "value"], name="%(class)s_val_idx")]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def __str__(self):
         return self.display
@@ -2065,6 +2138,8 @@ class PatrolSegmentMembership(TenantModelMixin, TimestampedModel):
             "type",
             "ordernum",
         ]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
 
 class PatrolSegmentManager(TenantManagerMixin, models.Manager):
@@ -2157,6 +2232,10 @@ class PatrolSegment(TenantModelMixin, TimestampedModel, RevisionMixin):
     objects = PatrolSegmentManager()
     tenant_id = "das_tenant_id"
 
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+
 
 class PatrolConfiguration(TenantSingletonModel):
     # The SingletonModel requires us to create a static single instance_id
@@ -2185,6 +2264,10 @@ class PatrolConfigurationSubjectGroup(TenantModelMixin, UUIDModel):
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
 
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+
 
 class EventGeometry(TenantModelMixin, RevisionMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -2200,6 +2283,10 @@ class EventGeometry(TenantModelMixin, RevisionMixin, TimestampedModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     @transaction.atomic
     def save(self, *args, **kwargs):
