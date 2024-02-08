@@ -137,6 +137,8 @@ class TenantSingletonModel(TenantModelMixin, UUIDModel):
 
     class Meta:
         abstract = True
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def set_cache(self):
         cache.set(self.__class__.__name__, self)
