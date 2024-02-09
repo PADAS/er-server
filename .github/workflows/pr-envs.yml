@@ -1,0 +1,55 @@
+name: Build das-server on Pull Request
+on:
+  pull_request:
+    types:
+      - labeled
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+jobs:
+  create_tenant:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'deploy')
+    environment: 
+      name: ${{ github.head_ref }}
+      url: "https://${{ github.head_ref }}.dev.pamdas.org"
+    steps:
+    - name: Create tenant in TMS
+      uses: fjogeleit/http-request-action@v1
+      with:
+        url: 'https://er-tms-api-gateway-5sf422kw.uc.gateway.dev/v1.0/tenants?key=${{ secrets.TMS_API_KEY }}'
+        method: 'POST'
+        customHeaders: '{"Content-Type": "application/json"}'
+        ignoreStatusCodes: '409'
+        timeout: 60000
+        data: >
+          {"clusterName": "er-dev",
+          "clusterNamespace": "${{ github.head_ref }}",
+          "domain": "${{ github.head_ref }}.dev.pamdas.org",
+          "name": "${{ github.head_ref }}",
+          "slugName": "${{ github.head_ref }}",
+          "url": "https://${{ github.head_ref }}.dev.pamdas.org"}
+    - name: AWS login
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: us-east-2
+        role-to-assume: arn:aws:iam::074677080781:role/GithubOIDC-Role-CvNXPW1G39o4
+    - name: create DNS record
+      run: |
+        aws route53 change-resource-record-sets \
+        --hosted-zone-id Z06812903QMRULNOCKPL8 \
+        --change-batch '{"Changes":[{"Action":"UPSERT","ResourceRecordSet":{"Name":"${{ github.head_ref }}.dev.pamdas.org.","Type":"A","TTL":300,"ResourceRecords":[{"Value":"34.102.221.194"}]}}]}'
+
+  build:
+    if: contains(github.event.pull_request.labels.*.name, 'deploy')
+    uses: PADAS/gundi-workflows/.github/workflows/build_docker.yml@v1-stable
+    with:
+      environment: padas-app
+      repository: europe-west3-docker.pkg.dev/padas-app/er-mt/das-server
+      tag: ${{ github.event.pull_request.head.sha }}
+      dockerfile: circleci-docker/Dockerfile
+
