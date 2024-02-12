@@ -3,7 +3,6 @@ on:
   pull_request:
     types:
       - labeled
-      - opened
       - synchronize
       - reopened
 
@@ -18,6 +17,10 @@ jobs:
       name: ${{ github.head_ref }}
       url: "https://${{ github.head_ref }}.dev.pamdas.org"
     steps:
+    - id: branch_name
+      uses: ASzc/change-string-case-action@v6
+      with:
+        string: ${{ github.head_ref }}
     - name: Create tenant in TMS
       uses: fjogeleit/http-request-action@v1
       with:
@@ -28,11 +31,11 @@ jobs:
         timeout: 60000
         data: >
           {"clusterName": "er-dev",
-          "clusterNamespace": "${{ github.head_ref }}",
-          "domain": "${{ github.head_ref }}.dev.pamdas.org",
-          "name": "${{ github.head_ref }}",
-          "slugName": "${{ github.head_ref }}",
-          "url": "https://${{ github.head_ref }}.dev.pamdas.org"}
+          "clusterNamespace": "${{ steps.branch_name.outputs.lowercase }}",
+          "domain": "${{ steps.branch_name.outputs.lowercase }}.dev.pamdas.org",
+          "name": "${{ steps.branch_name.outputs.lowercase }}",
+          "slugName": "${{ steps.branch_name.outputs.lowercase }}",
+          "url": "https://${{ steps.branch_name.outputs.lowercase }}.dev.pamdas.org"}
     - name: AWS login
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -42,7 +45,7 @@ jobs:
       run: |
         aws route53 change-resource-record-sets \
         --hosted-zone-id Z06812903QMRULNOCKPL8 \
-        --change-batch '{"Changes":[{"Action":"UPSERT","ResourceRecordSet":{"Name":"${{ github.head_ref }}.dev.pamdas.org.","Type":"A","TTL":300,"ResourceRecords":[{"Value":"34.102.221.194"}]}}]}'
+        --change-batch '{"Changes":[{"Action":"UPSERT","ResourceRecordSet":{"Name":"${{ steps.branch_name.outputs.lowercase }}.dev.pamdas.org.","Type":"A","TTL":300,"ResourceRecords":[{"Value":"34.102.221.194"}]}}]}'
 
   build:
     if: contains(github.event.pull_request.labels.*.name, 'deploy')
