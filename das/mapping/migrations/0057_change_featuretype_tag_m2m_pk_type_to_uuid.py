@@ -22,6 +22,7 @@ populate_uuid = partial(populate_model_uuid_column, APP_NAME, MODEL_NAME, UUID_C
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [("core", "0015_delete_unique_constraints"), ("mapping", "0056_defaultmanager")]
 
     operations = [

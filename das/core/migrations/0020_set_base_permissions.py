@@ -64,6 +64,7 @@ $$
                     WHERE permission_id = row.id;
                 END IF;
             END LOOP;
+
     END;
 $$
 """
@@ -89,7 +90,7 @@ def insert_into_temp_permissions(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("core", "0017_set_base_content_types"),
+        ("core", "0019_create_all_permissions"),
     ]
 
     operations = [

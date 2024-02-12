@@ -24,6 +24,7 @@ def populate_tenant_into_models(unused, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("choices", "0021_add_das_tenant_to_choices_models"),
     ]

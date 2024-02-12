@@ -25,6 +25,7 @@ def populate_tenant_into_models(unused, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("core", "0009_add_das_tenant_columns_to_oauth_models"),
     ]

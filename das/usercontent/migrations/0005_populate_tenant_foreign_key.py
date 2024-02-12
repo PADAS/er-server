@@ -26,6 +26,7 @@ def update_tenant_models_on_usercontent_models(unused, schema_editor) -> None:
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("usercontent", "0004_add_tenant_id_tenant_foreign_key"),
     ]

@@ -26,6 +26,7 @@ def populate_das_tenant_in_subject_model(unused, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("observations", "0143_add_das_tenant_into_subject_model"),
     ]

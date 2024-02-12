@@ -199,6 +199,8 @@
             "cwd": "${workspaceFolder}/das",
             "args": [
                 "${input:django_command}",
+                "--tenant_domain",
+                "${input:tenant_domain}",
                 "${input:django_command_args}"
             ],
             "django": true,
@@ -235,7 +237,7 @@
             "args": [
                 "loaddata_with_tenant",
                 "--tenant_domain",
-                "localhost",
+                "${input:tenant_domain}",
                 "initial_admin",
                 "initial_groups",
                 "initial_eventdata",
@@ -261,7 +263,7 @@
             "args": [
                 "loaddata_with_tenant",
                 "--tenant_domain",
-                "localhost",
+                "${input:tenant_domain}",
                 "initial_data"
             ],
             "django": true,
@@ -314,6 +316,12 @@
             "type": "promptString",
             "description": "pytest custom path (empty to execute the full test suite)",
             "default": "activity/tests"
-        }
+        },
+        {
+            "id": "tenant_domain",
+            "type": "promptString",
+            "description": "tenant domain name",
+            "default": "localhost"
+        },
     ]
 }
