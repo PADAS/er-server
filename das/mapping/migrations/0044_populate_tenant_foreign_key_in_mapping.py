@@ -30,6 +30,7 @@ def populate_das_tenant_tenant_foreign_key_in_mapping_models(unused, schema_edit
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("mapping", "0043_add_tenant_foreign_key"),
     ]

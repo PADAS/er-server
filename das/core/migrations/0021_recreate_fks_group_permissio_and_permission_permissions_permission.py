@@ -23,7 +23,7 @@ $$
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("core", "0018_set_base_permissions"),
+        ("core", "0020_set_base_permissions"),
     ]
 
     operations = [

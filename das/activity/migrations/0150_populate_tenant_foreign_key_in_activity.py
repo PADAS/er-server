@@ -74,6 +74,7 @@ def populate_das_tenant_tenant_foreign_key_in_activity_models(unused, schema_edi
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("activity", "0149_add_tenant_foreign_key"),
     ]

@@ -25,6 +25,7 @@ def update_tenant_models_on_reports_models(unused, schema_editor) -> None:
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("reports", "0008_add_tenant_id_tenant_foreign_key"),
     ]

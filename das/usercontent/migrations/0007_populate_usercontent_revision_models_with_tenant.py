@@ -24,6 +24,7 @@ def populate_tenant_into_models(unused, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("usercontent", "0006_add_das_tenant_to_usercontent_revision_models"),
     ]

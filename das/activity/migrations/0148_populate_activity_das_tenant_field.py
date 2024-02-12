@@ -55,6 +55,7 @@ def populate_das_tenant_in_activity_models(unused, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("activity", "0147_add_tenant_model_mixin_and_tenant_manager_mixin"),
     ]

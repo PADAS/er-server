@@ -47,6 +47,7 @@ def populate_tenant_into_models(unused, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("observations", "0145_add_das_tenant_to_observations_models"),
     ]

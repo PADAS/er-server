@@ -39,6 +39,7 @@ def populate_tenant_into_models(unused, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("activity", "0152_add_das_tenant_to_activity_revision_models"),
     ]
