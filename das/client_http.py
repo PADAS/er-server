@@ -46,9 +46,10 @@ class HTTPClient:
             expires=timezone.now() + datetime.timedelta(days=1),
         )
 
-    def force_authenticate(self, request, user):
+    def force_authenticate(self, request, user, token=None):
         request.user = user
-        token = self.create_access_token(user, self.application)
+        if not token:
+            token = self.create_access_token(user, self.application)
         force_authenticate(request, user=user, token=token)
 
     def force_authenticate_with_cyber_tracker(self, request, user):

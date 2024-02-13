@@ -1,9 +1,11 @@
 import copy
+import datetime
 import random
 
 from django.contrib.auth.models import ContentType, Permission
 from django.core.exceptions import ValidationError
 from django.test import TestCase
+from rest_framework.exceptions import PermissionDenied
 
 import accounts.views as views
 from accounts.models import PermissionSet, User
@@ -61,7 +63,6 @@ class PermissionSetTestCase(BaseTestCase):
         self.assertTrue(user.has_perm(self.content_type.app_label + "." + user_permission.codename))
 
     def test_2_level_permissionset_hierarchy(self):
-
         parent_user, child_user = make_n_users(2)
         parent_ps, child_ps = make_n_permissionsets(2)
 
@@ -112,7 +113,6 @@ class UserModelTest(TestCase):
     user_const = dict(last_name="last", first_name="first")
 
     def test_caseinsensitive_name(self):
-
         User.objects.create(username="user", password=self.password, email="user@test.com", **self.user_const)
 
         with self.assertRaises(ValidationError):
@@ -127,7 +127,6 @@ class UserModelTest(TestCase):
         self.assertEqual(user.pk, user2.pk)
 
     def test_delete_user(self):
-
         username = random_string(length=15)
         email = f"{random_string()}@{random_string()}.org"
         password = f"{random_string(length=20)}9$"
@@ -167,14 +166,15 @@ class TestAuthentication(BaseAPITest):
             "super_user", "das_super_user@vulcan.com", self.password, **self.user_const
         )
 
-    def not_allow_nologin_user(self):
-        request = self.factory.get(self.api_base + "/user/me")
-        self.force_authenticate(request, self.nologin_user)
+    def test_not_allow_nologin_user(self):
+        token = self.create_access_token(self.nologin_user)
 
-        response = views.UserView.as_view()(request, id="me")
-        self.assertEqual(response.status_code, 403)
+        response = self.client.get(
+            self.api_base + "/user/me", HTTP_AUTHORIZATION=self.create_authorization_header(token)
+        )
+        assert response.status_code == 403
 
-    def act_as_nologin_user(self):
+    def test_act_as_nologin_user(self):
         request = self.factory.get(self.api_base + "/user/me")
         request.META["HTTP_USER_PROFILE"] = str(self.nologin_user.pk)
         self.force_authenticate(request, self.joc_supervisor)
@@ -182,18 +182,29 @@ class TestAuthentication(BaseAPITest):
         response = views.UserView.as_view()(request, id="me")
         self.assertEqual(response.status_code, 200)
 
-    def fail_act_as_superuser(self):
-        request = self.factory.get(self.api_base + "/user/me")
-        request.META["HTTP_USER_PROFILE"] = str(self.super_user.pk)
-        self.force_authenticate(request, self.joc_supervisor)
+    def test_fail_act_as_superuser(self):
+        token = self.create_access_token(self.joc_supervisor)
+        with self.assertRaises(PermissionDenied):
+            response = self.client.get(
+                self.api_base + "/user/me",
+                HTTP_AUTHORIZATION=self.create_authorization_header(token),
+                HTTP_USER_PROFILE=str(self.super_user.pk),
+            )
 
-        response = views.UserView.as_view()(request, id="me")
-        self.assertEqual(response.status_code, 403)
+    def test_fail_act_as_unlisted_user(self):
+        token = self.create_access_token(self.joc_supervisor)
+        with self.assertRaises(PermissionDenied):
+            response = self.client.get(
+                self.api_base + "/user/me",
+                HTTP_AUTHORIZATION=self.create_authorization_header(token),
+                HTTP_USER_PROFILE=str(self.staff_user.pk),
+            )
 
-    def fail_act_as_unlisted_user(self):
-        request = self.factory.get(self.api_base + "/user/me")
-        request.META["HTTP_USER_PROFILE"] = str(self.staff_user)
-        self.force_authenticate(request, self.joc_supervisor)
+    def test_expired_token_returns_401(self):
+        expires = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=1)
+        token = self.create_access_token(self.joc_supervisor, expires=expires)
+        response = self.client.get(
+            self.api_base + "/user/me", HTTP_AUTHORIZATION=self.create_authorization_header(token)
+        )
 
-        response = views.UserView.as_view()(request, id="me")
-        self.assertEqual(response.status_code, 403)
+        assert response.status_code == 401

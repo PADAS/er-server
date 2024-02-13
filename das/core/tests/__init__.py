@@ -53,18 +53,20 @@ class BaseAPITest(TestCase):
 
         self.factory = APIRequestFactory(enforce_csrf_checks=False)
 
-    def create_access_token(self, user):
-        tok = AccessToken.objects.create(
-            user=user,
-            token=str(uuid.uuid4()),
-            application=self.application,
-            scope="read write",
-            expires=timezone.now() + datetime.timedelta(days=1),
+    def create_access_token(self, user, expires=None):
+        if not expires:
+            expires = timezone.now() + datetime.timedelta(days=1)
+        token = AccessToken.objects.create(
+            user=user, token=str(uuid.uuid4()), application=self.application, scope="read write", expires=expires
         )
-        return tok
+        return token
 
-    def force_authenticate(self, request, user):
+    def force_authenticate(self, request, user, token=None):
         request.user = user
-        tok = self.create_access_token(user)
+        if not token:
+            token = self.create_access_token(user)
 
-        force_authenticate(request, user=user, token=tok)
+        force_authenticate(request, user=user, token=token)
+
+    def create_authorization_header(self, token):
+        return "Bearer {0}".format(token)

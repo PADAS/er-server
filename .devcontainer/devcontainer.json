@@ -61,7 +61,8 @@
 		"googlecloudtools.cloudcode",
 		"github.vscode-pull-request-github",
 		"trond-snekvik.simple-rst",
-		"ms-python.black-formatter"
+		"ms-python.black-formatter",
+		"littlefoxteam.vscode-python-test-adapter"
 	]}},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
