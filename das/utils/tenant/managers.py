@@ -55,7 +55,11 @@ class TenantContextManager:
 
         tenant_data = TenantData(domain=self.domain).get_tenant_data()
         with UnsetDASTenantContextManager():
-            tenant = DASTenant.objects.get(id=tenant_data["id"])
+            try:
+                tenant = DASTenant.objects.get(id=tenant_data["id"])
+            except DASTenant.DoesNotExist:
+                logger.warning("DASTenant with id %s does not exist", tenant_data["id"])
+                raise
 
         set_tenant_settings(value=tenant_data)
         set_current_tenant(tenant)

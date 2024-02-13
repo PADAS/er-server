@@ -3,6 +3,7 @@ from typing import Optional
 
 from django.apps import apps
 
+from utils.tenant.exceptions import TenantNotFoundException
 from utils.tenant.managers import TenantContextManager, UnsetDASTenantContextManager
 
 logger = logging.getLogger(__name__)
@@ -60,14 +61,20 @@ class TenantSubjectSubTypeLoader:
         for tenant in all_tenants:
             domain = tenant.domain
             logger.debug("Loading SubjectSubTypes %s for tenant %s", self.subject_subtypes, domain)
+            try:
+                with TenantContextManager(domain=domain):
+                    SubjectSubType = apps.get_model("observations", "SubjectSubType")
+                    SubjectType = apps.get_model("observations", "SubjectType")
+                    subject_type = SubjectType.objects.using(db_alias).get(value=self.subject_type_value)
 
-            with TenantContextManager(domain=domain):
-                SubjectSubType = apps.get_model("observations", "SubjectSubType")
-                SubjectType = apps.get_model("observations", "SubjectType")
-                subject_type = SubjectType.objects.using(db_alias).get(value=self.subject_type_value)
-
-                for subject_subtype in self.subject_subtypes:
-                    defaults = {"display": subject_subtype["display"], "subject_type": subject_type}
-                    _, created = SubjectSubType.objects.using(db_alias).get_or_create(
-                        value=subject_subtype["value"], defaults=defaults
-                    )
+                    for subject_subtype in self.subject_subtypes:
+                        defaults = {"display": subject_subtype["display"], "subject_type": subject_type}
+                        _, created = SubjectSubType.objects.using(db_alias).get_or_create(
+                            value=subject_subtype["value"], defaults=defaults
+                        )
+            except (DASTenant.DoesNotExist, TenantNotFoundException):
+                logger.warning(
+                    "DASTenant with domain %s does not exist in TMS, when adding new SubjectSubTypes for that domain",
+                    domain,
+                )
+                raise
