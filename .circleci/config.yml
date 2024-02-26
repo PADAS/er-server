@@ -328,16 +328,9 @@ workflows:
             branches:
               only: 'develop'
       - docker_build_image:
-          filters:
-            branches:
-              only: 'develop'
           requires:
             - 'build_sphinx_docs'
       - run_api_unittests:
-          filters:
-            branches:
-              only:
-                - 'develop'
           requires:
             - 'docker_build_image'
       - terraform_plan:
@@ -354,17 +347,11 @@ workflows:
       - build_sphinx_docs:
           filters:
             branches:
-              ignore:
-                - 'develop'
-                - /das-2-.*-.*/
+              only:
+                - 'legacy-era-*'
       - docker_build_image:
           requires:
             - 'build_sphinx_docs'
-          filters:
-            branches:
-              ignore:
-                - 'develop'
-                - /das-2-.*-.*/
       - run_api_unittests:
           requires:
             - 'docker_build_image'
@@ -372,25 +359,13 @@ workflows:
           requires:
             - 'docker_build_image'
           terraform_workspace: "$CIRCLE_BRANCH"
-          filters:
-            branches:
-              ignore:
-                - '/release-*'
       - review_plan:
           requires:
             - 'terraform_plan'
           type: 'approval'
-          filters:
-            branches:
-              ignore:
-                - '/release-*'
       - terraform_apply_feature_branch:
           requires:
             - 'review_plan'
-          filters:
-            branches:
-              ignore:
-                - '/release-*'
 
   build_and_terraform_release_branch:
     jobs:
@@ -402,10 +377,6 @@ workflows:
       - docker_build_image:
           requires:
             - 'build_sphinx_docs'
-          filters:
-            branches:
-              only:
-                - /das-2-.*-.*/
       - run_api_unittests:
           requires:
             - 'docker_build_image'
