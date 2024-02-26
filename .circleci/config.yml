@@ -336,8 +336,6 @@ workflows:
             - 'terraform_plan'
 
   build_and_terraform_feature_branch:
-  # Build for all branches except develop and release.
-  # Include a review step.
     jobs:
       - install_er_cli:
           filters:
