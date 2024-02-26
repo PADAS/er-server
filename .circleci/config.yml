@@ -341,14 +341,12 @@ workflows:
             - 'terraform_plan'
 
   build_and_terraform_feature_branch:
-  # Build for all branches except develop and release.
-  # Include a review step.
     jobs:
       - build_sphinx_docs:
           filters:
             branches:
               only:
-                - 'legacy-era-*'
+                - '/legacy-era-.*/'
       - docker_build_image:
           requires:
             - 'build_sphinx_docs'
