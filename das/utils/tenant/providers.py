@@ -39,7 +39,7 @@ class TenantData:
         return tenant_data
 
     def _get_from_cache(self):
-        logger.info("Getting tenant from cache for domain %s", self.domain)
+        logger.debug("Getting tenant from cache for domain %s", self.domain)
         start_time = time.time()
         try:
             cached_data = memory_store_client.get_key(key=self.domain)
@@ -48,20 +48,20 @@ class TenantData:
             return None
 
         if not cached_data:
-            logger.info("Tenant not found at cache")
+            logger.debug("Tenant %s not found in cache", self.domain)
             return None
         try:
-            logger.info("Gotten tenant data in %.4f." % (time.time() - start_time))
+            logger.debug("Retrieved tenant data in %.4f." % (time.time() - start_time))
             return json.loads(cached_data)
         except json.JSONDecodeError:
-            logger.info("Can't parse tenant from cache for domain %s", self.domain)
+            logger.warning("Can't parse tenant from cache for domain %s", self.domain)
             return None
 
     def _fetch_from_tms(self):
-        logger.info("Getting tenant from TMS for domain %s", self.domain)
+        logger.debug("Getting tenant from TMS for domain %s", self.domain)
         tenant_data = tms_api_client.get_tenant_data(domain=self.domain)
         if not tenant_data:
-            logger.info("Tenant not found at TMS for domain %s", self.domain)
+            logger.debug("Tenant not found in TMS for domain %s", self.domain)
             raise TenantNotFoundException(domain=self.domain)
         return tenant_data
 
