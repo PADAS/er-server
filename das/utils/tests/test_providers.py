@@ -23,7 +23,7 @@ class TestTenantData:
 
         assert tenant_data == tenant_response
         assert f"Getting tenant from cache for domain {DOMAIN}" in caplog.text
-        assert f"Gotten tenant data in" in caplog.text
+        assert f"Retrieved tenant data in" in caplog.text
         assert "Tenant not found at cache" not in caplog.text
 
     def test_get_tenant_from_tms_passing_through_cache_first(
