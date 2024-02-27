@@ -24,7 +24,7 @@ def set_tenant_settings(value: dict) -> None:
     except KeyError as error:
         raise TenantDataclassException(f"Missing key in tenant data: {error}")
     setattr(local_thread, TENANT_DEFAULT_KEY, tenant_settings)
-    logger.info("Setting tenant settings for host: %s", tenant_settings.domain)
+    logger.debug("Setting tenant settings for host: %s", tenant_settings.domain)
 
 
 def get_tenant_settings() -> Tenant:

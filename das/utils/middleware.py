@@ -93,8 +93,13 @@ class RequestLoggingMiddleware(object):
             user_agent = request.META.get("HTTP_USER_AGENT", "")
             status = response.status_code
             path = request.get_full_path()
+            host = request.get_host()
             method = request.method
             protocol = request.META.get("SERVER_PROTOCOL", "")
+            try:
+                tenant_domain = get_tenant_settings().domain
+            except TenantNotFoundException:
+                tenant_domain = "unknown"
 
             extra = dict(
                 remote_addr=remote_addr,
@@ -107,6 +112,8 @@ class RequestLoggingMiddleware(object):
                 path=path,
                 method=method,
                 protocol=protocol,
+                tenant=tenant_domain,
+                host=host,
             )
 
             request_info = "{0} {1} {2}".format(method, path, protocol)
