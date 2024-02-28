@@ -1,6 +1,8 @@
 import re
 from itertools import chain
 
+from django_multitenant.fields import TenantForeignKey
+
 import django.db.models as models
 from django.apps import apps
 from django.contrib import auth
@@ -8,6 +10,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from accounts.models.permissionset import PermissionSet
+from utils.tenant.models import TenantThroughModel
 
 
 class PermissionSetGroupMixin(object):
@@ -104,6 +107,9 @@ class PermissionsMixin(models.Model):
     permission_sets = models.ManyToManyField(
         PermissionSet,
         blank=True,
+        through="accounts.UserPermissionSet",
+        through_fields=("user", "permissionset"),
+        related_name="user_set",
         help_text=_(
             "The permission sets this user belongs to. A user will get all permissions "
             "granted to each of their permission sets."
@@ -225,6 +231,11 @@ class PermissionsMixin(models.Model):
                 else:
                     all_ps.add(ancestor)
         return all_ps
+
+
+class UserPermissionSet(TenantThroughModel):
+    permissionset = TenantForeignKey("accounts.PermissionSet", on_delete=models.CASCADE)
+    user = TenantForeignKey("accounts.User", on_delete=models.CASCADE)
 
 
 class UserFormValidatorMixin:
