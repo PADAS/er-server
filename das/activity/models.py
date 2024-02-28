@@ -64,6 +64,7 @@ from utils.json import parse_bool
 from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager
 from utils.tenant import get_tenant_settings
+from utils.tenant.models import TenantThroughModel
 
 from .constants import (
     PRI_BLACK,
@@ -1571,6 +1572,16 @@ class NotificationMethod(TenantModelMixin, TimestampedModel):
         return f"{self.owner.username}, {self.method}, {self.value}"
 
 
+class AlertRuleNotificationMethod(TenantThroughModel):
+    alertrule = TenantForeignKey("activity.AlertRule", on_delete=models.CASCADE)
+    notificationmethod = TenantForeignKey("activity.NotificationMethod", on_delete=models.CASCADE)
+
+
+class AlertRuleEventType(TenantThroughModel):
+    alertrule = TenantForeignKey("activity.AlertRule", on_delete=models.CASCADE)
+    eventtype = TenantForeignKey("activity.EventType", on_delete=models.CASCADE)
+
+
 class AlertRule(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     owner = TenantForeignKey(
@@ -1589,10 +1600,14 @@ class AlertRule(TenantModelMixin, TimestampedModel):
         NotificationMethod,
         related_name="alert_rules",
         related_query_name="alert_rule",
+        through="activity.AlertRuleNotificationMethod",
+        through_fields=("alertrule", "notificationmethod"),
     )
     event_types = models.ManyToManyField(
         EventType,
         related_name="alert_rules",
+        through="activity.AlertRuleEventType",
+        through_fields=("alertrule", "eventtype"),
         related_query_name="alert_rule",
     )
     is_active = models.BooleanField(

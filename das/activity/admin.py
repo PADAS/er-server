@@ -34,7 +34,11 @@ from activity.forms import (
     chained_tracked_by,
 )
 from activity.tasks import recreate_event_details_view, refresh_event_details_view
-from core.admin import InlineExtraDynamicMixin, ModelAdminDisplayingManyToManyFieldMixin
+from core.admin import (
+    CustomM2MChecks,
+    InlineExtraDynamicMixin,
+    ModelAdminDisplayingManyToManyFieldMixin,
+)
 from core.common import TIMEZONE_USED, AdminFeatureFlag
 from core.openlayers import OSMGeoExtendedAdmin, PropsOSMGeoAdminMixin
 from utils.features import features
@@ -79,7 +83,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
         "event_type",
         "title",
         "_latitude",
-        "_longitude"        
+        "_longitude",
     )
     ordering = ("serial_number",)
     sortable_by = (
@@ -188,7 +192,7 @@ class EventTypeAdmin(admin.ModelAdmin):
         "_default_priority_display",
         "_icon_display",
         "default_state",
-        "is_active"        
+        "is_active",
     )
     list_editable = (
         "ordernum",
@@ -418,7 +422,8 @@ class EventCategoryAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.AlertRule)
-class AlertRuleAdmin(admin.ModelAdmin):
+class AlertRuleAdmin(ModelAdminDisplayingManyToManyFieldMixin):
+    checks_class = CustomM2MChecks
     readonly_fields = ("id",)  # 'conditions', 'schedule',)
     list_display = ("owner_username", "title", "is_active", "ordernum")
     ordering = (
@@ -698,7 +703,7 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
         "start_location",
         "scheduled_end_date",
         "actual_end_date",
-        "end_location"        
+        "end_location",
     )
 
     fields = ("serial_number", "title", "priority", "patrol_status")
