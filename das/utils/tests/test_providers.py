@@ -16,7 +16,7 @@ class TestTenantData:
     instance = TenantData(domain=DOMAIN)
 
     def test_get_tenant_from_cache(self, memory_store_client_mock, tenant_response, caplog):
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         memory_store_client_mock.get_key.return_value = json.dumps(tenant_response)
 
         tenant_data = self.instance.get_tenant_data()
@@ -29,7 +29,7 @@ class TestTenantData:
     def test_get_tenant_from_tms_passing_through_cache_first(
         self, memory_store_client_mock, tms_api_client_mock, tenant_response, caplog
     ):
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         memory_store_client_mock.get_key.return_value = None
         tms_api_client_mock.get_tenant_data.return_value = tenant_response
 
@@ -37,11 +37,11 @@ class TestTenantData:
 
         assert tenant_data == tenant_response
         assert f"Getting tenant from cache for domain {DOMAIN}" in caplog.text
-        assert "Tenant not found at cache" in caplog.text
+        assert f"Tenant {DOMAIN} not found in cache" in caplog.text
         assert f"Getting tenant from TMS for domain {DOMAIN}" in caplog.text
 
     def test_get_tenant_not_found(self, memory_store_client_mock, tms_api_client_mock, caplog):
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         memory_store_client_mock.get_key.return_value = None
         tms_api_client_mock.get_tenant_data.return_value = None
         tenant_data = None
@@ -51,9 +51,9 @@ class TestTenantData:
 
         assert tenant_data is None
         assert f"Getting tenant from cache for domain {DOMAIN}" in caplog.text
-        assert "Tenant not found at cache" in caplog.text
+        assert f"Tenant {DOMAIN} not found in cache" in caplog.text
         assert f"Getting tenant from TMS for domain {DOMAIN}" in caplog.text
-        assert f"Tenant not found at TMS for domain {DOMAIN}" in caplog.text
+        assert f"Tenant not found in TMS for domain {DOMAIN}" in caplog.text
 
     @pytest.mark.parametrize(
         "data",
