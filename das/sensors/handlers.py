@@ -239,6 +239,10 @@ class ErTrackHandler(GenericSensorHandler):
         if isinstance(observations_json, dict):
             observations_json = [observations_json]
 
+        observations_json = cls.clean_invalid_ermobile_observations(observations_json)
+        if isinstance(observations_json, Response):
+            return observations_json
+
         params = SensorPostParameters(data=observations_json, many=True)
         if not params.is_valid():
             return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -345,6 +349,28 @@ class ErTrackHandler(GenericSensorHandler):
         else:
             errors.append(validator.errors)
         return created
+
+    @classmethod
+    def clean_invalid_ermobile_observations(cls, observations):
+        """See ERA-9406, return 207 for ER Mobile when their observation library sends an invalid payload
+
+        Args:
+            observations (list): raw observations from the request
+
+        Returns:
+            [list, Response): cleaned observations, or the Response to return
+        """
+        compliant_observations = []
+        for observation in observations:
+            if observation.get("event"):
+                logger.warning("Invalid ER Mobile observation received: %s", observation)
+                continue
+            compliant_observations.append(observation)
+        if not compliant_observations:
+            return Response(
+                data={"message": "Invalid ER Mobile observations received"}, status=status.HTTP_207_MULTI_STATUS
+            )
+        return compliant_observations
 
 
 class FollowltTrackerHandler:
