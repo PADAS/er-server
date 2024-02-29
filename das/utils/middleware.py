@@ -90,6 +90,7 @@ class RequestLoggingMiddleware(object):
                 req_time = time.time() - self.start_time
             except AttributeError:
                 req_time = 0
+            profile_id = request.META.get("HTTP_USER_PROFILE", "-")
             content_length = len(getattr(response, "content", []))
             referer = request.META.get("HTTP_REFERER", "")
             user_agent = request.META.get("HTTP_USER_AGENT", "")
@@ -101,6 +102,7 @@ class RequestLoggingMiddleware(object):
             extra = dict(
                 remote_addr=remote_addr,
                 user_id=user_id,
+                profile_id=profile_id,
                 req_time=req_time,
                 content_length=content_length,
                 referer=referer,
