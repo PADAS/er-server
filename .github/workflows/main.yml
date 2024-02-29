@@ -2,15 +2,48 @@ name: Build das-server
 on:
   push:
     branches:
-      - develop
-      - 'release-**'
+      - era-9426
 
 jobs:
   build:
-    uses: PADAS/gundi-workflows/.github/workflows/build_docker.yml@v1-stable
+    uses: PADAS/gundi-workflows/.github/workflows/build_docker.yml@v2
     with:
       environment: padas-app
       repository: europe-west3-docker.pkg.dev/padas-app/er-mt/das-server
       tag: ${{ github.head_ref || github.ref_name }}-${{ github.run_number }}
       dockerfile: circleci-docker/Dockerfile
 
+  unit-tests:
+    runs-on: ubuntu-latest
+    container: europe-west3-docker.pkg.dev/padas-app/er-mt/das-server:${{ github.head_ref || github.ref_name }}-${{ github.run_number }}
+
+    services:
+      postgres:
+        image: bitnami/postgresql:16-debian-12
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: fancypassword
+          POSTGRES_DATABASE: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7.2
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Run tests
+        run: pytest --reuse-db --junitxml=/testresults/junit/result_suite_one.xml --maxfail=15 accounts/tests mapping/tests reports/tests rt_api/tests tracking/tests
+        env:
+          DB_HOST: postgres
+          DB_NAME: testdb
+          DB_USER: testuser
+          DB_PASSWORD: fancypassword
+          DB_PORT: 5432
+          FQDN: testing.pamdas.org
