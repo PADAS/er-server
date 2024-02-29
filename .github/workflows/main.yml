@@ -64,8 +64,10 @@ jobs:
     steps:
       - name: Run tests
         run: |
+          pwd
+          ls
           python3 -m pip install --upgrade keyrings.alt
-          python3 -m pip install -r dependencies/requirements-dev.txt --find-links dependencies/wheelhouse/ --upgrade
+          python3 -m pip install -r /das/dependencies/requirements-dev.txt --find-links /das/dependencies/wheelhouse/ --upgrade
           export DJANGO_SETTINGS_MODULE=unittest_settings
           IS_OAUTH2_PROVIDER_MIGRATION=true python3 manage.py migrate
           IS_OAUTH2_PROVIDER_MIGRATION=true pytest --reuse-db --create-db --junitxml=/testresults/result.xml --maxfail=15  core/tests/test_utils.py
