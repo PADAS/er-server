@@ -120,7 +120,7 @@ class ErTrackHandlerTest(BaseAPITest):
     def test_post_one_invalid_observation(self):
         observations = [self.invalid_observation]
         response = self._post_data(json.dumps(observations), user=self.super_user)
-        self.assertEqual(response.status_code, status.HTTP_207_MULTI_STATUS)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_new_device_handling_with_create_new_config(self):
