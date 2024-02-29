@@ -20,6 +20,7 @@ jobs:
       id-token: 'write'
     outputs:
       token: ${{ steps.vars.outputs.token }}
+    environment: padas-app
     steps:
       - name: GCP Auth
         id: auth
