@@ -363,9 +363,7 @@ class ErTrackHandler(GenericSensorHandler):
                 continue
             compliant_observations.append(observation)
         if not compliant_observations:
-            return Response(
-                data={"message": "Invalid ER Mobile observations received"}, status=status.HTTP_207_MULTI_STATUS
-            )
+            return Response(data={"message": "Invalid ER Mobile observations received"}, status=status.HTTP_200_OK)
         return compliant_observations
 
 
