@@ -65,8 +65,7 @@ jobs:
       - name: Run tests
         run: |
           cd /das
-          pwd
-          ls
+          export PYTHONPATH=/das/test_scripts:$PYTHONPATH
           python3 -m pip install --upgrade keyrings.alt
           python3 -m pip install -r /das/dependencies/requirements-dev.txt --find-links /das/dependencies/wheelhouse/ --upgrade
           export DJANGO_SETTINGS_MODULE=unittest_settings
