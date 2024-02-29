@@ -64,6 +64,7 @@ jobs:
     steps:
       - name: Run tests
         run: |
+          cd /das
           pwd
           ls
           python3 -m pip install --upgrade keyrings.alt
