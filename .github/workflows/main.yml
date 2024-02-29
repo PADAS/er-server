@@ -47,7 +47,7 @@ jobs:
         env:
           POSTGRES_USER: testuser
           POSTGRES_PASSWORD: fancypassword
-          POSTGRES_DATABASE: testdb
+          POSTGRES_DB: testdb
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
