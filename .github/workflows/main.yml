@@ -42,8 +42,8 @@ jobs:
         username: oauth2accesstoken
         password: ${{ needs.vars.outputs.token }}
     services:
-      postgres:
-        image: postgres:16.2
+      postgis:
+        image: postgis/postgis:16-3.4-alpine
         env:
           POSTGRES_USER: testuser
           POSTGRES_PASSWORD: fancypassword
