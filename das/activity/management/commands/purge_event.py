@@ -67,6 +67,7 @@ class Command(TenantCommandMixin, BaseCommand):
         Command.delete_qs(models.EventRelationship.objects.filter(to_event_id=event_id))
         Command.delete_qs(models.EventRelationship.objects.filter(from_event_id=event_id))
         Command.delete_qs(models.EventsourceEvent.objects.filter(event_id=event_id))
+        Command.delete_qs(models.TSVectorModel.objects.filter(event_id=event_id))
 
         Command.delete_qs(models.Event.objects.filter(id=event_id), delete_revision=True)
 

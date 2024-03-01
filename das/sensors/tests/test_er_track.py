@@ -50,6 +50,28 @@ class ErTrackHandlerTest(BaseAPITest):
         "location": {"lon": "31.19239", "lat": "-24.43071"},
     }
 
+    invalid_observation = {
+        "event": "motionchange",
+        "is_moving": False,
+        "uuid": "280ebf2f-3c0e-4926-a080-65e8a140ea0f",
+        "timestamp": "2024-01-02T11:06:56.048Z",
+        "odometer": 319581.5,
+        "coords": {
+            "latitude": -0,
+            "longitude": 0,
+            "accuracy": 3.5,
+            "speed": 0,
+            "speed_accuracy": 1.7,
+            "heading": -1,
+            "heading_accuracy": -1,
+            "altitude": 8.6,
+            "altitude_accuracy": 12.5,
+        },
+        "activity": {"type": "still", "confidence": 100},
+        "battery": {"is_charging": False, "level": 0.66},
+        "extras": {},
+    }
+
     def setUp(self):
         super().setUp()
         # setup db: create source, provider
@@ -87,6 +109,18 @@ class ErTrackHandlerTest(BaseAPITest):
             json.dumps([self.second_observation, self.one_observation, self.one_observation]), user=self.super_user
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_post_an_observation_with_invalid_observation(self):
+        observations = [self.one_observation, self.invalid_observation]
+        response = self._post_data(json.dumps(observations), user=self.super_user)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_post_one_invalid_observation(self):
+        observations = [self.invalid_observation]
+        response = self._post_data(json.dumps(observations), user=self.super_user)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_new_device_handling_with_create_new_config(self):
