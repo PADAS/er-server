@@ -2261,7 +2261,7 @@
     {
         "fields": {
             "codename": "add_awetelemetryplugin",
-            "content_type_id": 54,
+            "content_type_id": 60,
             "name": "Can add awe telemetry plugin"
         },
         "model": "auth.authpermissiontemporal",
@@ -2270,7 +2270,7 @@
     {
         "fields": {
             "codename": "change_awetelemetryplugin",
-            "content_type_id": 54,
+            "content_type_id": 60,
             "name": "Can change awe telemetry plugin"
         },
         "model": "auth.authpermissiontemporal",
@@ -2279,7 +2279,7 @@
     {
         "fields": {
             "codename": "delete_awetelemetryplugin",
-            "content_type_id": 54,
+            "content_type_id": 60,
             "name": "Can delete awe telemetry plugin"
         },
         "model": "auth.authpermissiontemporal",
@@ -2288,7 +2288,7 @@
     {
         "fields": {
             "codename": "view_awetelemetryplugin",
-            "content_type_id": 54,
+            "content_type_id": 60,
             "name": "Can view awe telemetry plugin"
         },
         "model": "auth.authpermissiontemporal",
@@ -2405,7 +2405,7 @@
     {
         "fields": {
             "codename": "add_awtplugin",
-            "content_type_id": 59,
+            "content_type_id": 64,
             "name": "Can add awt plugin"
         },
         "model": "auth.authpermissiontemporal",
@@ -2414,7 +2414,7 @@
     {
         "fields": {
             "codename": "change_awtplugin",
-            "content_type_id": 59,
+            "content_type_id": 64,
             "name": "Can change awt plugin"
         },
         "model": "auth.authpermissiontemporal",
@@ -2423,7 +2423,7 @@
     {
         "fields": {
             "codename": "delete_awtplugin",
-            "content_type_id": 59,
+            "content_type_id": 64,
             "name": "Can delete awt plugin"
         },
         "model": "auth.authpermissiontemporal",
@@ -2432,7 +2432,7 @@
     {
         "fields": {
             "codename": "view_awtplugin",
-            "content_type_id": 59,
+            "content_type_id": 64,
             "name": "Can view awt plugin"
         },
         "model": "auth.authpermissiontemporal",
@@ -2441,7 +2441,7 @@
     {
         "fields": {
             "codename": "add_sourceproviderconfiguration",
-            "content_type_id": 55,
+            "content_type_id": 65,
             "name": "Can add EarthRanger Track Configuration"
         },
         "model": "auth.authpermissiontemporal",
@@ -2450,7 +2450,7 @@
     {
         "fields": {
             "codename": "change_sourceproviderconfiguration",
-            "content_type_id": 55,
+            "content_type_id": 65,
             "name": "Can change EarthRanger Track Configuration"
         },
         "model": "auth.authpermissiontemporal",
@@ -2459,7 +2459,7 @@
     {
         "fields": {
             "codename": "delete_sourceproviderconfiguration",
-            "content_type_id": 55,
+            "content_type_id": 65,
             "name": "Can delete EarthRanger Track Configuration"
         },
         "model": "auth.authpermissiontemporal",
@@ -2468,7 +2468,7 @@
     {
         "fields": {
             "codename": "view_sourceproviderconfiguration",
-            "content_type_id": 55,
+            "content_type_id": 65,
             "name": "Can view EarthRanger Track Configuration"
         },
         "model": "auth.authpermissiontemporal",
@@ -5474,8 +5474,8 @@
     {
         "fields": {
             "codename": "add_permissionsetchildren",
-            "content_type_id": 156,
-            "name": "Can add permissionsetchildren"
+            "content_type_id": 163,
+            "name": "Can add permission set children"
         },
         "model": "auth.authpermissiontemporal",
         "pk": 7512
@@ -5483,8 +5483,8 @@
     {
         "fields": {
             "codename": "change_permissionsetchildren",
-            "content_type_id": 156,
-            "name": "Can change permissionsetchildren"
+            "content_type_id": 163,
+            "name": "Can change permission set children"
         },
         "model": "auth.authpermissiontemporal",
         "pk": 7513
@@ -5492,8 +5492,8 @@
     {
         "fields": {
             "codename": "delete_permissionsetchildren",
-            "content_type_id": 156,
-            "name": "Can delete permissionsetchildren"
+            "content_type_id": 163,
+            "name": "Can delete permission set children"
         },
         "model": "auth.authpermissiontemporal",
         "pk": 7514
@@ -5501,8 +5501,8 @@
     {
         "fields": {
             "codename": "view_permissionsetchildren",
-            "content_type_id": 156,
-            "name": "Can view permissionsetchildren"
+            "content_type_id": 163,
+            "name": "Can view permission set children"
         },
         "model": "auth.authpermissiontemporal",
         "pk": 7515
@@ -5510,7 +5510,7 @@
     {
         "fields": {
             "codename": "add_actasprofiles",
-            "content_type_id": 157,
+            "content_type_id": 164,
             "name": "Can add act as profiles"
         },
         "model": "auth.authpermissiontemporal",
@@ -5519,7 +5519,7 @@
     {
         "fields": {
             "codename": "change_actasprofiles",
-            "content_type_id": 157,
+            "content_type_id": 164,
             "name": "Can change act as profiles"
         },
         "model": "auth.authpermissiontemporal",
@@ -5528,7 +5528,7 @@
     {
         "fields": {
             "codename": "delete_actasprofiles",
-            "content_type_id": 157,
+            "content_type_id": 164,
             "name": "Can delete act as profiles"
         },
         "model": "auth.authpermissiontemporal",
@@ -5537,7 +5537,7 @@
     {
         "fields": {
             "codename": "view_actasprofiles",
-            "content_type_id": 157,
+            "content_type_id": 164,
             "name": "Can view act as profiles"
         },
         "model": "auth.authpermissiontemporal",
@@ -5546,8 +5546,8 @@
     {
         "fields": {
             "codename": "add_subjectgroupchildren",
-            "content_type_id": 158,
-            "name": "Can add subjectgroupchildren"
+            "content_type_id": 165,
+            "name": "Can add subject group children"
         },
         "model": "auth.authpermissiontemporal",
         "pk": 7520
@@ -5555,8 +5555,8 @@
     {
         "fields": {
             "codename": "change_subjectgroupchildren",
-            "content_type_id": 158,
-            "name": "Can change subjectgroupchildren"
+            "content_type_id": 165,
+            "name": "Can change subject group children"
         },
         "model": "auth.authpermissiontemporal",
         "pk": 7521
@@ -5564,8 +5564,8 @@
     {
         "fields": {
             "codename": "delete_subjectgroupchildren",
-            "content_type_id": 158,
-            "name": "Can delete subjectgroupchildren"
+            "content_type_id": 165,
+            "name": "Can delete subject group children"
         },
         "model": "auth.authpermissiontemporal",
         "pk": 7522
@@ -5573,8 +5573,8 @@
     {
         "fields": {
             "codename": "view_subjectgroupchildren",
-            "content_type_id": 158,
-            "name": "Can view subjectgroupchildren"
+            "content_type_id": 165,
+            "name": "Can view subject group children"
         },
         "model": "auth.authpermissiontemporal",
         "pk": 7523
@@ -5582,8 +5582,8 @@
     {
         "fields": {
             "codename": "add_sourcegroupchildren",
-            "content_type_id": 159,
-            "name": "Can add sourcegroupchildren"
+            "content_type_id": 166,
+            "name": "Can add source group children"
         },
         "model": "auth.authpermissiontemporal",
         "pk": 7524
@@ -5591,8 +5591,8 @@
     {
         "fields": {
             "codename": "change_sourcegroupchildren",
-            "content_type_id": 159,
-            "name": "Can change sourcegroupchildren"
+            "content_type_id": 166,
+            "name": "Can change source group children"
         },
         "model": "auth.authpermissiontemporal",
         "pk": 7525
@@ -5600,8 +5600,8 @@
     {
         "fields": {
             "codename": "delete_sourcegroupchildren",
-            "content_type_id": 159,
-            "name": "Can delete sourcegroupchildren"
+            "content_type_id": 166,
+            "name": "Can delete source group children"
         },
         "model": "auth.authpermissiontemporal",
         "pk": 7526
@@ -5609,8 +5609,8 @@
     {
         "fields": {
             "codename": "view_sourcegroupchildren",
-            "content_type_id": 159,
-            "name": "Can view sourcegroupchildren"
+            "content_type_id": 166,
+            "name": "Can view source group children"
         },
         "model": "auth.authpermissiontemporal",
         "pk": 7527
@@ -5618,7 +5618,7 @@
     {
         "fields": {
             "codename": "add_sourceproviderconfigurationnamechangeexcludedsubjecttypes",
-            "content_type_id": 160,
+            "content_type_id": 167,
             "name": "Can add source provider configuration name change excluded subject types"
         },
         "model": "auth.authpermissiontemporal",
@@ -5627,7 +5627,7 @@
     {
         "fields": {
             "codename": "change_sourceproviderconfigurationnamechangeexcludedsubjecttypes",
-            "content_type_id": 160,
+            "content_type_id": 167,
             "name": "Can change source provider configuration name change excluded subject types"
         },
         "model": "auth.authpermissiontemporal",
@@ -5636,7 +5636,7 @@
     {
         "fields": {
             "codename": "delete_sourceproviderconfigurationnamechangeexcludedsubjecttypes",
-            "content_type_id": 160,
+            "content_type_id": 167,
             "name": "Can delete source provider configuration name change excluded subject types"
         },
         "model": "auth.authpermissiontemporal",
@@ -5645,7 +5645,7 @@
     {
         "fields": {
             "codename": "view_sourceproviderconfigurationnamechangeexcludedsubjecttypes",
-            "content_type_id": 160,
+            "content_type_id": 167,
             "name": "Can view source provider configuration name change excluded subject types"
         },
         "model": "auth.authpermissiontemporal",
@@ -5654,7 +5654,7 @@
     {
         "fields": {
             "codename": "add_sourceproviderconfigurationnewsubjectexcludedsubjecttypes",
-            "content_type_id": 161,
+            "content_type_id": 168,
             "name": "Can add source provider configuration new subject excluded subject types"
         },
         "model": "auth.authpermissiontemporal",
@@ -5663,7 +5663,7 @@
     {
         "fields": {
             "codename": "change_sourceproviderconfigurationnewsubjectexcludedsubjecttypes",
-            "content_type_id": 161,
+            "content_type_id": 168,
             "name": "Can change source provider configuration new subject excluded subject types"
         },
         "model": "auth.authpermissiontemporal",
@@ -5672,7 +5672,7 @@
     {
         "fields": {
             "codename": "delete_sourceproviderconfigurationnewsubjectexcludedsubjecttypes",
-            "content_type_id": 161,
+            "content_type_id": 168,
             "name": "Can delete source provider configuration new subject excluded subject types"
         },
         "model": "auth.authpermissiontemporal",
@@ -5681,7 +5681,7 @@
     {
         "fields": {
             "codename": "view_sourceproviderconfigurationnewsubjectexcludedsubjecttypes",
-            "content_type_id": 161,
+            "content_type_id": 168,
             "name": "Can view source provider configuration new subject excluded subject types"
         },
         "model": "auth.authpermissiontemporal",
@@ -5690,7 +5690,7 @@
     {
         "fields": {
             "codename": "add_spatialfeaturetypetags",
-            "content_type_id": 162,
+            "content_type_id": 169,
             "name": "Can add spatial feature type tags"
         },
         "model": "auth.authpermissiontemporal",
@@ -5699,7 +5699,7 @@
     {
         "fields": {
             "codename": "change_spatialfeaturetypetags",
-            "content_type_id": 162,
+            "content_type_id": 169,
             "name": "Can change spatial feature type tags"
         },
         "model": "auth.authpermissiontemporal",
@@ -5708,7 +5708,7 @@
     {
         "fields": {
             "codename": "delete_spatialfeaturetypetags",
-            "content_type_id": 162,
+            "content_type_id": 169,
             "name": "Can delete spatial feature type tags"
         },
         "model": "auth.authpermissiontemporal",
@@ -5717,7 +5717,7 @@
     {
         "fields": {
             "codename": "view_spatialfeaturetypetags",
-            "content_type_id": 162,
+            "content_type_id": 169,
             "name": "Can view spatial feature type tags"
         },
         "model": "auth.authpermissiontemporal",

@@ -1,9 +1,11 @@
+from django.core.management import call_command
 from django.db import migrations
 
 from utils.models import create_all_permissions
 
 
 def catchup_create_permissions(apps, schema_editor):
+    call_command("remove_stale_contenttypes", "--noinput")
     create_all_permissions()
 
 
