@@ -2,7 +2,8 @@ name: Build das-server
 on:
   push:
     branches:
-      - era-9426
+      - develop
+      - 'release-**'
 
 jobs:
   build:
@@ -17,6 +18,7 @@ jobs:
     uses: ./.github/workflows/_unit-tests.yml
     needs: build
     with:
+      image: "europe-west3-docker.pkg.dev/padas-app/er-mt/das-server:${{ github.head_ref || github.ref_name }}-${{ github.run_number }}"
       command: | 
         pytest --reuse-db --junitxml=/testresults/junit/result_suite_one.xml --maxfail=15 accounts/tests mapping/tests reports/tests rt_api/tests tracking/tests
         pytest --reuse-db --junitxml=/testresults/junit/result_suite_three.xml --maxfail=15 analyzers/tests utils/tests
@@ -26,4 +28,5 @@ jobs:
     uses: ./.github/workflows/_unit-tests.yml
     needs: build
     with:
+      image: "europe-west3-docker.pkg.dev/padas-app/er-mt/das-server:${{ github.head_ref || github.ref_name }}-${{ github.run_number }}"
       command: pytest --reuse-db --junitxml=/testresults/junit/result_suite_two.xml --maxfail=15 activity/tests sensors/tests revision/test
