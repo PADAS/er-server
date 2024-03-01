@@ -13,26 +13,17 @@ jobs:
       tag: ${{ github.head_ref || github.ref_name }}-${{ github.run_number }}
       dockerfile: circleci-docker/Dockerfile
 
-  test-suite1:
+  unit-test1:
     uses: ./.github/workflows/_unit-tests.yml
     needs: build
     with:
-      command: pytest --reuse-db --junitxml=/testresults/junit/result_suite_one.xml --maxfail=15 accounts/tests mapping/tests reports/tests rt_api/tests tracking/tests
+      command: | 
+        pytest --reuse-db --junitxml=/testresults/junit/result_suite_one.xml --maxfail=15 accounts/tests mapping/tests reports/tests rt_api/tests tracking/tests
+        pytest --reuse-db --junitxml=/testresults/junit/result_suite_three.xml --maxfail=15 analyzers/tests utils/tests
+        pytest --reuse-db --junitxml=/testresults/junit/result_suite_four.xml --maxfail=15 choices/tests das_server/tests observations/tests core/tests
 
-  test-suite2:
+  unit-test2:
     uses: ./.github/workflows/_unit-tests.yml
     needs: build
     with:
       command: pytest --reuse-db --junitxml=/testresults/junit/result_suite_two.xml --maxfail=15 activity/tests sensors/tests revision/test
-
-  test-suite3:
-    uses: ./.github/workflows/_unit-tests.yml
-    needs: build
-    with:
-      command: pytest --reuse-db --junitxml=/testresults/junit/result_suite_three.xml --maxfail=15 analyzers/tests utils/tests
-
-  test-suite4:
-    uses: ./.github/workflows/_unit-tests.yml
-    needs: build
-    with:
-      command: pytest --reuse-db --junitxml=/testresults/junit/result_suite_four.xml --maxfail=15 choices/tests das_server/tests observations/tests core/tests
