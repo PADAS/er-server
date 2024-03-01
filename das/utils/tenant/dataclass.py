@@ -75,6 +75,10 @@ class Tenant:
     slug_name: str = field(metadata=config(field_name="slugName"))
     cluster_name: Optional[str] = field(metadata=config(field_name="clusterName"))
     cluster_namespace: Optional[str] = field(metadata=config(field_name="clusterNamespace"))
+    permissions_custom_sequence_start: Optional[int] = field(
+        metadata=config(field_name="permissionsCustomSequenceStart")
+    )
+    permissions_custom_sequence_end: Optional[int] = field(metadata=config(field_name="permissionsCustomSequenceEnd"))
     domain: str = field(metadata=config(field_name="domain"))
     url: str = field(metadata=config(field_name="url"))
     created_at: datetime = field(

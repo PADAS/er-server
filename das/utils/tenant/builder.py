@@ -14,18 +14,20 @@ class DjangoSettingsTenantBuilder:
     def __init__(self):
         self.tenant = Tenant(
             id=getattr(settings, "TENANT_ID", None) or str(uuid.uuid4()),
-            name=getattr(settings, "UI_SITE_NAME", None),
-            slug_name=getattr(settings, "SERVER_FQDN", None),
-            domain=getattr(settings, "SERVER_FQDN", None),
-            url=getattr(settings, "UI_SITE_URL", None),
-            created_at=datetime.datetime.now(tz=datetime.timezone.utc),
-            updated_at=datetime.datetime.now(tz=datetime.timezone.utc),
-            feature_flags=self._load_feature_flags_from_django(),
-            env_settings=self._load_env_settings_from_django(),
-            services=[],
-            status=None,
             cluster_name=None,
             cluster_namespace=None,
+            created_at=datetime.datetime.now(tz=datetime.timezone.utc),
+            domain=getattr(settings, "SERVER_FQDN", None),
+            env_settings=self._load_env_settings_from_django(),
+            feature_flags=self._load_feature_flags_from_django(),
+            name=getattr(settings, "UI_SITE_NAME", None),
+            permissions_custom_sequence_end=None,
+            permissions_custom_sequence_start=None,
+            services=[],
+            slug_name=getattr(settings, "SERVER_FQDN", None),
+            status=None,
+            updated_at=datetime.datetime.now(tz=datetime.timezone.utc),
+            url=getattr(settings, "UI_SITE_URL", None),
         )
 
     def build(self) -> Tenant:

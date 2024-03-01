@@ -8,6 +8,8 @@
   "domain": "zoo.com",
   "clusterNamespace": "awesome-er-site",
   "clusterName": "production-cluster001",
+  "permissionsCustomSequenceStart": 20001,
+  "permissionsCustomSequenceEnd": 30000,
   "status": "PROVISIONING",
   "envSettings": {
     "acceptEula": false,
