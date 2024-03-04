@@ -4,11 +4,14 @@ on:
     types:
       - labeled
       - synchronize
-      - reopened
-
+      - opened
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
-  id-token: write   # This is required for requesting the JWT
-  contents: read    # This is required for actions/checkout
+  id-token: write
+  contents: read
+
 jobs:
   create_tenant:
     runs-on: ubuntu-latest
@@ -48,11 +51,26 @@ jobs:
         --change-batch '{"Changes":[{"Action":"UPSERT","ResourceRecordSet":{"Name":"${{ steps.branch_name.outputs.lowercase }}.dev.pamdas.org.","Type":"A","TTL":300,"ResourceRecords":[{"Value":"34.102.221.194"}]}}]}'
 
   build:
-    if: contains(github.event.pull_request.labels.*.name, 'deploy')
-    uses: PADAS/gundi-workflows/.github/workflows/build_docker.yml@v1-stable
+    uses: PADAS/gundi-workflows/.github/workflows/build_docker.yml@v2
     with:
       environment: padas-app
       repository: europe-west3-docker.pkg.dev/padas-app/er-mt/das-server
       tag: ${{ github.event.pull_request.head.sha }}
       dockerfile: circleci-docker/Dockerfile
 
+  unit-test1:
+    uses: ./.github/workflows/_unit-tests.yml
+    needs: build
+    with:
+      image: "europe-west3-docker.pkg.dev/padas-app/er-mt/das-server:${{ github.event.pull_request.head.sha }}"
+      command: | 
+        pytest --reuse-db --junitxml=/testresults/junit/result_suite_one.xml --maxfail=15 accounts/tests mapping/tests reports/tests rt_api/tests tracking/tests
+        pytest --reuse-db --junitxml=/testresults/junit/result_suite_three.xml --maxfail=15 analyzers/tests utils/tests
+        pytest --reuse-db --junitxml=/testresults/junit/result_suite_four.xml --maxfail=15 choices/tests das_server/tests observations/tests core/tests
+
+  unit-test2:
+    uses: ./.github/workflows/_unit-tests.yml
+    needs: build
+    with:
+      image: "europe-west3-docker.pkg.dev/padas-app/er-mt/das-server:${{ github.event.pull_request.head.sha }}"
+      command: pytest --reuse-db --junitxml=/testresults/junit/result_suite_two.xml --maxfail=15 activity/tests sensors/tests revision/test
