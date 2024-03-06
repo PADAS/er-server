@@ -948,7 +948,9 @@ class SubjectGroup(TenantHierarchyModel, TimestampedModel, PermissionSetHierarch
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_("name"), max_length=80)
-    subjects = models.ManyToManyField("Subject", related_name="groups", blank=True)
+    subjects = models.ManyToManyField(
+        "observations.Subject", related_name="groups", blank=True, through="observations.SubjectGroupSubject"
+    )
     is_visible = models.BooleanField(
         _("visible"),
         default=True,
@@ -1534,6 +1536,34 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
 
     def __str__(self):
         return f"{self.name}"  # ({self.subject_subtype.display})'
+
+
+class SubjectGroupSubjectManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
+    def get_by_natural_key(self, subjectgroup, subject):
+        return self.get(subjectgroup=subjectgroup, subject=subject)
+
+
+class SubjectGroupSubject(TenantModelMixin, UUIDModel):
+    subjectgroup = TenantForeignKey(SubjectGroup, on_delete=models.CASCADE)
+    subject = TenantForeignKey(Subject, on_delete=models.CASCADE)
+    das_tenant = models.ForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        default=default_tenant_id,
+        related_name="observations_subjectgroupsubject",
+    )
+    tenant_id = "das_tenant_id"
+
+    objects = SubjectGroupSubjectManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+
+    def natural_key(self):
+        return (self.subjectgroup, self.subject)
 
 
 OBSERVATION_DELAY_HRS = 72
