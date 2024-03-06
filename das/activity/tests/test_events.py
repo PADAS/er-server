@@ -303,6 +303,44 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
+    def test_create_new_event_with_null_serial_number_returns_the_serial_number_not_null(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data["reported_by"] = self.user_rep
+        event_data["provenance"] = Event.PC_STAFF
+        event_data["event_type"] = ET_OTHER
+        event_data["serial_number"] = None
+        request = self.factory.post(self.api_base + "/events/", event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        response_data = {k: response.data[k] for k in event_data.keys()}
+        assert response_data["serial_number"] > 0
+
+    def test_patch_event_with_null_serial_number_ignores_the_serial_number_as_null(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data["reported_by"] = self.user_rep
+        event_data["provenance"] = Event.PC_STAFF
+        event_data["event_type"] = ET_OTHER
+        event_data["serial_number"] = None
+        request = self.factory.post(self.api_base + "/events/", event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        serial_number = response.data["serial_number"]
+        assert serial_number > 0
+
+        fields_to_update = ["serial_number", "id", "location", "title", "event_type"]
+        event_data = {k: response.data[k] for k in fields_to_update}
+        event_data["serial_number"] = None
+        request = self.factory.patch(self.api_base + f"/event/{response.data['id']}", event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventView.as_view()(request, id=str(response.data["id"]))
+        self.assertEqual(response.status_code, 200)
+        assert response.data["serial_number"] == serial_number
+
     def test_created_event_status(self):
         event_data = copy.deepcopy(self.event_data)
         event_data["reported_by"] = self.user_rep
