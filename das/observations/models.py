@@ -145,7 +145,9 @@ class SourceGroup(TenantHierarchyModel, TimestampedModel, PermissionSetHierarchy
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(_("name"), max_length=80)
-    sources = models.ManyToManyField("Source", related_name="groups", blank=True)
+    sources = models.ManyToManyField(
+        "observations.Source", related_name="groups", blank=True, through="observations.SourceGroupSource"
+    )
 
     children = models.ManyToManyField(
         "self",
@@ -1564,6 +1566,34 @@ class SubjectGroupSubject(TenantModelMixin, UUIDModel):
 
     def natural_key(self):
         return (self.subjectgroup, self.subject)
+
+
+class SourceGroupSourceManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
+    def get_by_natural_key(self, sourcegroup, source):
+        return self.get(sourcegroup=sourcegroup, source=source)
+
+
+class SourceGroupSource(TenantModelMixin, UUIDModel):
+    sourcegroup = TenantForeignKey(SourceGroup, on_delete=models.CASCADE)
+    source = TenantForeignKey(Source, on_delete=models.CASCADE)
+    das_tenant = models.ForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        default=default_tenant_id,
+        related_name="observations_sourcegroupsource",
+    )
+    tenant_id = "das_tenant_id"
+
+    objects = SourceGroupSourceManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+
+    def natural_key(self):
+        return (self.sourcegroup, self.source)
 
 
 OBSERVATION_DELAY_HRS = 72
