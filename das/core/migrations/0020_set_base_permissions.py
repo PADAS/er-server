@@ -3,6 +3,7 @@ import json
 import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
+from django.db.models import Count
 
 SQL = """
 DO
@@ -70,22 +71,58 @@ $$
 """
 
 
+JSON_FILE = f"{settings.BASE_DIR}/core/migrations/data/golden_set_permissions.json"
+
+
 def open_json_file(json_file: str):
     with open(json_file, "r") as json_file:
         return json.load(json_file)
 
 
 def insert_into_temp_permissions(apps, schema_editor):
+    # Get the model for AuthPermissionTemporal
     AuthPermissionTemporal = apps.get_model(app_label="core", model_name="AuthPermissionTemporal")
+
+    # Create an empty list to store the temporary data
     temporal_data = []
-    json_file = f"{settings.BASE_DIR}/core/migrations/data/golden_set_permissions.json"
 
-    base_permissions = open_json_file(json_file=json_file)
+    # Open the JSON file and retrieve the base permissions
+    base_permissions = open_json_file(json_file=JSON_FILE)
 
+    # Iterate over each permission in the base permissions
     for permission in base_permissions:
+        # Create an instance of AuthPermissionTemporal with the permission data
         temporal_data.append(AuthPermissionTemporal(id=permission["pk"], **permission["fields"]))
 
+    # Bulk create the AuthPermissionTemporal instances
     AuthPermissionTemporal.objects.bulk_create(temporal_data)
+
+
+def remove_duplicate_permissions_from_golden_set(apps, schema_editor):
+    AuthPermission = apps.get_model(app_label="auth", model_name="Permission")
+    AuthPermissionTemporal = apps.get_model(app_label="core", model_name="AuthPermissionTemporal")
+
+    duplicates = AuthPermission.objects.values("codename").annotate(Count("id")).order_by().filter(id__count__gt=1)
+
+    for duplicate in duplicates:
+        codename_in_golden_set = AuthPermissionTemporal.objects.filter(codename=duplicate["codename"])
+        if codename_in_golden_set.exists():
+            permission_ids_to_exclude = codename_in_golden_set.values_list("id", flat=True)
+            # Get permissions to delete, excluding those in AuthPermissionTemporal
+            permissions_to_delete = AuthPermission.objects.filter(codename=duplicate["codename"]).exclude(
+                id__in=permission_ids_to_exclude
+            )
+            # Delete the permissions
+            permissions_to_delete.delete()
+        else:
+            PermissionSet = apps.get_model(app_label="accounts", model_name="PermissionSet")
+            excluded_ids = []
+
+            for permission_set in PermissionSet.objects.all():
+                excluded_ids.append(permission_set.permissions.all().values_list("id", flat=True))
+
+            # If the codename is not in Goldenset, delete first permissions with that codename
+            AuthPermission.objects.filter(codename=duplicate["codename"]).exclude(id__in=excluded_ids).delete()
 
 
 class Migration(migrations.Migration):
@@ -118,6 +155,7 @@ class Migration(migrations.Migration):
             sql=SQL,
             reverse_sql=migrations.RunSQL.noop,
         ),
+        migrations.RunPython(remove_duplicate_permissions_from_golden_set, reverse_code=migrations.RunPython.noop),
         migrations.DeleteModel(
             name="AuthPermissionTemporal",
         ),
