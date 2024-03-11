@@ -7,7 +7,6 @@ import uuid
 import tagulous.settings
 from django_multitenant.fields import TenantForeignKey
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
-from model_utils.managers import InheritanceManager
 from pytz import timezone
 from tagulous.models import TagField as TagulousTagField
 from tagulous.models import TagModel
@@ -35,6 +34,7 @@ from revision.manager import Revision, RevisionMixin
 from utils.decorator import reify
 from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager
+from utils.tenant.models import TenantThroughModel
 from utils.tenant.thread import get_tenant_settings
 
 logger = logging.getLogger(__name__)
@@ -600,32 +600,50 @@ class MBTiles(object):
 """Below are new classes proposed by Jake for structuring spatial data in DAS"""
 
 
-class SpatialFeatureGroupManager(TenantManagerMixin, InheritanceManager):
+class SpatialFeatureGroupManager(TenantManagerMixin, models.Manager):
     use_in_migrations = True
 
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
 
-class SpatialFeatureGroup(TenantModelMixin, TimestampedModel):
-    """
-    A grouping of features that should be toggled together on the map,
-      e.g. a set of camps or a system of rivers
-      ... better than handling as a layer group in UI as it allows grouping
-       to be controlled in db?
-    """
+class SpatialFeatureGroupStaticFeatures(TenantThroughModel):
+    spatial_feature_groupstatic = TenantForeignKey(
+        "mapping.SpatialFeatureGroupStatic",
+        on_delete=models.CASCADE,
+    )
+    spatial_feature = TenantForeignKey(
+        "mapping.SpatialFeature",
+        on_delete=models.CASCADE,
+    )
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+
+class SpatialFeatureGroupStaticManager(CommonTenantManager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
+class SpatialFeatureGroupStatic(TenantModelMixin, UUIDModel, TimestampedModel):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    objects = SpatialFeatureGroupManager()
+
+    features = models.ManyToManyField(
+        to="SpatialFeature",
+        related_name="groups_temp",
+        related_query_name="group_temp",
+        through="mapping.SpatialFeatureGroupStaticFeatures",
+        through_fields=("spatial_feature_groupstatic", "spatial_feature"),
+        blank=True,
+    )
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+
+    objects = SpatialFeatureGroupStaticManager()
     tenant_id = "das_tenant_id"
 
     class Meta:
         base_manager_name = "objects"
         default_manager_name = "objects"
-        verbose_name = "Base Feature Group"
+        verbose_name = "Feature Group"
         ordering = ["name"]
         constraints = [
             UniqueConstraint(
@@ -640,25 +658,6 @@ class SpatialFeatureGroup(TenantModelMixin, TimestampedModel):
 
     def natural_key(self):
         return self.name
-
-
-class SpatialFeatureGroupQuery(SpatialFeatureGroup):
-    class Meta:
-        verbose_name = "Calculated Feature Group"
-
-
-class SpatialFeatureGroupStatic(SpatialFeatureGroup):
-    """Static group of features"""
-
-    features = models.ManyToManyField(
-        to="SpatialFeature",
-        related_name="groups",
-        related_query_name="group",
-        blank=True,
-    )
-
-    class Meta:
-        verbose_name = "Feature Group"
 
 
 class DisplayCategoryManager(TenantManagerMixin, models.Manager):
@@ -881,7 +880,7 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
     """
 
     revision_ignore_fields = ("updated_at",)
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, unique=True, default=uuid.uuid4)
     feature_type = TenantForeignKey(SpatialFeatureType, on_delete=models.PROTECT)
     name = models.CharField(max_length=255, blank=True)
     # A shorter name used for cartographic display

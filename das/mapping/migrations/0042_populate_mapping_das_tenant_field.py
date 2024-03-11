@@ -18,7 +18,7 @@ def populate_das_tenant_in_mapping_models(unused, schema_editor):
     FeatureSet = apps.get_model("mapping", "FeatureSet")
     Map = apps.get_model("mapping", "Map")
     SpatialFeatureFile = apps.get_model("mapping", "SpatialFeatureFile")
-    SpatialFeatureGroup = apps.get_model("mapping", "SpatialFeatureGroup")
+    SpatialFeatureGroup = unused.get_model("mapping", "SpatialFeatureGroup")
     SpatialFile = apps.get_model("mapping", "SpatialFile")
     TileLayer = apps.get_model("mapping", "TileLayer")
 

@@ -15,7 +15,6 @@ mapping_models = [
     "FeatureSet",
     "Map",
     "SpatialFeatureFile",
-    "SpatialFeatureGroup",
     "SpatialFile",
     "TileLayer",
 ]

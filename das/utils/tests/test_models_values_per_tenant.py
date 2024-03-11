@@ -13,7 +13,6 @@ class TestActivityModelsValuesPerTenant:
     @pytest.mark.parametrize(
         "data",
         [
-            # {"model_name": "EventCategory", "values": {"value": "same-value"}},
             {"model_name": "EventClass", "values": {"value": "same-value"}},
             {"model_name": "EventFactor", "values": {"value": "same-value"}},
             {"model_name": "EventRelationshipType", "values": {"value": "same-value"}},
@@ -65,7 +64,6 @@ class TestObservationsModelsValuesPerTenant:
         [
             {"model_name": "Region", "values": {"country": "Mexico", "region": "guadalajara"}},
             {"model_name": "SourceProvider", "values": {"provider_key": "same-provider-key"}},
-            # {"model_name": "SubjectGroup", "values": {"name": "same-name"}},
         ],
     )
     def test_create_models_with_same_value_diff_tenant(self, data, five_tenants):
@@ -82,7 +80,6 @@ class TestObservationsModelsValuesPerTenant:
         [
             {"model_name": "Region", "field": "slug", "values": {"country": "Mexico", "region": "guadalajara"}},
             {"model_name": "SourceProvider", "field": "provider_key", "values": {"provider_key": "same-provider-key"}},
-            # {"model_name": "SubjectGroup", "values": {"name": "same-name"}},
         ],
     )
     def test_create_models_with_same_value_same_tenant(self, data, das_tenant):
@@ -106,7 +103,7 @@ class TestMappingModelsValuesPerTenant:
             {"model_name": "FeatureSet", "values": {"name": "same-name"}},
             {"model_name": "FeatureType", "values": {"name": "same-name"}},
             {"model_name": "Map", "values": {"name": "same-name", "center": convert_to_point("0,0"), "zoom": 0}},
-            {"model_name": "SpatialFeatureGroup", "values": {"name": "same-name"}},
+            {"model_name": "SpatialFeatureGroupStatic", "values": {"name": "same-name"}},
             {"model_name": "SpatialFeatureType", "values": {"name": "same-name"}},
             {"model_name": "TileLayer", "values": {"name": "same-name"}},
         ],
@@ -128,7 +125,7 @@ class TestMappingModelsValuesPerTenant:
             {"model_name": "FeatureSet", "values": {"name": "same-name"}},
             {"model_name": "FeatureType", "values": {"name": "same-name"}},
             {"model_name": "Map", "values": {"name": "same-name", "center": convert_to_point("0,0"), "zoom": 0}},
-            {"model_name": "SpatialFeatureGroup", "values": {"name": "same-name"}},
+            {"model_name": "SpatialFeatureGroupStatic", "values": {"name": "same-name"}},
             {"model_name": "SpatialFeatureType", "values": {"name": "same-name"}},
             {"model_name": "TileLayer", "values": {"name": "same-name"}},
         ],
