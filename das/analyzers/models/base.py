@@ -16,6 +16,7 @@ from core.models import DASTenant, TimestampedModel
 from observations.models import Observation, Subject, SubjectGroup
 from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager
+from utils.tenant.models import TenantThroughModel
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +109,15 @@ class SubjectAnalyzerResult(TenantModelMixin, TimestampedModel):
     geometry_collection = models.GeometryCollectionField()
     estimated_time = models.DateTimeField()
     level = models.IntegerField()
-    observations = models.ManyToManyField(Observation, related_name="+")
+    observations = models.ManyToManyField(
+        Observation,
+        related_name="+",
+        through="analyzers.SubjectAnalyzerResultObservations",
+        through_fields=(
+            "subjectanalyzerresult",
+            "observation",
+        ),
+    )
     values = models.JSONField(default=dict, blank=True)
     title = models.TextField(default="", blank=True)
     message = models.TextField(default="", blank=True)
@@ -144,6 +153,19 @@ class SubjectAnalyzerResult(TenantModelMixin, TimestampedModel):
         )
 
         return _tmp_str
+
+
+class SubjectAnalyzerResultObservations(TenantThroughModel):
+    subjectanalyzerresult = TenantForeignKey("analyzers.SubjectAnalyzerResult", on_delete=models.CASCADE)
+    observation = TenantForeignKey("observations.Observation", on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "subjectanalyzerresult", "observation"],
+                name="%(app_label)s_%(class)s_tenant_from_to_unique",
+            ),
+        ]
 
 
 class Annotator(TenantModelMixin, TimestampedModel):
