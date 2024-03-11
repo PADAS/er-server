@@ -11,9 +11,12 @@ from typing import Dict
 import jsonschema
 import pytz
 
+from django.apps.registry import Apps
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.exceptions import ValidationError
+from django.db import connection
+from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 from django.http.request import HttpRequest
 from django.utils import timezone
 from django.utils.dateparse import parse_duration
@@ -313,3 +316,26 @@ def update_tenant_models(models: list, tenant) -> None:
                 logger.info(
                     "%d objects updated of model %s. In %.3f seconds", cnt, class_model._meta.object_name, total_seconds
                 )
+
+
+def backfill_through_model_with_tenant(
+    from_table_name: str,
+    from_id_field: str,
+    through_table_name: str,
+    through_from_id_field: str,
+    apps: Apps,
+    schema_editor: BaseDatabaseSchemaEditor,
+):
+    backfill_sql = f"""
+        WITH through_updates AS (
+            SELECT tt.{through_from_id_field}, f.das_tenant_id
+            FROM {through_table_name} tt
+            JOIN {from_table_name} f ON tt.{through_from_id_field} = f.{from_id_field}
+        )
+        UPDATE {through_table_name} tt
+        SET das_tenant_id = tu.das_tenant_id
+        FROM through_updates tu
+        WHERE tt.{through_from_id_field} = tu.{through_from_id_field};
+        """
+    with connection.cursor() as cursor:
+        cursor.execute(backfill_sql)

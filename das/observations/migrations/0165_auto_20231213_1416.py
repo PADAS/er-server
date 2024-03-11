@@ -3,7 +3,7 @@
 import django_multitenant.fields
 
 import django.db.models.deletion
-from django.db import migrations, models
+from django.db import migrations
 
 
 class Migration(migrations.Migration):
@@ -13,30 +13,10 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AlterField(
-            model_name="sourcegroup",
-            name="children",
-            field=models.ManyToManyField(
-                blank=True,
-                related_name="_parents",
-                through="observations.sourcegroupchildren",
-                to="observations.SourceGroup",
-            ),
-        ),
-        migrations.AlterField(
             model_name="subject",
             name="subject_subtype",
             field=django_multitenant.fields.TenantForeignKey(
                 on_delete=django.db.models.deletion.PROTECT, to="observations.subjectsubtype"
-            ),
-        ),
-        migrations.AlterField(
-            model_name="subjectgroup",
-            name="children",
-            field=models.ManyToManyField(
-                blank=True,
-                related_name="_parents",
-                through="observations.subjectgroupchildren",
-                to="observations.SubjectGroup",
             ),
         ),
         migrations.AlterField(

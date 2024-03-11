@@ -57,19 +57,19 @@ class Migration(migrations.Migration):
                     ],
                 ),
                 migrations.AlterField(
-                    model_name="SourceGroup",
+                    model_name="sourcegroup",
                     name="children",
                     field=models.ManyToManyField(
-                        to="self",
+                        blank=True,
                         related_name="_parents",
-                        through="observations.SourceGroupChildren",
-                        through_fields=("from_sourcegroup", "to_sourcegroup"),
+                        through="observations.sourcegroupchildren",
+                        to="observations.SourceGroup",
                     ),
                 ),
             ],
         ),
         migrations.AddField(
-            model_name="SourceGroupChildren",
+            model_name="sourcegroupchildren",
             name="uuid",
             field=models.UUIDField(null=True),
         ),
@@ -78,27 +78,31 @@ class Migration(migrations.Migration):
             reverse_code=migrations.RunPython.noop,
         ),
         migrations.RemoveField(
-            model_name="SourceGroupChildren",
+            model_name="sourcegroupchildren",
             name="id",
         ),
         migrations.RenameField(
-            model_name="SourceGroupChildren",
+            model_name="sourcegroupchildren",
             old_name="uuid",
             new_name="id",
         ),
         migrations.AlterField(
-            model_name="SourceGroupChildren",
+            model_name="sourcegroupchildren",
             name="id",
             field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=True),
         ),
         migrations.AlterModelManagers(
-            name="SourceGroupChildren",
+            name="sourcegroupchildren",
             managers=[
                 ("objects", utils.models.CommonTenantManager()),
             ],
         ),
+        migrations.AlterModelOptions(
+            name="sourcegroupchildren",
+            options={"base_manager_name": "objects", "default_manager_name": "objects"},
+        ),
         migrations.AddField(
-            model_name="SourceGroupChildren",
+            model_name="sourcegroupchildren",
             name="das_tenant",
             field=models.ForeignKey(
                 default=utils.migrations.columns.default_tenant_id,

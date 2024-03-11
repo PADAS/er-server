@@ -1,11 +1,18 @@
 import uuid
 
+from django_multitenant.fields import TenantForeignKey
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from django_multitenant.models import TenantManager, TenantModel
 
+import django.db.models.fields.related
 from django.conf import settings
 from django.contrib.gis.db import models
 from django.core.cache import cache
+from django.db.models.fields.related import (
+    lazy_related_operation,
+    make_model_tuple,
+    resolve_relation,
+)
 
 from utils.migrations.columns import default_tenant_id
 
@@ -51,6 +58,116 @@ class DASTenant(TenantModel):
 
     def __str__(self):
         return self.domain
+
+
+class TenantManyToManyField(models.ManyToManyField):
+    """This version of ManyToManyField is used to create a tenant aware intermediary model (through model) for the many to many relationship.
+    The intermediary model is created directly in the database, and as such we don't see these commands in the migration.
+    Because of this, it's harder to then use this in place of existing ManyToManyField implementations.
+    If we do need to create a tenant aware many to many relationship that is a net new use, then we can use this field.
+
+    The key piece is to replace the original create_many_to_many_intermediary_model with the tenant version.
+
+    Until then, the pieces need for this class to work have been disabled, specifically the monkeypatch to django.db.models.fields.related.create_many_to_many_intermediary_model
+
+    """
+
+    def __init__(self, *args, **kwargs):
+        raise NotImplementedError(
+            "TenantManyToManyField is not implemented yet. Requires removing this and activating the original_create_many_to_many_intermediary_model monkeypatch"
+        )
+        super().__init__(*args, **kwargs)
+
+
+original_create_many_to_many_intermediary_model = django.db.models.fields.related.create_many_to_many_intermediary_model
+
+
+def create_tenant_many_to_many_intermediary_model(field, klass):
+    if not isinstance(field, TenantManyToManyField):
+        return original_create_many_to_many_intermediary_model(field, klass)
+
+    def set_managed(model, related, through):
+        through._meta.managed = model._meta.managed or related._meta.managed
+
+    to_model = resolve_relation(klass, field.remote_field.model)
+    to_object_name = to_model.split(".")[-1] if isinstance(to_model, str) else to_model._meta.object_name
+
+    to = make_model_tuple(to_model)[1]
+    from_ = klass._meta.model_name
+    if to == from_:
+        to = "to_%s" % to
+        from_ = "from_%s" % from_
+
+    class_name = "%s%s" % (klass._meta.object_name, to_object_name)
+    name = "%s%s" % (from_, to)
+    lazy_related_operation(set_managed, klass, to_model, name)
+
+    manager_name = "%sManager" % class_name
+    manager = type(
+        manager_name,
+        (TenantManagerMixin, models.Manager),
+        {
+            "use_in_migrations": True,
+            "get_by_natural_key": lambda self, from_id, to_id: self.get(**{from_: from_id, to: to_id}),
+        },
+    )
+
+    meta = type(
+        "Meta",
+        (),
+        {
+            "db_table": "%s_%s" % (klass._meta.app_label, name),
+            "auto_created": klass,
+            "app_label": klass._meta.app_label,
+            "db_tablespace": klass._meta.db_tablespace,
+            "unique_together": ("das_tenant", from_, to),
+            "apps": field.model._meta.apps,
+            "base_manager_name": "objects",
+            "default_manager_name": "objects",
+        },
+    )
+
+    def natural_key(self):
+        return (getattr(self, from_), getattr(self, to))
+
+    # Construct and return the new class.
+    return type(
+        class_name,
+        (
+            TenantModelMixin,
+            UUIDModel,
+        ),
+        {
+            "Meta": meta,
+            "__module__": klass.__module__,
+            from_: TenantForeignKey(
+                klass,
+                db_tablespace=field.db_tablespace,
+                db_constraint=field.remote_field.db_constraint,
+                on_delete=models.CASCADE,
+            ),
+            to: TenantForeignKey(
+                to_model,
+                db_tablespace=field.db_tablespace,
+                db_constraint=field.remote_field.db_constraint,
+                on_delete=models.CASCADE,
+            ),
+            "das_tenant": models.ForeignKey(
+                DASTenant,
+                on_delete=models.CASCADE,
+                default=default_tenant_id,
+                related_name="%s_%s" % (klass._meta.app_label, name),
+            ),
+            "tenant_id": "das_tenant_id",
+            "objects": manager(),
+            "natural_key": natural_key,
+        },
+    )
+
+
+# This is a monkeypatch to replace the original create_many_to_many_intermediary_model with the tenant version
+# Deactivated for now. Requires testing
+# django.db.models.fields.related.create_many_to_many_intermediary_model = create_tenant_many_to_many_intermediary_model
 
 
 class HierarchyManager(TenantManagerMixin, models.Manager):

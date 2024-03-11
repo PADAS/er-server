@@ -4,6 +4,7 @@ from .core import (
     HierarchQuerySet,
     HierarchyManager,
     HierarchyModel,
+    TenantManyToManyField,
     TenantSingletonModel,
     TimestampedModel,
     UUIDModel,
@@ -24,4 +25,5 @@ __all__ = (
     "TenantSingletonModel",
     "TimestampedModel",
     "UUIDModel",
+    "TenantManyToManyField",
 )

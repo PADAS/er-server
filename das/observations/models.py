@@ -56,7 +56,7 @@ from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
-from accounts.mixins import PermissionSetGroupMixin, PermissionSetHierarchyMixin
+from accounts.mixins import PermissionSetGroupMixin, create_permissionsethierarchy_mixin
 from accounts.models import PermissionSet
 from core.models import DASTenant, HierarchyManager, TimestampedModel, UUIDModel
 from core.models.hierachy import (
@@ -134,7 +134,9 @@ class SourceGroupManager(HierarchyManager):
         return self.get(**{"name": name})
 
 
-class SourceGroup(TenantHierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
+class SourceGroup(
+    TenantHierarchyModel, TimestampedModel, create_permissionsethierarchy_mixin("observations.SourceGroupPermissionSet")
+):
     """
     Manage Groups of sources so that we can easily set permissions on a group
     rather than each individual Source. Additionally there are requests to
@@ -939,7 +941,11 @@ class SubjectGroupManager(HierarchyManager, models.Manager.from_queryset(Subject
         return queryset
 
 
-class SubjectGroup(TenantHierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):
+class SubjectGroup(
+    TenantHierarchyModel,
+    TimestampedModel,
+    create_permissionsethierarchy_mixin("observations.SubjectGroupPermissionSet"),
+):
     """
     Manage Groups of subjects so that we can easily set permissions on a group
     rather than each individual Subject. Additionally there are requests to
@@ -1568,6 +1574,40 @@ class SubjectGroupSubject(TenantModelMixin, UUIDModel):
         return (self.subjectgroup, self.subject)
 
 
+class SubjectGroupPermissionSetManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
+    def get_by_natural_key(self, subjectgroup, permissionset):
+        return self.get(subjectgroup=subjectgroup, permissionset=permissionset)
+
+
+class SubjectGroupPermissionSet(TenantModelMixin, UUIDModel):
+    subjectgroup = TenantForeignKey(SubjectGroup, on_delete=models.CASCADE)
+    permissionset = TenantForeignKey(PermissionSet, on_delete=models.CASCADE)
+    das_tenant = models.ForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        default=default_tenant_id,
+        related_name="observations_subjectgrouppermissionset",
+    )
+    tenant_id = "das_tenant_id"
+
+    objects = SubjectGroupPermissionSetManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "subjectgroup", "permissionset"],
+                name="%(app_label)s_%(class)s_tenant_from_to_unique",
+            ),
+        ]
+
+    def natural_key(self):
+        return (self.subjectgroup, self.permissionset)
+
+
 class SourceGroupSourceManager(TenantManagerMixin, models.Manager):
     use_in_migrations = True
 
@@ -1594,6 +1634,40 @@ class SourceGroupSource(TenantModelMixin, UUIDModel):
 
     def natural_key(self):
         return (self.sourcegroup, self.source)
+
+
+class SourceGroupPermissionSetManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
+    def get_by_natural_key(self, sourcegroup, permissionset):
+        return self.get(sourcegroup=sourcegroup, permissionset=permissionset)
+
+
+class SourceGroupPermissionSet(TenantModelMixin, UUIDModel):
+    sourcegroup = TenantForeignKey(SourceGroup, on_delete=models.CASCADE)
+    permissionset = TenantForeignKey(PermissionSet, on_delete=models.CASCADE)
+    das_tenant = models.ForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        default=default_tenant_id,
+        related_name="observations_sourcegrouppermissionset",
+    )
+    tenant_id = "das_tenant_id"
+
+    objects = SourceGroupPermissionSetManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "sourcegroup", "permissionset"],
+                name="%(app_label)s_%(class)s_tenant_from_to_unique",
+            ),
+        ]
+
+    def natural_key(self):
+        return (self.sourcegroup, self.permissionset)
 
 
 OBSERVATION_DELAY_HRS = 72
@@ -2370,7 +2444,9 @@ class AnnouncementManager(TenantManagerMixin, models.Manager.from_queryset(Annou
 
 class Announcement(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    related_users = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True)
+    related_users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True, through="observations.AnnouncementUser"
+    )
     title = models.CharField(null=True, max_length=255)
     description = models.TextField(null=True)
     additional = models.JSONField(null=True, blank=True, default=dict)
@@ -2380,6 +2456,40 @@ class Announcement(TenantModelMixin, TimestampedModel):
 
     objects = AnnouncementManager()
     tenant_id = "das_tenant_id"
+
+
+class AnnouncementUserManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
+    def get_by_natural_key(self, announcement, user):
+        return self.get(announcement=announcement, user=user)
+
+
+class AnnouncementUser(TenantModelMixin, UUIDModel):
+    announcement = TenantForeignKey(Announcement, on_delete=models.CASCADE)
+    user = TenantForeignKey(User, on_delete=models.CASCADE)
+    das_tenant = models.ForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        default=default_tenant_id,
+        related_name="observations_announcementuser",
+    )
+    tenant_id = "das_tenant_id"
+
+    objects = AnnouncementUserManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "announcement", "user"],
+                name="%(app_label)s_%(class)s_tenant_from_to_unique",
+            ),
+        ]
+
+    def natural_key(self):
+        return (self.announcement, self.user)
 
 
 class LatestObservationSource(TenantModelMixin, models.Model):

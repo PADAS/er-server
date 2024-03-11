@@ -28,50 +28,13 @@ class PermissionSetGroupMixin(object):
         return ps_ids
 
 
-class PermissionSetMixin(models.Model):
-    """
-    PermissionSetMixin relates the inheriting class to the DAS Permissions system.
-    Specifically, it creates a ManyToMany relationship with the PermissionSet table,
-    and adds some model functions for discovering object level permissions.
-    """
-
-    class Meta:
-        abstract = True
-
-    permission_sets = models.ManyToManyField(
-        PermissionSet,
-        blank=True,
-        help_text=_(
-            "The permission sets applied to this table. A user in a permission" " set is granted these permissions."
-        ),
-    )
-
-    def get_obj_permission_set_ids(self):
-        """
-        Returns a set of permission set ids of all permission sets
-        assigned to this object
-        """
-        if not hasattr(self, "_obj_perm_cache"):
-            all_ps = set()
-            direct_ps = self.permission_sets.all()
-
-            for ps in direct_ps:
-                all_ps.add(ps.id)
-                all_ps.add(ps.get_ancestor_ids())
-            self._obj_perm_cache = all_ps
-        return self._obj_perm_cache
-
-
-class PermissionSetHierarchyMixin(PermissionSetMixin):
+def create_permissionsethierarchy_mixin(through):
     """
     PermissionSetHierarchyMixin relates the inheriting group class to the DAS Permissions system.
     Specifically, it creates a foreign key relationships with the PermissionSet table,
     and adds some model functions for discovering object level permissions.
 
     """
-
-    class Meta:
-        abstract = True
 
     def get_obj_permission_set_ids(self):
         """
@@ -91,6 +54,43 @@ class PermissionSetHierarchyMixin(PermissionSetMixin):
             self._obj_perm_hierarchy_cache = all_ps
 
         return self._obj_perm_hierarchy_cache
+
+    name = "PermissionSetHierarchyMixin"
+    if through:
+        name = "PermissionSetHierarchyMixin%s" % (
+            through.split(".")[-1] if isinstance(through, str) else through._meta.object_name,
+        )
+
+    meta = type(
+        "Meta",
+        (),
+        {
+            "abstract": True,
+        },
+    )
+
+    # Construct and return the new class.
+    return type(
+        name,
+        (models.Model,),
+        {
+            "Meta": meta,
+            "__module__": __name__,
+            "permission_sets": models.ManyToManyField(
+                PermissionSet,
+                blank=True,
+                help_text=_(
+                    "The permission sets applied to this table. A user in a permission"
+                    " set is granted these permissions."
+                ),
+                through=through,
+            ),
+            "get_obj_permission_set_ids": get_obj_permission_set_ids,
+        },
+    )
+
+
+PermissionSetHierarchyMixin = create_permissionsethierarchy_mixin(None)
 
 
 class PermissionsMixin(models.Model):
