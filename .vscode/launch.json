@@ -199,7 +199,7 @@
             "django": true
         },
         {
-            "name": "Django manage command",
+            "name": "Django manage tenant command",
             "type": "python",
             "request": "launch",
             "justMyCode": false,
@@ -210,6 +210,23 @@
                 "${input:django_command}",
                 "--tenant_domain",
                 "${input:tenant_domain}",
+                "${input:django_command_args}"
+            ],
+            "django": true,
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
+            }
+        },
+        {
+            "name": "Django manage command",
+            "type": "python",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "${workspaceFolder}/das/manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "${input:django_command}",
                 "${input:django_command_args}"
             ],
             "django": true,

@@ -13,7 +13,8 @@ $$
         NEW_ID  INTEGER;
         BASE_ID INTEGER;
     BEGIN
-        BASE_ID = 10000;
+        SELECT NEXTVAL('auth_permission_id_seq') INTO BASE_ID;
+        BASE_ID = BASE_ID + 10000;
         -- DROP FK
         ALTER TABLE auth_group_permissions
             DROP CONSTRAINT auth_group_permissio_permission_id_84c5c92e_fk_auth_perm;

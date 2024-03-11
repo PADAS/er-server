@@ -97,6 +97,10 @@ class Migration(migrations.Migration):
                 ("objects", utils.models.CommonTenantManager()),
             ],
         ),
+        migrations.AlterModelOptions(
+            name="permissionsetchildren",
+            options={"base_manager_name": "objects", "default_manager_name": "objects"},
+        ),
         migrations.AddField(
             model_name="PermissionSetChildren",
             name="das_tenant",

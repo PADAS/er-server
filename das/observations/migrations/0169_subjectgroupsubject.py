@@ -9,6 +9,7 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 import utils.migrations.columns
+from core.utils import backfill_through_model_with_tenant
 from observations.models import SubjectGroupSubjectManager
 from utils.migrations import populate_model_uuid_column
 from utils.migrations.update_primary_key import add_tenant_to_primary_key
@@ -16,7 +17,14 @@ from utils.migrations.update_primary_key import add_tenant_to_primary_key
 APP_NAME = "observations"
 OBSERVATIONS_MODELS = ["SubjectGroupSubject"]
 
+CURRENT_TABLE_NAME = "observations_subjectgroup_subjects"
+NEW_TABLE_NAME = "observations_subjectgroupsubject"
+
+
 populate_uuid = partial(populate_model_uuid_column, "observations", "SubjectGroupSubject", "uuid")
+populate_through_model_tenant_id = partial(
+    backfill_through_model_with_tenant, "observations_subjectgroup", "id", NEW_TABLE_NAME, "subjectgroup_id"
+)
 
 
 def regenerate_primary_keys(apps, schema_editor):
@@ -31,8 +39,8 @@ class Migration(migrations.Migration):
         migrations.SeparateDatabaseAndState(
             database_operations=[
                 migrations.RunSQL(
-                    sql="ALTER TABLE observations_subjectgroup_subjects RENAME TO observations_subjectgroupsubject",
-                    reverse_sql="ALTER TABLE observations_subjectgroupsubject RENAME TO observations_subjectgroup_subjects",
+                    sql=f"ALTER TABLE {CURRENT_TABLE_NAME} RENAME TO {NEW_TABLE_NAME}",
+                    reverse_sql=f"ALTER TABLE {NEW_TABLE_NAME} RENAME TO {CURRENT_TABLE_NAME}",
                 ),
             ],
             state_operations=[
@@ -113,6 +121,10 @@ class Migration(migrations.Migration):
         ),
         migrations.RunPython(
             code=regenerate_primary_keys,
+            reverse_code=migrations.RunPython.noop,
+        ),
+        migrations.RunPython(
+            code=populate_through_model_tenant_id,
             reverse_code=migrations.RunPython.noop,
         ),
     ]

@@ -10,13 +10,21 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 import utils.migrations.columns
+from core.utils import backfill_through_model_with_tenant
 from utils.migrations import populate_model_uuid_column
 from utils.migrations.update_primary_key import add_tenant_to_primary_key
 
 APP_NAME = "accounts"
 ACCOUNTS_MODELS = ["UserPermissionSet"]
 
+CURRENT_TABLE_NAME = "accounts_user_permission_sets"
+NEW_TABLE_NAME = "accounts_userpermissionset"
+
+
 populate_uuid = partial(populate_model_uuid_column, "accounts", "UserPermissionSet", "uuid")
+populate_through_model_tenant_id = partial(
+    backfill_through_model_with_tenant, "accounts_user", "id", NEW_TABLE_NAME, "user_id"
+)
 
 
 def regenerate_primary_keys(apps, schema_editor):
@@ -31,8 +39,8 @@ class Migration(migrations.Migration):
         migrations.SeparateDatabaseAndState(
             database_operations=[
                 migrations.RunSQL(
-                    sql="ALTER TABLE accounts_user_permission_sets RENAME TO accounts_userpermissionset",
-                    reverse_sql="ALTER TABLE accounts_userpermissionset RENAME TO accounts_user_permission_sets",
+                    sql=f"ALTER TABLE {CURRENT_TABLE_NAME} RENAME TO {NEW_TABLE_NAME}",
+                    reverse_sql=f"ALTER TABLE {NEW_TABLE_NAME} RENAME TO {CURRENT_TABLE_NAME}",
                 ),
             ],
             state_operations=[
@@ -57,19 +65,20 @@ class Migration(migrations.Migration):
                     ],
                 ),
                 migrations.AlterField(
-                    model_name="User",
+                    model_name="user",
                     name="permission_sets",
                     field=models.ManyToManyField(
-                        to="self",
+                        blank=True,
+                        help_text="The permission sets this user belongs to. A user will get all permissions granted to each of their permission sets.",
                         related_name="user_set",
                         through="accounts.UserPermissionSet",
-                        through_fields=("user", "permissionset"),
+                        to="accounts.PermissionSet",
                     ),
                 ),
             ],
         ),
         migrations.AddField(
-            model_name="UserPermissionSet",
+            model_name="userpermissionset",
             name="uuid",
             field=models.UUIDField(null=True),
         ),
@@ -78,21 +87,21 @@ class Migration(migrations.Migration):
             reverse_code=migrations.RunPython.noop,
         ),
         migrations.RemoveField(
-            model_name="UserPermissionSet",
+            model_name="userpermissionset",
             name="id",
         ),
         migrations.RenameField(
-            model_name="UserPermissionSet",
+            model_name="userpermissionset",
             old_name="uuid",
             new_name="id",
         ),
         migrations.AlterField(
-            model_name="UserPermissionSet",
+            model_name="userpermissionset",
             name="id",
             field=models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False, serialize=True),
         ),
         migrations.AlterModelManagers(
-            name="UserPermissionSet",
+            name="userpermissionset",
             managers=[
                 ("objects", utils.models.CommonTenantManager()),
             ],
@@ -102,16 +111,21 @@ class Migration(migrations.Migration):
             options={"base_manager_name": "objects", "default_manager_name": "objects"},
         ),
         migrations.AddField(
-            model_name="UserPermissionSet",
+            model_name="userpermissionset",
             name="das_tenant",
             field=models.ForeignKey(
                 default=utils.migrations.columns.default_tenant_id,
                 on_delete=django.db.models.deletion.CASCADE,
                 to="core.dastenant",
+                related_name="accounts_userpermissionset",
             ),
         ),
         migrations.RunPython(
             code=regenerate_primary_keys,
+            reverse_code=migrations.RunPython.noop,
+        ),
+        migrations.RunPython(
+            code=populate_through_model_tenant_id,
             reverse_code=migrations.RunPython.noop,
         ),
     ]

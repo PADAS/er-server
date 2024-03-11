@@ -9,13 +9,21 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 import utils.migrations.columns
+from core.utils import backfill_through_model_with_tenant
 from utils.migrations import populate_model_uuid_column
 from utils.migrations.update_primary_key import add_tenant_to_primary_key
 
 APP_NAME = "activity"
 ACTIVITY_MODELS = ["AlertRuleNotificationMethod"]
 
+CURRENT_TABLE_NAME = "activity_alertrule_notification_methods"
+NEW_TABLE_NAME = "activity_alertrulenotificationmethod"
+
+
 populate_uuid = partial(populate_model_uuid_column, "activity", "AlertRuleNotificationMethod", "uuid")
+populate_through_model_tenant_id = partial(
+    backfill_through_model_with_tenant, "activity_alertrule", "id", NEW_TABLE_NAME, "alertrule_id"
+)
 
 
 def regenerate_primary_keys(apps, schema_editor):
@@ -31,8 +39,8 @@ class Migration(migrations.Migration):
         migrations.SeparateDatabaseAndState(
             database_operations=[
                 migrations.RunSQL(
-                    sql="ALTER TABLE activity_alertrule_notification_methods RENAME TO activity_alertrulenotificationmethod",
-                    reverse_sql="ALTER TABLE activity_alertrulenotificationmethod RENAME TO activity_alertrule_notification_methods",
+                    sql=f"ALTER TABLE {CURRENT_TABLE_NAME} RENAME TO {NEW_TABLE_NAME}",
+                    reverse_sql=f"ALTER TABLE {NEW_TABLE_NAME} RENAME TO {CURRENT_TABLE_NAME}",
                 ),
             ],
             state_operations=[
@@ -112,6 +120,10 @@ class Migration(migrations.Migration):
         ),
         migrations.RunPython(
             code=regenerate_primary_keys,
+            reverse_code=migrations.RunPython.noop,
+        ),
+        migrations.RunPython(
+            code=populate_through_model_tenant_id,
             reverse_code=migrations.RunPython.noop,
         ),
     ]

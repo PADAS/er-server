@@ -21,6 +21,9 @@ if domain not in domain_blacklist:
     TENANT_RANGE_START = tenant_data["permissionsCustomSequenceStart"]
     TENANT_RANGE_END = tenant_data["permissionsCustomSequenceEnd"]
 
+    if not TENANT_RANGE_START or not TENANT_RANGE_END:
+        raise Exception("Tenant does not have custom permissions range")
+
     sql_move_custom_permissions = f"""
         DO
         $$

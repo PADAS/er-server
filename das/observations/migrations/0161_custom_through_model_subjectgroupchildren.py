@@ -57,45 +57,49 @@ class Migration(migrations.Migration):
                     ],
                 ),
                 migrations.AlterField(
-                    model_name="SubjectGroup",
+                    model_name="subjectgroup",
                     name="children",
                     field=models.ManyToManyField(
-                        to="self",
+                        blank=True,
                         related_name="_parents",
-                        through="observations.SubjectGroupChildren",
-                        through_fields=("from_subjectgroup", "to_subjectgroup"),
+                        through="observations.subjectgroupchildren",
+                        to="observations.SubjectGroup",
                     ),
                 ),
             ],
         ),
         migrations.AddField(
-            model_name="SubjectGroupChildren",
+            model_name="subjectgroupchildren",
             name="uuid",
             field=models.UUIDField(null=True),
         ),
         migrations.RunPython(populate_uuid),
         migrations.RemoveField(
-            model_name="SubjectGroupChildren",
+            model_name="subjectgroupchildren",
             name="id",
         ),
         migrations.RenameField(
-            model_name="SubjectGroupChildren",
+            model_name="subjectgroupchildren",
             old_name="uuid",
             new_name="id",
         ),
         migrations.AlterField(
-            model_name="SubjectGroupChildren",
+            model_name="subjectgroupchildren",
             name="id",
             field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=True),
         ),
         migrations.AlterModelManagers(
-            name="SubjectGroupChildren",
+            name="subjectgroupchildren",
             managers=[
                 ("objects", utils.models.CommonTenantManager()),
             ],
         ),
+        migrations.AlterModelOptions(
+            name="subjectgroupchildren",
+            options={"base_manager_name": "objects", "default_manager_name": "objects"},
+        ),
         migrations.AddField(
-            model_name="SubjectGroupChildren",
+            model_name="subjectgroupchildren",
             name="das_tenant",
             field=models.ForeignKey(
                 default=utils.migrations.columns.default_tenant_id,

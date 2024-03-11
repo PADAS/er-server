@@ -5,6 +5,7 @@ from functools import partial
 from django_multitenant.fields import TenantForeignKey
 
 import django.db.models.deletion
+from django.conf import settings
 from django.db import migrations, models
 
 import utils.models
@@ -64,8 +65,11 @@ class Migration(migrations.Migration):
                     model_name="user",
                     name="act_as_profiles",
                     field=models.ManyToManyField(
-                        to="accounts.User",
+                        blank=True,
+                        help_text="The list of user profiles that this user can act as.",
                         through="accounts.ActAsProfiles",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="user profiles",
                     ),
                 ),
             ],

@@ -3,7 +3,7 @@
 from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.core.management import call_command
-from django.db import migrations
+from django.db import connection, migrations
 
 import utils.models
 from accounts.models import PermissionSet, User
@@ -95,7 +95,12 @@ def forward_pre(apps, _):  # comes from das/activity/migrations/0061_event_permi
     for set_name in old_set_names:
         pset = PermissionSet.objects.filter(name=set_name).first()
         if pset:
-            pset.delete()
+            # Due to Django model caching, wasn't able to use the historical model to delete records
+            with connection.cursor() as cursor:
+                pset_delelte_query = """DELETE FROM accounts_permissionset WHERE id = %(pset_id)s;
+                   DELETE FROM observations_sourcegroup_permission_sets WHERE permissionset_id=%(pset_id)s;
+                   DELETE FROM observations_subjectgroup_permission_sets WHERE permissionset_id=%(pset_id)s;"""
+                cursor.execute(pset_delelte_query, {"pset_id": pset.id})
 
 
 def populate_new_permission_sets(apps):

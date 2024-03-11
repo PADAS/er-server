@@ -113,6 +113,16 @@ class ActAsProfiles(TenantModelMixin, UUIDModel):
     objects = CommonTenantManager()
     tenant_id = "das_tenant_id"
 
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "from_user", "to_user"],
+                name="%(app_label)s_%(class)s_tenant_from_to_unique",
+            ),
+        ]
+
 
 class AccountsAbstractUser(TenantModelMixin, AbstractBaseUser, PermissionsMixin):
     """

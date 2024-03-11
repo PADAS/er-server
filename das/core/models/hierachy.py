@@ -40,6 +40,7 @@ def create_tenanthierarchychildren_model(
         through._meta.managed = model._meta.managed or related._meta.managed
 
     name = f"{model.__name__.lower()}children"
+    class_name = f"{model.__name__}Children"
     db_table = f"{model._meta.app_label.lower()}_{name}"
     from_name = f"from_{model.__name__.lower()}"
     to_name = f"to_{model.__name__.lower()}"
@@ -55,6 +56,8 @@ def create_tenanthierarchychildren_model(
             "apps": model._meta.apps,
             "db_tablespace": model._meta.db_tablespace,
             "unique_together": ("das_tenant", from_name, to_name),
+            "base_manager_name": "objects",
+            "default_manager_name": "objects",
         },
     )
 
@@ -81,7 +84,7 @@ def create_tenanthierarchychildren_model(
     }
 
     return type(
-        name,
+        class_name,
         (TenantModelMixin, UUIDModel, TenantHierarchyChildrenHelpers),
         attrs,
     )

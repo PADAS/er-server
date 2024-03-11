@@ -1,12 +1,23 @@
 import datetime
 import uuid
 
+import environ
+
 from django.conf import settings
 
 from utils.json import parse_bool
 from utils.patterns import singleton
 
 from .dataclass import EnvironmentSettings, FeatureFlags, Tenant
+
+env = environ.Env(
+    # set casting, default value
+    DEBUG=(bool, False)
+)
+
+# this reads the .env file in the local dir. You can
+# specify specific envs if needed.
+environ.Env.read_env(settings.BASE_DIR(".env"))
 
 
 @singleton
@@ -21,8 +32,8 @@ class DjangoSettingsTenantBuilder:
             env_settings=self._load_env_settings_from_django(),
             feature_flags=self._load_feature_flags_from_django(),
             name=getattr(settings, "UI_SITE_NAME", None),
-            permissions_custom_sequence_end=None,
-            permissions_custom_sequence_start=None,
+            permissions_custom_sequence_end=env.int("PERMISSIONS_CUSTOMSEQUENCE_END", None),
+            permissions_custom_sequence_start=env.int("PERMISSIONS_CUSTOMSEQUENCE_START", None),
             services=[],
             slug_name=getattr(settings, "SERVER_FQDN", None),
             status=None,
