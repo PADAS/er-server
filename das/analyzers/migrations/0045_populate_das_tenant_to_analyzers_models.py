@@ -11,7 +11,24 @@ logger = logging.getLogger(__name__)
 
 
 def populate_tenant_into_models(unused, schema_editor):
-    class_models = list(apps.get_app_config("analyzers").get_models())
+    models_names = [
+        "SubjectAnalyzerResult",
+        "ObservationAnnotator",
+        "ImmobilityAnalyzerConfig",
+        "GeofenceAnalyzerConfig",
+        "FeatureProximityAnalyzerConfig",
+        "SubjectProximityAnalyzerConfig",
+        "EnvironmentalSubjectAnalyzerConfig",
+        "LowSpeedPercentileAnalyzerConfig",
+        "LowSpeedWilcoxAnalyzerConfig",
+        "SubjectSpeedProfile",
+        "SpeedDistro",
+        "GlobalForestWatchSubscription",
+    ]
+    class_models = []
+
+    for model_name in models_names:
+        class_models.append(apps.get_model("analyzers", model_name))
 
     das_tenant_management = DASTenantManagement(domain=settings.SERVER_FQDN)
     tenant = das_tenant_management.get_or_create_tenant()
