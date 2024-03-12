@@ -326,7 +326,7 @@ workflows:
       - build_sphinx_docs:
           filters:
             branches:
-              only: '/develop\/.*/'
+              only: '/develop.*/'
       - docker_build_image:
           requires:
             - 'build_sphinx_docs'
