@@ -285,7 +285,9 @@ def update_tenant_models(models: list, tenant) -> None:
 
     batch_size = 10000
 
-    table_exception_list = set(["observations_subject", "observations_socketclient", "observations_usersession"])
+    table_exception_list = set(
+        ["observations_subject", "observations_socketclient", "observations_usersession", "mapping_spatialfeaturegroup"]
+    )
     pk_overrides = {"observations_socketclient": "sid", "observations_usersession": "sid"}
 
     with UnsetDASTenantContextManager():
