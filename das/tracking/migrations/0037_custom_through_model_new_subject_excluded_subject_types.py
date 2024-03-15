@@ -3,7 +3,6 @@
 import uuid
 from functools import partial
 
-import django_multitenant.mixins
 from django_multitenant.fields import TenantForeignKey
 
 import django.db.models.deletion
@@ -11,17 +10,33 @@ from django.db import migrations, models
 
 import utils.migrations.columns
 import utils.models
+from core.utils import backfill_through_model_with_tenant
 from utils.migrations import populate_model_uuid_column
+from utils.migrations.update_primary_key import add_tenant_to_primary_key
 
 APP_NAME = "tracking"
 
 THROUGH_MODEL = "SourceProviderConfigurationNewSubjectExcludedSubjectTypes"
+TRACKING_MODELS = [
+    THROUGH_MODEL,
+]
 OLD_TABLE_NAME = "sourceproviderconfiguration_new_subject_excluded"
 NEW_TABLE_NAME = "newsubjectexcludedsubjecttypes"
 MAIN_MODEL_NAME = "SourceProviderConfiguration"
 RELATED_NAME = "new_subject_excluded_subject_types"
 
 populate_uuid = partial(populate_model_uuid_column, APP_NAME, THROUGH_MODEL, "uuid")
+populate_through_model_tenant_id = partial(
+    backfill_through_model_with_tenant,
+    "tracking_sourceproviderconfiguration",
+    "id",
+    f"{APP_NAME}_{NEW_TABLE_NAME}",
+    "sourceproviderconfiguration_id",
+)
+
+
+def regenerate_primary_keys(apps, schema_editor):
+    add_tenant_to_primary_key(APP_NAME, TRACKING_MODELS)
 
 
 class Migration(migrations.Migration):
@@ -61,10 +76,6 @@ class Migration(migrations.Migration):
                     options={
                         "db_table": "tracking_newsubjectexcludedsubjecttypes",
                     },
-                    bases=(django_multitenant.mixins.TenantModelMixin, models.Model),
-                    managers=[
-                        ("objects", utils.models.CommonTenantManager()),
-                    ],
                 ),
                 migrations.AlterField(
                     model_name=MAIN_MODEL_NAME,
@@ -118,5 +129,13 @@ class Migration(migrations.Migration):
                 on_delete=django.db.models.deletion.CASCADE,
                 to="core.dastenant",
             ),
+        ),
+        migrations.RunPython(
+            code=regenerate_primary_keys,
+            reverse_code=migrations.RunPython.noop,
+        ),
+        migrations.RunPython(
+            code=populate_through_model_tenant_id,
+            reverse_code=migrations.RunPython.noop,
         ),
     ]
