@@ -6,7 +6,7 @@ Priority: {{color}}
 {% endfor %}{% endif %}{% if children|length >= 1 %}
 
 
- - Contained Reports:
+ - Contained Events:
 {% for child in children %}
     - EarthRanger {{child.id}}: {{child.title}}
     - Priority: {{child.color}}

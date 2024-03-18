@@ -82,20 +82,6 @@ class SaveCoordinatesToCookieMixin:
         return http_response
 
 
-@admin.register(DASTenant)
-class DASTenantAdmin(admin.ModelAdmin):
-    readonly_fields = [
-        "id",
-        "domain",
-    ]
-
-    def has_delete_permission(self, request, obj=None):
-        return False
-
-    def has_add_permission(self, request, obj=None):
-        return False
-
-
 class CustomM2MChecks(BaseModelAdminChecks):
     def _check_field_spec_item(self, obj, field_name, label):
         return []  # This disables error admin.E013
