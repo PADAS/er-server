@@ -498,6 +498,7 @@ locals {
     "espejillos"                = "prod1"
     "insimbi"                   = "prod1"
     "maiko"                     = "prod1"
+    "ncz-vultures-test"         = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
