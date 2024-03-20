@@ -29,7 +29,7 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 import mapping.models as models
-from core.admin import CustomM2MChecks, ModelAdminDisplayingManyToManyFieldMixin
+from core.admin import BaseModelAdminMixin, CustomM2MChecks, ModelAdminDisplayingManyToManyFieldMixin
 from core.openlayers import OSMGeoExtendedAdmin
 from mapping.esri_integration import arcgis_integration, update_db_groups
 from mapping.forms import (
@@ -56,7 +56,7 @@ class MapAdmin(OSMGeoExtendedAdmin):
 
 
 @admin.register(models.TileLayer)
-class TileLayerAdmin(admin.ModelAdmin):
+class TileLayerAdmin(BaseModelAdminMixin):
     ordering = ("ordernum", "name")
     list_display = ("name", "ordernum", "get_attributes")
     list_editable = ("ordernum",)
@@ -130,14 +130,14 @@ class SpatialFeaturesInline(admin.TabularInline):
 
 
 @admin.register(models.DisplayCategory)
-class DisplayCategoryAdmin(admin.ModelAdmin):
+class DisplayCategoryAdmin(BaseModelAdminMixin):
     list_display = ("name",)
     ordering = ("name",)
     form = DisplayCategoryForm
 
 
 @admin.register(models.SpatialFeatureGroupStatic)
-class SpatialFeatureGroupStaticAdmin(admin.ModelAdmin):
+class SpatialFeatureGroupStaticAdmin(BaseModelAdminMixin):
     search_fields = ("name",)
     autocomplete_fields = ("features",)
 
@@ -318,7 +318,7 @@ def delete_selected_spatialfiles(modeladmin, request, queryset):
     )
 
 
-class BaseSpatialFileAdmin(admin.ModelAdmin):
+class BaseSpatialFileAdmin(BaseModelAdminMixin):
     delete_confirmation_template = "admin/delete_confirmation_template.html"
     delete_selected_confirmation_template = "admin/delete_selected_confirmation_template.html"
 
@@ -518,7 +518,7 @@ class SpatialFeatureFileAdmin(BaseSpatialFileAdmin):
 
 
 @admin.register(models.ArcgisConfiguration)
-class ArcgisConfigurationAdmin(admin.ModelAdmin):
+class ArcgisConfigurationAdmin(BaseModelAdminMixin):
     delete_confirmation_template = "admin/arcgis_delete_confirmation_template.html"
     delete_selected_confirmation_template = "admin/arcgis_delete_selected_confirmation_template.html"
 

@@ -26,7 +26,7 @@ from django.utils.translation import gettext_lazy as _
 
 from accounts.models import PermissionSet, User
 from accounts.utils import patrol_mgmt_permissions
-from core.admin import CustomM2MChecks, ModelAdminDisplayingManyToManyFieldMixin
+from core.admin import CustomM2MChecks, BaseModelAdminMixin, ModelAdminDisplayingManyToManyFieldMixin
 from core.common import TIMEZONE_USED
 from observations.models import Subject
 from utils.admin import DefaultFilterMixin, FieldSetElementMixin
@@ -398,7 +398,7 @@ if admin.site.is_registered(django.contrib.auth.models.Group):
     admin.site.unregister(django.contrib.auth.models.Group)
 
 
-class GrantAdmin(admin.ModelAdmin):
+class GrantAdmin(BaseModelAdminMixin):
     form = AccessGrantForm
     list_display = ("code", "application", "user", "expires")
     ordering = list_display
@@ -411,7 +411,7 @@ class GrantAdmin(admin.ModelAdmin):
     _expires.admin_order_field = "expires"
 
 
-class AccessTokenAdmin(admin.ModelAdmin):
+class AccessTokenAdmin(BaseModelAdminMixin):
     form = AccessGrantForm
     list_display = ("token", "user", "application", "_expires")
     ordering = ("token", "user", "application", "expires")
@@ -428,7 +428,7 @@ class AccessTokenAdmin(admin.ModelAdmin):
     _expires.admin_order_field = "expires"
 
 
-class RefreshTokenAdmin(admin.ModelAdmin):
+class RefreshTokenAdmin(BaseModelAdminMixin):
     form = RefreshForm
     list_display = ("token", "user", "application", "_revoked")
     ordering = ("token", "user", "application", "revoked")
