@@ -57,6 +57,7 @@ from accounts.models import PermissionSet
 from core.admin import (
     BaseModelAdminMixin,
     CustomM2MChecks,
+    HierarchyModelAdmin,
     InlineExtraDynamicMixin,
     SaveCoordinatesToCookieMixin,
 )
