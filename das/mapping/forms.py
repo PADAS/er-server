@@ -125,17 +125,17 @@ class TileLayerFormWithAttributes(JSONFieldFormMixin, TileLayerForm):
 
 
 class SpatialFeatureGroupStaticForm(forms.ModelForm):
-    spatialfeaturegroupstatic = forms.ModelChoiceField(
+    spatial_feature_groupstatic = forms.ModelChoiceField(
         queryset=SpatialFeatureGroupStatic.objects.all(), label="Feature Groups"
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["spatialfeaturegroupstatic"].queryset = SpatialFeatureGroupStatic.objects.all()
+        self.fields["spatial_feature_groupstatic"].queryset = SpatialFeatureGroupStatic.objects.all()
 
     class Meta:
         model = SpatialFeatureGroupStatic
-        fields = ("spatialfeaturegroupstatic",)
+        fields = ("spatial_feature_groupstatic",)
 
 
 class PresentationWidget(forms.Textarea):

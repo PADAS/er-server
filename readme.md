@@ -104,22 +104,3 @@ To install requirements using pip
 
 pip install -r requirements.txt -r requirements-pinned.txt --find-links ./wheelhouse
 
-
-### Secrets, Tokens, Passwords
-We are using Yelp supported [detect-secrets project](https://github.com/Yelp/detect-secrets) to find secrets or passwords we mave have inadvertantly left in our code.
-
-The base file is secrets.baseline
-We generated it by executing:
-```
-detect-secrets scan > secrets.baseline
-```
-
-Once the baseline was set, we then execute the following to look for secrets in all checked in code:
-```
-git ls-files -z | xargs -0 detect-secrets-hook --baseline secrets.baseline
-```
-
-Auditing the baseline file by executing
-```
-detect-secrets audit secrets.baseline
-```
