@@ -14,7 +14,17 @@ from core.models import DASTenant
 logger = logging.getLogger("django.contrib.gis")
 
 
-class ModelAdminDisplayingManyToManyFieldMixin(admin.ModelAdmin):
+class BaseModelAdminMixin(admin.ModelAdmin):
+    def get_form(self, request, obj=None, **kwargs):
+        # exclude das_tenant from all admin forms
+        if "exclude" in kwargs:
+            kwargs["exclude"].append("das_tenant")
+        else:
+            kwargs["exclude"] = ["das_tenant"]
+        return super().get_form(request, obj, **kwargs)
+
+
+class ModelAdminDisplayingManyToManyFieldMixin(BaseModelAdminMixin):
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         db = kwargs.get("using")
 
@@ -35,7 +45,7 @@ class ModelAdminDisplayingManyToManyFieldMixin(admin.ModelAdmin):
         return form_field
 
 
-class HierarchyModelAdmin(ModelAdminDisplayingManyToManyFieldMixin, admin.ModelAdmin):
+class HierarchyModelAdmin(ModelAdminDisplayingManyToManyFieldMixin, BaseModelAdminMixin):
     pass
 
 

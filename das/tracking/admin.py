@@ -3,6 +3,8 @@ import logging
 import sys
 from functools import partial
 
+from core.admin import BaseModelAdminMixin
+
 import django
 from django.apps import apps
 from django.contrib import messages
@@ -58,7 +60,7 @@ class PluginTypeFilter(django.contrib.admin.SimpleListFilter):
 
 
 @admin.register(models.SourcePlugin)
-class SourcePluginAdmin(admin.ModelAdmin):
+class SourcePluginAdmin(BaseModelAdminMixin):
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         queryset = queryset.prefetch_related("plugin")
@@ -117,7 +119,7 @@ class SourcePluginAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.SavannahPlugin)
-class SavannahPluginAdmin(admin.ModelAdmin):
+class SavannahPluginAdmin(BaseModelAdminMixin):
     list_display = (
         "name",
         "service_username",
@@ -126,7 +128,7 @@ class SavannahPluginAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.InreachPlugin)
-class InreachPluginAdmin(admin.ModelAdmin):
+class InreachPluginAdmin(BaseModelAdminMixin):
     list_display = (
         "name",
         "service_username",
@@ -135,7 +137,7 @@ class InreachPluginAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.AWTHttpPlugin)
-class AWTHttpAdmin(admin.ModelAdmin):
+class AWTHttpAdmin(BaseModelAdminMixin):
     list_display = (
         "name",
         "service_api_url",
@@ -143,7 +145,7 @@ class AWTHttpAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.InreachKMLPlugin)
-class InreachKMLAdmin(admin.ModelAdmin):
+class InreachKMLAdmin(BaseModelAdminMixin):
     list_display = (
         "name",
         "service_username",
@@ -152,7 +154,7 @@ class InreachKMLAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.SkygisticsSatellitePlugin)
-class SkygisticsSatelliteAdmin(admin.ModelAdmin):
+class SkygisticsSatelliteAdmin(BaseModelAdminMixin):
     list_display = (
         "name",
         "service_api_url",
@@ -161,12 +163,12 @@ class SkygisticsSatelliteAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.FirmsPlugin)
-class FirmsPluginAdmin(admin.ModelAdmin):
+class FirmsPluginAdmin(BaseModelAdminMixin):
     list_display = ("name", "app_key", "spatial_feature_group")
 
 
 @admin.register(models.SpiderTracksPlugin)
-class SpiderTracksPluginAdmin(admin.ModelAdmin):
+class SpiderTracksPluginAdmin(BaseModelAdminMixin):
     list_display = (
         "name",
         "service_username",
@@ -175,7 +177,7 @@ class SpiderTracksPluginAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.AWETelemetryPlugin)
-class AWETelemetryAdmin(admin.ModelAdmin):
+class AWETelemetryAdmin(BaseModelAdminMixin):
     list_display = (
         "name",
         "service_username",
@@ -184,7 +186,7 @@ class AWETelemetryAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.SirtrackPlugin)
-class SirtrackAdmin(admin.ModelAdmin):
+class SirtrackAdmin(BaseModelAdminMixin):
     list_display = (
         "name",
         "service_username",
@@ -193,12 +195,12 @@ class SirtrackAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.VectronicsPlugin)
-class VectronicsAdmin(admin.ModelAdmin):
+class VectronicsAdmin(BaseModelAdminMixin):
     list_display = ("name",)
 
 
 @admin.register(models.AwtPlugin)
-class AwtAdmin(admin.ModelAdmin):
+class AwtAdmin(BaseModelAdminMixin):
     list_display = ("name", "username", "host")
 
 
@@ -217,7 +219,7 @@ class SourceProviderConfigurationNameChangeExcludedSubjectTypesFormInline(admin.
 
 
 @admin.register(models.SourceProviderConfiguration)
-class SourceProviderConfigurationAdmin(admin.ModelAdmin):
+class SourceProviderConfigurationAdmin(BaseModelAdminMixin):
     list_display = (
         "friendly_name",
         "new_device_config",
