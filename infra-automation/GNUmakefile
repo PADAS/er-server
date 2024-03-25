@@ -124,7 +124,7 @@ database_init: ## Initialize a feature site database | [tfvars_environment="BRAN
 	echo $$K8S_NAMESPACE && \
 	K8S_TENANT_DOMAIN=$$(echo "$$K8S_NAMESPACE.pamdas.org") && \
 	echo $$K8S_TENANT_DOMAIN && \
-	$(CURDIR)/wait_for_pods.sh 240 6 $$K8S_NAMESPACE && \
+	$(CURDIR)/wait_for_pods.sh 480 6 $$K8S_NAMESPACE && \
 	sleep 5 && \
 	K8S_POD=$$(kubectl get pods -n $$K8S_NAMESPACE --selector=das.component=api -o jsonpath='{.items[*].metadata.name}') && \
 	echo $$K8S_POD && \
