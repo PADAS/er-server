@@ -116,7 +116,7 @@ DATABASES = {
 SENDSMS_AFRICAS_TALKING_USERNAME = env.str("SMS_ID", "")
 SENDSMS_AFRICAS_TALKING_API_KEY = env.str("SMS_TOKEN", "")
 
-DEFAULT_FILE_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
+DEFAULT_FILE_STORAGE = "core.storages.TenantGoogleCloudStorage"
 GS_BUCKET_NAME = env.str("GS_BUCKET_NAME", "earthranger-uploads-default")
 
 EUS_SETTINGS = {
