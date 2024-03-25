@@ -1,6 +1,8 @@
 from django.contrib import admin
 
 import analyzers.models as models
+from core.admin import BaseModelAdminMixin
+
 from analyzers.forms import (
     EnvironmentalAnalyzerAdminForm,
     FeatureProximityAnalyzerForm,
@@ -15,7 +17,7 @@ from core.openlayers import OSMGeoExtendedAdmin
 
 
 @admin.register(models.ImmobilityAnalyzerConfig)
-class ImmobilityAnalyzerAdmin(admin.ModelAdmin):
+class ImmobilityAnalyzerAdmin(BaseModelAdminMixin):
     list_display = (
         "name",
         "subject_group_name",
@@ -70,7 +72,7 @@ private key and paste it's contents in this form (be sure to use the JSON format
 
 
 @admin.register(models.EnvironmentalSubjectAnalyzerConfig)
-class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
+class EnvironmentalSubjectAnalyzerAdmin(BaseModelAdminMixin):
     list_display = (
         "name",
         "subject_group_name",
@@ -134,7 +136,7 @@ class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.FeatureProximityAnalyzerConfig)
-class FeatureProximityAnalyzerAdmin(admin.ModelAdmin):
+class FeatureProximityAnalyzerAdmin(BaseModelAdminMixin):
     list_display = (
         "name",
         "subject_group_name",
@@ -182,7 +184,7 @@ class FeatureProximityAnalyzerAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.SubjectProximityAnalyzerConfig)
-class SubjectProximityAnalyzerAdmin(admin.ModelAdmin):
+class SubjectProximityAnalyzerAdmin(BaseModelAdminMixin):
     list_display = ("name", "subject_group_1_name", "subject_group_2_name")
     ordering = ("name", "subject_group", "second_subject_group")
 
@@ -237,7 +239,7 @@ class SubjectProximityAnalyzerAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.GeofenceAnalyzerConfig)
-class GeofenceSubjectAnalyzerAdmin(admin.ModelAdmin):
+class GeofenceSubjectAnalyzerAdmin(BaseModelAdminMixin):
     list_display = (
         "name",
         "subject_group_name",
@@ -295,7 +297,7 @@ class GeofenceSubjectAnalyzerAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.LowSpeedWilcoxAnalyzerConfig)
-class LowSpeedWilcoxSubjectAnalyzerAdmin(admin.ModelAdmin):
+class LowSpeedWilcoxSubjectAnalyzerAdmin(BaseModelAdminMixin):
     list_display = (
         "name",
         "subject_group_name",
@@ -341,7 +343,7 @@ class LowSpeedWilcoxSubjectAnalyzerAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.LowSpeedPercentileAnalyzerConfig)
-class LowSpeedPercentileSubjectAnalyzerAdmin(admin.ModelAdmin):
+class LowSpeedPercentileSubjectAnalyzerAdmin(BaseModelAdminMixin):
     list_display = (
         "name",
         "subject_group_name",
@@ -389,12 +391,12 @@ class LowSpeedPercentileSubjectAnalyzerAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.SubjectSpeedProfile)
-class SubjectSpeedProfileAdmin(admin.ModelAdmin):
+class SubjectSpeedProfileAdmin(BaseModelAdminMixin):
     pass
 
 
 @admin.register(models.SpeedDistro)
-class SpeedDistroAdmin(admin.ModelAdmin):
+class SpeedDistroAdmin(BaseModelAdminMixin):
     pass
 
 
