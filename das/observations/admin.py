@@ -55,7 +55,6 @@ import observations.forms
 import observations.models as models
 from accounts.models import PermissionSet
 from core.admin import (
-    BaseModelAdminMixin,
     CustomM2MChecks,
     HierarchyModelAdmin,
     InlineExtraDynamicMixin,
@@ -186,7 +185,7 @@ class SubjectSubTypeInline(InlineExtraDynamicMixin, admin.TabularInline):
 
 
 @admin.register(models.SubjectType)
-class SubjectTypeAdmin(BaseModelAdminMixin):
+class SubjectTypeAdmin(admin.ModelAdmin):
     list_display = (
         "value",
         "display",
@@ -204,7 +203,7 @@ class SubjectTypeAdmin(BaseModelAdminMixin):
 
 
 @admin.register(models.SubjectSubType)
-class SubjectSubTypeAdmin(BaseModelAdminMixin):
+class SubjectSubTypeAdmin(admin.ModelAdmin):
     list_display = (
         "value",
         "display",
@@ -551,7 +550,7 @@ class ObservationsContextMixin:
 
 
 @admin.register(models.Subject)
-class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixin, BaseModelAdminMixin):
+class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixin, admin.ModelAdmin):
     list_display = (
         "name",
         "subject_subtype",  # '_subject_subtype_display',
@@ -887,7 +886,7 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
 
 
 @admin.register(models.CommonName)
-class CommonNameAdmin(BaseModelAdminMixin):
+class CommonNameAdmin(admin.ModelAdmin):
     list_display = ("value", "display", "subject_subtype")
     ordering = list_display
 
@@ -902,7 +901,7 @@ class CommonNameAdmin(BaseModelAdminMixin):
 
 
 @admin.register(models.GPXTrackFile)
-class GPXAdmin(BaseModelAdminMixin, ValidateFilterMixin):
+class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
     readonly_fields = ("id",)
     list_display = (
         "subject",
@@ -1104,7 +1103,7 @@ class GPXAdmin(BaseModelAdminMixin, ValidateFilterMixin):
 
 
 @admin.register(models.SubjectSourceSummary)
-class SubjectSourceSummaryAdmin(BaseModelAdminMixin):
+class SubjectSourceSummaryAdmin(admin.ModelAdmin):
     list_display = ("source", "_subject", "_source_plugin", "_plugin", "_provider", "_start_date", "_end_date")
     list_filter = ("source__provider__display_name",)
     search_fields = ("source__manufacturer_id", "subject__name", "source__provider__display_name")
@@ -1166,7 +1165,7 @@ class SubjectSourceSummaryAdmin(BaseModelAdminMixin):
 
 
 @admin.register(models.Source)
-class SourceAdmin(BaseModelAdminMixin, ObservationsContextMixin):
+class SourceAdmin(admin.ModelAdmin, ObservationsContextMixin):
     list_display = [
         "manufacturer_id",
         "source_type",
@@ -1281,7 +1280,7 @@ class CurrentAssignmentFilter(admin.SimpleListFilter):
 
 
 @admin.register(models.SubjectSource)
-class SubjectSourceAdmin(BaseModelAdminMixin):
+class SubjectSourceAdmin(admin.ModelAdmin):
     list_display = ("subject_name", "manufacturer_id", "current", "_assigned_range")
     ordering = ("subject", "source", "assigned_range")
     list_filter = (
@@ -1348,7 +1347,7 @@ class SubjectSourceAdmin(BaseModelAdminMixin):
 
 
 @admin.register(models.Region)
-class RegionAdmin(BaseModelAdminMixin):
+class RegionAdmin(admin.ModelAdmin):
     list_display = ["id", "region", "country", "slug"]
     ordering = list_display
     fields = ["id", "region", "country", "slug"]
@@ -1721,7 +1720,7 @@ class JsonAgg(Aggregate):
 
 
 @admin.register(models.SourceProvider)
-class SourceProviderAdmin(BaseModelAdminMixin):
+class SourceProviderAdmin(admin.ModelAdmin):
     search_fields = (
         "provider_key",
         "display_name",
@@ -1786,7 +1785,7 @@ class SourceProviderAdmin(BaseModelAdminMixin):
             )
 
 
-class SubjectSummaryAdmin(BaseModelAdminMixin):
+class SubjectSummaryAdmin(admin.ModelAdmin):
     change_list_template = "admin/subject_summary_change_list.html"
     date_hierarchy = "updated_at"
 
@@ -1844,7 +1843,7 @@ class SubjectSummaryAdmin(BaseModelAdminMixin):
 
 
 # @admin.register(models.SubjectPositionSummary)
-class SubjectPositionSummaryAdmin(BaseModelAdminMixin):
+class SubjectPositionSummaryAdmin(admin.ModelAdmin):
     change_list_template = "admin/subject_position_change_list.html"
     date_hierarchy = "recorded_at"
     # list_filter = ('subject_subtype__subject_type__display',)
@@ -1912,7 +1911,7 @@ def get_next_in_date_hierarchy(request, date_hierarchy):
 
 
 @admin.register(models.SubjectMaximumSpeed)
-class ObservationAnnotatorAdmin(BaseModelAdminMixin):
+class ObservationAnnotatorAdmin(admin.ModelAdmin):
     list_display = (
         "subject_name",
         "max_speed",
