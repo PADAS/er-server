@@ -20,7 +20,7 @@ $$
             DROP CONSTRAINT auth_group_permissio_permission_id_84c5c92e_fk_auth_perm;
 
         ALTER TABLE accounts_permissionsetpermission
-            DROP CONSTRAINT accounts_permissions_permission_id_5b7e3342_fk_auth_perm;
+            DROP CONSTRAINT IF EXISTS accounts_permissions_permission_id_5b7e3342_fk_auth_perm;
 
 
         FOR row IN SELECT * FROM public.auth_permission
