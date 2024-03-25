@@ -12,7 +12,7 @@ from django.utils.translation import gettext as _
 
 import choices.models as models
 from choices.forms import ChoiceForm
-from core.admin import ModelAdminDisplayingManyToManyFieldMixin, BaseModelAdminMixin
+from core.admin import ModelAdminDisplayingManyToManyFieldMixin
 
 
 @admin.register(models.Choice)
@@ -162,7 +162,7 @@ class ChoiceAdmin(ModelAdminDisplayingManyToManyFieldMixin):
 
 
 @admin.register(models.DisableChoice)
-class DisableChoiceAdmin(BaseModelAdminMixin):
+class DisableChoiceAdmin(admin.ModelAdmin):
     # actions = ('disable_choices', )
     ordering = ("model", "field", "ordernum", "display", "delete_on")
     list_display = ("model", "field", "value", "display", "ordernum", "delete_on", "is_active")
@@ -188,7 +188,7 @@ class DisableChoiceAdmin(BaseModelAdminMixin):
 
 
 @admin.register(models.DynamicChoice)
-class DynamicChoiceAdmin(BaseModelAdminMixin):
+class DynamicChoiceAdmin(admin.ModelAdmin):
     ordering = ("id", "model_name")
     list_display = ("id", "model_name", "criteria")
     list_display_links = ("id",)
