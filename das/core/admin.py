@@ -1,5 +1,13 @@
 import logging
 
+from oauth2_provider.admin import (
+    AccessTokenAdmin,
+    ApplicationAdmin,
+    GrantAdmin,
+    IDTokenAdmin,
+    RefreshTokenAdmin,
+)
+
 from django.contrib import admin
 from django.contrib.admin import widgets
 from django.contrib.admin.checks import BaseModelAdminChecks
@@ -7,14 +15,28 @@ from django.forms.widgets import SelectMultiple
 from django.utils.text import format_lazy
 from django.utils.translation import gettext as _
 
-from core.models import DASTenant
-
-# Register your models here.
+from core.models import (
+    DASAccessToken,
+    DASApplication,
+    DASGrant,
+    DASIDToken,
+    DASRefreshToken,
+)
 
 logger = logging.getLogger("django.contrib.gis")
 
 
-class ModelAdminDisplayingManyToManyFieldMixin(admin.ModelAdmin):
+class BaseModelAdminMixin(admin.ModelAdmin):
+    def get_form(self, request, obj=None, **kwargs):
+        # exclude das_tenant from all admin forms
+        if "exclude" in kwargs:
+            kwargs["exclude"].append("das_tenant")
+        else:
+            kwargs["exclude"] = ["das_tenant"]
+        return super().get_form(request, obj, **kwargs)
+
+
+class ModelAdminDisplayingManyToManyFieldMixin(BaseModelAdminMixin):
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         db = kwargs.get("using")
 
@@ -35,7 +57,7 @@ class ModelAdminDisplayingManyToManyFieldMixin(admin.ModelAdmin):
         return form_field
 
 
-class HierarchyModelAdmin(ModelAdminDisplayingManyToManyFieldMixin, admin.ModelAdmin):
+class HierarchyModelAdmin(ModelAdminDisplayingManyToManyFieldMixin, BaseModelAdminMixin):
     pass
 
 
@@ -85,3 +107,24 @@ class SaveCoordinatesToCookieMixin:
 class CustomM2MChecks(BaseModelAdminChecks):
     def _check_field_spec_item(self, obj, field_name, label):
         return []  # This disables error admin.E013
+
+
+oauth_admins = [
+    {"model": DASAccessToken, "admin": AccessTokenAdmin},
+    {"model": DASApplication, "admin": ApplicationAdmin},
+    {"model": DASGrant, "admin": GrantAdmin},
+    {"model": DASIDToken, "admin": IDTokenAdmin},
+    {"model": DASRefreshToken, "admin": RefreshTokenAdmin},
+]
+
+for admin_obj in oauth_admins:
+
+    class CustomAdmin(admin_obj["admin"], BaseModelAdminMixin):
+        pass
+
+    try:
+        admin.site.unregister(admin_obj["model"])
+    except admin.sites.NotRegistered:
+        continue
+
+    admin.site.register(admin_obj["model"], CustomAdmin)
