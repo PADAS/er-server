@@ -333,6 +333,7 @@ class EventGeometryForm(forms.ModelForm):
     class Meta:
         model = EventGeometry
         fields = "__all__"
+        exclude = ("das_tenant",)
 
     def save(self, commit=True):
         if "geometry" in self.changed_data or "area" in self.changed_data:

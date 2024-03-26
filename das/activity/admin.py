@@ -35,6 +35,7 @@ from activity.forms import (
 )
 from activity.tasks import recreate_event_details_view, refresh_event_details_view
 from core.admin import (
+    BaseModelAdminMixin,
     CustomM2MChecks,
     InlineExtraDynamicMixin,
     ModelAdminDisplayingManyToManyFieldMixin,
@@ -54,6 +55,7 @@ class EventRelationshipInline(admin.TabularInline):
 
 class EventDetailsInline(admin.TabularInline):
     model = models.EventDetails
+    exclude = ("das_tenant",)
 
 
 class EventGeometryInline(PropsOSMGeoAdminMixin, admin.StackedInline):
@@ -174,12 +176,12 @@ class EventAdmin(OSMGeoExtendedAdmin):
 
 
 @admin.register(models.Community)
-class CommunityAdmin(admin.ModelAdmin):
+class CommunityAdmin(BaseModelAdminMixin):
     ordering = ("name",)
 
 
 @admin.register(models.EventType)
-class EventTypeAdmin(admin.ModelAdmin):
+class EventTypeAdmin(BaseModelAdminMixin):
     form = EventTypeForm
     ordering = ("display", "value", "ordernum", "category", "default_priority", "default_state")
     list_filter = ("category", "geometry_type")
@@ -289,7 +291,7 @@ class EventTypeAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.EventSource)
-class EventSourceAdmin(admin.ModelAdmin):
+class EventSourceAdmin(BaseModelAdminMixin):
     list_display = ("display", "eventprovider", "event_type", "is_active")
     ordering = list_display
     readonly_fields = (
@@ -358,7 +360,7 @@ class EventSourceInline(InlineExtraDynamicMixin, admin.TabularInline):
 
 
 @admin.register(models.EventProvider)
-class EventProviderAdmin(admin.ModelAdmin):
+class EventProviderAdmin(BaseModelAdminMixin):
     list_display = ("display", "owner", "is_active")
     ordering = list_display
     readonly_fields = ("id",)
@@ -416,7 +418,7 @@ class EventProviderAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.EventCategory)
-class EventCategoryAdmin(admin.ModelAdmin):
+class EventCategoryAdmin(BaseModelAdminMixin):
     list_display = ("display", "value", "ordernum", "flag", "is_active")
     ordering = ("display", "value", "ordernum", "flag", "is_active")
 
@@ -483,7 +485,7 @@ class AlertRuleAdmin(ModelAdminDisplayingManyToManyFieldMixin):
 
 
 @admin.register(models.NotificationMethod)
-class NotificationMethodAdmin(admin.ModelAdmin):
+class NotificationMethodAdmin(BaseModelAdminMixin):
     readonly_fields = ("id",)
     list_display = ("owner_username", "method", "value", "is_active")
     ordering = ("owner", "method", "value", "is_active")
@@ -495,7 +497,7 @@ class NotificationMethodAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.RefreshRecreateEventDetailView)
-class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
+class RefreshRecreateEventDetailViewAdmin(BaseModelAdminMixin):
     # NOTE: This class relies on celery.
 
     change_list_template = "admin/activity/eventtype/event_detail_change_list.html"
@@ -575,7 +577,7 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 
 @AdminFeatureFlag(models.PatrolType, flag="PATROL_ENABLED")
 @admin.register(models.PatrolType)
-class PatrolTypeAdmin(admin.ModelAdmin):
+class PatrolTypeAdmin(BaseModelAdminMixin):
     form = PatrolTypeForm
     readonly_fields = ("id",)
     list_display = ("display", "value", "ordernum", "_icon_display", "is_active")

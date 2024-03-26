@@ -5,7 +5,7 @@ from django.contrib.gis.admin.widgets import OpenLayersWidget
 from django.templatetags.static import static
 from django.utils import translation
 
-from core.admin import SaveCoordinatesToCookieMixin
+from core.admin import SaveCoordinatesToCookieMixin, BaseModelAdminMixin
 
 from .mixins import TileLayersMixin
 
