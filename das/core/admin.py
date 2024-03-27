@@ -36,7 +36,7 @@ class BaseModelAdminMixin(admin.ModelAdmin):
         return super().get_form(request, obj, **kwargs)
 
 
-class ModelAdminDisplayingManyToManyFieldMixin(BaseModelAdminMixin):
+class ModelAdminDisplayingManyToManyFieldMixin(admin.ModelAdmin):
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         db = kwargs.get("using")
 
