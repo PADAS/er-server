@@ -1,0 +1,26 @@
+[
+    {
+        "active": false,
+        "created_at": "2023-11-25 16:35:01.790525+00",
+        "eula_url": "https://earthranger.com/EULA",
+        "id": "948d74d8-8bb0-11ee-ab46-5a63f26ed110",
+        "updated_at": "2023-11-25 16:35:01.790541+00",
+        "version": "EarthRanger_EULA_ver2020-02-12"
+    },
+    {
+        "active": false,
+        "created_at": "2023-11-25 16:35:02.098615+00",
+        "eula_url": "https://earthranger.com/EULA",
+        "id": "94bcc9d6-8bb0-11ee-ab46-5a63f26ed110",
+        "updated_at": "2023-11-25 16:35:02.098632+00",
+        "version": "EarthRanger_EULA_ver2020-02-27"
+    },
+    {
+        "active": true,
+        "created_at": "2023-11-25 16:35:02.164628+00",
+        "eula_url": "https://earthranger.com/EULA",
+        "id": "94c6e29a-8bb0-11ee-ab46-5a63f26ed110",
+        "updated_at": "2023-11-25 16:35:02.164642+00",
+        "version": "EarthRanger_EULA_ver2020-04-01"
+    }
+]
