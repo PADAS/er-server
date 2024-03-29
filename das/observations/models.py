@@ -15,7 +15,7 @@ import logging
 import random
 import re
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import reduce
 from operator import getitem
 from typing import NamedTuple, Set
@@ -164,6 +164,22 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
         return self.name
 
 
+class SourceQuerySet(models.QuerySet, FilterMixin):
+    def by_active_sources(self):
+        """filter sources currently connected to subjects that are active. Currently connected is defined as
+        having an assigned range that contains the current time."""
+        sources = self.filter(
+            subjectsource__assigned_range__contains=datetime.now(tz=timezone.utc),
+            subjectsource__subject__is_active=True,
+        )
+        return sources
+
+    def by_disconnected_sources(self):
+        """filter to those sources not currently connected to subjects."""
+        sources = self.exclude(subjectsource__assigned_range__contains=datetime.now(tz=timezone.utc))
+        return sources
+
+
 class SourceManager(models.Manager):
     # Helper functions for hydrating Source and Subject for the given message.
     def ensure_source(self, *args, **kwargs):
@@ -252,7 +268,7 @@ class SourceProvider(TimestampedModel):
 
 
 class Source(TimestampedModel):
-    objects = SourceManager()
+    objects = SourceManager.from_queryset(SourceQuerySet)()
 
     """Collar, MotoTrbo, sensor, etc"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
