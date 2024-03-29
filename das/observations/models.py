@@ -15,7 +15,7 @@ import logging
 import random
 import re
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import reduce
 from operator import getitem
 from typing import NamedTuple, Set
@@ -203,6 +203,22 @@ class SourceGroup(
 SourceGroupChildren = create_tenanthierarchychildren_model(SourceGroup, through_fieldname="sources")
 
 
+class SourceQuerySet(models.QuerySet, FilterMixin):
+    def by_active_sources(self):
+        """filter sources currently connected to subjects that are active. Currently connected is defined as
+        having an assigned range that contains the current time."""
+        sources = self.filter(
+            subjectsource__assigned_range__contains=datetime.now(tz=timezone.utc),
+            subjectsource__subject__is_active=True,
+        )
+        return sources
+
+    def by_disconnected_sources(self):
+        """filter to those sources not currently connected to subjects."""
+        sources = self.exclude(subjectsource__assigned_range__contains=datetime.now(tz=timezone.utc))
+        return sources
+
+
 class SourceManager(TenantManagerMixin, models.Manager):
     use_in_migrations = True
 
@@ -337,7 +353,7 @@ class Source(TenantModelMixin, TimestampedModel):
     )
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
-    objects = SourceManager()
+    objects = SourceManager.from_queryset(SourceQuerySet)()
     tenant_id = "das_tenant_id"
 
     class Meta:

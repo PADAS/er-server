@@ -144,6 +144,7 @@ def check_sources_threshold():
     for source_provider in source_providers:
         sources = (
             Source.objects.filter(provider=source_provider)
+            .by_active_sources()
             .annotate(last_observation=F("last_observation_source__observation"))
             .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
             .order_by("last_observation_recorded_at")
