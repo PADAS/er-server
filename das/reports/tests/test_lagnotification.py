@@ -313,6 +313,26 @@ class TestReportByTask:
         for event in events:
             assert event.event_type.display == "Silent Source"
 
+    def test_one_source_with_inactive_subject_reach_the_provider_default_threshold_but_no_event(self, subject_source):
+        provider = subject_source.source.provider
+        provider.additional = {"default_silent_notification_threshold": "00:30"}
+        provider.save()
+        source_a = subject_source.source
+        source_a.provider = provider
+        source_a.save()
+        subject_source.subject.is_active = False
+        subject_source.subject.save()
+
+        Observation.objects.create(
+            recorded_at=timezone.now() - timedelta(hours=4),
+            source=source_a,
+            location=Point(0, 0),
+        )
+        check_sources_threshold()
+
+        events = Event.objects.all()
+        assert events.count() == 0
+
     def test_two_source_with_different_providers_reach_the_provider_default_threshold(self, five_subject_sources):
         source_a = five_subject_sources[0].source
         source_b = five_subject_sources[1].source
