@@ -181,7 +181,7 @@ class CommunityAdmin(BaseModelAdminMixin):
 
 
 @admin.register(models.EventType)
-class EventTypeAdmin(BaseModelAdminMixin):
+class EventTypeAdmin(admin.ModelAdmin):
     form = EventTypeForm
     ordering = ("display", "value", "ordernum", "category", "default_priority", "default_state")
     list_filter = ("category", "geometry_type")
