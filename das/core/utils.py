@@ -8,6 +8,7 @@ from typing import Dict
 import jsonschema
 import pytz
 
+from django.core.exceptions import SuspiciousFileOperation
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http.request import HttpRequest
@@ -38,10 +39,13 @@ class StaticImageFinder(object):
                 file = self.file_format.format(**dict(key=key, type=t))
                 for static_path in self.static_paths:
                     static_file = static_path.format(file)
-                    if staticfiles_storage.exists(static_file):
-                        path = self.web_path.format(static_file)
-                        image_cache[key] = self.StaticImage(True, path)
-                        return path
+                    try:
+                        if staticfiles_storage.exists(static_file):
+                            path = self.web_path.format(static_file)
+                            image_cache[key] = self.StaticImage(True, path)
+                            return path
+                    except SuspiciousFileOperation:
+                        pass
             image_cache[key] = self.StaticImage(False, None)
 
 

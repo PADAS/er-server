@@ -75,6 +75,9 @@ from .constants import (
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_EVENT_PATROL_ICON_ID = "generic_rep"
+
+
 def get_sentinel_user():
     """
     This is no longer used by the application, but it is still referenced within some migrations.
@@ -307,7 +310,11 @@ class EventType(TimestampedModel):
 
     @property
     def icon_id(self):
-        return self.icon if self.icon else self.value
+        if not self.icon:
+            if static_image_finder.get_marker_icon(list(self.value)):
+                return self.value
+            return DEFAULT_EVENT_PATROL_ICON_ID
+        return self.icon
 
     @property
     def image_url(self):
@@ -1940,7 +1947,15 @@ class PatrolTypeManager(EventBaseManager):
 
 class PatrolType(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=50, unique=True)
+    value = models.CharField(max_length=50, unique=True,
+        validators=[
+            RegexValidator(
+                regex="^[A-Za-z0-9-_]*$",
+                message="""An invalid character was detected in the Patrol type Value field.
+        Supported characters are: Letters a-z (lowercase), Numbers 0-9 and Underscore""",
+            )
+        ],
+    )
     display = models.CharField(max_length=255)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     icon = models.CharField(max_length=100, blank=True)
@@ -1954,7 +1969,11 @@ class PatrolType(TimestampedModel):
 
     @property
     def icon_id(self):
-        return self.icon if self.icon else self.value
+        if not self.icon:
+            if static_image_finder.get_marker_icon(PatrolType.generate_image_keys(self.value)):
+                return self.value
+            return DEFAULT_EVENT_PATROL_ICON_ID 
+        return self.icon
 
     @staticmethod
     def generate_image_keys(obj_icon):
