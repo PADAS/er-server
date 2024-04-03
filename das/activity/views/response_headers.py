@@ -11,19 +11,21 @@ from django.http import QueryDict
 from activity.models import EventType, PatrolType
 from activity.views.events.utils import EventTypeQuerysetMixin
 
-PATROL_TYPE_FIELDS = ("value", "display", "ordernum", "icon", "is_active", "default_priority")
+PATROL_TYPE_FIELDS = ("value", "display", "ordernum", "icon_id", "is_active", "default_priority", "updated_at", "image_url")
 EVENT_TYPE_FIELDS = (
+    "updated_at",
     "category",
     "default_priority",
     "default_state",
     "display",
     "geometry_type",
-    "icon",
+    "icon_id",
     "is_active",
     "is_collection",
     "ordernum",
     "schema",
     "value",
+    "image_url"
 )
 
 
