@@ -2089,13 +2089,13 @@ class PatrolTypeManager(EventBaseManager):
 class PatrolType(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=50,
-        validators=[
-            RegexValidator(
-                regex="^[A-Za-z0-9-_]*$",
-                message="""An invalid character was detected in the Patrol type Value field.
-        Supported characters are: Letters a-z (lowercase), Numbers 0-9 and Underscore""",
-            )
-        ],
+        # validators=[
+        #     RegexValidator(
+        #         regex="^[A-Za-z0-9-_]*$",
+        #         message="""An invalid character was detected in the Patrol type Value field.
+        # Supported characters are: Letters a-z (lowercase), Numbers 0-9 and Underscore""",
+        #     )
+        # ],
     )
     display = models.CharField(max_length=255)
     ordernum = models.SmallIntegerField(blank=True, null=True)
