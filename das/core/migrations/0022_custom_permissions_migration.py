@@ -78,17 +78,29 @@ if domain not in domain_blacklist:
     sql_create_fks = """
         DO
         $$
+            DECLARE
+                constraint_exists BOOLEAN;
             BEGIN
-                -- RECREATE FK
-                ALTER TABLE auth_group_permissions
-                    ADD CONSTRAINT auth_group_permissio_permission_id_84c5c92e_fk_auth_perm
-                        FOREIGN KEY (permission_id) REFERENCES auth_permission
-                            DEFERRABLE INITIALLY DEFERRED;
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM pg_constraint
+                    INNER JOIN pg_class ON pg_constraint.conrelid = pg_class.oid
+                    WHERE conname = 'auth_group_permissio_permission_id_84c5c92e_fk_auth_perm'
+                    AND pg_class.relname = 'auth_group_permissions'
+                ) INTO constraint_exists;
 
-                ALTER TABLE accounts_permissionsetpermission
-                    ADD CONSTRAINT accounts_permissions_permission_id_5b7e3342_fk_auth_perm
-                        FOREIGN KEY (permission_id) REFERENCES auth_permission
-                            DEFERRABLE INITIALLY DEFERRED;
+                IF NOT constraint_exists THEN
+                    -- RECREATE FK
+                    ALTER TABLE auth_group_permissions
+                        ADD CONSTRAINT auth_group_permissio_permission_id_84c5c92e_fk_auth_perm
+                            FOREIGN KEY (permission_id) REFERENCES auth_permission
+                                DEFERRABLE INITIALLY DEFERRED;
+
+                    ALTER TABLE accounts_permissionsetpermission
+                        ADD CONSTRAINT accounts_permissions_permission_id_5b7e3342_fk_auth_perm
+                            FOREIGN KEY (permission_id) REFERENCES auth_permission
+                                DEFERRABLE INITIALLY DEFERRED;
+                END IF;
             END
         $$
     """

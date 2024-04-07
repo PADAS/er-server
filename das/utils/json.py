@@ -2,9 +2,11 @@ import copy
 import datetime
 import json
 import uuid
+from http import HTTPStatus
 from itertools import chain
 from types import GeneratorType
-from http import HTTPStatus
+from typing import Union
+
 import dateutil.parser as dp
 import simplejson
 import six
@@ -155,6 +157,11 @@ def dumps(obj, **kwargs):
 
 def loads(s, **kwargs):
     return simplejson.loads(s, **kwargs)
+
+
+def load_from_file(file_path: str) -> Union[dict, list, None]:
+    with open(file_path, "r") as f:
+        return loads(f.read())
 
 
 def parse_bool(text):

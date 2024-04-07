@@ -1,9 +1,9 @@
-import json
-
 import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
 from django.db.models import Count
+
+from utils.json import load_from_file
 
 SQL = """
 DO
@@ -75,11 +75,6 @@ $$
 JSON_FILE = f"{settings.BASE_DIR}/core/migrations/data/golden_set_permissions.json"
 
 
-def open_json_file(json_file: str):
-    with open(json_file, "r") as json_file:
-        return json.load(json_file)
-
-
 def insert_into_temp_permissions(apps, schema_editor):
     # Get the model for AuthPermissionTemporal
     AuthPermissionTemporal = apps.get_model(app_label="core", model_name="AuthPermissionTemporal")
@@ -88,7 +83,7 @@ def insert_into_temp_permissions(apps, schema_editor):
     temporal_data = []
 
     # Open the JSON file and retrieve the base permissions
-    base_permissions = open_json_file(json_file=JSON_FILE)
+    base_permissions = load_from_file(file_path=JSON_FILE)
 
     # Iterate over each permission in the base permissions
     for permission in base_permissions:
