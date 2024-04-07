@@ -3,7 +3,18 @@ from django.db import migrations
 sql_create_fks = """
 DO
 $$
+    DECLARE
+        constraint_exists BOOLEAN;
     BEGIN
+        SELECT EXISTS (
+            SELECT 1
+            FROM pg_constraint
+            INNER JOIN pg_class ON pg_constraint.conrelid = pg_class.oid
+            WHERE conname = 'auth_permission_content_type_id_2f476e4b_fk_django_co'
+            AND pg_class.relname = 'auth_permission'
+        ) INTO constraint_exists;
+
+        IF NOT constraint_exists THEN
             -- RE-CREATE FK
             alter table auth_permission
                 add constraint auth_permission_content_type_id_2f476e4b_fk_django_co
@@ -49,6 +60,7 @@ $$
                 add constraint tracking_sourceplugi_plugin_type_id_0e392da4_fk_django_co
                     foreign key (plugin_type_id) references django_content_type
                         deferrable initially deferred;
+        END IF;
     END
 $$
 """
