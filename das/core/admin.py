@@ -11,6 +11,7 @@ from oauth2_provider.admin import (
 from django.contrib import admin
 from django.contrib.admin import widgets
 from django.contrib.admin.checks import BaseModelAdminChecks
+from django.forms import HiddenInput
 from django.forms.widgets import SelectMultiple
 from django.utils.text import format_lazy
 from django.utils.translation import gettext as _
@@ -29,10 +30,10 @@ logger = logging.getLogger("django.contrib.gis")
 class BaseModelAdminMixin(admin.ModelAdmin):
     def get_form(self, request, obj=None, **kwargs):
         # exclude das_tenant from all admin forms
-        if "exclude" in kwargs:
-            kwargs["exclude"].append("das_tenant")
+        if "widgets" in kwargs:
+            kwargs["widgets"]["das_tenant"] = HiddenInput()
         else:
-            kwargs["exclude"] = ["das_tenant"]
+            kwargs["widgets"] = dict(das_tenant=HiddenInput())
         return super().get_form(request, obj, **kwargs)
 
 
