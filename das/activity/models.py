@@ -1,4 +1,5 @@
 import datetime
+from itertools import chain
 import json
 import logging
 import re
@@ -311,7 +312,7 @@ class EventType(TimestampedModel):
     @property
     def icon_id(self):
         if not self.icon:
-            if static_image_finder.get_marker_icon(list(self.value)):
+            if static_image_finder.get_marker_icon(chain([self.value,], Event.generate_image_keys(self.value, PRI_BLACK, self.default_state))):
                 return self.value
             return DEFAULT_EVENT_PATROL_ICON_ID
         return self.icon
