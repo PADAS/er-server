@@ -1,5 +1,6 @@
 import copy
 import csv
+import logging
 import random
 import urllib
 from datetime import datetime, timedelta
@@ -93,6 +94,8 @@ admin.site.index_template = "admin/standard_admin_index.html"
 OBSERVATIONS_HISTORY_LIMIT = timedelta(days=90)
 SUBJECT_REGION_SECTION_NAME = _("WildTracks App")
 
+logger = logging.getLogger(__name__)
+
 
 class _RelatedFieldWidgetWrapper(admin.widgets.RelatedFieldWidgetWrapper):
     template_name = "admin/widgets/related_widget.html"
@@ -175,7 +178,7 @@ class SubjectSubTypeInline(InlineExtraDynamicMixin, admin.TabularInline):
     verbose_name_plural = _("Subject Sub-Types")
     show_change_link = False
 
-    readonly_fields = ("value",)
+    readonly_fields = ("subject_type",)
 
     fields = (
         "value",
