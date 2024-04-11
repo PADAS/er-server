@@ -11,6 +11,7 @@ To re-sync your database with changes from others
 GIS
 * default geodjango spatial reference system is WGS84 (SRID 4326)
 """
+
 import logging
 import random
 import re
@@ -219,7 +220,7 @@ class SourceQuerySet(models.QuerySet, FilterMixin):
         return sources
 
 
-class SourceManager(TenantManagerMixin, models.Manager):
+class SourceManager(TenantManagerMixin, models.Manager.from_queryset(SourceQuerySet)):
     use_in_migrations = True
 
     # Helper functions for hydrating Source and Subject for the given message.
@@ -353,7 +354,7 @@ class Source(TenantModelMixin, TimestampedModel):
     )
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
-    objects = SourceManager.from_queryset(SourceQuerySet)()
+    objects = SourceManager()
     tenant_id = "das_tenant_id"
 
     class Meta:
@@ -1848,12 +1849,14 @@ def build_updates(
 
     conditional_updates = {
         "recorded_at": Value(recorded_at) if force else Greatest(F("recorded_at"), Value(recorded_at)),
-        "location": location
-        if force
-        else Case(
-            When(recorded_at__lte=Value(recorded_at), then=Value(str(location))),
-            default=F("location"),
-            output_field=models.PointField(),
+        "location": (
+            location
+            if force
+            else Case(
+                When(recorded_at__lte=Value(recorded_at), then=Value(str(location))),
+                default=F("location"),
+                output_field=models.PointField(),
+            )
         ),
     }
 
