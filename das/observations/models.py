@@ -1407,6 +1407,12 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
             ("access_ends_3", "Can view tracks no less than 3 days old"),
             ("access_ends_7", "Can view tracks no less than 7 days old"),
         )
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "linked_user"],
+                name="%(app_label)s_%(class)s_unique_across_tenants",
+            )
+        ]
 
     @property
     def color(self):
