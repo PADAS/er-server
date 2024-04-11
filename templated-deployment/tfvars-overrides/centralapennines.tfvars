@@ -1,3 +1,3 @@
-time_zone = "Europe/London"
+time_zone = "Europe/Rome"
 tableau_enabled           = "True"
 tableau_default_dashboard = "EarthRangerEventReportsSummary"
