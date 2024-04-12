@@ -10,10 +10,7 @@ from django.db import migrations, models
 import utils.migrations.columns
 import utils.models
 from core.utils import backfill_through_model_with_tenant
-from utils.migrations.update_primary_key import (
-    add_tenant_to_primary_key,
-    drop_constraint,
-)
+from utils.migrations.update_primary_key import add_tenant_to_primary_key
 
 APP_NAME = "accounts"
 APP_MODELS = ["UserAgreement"]
@@ -26,15 +23,6 @@ def regenerate_primary_keys(apps, schema_editor):
 populate_through_model_tenant_id = partial(
     backfill_through_model_with_tenant, "accounts_user", "id", "accounts_useragreement", "user_id"
 )
-
-
-def drop_constraints(apps, schema_editor):
-    for constraint in ("accounts_useragreement_id_77da7947_uniq",):
-        drop_constraint(
-            app=APP_NAME,
-            model="UserAgreement",
-            constraint=constraint,
-        )
 
 
 class Migration(migrations.Migration):
@@ -79,10 +67,5 @@ class Migration(migrations.Migration):
         migrations.RunPython(
             code=populate_through_model_tenant_id,
             reverse_code=migrations.RunPython.noop,
-        ),
-        migrations.RunPython(code=drop_constraints, reverse_code=migrations.RunPython.noop),
-        migrations.AlterUniqueTogether(
-            name="useragreement",
-            unique_together={("das_tenant", "user", "eula")},
         ),
     ]
