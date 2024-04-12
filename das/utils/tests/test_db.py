@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from utils.db import DatabaseConnectionCloser
+from utils.db.connections import DatabaseConnectionCloser
 
 
 class CustomException(Exception):
