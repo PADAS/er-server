@@ -214,7 +214,7 @@ SERIALIZATION_MODULES = {"geojson": "core.serializers"}
 # createdb -T template_postgis das ENCODING 'utf8';
 DATABASES = {
     "default": {
-        "ENGINE": "utils.tenant.backends.postgis",
+        "ENGINE": "utils.db.backends.postgis",
         "NAME": "das",
         "USER": "das",
         "HOST": env.str("DB_HOST", "postgis"),

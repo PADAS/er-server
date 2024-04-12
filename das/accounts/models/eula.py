@@ -1,21 +1,32 @@
 import uuid
 
+from django_multitenant.fields import TenantForeignKey
+from django_multitenant.mixins import TenantModelMixin
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
 
-from core.models import TimestampedModel, UUIDModel
+from core.models import DASTenant, TimestampedModel, UUIDModel
+from utils.migrations.columns import default_tenant_id
+from utils.models import CommonTenantManager
 
 
-class UserAgreement(TimestampedModel, UUIDModel):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="userterms", on_delete=models.CASCADE)
+class UserAgreement(TenantModelMixin, TimestampedModel, UUIDModel):
+    user = TenantForeignKey(settings.AUTH_USER_MODEL, related_name="userterms", on_delete=models.CASCADE)
     eula = models.ForeignKey("EULA", related_name="userterms", on_delete=models.CASCADE)
     date_accepted = models.DateTimeField(auto_now_add=True, verbose_name=_("Date Accepted"))
     accept = models.BooleanField(default=False)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    tenant_id = "das_tenant_id"
+
+    objects = CommonTenantManager()
 
     class Meta:
-        unique_together = ("user", "eula")
+        unique_together = ("das_tenant", "user", "eula")
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def save(self, *args, **kwargs):
         self.accept = True

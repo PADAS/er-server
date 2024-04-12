@@ -102,7 +102,7 @@ KML_FEED_TITLE = env.str("KML_FEED_TITLE", KML_FEED_TITLE)
 
 DATABASES = {
     "default": {
-        "ENGINE": "utils.tenant.backends.postgis",
+        "ENGINE": "utils.db.backends.postgis",
         "NAME": env.str("DB_NAME", "das"),
         "USER": env.str("DB_USER", "das"),
         "HOST": env.str("DB_HOST", "postgis"),

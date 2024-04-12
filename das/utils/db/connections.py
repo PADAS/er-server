@@ -2,8 +2,8 @@ import logging
 
 from django.db import connections
 
-from .decorator import use_shared_resource
-from .interfaces import SharedResourceHandler
+from utils.decorator import use_shared_resource
+from utils.interfaces import SharedResourceHandler
 
 logger = logging.getLogger(__name__)
 

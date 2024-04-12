@@ -2,12 +2,13 @@
 TODO: It will be better to create class-based namespaces, which formally allow hooking
 into trigger_event.
 """
+
 from typing import Iterable
 
 from engineio.server import Server as EngineIOServer
 from socketio.server import Server as SocketIOServer
 
-from utils.db import close_old_shared_connections
+from utils.db.connections import close_old_shared_connections
 
 
 class DasEngineIOServer(EngineIOServer):
