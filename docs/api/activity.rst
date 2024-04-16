@@ -26,7 +26,8 @@ To take a tour through the API:
 1. Retrieve the list of schemas '</api/v1.0/activity/events/schema/>'
 2. Retrieve the schema of on event_type, this returns the arrest_rep schema '</api/v1.0/activity/events/schema/eventtype/arrest_rep>'
 3. To Post a new event, we post the json document to: '</api/v1.0/activity/events>'
-    Example::
+    .. code-block:: json
+
         {
             "event_type": "arrest_rep",
             "icon_id": "arrest_rep",
