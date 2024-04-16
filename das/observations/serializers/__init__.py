@@ -359,12 +359,16 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                     tracks_available = recorded_at and recorded_at > default_window_cutoff
                     rep["tracks_available"] = tracks_available
                     rep["last_position_status"] = {
-                        "last_voice_call_start_at": None
-                        if statusvalues.last_voice_call_start_at == models.DEFAULT_STATUS_VALUE_DATE
-                        else statusvalues.last_voice_call_start_at,
-                        "radio_state_at": None
-                        if statusvalues.radio_state_at == models.DEFAULT_STATUS_VALUE_DATE
-                        else statusvalues.radio_state_at,
+                        "last_voice_call_start_at": (
+                            None
+                            if statusvalues.last_voice_call_start_at == models.DEFAULT_STATUS_VALUE_DATE
+                            else statusvalues.last_voice_call_start_at
+                        ),
+                        "radio_state_at": (
+                            None
+                            if statusvalues.radio_state_at == models.DEFAULT_STATUS_VALUE_DATE
+                            else statusvalues.radio_state_at
+                        ),
                         "radio_state": statusvalues.radio_state,
                     }
                     if is_stationary_subject and instance.subjectsources.last().location:
@@ -772,7 +776,7 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = models.Observation
-        fields = ("id", "location", "created_at", "recorded_at", "additional", "source")
+        fields = ("id", "location", "created_at", "recorded_at", "additional", "source", "exclusion_flags")
         id_field = False
         geo_field = "location"
 

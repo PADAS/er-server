@@ -22,7 +22,7 @@ from observations.models import (
     SubjectGroup,
     SubjectSource,
 )
-from observations.views import ObservationsView
+from observations.views import ObservationsView, ObservationView
 
 das_tenant_management = DASTenantManagement(domain="domain.com")
 
@@ -245,6 +245,27 @@ class ObservationViewTestCase(BaseAPITest):
 
         response = ObservationsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
+
+    def test_observation_can_patch_exclusion_flag(self):
+        url = reverse("observations-list-view")
+
+        request = self.factory.post(self.api_base + url, self.observation_post_data)
+        self.force_authenticate(request, self.observations_readwrite_user)
+
+        response = ObservationsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        observation_data = response.data
+        assert observation_data["exclusion_flags"] == 0
+        observation_data["exclusion_flags"] = 1
+
+        url = reverse("observation-view", kwargs={"id": observation_data["id"]})
+        request = self.factory.patch(self.api_base + url, observation_data)
+        self.force_authenticate(request, self.observations_readwrite_user)
+
+        response = ObservationView.as_view()(request, id=str(observation_data["id"]))
+        assert response.status_code == 200
+        assert response.data["exclusion_flags"] == observation_data["exclusion_flags"]
 
     def _get_tenant(self):
         return das_tenant_management.get_or_create_tenant()
