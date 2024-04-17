@@ -17,12 +17,12 @@ HWC_EVENT_CATEGORIES = ("lewa_hwc", "hwc")
 
 
 @memoize
-def get_hwc_event_types():
+def get_hwc_event_types(_):
     return [et.value for et in EventType.objects.filter(category__value__in=HWC_EVENT_CATEGORIES)]
 
 
 @memoize
-def get_rainfall_event_types():
+def get_rainfall_event_types(_):
     rainfall_categories = ("lewa_monitoring", "monitoring")
     return [
         et.value for et in EventType.objects.filter(category__value__in=rainfall_categories) if "rainfall" in et.value
@@ -335,7 +335,7 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
 
     # Accumulator for 'Rainfall'
     def rainfall(accum, event):
-        if event.event_type.value not in get_rainfall_event_types():
+        if event.event_type.value not in get_rainfall_event_types(None):
             return
 
         ed = event.event_details.first()
@@ -393,7 +393,7 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
 
             # Special case: exclude human_wildlife_conflict events which are to be included in another section of
             #               this report.
-            if event.event_type.value in get_hwc_event_types:
+            if event.event_type.value in get_hwc_event_types(None):
                 return
 
             event_details = schema_utils.generate_details(event, render_schema(event.event_type.schema))
@@ -428,7 +428,7 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
 
     # Accumulator for 'human wildlife conflict'
     def human_wildlife_conflict(accum, event):
-        if event.event_type.value not in get_hwc_event_types():
+        if event.event_type.value not in get_hwc_event_types(None):
             return
         # ed = event.event_details.first()
         # if not ed or not ed.data or 'event_details' not in ed.data:
