@@ -5,102 +5,123 @@ from django.db import migrations, models
 from utils.json import load_from_file
 
 SQL = """
+CREATE OR REPLACE FUNCTION update_fk_ids(old_id INTEGER, new_id INTEGER) RETURNS VOID AS
+$$
+BEGIN
+    UPDATE auth_permission
+    SET content_type_id = new_id
+    WHERE content_type_id = old_id;
+
+    UPDATE activity_event
+    SET reported_by_content_type_id = new_id
+    WHERE reported_by_content_type_id = old_id;
+
+    UPDATE activity_eventattachment
+    SET content_type_id = new_id
+    WHERE content_type_id = old_id;
+
+    UPDATE activity_eventfile
+    SET usercontent_type_id = new_id
+    WHERE usercontent_type_id = old_id;
+
+    UPDATE activity_patrolsegment
+    SET leader_content_type_id = new_id
+    WHERE leader_content_type_id = old_id;
+
+    UPDATE django_admin_log
+    SET content_type_id = new_id
+    WHERE content_type_id = old_id;
+
+    UPDATE analyzers_subjectanalyzerresult
+    SET subject_analyzer_content_type_id = new_id
+    WHERE subject_analyzer_content_type_id = old_id;
+
+    UPDATE observations_message
+    SET sender_content_type_id = new_id
+    WHERE sender_content_type_id = old_id;
+
+    UPDATE tracking_sourceplugin
+    SET plugin_type_id = new_id
+    WHERE plugin_type_id = old_id;
+END;
+$$ LANGUAGE plpgsql;
+
 DO
 $$
     DECLARE
-        row                  RECORD;
-        old_id               INTEGER;
-        new_id               INTEGER;
-        temp_content_type_id INTEGER;
-        distinct_records     INTEGER;
+        row      RECORD;
+        old_id   INTEGER;
+        new_id   INTEGER;
+        last_seq INTEGER;
     BEGIN
-        select count(*)
-        into distinct_records
-        from django_content_type dct
-                 full outer join temp_content_type tct on dct.id = tct.id
-        where dct is distinct from tct;
+        -- DROP FK
+        ALTER TABLE auth_permission
+            DROP CONSTRAINT IF EXISTS auth_permission_content_type_id_2f476e4b_fk_django_co;
+        ALTER TABLE django_admIN_log
+            DROP CONSTRAINT IF EXISTS django_admIN_log_content_type_id_c4bce8eb_fk_django_co;
+        ALTER TABLE activity_event
+            DROP CONSTRAINT activity_event_reported_by_content__81040fb0_fk_django_co;
+        ALTER TABLE activity_eventattachment
+            DROP CONSTRAINT IF EXISTS activity_eventattach_content_type_id_b6440fce_fk_django_co;
+        ALTER TABLE activity_eventfile
+            DROP CONSTRAINT IF EXISTS activity_eventfile_usercontent_type_id_b3a3b1ed_fk_django_co;
+        ALTER TABLE activity_patrolfile
+            DROP CONSTRAINT IF EXISTS activity_patrolfile_usercontent_type_id_031d6880_fk_django_co;
+        ALTER TABLE activity_patrolsegment
+            DROP CONSTRAINT IF EXISTS activity_patrolsegme_leader_content_type__165f10e0_fk_django_co;
+        ALTER TABLE analyzers_subjectanalyzerresult
+            DROP CONSTRAINT IF EXISTS analyzers_subjectana_subject_analyzer_con_864bc490_fk_django_co;
+        ALTER TABLE observations_message
+            DROP CONSTRAINT IF EXISTS observations_message_receiver_content_typ_56719c81_fk_django_co;
+        ALTER TABLE observations_message
+            DROP CONSTRAINT IF EXISTS observations_message_sender_content_type__ec59feb7_fk_django_co;
+        ALTER TABLE trackINg_sourceplugIN
+            DROP CONSTRAINT IF EXISTS trackINg_sourceplugi_plugIN_type_id_0e392da4_fk_django_co;
 
-        if distinct_records > 0 then
-            -- DROP FK
-            alter table auth_permission
-                drop constraint auth_permission_content_type_id_2f476e4b_fk_django_co;
-            alter table django_admin_log
-                drop constraint django_admin_log_content_type_id_c4bce8eb_fk_django_co;
-            alter table activity_event
-                drop constraint activity_event_reported_by_content__81040fb0_fk_django_co;
-            alter table activity_eventattachment
-                drop constraint activity_eventattach_content_type_id_b6440fce_fk_django_co;
-            alter table activity_eventfile
-                drop constraint activity_eventfile_usercontent_type_id_b3a3b1ed_fk_django_co;
-            alter table activity_patrolfile
-                drop constraint activity_patrolfile_usercontent_type_id_031d6880_fk_django_co;
-            alter table activity_patrolsegment
-                drop constraint activity_patrolsegme_leader_content_type__165f10e0_fk_django_co;
-            alter table analyzers_subjectanalyzerresult
-                drop constraint analyzers_subjectana_subject_analyzer_con_864bc490_fk_django_co;
-            alter table observations_message
-                drop constraint observations_message_receiver_content_typ_56719c81_fk_django_co;
-            alter table observations_message
-                drop constraint observations_message_sender_content_type__ec59feb7_fk_django_co;
-            alter table tracking_sourceplugin
-                drop constraint tracking_sourceplugi_plugin_type_id_0e392da4_fk_django_co;
+        -- move content types to high id
+        FOR row IN SELECT * FROM django_content_type ORDER BY id
+            LOOP
+                old_id = row.id;
+                new_id = old_id + 1000;
 
-            for row in select * from django_content_type order by id
-                LOOP
-                    select id
-                    into temp_content_type_id
-                    from temp_content_type
-                    where app_label = row.app_label and model = row.model;
-                    if temp_content_type_id is null then
-                        temp_content_type_id = -1; /* if the content type id does not match a record in the temp_content_type table, move it above 1000 */
-                    end if;
-                    update django_content_type set id = row.id + 1000 where id = row.id;
-                    if row.id <> temp_content_type_id then
-                        update django_content_type set id = row.id + 1000 where id = row.id;
-                    end if;
-                END LOOP;
+                -- UPDATE content type id
+                UPDATE django_content_type SET id = new_id WHERE id = old_id;
 
-            for row in select * from django_content_type order by id
-                LOOP
-                    if row.model <> 'tempcontenttype' then
-                        if row.id > 1000 then
-                            old_id = row.id - 1000;
-                            select id into new_id from temp_content_type where app_label = row.app_label
-                                                                           and model = row.model;
-                            if new_id is null then
-                                new_id = row.id; /* if the content type id does not match a record in the temp_content_type table, move it above 1000 */
-                            end if;
-                            update django_content_type set id = new_id where id = row.id;
-                            update auth_permission set content_type_id = new_id where content_type_id = old_id;
-                            update activity_event
-                            set reported_by_content_type_id = new_id
-                            where reported_by_content_type_id = old_id;
-                            update activity_eventattachment set content_type_id = new_id where content_type_id = old_id;
-                            update activity_eventfile
-                            set usercontent_type_id = new_id
-                            where usercontent_type_id = old_id;
-                            update activity_patrolfile
-                            set usercontent_type_id = new_id
-                            where usercontent_type_id = old_id;
-                            update activity_patrolsegment
-                            set leader_content_type_id = new_id
-                            where leader_content_type_id = old_id;
-                            update django_admin_log set content_type_id = new_id where content_type_id = old_id;
-                            update analyzers_subjectanalyzerresult
-                            set subject_analyzer_content_type_id = new_id
-                            where subject_analyzer_content_type_id = old_id;
-                            update observations_message
-                            set sender_content_type_id = new_id
-                            where sender_content_type_id = old_id;
-                            update observations_message
-                            set receiver_content_type_id = new_id
-                            where receiver_content_type_id = old_id;
-                            update tracking_sourceplugin set plugin_type_id = new_id where plugin_type_id = old_id;
-                        end if;
-                    end if;
-                END LOOP;
+                -- UPDATE FK
+                PERFORM update_fk_ids(old_id, new_id);
+            END LOOP;
 
-        END IF;
+        -- Move content type to id from golden SET
+        FOR row IN SELECT * FROM django_content_type ORDER BY id
+            LOOP
+                old_id = row.id;
+
+                SELECT id
+                INTO new_id
+                FROM temp_content_type ct
+                WHERE ct.app_label = row.app_label
+                  AND ct.model = row.model;
+
+                IF new_id IS NOT NULL THEN
+                    -- UPDATE content type id
+                    UPDATE django_content_type SET id = new_id WHERE id = old_id;
+
+                    -- UPDATE FK
+                    PERFORM update_fk_ids(old_id, new_id);
+                ELSE
+                    RAISE NOTICE 'ROW NOT FOUND: %', row;
+                END IF;
+            END LOOP;
+
+        SELECT id
+        INTO last_seq
+        FROM django_content_type
+        WHERE id < 1000
+          AND model != 'tempcontenttype'
+        ORDER BY id DESC
+        LIMIT 1;
+
+        PERFORM SETVAL('django_content_type_id_seq', last_seq + 1, FALSE);
     END;
 $$
 """
