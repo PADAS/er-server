@@ -273,7 +273,7 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/das",
             "args": [
-                "migrate"
+                "migratewithlock"
             ],
             "django": true,
             "env": {
