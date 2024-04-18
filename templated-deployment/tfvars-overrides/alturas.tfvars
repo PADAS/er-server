@@ -1,2 +1,2 @@
 time_zone = "America/Costa_Rica"
-tenant_id = "e5d1e768-a14a-47c1-86dc-238275eb2970"
+tenant_id = "c579ec8d-c904-461e-943f-b5d5536db0cc"
