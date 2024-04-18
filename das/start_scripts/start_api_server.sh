@@ -12,11 +12,16 @@ function app_has_migrated () {
 if app_has_migrated core '\[ \].0008_migrate'; then
   echo "settings override"
   # we haven't migrated to the core oauth tables yet
-  python3 manage.py migrate --no-input --settings=das_server.local_settings_oauth_migration
+  python3 manage.py migratewithlock --no-input --settings=das_server.local_settings_oauth_migration
 else
   echo "no override of settings"
   # db has been migrated past core oauth tables
-  python3 manage.py migrate --no-input
+  python3 manage.py migratewithlock --no-input
+fi
+
+if [[ "${MIGRATIONS_ONLY}" == "True" ]]; then
+  echo "MIGRATIONS_ONLY is set to True, exiting"
+  exit 0
 fi
 
 . $(dirname "$0")/django_common_startup.sh

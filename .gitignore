@@ -332,3 +332,6 @@ pyrightconfig.json
 .envrc
 
 /.devcontainer/docker-compose-dev.yml
+
+# GitGuardian
+.cache_ggshield
