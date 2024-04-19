@@ -28,6 +28,10 @@ BEGIN
     SET leader_content_type_id = new_id
     WHERE leader_content_type_id = old_id;
 
+    UPDATE activity_patrolfile
+    SET usercontent_type_id = new_id
+    WHERE usercontent_type_id = old_id;
+
     UPDATE django_admin_log
     SET content_type_id = new_id
     WHERE content_type_id = old_id;
@@ -39,6 +43,10 @@ BEGIN
     UPDATE observations_message
     SET sender_content_type_id = new_id
     WHERE sender_content_type_id = old_id;
+
+    UPDATE observations_message
+    SET receiver_content_type_id = new_id
+    WHERE receiver_content_type_id = old_id;
 
     UPDATE tracking_sourceplugin
     SET plugin_type_id = new_id
@@ -75,7 +83,7 @@ $$
             DROP CONSTRAINT IF EXISTS observations_message_receiver_content_typ_56719c81_fk_django_co;
         ALTER TABLE observations_message
             DROP CONSTRAINT IF EXISTS observations_message_sender_content_type__ec59feb7_fk_django_co;
-        ALTER TABLE trackINg_sourceplugIN
+        ALTER TABLE tracking_sourceplugin
             DROP CONSTRAINT IF EXISTS trackINg_sourceplugi_plugIN_type_id_0e392da4_fk_django_co;
 
         -- move content types to high id
