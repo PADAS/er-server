@@ -499,6 +499,9 @@ locals {
     "insimbi"                   = "prod1"
     "maiko"                     = "prod1"
     "ncz-vultures-test"         = "prod1"
+    "eruc23"                    = "dev"
+    "eruc2023"                  = "dev"
+    "eruc-staff"                = "dev"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"

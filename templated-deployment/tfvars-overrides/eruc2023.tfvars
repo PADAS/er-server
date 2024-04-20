@@ -1,0 +1,5 @@
+time_zone           = "Africa/Johannesburg"
+show_track_days                 = "10000"
+subject_region_enabled = "True"
+kml_export = "true"
+kml_feed_title = "ERUC 2023"

@@ -138,13 +138,13 @@ resource "kubernetes_secret" "ga_measurement_id" {
   }
 }
 
-resource "kubernetes_secret" "tms_dev_api_key" {
+resource "kubernetes_secret" "tms_api_key" {
   metadata {
-    name      = "tms-dev-api-key"
+    name      = "tms-api-key"
     namespace = kubernetes_namespace.this.metadata.0.name
   }
   data = {
-    tms_dev_api_key = data.google_secret_manager_secret_version.tms_dev_api_key.secret_data
+    tms_api_key = local.kubernetes_cluster == "dev" ? data.google_secret_manager_secret_version.tms_dev_api_key.secret_data : data.google_secret_manager_secret_version.tms_prod_api_key.secret_data
   }
 }
 

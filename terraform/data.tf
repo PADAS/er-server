@@ -62,6 +62,11 @@ data "google_secret_manager_secret_version" "tms_dev_api_key" {
   secret  = "tms-dev-api-key"
 }
 
+data "google_secret_manager_secret_version" "tms_prod_api_key" {
+  project = data.google_project.earthranger.project_id
+  secret  = "tms-prod-api-key"
+}
+
 data "google_secret_manager_secret_version" "memory_store_api_key" {
   project = data.google_project.earthranger.project_id
   secret  = "memory-store-api-key"

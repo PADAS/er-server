@@ -1,8 +1,0 @@
-feature_tms                   = "True"
-root_logging_level            = "INFO"
-django_logging_level          = "INFO"
-django_request_logging_level  = "INFO"
-django_server_logging_level   = "INFO"
-rtapi_logging_level           = "INFO"
-rtapi_socket_logging_level    = "INFO"
-rtapi_pubsub_logging_level    = "INFO"

@@ -86,7 +86,7 @@ variable "email_host" {
 variable "feature_tms" {
   description = "Enable feature tms flag"
   type        = string
-  default     = "False"
+  default     = "True"
 }
 
 variable "fqdn" {
@@ -263,7 +263,7 @@ variable "geo_permission_speed_km_h" {
 variable "tms_api_host" {
   description = "tms api host"
   type        = string
-  default     = "https://er-tms-api-gateway-5sf422kw.uc.gateway.dev"
+  default     = ""
 }
 
 variable "tms_api_key" {

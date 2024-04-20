@@ -172,8 +172,8 @@ spec:
         - name: TMS_API_KEY
           valueFrom:
             secretKeyRef:
-              name: tms-dev-api-key
-              key: tms_dev_api_key
+              name: tms-api-key
+              key: tms_api_key
         - name: MAPBOX_TOKEN
           valueFrom:
             secretKeyRef:
@@ -308,8 +308,8 @@ spec:
         - name: TMS_API_KEY
           valueFrom:
             secretKeyRef:
-              name: tms-dev-api-key
-              key: tms_dev_api_key
+              name: tms-api-key
+              key: tms_api_key
         - name: MAPBOX_TOKEN
           valueFrom:
             secretKeyRef:

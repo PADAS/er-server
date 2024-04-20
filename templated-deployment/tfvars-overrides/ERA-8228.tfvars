@@ -1,6 +1,0 @@
-feature_tms                   = "True"
-tms_api_host                  = "https://er-tms-api-gateway-5sf422kw.uc.gateway.dev"
-django_logging_level          = "INFO"
-django_request_logging_level  = "INFO"
-django_server_logging_level   = "INFO"
-root_logging_level            = "INFO"

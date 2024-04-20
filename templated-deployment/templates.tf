@@ -7,6 +7,8 @@ locals {
 
   db_instance_private_ip = data.terraform_remote_state.site_terraform.outputs.db_instance_private_ip
 
+  tms_api_host = var.tms_api_host != "" ? var.tms_api_host : var.app_infra_workspace == "dev" ? "https://er-tms-api-gateway-5sf422kw.uc.gateway.dev" : "https://er-tms-api-gateway-1r0d2ltk.ew.gateway.dev"
+
 }
 
 resource "template_dir" "deployments" {
@@ -83,7 +85,7 @@ resource "template_dir" "deployments" {
     TABLEAU_ENABLED                 = var.tableau_enabled
     TABLEAU_SITE_ID                 = var.tableau_site_id
     TIME_ZONE                       = var.time_zone
-    TMS_API_HOST                    = var.tms_api_host
+    TMS_API_HOST                    = local.tms_api_host
     TMS_API_KEY                     = var.tms_api_key
     TRACK_LENGTH                    = var.track_length
     USE_AZURE_STORAGE               = var.use_azure_storage
