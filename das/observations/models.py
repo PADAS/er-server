@@ -2054,6 +2054,15 @@ class MessageFilteringQuerySet(models.QuerySet, FilterMixin):
     def by_read(self, read):
         return self.filter(read=read)
 
+    def by_date_range(self, since, until):
+        if not since and not until:
+            return self
+        if not since:
+            return self.filter(message_time__lt=until)
+        if not until:
+            return self.filter(message_time__gte=since)
+        return self.filter(message_time__range=(since, until))
+
 
 class MessagesManager(models.Manager):
     pass

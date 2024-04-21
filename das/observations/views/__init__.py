@@ -1762,6 +1762,8 @@ class MessagesSchema(CustomSchema):
                 {"name": "source_id", "in": "query", "description": "Get messages of this device/source"},
                 {"name": "read", "in": "query", "description": "Get read/unread messages"},
                 {"name": "recent_message", "in": "query", "description": "Number of recent messages"},
+                {"name": "since", "in": "query", "description": "Include messages since this timestamp"},
+                {"name": "until", "in": "query", "description": "Include messages older than this timestamp"},
             ]
             operation["parameters"].extend(query_params)
 
@@ -1790,6 +1792,12 @@ class MessagesView(generics.ListCreateAPIView):
         query_params = self.request.query_params
         messages = get_user_messages(self.request.user)
 
+        if since := query_params.get("since", None):
+            since = dateparse(since)
+
+        if until := query_params.get("until", None):
+            until = dateparse(until)
+
         subject_id = query_params.get("subject_id")
         source_id = query_params.get("source_id")
         read = query_params.get("read")
@@ -1803,6 +1811,15 @@ class MessagesView(generics.ListCreateAPIView):
             messages = messages.by_source_id(source_id)
         if read is not None:
             messages = messages.by_read(parse_bool(read))
+
+        if number_recent_msg and (since or until):
+            raise ValidationError("recent_message query param cannot be used with since or until query params")
+
+        if not number_recent_msg and not since and not until:
+            # Default to last 30 days until UI is updated to handle pagination
+            since = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=30)
+
+        messages = messages.by_date_range(since, until)
 
         if number_recent_msg and number_recent_msg.isdigit():
             sender = {"partition_by": F("sender_id"), "order_by": [F("message_time").desc()]}
