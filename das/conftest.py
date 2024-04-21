@@ -49,6 +49,7 @@ from factories import (
     SubjectSourceFactory,
     SubjectSubTypeFactory,
     TenantFactory,
+    TwoWayMessageSubjectFactory,
     UserFactory,
 )
 from utils.features import features
@@ -74,6 +75,11 @@ def patrol():
 @pytest.fixture
 def subject():
     return SubjectFactory()
+
+
+@pytest.fixture
+def two_way_msg_subject():
+    return TwoWayMessageSubjectFactory()
 
 
 @pytest.fixture
