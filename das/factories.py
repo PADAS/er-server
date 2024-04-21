@@ -1,5 +1,5 @@
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import factory
 from factory import fuzzy
@@ -31,6 +31,7 @@ from choices.models import Choice
 from core.models import DASTenant
 from mapping.models import SpatialFeatureGroupStatic, SpatialFeatureType
 from observations.models import (
+    Message,
     Observation,
     Source,
     SourceGroup,
@@ -164,6 +165,13 @@ class ProviderFactory(factory.django.DjangoModelFactory):
     das_tenant = factory.SubFactory(TenantFactory)
 
 
+class TwoWayMessageProviderFactory(ProviderFactory):
+    class Params:
+        two_way_messaging = True
+
+    additional = {"two_way_messaging": True}
+
+
 class SourceFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Source
@@ -208,6 +216,28 @@ class SubjectGroupFactory(factory.django.DjangoModelFactory):
         if extracted:
             for permission_set in extracted:
                 self.permission_sets.add(permission_set)
+
+
+class TwoWayMessageSubjectFactory(SubjectFactory):
+    @factory.post_generation
+    def subjectsources(self, create, extracted, **kwargs):
+        if extracted:
+            for subjectsource in extracted:
+                self.subjectsources.add(subjectsource)
+        else:
+            provider = TwoWayMessageProviderFactory(two_way_messaging=True)
+            source = SourceFactory(provider=provider)
+            self.subjectsources.add(SubjectSource.objects.create(subject=self, source=source))
+
+
+class MessageFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Message
+
+    text = fuzzy.FuzzyText(length=100)
+    created_by_user = factory.SubFactory(UserFactory)
+    subject = factory.SubFactory(TwoWayMessageSubjectFactory)
+    message_time = (datetime.now(tz=timezone.utc),)
 
 
 class PatrolSegmentSubjectFactory(factory.django.DjangoModelFactory):
