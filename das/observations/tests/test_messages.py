@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 from urllib.parse import urlencode
 
@@ -282,7 +282,7 @@ class MessagesTestCase(BaseAPITest):
             "device_id": source.id,
             "text": "Habari yako!",
             "message_type": "outbox",
-            "message_time": datetime.utcnow(),
+            "message_time": datetime.now(tz=timezone.utc),
         }
         msg = models.Message.objects.create(**message)
         assert msg.status == "pending"
@@ -302,3 +302,43 @@ class MessagesTestCase(BaseAPITest):
         response = MessagesView.as_view()(request)
         assert response.status_code == 201
         assert response.data.get("device")
+
+
+@pytest.mark.django_db
+class TestMessagesView:
+    def test_messages_requested_by_since_until(self, two_way_msg_subject, superuser_client):
+        message = {
+            "sender_id": superuser_client.user.id,
+            "receiver_id": two_way_msg_subject.id,
+            "device_id": two_way_msg_subject.source.id,
+            "text": "Habari yako!",
+            "message_type": "outbox",
+            "message_time": datetime.now(tz=timezone.utc),
+        }
+        models.Message.objects.create(**message)
+
+        url = reverse("messages-view")
+        url += "?{}".format(urlencode({"since": "2021-01-01T00:00:00Z", "until": "2021-01-01T23:59:59Z"}))
+
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        assert response.data.get("count") == 0
+
+    def test_messages_default_to_last_30_days(self, two_way_msg_subject, superuser_client):
+        message = {
+            "sender_id": superuser_client.user.id,
+            "receiver_id": two_way_msg_subject.id,
+            "device_id": two_way_msg_subject.source.id,
+            "text": "Habari yako!",
+            "message_type": "outbox",
+            "message_time": datetime.now(tz=timezone.utc),
+        }
+        models.Message.objects.create(**message)
+        message["message_time"] = datetime.now(tz=timezone.utc) - timedelta(days=31)
+        models.Message.objects.create(**message)
+
+        last_30_days = datetime.now(tz=timezone.utc) - timedelta(days=30)
+        url = reverse("messages-view")
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        assert response.data.get("count") == 1
