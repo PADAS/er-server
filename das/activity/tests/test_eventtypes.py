@@ -10,7 +10,7 @@ from rest_framework import status
 
 from activity.models import PRI_URGENT, SC_RESOLVED, EventCategory, EventType
 from activity.tests import schema_examples
-from activity.views import EventTypeView
+from activity.views import EventTypesView, EventTypeView
 from client_http import HTTPClient
 from factories import EventTypeFactory
 
@@ -283,3 +283,113 @@ class TestEventTypesAPI:
         assert original_response.status_code == status.HTTP_200_OK
         assert modified_response.status_code == status.HTTP_200_OK
         assert original_etag != modified_etag
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestEventTypeAutoResolve:
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {"value": "test", "category": "security", "auto_resolve": False, "resolve_time": None},
+            {"value": "test", "category": "security", "auto_resolve": True, "resolve_time": 5},
+        ],
+    )
+    def test_create_event_type_with_auto_resolve_set(self, data, basic_event_categories):
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+
+        url = reverse("eventtypes")
+        request = client.factory.post(url, data=data)
+        client.force_authenticate(request, client.app_user)
+        response = EventTypesView.as_view()(request)
+
+        assert response.status_code == 201
+        assert response.data["auto_resolve"] == data["auto_resolve"]
+        assert response.data["resolve_time"] == data["resolve_time"]
+
+    def test_get_event_type_with_auto_resolve(self, event_type):
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+        url = reverse("eventtype", kwargs={"eventtype_id": event_type.id})
+        request = client.factory.get(url)
+        client.force_authenticate(request, client.app_user)
+
+        response = EventTypeView.as_view()(request, eventtype_id=event_type.id)
+
+        assert "auto_resolve" in response.data
+        assert "resolve_time" in response.data
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {"auto_resolve": True, "resolve_time": 8},
+            {"auto_resolve": False, "resolve_time": None},
+        ],
+    )
+    def test_update_event_type_auto_resolve(self, data, event_type):
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+
+        url = reverse("eventtype", kwargs={"eventtype_id": event_type.id})
+        request = client.factory.patch(url, data=data)
+        client.force_authenticate(request, client.app_user)
+
+        response = EventTypeView.as_view()(request, eventtype_id=event_type.id)
+
+        assert response.status_code == 200
+        assert response.data["auto_resolve"] == data["auto_resolve"]
+        assert response.data["resolve_time"] == data["resolve_time"]
+
+    def test_create_event_type_with_auto_resolve_true_and_not_resolve_time(self, basic_event_categories):
+        data = {
+            "value": "test",
+            "category": "security",
+            "auto_resolve": True,
+        }
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+
+        url = reverse("eventtypes")
+        request = client.factory.post(url, data=data)
+        client.force_authenticate(request, client.app_user)
+        response = EventTypesView.as_view()(request)
+
+        detail = response.data["status"]["detail"]
+        assert response.status_code == 400
+        assert "resolve_time" in detail
+        assert "'resolve_time' must be set if 'auto_resolve' is true." in detail["resolve_time"]
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {"auto_resolve": True, "resolve_time": None},
+            {"auto_resolve": False, "resolve_time": 5},
+        ],
+    )
+    def test_auto_resolve_test_update_event_type_auto_resolve_time_wrong(self, data, event_type):
+        event_type.auto_resolve = True
+        event_type.resolve_time = 5
+        event_type.save()
+
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+
+        url = reverse("eventtype", kwargs={"eventtype_id": event_type.id})
+        request = client.factory.patch(url, data=data)
+        client.force_authenticate(request, client.app_user)
+        response = EventTypeView.as_view()(request, eventtype_id=event_type.id)
+
+        detail = response.data["status"]["detail"]
+        assert response.status_code == 400
+        assert "resolve_time" in detail
+        assert (
+            "'resolve_time' must be set if 'auto_resolve' is true." in detail["resolve_time"]
+            or "'resolve_time' must be null if 'auto_resolve' is false." in detail["resolve_time"]
+        )
