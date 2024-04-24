@@ -45,10 +45,10 @@ class Command(MigrateCommand):
                     )
                     return
                 self.stdout.write(
-                    self.style.SUCCESS(f"Acquired migration lock with lock id {lock_id}. Proceeding with migrations.")
+                    self.style.SUCCESS(f"Acquired migration lock with lock id {lock_id}. Proceeding with migrations for site {settings.FQDN}.")
                 )
                 MigrateCommand.handle(self, *args, **options)
-                self.style.SUCCESS(f"Migration completed successfully.")
+                self.stdout.write(self.style.SUCCESS(f"Migration completed successfully for site {settings.FQDN}."))
             except Exception as e:
                 # Send an email on failure
                 send_mail(
