@@ -1,10 +1,10 @@
 import datetime
-from itertools import chain
 import json
 import logging
 import re
 import uuid
 from enum import Enum
+from itertools import chain
 from operator import attrgetter, itemgetter
 
 import pytz
@@ -361,6 +361,12 @@ class EventType(TenantModelMixin, TimestampedModel):
             Index(fields=["das_tenant", "value"], name="%(app_label)s_%(class)s_val_idx"),
         ]
 
+    def clean(self, *args, **kwargs):
+        if not self.auto_resolve and self.resolve_time:
+            raise ValidationError({"resolve_time": "'resolve_time' must be null if 'auto_resolve' is false."})
+        elif self.auto_resolve and not self.resolve_time:
+            raise ValidationError({"resolve_time": "'resolve_time' must be set if 'auto_resolve' is true."})
+
     def save(self, *args, **kwargs):
         self.full_clean()
         self.value = self.value.lower()
@@ -375,7 +381,14 @@ class EventType(TenantModelMixin, TimestampedModel):
     @property
     def icon_id(self):
         if not self.icon:
-            if static_image_finder.get_marker_icon(chain([self.value,], Event.generate_image_keys(self.value, PRI_BLACK, self.default_state))):
+            if static_image_finder.get_marker_icon(
+                chain(
+                    [
+                        self.value,
+                    ],
+                    Event.generate_image_keys(self.value, PRI_BLACK, self.default_state),
+                )
+            ):
                 return self.value
             return DEFAULT_EVENT_PATROL_ICON_ID
         return self.icon
@@ -2089,15 +2102,7 @@ class PatrolTypeManager(EventBaseManager):
 
 class PatrolType(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=50,
-        # validators=[
-        #     RegexValidator(
-        #         regex="^[A-Za-z0-9-_]*$",
-        #         message="""An invalid character was detected in the Patrol type Value field.
-        # Supported characters are: Letters a-z (lowercase), Numbers 0-9 and Underscore""",
-        #     )
-        # ],
-    )
+    value = models.CharField(max_length=50)
     display = models.CharField(max_length=255)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     icon = models.CharField(max_length=100, blank=True)
@@ -2126,7 +2131,7 @@ class PatrolType(TenantModelMixin, TimestampedModel):
         if not self.icon:
             if static_image_finder.get_marker_icon(PatrolType.generate_image_keys(self.value)):
                 return self.value
-            return DEFAULT_EVENT_PATROL_ICON_ID 
+            return DEFAULT_EVENT_PATROL_ICON_ID
         return self.icon
 
     @staticmethod

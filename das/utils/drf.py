@@ -4,9 +4,9 @@ import logging
 from rest_framework_gis.pagination import GeoJsonPagination
 
 import django.views.defaults
-import rest_framework
 from django.conf import settings
 from django.core.cache import caches
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import OperationalError, connection, transaction
 from django.http import JsonResponse
@@ -42,10 +42,10 @@ def error404View(request, exception, template_name="404.html"):
 
     # Create a Response with an appropriate status-code here, then let the fixup function codify it in the
     # resposne body.
-    response = Response({}, status=rest_framework.status.HTTP_404_NOT_FOUND)
+    response = Response({}, status=status.HTTP_404_NOT_FOUND)
     response = fixup_api_response(response)
 
-    response = JsonResponse(data=response.data, status=rest_framework.status.HTTP_404_NOT_FOUND)
+    response = JsonResponse(data=response.data, status=status.HTTP_404_NOT_FOUND)
     return response
 
 
@@ -63,13 +63,19 @@ def api_exception_handler(exc, context):
     ):
         logger.exception("Exception handling %s", context["request"].get_full_path())
     # TODO: there is a case where drf returns data as a list or a dictionary
-    # without putting it in a new dictionary under the "datail" key which breaks fixup_api_response
+    # without putting it in a new dictionary under the "detail" key which breaks fixup_api_response
     response = exception_handler(exc, context)
     if not response:
         detail = str(exc)
         data = {"detail": detail} if detail else {}
         set_rollback()
-        response = Response(data, status=rest_framework.status.HTTP_500_INTERNAL_SERVER_ERROR)
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+
+        if isinstance(exc, ValidationError):
+            data = {"detail": exc.message_dict} if detail else {}
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        response = Response(data, status=status_code)
     return fixup_api_response(response)
 
 
