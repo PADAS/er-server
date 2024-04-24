@@ -5,6 +5,7 @@ see https://www.ghanei.net/django-migrations-on-kubernetes/
 """
 
 from django.conf import settings
+from django.core.mail import send_mail
 from django.core.management.commands.migrate import Command as MigrateCommand
 from django.db import connections
 
@@ -47,5 +48,16 @@ class Command(MigrateCommand):
                     self.style.SUCCESS(f"Acquired migration lock with lock id {lock_id}. Proceeding with migrations.")
                 )
                 MigrateCommand.handle(self, *args, **options)
+                self.style.SUCCESS(f"Migration completed successfully.")
+            except Exception as e:
+                # Send an email on failure
+                send_mail(
+                    f'Migration Failed for site {settings.FQDN}',
+                    f'An error occurred during migrations for site {settings.FQDN}: {str(e)}',
+                    settings.DEFAULT_FROM_EMAIL,
+                    ['er-p0-support@allenai.pagerduty.com'],  # List of recipients
+                    fail_silently=False,
+                )
+                self.stdout.write(self.style.ERROR(f'Migration failed for site {settings.FQDN}: {str(e)}'))
             finally:
                 cursor.execute(f"SELECT pg_advisory_unlock({lock_id})")
