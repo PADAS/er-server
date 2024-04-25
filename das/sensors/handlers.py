@@ -14,6 +14,8 @@ from rest_framework import serializers, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
+from utils.tenant import get_tenant_settings
+
 from analyzers import gfw_inbound
 from buoy.constants import (
     BUOY_DEVICE_SUBJECT_SUBTYPE,
