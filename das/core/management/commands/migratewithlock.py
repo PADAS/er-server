@@ -45,19 +45,18 @@ class Command(MigrateCommand):
                     )
                     return
                 self.stdout.write(
-                    self.style.SUCCESS(f"Acquired migration lock with lock id {lock_id}. Proceeding with migrations for site {settings.FQDN}.")
+                    self.style.SUCCESS(f"Acquired migration lock with lock id {lock_id}. Proceeding with migrations for site {settings.SERVER_FQDN}.")
                 )
                 MigrateCommand.handle(self, *args, **options)
-                self.stdout.write(self.style.SUCCESS(f"Migration completed successfully for site {settings.FQDN}."))
+                self.stdout.write(self.style.SUCCESS(f"Migration completed successfully for site {settings.SERVER_FQDN}."))
             except Exception as e:
-                # Send an email on failure
                 send_mail(
-                    f'Migration Failed for site {settings.FQDN}',
-                    f'An error occurred during migrations for site {settings.FQDN}: {str(e)}',
+                    f'Migration Failed for site {settings.SERVER_FQDN}',
+                    f'An error occurred during migrations for site {settings.SERVER_FQDN}: {str(e)}',
                     settings.DEFAULT_FROM_EMAIL,
-                    ['er-p0-support@allenai.pagerduty.com'],  # List of recipients
+                    ['er-p0-support@allenai.pagerduty.com'],
                     fail_silently=False,
                 )
-                self.stdout.write(self.style.ERROR(f'Migration failed for site {settings.FQDN}: {str(e)}'))
+                self.stdout.write(self.style.ERROR(f'Migration failed for site {settings.SERVER_FQDN}: {str(e)}'))
             finally:
                 cursor.execute(f"SELECT pg_advisory_unlock({lock_id})")

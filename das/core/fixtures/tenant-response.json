@@ -25,6 +25,7 @@
     "gsBucketName": null,
     "kmlOverlayImage": null,
     "kmlFeedTitle": "Awesome ER site - KML service",
+    "observationAccuracyThreshold": 25,
     "patrolEnabled": false,
     "showStationarySubjectsOnMap": true,
     "showTrackDays": 16,

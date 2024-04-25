@@ -24,7 +24,7 @@ environ.Env.read_env(settings.BASE_DIR(".env"))
 class DjangoSettingsTenantBuilder:
     def __init__(self):
         self.tenant = Tenant(
-            id=getattr(settings, "TENANT_ID", None) or str(uuid.uuid4()),
+            id=settings.TENANT_ID,
             cluster_name=None,
             cluster_namespace=None,
             created_at=datetime.datetime.now(tz=datetime.timezone.utc),
@@ -72,6 +72,7 @@ class DjangoSettingsTenantBuilder:
             geo_permission_violation_ban_duration_min=int(getattr(settings, "GEO_PERMISSION_BAN_DURATON_MIN", 0)),
             subject_region_enabled=parse_bool(getattr(settings, "SUBJECT_REGION_ENABLED", True)),
             track_length=int(settings.TRACK_LENGTH),
+            observation_accuracy_threshold=int(settings.OBSERVATION_ACCURACY_THRESHOLD),
         )
 
     def _load_feature_flags_from_django(self) -> FeatureFlags:
