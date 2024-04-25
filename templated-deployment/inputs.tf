@@ -156,8 +156,10 @@ variable "default_patrol_filter_from_days" {
   type    = string
   default = "-1"
 }
-
-
+variable "observation_accuracy_threshold" {
+  type    = string
+  default = "25"
+}
 variable "eus_email" {
   type    = string
   default = ""
