@@ -91,6 +91,27 @@ class ErTrackHandlerTest(BaseAPITest):
         assert resolver.func.cls == ERTrackHandlerView
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_post_observation_with_low_accuracy(self):
+        obs = copy.deepcopy(self.one_observation)
+        obs["additional"] = {"accuracy": 1000}
+        response = self._post_data(json.dumps(obs), user=self.super_user)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        db_observation = Observation.objects.get(source=self.test_source, recorded_at=obs["recorded_at"])
+        assert db_observation.exclusion_flags.EXCLUDED_AUTOMATICALLY.is_set
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_post_observation_with_high_accuracy(self):
+        obs = copy.deepcopy(self.one_observation)
+        obs["additional"] = {"accuracy": 1}
+        response = self._post_data(json.dumps(obs), user=self.super_user)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        db_observation = Observation.objects.get(source=self.test_source, recorded_at=obs["recorded_at"])
+
+        assert not any([f[1] for f in db_observation.exclusion_flags])
+    
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_a_duplicate_observation(self):
         response = self._post_data(json.dumps(self.one_observation), user=self.super_user)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
