@@ -7,8 +7,12 @@ from dateutil.parser import parse as parse_date
 from psycopg2.errors import UniqueViolation
 
 from django.db import transaction
+from django.conf import settings
 from rest_framework import serializers, status
 from rest_framework.response import Response
+
+from utils.features import features
+from utils.tenant import get_tenant_settings
 
 from analyzers import gfw_inbound
 from observations import servicesutils
@@ -327,6 +331,9 @@ class ErTrackHandler(GenericSensorHandler):
             "additional": additional,
         }
 
+        if cls.exclude_observation(additional=additional):
+            observation["exclusion_flags"] = Observation.EXCLUDED_AUTOMATICALLY
+
         obs_key = (str(src.id), recorded_at)
         # Short-circuit if we already have this observation.
         if obs_key in obs_cache or Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
@@ -365,7 +372,11 @@ class ErTrackHandler(GenericSensorHandler):
         if not compliant_observations:
             return Response(data={"message": "Invalid ER Mobile observations received"}, status=status.HTTP_200_OK)
         return compliant_observations
-
+    
+    @classmethod
+    def exclude_observation(cls, additional):
+        threshold = get_tenant_settings().env_settings.observation_accuracy_threshold or settings.OBSERVATION_ACCURACY_THRESHOLD if features.tms.is_on() else settings.OBSERVATION_ACCURACY_THRESHOLD
+        return float(additional.get("accuracy", 0)) >= threshold
 
 class FollowltTrackerHandler:
     SENSOR_TYPE = "animal-collar-push"
