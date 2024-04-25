@@ -30,6 +30,9 @@ class EnvironmentSettings:
     )
     kml_feed_title: Optional[str] = field(metadata=config(field_name="kmlFeedTitle"), default="EarthRanger KML service")
     kml_overlay_image: Optional[str] = field(metadata=config(field_name="kmlOverlayImage"), default=None)
+    observation_accuracy_threshold: Optional[int] = field(
+        metadata=config(field_name="observationAccuracyThreshold"), default=None
+    )
     patrol_enabled: Optional[bool] = field(metadata=config(field_name="patrolEnabled"), default=False)
     show_stationary_subjects_on_map: Optional[bool] = field(
         metadata=config(field_name="showStationarySubjectsOnMap"), default=False
