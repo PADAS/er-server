@@ -36,6 +36,6 @@ echo "Notice GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS}"
 
 gunicorn das_server.wsgi --name das \
     --bind 0.0.0.0:8000 \
-    --limit-request-line 6000 \
+    --limit-request-line 8190 \
     --worker-tmp-dir /dev/shm \
     --log-file -
