@@ -1,0 +1,22 @@
+from dataclasses import asdict, dataclass, is_dataclass
+from datetime import datetime
+from typing import Any, Dict, Optional
+from uuid import UUID
+
+
+@dataclass
+class ObservationData:
+    additional: Optional[Dict[str, Any]] = None
+    created_at: Optional[datetime] = None
+    das_tenant: Optional[UUID] = None
+    exclusion_flags: Optional[int] = None
+    id: Optional[UUID] = None
+    location: Optional[Dict[str, Any]] = None
+    recorded_at: Optional[datetime] = None
+    source_id: Optional[UUID] = None
+    tenant_id: str = "das_tenant_id"
+
+    def to_dict(self) -> Dict[str, Any]:
+        if is_dataclass(self):
+            return asdict(self)
+        return dict()
