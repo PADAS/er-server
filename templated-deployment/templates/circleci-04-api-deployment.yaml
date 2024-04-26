@@ -70,10 +70,10 @@ spec:
             httpHeaders:
             - name: Host
               value: '${FQDN}'
-            path: '/api/v1.0/status'
+            path: '/api/v1.0/status?db_connections=true'
             port: 8000
           initialDelaySeconds: 10
-          periodSeconds: 20
+          periodSeconds: 5
           failureThreshold: 30
         volumeMounts:
         - name: google-credentials
