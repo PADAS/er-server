@@ -33,6 +33,9 @@ from observations.models import (
     SubjectSource,
     transform_additional_data,
 )
+from observations.services import (
+    get_observation_coordinates_and_times_by_subject_id_and_source_id,
+)
 from observations.utils import (
     dateparse,
     get_maximum_allowed_age,
@@ -41,7 +44,6 @@ from observations.utils import (
     is_subject_stationary_subject,
 )
 from utils import add_base_url
-from utils.json import zeroout_microseconds
 from utils.tenant import get_tenant_settings
 
 from .observations import FlattenObservationSerializer
@@ -692,25 +694,12 @@ class SubjectTrackSerializer(rest_framework.serializers.BaseSerializer):
         if subject_linked_sources:
             coordinates = []
             times = []
-            EMPTY_POINT = Point(0, 0)
             # Fetch Observations only from the linked sources to limit view
             # on a Source level
             for source in subject_linked_sources:
-                subject_source = models.SubjectSource.objects.get(source=source, subject=subject)
-
-                lower = subject_source.safe_assigned_range.lower
-                upper = subject_source.safe_assigned_range.upper
-
-                queryset = models.Observation.objects.get_subjectsource_observations(
-                    subject_source,
-                    since=lower,
-                    until=upper,
-                )
-                queryset = queryset.exclude(location=EMPTY_POINT)
-                queryset = queryset.values("location", "recorded_at")
-                for observation in list(queryset):
-                    coordinates.append(observation["location"].coords)
-                    times.append(zeroout_microseconds(observation["recorded_at"]))
+                data = get_observation_coordinates_and_times_by_subject_id_and_source_id(subject.id, source.id)
+                coordinates = data["coordinates"]
+                times = data["times"]
         else:
             coordinates, times = subject.get_track(user, tracks_since, tracks_until, tracks_limit)
 
