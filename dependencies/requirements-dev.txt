@@ -875,7 +875,7 @@ pillow==9.5.0
     #   -r ./requirements.txt
     #   django-versatileimagefield
     #   matplotlib
-pip-tools==6.13.0
+pip-tools==7.4.1
     # via -r requirements-dev.in
 pkgutil-resolve-name==1.3.10
     # via
@@ -1006,7 +1006,9 @@ pyproj==3.0.1
     #   -r ./requirements.txt
     #   geopandas
 pyproject-hooks==1.0.0
-    # via build
+    # via
+    #   build
+    #   pip-tools
 pyshp==2.3.1
     # via
     #   -r ./requirements.txt
@@ -1268,6 +1270,7 @@ tomli==2.0.1
     #   coverage
     #   dparse
     #   jupyterlab
+    #   pip-tools
     #   pylint
     #   pyproject-hooks
 tomlkit==0.12.1
