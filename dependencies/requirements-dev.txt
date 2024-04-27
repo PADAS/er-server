@@ -74,7 +74,7 @@ attrs==23.1.0
     #   pytest
     #   rasterio
     #   referencing
-autoflake==2.1.1
+autoflake==2.3.1
     # via -r requirements-dev.in
 autopep8==2.0.2
     # via -r requirements-dev.in
