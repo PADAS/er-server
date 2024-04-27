@@ -50,13 +50,13 @@ class Command(MigrateCommand):
                 MigrateCommand.handle(self, *args, **options)
                 self.stdout.write(self.style.SUCCESS(f"Migration completed successfully for site {settings.SERVER_FQDN}."))
             except Exception as e:
-                send_mail(
-                    f'Migration Failed for site {settings.SERVER_FQDN}',
-                    f'An error occurred during migrations for site {settings.SERVER_FQDN}: {str(e)}',
-                    settings.DEFAULT_FROM_EMAIL,
-                    ['er-p0-support@allenai.pagerduty.com'],
-                    fail_silently=False,
-                )
+                #send_mail(
+                #    f'Migration Failed for site {settings.SERVER_FQDN}',
+                #    f'An error occurred during migrations for site {settings.SERVER_FQDN}: {str(e)}',
+                #    settings.DEFAULT_FROM_EMAIL,
+                #    ['er-p0-support@allenai.pagerduty.com'],
+                #    fail_silently=False,
+                #)
                 self.stdout.write(self.style.ERROR(f'Migration failed for site {settings.SERVER_FQDN}: {str(e)}'))
             finally:
                 cursor.execute(f"SELECT pg_advisory_unlock({lock_id})")
