@@ -5,7 +5,7 @@
 # pip install -r requirements-dev.txt -r requirements-pinned.txt --find-links wheelhouse --upgrade
 #
 #
-autoflake==2.1.1
+autoflake==2.3.1
 autopep8==2.0.2
 black==21.6b0
 coverage==7.2.7
