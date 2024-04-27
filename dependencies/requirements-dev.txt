@@ -380,7 +380,7 @@ factory-boy==3.2.1
     # via
     #   -r requirements-dev.in
     #   pytest-factoryboy
-faker==18.10.1
+faker==24.14.0
     # via
     #   -r requirements-dev.in
     #   factory-boy
@@ -471,9 +471,7 @@ google-cloud-core==2.3.3
     #   google-cloud-logging
     #   google-cloud-storage
 google-cloud-error-reporting==1.9.1
-    # via
-    #   -r ./requirements.txt
-    #   -r requirements-dev.in
+    # via -r ./requirements.txt
 google-cloud-logging==3.7.0
     # via
     #   -r ./requirements.txt
@@ -841,6 +839,7 @@ packaging==21.3
     #   marshmallow
     #   matplotlib
     #   pytest
+    #   pytest-factoryboy
     #   safety
 pandas==2.0.3
     # via
@@ -983,7 +982,7 @@ pyjwt==2.8.0
     # via
     #   -r ./requirements.txt
     #   twilio
-pylint==2.17.4
+pylint==2.17.7
     # via
     #   -r requirements-dev.in
     #   pylint-django
@@ -1033,13 +1032,13 @@ pytest-cov==4.1.0
     # via -r requirements-dev.in
 pytest-django==4.5.2
     # via -r requirements-dev.in
-pytest-factoryboy==2.5.1
+pytest-factoryboy==2.7.0
     # via -r requirements-dev.in
 pytest-mimesis==1.1.0
     # via -r requirements-dev.in
 pytest-pythonpath==0.7.4
     # via -r requirements-dev.in
-pytest-xdist==3.3.1
+pytest-xdist==3.5.0
     # via -r requirements-dev.in
 python-dateutil==2.8.2
     # via
@@ -1308,6 +1307,7 @@ typing-extensions==4.8.0
     #   -r ./requirements.txt
     #   asgiref
     #   astroid
+    #   faker
     #   ipython
     #   kombu
     #   pylint
