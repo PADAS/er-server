@@ -1,6 +1,7 @@
 import hashlib
 import re
 from collections import defaultdict
+import logging
 from typing import Iterator, List, Optional
 from uuid import UUID, uuid4
 
@@ -25,6 +26,7 @@ from utils.categories import (
 )
 from utils.tenant import Tenant, lengthen_tenant_id, shorten_tenant_id
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
@@ -159,7 +161,11 @@ def allowed_permissions(user_instance):
         if perm.endswith(ACTIONS):
             resource, verb = perm.rsplit("_", maxsplit=1)
         else:
-            verb, resource = perm.split("_", maxsplit=1)
+            try:
+                verb, resource = perm.split("_", maxsplit=1)
+            except ValueError:
+                logger.warning(f"Permission {perm} is not in the expected format.")
+                continue
 
         if ignore_permission(
             resource, app_name, permission, user_instance, user_categories_and_geo_categories, event_categories
