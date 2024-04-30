@@ -292,6 +292,7 @@ class EventFactory(factory.django.DjangoModelFactory):
 
     title = fuzzy.FuzzyText(length=20)
     event_type = factory.SubFactory(EventTypeFactory)
+    serial_number = factory.Sequence(lambda n: n)
 
 
 class EventDetailsFactory(factory.django.DjangoModelFactory):

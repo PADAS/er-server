@@ -563,7 +563,6 @@ class TestEventGeometrySerializer:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
 class TestEventHeaderSerializer:
     def test_serialized_event_format(self, event):
         event.end_time = datetime.now()
