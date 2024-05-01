@@ -323,7 +323,7 @@ jobs:
       - image: google/cloud-sdk
     steps:
       - attach_workspace:
-        at: /home/circleci/project
+          at: /home/circleci/project
       - run: |
           echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
           gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
