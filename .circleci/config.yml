@@ -327,10 +327,10 @@ jobs:
       - 'export_google_credentials'
       - 'activate_google_service_account'
       - run: |
-          gsutil cp /home/circleci/project/das/observations/static/* gs://er-static/api/
-          gsutil cp /home/circleci/project/das/activity/static/* gs://er-static/api/
-          gsutil cp /home/circleci/project/das/activity/static/sprite-src gs://er-static/api/
-          gsutil cp /home/circleci/project/das/mapping/static/* gs://er-static/api/
+          gsutil -m cp /home/circleci/project/das/observations/static/* gs://er-static/api/
+          gsutil -m cp /home/circleci/project/das/activity/static/* gs://er-static/api/
+          gsutil -m cp /home/circleci/project/das/activity/static/sprite-src/* gs://er-static/api/sprite-src/
+          gsutil -m cp /home/circleci/project/das/mapping/static/* gs://er-static/api/
 workflows:
   version: 2
   build_and_terraform_dev:
