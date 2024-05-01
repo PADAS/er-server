@@ -313,6 +313,21 @@ jobs:
           root: './'
           paths:
             - '*'
+  push_to_storage:
+    docker:
+      - image: google/cloud-sdk
+    steps:
+      - attach_workspace:
+        at: /home/circleci/project
+      - run: |
+          echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
+          gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
+          gcloud --quiet config set compute/zone ${GOOGLE_COMPUTE_ZONE}
+      - run: |
+          gsutil cp /home/circleci/project/das/observations/static/* gs://er-static/api/
+          gsutil cp /home/circleci/project/das/activity/static/* gs://er-static/api/
+          gsutil cp /home/circleci/project/das/activity/static/sprite-src gs://er-static/api/
+          gsutil cp /home/circleci/project/das/mapping/static/* gs://er-static/api/
 workflows:
   version: 2
   build_and_terraform_dev:
@@ -325,6 +340,9 @@ workflows:
       - docker_build_image:
           requires:
             - 'build_sphinx_docs'
+      - push_to_storage:
+          requires:
+            - 'docker_build_image'
       - run_api_unittests:
           requires:
             - 'docker_build_image'
