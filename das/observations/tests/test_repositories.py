@@ -3,7 +3,10 @@ import uuid
 import pytest
 
 from observations.dataclasses import ObservationData
-from observations.repositories import ObservationRepository
+from observations.repositories import (
+    ObservationRepository,
+    get_observation_location_and_recorded_at_by_subject_source_id,
+)
 
 
 @pytest.mark.django_db
@@ -51,3 +54,21 @@ class TestObservationsRepository:
         observation_data = self.repository.get_by_id(observation_id=uuid.uuid4())
 
         assert observation_data is None
+
+
+@pytest.mark.django_db
+def test_get_observation_location_and_recorded_at_by_subject_source_id(subject_source_with_observations) -> None:
+    subject_source, observation = subject_source_with_observations
+
+    data = get_observation_location_and_recorded_at_by_subject_source_id(
+        subject_source_id=subject_source.id,
+        since=None,
+        until=None,
+        limit=None,
+        values=None,
+        filter_flag=0,
+        order_by=None,
+    )
+
+    assert isinstance(data, dict)
+    assert data == {"coordinates": [observation.location.coords], "times": [observation.recorded_at]}

@@ -9,14 +9,11 @@ from observations.services import (
 
 @pytest.mark.django_db
 def test_get_observation_coordinates_and_times_by_subject_id_and_source_id_with_data(
-    subject, source, subject_source, observation
+    subject_source_with_observations,
 ) -> None:
-    subject_source.subject = subject
-    subject_source.source = source
-    subject_source.save()
-    observation.subject_source = subject_source
-    observation.source = source
-    observation.save()
+    subject_source, observation = subject_source_with_observations
+    source = subject_source.source
+    subject = subject_source.subject
 
     data = get_observation_coordinates_and_times_by_subject_id_and_source_id(subject_id=subject.id, source_id=source.id)
 
