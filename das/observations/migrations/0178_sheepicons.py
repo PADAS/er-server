@@ -16,7 +16,10 @@ wildlife_subtype_loader = (
     .add_subject_subtype(display="Black Jaguar", value="jaguar_black")
     .add_subject_subtype(display="Macaw", value="macaw")
     .add_subject_subtype(display="Tortoise", value="tortoise")
-    .add_subject_subtype(display="Drone Quad-copter", value="drone_quadcopter")
+)
+
+aircraft_subtype_loader = TenantSubjectSubTypeLoader(subject_type_value="aircraft").add_subject_subtype(
+    display="Drone Quad-copter", value="drone_quadcopter"
 )
 
 
@@ -27,4 +30,5 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunPython(wildlife_subtype_loader.load, reverse_code=migrations.RunPython.noop),
+        migrations.RunPython(aircraft_subtype_loader.load, reverse_code=migrations.RunPython.noop),
     ]
