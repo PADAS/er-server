@@ -35,6 +35,12 @@ class TestObservationsRepository:
         assert observations_data[0].das_tenant == observation.das_tenant.id
         assert observations_data[0].recorded_at == observation.recorded_at
 
+    def test_filter_empty(self):
+        observations_data = self.repository.filter(fields={"source": uuid.uuid4()})
+
+        assert isinstance(observations_data, list)
+        assert len(observations_data) == 0
+
     def test_get_by_id(self, observation) -> None:
         observation_data = self.repository.get_by_id(observation_id=observation.id)
 

@@ -124,11 +124,6 @@ class ObservationRepository(RepositoryInterface, ObservationDatabaseManagerMixin
         )
 
     def build_dataclass(self, observation_data: Dict[str, Any]) -> ObservationData:
-        if not isinstance(observation_data["location"], Point):
-            location = Point(observation_data["location"])
-        else:
-            location = observation_data["location"]
-        observation_data["location"] = location
         return ObservationData(**observation_data)
 
 
