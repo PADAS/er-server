@@ -7,10 +7,11 @@ from observations.repositories import (
 
 
 def get_observation_coordinates_and_times_by_subject_id_and_source_id(subject_id: UUID, source_id: UUID):
+    empty_data = {"coordinates": [], "times": []}
     try:
         subject_source = SubjectSource.objects.get(subject_id=subject_id, source_id=source_id)
     except SubjectSource.DoesNotExist:
-        return {"coordinates": [], "times": []}
+        return empty_data
     lower = subject_source.safe_assigned_range.lower
     upper = subject_source.safe_assigned_range.upper
     coordinates = []
@@ -23,7 +24,7 @@ def get_observation_coordinates_and_times_by_subject_id_and_source_id(subject_id
     )
 
     if not observations_data:
-        return {"coordinates": [], "times": []}
+        return empty_data
 
     for observation in observations_data:
         coordinates.append(observation.location.coords)
