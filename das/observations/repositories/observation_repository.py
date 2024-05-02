@@ -3,6 +3,7 @@ from uuid import UUID
 
 from django.contrib.gis.geos import Point
 from django.db.models import F, Q, QuerySet
+from django.forms.models import model_to_dict
 
 from observations.dataclasses import ObservationData
 from observations.models import Observation
@@ -75,23 +76,52 @@ class ObservationDatabaseManagerMixin:
 
         return qs
 
+
+class ObservationRepository(RepositoryInterface, ObservationDatabaseManagerMixin):
+    qs: QuerySet = Observation.objects.all()
+
+    def get_all(self) -> Optional[ObservationData]:
+        observations_qs = self._get_observations()
+        if not observations_qs:
+            return []
+        observations_data = [
+            self._model_instance_to_dict(observation_instance) for observation_instance in observations_qs
+        ]
+        return [self.build_dataclass(observation_data=observation_data) for observation_data in observations_data]
+
+    def filter(self, fields: Dict[str, Any]) -> Optional[ObservationData]:
+        observations_qs = self._get_observations(fields=fields)
+        if not observations_qs:
+            return []
+        observations_data = [
+            self._model_instance_to_dict(observation_instance) for observation_instance in observations_qs
+        ]
+        return [self.build_dataclass(observation_data=observation_data) for observation_data in observations_data]
+
+    def get_by_id(self, observation_id: UUID) -> Optional[ObservationData]:
+        observation_instance = self._get_observation_by_id(id=observation_id)
+        if not observation_instance:
+            return None
+        observation_data = self._model_instance_to_dict(observation_instance)
+        return self.build_dataclass(observation_data=observation_data)
+
+    def _get_observations(self, fields: Optional[Dict[str, Any]] = None) -> QuerySet[Observation]:
+        qs = self.qs.all()
+        if fields:
+            qs = qs.filter(**fields)
+        return qs
+
     def _get_observation_by_id(self, id: UUID) -> Observation:
         try:
             return Observation.objects.get(pk=id)
         except Observation.DoesNotExist:
             return None
-        except Observation.MultipleObjectsReturned:
-            return None
 
-
-class ObservationRepository(RepositoryInterface, ObservationDatabaseManagerMixin):
-    qs: QuerySet = Observation.objects.all()
-
-    def get_all(self):
-        return self._get_observations()
-
-    def get_by_id(self) -> Optional[Observation]:
-        return self._get_observation_by_id()
+    def _model_instance_to_dict(self, model_instance: Observation) -> Dict[str, Any]:
+        return model_to_dict(
+            model_instance,
+            fields=[field.name for field in model_instance._meta.fields],
+        )
 
     def build_dataclass(self, observation_data: Dict[str, Any]) -> ObservationData:
         if not isinstance(observation_data["location"], Point):

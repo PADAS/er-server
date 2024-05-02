@@ -13,8 +13,7 @@ class ObservationData:
     id: Optional[UUID] = None
     location: Optional[Dict[str, Any]] = None
     recorded_at: Optional[datetime] = None
-    source_id: Optional[UUID] = None
-    tenant_id: str = "das_tenant_id"
+    source: Optional[UUID] = None
 
     def to_dict(self) -> Dict[str, Any]:
         if is_dataclass(self):
