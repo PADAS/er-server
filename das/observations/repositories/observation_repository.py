@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from django.contrib.gis.geos import Point
@@ -59,9 +59,13 @@ class ObservationDatabaseManagerMixin:
         filter_flag=0,
         order_by=None,
     ):
-        qs = self.qs.filter(
-            source__subjectsource=subject_source_id, source__subjectsource__assigned_range__contains=F("recorded_at")
+        qs = self._get_observations(
+            fields={
+                "source__subjectsource": subject_source_id,
+                "source__subjectsource__assigned_range__contains": F("recorded_at"),
+            }
         )
+
         qs = self.by_since_until(qs, since, until)
         qs = self.by_exclusion_flags(qs, filter_flag)
 
@@ -80,7 +84,7 @@ class ObservationDatabaseManagerMixin:
 class ObservationRepository(RepositoryInterface, ObservationDatabaseManagerMixin):
     qs: QuerySet = Observation.objects.all()
 
-    def get_all(self) -> Optional[ObservationData]:
+    def get_all(self) -> List[Optional[ObservationData]]:
         observations_qs = self._get_observations()
         if not observations_qs:
             return []
@@ -89,7 +93,7 @@ class ObservationRepository(RepositoryInterface, ObservationDatabaseManagerMixin
         ]
         return [self.build_dataclass(observation_data=observation_data) for observation_data in observations_data]
 
-    def filter(self, fields: Dict[str, Any]) -> Optional[ObservationData]:
+    def filter(self, fields: Dict[str, Any]) -> List[Optional[ObservationData]]:
         observations_qs = self._get_observations(fields=fields)
         if not observations_qs:
             return []
@@ -135,7 +139,7 @@ def get_observation_location_and_recorded_at_by_subject_source_id(
     values=None,
     filter_flag=0,
     order_by=None,
-):
+) -> List[Optional[ObservationData]]:
     observation_repository = ObservationRepository()
     qs = observation_repository.get_subjectsource_observations(
         subject_source_id=subject_source_id,

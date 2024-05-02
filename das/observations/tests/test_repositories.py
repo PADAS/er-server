@@ -60,15 +60,7 @@ class TestObservationsRepository:
 def test_get_observation_location_and_recorded_at_by_subject_source_id(subject_source_with_observations) -> None:
     subject_source, observation = subject_source_with_observations
 
-    data = get_observation_location_and_recorded_at_by_subject_source_id(
-        subject_source_id=subject_source.id,
-        since=None,
-        until=None,
-        limit=None,
-        values=None,
-        filter_flag=0,
-        order_by=None,
-    )
+    data = get_observation_location_and_recorded_at_by_subject_source_id(subject_source_id=subject_source.id)
 
-    assert isinstance(data, dict)
-    assert data == {"coordinates": [observation.location.coords], "times": [observation.recorded_at]}
+    assert isinstance(data, list)
+    assert data[0].location == observation.location
