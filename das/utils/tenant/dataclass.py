@@ -9,7 +9,7 @@ from dataclasses_json import config, dataclass_json
 @dataclass_json
 @dataclass
 class EnvironmentSettings:
-    accept_eula: Optional[bool] = field(metadata=config(field_name="acceptEula"), default=False)
+    accept_eula: Optional[bool] = field(metadata=config(field_name="acceptEula"), default=True)
     alert_rate_limit: int = field(metadata=config(field_name="alertRateLimit"), default=20)
     all_server_names: Optional[List[str]] = field(metadata=config(field_name="allServerNames"), default=None)
     default_event_filter_from_days: Optional[int] = field(
@@ -33,7 +33,7 @@ class EnvironmentSettings:
     observation_accuracy_threshold: Optional[int] = field(
         metadata=config(field_name="observationAccuracyThreshold"), default=None
     )
-    patrol_enabled: Optional[bool] = field(metadata=config(field_name="patrolEnabled"), default=False)
+    patrol_enabled: Optional[bool] = field(metadata=config(field_name="patrolEnabled"), default=True)
     show_stationary_subjects_on_map: Optional[bool] = field(
         metadata=config(field_name="showStationarySubjectsOnMap"), default=False
     )
