@@ -12,7 +12,7 @@ jobs:
   build_sphinx_docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@4
+      - uses: actions/checkout@v4
       - name: Build Sphinx docs
         run: |
           pip3 install -r dependencies/requirements-docs.txt
