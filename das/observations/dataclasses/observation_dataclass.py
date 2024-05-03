@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Optional
 from uuid import UUID
@@ -14,8 +14,3 @@ class ObservationData:
     location: Optional[Dict[str, Any]] = None
     recorded_at: Optional[datetime] = None
     source: Optional[UUID] = None
-
-    def to_dict(self) -> Dict[str, Any]:
-        if is_dataclass(self):
-            return asdict(self)
-        return dict()
