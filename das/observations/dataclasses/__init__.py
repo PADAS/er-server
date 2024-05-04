@@ -1,3 +1,3 @@
-from observations.dataclasses.observation_dataclass import ObservationData
+from observations.dataclasses.observation import ObservationData
 
 __all__ = ("ObservationData",)
