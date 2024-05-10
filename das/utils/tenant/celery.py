@@ -3,8 +3,10 @@ import logging
 from celery import Task
 from celery_once import QueueOnce
 
+from core.models import DASTenant
 from utils.features import features
 from utils.tenant import get_tenant_settings
+from utils.tenant.exceptions import TenantNotFoundException
 from utils.tenant.managers import TenantContextManager
 from utils.tenant.providers import get_current_cluster_domains
 
@@ -50,6 +52,16 @@ class TenantQueueOnceTask(TenantTaskMixin, QueueOnce):
 class OverAllTenantTask(QueueOnce):
     def __call__(self, *args, **kwargs):
         for tenant_domain in get_current_cluster_domains():
-            with TenantContextManager(tenant_domain):
-                logger.info("Running: %s for Tenant domain: %s", self.name, tenant_domain)
-                self.run(*args, **kwargs)
+            try:
+                with TenantContextManager(tenant_domain):
+                    logger.info("Running: %s for Tenant domain: %s", self.name, tenant_domain)
+                    self.run(*args, **kwargs)
+            except DASTenant.DoesNotExist:
+                logger.warning(
+                    "Tenant with domain %s found in current cluster domain list does not exist in this server's tenant db",
+                    tenant_domain,
+                )
+            except TenantNotFoundException:
+                logger.warning(
+                    "Tenant with domain %s found in current cluster domain list does not exist in TMS", tenant_domain
+                )
