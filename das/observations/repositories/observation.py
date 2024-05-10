@@ -40,6 +40,15 @@ def _get_observations_queryset(
 
 
 def _get_observation_instance(id: UUID) -> Observation:
+    """
+    Retrieve an Observation instance by its ID.
+
+    Args:
+        id (UUID): The ID of the Observation instance to retrieve.
+
+    Returns:
+        Observation: The retrieved Observation instance, or None if it doesn't exist.
+    """
     try:
         return Observation.objects.get(id=id)
     except Observation.DoesNotExist:
