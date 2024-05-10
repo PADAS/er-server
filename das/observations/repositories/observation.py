@@ -1,159 +1,81 @@
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from django.contrib.gis.geos import Point
 from django.db.models import F, Q, QuerySet
-from django.forms.models import model_to_dict
 
-from observations.dataclasses import ObservationData
 from observations.models import Observation
-from observations.repositories.interfaces import RepositoryInterface
 
 EMPTY_POINT = Point(0, 0)
 
 
-class ObservationDatabaseManagerMixin:
-    def by_since(self, qs: QuerySet, recorded_since):
-        return qs.filter(recorded_at__gte=recorded_since)
+def _get_observations_queryset(
+    filter_fields: Optional[Dict[str, Any]] = None,
+    filter_q_fields: Optional[Dict[str, Any]] = None,
+    exclude_fields: Optional[Dict[str, Any]] = None,
+) -> QuerySet[Observation]:
+    """
+    Retrieve a queryset of observations based on the provided filters.
 
-    def by_until(self, qs: QuerySet, recorded_until):
-        return qs.filter(Q(recorded_at__lte=recorded_until))
+    Args:
+        filter_fields (Optional[Dict[str, Any]]): A dictionary of fields and their values to filter the queryset.
+        filter_q_fields (Optional[Dict[str, Any]]):
+            A dictionary of fields and their values to filter the queryset using Q objects.
+        exclude_fields (Optional[Dict[str, Any]]): A dictionary of fields and their values to exclude from the queryset.
 
-    def by_since_until(self, qs: QuerySet, recorded_since, recorded_until):
-        if recorded_since and recorded_until:
-            qs = qs.filter(Q(recorded_at__range=[recorded_since, recorded_until]))
-        elif recorded_since:
-            qs = qs.by_since(recorded_since)
-        elif recorded_until:
-            qs = self.by_until(qs, recorded_until)
-        return qs
+    Returns:
+        QuerySet[Observation]: The resulting queryset of observations.
 
-    def by_exclusion_flags(self, qs: QuerySet, filter_flag=None, include_empty_location: bool = False):
-        """Works with more than one filter flag, for example 3 which is manual and automatic exclusion.
+    """
+    qs = Observation.objects.all()
 
-        Args:
-            filter_flag (optional): the exclusion filter flag, think bits. 0 is a valid value. Defaults to None.
-            include_empty_location (bool, optional): don't filter out locations that are 0,0. Defaults to False.
-
-        Returns:
-            queryset: a further filtered queryset
-        """
-        if filter_flag is not None:
-            if filter_flag > 0:
-                qs = qs.annotate(exclusion_filter=F("exclusion_flags").bitand(filter_flag)).filter(
-                    exclusion_filter__gt=0
-                )
-            else:
-                qs = qs.filter(exclusion_flags=filter_flag)
-            if not include_empty_location:
-                qs = qs.exclude(Q(location=EMPTY_POINT))
-        return qs
-
-    def get_subjectsource_observations(
-        self,
-        subject_source_id: UUID,
-        since=None,
-        until=None,
-        limit=None,
-        values=None,
-        filter_flag=0,
-        order_by=None,
-    ):
-        qs = self._get_observations(
-            fields={
-                "source__subjectsource": subject_source_id,
-                "source__subjectsource__assigned_range__contains": F("recorded_at"),
-            }
-        )
-
-        qs = self.by_since_until(qs, since, until)
-        qs = self.by_exclusion_flags(qs, filter_flag)
-
-        if order_by:
-            qs = qs.order_by(order_by)
-
-        if limit and limit > 0:
-            qs = qs[:limit]
-
-        if values:
-            qs = qs.values(*values)
-
-        return qs
+    if filter_fields:
+        qs = qs.filter(**filter_fields)
+    if filter_q_fields:
+        qs = qs.filter(Q(**filter_q_fields))
+    if exclude_fields:
+        qs = qs.exclude(**exclude_fields)
+    return qs
 
 
-class ObservationRepository(RepositoryInterface, ObservationDatabaseManagerMixin):
-    qs: QuerySet = Observation.objects.all()
-
-    def get_all(self) -> List[Optional[ObservationData]]:
-        observations_qs = self._get_observations()
-        if not observations_qs:
-            return []
-        observations_data = [
-            self._model_instance_to_dict(observation_instance) for observation_instance in observations_qs
-        ]
-        return [self.build_dataclass(observation_data=observation_data) for observation_data in observations_data]
-
-    def filter(self, fields: Dict[str, Any]) -> List[Optional[ObservationData]]:
-        observations_qs = self._get_observations(fields=fields)
-        if not observations_qs:
-            return []
-        observations_data = [
-            self._model_instance_to_dict(observation_instance) for observation_instance in observations_qs
-        ]
-        return [self.build_dataclass(observation_data=observation_data) for observation_data in observations_data]
-
-    def get_by_id(self, observation_id: UUID) -> Optional[ObservationData]:
-        observation_instance = self._get_observation_by_id(id=observation_id)
-        if not observation_instance:
-            return None
-        observation_data = self._model_instance_to_dict(observation_instance)
-        return self.build_dataclass(observation_data=observation_data)
-
-    def _get_observations(self, fields: Optional[Dict[str, Any]] = None) -> QuerySet[Observation]:
-        qs = self.qs.all()
-        if fields:
-            qs = qs.filter(**fields)
-        return qs
-
-    def _get_observation_by_id(self, id: UUID) -> Observation:
-        try:
-            return Observation.objects.get(pk=id)
-        except Observation.DoesNotExist:
-            return None
-
-    def _model_instance_to_dict(self, model_instance: Observation) -> Dict[str, Any]:
-        return model_to_dict(
-            model_instance,
-            fields=[field.name for field in model_instance._meta.fields],
-        )
-
-    def build_dataclass(self, observation_data: Dict[str, Any]) -> ObservationData:
-        return ObservationData(**observation_data)
+def _get_observation_instance(id: UUID) -> Observation:
+    try:
+        return Observation.objects.get(id=id)
+    except Observation.DoesNotExist:
+        return None
 
 
 def get_observation_location_and_recorded_at_by_subject_source_id(
     subject_source_id: UUID,
-    since=None,
-    until=None,
-    limit=None,
-    values=None,
-    filter_flag=0,
-    order_by=None,
-) -> List[Optional[ObservationData]]:
-    observation_repository = ObservationRepository()
-    qs = observation_repository.get_subjectsource_observations(
-        subject_source_id=subject_source_id,
-        since=since,
-        until=until,
-        limit=limit,
-        values=values,
-        filter_flag=filter_flag,
-        order_by=order_by,
-    )
-    qs = qs.exclude(location=EMPTY_POINT)
-    qs = qs.values("location", "recorded_at")
+    since: Optional[datetime] = None,
+    until: Optional[datetime] = None,
+) -> List[Optional[Dict[str, Any]]]:
+    """
+    Retrieves the observation location and recorded_at timestamp for a given subject source ID.
 
-    data = []
-    for observation_data in qs:
-        data.append(observation_repository.build_dataclass(observation_data=observation_data))
-    return data
+    Args:
+        subject_source_id (UUID): The ID of the subject source.
+        since (Optional[datetime], optional): The starting timestamp for filtering observations. Defaults to None.
+        until (Optional[datetime], optional): The ending timestamp for filtering observations. Defaults to None.
+
+    Returns:
+        List[Optional[Dict[str, Any]]]:
+        A list of dictionaries containing the location and recorded_at timestamp of each observation.
+    """
+    filter_q = None
+
+    if since and until:
+        filter_q = {"recorded_at__range": [since, until]}
+
+    qs = _get_observations_queryset(
+        filter_fields={
+            "source__subjectsource": subject_source_id,
+            "source__subjectsource__assigned_range__contains": F("recorded_at"),
+        },
+        filter_q_fields=filter_q,
+        exclude_fields={"location": EMPTY_POINT},
+    )
+    data = qs.values("location", "recorded_at")
+
+    return list(data)

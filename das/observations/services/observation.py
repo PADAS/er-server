@@ -27,7 +27,7 @@ def get_observation_coordinates_and_times_by_subject_id_and_source_id(subject_id
         return empty_data
 
     for observation in observations_data:
-        coordinates.append(observation.location.coords)
-        times.append(observation.recorded_at)
+        coordinates.append(observation["location"].coords)
+        times.append(observation["recorded_at"])
 
     return {"coordinates": coordinates, "times": times}
