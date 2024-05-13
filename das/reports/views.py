@@ -15,6 +15,7 @@ from rest_framework.views import APIView
 from activity.models import EventCategory
 from activity.permissions import EventCategoryPermissions
 from core.utils import get_site_name
+from das_server.views import CustomSchema
 from reports.reports import get_daily_report_data
 from utils.tenant import get_tenant_settings
 
@@ -24,6 +25,19 @@ logger = logging.getLogger(__name__)
 class ReportDateParameters(serializers.Serializer):
     since = serializers.DateTimeField(default=None)
     before = serializers.DateTimeField(default=None)
+
+
+class SituationReportViewSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == "GET":
+            query_params = [
+                {"name": "since", "in": "query", "description": "Include events since this timestamp"},
+                {"name": "before", "in": "query", "description": "Include events older than this timestamp"},
+            ]
+
+            operation["parameters"].extend(query_params)
+        return operation
 
 
 class ReportView(views.APIView):
@@ -37,6 +51,9 @@ class SituationReportView(
     TemplateResponseMixin,
     ContextMixin,
 ):
+    schema = SituationReportViewSchema()
+    permission_classes = (permissions.IsAuthenticated,)
+
     def get_template_names(self):
         """
         Favor a report template in a sub-folder named for the site's domain name.
@@ -46,8 +63,6 @@ class SituationReportView(
         return [
             f"{folder}/daily_report_template.docx" for folder in (settings.DAILY_REPORT_TEMPLATE_SUBFOLDER, "default")
         ]
-
-    permission_classes = (permissions.IsAuthenticated,)
 
     response_class = TemplateResponse
     # content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
