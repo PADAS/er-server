@@ -14,6 +14,26 @@ from reports.accumulator import accumulator, broadcast
 from utils.memoize import memoize
 
 HWC_EVENT_CATEGORIES = ("lewa_hwc", "hwc")
+CONSERVANCY_CHOICE_LISTS = (
+    "conservancy",
+    "diseasemonitoring_conservancy",
+    "hwcthreat_conservancy",
+    "injuredabandonedanimal_conservancy",
+    "lewa_conservancy",
+    "postmortem_conservancy",
+    "rhinobirth_conservancy",
+    "vehiclerequestandfeedback_conservancy",
+    "vehiclerequest_conservancy_name",
+    "vehiclerequestfeedback_conservancy_name",
+    "wildfire_conservancy",
+)
+RHINO_SIGHTINGS_EVENT_TYPES = (
+    "black_rhino_sighting",
+    "black_rhino_two",
+    "white_rhino_sighting",
+    "black_rhino_sighting_rv002",
+    "white_rhino_sighting_rv002",
+)
 
 
 @memoize
@@ -27,6 +47,13 @@ def get_rainfall_event_types(_):
     return [
         et.value for et in EventType.objects.filter(category__value__in=rainfall_categories) if "rainfall" in et.value
     ]
+
+
+def get_event_details(event):
+    event_details = event.event_details.all().order_by("-created_at").first()
+    if event_details:
+        return event_details.data["event_details"]
+    return {}
 
 
 @memoize
@@ -99,13 +126,13 @@ def get_conservancies():
 
 def get_rhino_sightings(start=None, end=None, event_categories=None):
     events = get_permitted_events(start=start, end=end, event_categories=event_categories).filter(
-        event_type__value__in=("black_rhino_sighting", "white_rhino_sighting"), event_time__range=[start, end]
+        event_type__value__in=RHINO_SIGHTINGS_EVENT_TYPES, event_time__range=[start, end]
     )
     return events
 
 
 def get_rhinos():
-    rhinos = Subject.objects.filter(subject_subtype="rhino")
+    rhinos = Subject.objects.filter(subject_subtype="rhino", is_active=True)
     return rhinos
 
 
@@ -127,11 +154,22 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
 
     CONSERVANCY_UNSPECIFIED = "&lt;unspecified&gt;"
 
-    def get_conservancy(event):
-        ed = event.event_details.all().order_by("-created_at").first()
-        if ed:
+    def get_conservancy(event, event_details=None):
+        if not event_details:
+            event_details = get_event_details(event)
+        if event_details:
             try:
-                return safe_get_choice(ed.data["event_details"], "conservancy", "conservancy", CONSERVANCY_UNSPECIFIED)
+                conservancy = (
+                    safe_get_choice(event_details, "conservancy", "conservancy", default=None)
+                    or safe_get_choice(event_details, "rhinobirth_conservancy", "rhinobirth_conservancy", default=None)
+                    or safe_get_choice(event_details, "reportconservancy_enum", "kenyan_conservancies", default=None)
+                    or safe_get_choice(event_details, "location", "locations_ishaq", default=None)
+                    or safe_get_choice(event_details, "reportconservancy_enum", "conservancy", default=None)
+                    or safe_get_choice(event_details, "reportconservancy_enum", "kenyan_conservancies", default=None)
+                    or safe_get_choice(event_details, "reportconservancy_enum", "kenyan_conservancies", default=None)
+                )
+                if conservancy:
+                    return conservancy
             except Exception:
                 pass
         return CONSERVANCY_UNSPECIFIED
@@ -175,18 +213,32 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         if "rhino_sighting" not in event.event_type.value:
             return
 
+        event_details = get_event_details(event)
+        if not event_details:
+            return
+
         conservancy = get_conservancy(event)
         conservancy = accum.setdefault(conservancy, default_conservancy_ws(conservancy))
 
-        conservancy["total_sightings"] += 1
-        denominator = conservancy["denominator"].get("total")
+        rhino_sighting_sections = ("sighting_details_cows", "sighting_details_bulls", "sighting_details_nk")
 
-        conservancy["percentage"] = (
-            "%d%%" % (100 * conservancy["total_sightings"] / denominator,) if denominator else "-%"
-        )
+        if any(True for key in event_details.keys() if key in rhino_sighting_sections):
+            rhino_count = 0
+            for key in rhino_sighting_sections:
+                if key in event_details:
+                    for sighting in event_details[key]:
+                        rhino_count += 1
+        else:
+            conservancy["total_sightings"] += 1
+            denominator = conservancy["denominator"].get("total")
+
+            conservancy["percentage"] = (
+                "%d%%" % (100 * conservancy["total_sightings"] / denominator,) if denominator else "-%"
+            )
+            rhino_count = 1
         for item in conservancy["rhino_sightings"]:
             if item["event_type"] == event.event_type.value:
-                item["count"] += 1
+                item["count"] += rhino_count
                 denominator = conservancy["denominator"].get(event.event_type.value)
                 item["percentage"] = "%d%%" % (100 * item["count"] / denominator,) if denominator else "-%"
 
@@ -198,10 +250,9 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
             return
 
         conservancy = get_conservancy(event)
-        ed = event.event_details.first()
-        if not ed or not ed.data or "event_details" not in ed.data:
+        ed = get_event_details(event)
+        if not ed:
             return
-        ed = ed.data["event_details"]
 
         new_birth = {
             "conservancy": conservancy,
@@ -219,10 +270,9 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
             return
 
         conservancy = get_conservancy(event)
-        ed = event.event_details.first()
-        if not ed or not ed.data or "event_details" not in ed.data:
+        ed = get_event_details(event)
+        if not ed:
             return
-        ed = ed.data["event_details"]
 
         rhino_names = ", ".join(
             [
@@ -253,28 +303,33 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         if eventtype_value not in ("spotted_hyena_fr") and "sighting" not in eventtype_value:
             return
 
-        conservancy = get_conservancy(event)
-        conservancy = accum.setdefault(
-            conservancy.lower(), {"conservancy": conservancy, "total_sightings": 0, "sightings": []}
-        )
-
-        ed = event.event_details.first()
-        if not ed or not ed.data or "event_details" not in ed.data:
-            return
-        ed = ed.data["event_details"]
-
-        species = safe_get_choice(ed, "species", "species", None)
-        if not species:
+        ed = get_event_details(event)
+        if not ed:
             return
 
-        conservancy["total_sightings"] += ed.get("numberAnimals", 0)
+        sighting_details = ed.get("sightingDetails", None) or (ed,)
+        for sighting in sighting_details:
+            conservancy = get_conservancy(event, sighting)
+            conservancy = accum.setdefault(
+                conservancy.lower(), {"conservancy": conservancy, "total_sightings": 0, "sightings": []}
+            )
 
-        for s in conservancy["sightings"]:
-            if s["species"] == species:
-                s["count"] += 1
-                break
-        else:
-            conservancy["sightings"].append({"species": species, "count": ed.get("numberAnimals", 0)})
+            species = safe_get_choice(sighting, "species", "species", None) or safe_get_choice(
+                sighting, "wildlifesighting_species", "wildlifesighting_species", None
+            )
+            if not species:
+                return
+            number_of_animals = sighting.get("numberAnimals", 0) or sighting.get(
+                "wildlifesighting_totalnumberofanimals", 0
+            )
+            conservancy["total_sightings"] += number_of_animals
+
+            for s in conservancy["sightings"]:
+                if s["species"] == species:
+                    s["count"] += 1
+                    break
+            else:
+                conservancy["sightings"].append({"species": species, "count": number_of_animals})
 
     other_wildlife_sightings = accumulator({}, other_wildlife_sightings)
 
@@ -282,14 +337,13 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         eventtype_value = event.event_type.value
         if eventtype_value not in ("loss_of_animal_life", "carcass") and "mortality" not in eventtype_value:
             return
-        ed = event.event_details.first()
-        if not ed or not ed.data or "event_details" not in ed.data:
+        ed = get_event_details(event)
+        if not ed:
             return
-        ed = ed.data["event_details"]
 
         accum.append(
             {
-                "conservancy": safe_get_choice(ed, "conservancy", "conservancy", "unspecified"),
+                "conservancy": get_conservancy(event, ed),
                 "species": safe_get_choice(ed, "species", "species", "unspecified"),
                 "cause_of_death": safe_get_choice(ed, "causeOfDeath", "causeofdeath", "unspecified"),
                 "section_area": safe_get_choice(ed, "sectionarea", "sectionarea", "unspecified"),
@@ -304,10 +358,9 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         if event.event_type.value != "wildlife_gap_movement":
             return
 
-        ed = event.event_details.first()
-        if not ed or not ed.data or "event_details" not in ed.data:
+        ed = get_event_details(event)
+        if not ed:
             return
-        ed = ed.data["event_details"]
 
         gap = safe_get_choice(ed, "wildlifeGap", "wildlifegap", None)
         species = safe_get_choice(ed, "species", "species", "unspecified")
@@ -331,21 +384,18 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
 
     gap_movement = accumulator([], gap_movement)
 
-    # TODO: Accumulate human wildlife conflict (security events)
-
     # Accumulator for 'Rainfall'
     def rainfall(accum, event):
         if event.event_type.value not in get_rainfall_event_types(None):
             return
 
-        ed = event.event_details.first()
-        if not ed or not ed.data or "event_details" not in ed.data:
+        ed = get_event_details(event)
+        if not ed:
             return
-        ed = ed.data["event_details"]
 
         conservancy = safe_get_choice(ed, "conservancy", "conservancy", "unspecified")
         station = safe_get_choice(ed, "station", "station", "unspecified")
-        mm = ed.get("number_rainfall", 0)
+        mm = ed.get("number_rainfall", 0) or ed.get("rainfallreport_rainfallmm", 0)
 
         c = accum.setdefault(conservancy, {"conservancy": conservancy, "rainfall": []})
 
@@ -362,11 +412,9 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
     def fence_breakage(accum, event):
         if event.event_type.value != "fence_breakage":
             return
-        ed = event.event_details.first()
-        if not ed or not ed.data or not ed.data.get("event_details", None):
+        ed = get_event_details(event)
+        if not ed:
             return
-
-        ed = ed.data["event_details"]
 
         etime = event.event_time.astimezone(timezone.get_current_timezone())
         b = {
@@ -430,10 +478,6 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
     def human_wildlife_conflict(accum, event):
         if event.event_type.value not in get_hwc_event_types(None):
             return
-        # ed = event.event_details.first()
-        # if not ed or not ed.data or 'event_details' not in ed.data:
-        #     return
-        # ed = ed.data['event_details']
 
         event_details = schema_utils.generate_details(event, render_schema(event.event_type.schema))
 
@@ -504,10 +548,9 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
     missing_rhinos = dict((str(r.id), {"name": escape(r.name), "days_ago": 1000000}) for r in get_rhinos())
 
     for event in rhino_sighting_events:
-        ed = event.event_details.first()
-        if not ed or not ed.data or "event_details" not in ed.data:
+        ed = get_event_details(event)
+        if not ed:
             continue
-        ed = ed.data["event_details"]
 
         rhinos_in_event = _listify(ed.get("blackRhinos")) + _listify(ed.get("whiteRhinos"))
         rhino_ids_in_event = [_.get("value") if isinstance(_, dict) else _ for _ in rhinos_in_event]
