@@ -2,6 +2,7 @@ import copy
 import datetime
 import json
 import uuid
+from collections import KeysView as odict_keys
 from http import HTTPStatus
 from itertools import chain
 from types import GeneratorType
@@ -80,7 +81,7 @@ class ExtendedJSONEncoder(simplejson.JSONEncoder):
             return [o.lower, o.upper]
         elif isinstance(o, uuid.UUID):
             return str(o)
-        elif isinstance(o, (GeneratorType, chain)):
+        elif isinstance(o, (GeneratorType, chain, odict_keys)):
             return [item for item in o]
         elif isinstance(o, JsonEncodedString):
             return o.data
