@@ -37,6 +37,12 @@ RHINO_SIGHTINGS_EVENT_TYPES = (
 
 
 @memoize
+def get_rendered_schema_properties(event_type):
+    props, _ = schema_utils.get_all_fields_and_definitions(event_type.schema)
+    return props
+
+
+@memoize
 def get_hwc_event_types(_):
     return [et.value for et in EventType.objects.filter(category__value__in=HWC_EVENT_CATEGORIES)]
 
@@ -66,6 +72,43 @@ def get_dynamic_choices(field):
     field_details = dict(field=field, type="names")
     choices = schema_utils._get_dynamic_choices(field_details)
     return choices
+
+
+EVENT_TYPE_SPECIES_MAP = {
+    "gerenuk": "Gerenuk",
+    "cheetah": "Cheetah",
+    "giraffe": "Giraffe",
+    "lion": "Lion",
+    "elephant": "Elephant",
+    "rhino": "Rhino",
+    "buffalo": "Buffalo",
+    "zebra": "Zebra",
+    "hyena": "Hyena",
+    "wild_dog": "Wild Dog",
+    "impala": "Impala",
+    "hirola": "Hirola",
+    "turtle": "Turtle",
+    "vulture": "Vulture",
+}
+
+
+def get_species_from_event_type(event_type):
+    return next((v for k, v in EVENT_TYPE_SPECIES_MAP.items() if k in event_type.value), None)
+
+
+def safe_get_choice_from_schema(rendered_properties, event_details, property_name, default=None):
+    try:
+        prop = rendered_properties[property_name]
+        val = event_details[property_name]
+        if isinstance(val, dict):
+            # With the old choice tables, we stored a dict of "name", "value"
+            # pairs
+            val = val["value"]
+        if isinstance(val, str):
+            return escape(prop["enumNames"][val])
+    except (KeyError, TypeError):
+        pass
+    return default
 
 
 def safe_get_choice(val, key, choice_field, default=None, is_dynamic=False):
@@ -158,15 +201,26 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         if not event_details:
             event_details = get_event_details(event)
         if event_details:
+            rendered_schema = get_rendered_schema_properties(event.event_type)
             try:
                 conservancy = (
-                    safe_get_choice(event_details, "conservancy", "conservancy", default=None)
-                    or safe_get_choice(event_details, "rhinobirth_conservancy", "rhinobirth_conservancy", default=None)
-                    or safe_get_choice(event_details, "reportconservancy_enum", "kenyan_conservancies", default=None)
-                    or safe_get_choice(event_details, "location", "locations_ishaq", default=None)
-                    or safe_get_choice(event_details, "reportconservancy_enum", "conservancy", default=None)
-                    or safe_get_choice(event_details, "reportconservancy_enum", "kenyan_conservancies", default=None)
-                    or safe_get_choice(event_details, "reportconservancy_enum", "kenyan_conservancies", default=None)
+                    safe_get_choice_from_schema(rendered_schema, event_details, "conservancy", default=None)
+                    or safe_get_choice_from_schema(
+                        rendered_schema, event_details, "rhinobirth_conservancy", default=None
+                    )
+                    or safe_get_choice_from_schema(
+                        rendered_schema, event_details, "reportconservancy_enum", default=None
+                    )
+                    or safe_get_choice_from_schema(rendered_schema, event_details, "location", default=None)
+                    or safe_get_choice_from_schema(
+                        rendered_schema, event_details, "reportconservancy_enum", default=None
+                    )
+                    or safe_get_choice_from_schema(
+                        rendered_schema, event_details, "reportconservancy_enum", default=None
+                    )
+                    or safe_get_choice_from_schema(
+                        rendered_schema, event_details, "reportconservancy_enum", default=None
+                    )
                 )
                 if conservancy:
                     return conservancy
@@ -249,6 +303,7 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         if not event.event_type.value.startswith("rhino_birth"):
             return
 
+        rendered_schema = get_rendered_schema_properties(event.event_type)
         conservancy = get_conservancy(event)
         ed = get_event_details(event)
         if not ed:
@@ -256,9 +311,9 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
 
         new_birth = {
             "conservancy": conservancy,
-            "color": safe_get_choice(ed, "color", "color", "unspecified"),
-            "mother": safe_get_choice(ed, "femaleRhinos", "femaleRhinos", "unspecified", is_dynamic=True),
-            "health": safe_get_choice(ed, "health", "health", "unspecified"),
+            "color": safe_get_choice_from_schema(rendered_schema, ed, "color", "unspecified"),
+            "mother": safe_get_choice_from_schema(rendered_schema, ed, "femaleRhinos", "unspecified"),
+            "health": safe_get_choice_from_schema(rendered_schema, ed, "health", "unspecified"),
         }
         accum.append(new_birth)
 
@@ -269,25 +324,28 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         if event.event_type.value != "rhino_territorial_movement":
             return
 
+        rendered_schema = get_rendered_schema_properties(event.event_type)
         conservancy = get_conservancy(event)
         ed = get_event_details(event)
         if not ed:
             return
 
+        rendered_schema = get_rendered_schema_properties(event.event_type)
+
         rhino_names = ", ".join(
             [
-                safe_get_choice(dict(rhino=_), "rhino", "rhinos", "unspecified", is_dynamic=True)
+                safe_get_choice_from_schema(rendered_schema, dict(rhino=_), "rhino", "unspecified")
                 for _ in _listify(ed.get("rhino"))
             ]
         )
         accum.append(
             {
                 "conservancy": conservancy,
-                "color": safe_get_choice(ed, "color", "color", "unspecified"),
+                "color": safe_get_choice_from_schema(rendered_schema, ed, "color", "unspecified"),
                 "rhinos": escape(rhino_names),
-                "health": safe_get_choice(ed, "health", "health", "unspecified"),
-                "station": safe_get_choice(ed, "station", "station", "unspecified"),
-                "behavior": safe_get_choice(ed, "behavior", "behavior", "unspecified"),
+                "health": safe_get_choice_from_schema(rendered_schema, ed, "health", "unspecified"),
+                "station": safe_get_choice_from_schema(rendered_schema, ed, "station", "unspecified"),
+                "behavior": safe_get_choice_from_schema(rendered_schema, ed, "behavior", "unspecified"),
             }
         )
 
@@ -307,15 +365,20 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         if not ed:
             return
 
+        rendered_schema = get_rendered_schema_properties(event.event_type)
         sighting_details = ed.get("sightingDetails", None) or (ed,)
         for sighting in sighting_details:
+            # sub_schema = rendered_schema["mortality_details"]["items"]["properties"]
             conservancy = get_conservancy(event, sighting)
             conservancy = accum.setdefault(
                 conservancy.lower(), {"conservancy": conservancy, "total_sightings": 0, "sightings": []}
             )
 
-            species = safe_get_choice(sighting, "species", "species", None) or safe_get_choice(
-                sighting, "wildlifesighting_species", "wildlifesighting_species", None
+            species = (
+                get_species_from_event_type(event.event_type)
+                or safe_get_choice_from_schema(rendered_schema, sighting, "species", None)
+                or safe_get_choice_from_schema(rendered_schema, sighting, "wildlifesighting_species", None)
+                or safe_get_choice(sighting, "wildlifesighting_species", "wildlifesighting_species", None)
             )
             if not species:
                 return
@@ -326,7 +389,7 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
 
             for s in conservancy["sightings"]:
                 if s["species"] == species:
-                    s["count"] += 1
+                    s["count"] += number_of_animals
                     break
             else:
                 conservancy["sightings"].append({"species": species, "count": number_of_animals})
@@ -341,15 +404,21 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         if not ed:
             return
 
-        accum.append(
-            {
-                "conservancy": get_conservancy(event, ed),
-                "species": safe_get_choice(ed, "species", "species", "unspecified"),
-                "cause_of_death": safe_get_choice(ed, "causeOfDeath", "causeofdeath", "unspecified"),
-                "section_area": safe_get_choice(ed, "sectionarea", "sectionarea", "unspecified"),
-                "number_animals": ed.get("number_animals", 0),
-            }
-        )
+        rendered_schema = get_rendered_schema_properties(event.event_type)
+        conservancy = get_conservancy(event, ed)
+        section_area = safe_get_choice_from_schema(rendered_schema, ed, "sectionarea", "unspecified")
+        cause_of_death = safe_get_choice_from_schema(rendered_schema, ed, "cause_of_death", "unspecified")
+        for mortality in _listify(ed.get("mortality_details")):
+            sub_schema = rendered_schema["mortality_details"]["items"]["properties"]
+            accum.append(
+                {
+                    "conservancy": conservancy,
+                    "species": safe_get_choice_from_schema(sub_schema, mortality, "species", "unspecified"),
+                    "cause_of_death": cause_of_death,
+                    "section_area": section_area,
+                    "number_animals": mortality.get("species_no", 0),
+                }
+            )
 
     carcass = accumulator([], carcass)
 
@@ -362,8 +431,9 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         if not ed:
             return
 
-        gap = safe_get_choice(ed, "wildlifeGap", "wildlifegap", None)
-        species = safe_get_choice(ed, "species", "species", "unspecified")
+        rendered_schema = get_rendered_schema_properties(event.event_type)
+        gap = safe_get_choice_from_schema(rendered_schema, ed, "wildlifeGap", None)
+        species = safe_get_choice_from_schema(rendered_schema, ed, "species", "unspecified")
         if not gap:
             return
 
@@ -393,8 +463,11 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         if not ed:
             return
 
-        conservancy = safe_get_choice(ed, "conservancy", "conservancy", "unspecified")
-        station = safe_get_choice(ed, "station", "station", "unspecified")
+        rendered_schema = get_rendered_schema_properties(event.event_type)
+        conservancy = safe_get_choice_from_schema(rendered_schema, ed, "conservancy", "unspecified")
+        station = ed.get("rainfallreport_stationlocation") or safe_get_choice_from_schema(
+            rendered_schema, ed, "station", "unspecified"
+        )
         mm = ed.get("number_rainfall", 0) or ed.get("rainfallreport_rainfallmm", 0)
 
         c = accum.setdefault(conservancy, {"conservancy": conservancy, "rainfall": []})
@@ -416,14 +489,15 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         if not ed:
             return
 
+        rendered_schema = get_rendered_schema_properties(event.event_type)
         etime = event.event_time.astimezone(timezone.get_current_timezone())
         b = {
             "time": etime.strftime(EVENT_LIST_TIMESTAMP_FORMAT),
-            "section": safe_get_choice(ed, "fenceSection", "fencesection", "unspecified"),
-            "species": safe_get_choice(ed, "species", "species", "unspecified"),
-            "animal_name": safe_get_choice(ed, "animal_name", "fencebreak_animalname", "unspecified"),
-            "reported_by": safe_get_choice(ed, "reported_by", "fencebreak_reportedby", "unspecified"),
-            "action": safe_get_choice(ed, "actionTaken", "fencebreak_actiontaken", "unspecified"),
+            "section": safe_get_choice_from_schema(rendered_schema, ed, "fenceSection", "unspecified"),
+            "species": safe_get_choice_from_schema(rendered_schema, ed, "species", "unspecified"),
+            "animal_name": safe_get_choice_from_schema(rendered_schema, ed, "animal_name", "unspecified"),
+            "reported_by": safe_get_choice_from_schema(rendered_schema, ed, "reported_by", "unspecified"),
+            "action": safe_get_choice_from_schema(rendered_schema, ed, "actionTaken", "unspecified"),
             "feedback": escape(ed.get("feedback", "")),
         }
 
