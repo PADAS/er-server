@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import migrations
 
 from core.utils import DASTenantManagement
+from utils.tenant.managers import set_tenant
 
 SILENCE_SOURCE_SCHEMA = """{
     "schema": {
@@ -91,12 +92,13 @@ def forwards(no_used, schema_editor):
 
     db_alias = schema_editor.connection.alias
 
+    das_tenant_management = DASTenantManagement(domain=settings.SERVER_FQDN)
+    tenant = das_tenant_management.get_or_create_tenant()
+    set_tenant(tenant.domain)
+
     event_category, _ = EventCategory.objects.using(db_alias).get_or_create(
         value="analyzer_event", defaults={"display": "Analyzer Event", "ordernum": 1}
     )
-
-    das_tenant_management = DASTenantManagement(domain=settings.SERVER_FQDN)
-    tenant = das_tenant_management.get_or_create_tenant()
 
     events_type = [
         {
