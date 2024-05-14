@@ -3,6 +3,7 @@ import uuid
 import pytest
 
 from observations.services import (
+    get_observation_by_id,
     get_observation_coordinates_and_times_by_subject_id_and_source_id,
 )
 
@@ -42,3 +43,17 @@ def test_get_observation_coordinates_and_times_by_subject_id_and_source_id_subje
     )
     assert len(data["coordinates"]) == 0
     assert len(data["times"]) == 0
+
+
+@pytest.mark.django_db
+def test_get_observation_by_id(observation) -> None:
+    obj = get_observation_by_id(id=observation.id)
+
+    assert obj.id == observation.id
+
+
+@pytest.mark.django_db
+def test_get_observation_by_id_wring_id() -> None:
+    obj = get_observation_by_id(id=uuid.uuid4())
+
+    assert obj is None
