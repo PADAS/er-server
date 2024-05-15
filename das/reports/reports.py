@@ -169,7 +169,7 @@ def get_conservancies():
 
 def get_rhino_sightings(start=None, end=None, event_categories=None):
     events = get_permitted_events(start=start, end=end, event_categories=event_categories).filter(
-        event_type__value__in=RHINO_SIGHTINGS_EVENT_TYPES, event_time__range=[start, end]
+        event_type__value__in=RHINO_SIGHTINGS_EVENT_TYPES
     )
     return events
 
@@ -283,13 +283,14 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
                     for sighting in event_details[key]:
                         rhino_count += 1
         else:
-            conservancy["total_sightings"] += 1
-            denominator = conservancy["denominator"].get("total")
-
-            conservancy["percentage"] = (
-                "%d%%" % (100 * conservancy["total_sightings"] / denominator,) if denominator else "-%"
-            )
             rhino_count = 1
+        conservancy["total_sightings"] += rhino_count
+        denominator = conservancy["denominator"].get("total")
+
+        conservancy["percentage"] = (
+            "%d%%" % (100 * conservancy["total_sightings"] / denominator,) if denominator else "-%"
+        )
+
         for item in conservancy["rhino_sightings"]:
             if item["event_type"] == event.event_type.value:
                 item["count"] += rhino_count
@@ -618,7 +619,7 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
     #
     near_threshold = before - timedelta(days=3)
     far_threshold = before - timedelta(days=7)
-    rhino_sighting_events = get_rhino_sightings(far_threshold, before)
+    rhino_sighting_events = get_rhino_sightings(far_threshold, before, event_categories=event_categories)
     missing_rhinos = dict((str(r.id), {"name": escape(r.name), "days_ago": 1000000}) for r in get_rhinos())
 
     for event in rhino_sighting_events:
@@ -626,8 +627,17 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         if not ed:
             continue
 
-        rhinos_in_event = _listify(ed.get("blackRhinos")) + _listify(ed.get("whiteRhinos"))
-        rhino_ids_in_event = [_.get("value") if isinstance(_, dict) else _ for _ in rhinos_in_event]
+        rhino_sighting_sections = ("sighting_details_cows", "sighting_details_bulls", "sighting_details_nk")
+
+        if any(True for key in event_details.keys() if key in rhino_sighting_sections):
+            for key in rhino_sighting_sections:
+                if key in event_details:
+                    for sighting in event_details[key]:
+                        rhinos_in_event = _listify(sighting.get("rhino"))
+                        rhino_ids_in_event = [_.get("value") if isinstance(_, dict) else _ for _ in rhinos_in_event]
+        else:
+            rhinos_in_event = _listify(ed.get("blackRhinos")) + _listify(ed.get("whiteRhinos"))
+            rhino_ids_in_event = [_.get("value") if isinstance(_, dict) else _ for _ in rhinos_in_event]
 
         for rhino_id in rhino_ids_in_event:
             if rhino_id:
