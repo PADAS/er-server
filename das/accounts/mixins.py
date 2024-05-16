@@ -7,6 +7,7 @@ import django.db.models as models
 from django.apps import apps
 from django.contrib import auth
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import UniqueConstraint
 from django.utils.translation import gettext_lazy as _
 
 from accounts.models.permissionset import PermissionSet
@@ -236,6 +237,14 @@ class PermissionsMixin(models.Model):
 class UserPermissionSet(TenantThroughModel):
     permissionset = TenantForeignKey("accounts.PermissionSet", on_delete=models.CASCADE)
     user = TenantForeignKey("accounts.User", on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "user", "permissionset"],
+                name="%(app_label)s_%(class)s_unique_across_tenants",
+            ),
+        ]
 
 
 class UserFormValidatorMixin:
