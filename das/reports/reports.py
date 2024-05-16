@@ -242,7 +242,7 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
                 "conservancy": k,
                 "total_rhino_black": b,
                 "total_rhino_white": w,
-                "denominator": {"black_rhino_sighting": b, "white_rhino_sighting": w, "total": b + w},
+                "denominator": {"black_rhino_sighting_rv002": b, "white_rhino_sighting_rv002": w, "total": b + w},
             },
         )
         for (k, b, w) in conservancy_census
@@ -284,6 +284,7 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
                         rhino_count += 1
         else:
             rhino_count = 1
+
         conservancy["total_sightings"] += rhino_count
         denominator = conservancy["denominator"].get("total")
 
