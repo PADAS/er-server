@@ -407,7 +407,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     def subject_link(self, obj):
         return mark_safe(
             '<a href="{}">{}</a>'.format(
-                reverse("admin:observations_subject_change", args=(obj.subject_id,)), obj.subject_name
+                reverse("admin:observations_subject_change", args=(obj.subject.pk,)), obj.subject.name
             )
         )
 
@@ -1642,11 +1642,8 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
     actions = None  # Disable all actions.
 
     def subject_link(self, obj):
-        return mark_safe(
-            '<a href="{}">{}</a>'.format(
-                reverse("admin:observations_subject_change", args=(obj.subject.pk,)), obj.subject.name
-            )
-        )
+        url = reverse("admin:observations_subject_change", args=(obj.subject.pk,))
+        return f'<a href="{url}">{obj.subject.name}</a>'
 
     subject_link.short_description = "Subject"
     subject_link.admin_order_field = "subject"
