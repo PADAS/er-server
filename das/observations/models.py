@@ -54,6 +54,7 @@ from django.db.models import (
 from django.db.models.constraints import UniqueConstraint
 from django.db.models.functions import Greatest
 from django.utils.functional import cached_property
+from django.utils.html import escape
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
@@ -1420,6 +1421,9 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
         if color:
             color = to_rgb(color)
         return color
+
+    def clean(self):
+        self.name = escape(self.name)
 
     def clean_fields(self, exclude=None):
         return super().clean_fields(exclude)
