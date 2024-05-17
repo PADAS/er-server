@@ -4,7 +4,6 @@ from itertools import chain
 from django_multitenant.fields import TenantForeignKey
 
 import django.db.models as models
-from django.apps import apps
 from django.contrib import auth
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -271,9 +270,10 @@ class UserFormValidatorMixin:
         return email
 
     def clean_pin(self):
-        User = apps.get_model(app_label="accounts", model_name="User")
-        pin = self.cleaned_data["pin"]
-        username = self.cleaned_data["username"]
+        User = auth.get_user_model()
+
+        pin = self.cleaned_data.get("pin")
+        username = self.cleaned_data.get("username")
 
         if not pin:
             return None
