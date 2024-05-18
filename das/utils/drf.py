@@ -179,8 +179,10 @@ class TimeLimitedPaginator(Paginator):
                 return 9999999999
 
 
-def return_409_response():
-    status_msg = {"error_message": "The request could not be completed due to conflict with existing data."}
+def return_409_response(message=None):
+    status_msg = {
+        "error_message": f"The request could not be completed due to conflict with existing data. ({message})"
+    }
     return Response(status_msg, status=status.HTTP_409_CONFLICT)
 
 
