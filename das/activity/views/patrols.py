@@ -8,6 +8,7 @@ from rest_framework_condition import condition
 
 from django.db.models import CharField, Prefetch, Q
 from django.db.models.functions import Cast
+from django.db.utils import IntegrityError
 from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.generics import (
@@ -40,7 +41,7 @@ from activity.serializers import (
 from activity.views.helpers import get_segments
 from observations.models import Subject
 from usercontent.serializers import get_stored_filename
-from utils.drf import StandardResultsSetPagination
+from utils.drf import StandardResultsSetPagination, return_409_response
 
 from .response_headers import (
     build_patrol_type_etag_header,
@@ -216,6 +217,12 @@ class PatrolsView(ListCreateAPIView):
     serializer_class = PatrolSerializer
     permission_classes = (PatrolObjectPermissions,)
     schema = PatrolSchema()
+
+    def post(self, request, *args, **kwargs):
+        try:
+            return super().post(request, *args, **kwargs)
+        except IntegrityError as ie:
+            return return_409_response(message=str(ie))
 
     def get(self, request, *args, **kwargs):
         state_filters = self.request.query_params.getlist("status", None)
