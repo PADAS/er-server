@@ -119,7 +119,7 @@ class TestResponseHeaderBuilders:
 
         concatenated_fields = concatenate_fields_from_model(("display", "value"), event_type)
 
-        assert "Acoustic Detection:acoustic_detection" == concatenated_fields
+        assert f"{event_type.display}:{event_type.value}" == concatenated_fields
 
     def test_build_etag_header(self, five_patrol_segment):
         def entry_to_string(*args, **kwargs):
