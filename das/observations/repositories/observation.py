@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from uuid import UUID
 
 from observations.domain import ObservationData
@@ -9,10 +9,10 @@ from observations.repositories.interfaces import ReadObservationRepositoryBase
 class ReadDjangoObservationRepository(ReadObservationRepositoryBase, ReadDjangoObservationMixin):
 
     def get_by_id(self, id: UUID, fields: Optional[str] = None) -> ObservationData:
-        data = self._get_instance_by_id(id=id, fields=fields)
-        if not data:
+        observation_dict = self._get_instance_by_id(id=id, fields=fields)
+        if not observation_dict:
             return None
-        return self.build_dataclass(observation_data=data)
+        return ObservationData.build(data=observation_dict)
 
     def get_observations_by_subject_id_and_source_id(
         self,
@@ -23,9 +23,6 @@ class ReadDjangoObservationRepository(ReadObservationRepositoryBase, ReadDjangoO
         if not observations_dicts:
             return []
         return ObservationData.build_in_bulk(data=observations_dicts)
-
-    def build_dataclass(self, observation_data: Dict[str, Any]) -> ObservationData:
-        return ObservationData(**observation_data)
 
 
 class ReadEROSObservationRepository:
