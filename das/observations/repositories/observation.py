@@ -3,10 +3,10 @@ from uuid import UUID
 
 from observations.domain import ObservationData
 from observations.repositories.django import ReadDjangoObservationMixin
-from observations.repositories.interfaces import ReadObservationRepositoryInterface
+from observations.repositories.interfaces import ReadObservationRepositoryBase
 
 
-class ReadDjangoObservationRepository(ReadObservationRepositoryInterface, ReadDjangoObservationMixin):
+class ReadDjangoObservationRepository(ReadObservationRepositoryBase, ReadDjangoObservationMixin):
 
     def get_by_id(self, id: UUID, fields: Optional[str] = None) -> ObservationData:
         data = self._get_instance_by_id(id=id, fields=fields)
