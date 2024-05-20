@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 
-class ReadObservationRepositoryInterface(ABC):
+class ReadObservationRepositoryBase(ABC):
 
     @abstractmethod
     def get_by_id(self):
