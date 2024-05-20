@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from observations.dataclasess import ObservationData
+from observations.domain import ObservationData
 from observations.repositories.django import ReadDjangoObservationMixin
 from observations.repositories.interfaces import ReadObservationRepositoryInterface
 
