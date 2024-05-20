@@ -1,6 +1,9 @@
 import html
+import logging
 import platform
 from datetime import timedelta
+
+import pandas as pd
 
 from django.db.models import Prefetch
 from django.utils import timezone
@@ -12,6 +15,8 @@ from choices.models import Choice
 from observations.models import Subject
 from reports.accumulator import accumulator, broadcast
 from utils.memoize import memoize
+
+logger = logging.getLogger(__name__)
 
 HWC_EVENT_CATEGORIES = ("lewa_hwc", "hwc")
 CONSERVANCY_CHOICE_LISTS = (
@@ -264,6 +269,9 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
 
     # Accumulator for the 'Wildlife Sightings' portion of report.
     def rhino_sightings(accum, event):
+        """The new rhino sightings are: black_rhino_sighting_rv002, white_rhino_sighting_rv002
+        By species, age, gender and injury status.
+        """
         if "rhino_sighting" not in event.event_type.value:
             return
 
@@ -271,34 +279,34 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         if not event_details:
             return
 
-        conservancy = get_conservancy(event)
-        conservancy = accum.setdefault(conservancy, default_conservancy_ws(conservancy))
+        rendered_schema = get_rendered_schema_properties(event.event_type)
+        get_conservancy(event)
+        event_details.get("blackrhinosighting_groupsize", 0) or event_details.get("whiterhinosighting_groupsize", 0)
+        rhino_species = "Black Rhino" if "black" in event.event_type.value else "White Rhino"
+        rhino_sighting_sections = {
+            "sighting_details_cows": "Cow",
+            "sighting_details_bulls": "Bull",
+            "sighting_details_nk": "Unsexed",
+        }
 
-        rhino_sighting_sections = ("sighting_details_cows", "sighting_details_bulls", "sighting_details_nk")
+        for key, gender in rhino_sighting_sections.items():
+            for sighting in event_details.get(key, []):
+                sub_schema = rendered_schema[key]["items"]["properties"]
+                age = (
+                    safe_get_choice_from_schema(sub_schema, sighting, "age")
+                    or safe_get_choice_from_schema(sub_schema, sighting, "known_age_cow")
+                    or safe_get_choice_from_schema(sub_schema, sighting, "known_age_bull", "unspecified")
+                )
+                summary = dict(
+                    species=rhino_species,
+                    age=age,
+                    gender=gender,
+                    injuries=safe_get_choice_from_schema(sub_schema, sighting, "injuries", "unspecified"),
+                )
+                accum.loc[len(accum)] = summary
 
-        if any(True for key in event_details.keys() if key in rhino_sighting_sections):
-            rhino_count = 0
-            for key in rhino_sighting_sections:
-                if key in event_details:
-                    for sighting in event_details[key]:
-                        rhino_count += 1
-        else:
-            rhino_count = 1
-
-        conservancy["total_sightings"] += rhino_count
-        denominator = conservancy["denominator"].get("total")
-
-        conservancy["percentage"] = (
-            "%d%%" % (100 * conservancy["total_sightings"] / denominator,) if denominator else "-%"
-        )
-
-        for item in conservancy["rhino_sightings"]:
-            if item["event_type"] == event.event_type.value:
-                item["count"] += rhino_count
-                denominator = conservancy["denominator"].get(event.event_type.value)
-                item["percentage"] = "%d%%" % (100 * item["count"] / denominator,) if denominator else "-%"
-
-    rhino_sightings = accumulator({}, rhino_sightings)
+    RHINO_SIGHTINGS_COLUMNS = ["species", "age", "gender", "injuries"]
+    rhino_sightings = accumulator(pd.DataFrame(columns=RHINO_SIGHTINGS_COLUMNS), rhino_sightings)
 
     # Accumulator for 'Rhino Births'
     def rhino_births(accum, event):
@@ -316,10 +324,36 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
             "color": safe_get_choice_from_schema(rendered_schema, ed, "color", "unspecified"),
             "mother": safe_get_choice_from_schema(rendered_schema, ed, "femaleRhinos", "unspecified"),
             "health": safe_get_choice_from_schema(rendered_schema, ed, "health", "unspecified"),
+            "station": safe_get_choice_from_schema(rendered_schema, ed, "station", "unspecified"),
         }
         accum.append(new_birth)
 
     rhino_births = accumulator([], rhino_births)
+
+    def rhino_mortality(accum, event):
+        eventtype_value = event.event_type.value
+        if "rhino_mortality" not in eventtype_value:
+            return
+
+        ed = get_event_details(event)
+        if not ed:
+            return
+
+        rendered_schema = get_rendered_schema_properties(event.event_type)
+        conservancy = get_conservancy(event, ed)
+        reportsource = safe_get_choice_from_schema(rendered_schema, ed, "reportsource", "unspecified")
+
+        accum.append(
+            {
+                "reportsource": reportsource,
+                "conservancy": conservancy,
+                "rhino_name": safe_get_choice_from_schema(rendered_schema, ed, "rhino_name", "unspecified"),
+                "carcass_age": safe_get_choice_from_schema(rendered_schema, ed, "carcass_age", "unspecified"),
+                "cause_of_death": safe_get_choice_from_schema(rendered_schema, ed, "cause_of_death", "unspecified"),
+            }
+        )
+
+    rhino_mortality = accumulator([], rhino_mortality)
 
     # Accumulaotor for 'Rhino territorial movement'
     def rhino_territorial_movement(accum, event):
@@ -402,6 +436,9 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         eventtype_value = event.event_type.value
         if eventtype_value not in ("loss_of_animal_life", "carcass") and "mortality" not in eventtype_value:
             return
+        if "rhino" in eventtype_value:
+            return
+
         ed = get_event_details(event)
         if not ed:
             return
@@ -586,6 +623,7 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
             rhino_sightings,
             rhino_births,
             rhino_territorial_movement,
+            rhino_mortality,
             other_wildlife_sightings,
             carcass,
             gap_movement,
@@ -603,12 +641,13 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
 
     rhino_births = rhino_births.send(None)
     rhino_territorial_movement = rhino_territorial_movement.send(None)
+    rhino_mortality = rhino_mortality.send(None)
     other_wildlife_sightings = other_wildlife_sightings.send(None)
     carcass = carcass.send(None)
     gap_movement = gap_movement.send(None)
     rainfall = rainfall.send(None)
     fence_breakage = fence_breakage.send(None)
-    wildlife_sightings_per_conservancy = rhino_sightings.send(None)
+    rhino_sightings = rhino_sightings.send(None)
     security_events = security_events.send(None)
     security_ke_police_events = security_ke_police_events.send(None)
     findrep_events = findrep_events.send(None)
@@ -669,9 +708,13 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         "footer_text": "Report generated by EarthRanger user {username} at {generated_at}".format(
             generated_at=generated_at.strftime(REPORT_TIMESTAMP_FORMAT), username=kwargs.get("username") or "system"
         ),
-        "wildlife_sightings": wildlife_sightings_per_conservancy.values(),
         "rhino_births": rhino_births,
+        "rhino_mortality": rhino_mortality,
         "missing_rhinos": missing_rhinos,
+        "rhino_sightings": rhino_sightings.groupby(RHINO_SIGHTINGS_COLUMNS)
+        .size()
+        .reset_index(name="count")
+        .to_dict(orient="records"),
         "rhino_territorial_movement": rhino_territorial_movement,
         "other_sightings": other_wildlife_sightings.values(),
         "carcass": carcass,
