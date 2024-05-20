@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 
@@ -16,7 +16,11 @@ class ObservationData:
     source: Optional[UUID] = None
 
     @classmethod
-    def build_in_bulk(cls, data: Dict[str, Any]):
+    def build(cls, data: Dict[str, Any]) -> "ObservationData":
+        return ObservationData(**data)
+
+    @classmethod
+    def build_in_bulk(cls, data: List[Dict[str, Any]]) -> List["ObservationData"]:
         return [ObservationData(**d) for d in data]
 
     def dict(self):
