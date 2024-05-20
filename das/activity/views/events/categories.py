@@ -1,8 +1,10 @@
+from django.db import IntegrityError
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 
 from activity.models import EventCategory
 from activity.permissions import EventCategoryObjectPermissions
 from activity.serializers import EventCategorySerializer
+from activity.util import return_409_response
 from utils.json import parse_bool
 
 
@@ -21,6 +23,12 @@ class EventCategoriesView(ListCreateAPIView):
             if not any([self.request.user.has_perm(perm) for perm in permission_name]):
                 queryset = queryset.exclude(id=q.id)
         return queryset
+
+    def post(self, request, *args, **kwargs):
+        try:
+            return super().post(request, *args, **kwargs)
+        except IntegrityError:
+            return return_409_response()
 
 
 class EventCategoryView(RetrieveUpdateDestroyAPIView):
