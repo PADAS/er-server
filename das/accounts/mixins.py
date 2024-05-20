@@ -4,9 +4,9 @@ from itertools import chain
 from django_multitenant.fields import TenantForeignKey
 
 import django.db.models as models
-from django.apps import apps
 from django.contrib import auth
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import UniqueConstraint
 from django.utils.translation import gettext_lazy as _
 
 from accounts.models.permissionset import PermissionSet
@@ -237,6 +237,14 @@ class UserPermissionSet(TenantThroughModel):
     permissionset = TenantForeignKey("accounts.PermissionSet", on_delete=models.CASCADE)
     user = TenantForeignKey("accounts.User", on_delete=models.CASCADE)
 
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "user", "permissionset"],
+                name="%(app_label)s_%(class)s_unique_across_tenants",
+            ),
+        ]
+
 
 class UserFormValidatorMixin:
     def clean_first_name(self):
@@ -271,9 +279,10 @@ class UserFormValidatorMixin:
         return email
 
     def clean_pin(self):
-        User = apps.get_model(app_label="accounts", model_name="User")
-        pin = self.cleaned_data["pin"]
-        username = self.cleaned_data["username"]
+        User = auth.get_user_model()
+
+        pin = self.cleaned_data.get("pin")
+        username = self.cleaned_data.get("username")
 
         if not pin:
             return None

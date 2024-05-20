@@ -74,6 +74,7 @@ class TestReportUtils(TestCase):
             logger.debug("Event details rendered: %s", item)
 
     def test_daily_report_context(self):
+        categories = list(EventCategory.objects.filter(is_active=True))
         edetails = {
             "beginning_of_incident": "Monday",
             "details": "Elephant carcass",
@@ -96,7 +97,10 @@ class TestReportUtils(TestCase):
 
         today = datetime.datetime.now(tz=datetime.timezone.utc)
         context = get_daily_report_data(
-            datetime.datetime(2016, 1, 1, tzinfo=datetime.timezone.utc), today, username=self.user.username
+            datetime.datetime(2016, 1, 1, tzinfo=datetime.timezone.utc),
+            today,
+            event_categories=categories,
+            username=self.user.username,
         )
 
         assert "unknown" in get_conservancies()
