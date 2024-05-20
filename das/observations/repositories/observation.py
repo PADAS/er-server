@@ -22,7 +22,7 @@ class ReadDjangoObservationRepository(ReadObservationRepositoryBase, ReadDjangoO
         observations_dicts = self._get_queryset_observations_by_subject_id_and_source_id(subject_id, source_id)
         if not observations_dicts:
             return []
-        return [self.build_dataclass(observation_data) for observation_data in observations_dicts]
+        return ObservationData.build_in_bulk(data=observations_dicts)
 
     def build_dataclass(self, observation_data: Dict[str, Any]) -> ObservationData:
         return ObservationData(**observation_data)

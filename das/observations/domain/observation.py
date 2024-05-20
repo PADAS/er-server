@@ -15,5 +15,9 @@ class ObservationData:
     recorded_at: Optional[datetime] = None
     source: Optional[UUID] = None
 
+    @classmethod
+    def build_in_bulk(cls, data: Dict[str, Any]):
+        return [ObservationData(**d) for d in data]
+
     def dict(self):
         return {k: str(v) for k, v in asdict(self).items()}
