@@ -2,12 +2,12 @@ from uuid import UUID
 
 from observations.repositories import ReadDjangoObservationRepository
 
-SOURCE = 1  # Temporal Feature Flag logic. 1 Django, 2 EROS, 3 Both
+OBSERVATION_SOURCE = "database"  # Temporal Feature Flag
+REPOSITORIES = {"database": ReadDjangoObservationRepository}
 
 
 def get_observation_by_id(id: UUID):
-    if SOURCE == 1:
-        repository = ReadDjangoObservationRepository()
+    repository = REPOSITORIES[OBSERVATION_SOURCE]
 
     return repository.get_by_id(id=id)
 
@@ -17,9 +17,7 @@ def get_observation_coordinates_and_times_by_subject_id_and_source_id(subject_id
     times = []
     empty_data = {"coordinates": coordinates, "times": times}
 
-    if SOURCE == 1:
-        repository = ReadDjangoObservationRepository()
-
+    repository = REPOSITORIES[OBSERVATION_SOURCE]
     observations_data = repository.get_observations_by_subject_id_and_source_id(
         subject_id=subject_id, source_id=source_id
     )
