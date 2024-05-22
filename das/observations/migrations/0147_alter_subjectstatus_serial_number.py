@@ -55,6 +55,20 @@ def populate_tenant_into_models(unused, schema_editor):
         logger.error("DAS Tenant not found.")
 
 
+def populate_tenant_into_models(unused, schema_editor):
+    models_names = ["Observation", "SubjectStatus", "LatestObservationSource"]
+    class_models = [apps.get_model(f"observations.{model_name}") for model_name in models_names]
+
+    das_tenant_management = DASTenantManagement(domain=settings.SERVER_FQDN)
+    tenant = das_tenant_management.get_or_create_tenant()
+    set_tenant(settings.SERVER_FQDN)
+
+    if tenant:
+        update_tenant_models(models=class_models, tenant=tenant)
+    else:
+        logger.error("DAS Tenant not found.")
+
+
 class Migration(migrations.Migration):
     atomic = False
     dependencies = [
