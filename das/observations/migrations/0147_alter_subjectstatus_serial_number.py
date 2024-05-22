@@ -3,7 +3,7 @@ import logging
 
 from django.apps import apps
 from django.conf import settings
-from django.db import migrations, models
+from django.db import migrations, models, transaction
 
 from core.utils import DASTenantManagement, update_tenant_models
 from utils.migrations.update_primary_key import add_tenant_to_primary_key
@@ -37,7 +37,8 @@ observations_models = [
 
 
 def regenerate_primary_keys(apps, schema_editor):
-    add_tenant_to_primary_key("observations", observations_models)
+    with transaction.atomic():
+        add_tenant_to_primary_key("observations", observations_models)
 
 
 def populate_tenant_into_models(unused, schema_editor):
@@ -55,6 +56,7 @@ def populate_tenant_into_models(unused, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("analyzers", "0043_add_tenant_mixing_to_models_with_no_relations"),
         ("observations", "0146_populate_obsevations_with_tenant"),
