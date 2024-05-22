@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from observations.repositories import ReadDjangoObservationRepository
+from observations.services.repositories import ReadDjangoObservationRepository
 
 OBSERVATION_SOURCE = "database"  # Temporal Feature Flag
 REPOSITORIES = {"database": ReadDjangoObservationRepository}

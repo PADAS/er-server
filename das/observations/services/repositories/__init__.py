@@ -1,4 +1,4 @@
-from observations.repositories.observation import (
+from observations.services.repositories.observation import (
     ReadAllSourcesObservationRepository,
     ReadDjangoObservationRepository,
     ReadEROSObservationRepository,

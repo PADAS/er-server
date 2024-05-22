@@ -2,8 +2,8 @@ from typing import List, Optional
 from uuid import UUID
 
 from observations.domain import ObservationData
-from observations.repositories.django import ReadDjangoObservationMixin
-from observations.repositories.interfaces import ReadObservationRepositoryBase
+from observations.services.repositories.django import ReadDjangoObservationMixin
+from observations.services.repositories.interfaces import ReadObservationRepositoryBase
 
 
 class ReadDjangoObservationRepository(ReadObservationRepositoryBase, ReadDjangoObservationMixin):
