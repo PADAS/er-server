@@ -79,6 +79,7 @@ INSTALLED_APPS = (
 )
 
 MIDDLEWARE = (
+    "core.middleware.MaintenanceMiddleware",
     "utils.middleware.RequestDataMiddleware",
     "utils.middleware.TenantSettingsMiddleware",
     "django.middleware.security.SecurityMiddleware",
