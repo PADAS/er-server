@@ -117,6 +117,12 @@ class EventCategoryViewSchema(CustomSchema):
         if method == "GET":
             query_params = [
                 {"name": "include_inactive", "in": "query", "description": "include inactive event-categories"},
+                {
+                    "name": "include_event_types",
+                    "in": "query",
+                    "required": False,
+                    "description": "include event types related to each category",
+                },
             ]
             operation["parameters"].extend(query_params)
         return operation

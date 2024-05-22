@@ -5,12 +5,21 @@ from activity.models import EventCategory
 from activity.permissions import EventCategoryObjectPermissions
 from activity.serializers import EventCategorySerializer
 from activity.util import return_409_response
+from activity.views.schemas import EventCategoryViewSchema
 from utils.json import parse_bool
 
 
 class EventCategoriesView(ListCreateAPIView):
     permission_classes = (EventCategoryObjectPermissions,)
     serializer_class = EventCategorySerializer
+    schema = EventCategoryViewSchema()
+
+    def get_serializer_context(self):
+        query_params = self.request.query_params if self.request and hasattr(self.request, "query_params") else {}
+
+        context = super().get_serializer_context()
+        context["include_event_types"] = parse_bool(query_params.get("include_event_types", False))
+        return context
 
     def get_queryset(self):
         queryset = EventCategory.objects.all_sort()
