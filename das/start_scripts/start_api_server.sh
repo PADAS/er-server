@@ -9,6 +9,19 @@ function app_has_migrated () {
     python3 manage.py showmigrations $app --skip-checks | grep -q "$pattern" && return 0 || return 1
 }
 
+function app_in_maintenance_mode () {
+    python3 manage.py maintenancemode status | grep -q "Maintenance mode is enabled" && return 0 || return 1
+}
+
+if [[ "${MIGRATIONS_ONLY}" == "True" ]]; then
+
+if app_in_maintenance_mode then
+  echo "Maintenance mode is enabled, exiting"
+  exit 0
+fi
+
+python3 manage.py maintenancemode enable
+
 if app_has_migrated core '\[ \].0008_migrate'; then
   echo "settings override"
   # we haven't migrated to the core oauth tables yet
@@ -19,10 +32,13 @@ else
   python3 manage.py migratewithlock --no-input
 fi
 
-if [[ "${MIGRATIONS_ONLY}" == "True" ]]; then
+python3 manage.py maintenancemode disable
+
+
   echo "MIGRATIONS_ONLY is set to True, exiting"
   exit 0
 fi
+
 
 . $(dirname "$0")/django_common_startup.sh
 
