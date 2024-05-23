@@ -37,7 +37,7 @@ from django.contrib.gis.db import models as dbmodels
 from django.contrib.gis.geos import Point, Polygon
 from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import connections, transaction
 from django.db.models import (
     BooleanField,
@@ -54,6 +54,7 @@ from django.db.models import (
 from django.db.models.constraints import UniqueConstraint
 from django.db.models.functions import Greatest
 from django.utils.functional import cached_property
+from django.utils.html import escape
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
@@ -1420,6 +1421,10 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
         if color:
             color = to_rgb(color)
         return color
+
+    def clean(self):
+        if self.name != escape(self.name):
+            raise ValidationError({"name": _("Invalid name. Please remove special characters and try again.")})
 
     def clean_fields(self, exclude=None):
         return super().clean_fields(exclude)
