@@ -17,7 +17,10 @@ $$
         BASE_ID = BASE_ID + 10000;
         -- DROP FK
         ALTER TABLE auth_group_permissions
-            DROP CONSTRAINT auth_group_permissio_permission_id_84c5c92e_fk_auth_perm;
+            DROP CONSTRAINT IF EXISTS auth_group_permissio_permission_id_84c5c92e_fk_auth_perm;
+
+        ALTER TABLE auth_group_permissions
+            DROP CONSTRAINT IF EXISTS auth_group_permiss_permission_id_84c5c92e_fk_auth_permission_id;
 
         ALTER TABLE accounts_permissionsetpermission
             DROP CONSTRAINT IF EXISTS accounts_permissions_permission_id_5b7e3342_fk_auth_perm;
