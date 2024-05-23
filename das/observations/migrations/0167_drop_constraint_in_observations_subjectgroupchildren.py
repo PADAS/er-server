@@ -4,7 +4,9 @@ from django.db import migrations
 
 sql = """
 ALTER TABLE observations_subjectgroupchildren
-    DROP CONSTRAINT observations_subjectgrou_from_subjectgroup_id_to__84bde0cb_uniq;
+    DROP CONSTRAINT IF EXISTS observations_subjectgrou_from_subjectgroup_id_to__84bde0cb_uniq;
+ALTER TABLE observations_subjectgroupchildren
+    DROP CONSTRAINT IF EXISTS observations_subjectgroup_ch_from_subjectgroup_id_84bde0cb_uniq;
 """
 
 reverse_sql = """
