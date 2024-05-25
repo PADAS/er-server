@@ -1,6 +1,7 @@
 import django.contrib.auth
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
+from django.db import IntegrityError
 
 from accounts.models import PermissionSet
 from activity.models import AlertRule
@@ -27,11 +28,21 @@ def create_alerts_permissionset(tenant=None):
         "delete_alertrule": "Can delete alert rule",
     }
 
-    permission_set, _ = PermissionSet.objects.get_or_create(
-        id=ALERT_RULES_PERMISSIONSET_ID,
-        name="Alert Rule Permissions",
-        das_tenant=tenant,
-    )
+    try:
+
+        defaults = {"name": "Alert Rule Permissions"}
+        permission_set, _ = PermissionSet.objects.get_or_create(
+            id=ALERT_RULES_PERMISSIONSET_ID,
+            defaults=defaults,
+            das_tenant=tenant,
+        )
+    except IntegrityError:
+        defaults = {"name": "Alert Rule Permissionss"}
+        permission_set, _ = PermissionSet.objects.get_or_create(
+            id=ALERT_RULES_PERMISSIONSET_ID,
+            defaults=defaults,
+            das_tenant=tenant,
+        )
 
     for codename, name in permissions.items():
         perm, created = django.contrib.auth.models.Permission.objects.get_or_create(
