@@ -19,7 +19,6 @@ def update_user_permission_sets():  # comes from observations 0037
             user.permission_sets.add(all_time_group)
         else:
             user.permission_sets.add(restricted_time_group)
-        user.save()
 
 
 def forward(apps, schema_editor):
