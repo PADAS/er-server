@@ -1046,9 +1046,11 @@ class KmlSubjectsView(APIView):
             {
                 "name": subject["name"],
                 "species": self.get_display_subtype(subject.get("subject_subtype")),
-                "region": subject.get("additional").get("region")
-                if isinstance(subject.get("additional").get("region"), str)
-                else DEFAULT_REGION_NAME,
+                "region": (
+                    subject.get("additional").get("region")
+                    if isinstance(subject.get("additional").get("region"), str)
+                    else DEFAULT_REGION_NAME
+                ),
                 "visibility": 0,
                 "href": self.build_link_for_subject(subject),
             }
@@ -1205,6 +1207,12 @@ class TrackingDataViewSchema(InactiveSubjectsViewSchema):
                     "schema": {"type": "integer"},
                 },
                 {
+                    "name": "source_provider",
+                    "in": "query",
+                    "description": "Get data for specific source provider. Use the source provider key, ie 'default'",
+                    "schema": {"type": "string"},
+                },
+                {
                     "name": "filter",
                     "in": "query",
                     "description": "Add Exclusion flags as a bitmap. oneof [null, 0, 1, 2, 3]",
@@ -1250,7 +1258,7 @@ class TrackingDataCsvView(APIView):
     permission_classes = (StandardObjectPermissions,)
     schema = TrackingDataViewSchema()
 
-    def get_queryset(self, subject_id=None, chronofile=None):
+    def get_queryset(self, subject_id=None, chronofile=None, source_provider=None):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise PermissionDenied
         queryset = models.Subject.objects.all()
@@ -1259,6 +1267,8 @@ class TrackingDataCsvView(APIView):
         queryset = queryset.by_user_subjects(self.request.user)
         if subject_id:
             queryset = queryset.filter(id=subject_id)
+        elif source_provider:
+            queryset = queryset.filter(subjectsource__source__provider__provider_key=source_provider)
         elif chronofile:
             queryset = queryset.filter(subjectsource__additional__chronofile=int(chronofile))
 
@@ -1301,6 +1311,8 @@ class TrackingDataCsvView(APIView):
         # get data for a specific chronofile? This is for STE downloader
         request_subject_chronofile = self.request.GET.get("subject_chronofile", None)
 
+        request_source_provider = self.request.GET.get("source_provider", None)
+
         # get current status? or historical observations
         get_current = utils.json.parse_bool(self.request.GET.get("current_status", "false"))
 
@@ -1337,12 +1349,16 @@ class TrackingDataCsvView(APIView):
             "height",
             "temp",
             "voltage",
+            "activity",
+            "activity_label",
         ]
         csv_data = []
         cur_record_serial = record_serial_base
         if get_current:
             # all the current status objects for the allowed subjects
-            items = self.get_subject_status_queryset(max_records, request_subject_id, request_subject_chronofile)
+            items = self.get_subject_status_queryset(
+                max_records, request_subject_id, request_subject_chronofile, request_source_provider
+            )
             if items:
                 for item in items:
                     cur_record_serial += 1
@@ -1358,7 +1374,7 @@ class TrackingDataCsvView(APIView):
                     csv_data.append(data)
         else:
             try:
-                subjects = self.get_queryset(request_subject_id, request_subject_chronofile)
+                subjects = self.get_queryset(request_subject_id, request_subject_chronofile, request_source_provider)
                 for subject in subjects:
                     # all the relevant observations for the subject
                     for item in self.get_subject_trackdata_queryset(
@@ -1419,14 +1435,16 @@ class TrackingDataCsvView(APIView):
             request_key: value,
             "collar_id": collar_id,
             "recordserial": cur_record_serial,
-            fixtime_label: recorded_at.strftime("%m/%d/%Y %H:%M:%S")
-            if result_format == "csv"
-            else recorded_at.isoformat(),
-            dloadtime_label: created_at.strftime("%m/%d/%Y %H:%M:%S")
-            if result_format == "csv"
-            else created_at.isoformat(),
+            fixtime_label: (
+                recorded_at.strftime("%m/%d/%Y %H:%M:%S") if result_format == "csv" else recorded_at.isoformat()
+            ),
+            dloadtime_label: (
+                created_at.strftime("%m/%d/%Y %H:%M:%S") if result_format == "csv" else created_at.isoformat()
+            ),
             "temp": self.get_temperature(item),
             "voltage": self.get_voltage(item),
+            "activity": self.get_attribute(item, "activity"),
+            "activity_label": self.get_attribute(item, "activity_label"),
         }
         return data
 
@@ -1444,6 +1462,13 @@ class TrackingDataCsvView(APIView):
             return additional.get("voltage") or additional.get("battery") or additional.get("batt", 0)
         return 0
 
+    @staticmethod
+    def get_attribute(item, key):
+        additional = item.get("additional")
+        if additional:
+            return additional.get(key)
+        return None
+
     def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records):
         if hasattr(subject, "subjectsource_id"):
             qs = models.Observation.objects.get_subjectsource_observations(
@@ -1458,7 +1483,7 @@ class TrackingDataCsvView(APIView):
         )
         return qs
 
-    def get_subject_status_queryset(self, max_records, subject_id=None, chronofile=None):
+    def get_subject_status_queryset(self, max_records, subject_id=None, chronofile=None, source_provider=None):
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
@@ -1467,6 +1492,8 @@ class TrackingDataCsvView(APIView):
         )
         if subject_id:
             qs = qs.filter(subject__id=subject_id)
+        elif source_provider:
+            qs = qs.filter(subject__subjectsource__source__provider__provider_key=source_provider)
         elif chronofile:
             qs = qs.filter(subject__subjectsource__additional__chronofile=int(chronofile))
         else:
