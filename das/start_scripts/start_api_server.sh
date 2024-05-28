@@ -14,7 +14,7 @@ function app_in_maintenance_mode () {
 }
 
 function app_has_pending_migrations () {
-    python3 manage.py showmigrations --skip-checks -p | grep -q "\[ \]" && return 0 || return 1
+    python3 manage.py showmigrations --skip-checks | grep -q "\[ \]" && return 0 || return 1
 }
 
 if [[ "${MIGRATIONS_ONLY}" == "True" ]]; then
