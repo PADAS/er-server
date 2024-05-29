@@ -28,6 +28,10 @@ from tracking.models.plugin_base import (
 logger = logging.getLogger(__name__)
 
 
+class FirmsParsingError(ValueError):
+    pass
+
+
 def __str2date(d, replace_tzinfo=pytz.utc):
     """Helper function to parse a naive date and assume it's in replace_tzinfo."""
     return parse_date(d).replace(tzinfo=replace_tzinfo)
@@ -137,6 +141,7 @@ class FirmsClient:
         # Start fresh, on today's file.
         if stored_dateindex is None or stored_dateindex < yesterdays_index or stored_dateindex > todays_index:
             return [
+                (yesterdays_index, None),
                 (todays_index, None),
             ]
 
@@ -162,8 +167,18 @@ class FirmsClient:
 
         for date_index, headers in process_these:
             # Caller will use last_storable_headers at the end of processing (to save its place).
-            data, self.last_storable_headers = self.fetch_new_day_records(date_index, stored_headers=headers)
-            yield from data
+            try:
+                data, self.last_storable_headers = self.fetch_new_day_records(date_index, stored_headers=headers)
+                yield from data
+            except FirmsParsingError as fpe:
+                # Could be caused by the stored headers, try without them
+                if headers:
+                    data, self.last_storable_headers = self.fetch_new_day_records(date_index, stored_headers=None)
+                    yield from data
+                else:
+                    logger.warning(
+                        f"Failed to fetch FIRMS data for date index {date_index} using no stored headers. Error: {fpe}"
+                    )
 
     def fetch_new_day_records(self, date_index, stored_headers=None):
         stored_headers = stored_headers or {}
@@ -211,6 +226,13 @@ class FirmsClient:
             if data.status_code == 206:
                 storable_headers["content-length"] = offset + int(storable_headers["content-length"])
 
+            if "<!DOCTYPE html>" in data.text:
+                logger.warning(
+                    "Unexpected HTML response from FIRMS web service. Assume the login credentials are expired or some other issue. ",
+                    extra={"url": url},
+                )
+                return [], None
+
             # Return a generator and a header dict that the caller may choose to cache.
             return self.generate_records(data.text.split("\n")), storable_headers
 
@@ -228,7 +250,7 @@ class FirmsClient:
             try:
                 vals = [f(v) for f, v in zip(field_transform, s.split(","))]
             except ValueError as ve:
-                logger.error('Failed parsing FIRMS line "%s".', extra={"ValueError": ve})
+                raise FirmsParsingError(f"Failed parsing FIRMS line {s}. with error {ve}")
             else:
                 rec = dict(list(zip(field_names, vals)))
 
