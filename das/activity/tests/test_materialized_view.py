@@ -181,12 +181,13 @@ class TestMaterializedView(BaseAPITest):
 
         # Send query data to a sample model instead of the materialized view to read output
         query_string = "select "
-        for line in generate_DDL()[1:-1]:
+        lines, params = generate_DDL()
+        for line in lines[1:-1]:
             query_string += line
 
         # At end we expect two event records and we can compare results to what
         # our previous code determined is expected.
-        for event_details in details_view.objects.raw(query_string)[:2]:
+        for event_details in details_view.objects.raw(query_string, params)[:2]:
             test_event = test_events.get(event_details.subjects_name)
 
             self.assertEqual(
