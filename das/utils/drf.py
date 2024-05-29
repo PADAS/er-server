@@ -59,9 +59,12 @@ def api_exception_handler(exc, context):
             exceptions.PermissionDenied,
             exceptions.NotAuthenticated,
             exceptions.AuthenticationFailed,
+            exceptions.APIException,
         ),
     ):
+        # if it's not a known exception, log it
         logger.exception("Exception handling %s", context["request"].get_full_path())
+
     # TODO: there is a case where drf returns data as a list or a dictionary
     # without putting it in a new dictionary under the "detail" key which breaks fixup_api_response
     response = exception_handler(exc, context)
