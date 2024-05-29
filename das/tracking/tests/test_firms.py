@@ -39,9 +39,12 @@ class TestFirmsPluginHelpers(TestCase):
     def test_calculate_date_indexes(self):
         f = FirmsClient()
 
-        d = datetime.now(tz=pytz.utc).timetuple()
+        today = datetime.now(tz=pytz.utc)
+        yesterday = (today - timedelta(days=1)).timetuple()
+        today = today.timetuple()
         expected = [
-            (d.tm_year * 1000 + d.tm_yday, None),
+            (yesterday.tm_year * 1000 + yesterday.tm_yday, None),
+            (today.tm_year * 1000 + today.tm_yday, None),
         ]
         actual = f.calculate_valid_date_indexes()
         self.assertEqual(actual, expected)
