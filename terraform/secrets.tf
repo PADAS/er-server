@@ -154,7 +154,7 @@ resource "kubernetes_secret" "memory_store_api_key" {
     namespace = kubernetes_namespace.this.metadata.0.name
   }
   data = {
-    memory_store_api_key = data.google_secret_manager_secret_version.memory_store_api_key.secret_data
+    memory_store_api_key = local.kubernetes_cluster == "dev" ? data.google_secret_manager_secret_version.memory_store_dev_api_key.secret_data : data.google_secret_manager_secret_version.memory_store_prod_api_key.secret_data
   }
 }
 
