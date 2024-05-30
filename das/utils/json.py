@@ -2,7 +2,7 @@ import copy
 import datetime
 import json
 import uuid
-from collections import KeysView as odict_keys
+from collections.abc import KeysView as odict_keys
 from http import HTTPStatus
 from itertools import chain
 from types import GeneratorType
@@ -140,6 +140,9 @@ class JSONTextParser(BaseParser):
 
 
 class ExtendedBrowsableAPIRenderer(BrowsableAPIRenderer):
+    def get_default_renderer(self, view):
+        return ExtendedJSONRenderer()
+
     def render(self, data, *args, **kwargs):
         response = args[1]["response"]
 
