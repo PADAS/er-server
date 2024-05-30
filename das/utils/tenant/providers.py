@@ -76,7 +76,9 @@ def get_current_cluster_domains():
 
     key = f"{current_cluster_name}-{current_cluster_namespace}"
 
-    return [domain.decode("utf-8") for domain in memory_store_client.get_set_by_key(key=key)]
+    domains = {domain.decode("utf-8") for domain in memory_store_client.get_set_by_key(key=key)}
+    domains.add(settings.SERVER_FQDN)
+    return list(domains)
 
 
 def post_tenant_to_thread(domain):
