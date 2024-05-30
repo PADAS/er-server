@@ -70,6 +70,6 @@ class TestTenantData:
 
         domains = get_current_cluster_domains()
 
-        assert data["expected"] == len(domains)
+        assert data["expected"] == len(domains) - 1  # include the settings.SERVER_FQDN domain
         for domain in data["domains"]:
             assert domain.decode("utf-8") in domains
