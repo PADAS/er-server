@@ -132,7 +132,7 @@ class TestResponseHeaderBuilders:
 
         assert expected_etag == etag
 
-    def test_etag_is_none_when_queryset_is_empty(self):
+    def test_etag_is_not_none_when_queryset_is_empty(self):
         def entry_to_string(*args, **kwargs):
             return "entry"
 
@@ -140,7 +140,7 @@ class TestResponseHeaderBuilders:
 
         etag = build_etag_header(entry_to_string, EventType.objects.all())
 
-        assert etag is None
+        assert etag is not None
 
     def test_last_modified_is_none_when_queryset_is_empty(self):
         EventType.objects.all().delete()
