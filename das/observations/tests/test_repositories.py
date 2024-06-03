@@ -3,7 +3,9 @@ import uuid
 import pytest
 
 from observations.models import Observation
-from observations.repositories import ReadDjangoObservationRepository
+from observations.services.repositories.observation import (
+    ReadDjangoObservationRepository,
+)
 
 repository = ReadDjangoObservationRepository()
 
