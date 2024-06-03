@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from django.contrib.gis.geos import Point
@@ -11,12 +11,12 @@ EMPTY_POINT = Point(0, 0)
 
 
 class ReadDjangoObservationMixin:
-    def _get_instance_by_id(self, id: UUID, fields: Optional[str] = None) -> QuerySet[Observation]:
+    def _get_instance_by_id(self, id: UUID, fields: Optional[List[str]]) -> Dict[str, Any]:
         try:
             instance = Observation.objects.get(id=id)
-            if not fields:
-                return self._model_instance_to_dict(model_instance=instance)
-            return instance.values(*fields)
+            if fields:
+                return model_to_dict(instance, fields=fields)
+            return model_to_dict(instance)
         except Observation.DoesNotExist:
             return None
 
