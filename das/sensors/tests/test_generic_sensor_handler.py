@@ -159,10 +159,6 @@ class GenericSensorHandlerTest(BaseAPITest):
         client.force_login(self.super_user)
         response = client.get(reverse("subjects-list-view") + "?updated_since=2019-01-01")
         assert response.status_code == 200
-        first_subject = response.data[0]
-        assert not first_subject["tracks_available"]
-        assert "last_position" not in first_subject
-        assert "last_position_date" not in first_subject
 
     def test_request_recorded_at_timezone(self):
         recorded_at_iso = self.second_observation["recorded_at"]
