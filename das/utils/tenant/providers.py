@@ -76,7 +76,14 @@ def get_current_cluster_domains():
 
     key = f"{current_cluster_name}-{current_cluster_namespace}"
 
-    return [domain.decode("utf-8") for domain in memory_store_client.get_set_by_key(key=key)]
+    try:
+        domains = {domain.decode("utf-8") for domain in memory_store_client.get_set_by_key(key=key)}
+    except ConnectionError:
+        logger.warning("Could not fetch tenant list %s from from cache due to connection error", key)
+        domains = set()
+
+    domains.add(settings.SERVER_FQDN)
+    return list(domains)
 
 
 def post_tenant_to_thread(domain):

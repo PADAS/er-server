@@ -133,9 +133,13 @@ class EventCategorySerializer(ModelSerializer):
         # If we know the user requesting the category, include their permissions
         # for that category
         request = self.context.get("request", None)
+        include_event_types = self.context.get("include_event_types", None)
         user, method = getattr(request, "user", None), getattr(request, "method", None)
         if user is not None and method == "GET":
             rep["permissions"] = get_allowed_actions_for_category(user, rep["value"])
+        if include_event_types:
+            event_types = obj.eventtype_set.all()
+            rep["event_types"] = SimplifiedEventTypeSerializer(event_types, many=True, context=self.context).data
         return rep
 
 
@@ -169,6 +173,21 @@ class EventCategoryRelatedField(RelatedField):
             queryset = queryset[:cutoff]
 
         return OrderedDict([(self.to_representation(item).get("value"), self.display_value(item)) for item in queryset])
+
+
+class SimplifiedEventTypeSerializer(ModelSerializer):
+    class Meta:
+        model = EventType
+        read_only_fields = ("id",)
+        fields = (
+            "display",
+            "geometry_type",
+            "icon",
+            "id",
+            "is_active",
+            "ordernum",
+            "value",
+        )
 
 
 class EventTypeSerializer(ModelSerializer):

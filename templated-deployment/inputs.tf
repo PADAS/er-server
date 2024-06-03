@@ -312,7 +312,7 @@ variable "rtapi_pubsub_logging_level" {
 variable "memory_store_host" {
   description = "memory store host"
   type        = string
-  default     = "34.145.110.77"
+  default     = ""
 }
 
 variable "memory_store_database" {

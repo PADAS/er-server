@@ -9,7 +9,7 @@ from django.urls import reverse
 
 import utils.tenant.thread
 from accounts.views import UserView
-from activity.models import EventCategory
+from activity.models import EventCategory, EventType
 from activity.views import EventCategoriesView, EventCategoryView
 from core.tests import BaseAPITest
 
@@ -100,6 +100,30 @@ class EventCategoryTest(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = EventCategoryView.as_view()(request, eventcategory_id=eventcategory_id)
         self.assertEqual(response.status_code, 200)
+
+    def test_retrieve_event_category_with_event_types(self):
+        obj = EventCategory.objects.create(value="test_event_category", display="test_event_category")
+        EventType.objects.create(value="event_type", display="Event Type", category=obj)
+        url = reverse("event-categories")
+        request = self.factory.get(f"{url}?include_event_types=true")
+        self.force_authenticate(request, self.user)
+
+        response = EventCategoriesView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+
+        self.assertTrue(
+            {
+                "display",
+                "geometry_type",
+                "icon",
+                "id",
+                "is_active",
+                "ordernum",
+                "value",
+            }
+            <= response.data[0].get("event_types")[0].keys()
+        )
 
     def test_patch_event_category(self):
         eventcategory_id = str(EventCategory.objects.first().id)

@@ -79,6 +79,7 @@ INSTALLED_APPS = (
 )
 
 MIDDLEWARE = (
+    "core.middleware.MaintenanceMiddleware",
     "utils.middleware.RequestDataMiddleware",
     "utils.middleware.TenantSettingsMiddleware",
     "django.middleware.security.SecurityMiddleware",
@@ -644,7 +645,7 @@ TMS_API = {
 
 MEMORY_STORE = {
     "CLIENT": env.str("MEMORY_STORE_CLIENT", "utils.persistent.RedisStorageReadOnly"),
-    "HOST": env.str("MEMORY_STORE_HOST", "redis-proxy.dev.pamdas.org"),
+    "HOST": env.str("MEMORY_STORE_HOST", ""),
     "PORT": env.int("MEMORY_STORE_PORT", 6379),
     "DATABASE": env.int("MEMORY_STORE_DATABASE", 0),
     "API_KEY": env.str("MEMORY_STORE_API_KEY", ""),

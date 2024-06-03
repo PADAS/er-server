@@ -125,6 +125,8 @@ $$;
 
 
 class Migration(migrations.Migration):
+    atomic = False
+
     dependencies = [
         ("core", "0021_recreate_fks_group_permissio_and_permission_permissions_permission"),
     ]

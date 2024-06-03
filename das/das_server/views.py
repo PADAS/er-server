@@ -147,6 +147,7 @@ class StatusView(generics.RetrieveAPIView):
         resp["server_timezone_name"] = timezone.get_current_timezone_name()
         resp["server_timezone"] = timezone.localtime().strftime("%Z")
         resp["site_name"] = get_site_name()
+        resp["tenant_domain"] = tenant.domain
         resp["messaging_enabled"] = has_message_view_permission(self.request.user)
 
         if self.get_support_settings():

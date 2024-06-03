@@ -11,7 +11,16 @@ from django.http import QueryDict
 from activity.models import EventType, PatrolType
 from activity.views.events.utils import EventTypeQuerysetMixin
 
-PATROL_TYPE_FIELDS = ("value", "display", "ordernum", "icon_id", "is_active", "default_priority", "updated_at", "image_url")
+PATROL_TYPE_FIELDS = (
+    "value",
+    "display",
+    "ordernum",
+    "icon_id",
+    "is_active",
+    "default_priority",
+    "updated_at",
+    "image_url",
+)
 EVENT_TYPE_FIELDS = (
     "updated_at",
     "category",
@@ -25,7 +34,7 @@ EVENT_TYPE_FIELDS = (
     "ordernum",
     "schema",
     "value",
-    "image_url"
+    "image_url",
 )
 
 
@@ -96,7 +105,7 @@ def concatenate_fields_from_model(model_fields: Iterable[str], model: Model) -> 
 
 def build_etag_header(entry_to_string: Callable, queryset: object) -> Optional[str]:
     if not queryset.exists():
-        return None
+        return hashlib.md5(datetime.min.isoformat().encode("utf-8")).hexdigest()
 
     concatenated_entries = ":".join(map(entry_to_string, queryset.all()))
     return hashlib.md5(concatenated_entries.encode("utf-8")).hexdigest()

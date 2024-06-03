@@ -24,4 +24,3 @@ spec:
     scaleUp:
       selectPolicy: Min
       stabilizationWindowSeconds: 60
-      
