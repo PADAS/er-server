@@ -65,7 +65,7 @@ jobs:
           name: sphinx_docs
           path: docs/_build/html
   build:
-    uses: ./.github/workflows/build_docker.yml
+    uses: PADAS/gundi-workflows/.github/workflows/build_docker.yml@v2
     needs: build_sphinx_docs
     with:
       environment: padas-app

@@ -38,18 +38,21 @@ class ObservationAnnotator(Annotator):
             # executed without values in settings.
             max_speed = DEFAULT_SPEED_THRESHOLDS.get(subject.subject_subtype_id, None)
 
-            annotator, created = ObservationAnnotator.objects.get_or_create(
-                subject_id=subject.id, defaults={"max_speed": max_speed}
-            )
-            if created:
-                logger.info(
-                    "Created ObseravtionAnnotator for Subject %s with max-speed-threshold: %s", subject, max_speed
+            # there isn't a unique constraint on the subject_id, so we need to check for existence and possibly multiple existences
+            annotator = ObservationAnnotator.objects.filter(subject_id=subject.id).first()
+            if not annotator:
+                annotator, created = ObservationAnnotator.objects.get_or_create(
+                    subject_id=subject.id, defaults={"max_speed": max_speed}
                 )
+                if created:
+                    logger.info(
+                        "Created ObseravtionAnnotator for Subject %s with max-speed-threshold: %s", subject, max_speed
+                    )
 
             return annotator
 
         try:
-            return ObservationAnnotator.objects.get(subject_id=subject.id)
+            return ObservationAnnotator.objects.filter(subject_id=subject.id).first()
         except ObservationAnnotator.DoesNotExist:
             # This is acceptable, since no default is set for this Subject's sub-type.
             pass

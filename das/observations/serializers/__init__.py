@@ -1,7 +1,7 @@
 import json
 import logging
 from collections import OrderedDict
-from datetime import MAXYEAR, MINYEAR, datetime, timedelta
+from datetime import MAXYEAR, MINYEAR, datetime
 from typing import NamedTuple
 
 import pytz
@@ -44,7 +44,7 @@ from observations.utils import (
     is_subject_stationary_subject,
 )
 from utils import add_base_url
-from utils.tenant import get_tenant_settings
+from utils.json import zeroout_microseconds
 
 from .observations import FlattenObservationSerializer
 
@@ -291,9 +291,6 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                     minimum_allowed_age = None
 
             if minimum_allowed_age is not None and maximum_allowed_age is not None:
-                show_track_days = get_tenant_settings().env_settings.show_track_days
-                default_window_cutoff = pytz.utc.localize(datetime.utcnow() - timedelta(days=show_track_days))
-
                 statusvalues = resolve_status_values(instance)
 
                 # Get last_position details from latest accessible source
@@ -314,9 +311,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                         latest_observation = query.order_by("-recorded_at").first()
                         oldest_observation = query.order_by("recorded_at").first()
 
-                        rep["tracks_available"] = (
-                            statusvalues.recorded_at and statusvalues.recorded_at > default_window_cutoff
-                        )
+                        rep["tracks_available"] = bool(statusvalues.recorded_at)
                         if latest_observation and oldest_observation:
                             additional = latest_observation.additional
                             if not isinstance(additional, dict):
@@ -351,14 +346,14 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                         and (mou_expiry_date.replace(tzinfo=pytz.utc) <= datetime.now(tz=pytz.utc))
                         and request.method == "GET"
                     ):
-                        observation = get_observation_location(instance, mou_expiry_date, default_window_cutoff)
+                        observation = get_observation_location(instance, mou_expiry_date)
                         location = observation.location if observation else get_null_point()
                         recorded_at = observation.recorded_at if observation else None
                     else:
                         location = statusvalues.location if statusvalues.location else get_null_point()
                         recorded_at = statusvalues.recorded_at
 
-                    tracks_available = recorded_at and recorded_at > default_window_cutoff
+                    tracks_available = bool(recorded_at)
                     rep["tracks_available"] = tracks_available
                     rep["last_position_status"] = {
                         "last_voice_call_start_at": (
@@ -549,21 +544,19 @@ def resolve_status_values(subject):
         raise ValueError(f"SubjectStatus does not exist for subject ID: {subject.id}")
 
 
-def get_observation_location(subject, mou_date, default_window_cutoff):
+def get_observation_location(subject, mou_date):
     """Return the latest subject observation less than the date of expiry,
     and more recent than the site window cutoff
 
     Args:
         subject ([Subject]): observation subject
         mou_date ([datetime]): user mou expiry
-        default_window_cutoff ([datetime]): the since value
     Returns:
         [Observation]: the observation
     """
-    if mou_date < default_window_cutoff:
-        return None
+
     observation = models.Observation.objects.get_subject_observations(
-        subject, since=default_window_cutoff, until=mou_date, order_by="-recorded_at"
+        subject, until=mou_date, order_by="-recorded_at"
     ).first()
 
     return observation

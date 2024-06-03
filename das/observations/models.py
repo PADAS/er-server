@@ -37,7 +37,7 @@ from django.contrib.gis.db import models as dbmodels
 from django.contrib.gis.geos import Point, Polygon
 from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import connections, transaction
 from django.db.models import (
     BooleanField,
@@ -54,6 +54,7 @@ from django.db.models import (
 from django.db.models.constraints import UniqueConstraint
 from django.db.models.functions import Greatest
 from django.utils.functional import cached_property
+from django.utils.html import escape
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
@@ -1179,23 +1180,30 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         if updated_since and updated_until:
             gt = updated_since
             lt = updated_until
+            date_range = DateTimeTZRange(lower=updated_since, upper=updated_until)
             sources = sources.filter(recorded_at__range=(gt, lt))
         elif updated_since:
             gt = updated_since
             sources = sources.filter(recorded_at__gte=gt)
+            date_range = DateTimeTZRange(lower=updated_since)
         elif updated_until:
             lt = updated_until
             sources = sources.filter(recorded_at__lte=lt)
+            date_range = DateTimeTZRange(upper=updated_until)
         elif last_days:
             lt = datetime.now(tz=pytz.UTC)
             gt = lt - last_days
             # clock skew, server could be behind
             lt = lt + timedelta(minutes=10)
             sources = sources.filter(recorded_at__range=(gt, lt))
+            date_range = DateTimeTZRange(lower=gt, upper=lt)
 
         sources = sources.values("source").annotate(models.Count("source")).values("source")
 
-        subject_sources = SubjectSource.objects.filter(source__in=sources)
+        subject_sources = SubjectSource.objects.filter(
+            source__in=sources,
+            assigned_range__overlap=date_range,
+        )
         subjects = subject_sources.values("subject")
 
         if include_stationary_subjects:
@@ -1420,6 +1428,10 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
         if color:
             color = to_rgb(color)
         return color
+
+    def clean(self):
+        if self.name != escape(self.name):
+            raise ValidationError({"name": _("Invalid name. Please remove special characters and try again.")})
 
     def clean_fields(self, exclude=None):
         return super().clean_fields(exclude)
