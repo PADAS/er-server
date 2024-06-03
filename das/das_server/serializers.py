@@ -26,6 +26,7 @@ class VersionSerializer(rest_framework.serializers.Serializer):
     patrol_enabled = rest_framework.serializers.BooleanField(read_only=True)
     messaging_enabled = rest_framework.serializers.BooleanField(read_only=True)
     site_name = rest_framework.serializers.CharField(read_only=True)
+    tenant_domain = rest_framework.serializers.CharField(read_only=True)
     last_migration_app = rest_framework.serializers.CharField(read_only=True)
     last_migration_name = rest_framework.serializers.CharField(read_only=True)
     track_length = rest_framework.serializers.IntegerField(read_only=True)
