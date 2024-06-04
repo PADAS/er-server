@@ -3,11 +3,9 @@ import uuid
 import pytest
 
 from observations.models import Observation
-from observations.services.repositories.observation import (
-    ReadDjangoObservationRepository,
-)
+from observations.services.repositories.observation import ReadObservationRepository
 
-repository = ReadDjangoObservationRepository()
+repository = ReadObservationRepository()
 
 
 @pytest.mark.django_db
