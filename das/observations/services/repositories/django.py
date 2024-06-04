@@ -43,9 +43,3 @@ class ReadDjangoObservationMixin:
             .values("location", "recorded_at")
         )
         return qs
-
-    def _model_instance_to_dict(self, model_instance: Observation) -> Dict[str, Any]:
-        return model_to_dict(
-            model_instance,
-            fields=[field.name for field in model_instance._meta.fields],
-        )
