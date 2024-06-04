@@ -1,14 +1,14 @@
 from observations.services.repositories.observation import (
     ReadAllSourcesObservationRepository,
-    ReadDjangoObservationRepository,
     ReadEROSObservationRepository,
+    ReadObservationRepository,
     WriteAllSourcesObservationRepository,
     WriteDjangoObservationRepository,
     WriteEROSObservationRepository,
 )
 
 __all__ = (
-    "ReadDjangoObservationRepository",
+    "ReadObservationRepository",
     "ReadEROSObservationRepository",
     "ReadAllSourcesObservationRepository",
     "WriteDjangoObservationRepository",
