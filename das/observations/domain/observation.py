@@ -23,5 +23,5 @@ class ObservationData:
     def build_in_bulk(cls, data: List[Dict[str, Any]]) -> List["ObservationData"]:
         return [ObservationData(**d) for d in data]
 
-    def dict(self):
+    def to_dict(self):
         return {k: str(v) for k, v in asdict(self).items()}
