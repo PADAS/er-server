@@ -502,6 +502,7 @@ locals {
     "eruc23"                    = "dev"
     "eruc2023"                  = "dev"
     "eruc-staff"                = "dev"
+    "panthera"                  = "dev"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
