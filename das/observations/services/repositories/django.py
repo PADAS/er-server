@@ -14,7 +14,7 @@ EMPTY_POINT = Point(0, 0)
 class ReadDjangoObservationSource(ReadObservationSourceBase):
     def get_object_dict_by_id(self, id: UUID, fields: Optional[List[str]]) -> Dict[str, Any]:
         instance = Observation.objects.get(id=id)
-        return model_to_dict(instance, fields=fields) if fields else model_to_dict(instance)
+        return model_to_dict(instance, fields=fields)
 
     def get_objects_dict_by_subject_id_and_source_id(
         self,
@@ -24,18 +24,14 @@ class ReadDjangoObservationSource(ReadObservationSourceBase):
         try:
             subject_source = SubjectSource.objects.get(subject_id=subject_id, source_id=source_id)
         except SubjectSource.DoesNotExist:
-            return Observation.objects.none()
+            return []
 
         since = subject_source.safe_assigned_range.lower
         until = subject_source.safe_assigned_range.upper
 
-        qs = (
-            Observation.objects.filter(
-                source__subjectsource=subject_source.id,
-                source__subjectsource__assigned_range__contains=F("recorded_at"),
-                recorded_at__range=[since, until],
-            )
-            .exclude(Q(location=EMPTY_POINT))
-            .values("location", "recorded_at")
-        )
-        return [model_to_dict(instance) for instance in qs]
+        observations = Observation.objects.filter(
+            source__subjectsource=subject_source.id,
+            source__subjectsource__assigned_range__contains=F("recorded_at"),
+            recorded_at__range=[since, until],
+        ).exclude(Q(location=EMPTY_POINT))
+        return [model_to_dict(observation) for observation in observations]
