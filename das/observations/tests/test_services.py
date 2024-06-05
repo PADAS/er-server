@@ -6,6 +6,7 @@ from observations.services import (
     get_observation_by_id,
     get_observation_coordinates_and_times_by_subject_id_and_source_id,
 )
+from observations.services.exceptions import ObservationDoesNotExist
 
 
 @pytest.mark.django_db
@@ -54,6 +55,5 @@ def test_get_observation_by_id(observation) -> None:
 
 @pytest.mark.django_db
 def test_get_observation_by_id_wring_id() -> None:
-    obj = get_observation_by_id(id=uuid.uuid4())
-
-    assert obj is None
+    with pytest.raises(ObservationDoesNotExist):
+        get_observation_by_id(id=uuid.uuid4())
