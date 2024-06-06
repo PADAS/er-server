@@ -254,22 +254,28 @@ class EventTypeAdmin(BaseModelAdminMixin):
         form.request = request
         return form
 
-    def get_event_source_link(self, object_id):
+    def get_event_source_links(self, object_id):
+        links = []
         try:
-            eventsource = models.EventSource.objects.get(event_type_id=object_id)
+
+            for eventsource in models.EventSource.objects.filter(event_type_id=object_id):
+                links.append(
+                    {
+                        "href": reverse(
+                            f"admin:{eventsource._meta.app_label}_{eventsource._meta.model_name}_change",
+                            args=(eventsource.id,),
+                        ),
+                        "display": eventsource.display,
+                    }
+                )
         except models.EventSource.DoesNotExist:
-            return None
-        else:
-            return {
-                "href": reverse(
-                    f"admin:{eventsource._meta.app_label}_{eventsource._meta.model_name}_change", args=(eventsource.id,)
-                ),
-                "display": eventsource.display,
-            }
+            pass
+
+        return links
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
         extra_context = extra_context or {}
-        extra_context["eventsource_ref"] = self.get_event_source_link(object_id)
+        extra_context["eventsources_ref"] = self.get_event_source_links(object_id)
 
         # if extra_context['eventsource_ref'] is not None:
         #     messages.add_message(request, messages.WARNING, "This Event Type is linked to an External Source. See the notice below for more details.")
