@@ -30,7 +30,7 @@ class ReadDjangoObservationSource(ReadObservationSourceBase):
         until = subject_source.safe_assigned_range.upper
 
         observations = Observation.objects.filter(
-            source__subjectsource=subject_source.id,
+            source__subjectsource=subject_source,
             source__subjectsource__assigned_range__contains=F("recorded_at"),
             recorded_at__range=[since, until],
         ).exclude(Q(location=EMPTY_POINT))
