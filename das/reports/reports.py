@@ -630,10 +630,10 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
 
         rhino_sighting_sections = ("sighting_details_cows", "sighting_details_bulls", "sighting_details_nk")
 
-        if any(True for key in event_details.keys() if key in rhino_sighting_sections):
+        if any(True for key in ed.keys() if key in rhino_sighting_sections):
             for key in rhino_sighting_sections:
-                if key in event_details:
-                    for sighting in event_details[key]:
+                if key in ed:
+                    for sighting in ed[key]:
                         rhinos_in_event = _listify(sighting.get("rhino"))
                         rhino_ids_in_event = [_.get("value") if isinstance(_, dict) else _ for _ in rhinos_in_event]
         else:
