@@ -257,6 +257,11 @@ class TrackingDataCsvViewTest(BaseAPITest):
 
         self.assertTrue(len(unique_chrono_files) > 1)
 
+    def test_subject_name_export(self):
+        observations = self.exportrecords("/trackingdata/export/")
+        subject_names = set([observation["subject_name"] for observation in observations])
+        assert len(subject_names) == 1
+
     def test_csv_export_with_observation_addition_null(self):
         self.request = self.factory.get(API_BASE + "/trackingdata/export/")
         self.force_authenticate(self.request, self.superuser)
