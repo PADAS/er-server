@@ -690,8 +690,8 @@ class SubjectTrackSerializer(rest_framework.serializers.BaseSerializer):
             # on a Source level
             for source in subject_linked_sources:
                 data = get_observation_coordinates_and_times_by_subject_id_and_source_id(subject.id, source.id)
-                coordinates = data["coordinates"]
-                times = data["times"]
+                coordinates.append(data["coordinates"])
+                times.append(data["times"])
         else:
             coordinates, times = subject.get_track(user, tracks_since, tracks_until, tracks_limit)
 
