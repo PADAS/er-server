@@ -1351,6 +1351,7 @@ class TrackingDataCsvView(APIView):
             "voltage",
             "activity",
             "activity_label",
+            "subject_name",
         ]
         csv_data = []
         cur_record_serial = record_serial_base
@@ -1445,6 +1446,7 @@ class TrackingDataCsvView(APIView):
             "voltage": self.get_voltage(item),
             "activity": self.get_attribute(item, "activity"),
             "activity_label": self.get_attribute(item, "activity_label"),
+            "subject_name": item.get("name"),
         }
         return data
 
@@ -1479,7 +1481,9 @@ class TrackingDataCsvView(APIView):
                 subject, lower, upper, max_records, filter_flag=filter_flag, order_by="recorded_at"
             )
         qs = qs.annotate(
-            subjectsource_additional=F("source__subjectsource__additional"), collar_id=F("source__manufacturer_id")
+            subjectsource_additional=F("source__subjectsource__additional"),
+            collar_id=F("source__manufacturer_id"),
+            subject_name=F("source__subjectsource__subject__name"),
         )
         return qs
 
@@ -1502,6 +1506,7 @@ class TrackingDataCsvView(APIView):
         qs = qs.annotate(
             subjectsource_additional=F("subject__subjectsource__additional"),
             collar_id=F("subject__subjectsource__source__manufacturer_id"),
+            subject_name=F("subject__name"),
         ).values()
         if max_records > 0:
             qs = qs[:max_records]
