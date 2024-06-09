@@ -78,6 +78,9 @@ class TestResponseHeaderBuilders:
             for event_type in EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
         ]
         concatenated_etags = ":".join(individual_tags)
+        salt = empty_request.META.get("HTTP_USER_AGENT")
+        if salt is not None:
+            concatenated_etags = concatenated_etags + str(salt)
         expected_etag = hashlib.md5(concatenated_etags.encode("utf-8")).hexdigest()
 
         etag = build_event_types_etag_header(empty_request)
