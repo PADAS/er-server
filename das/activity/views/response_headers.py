@@ -72,7 +72,8 @@ def build_patrol_types_last_modified_header(*args, **kwargs) -> datetime:
 def build_event_types_etag_header(request, *args, **kwargs) -> datetime:
     event_type_to_string = partial(concatenate_fields_from_model, EVENT_TYPE_FIELDS)
     queryset_builder = EventTypeQueryset(request.user, request.GET)
-    return build_etag_header(event_type_to_string, queryset_builder.get_queryset())
+    salt = request.META.get("HTTP_USER_AGENT")
+    return build_etag_header(event_type_to_string, queryset_builder.get_queryset(), salt=salt)
 
 
 def build_event_type_etag_header(*args, **kwargs) -> str:
@@ -103,9 +104,11 @@ def concatenate_fields_from_model(model_fields: Iterable[str], model: Model) -> 
     return ":".join(field_values)
 
 
-def build_etag_header(entry_to_string: Callable, queryset: object) -> Optional[str]:
+def build_etag_header(entry_to_string: Callable, queryset: object, salt: str = None) -> Optional[str]:
     if not queryset.exists():
         return hashlib.md5(datetime.min.isoformat().encode("utf-8")).hexdigest()
 
     concatenated_entries = ":".join(map(entry_to_string, queryset.all()))
+    if salt is not None:
+        concatenated_entries += str(salt)
     return hashlib.md5(concatenated_entries.encode("utf-8")).hexdigest()
