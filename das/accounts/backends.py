@@ -21,6 +21,11 @@ def act_as_user_in_request(user, request):
     if profile_header and user and not user.is_anonymous:
         logged_in_user = user
         profile_pk = uuid.UUID(profile_header)
+        if profile_pk == logged_in_user.pk:
+            message = "User Profile %s is the same as logged in user %s" % (profile_pk, logged_in_user.pk)
+            logger.info(message)
+            return user
+
         if 1 != logged_in_user.act_as_profiles.all().filter(pk=profile_pk).count():
             message = "User Profile %s not found in act_as_profiles list for user %s" % (profile_pk, logged_in_user.pk)
             logger.info(message)
