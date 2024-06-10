@@ -170,6 +170,16 @@ class TestAllowedPermissions:
                 "tenant_id": uuid.UUID("fa190535-6b00-4452-8ab1-319c73082b60"),
             },
             {
+                "perm": "+hkFNWsARFKKsTGccwgrYA:Hello_category_create",
+                "codename": "Hello_category_create",
+                "tenant_id": uuid.UUID("fa190535-6b00-4452-8ab1-319c73082b60"),
+            },
+            {
+                "perm": "+hkFNWsARFKKsTGccwgrYA:change_Hello_category_gd",
+                "codename": "change_Hello_category_gd",
+                "tenant_id": uuid.UUID("fa190535-6b00-4452-8ab1-319c73082b60"),
+            },
+            {
                 "perm": add_tenant_to_permission_codename(
                     uuid.UUID("fa190535-6b00-4452-8ab1-319c73082b60"), "change_hello_category_gd"
                 ),
