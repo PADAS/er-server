@@ -45,6 +45,14 @@ class EventCategoryView(RetrieveUpdateDestroyAPIView):
     lookup_url_kwarg = "eventcategory_id"
     permission_classes = (EventCategoryObjectPermissions,)
     serializer_class = EventCategorySerializer
+    schema = EventCategoryViewSchema()
 
     def get_queryset(self):
         return EventCategory.objects.all()
+
+    def get_serializer_context(self):
+        query_params = self.request.query_params if self.request and hasattr(self.request, "query_params") else {}
+
+        context = super().get_serializer_context()
+        context["include_event_types"] = parse_bool(query_params.get("include_event_types", False))
+        return context
