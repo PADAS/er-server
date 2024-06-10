@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import uuid
 from datetime import datetime, timedelta
 from unittest import mock
@@ -1192,10 +1193,6 @@ class TestSubjectsViewFilter:
 
         assert len(response.data) == 5
         assert str(first_subject.id) in [item.get("id") for item in response.data]
-
-
-import random
-from datetime import datetime, timedelta
 
 
 def random_date(start_date, end_date):
