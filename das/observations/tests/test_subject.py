@@ -23,6 +23,7 @@ from django.test import RequestFactory, override_settings
 from django.urls import reverse
 
 from accounts.models import PermissionSet
+from activity.tools.createevents import gen_random_point
 from client_http import HTTPClient
 from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest
@@ -33,6 +34,7 @@ from observations.models import (
     GPXTrackFile,
     Observation,
     Source,
+    SourceGroup,
     Subject,
     SubjectGroup,
     SubjectSource,
@@ -1190,3 +1192,56 @@ class TestSubjectsViewFilter:
 
         assert len(response.data) == 5
         assert str(first_subject.id) in [item.get("id") for item in response.data]
+
+
+import random
+from datetime import datetime, timedelta
+
+
+def random_date(start_date, end_date):
+    return start_date + timedelta(
+        seconds=random.randint(0, int((end_date - start_date).total_seconds())),
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_subject_tracks_with_multiple_sources(subject, five_sources, user_client):
+    administer_sources_perms = PermissionSet.objects.create(name="Administer Sources")
+    user_client.user.permission_sets.add(administer_sources_perms)
+
+    source_group = SourceGroup.objects.create(name="source_group_1")
+    source_group.sources.add(*five_sources)
+    source_group.permission_sets.add(administer_sources_perms)
+
+    increase_year = 0
+    for source in five_sources:
+        initial_date = pytz.utc.localize(datetime(1990 + increase_year, 1, 1))
+        end_date = initial_date + timedelta(days=10)
+        assigned_range = list((initial_date, end_date))
+
+        # Create SubjectSource
+        SubjectSource.objects.create(
+            subject=subject,
+            source=source,
+            assigned_range=assigned_range,
+        )
+
+        point = gen_random_point()
+        recordet_at = random_date(assigned_range[0], assigned_range[1])
+
+        Observation.objects.create(
+            recorded_at=recordet_at,
+            source=source,
+            location=point,
+        )
+        increase_year += 1
+
+    url = reverse("subject-view-tracks", kwargs={"subject_id": subject.id})
+    response = user_client.get(url)
+    print(response)
+
+    coordinates = response.data["features"][0]["geometry"]["coordinates"]
+
+    assert response.status_code == 200
+    assert len(coordinates) == 5
