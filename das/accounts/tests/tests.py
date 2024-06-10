@@ -191,6 +191,16 @@ class TestAuthentication(BaseAPITest):
                 HTTP_USER_PROFILE=str(self.super_user.pk),
             )
 
+    def test_allow_using_profile_of_self(self):
+        token = self.create_access_token(self.joc_supervisor)
+
+        response = self.client.get(
+            self.api_base + "/user/me",
+            HTTP_AUTHORIZATION=self.create_authorization_header(token),
+            HTTP_USER_PROFILE=str(self.joc_supervisor.pk),
+        )
+        assert response.status_code == 200
+
     def test_fail_act_as_unlisted_user(self):
         token = self.create_access_token(self.joc_supervisor)
         with self.assertRaises(PermissionDenied):
