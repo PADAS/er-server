@@ -17,10 +17,6 @@ spec:
         prometheus.io/port: "9102"
     spec:
       tolerations:
-        - key: cloud.google.com/gke-spot
-          operator: Equal
-          value: "true"
-          effect: NoSchedule
         - key: group
           operator: Equal
           value: spot-preferred
@@ -33,10 +29,10 @@ spec:
             - weight: 100
               preference:
                 matchExpressions:
-                  - key: cloud.google.com/gke-spot
+                  - key: group
                     operator: In
                     values:
-                      - "true"
+                      - "spot-preferred"
       imagePullSecrets:
         - name: gcr-secret
       # Mount secrets

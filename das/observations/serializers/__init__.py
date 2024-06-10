@@ -310,7 +310,9 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                         latest_observation = query.order_by("-recorded_at").first()
                         oldest_observation = query.order_by("recorded_at").first()
 
-                        rep["tracks_available"] = bool(statusvalues.recorded_at)
+                        rep["tracks_available"] = (
+                            statusvalues.recorded_at and statusvalues.recorded_at != models.DEFAULT_STATUS_VALUE_DATE
+                        )
                         if latest_observation and oldest_observation:
                             additional = latest_observation.additional
                             if not isinstance(additional, dict):
@@ -352,7 +354,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                         location = statusvalues.location if statusvalues.location else get_null_point()
                         recorded_at = statusvalues.recorded_at
 
-                    tracks_available = bool(recorded_at)
+                    tracks_available = recorded_at and recorded_at != models.DEFAULT_STATUS_VALUE_DATE
                     rep["tracks_available"] = tracks_available
                     rep["last_position_status"] = {
                         "last_voice_call_start_at": (

@@ -17,7 +17,7 @@ User = django.contrib.auth.get_user_model()
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-class EventCategoryTest(BaseAPITest):
+class test_retrieve_event_category_with_event_types(BaseAPITest):
     def setUp(self):
         super().setUp()
         self.event_category_url = reverse("admin:activity_eventcategory_changelist")
@@ -102,6 +102,30 @@ class EventCategoryTest(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_retrieve_event_category_with_event_types(self):
+        obj = EventCategory.objects.create(value="test_event_category", display="test_event_category")
+        EventType.objects.create(value="event_type", display="Event Type", category=obj)
+        url = reverse("event-category", kwargs={"eventcategory_id": obj.id})
+        request = self.factory.get(url, {"include_event_types": "true"})
+        self.force_authenticate(request, self.user)
+
+        response = EventCategoryView.as_view()(request, eventcategory_id=obj.id)
+
+        self.assertEqual(response.status_code, 200)
+
+        self.assertTrue(
+            {
+                "display",
+                "geometry_type",
+                "icon",
+                "id",
+                "is_active",
+                "ordernum",
+                "value",
+            }
+            <= response.data.get("event_types")[0].keys()
+        )
+
+    def test_retrieve_event_categories_with_event_types(self):
         obj = EventCategory.objects.create(value="test_event_category", display="test_event_category")
         EventType.objects.create(value="event_type", display="Event Type", category=obj)
         url = reverse("event-categories")

@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import urllib.parse
 import uuid
 from datetime import datetime, timedelta
 from unittest import mock
@@ -9,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import dateutil.parser as dateparser
 import pytest
 import pytz
+from faker import Faker
 from pytz import UTC
 
 import django.contrib.auth
@@ -44,11 +46,17 @@ from observations.models import (
 )
 from observations.tasks import process_trackpoints
 from observations.utils import calculate_track_range
-from observations.views import GPXFileUploadView, SubjectsView, SubjectView
+from observations.views import (
+    GPXFileUploadView,
+    SubjectGroupsView,
+    SubjectsView,
+    SubjectView,
+)
 from utils.tenant import Tenant
 
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests")
+faker = Faker()
 
 
 class SubjectTestCase(BaseAPITest):
@@ -1023,11 +1031,33 @@ class TestSubjectsView:
         assert response.status_code == 200
         assert len(response.data)
 
-    def _get_request(self):
+    def test_subjectgroup_with_default_subjectstatus_has_no_tracks_available(self, subject_source, subject_group_empty):
+        subject = subject_source.subject
+        subject.name = faker.name()
+        subject.subject_subtype = SubjectSubType.objects.all().first()
+        subject.save()
+        subject_group_empty.subjects.add(subject)
+
+        Observation.objects.create(
+            source=subject_source.source,
+            location=Point(0, 0),
+            recorded_at=datetime.now(tz=pytz.UTC) - timedelta(weeks=1),
+        )
+
+        request = self._get_request(
+            path=f"/subjectgroups?group_name={urllib.parse.quote_plus(subject_group_empty.name)}"
+        )
+        response = SubjectGroupsView.as_view()(request)
+        subject_response = response.data[0]["subjects"][0]
+
+        assert subject_response.get("name") == subject.name
+        assert subject_response.get("tracks_available") is False
+
+    def _get_request(self, path="/subjects"):
         client = HTTPClient()
         client.app_user.is_superuser = True
         client.app_user.save()
-        request = client.factory.get(client.api_base + f"/subjects")
+        request = client.factory.get(client.api_base + path)
         client.force_authenticate(request, client.app_user)
         return request
 

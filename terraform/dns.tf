@@ -8,7 +8,7 @@ locals {
     "aberdares"              = "mountain"
     "meru"                   = "eastern"
     "wisentproject"          = "pwn"
-    "pantheraolympic"        = "pantheraolympicpeninsula"
+    "pantheraolympic"        = "pantheraolympicpenninsula"
     "wildhorizons"           = "victoriafalls"
     "westernsiempang"        = "spws"
     "abokouamekro"           = "elephants-ci"

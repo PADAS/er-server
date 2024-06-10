@@ -21,6 +21,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import router, transaction
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
+from django.forms import Select
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -133,6 +134,20 @@ class SpatialFeaturesInline(admin.TabularInline):
     verbose_name = "Feature Group"
 
 
+class SpatialFeatureGroupStaticInline(admin.TabularInline):
+    model = models.SpatialFeatureGroupStaticFeatures
+    model._meta.verbose_name_plural = "Features"
+    extra = 1
+    verbose_name = "Feature"
+    autocomplete_fields = ("spatial_feature",)
+    fields = ("spatial_feature",)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "spatial_feature":
+            kwargs["widget"] = Select(attrs={"style": "width:100%;"})
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+
 @admin.register(models.DisplayCategory)
 class DisplayCategoryAdmin(BaseModelAdminMixin):
     list_display = ("name",)
@@ -142,8 +157,10 @@ class DisplayCategoryAdmin(BaseModelAdminMixin):
 
 @admin.register(models.SpatialFeatureGroupStatic)
 class SpatialFeatureGroupStaticAdmin(BaseModelAdminMixin):
+    ordering = ("name",)
     search_fields = ("name",)
     autocomplete_fields = ("features",)
+    inlines = (SpatialFeatureGroupStaticInline,)
 
 
 @admin.register(models.SpatialFeatureType)
