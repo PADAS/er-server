@@ -1,7 +1,7 @@
 import hashlib
+import logging
 import re
 from collections import defaultdict
-import logging
 from typing import Iterator, List, Optional
 from uuid import UUID, uuid4
 
@@ -63,7 +63,7 @@ def parse_permission_codename(codename: str) -> tuple:
         tuple(uuid.UUID, str): returns tuple(tenant_id or none, codename)
 
     """
-    tenant_regex = r"^([A-Za-z0-9_+/-]{22})(?::)([\sa-z0-9_-]+)"
+    tenant_regex = r"^([A-Za-z0-9_+/-]{22})(?::)([\sA-Za-z0-9_-]+)"
     match = re.search(tenant_regex, codename)
     return (lengthen_tenant_id(match.group(1)), match.group(2)) if match else (None, codename)
 
@@ -94,7 +94,7 @@ def get_category_name_from_perm(perm_name: str) -> str:
     tenant_id, codename = parse_permission_codename(perm_name)
 
     # GEOGRAPHIC_DISTANCE_SUFFIX
-    geo_perm_regex = r"(?:(?<=add_)|(?<=view_)|(?<=change_)|(?<=delete_))([\sa-z0-9_-]+)(?=_gd)"
+    geo_perm_regex = r"(?:(?<=add_)|(?<=view_)|(?<=change_)|(?<=delete_))([\sA-Za-z0-9_-]+)(?=_gd)"
 
     result = re.search(geo_perm_regex, codename)
     return result.group() if result else result
