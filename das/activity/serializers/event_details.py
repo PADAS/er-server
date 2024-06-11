@@ -207,10 +207,10 @@ class EventDetailsSerializer(ModelSerializer):
 
             if revision.action == ACTION_ADDED:
                 get_display_fieldnames()
-                result = "Created with fields: {0}".format(", ".join(fieldnames))
-            if revision.action == ACTION_UPDATED:
+                result = " with fields: " + f"{', '.join(fieldnames)}"
+            elif revision.action == ACTION_UPDATED:
                 get_display_fieldnames()
-                result = "{0} fields: {1}".format(revision.get_action_display(), ", ".join(fieldnames))
+                result = f"{revision.get_action_display()} fields: {', '.join(fieldnames)}"
 
             last_details = revision_details
             return result
