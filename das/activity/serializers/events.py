@@ -1069,6 +1069,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
             for geometry in self._render_geometries_updates(event):
                 updates.extend(geometry)
+
             if event_details:
                 updates.extend(details_updates)
 
