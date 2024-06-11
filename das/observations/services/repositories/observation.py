@@ -7,7 +7,6 @@ from observations.services.exceptions import ObservationDoesNotExist
 from observations.services.repositories.django import ReadDjangoObservationSource
 from observations.services.repositories.interfaces import ReadObservationRepositoryBase
 
-OBSERVATION_SOURCE = "database"  # Temporal Feature Flag
 SOURCES = {"database": ReadDjangoObservationSource}
 
 
