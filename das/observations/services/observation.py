@@ -7,7 +7,7 @@ OBSERVATION_SOURCE = "database"  # Temporal Feature Flag
 
 
 def get_observation_by_id(id: UUID):
-    repository = ReadObservationRepository(data_source=OBSERVATION_SOURCE)
+    repository = ReadObservationRepository(data_source="database")
 
     return repository.get_by_id(id=id)
 
@@ -18,7 +18,7 @@ def get_observation_coordinates_and_times_by_subject_id_and_source_id(
     coordinates = []
     times = []
 
-    repository = ReadObservationRepository(data_source=OBSERVATION_SOURCE)
+    repository = ReadObservationRepository(data_source="database")
     observations_data = repository.get_observations_by_subject_id_and_source_id(
         subject_id=subject_id, source_id=source_id
     )
