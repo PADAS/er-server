@@ -290,9 +290,9 @@ class RevisionMessage:
     @classmethod
     def get_action(cls, revision, event):
         if revision.action in (ACTION_ADDED,):
-            return "Created"
+            return None
 
-        elif revision.action in (ACTION_UPDATED,):
+        if revision.action in (ACTION_UPDATED,):
             return cls._action_updated(revision, event)
 
         elif revision.action == ACTION_RELATION_DELETED:
