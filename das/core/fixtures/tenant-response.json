@@ -15,6 +15,7 @@
     "acceptEula": false,
     "alertRateLimit": 40,
     "allServerNames": null,
+    "altServerNames": null,
     "defaultEventFilterFromDays": null,
     "defaultPatrolFilterFromDays": null,
     "eusOrg": null,
