@@ -1893,6 +1893,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         event_category = EventCategory.objects.create(
             value="sample-event-category",
             display="Some display",
+            ordernum=1,
         )
 
         event_type = EventType.objects.create(
@@ -1901,6 +1902,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
             category=event_category,
             default_priority=0,
             default_state="resolved",
+            ordernum=1,
         )
 
         # Manual step here: Associate the new generic event type to the
@@ -2084,10 +2086,13 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         event_category = EventCategory.objects.create(
             value="sample-event-category",
             display="Some display",
+            ordernum=1,
         )
 
         event_type_no1 = EventType.objects.create(
-            value="eventsource_no1_event_type", display="eventsource_no1_event_type", category=event_category
+            value="eventsource_no1_event_type",
+            display="eventsource_no1_event_type",
+            category=event_category,
         )
         EventSource.objects.filter(eventprovider_id=str(eventprovider_no1.id), id=esid_no1).update(
             event_type=event_type_no1
@@ -3070,7 +3075,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
     def test_case_insensitive_eventtype(self):
         eventtype_value = "Smart_rhino_sighting"
-        event_category = EventCategory.objects.create(value="test_category", display="Test Category")
+        event_category = EventCategory.objects.create(value="test_category", display="Test Category", ordernum=1)
         event_type = EventType.objects.create(
             value=eventtype_value, display="Smart Rhino Sighting", category=event_category
         )

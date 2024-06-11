@@ -11,7 +11,7 @@ from .base import (
     EventsView,
     EventView,
 )
-from .categories import EventCategoriesView, EventCategoryView
+from .categories import EventCategoriesView, EventCategoryRankView, EventCategoryView
 from .classes import EventClassesView, EventClassFactorsView
 from .files import EventFilesView, EventFileView
 from .notes import EventNotesView, EventNoteView
@@ -22,27 +22,28 @@ from .types import EventTypesView, EventTypeView
 __all__ = (
     "EventAlertTargetsListView",
     "EventCategoriesView",
+    "EventCategoryRankView",
     "EventCategoryView",
-    "EventClassFactorsView",
     "EventClassesView",
+    "EventClassFactorsView",
     "EventCountView",
     "EventFactorsView",
-    "EventFileView",
     "EventFilesView",
+    "EventFileView",
     "EventFiltersView",
     "EventGeometryView",
-    "EventNoteView",
     "EventNotesView",
+    "EventNoteView",
     "EventProvidersView",
-    "EventRelationshipView",
     "EventRelationshipsView",
-    "EventSourceView",
-    "EventSourcesView",
-    "EventStateView",
-    "EventTypeView",
-    "EventTypesView",
-    "EventView",
+    "EventRelationshipView",
     "EventsExportView",
     "EventsGeoJsonView",
+    "EventSourcesView",
+    "EventSourceView",
+    "EventStateView",
     "EventsView",
+    "EventTypesView",
+    "EventTypeView",
+    "EventView",
 )

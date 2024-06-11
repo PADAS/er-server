@@ -28,8 +28,8 @@ class test_retrieve_event_category_with_event_types(BaseAPITest):
         self.no_perms_user = User.objects.create_user(
             "no_perms_user", "das_no_perms@vulcan.com", "noperms", **user_const
         )
-        EventCategory.objects.create(value="security", display="Security")
-        self.event_category_logistic = EventCategory.objects.create(value="logistic", display="Logistic")
+        EventCategory.objects.create(value="security", display="Security", ordernum=1)
+        self.event_category_logistic = EventCategory.objects.create(value="logistic", display="Logistic", ordernum=1)
 
     def test_no_event_categories_display(self):
         # User with no-perms can't view event categories.
@@ -51,7 +51,7 @@ class test_retrieve_event_category_with_event_types(BaseAPITest):
     def test_create_event_category_with_restricted_character(self, get_tenant_settings):
         get_tenant_settings.return_value = deepcopy(self.tenant_response)
 
-        EventCategory.objects.create(value=".", display="Testing")
+        EventCategory.objects.create(value=".", display="Testing", ordernum=1)
 
         url = "api/v1.0/user/me"
         request = self.factory.get(url)
@@ -67,7 +67,7 @@ class test_retrieve_event_category_with_event_types(BaseAPITest):
             thread = MagicMock()
             thread.tenant_object = self.tenant_two_settings
             with patch.object(utils.tenant.thread, "_local_thread", thread):
-                EventCategory.objects.create(value="superuser_test", display="Testing")
+                EventCategory.objects.create(value="superuser_test", display="Testing", ordernum=1)
 
         url = "api/v1.0/user/me"
         request = self.factory.get(url)
@@ -102,7 +102,7 @@ class test_retrieve_event_category_with_event_types(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_retrieve_event_category_with_event_types(self):
-        obj = EventCategory.objects.create(value="test_event_category", display="test_event_category")
+        obj = EventCategory.objects.create(value="test_event_category", display="test_event_category", ordernum=1)
         EventType.objects.create(value="event_type", display="Event Type", category=obj)
         url = reverse("event-category", kwargs={"eventcategory_id": obj.id})
         request = self.factory.get(url, {"include_event_types": "true"})
@@ -126,7 +126,7 @@ class test_retrieve_event_category_with_event_types(BaseAPITest):
         )
 
     def test_retrieve_event_categories_with_event_types(self):
-        obj = EventCategory.objects.create(value="test_event_category", display="test_event_category")
+        obj = EventCategory.objects.create(value="test_event_category", display="test_event_category", ordernum=1)
         EventType.objects.create(value="event_type", display="Event Type", category=obj)
         url = reverse("event-categories")
         request = self.factory.get(f"{url}?include_event_types=true")

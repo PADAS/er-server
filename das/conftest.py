@@ -327,6 +327,22 @@ def basic_event_categories():
 
 
 @pytest.fixture
+def five_event_categories():
+    categories_codename = [
+        {"value": "analyzer_event", "display": "Analyzer Event"},
+        {"value": "security", "display": "Security"},
+        {"value": "monitoring", "display": "Monitoring"},
+        {"value": "logistics", "display": "Logistics"},
+        {"value": "test", "display": "Test"},
+    ]
+
+    categories = []
+    for values in categories_codename:
+        categories.append(EventCategoryFactory.create(**values))
+    return categories
+
+
+@pytest.fixture
 def application():
     application, _ = Application.objects.get_or_create(client_id="das_web_client")
     return application

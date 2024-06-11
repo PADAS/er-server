@@ -64,6 +64,7 @@ from utils.html import clean_user_text
 from utils.json import parse_bool
 from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager
+from utils.rank import RankModelMixin
 from utils.tenant import get_tenant_settings
 from utils.tenant.models import TenantThroughModel
 
@@ -198,14 +199,13 @@ class EventFactor(TenantModelMixin, TimestampedModel):
         return (self.value,)
 
 
-class EventCategory(TenantModelMixin, TimestampedModel):
+class EventCategory(TenantModelMixin, TimestampedModel, RankModelMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     # the value field is used as part of the codename of a set of permissions created for each EventCategory
     # this limits us to the size of the EventCategory value field as the codename field has a limit of 100 chars
     # we add some prefixs and suffixes when generating the codename, effectively limiting us to 67 chars here
     value = models.CharField(max_length=67)
     display = models.CharField(max_length=100, blank=True)
-    ordernum = models.SmallIntegerField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     flag = models.CharField(max_length=40, default="user", choices=(("user", "User"), ("system", "System")))
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)

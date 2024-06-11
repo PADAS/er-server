@@ -11,7 +11,7 @@ from rt_api.tasks import get_filtered_events
 class EventsFilterTestCase(BaseAPITest):
     def setUp(self):
         super().setUp()
-        category = EventCategory.objects.create(value="test_category", display="test Category")
+        category = EventCategory.objects.create(value="test_category", display="test Category", ordernum=1)
         self.event_type = EventType.objects.create(
             id="c9feb7e4-db81-4548-b8e3-29d4f14a3026", display="Test Type 1", value="typetest1", category=category
         )

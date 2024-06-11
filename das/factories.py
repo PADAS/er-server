@@ -309,6 +309,7 @@ class EventCategoryFactory(factory.django.DjangoModelFactory):
 
     value = fuzzy.FuzzyText(length=20)
     das_tenant = factory.SubFactory(TenantFactory)
+    ordernum = factory.Sequence(lambda n: n)
 
 
 class EventTypeFactory(factory.django.DjangoModelFactory):
