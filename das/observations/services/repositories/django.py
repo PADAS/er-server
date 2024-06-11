@@ -29,9 +29,14 @@ class ReadDjangoObservationSource(ReadObservationSourceBase):
         since = subject_source.safe_assigned_range.lower
         until = subject_source.safe_assigned_range.upper
 
-        observations = Observation.objects.filter(
-            source__subjectsource=subject_source,
-            source__subjectsource__assigned_range__contains=F("recorded_at"),
-            recorded_at__range=[since, until],
-        ).exclude(Q(location=EMPTY_POINT))
-        return [model_to_dict(observation) for observation in observations]
+        concrete_fields = [field.name for field in Observation._meta.get_fields() if field.concrete]
+
+        return (
+            Observation.objects.filter(
+                source__subjectsource=subject_source,
+                source__subjectsource__assigned_range__contains=F("recorded_at"),
+                recorded_at__range=[since, until],
+            )
+            .exclude(Q(location=EMPTY_POINT))
+            .values(*concrete_fields)
+        )
