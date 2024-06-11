@@ -3679,7 +3679,7 @@
     "updated_at": "2017-08-02T18:45:10.029Z",
     "value": "security",
     "display": "Security",
-    "ordernum": 1,
+    "ordernum": 1.0,
     "flag": "user"
   }
 },
@@ -3691,7 +3691,7 @@
     "updated_at": "2018-02-07T22:29:50.567Z",
     "value": "logistics",
     "display": "Logistics",
-    "ordernum": 30,
+    "ordernum": 30.0,
     "flag": "user"
   }
 },
@@ -3703,7 +3703,7 @@
     "updated_at": "2018-02-07T22:30:06.661Z",
     "value": "hidden",
     "display": "HIDDEN",
-    "ordernum": null,
+    "ordernum": 0,
     "flag": "system"
   }
 },
@@ -3715,7 +3715,7 @@
     "updated_at": "2017-08-02T18:46:28.248Z",
     "value": "monitoring",
     "display": "Monitoring",
-    "ordernum": 20,
+    "ordernum": 20.0,
     "flag": "user"
   }
 },
@@ -3727,7 +3727,7 @@
     "updated_at": "2017-08-02T05:07:26.257Z",
     "value": "analyzer_event",
     "display": "Analyzer Event",
-    "ordernum": 1,
+    "ordernum": 1.0,
     "flag": "system"
   }
 },

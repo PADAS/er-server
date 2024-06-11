@@ -1,5 +1,9 @@
 from django.db import IntegrityError
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.generics import (
+    GenericAPIView,
+    ListCreateAPIView,
+    RetrieveUpdateDestroyAPIView,
+)
 
 from activity.models import EventCategory
 from activity.permissions import EventCategoryObjectPermissions
@@ -7,6 +11,7 @@ from activity.serializers import EventCategorySerializer
 from activity.util import return_409_response
 from activity.views.schemas import EventCategoryViewSchema
 from utils.json import parse_bool
+from utils.rank import RankSerializer, RankView
 
 
 class EventCategoriesView(ListCreateAPIView):
@@ -56,3 +61,13 @@ class EventCategoryView(RetrieveUpdateDestroyAPIView):
         context = super().get_serializer_context()
         context["include_event_types"] = parse_bool(query_params.get("include_event_types", False))
         return context
+
+
+class EventCategoryRankView(GenericAPIView, RankView):
+    lookup_field = "id"
+    lookup_url_kwarg = "eventcategory_id"
+    permission_classes = (EventCategoryObjectPermissions,)
+    serializer_class = RankSerializer
+
+    def get_queryset(self):
+        return EventCategory.objects.all().order_by("ordernum")
