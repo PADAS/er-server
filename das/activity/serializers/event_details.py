@@ -7,7 +7,7 @@ from rest_framework.serializers import ModelSerializer
 
 from accounts.serializers import UserDisplaySerializer, get_user_display
 from activity.models import EventDetails, EventType
-from revision.manager import ACTION_UPDATED
+from revision.manager import ACTION_ADDED, ACTION_UPDATED
 from utils.schema_utils import (
     flatten_definition_items,
     generate_event_type_schema_from_doc,
@@ -193,7 +193,7 @@ class EventDetailsSerializer(ModelSerializer):
             revision_details = revision.data.get("data", {}).get("event_details", {})
             details = get_display_values_for_event_details(revision_details, rendered_schema)
 
-            if revision.action == ACTION_UPDATED:
+            def get_display_fieldnames():
                 for k, v in revision_details.items():
                     if k not in details:
                         continue
@@ -205,6 +205,11 @@ class EventDetailsSerializer(ModelSerializer):
                     display = truncatechars(display, MAX_UPDATES_STR_LENGTH)
                     fieldnames.append(f"{title}")
 
+            if revision.action == ACTION_ADDED:
+                get_display_fieldnames()
+                result = "Created with fields: {0}".format(", ".join(fieldnames))
+            if revision.action == ACTION_UPDATED:
+                get_display_fieldnames()
                 result = "{0} fields: {1}".format(revision.get_action_display(), ", ".join(fieldnames))
 
             last_details = revision_details
