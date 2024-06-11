@@ -292,7 +292,7 @@ class RevisionMessage:
         if revision.action in (ACTION_ADDED,):
             return None
 
-        if revision.action in (ACTION_UPDATED,):
+        elif revision.action in (ACTION_UPDATED,):
             return cls._action_updated(revision, event)
 
         elif revision.action == ACTION_RELATION_DELETED:
