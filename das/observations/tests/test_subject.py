@@ -1266,7 +1266,6 @@ def test_subject_tracks_with_multiple_sources(subject, five_sources, user_client
 
     url = reverse("subject-view-tracks", kwargs={"subject_id": subject.id})
     response = user_client.get(url)
-    print(response)
 
     coordinates = response.data["features"][0]["geometry"]["coordinates"]
 
