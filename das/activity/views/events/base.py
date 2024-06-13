@@ -92,25 +92,20 @@ class EventCountView(APIView):
     Returns the count of New Events.
     """
     permission_classes = (EventCategoryPermissions,)
-
+    
     def get_queryset(self):
         return Event.objects.all()
-
     def get(self, request, *args, **kwargs):
         queryset = Event.objects.new()
 
         event_categories = self.request.query_params.getlist("event_category", None)
-        if event_categories is None or len(event_categories) == 0:
-            event_categories = EventCategory.objects.values_list("value").distinct()
-            event_categories = [x[0] for x in event_categories]
 
-        allowed_event_categories = []
-        for event_category in event_categories:
-            permission_name = "activity.{0}_read".format(event_category)
-            if self.request.user.has_perm(permission_name):
-                allowed_event_categories.append(event_category)
+        if not event_categories:
+            event_categories = EventCategory.objects.values_list("value", flat=True).distinct()
 
-        if len(allowed_event_categories) > 0:
+        allowed_event_categories = [ec for ec in event_categories if self.request.user.has_perm(f"activity.{ec}_read")]
+
+        if allowed_event_categories:
             queryset = queryset.by_category(allowed_event_categories)
         else:
             queryset = queryset.none()
