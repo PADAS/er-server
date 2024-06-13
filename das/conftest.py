@@ -572,3 +572,17 @@ def five_communities():
 @pytest.fixture
 def source_group():
     return SourceGroupFactory()
+
+
+@pytest.fixture
+def subject_source_with_observations():
+    subject_source = SubjectSourceFactory()
+    subject_source.subject = SubjectFactory()
+    source = SourceFactory()
+    subject_source.source = source
+    subject_source.save()
+    observation = ObservationFactory()
+    observation.subject_source = subject_source
+    observation.source = source
+    observation.save()
+    return subject_source, observation

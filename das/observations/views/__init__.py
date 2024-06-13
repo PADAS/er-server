@@ -36,7 +36,11 @@ from observations.filters import SubjectObjectPermissionsFilter, create_gp_filte
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
 from observations.permissions import StandardObjectPermissions
-from observations.serializers import SubjectSourceSerializer, TrackLimitSerializer
+from observations.serializers import (
+    SubjectSourceSerializer,
+    SubjectTrackSerializer,
+    TrackLimitSerializer,
+)
 from observations.tasks import handle_outbox_message, process_gpxdata_api
 from observations.utils import (
     VIEW_OBSERVATION_PERMS,
@@ -750,7 +754,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
     """
 
     lookup_url_kwarg = "subject_id"
-    serializer_class = serializers.SubjectTrackSerializer
+    serializer_class = SubjectTrackSerializer
 
     def get_queryset(self):
         self.subject_linked_sources = []
