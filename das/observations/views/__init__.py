@@ -1452,8 +1452,7 @@ class TrackingDataCsvView(APIView):
             "activity_label": self.get_attribute(item, "activity_label"),
             "subject_name": item.get("name"),
         }
-        return data
-
+        
     @staticmethod
     def get_temperature(item):
         additional = item.get("additional")
