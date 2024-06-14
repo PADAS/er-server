@@ -12,6 +12,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.DeleteModel(
+            name="SpatialFeatureGroupStatic",
+        ),
         migrations.RenameModel(
             old_name="SpatialFeatureGroupStaticTemp",
             new_name="SpatialFeatureGroupStatic",
@@ -39,12 +42,7 @@ class Migration(migrations.Migration):
                 fields=("das_tenant", "name"), name="mapping_spatialfeaturegroupstatic_unique_name_across_tenants"
             ),
         ),
-        migrations.RemoveIndex(
-            model_name="spatialfeaturegroupstatic",
-            name="mapping_spa_das_ten_4f6e73_idx",
-        ),
-        migrations.AddIndex(
-            model_name="spatialfeaturegroupstatic",
-            index=models.Index(fields=["das_tenant", "name"], name="mapping_spa_das_ten_0e9007_idx"),
+        migrations.DeleteModel(
+            name="SpatialFeatureGroup",
         ),
     ]
