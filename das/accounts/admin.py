@@ -26,7 +26,11 @@ from django.utils.translation import gettext_lazy as _
 
 from accounts.models import PermissionSet, User
 from accounts.utils import patrol_mgmt_permissions
-from core.admin import CustomM2MChecks, BaseModelAdminMixin, ModelAdminDisplayingManyToManyFieldMixin
+from core.admin import (
+    BaseModelAdminMixin,
+    CustomM2MChecks,
+    ModelAdminDisplayingManyToManyFieldMixin,
+)
 from core.common import TIMEZONE_USED
 from observations.models import Subject
 from utils.admin import DefaultFilterMixin, FieldSetElementMixin
@@ -316,10 +320,11 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
         else:
             should_reset_password = False
 
-        if form.cleaned_data["linked_subject"]:
+        if form.cleaned_data.get("linked_subject"):
             subject = form.cleaned_data["linked_subject"]
-            subject.linked_user = obj
-            subject.save()
+            if subject.linked_user != obj:
+                subject.linked_user = obj
+                subject.save()
 
         super(UserAdmin, self).save_model(request, obj, form, change)
 
