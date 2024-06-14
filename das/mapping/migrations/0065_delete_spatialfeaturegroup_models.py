@@ -8,12 +8,5 @@ class Migration(migrations.Migration):
     dependencies = [
         ("mapping", "0064_migrate_data_to_spatialfeaturegroupstatictemp"),
     ]
-
-    operations = [
-        migrations.DeleteModel(
-            name="SpatialFeatureGroupStatic",
-        ),
-        migrations.DeleteModel(
-            name="SpatialFeatureGroup",
-        ),
-    ]
+    # move operations to mapping 0066 migration to avoid migration state corruption
+    operations = []
