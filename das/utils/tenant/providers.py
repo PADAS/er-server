@@ -50,7 +50,7 @@ class TenantData:
         return alt_domain_cache_client.hget("alt_server_lookup", self.domain)
 
     def _get_from_cache(self):
-        domain_to_use = self.domain_override if hasattr(self, "domain_override") else self.domain
+        domain_to_use = self.domain_from_alts if hasattr(self, "domain_from_alts") else self.domain
         logger.debug("Getting tenant from cache for domain %s", domain_to_use)
 
         start_time = time.time()
@@ -71,7 +71,7 @@ class TenantData:
             return None
 
     def _fetch_from_tms(self):
-        domain_to_use = self.domain_override if hasattr(self, "domain_override") else self.domain
+        domain_to_use = self.domain_from_alts if hasattr(self, "domain_from_alts") else self.domain
         logger.debug("Getting tenant from TMS for domain %s", domain_to_use)
 
         tenant_data = tms_api_client.get_tenant_data(domain=domain_to_use)
