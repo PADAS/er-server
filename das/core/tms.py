@@ -34,6 +34,9 @@ class DjangoSettingsClient(BaseClient):
 
         return DjangoSettingsTenantBuilder().build().to_dict()
 
+    def list_tenants(self):
+        return []
+
 
 class HTTPClient(BaseClient):
     def __init__(self, config):
@@ -41,13 +44,24 @@ class HTTPClient(BaseClient):
         self._api_version = config["API_VERSION"]
         self._token = config["API_KEY"]
 
+    def list_tenants(self):
+        params = self._get_default_param()
+
+        try:
+            response = self._get("tenants", params=params)
+            response.raise_for_status()
+        except RequestException as request_exception:
+            raise ConnectionTMSApiTimeoutException(f"Error listing tenants from the TMS API: {request_exception}")
+
+        return response.json()
+
     def get_tenant_data(self, domain: str):
         params = self._get_default_param()
         params["should-refresh-cache"] = True
         try:
             response = self._get(f"tenants/{domain}", params=params)
         except RequestException as request_exception:
-            raise ConnectionTMSApiTimeoutException(f"Timeout connecting to TMS API {request_exception}")
+            raise ConnectionTMSApiTimeoutException(f"Timeout connecting to TMS API: {request_exception}")
 
         if response.status_code == requests.codes.ok:
             return response.json()

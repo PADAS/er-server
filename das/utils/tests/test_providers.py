@@ -1,8 +1,10 @@
 import json
 import logging
 import os
+from unittest.mock import patch
 
 import pytest
+from mockredis import mock_redis_client
 
 from utils.features import features
 from utils.tenant.exceptions import TenantNotFoundException
@@ -32,6 +34,21 @@ class TestTenantData:
         caplog.set_level(logging.DEBUG)
         memory_store_client_mock.get_key.return_value = None
         tms_api_client_mock.get_tenant_data.return_value = tenant_response
+
+        tenant_data = self.instance.get_tenant_data()
+
+        assert tenant_data == tenant_response
+        assert f"Getting tenant from cache for domain {DOMAIN}" in caplog.text
+        assert f"Tenant {DOMAIN} not found in cache" in caplog.text
+        assert f"Getting tenant from TMS for domain {DOMAIN}" in caplog.text
+
+    @patch("redis.Redis", mock_redis_client)
+    def test_get_tenant_from_alt_server_names(
+        self, memory_store_client_mock, tms_api_client_mock, alt_server_name_client_mock, tenant_response, caplog
+    ):
+        caplog.set_level(logging.DEBUG)
+        memory_store_client_mock.get_key.return_value = None
+        tms_api_client_mock.get_tenant_data.return_value = None
 
         tenant_data = self.instance.get_tenant_data()
 
