@@ -38,7 +38,8 @@ class DjangoSettingsClient(BaseClient):
         return DjangoSettingsTenantBuilder().build().to_dict()
 
     def list_tenants(self):
-        return []
+        tenant_data = self.get_tenant_data()
+        return [tenant_data]
 
 
 class HTTPClient(BaseClient):
