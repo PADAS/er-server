@@ -24,6 +24,9 @@ class TestClient(BaseClient):
     def get_tenant_data(self, domain: str):
         return self.tenant_response
 
+    def list_tenants(self):
+        return [self.tenant_response]
+
 
 class DjangoSettingsClient(BaseClient):
     def __init__(self, config):
