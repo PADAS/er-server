@@ -425,7 +425,7 @@ def memory_store_client_mock(monkeypatch, tenant_response):
 def get_alt_domains_client_mock(monkeypatch, tenant_response):
     def client_mock():
         mock = MagicMock()
-        mock.hget.return_value = "root.dev.pamdas.org"
+        return mock
 
     monkeypatch.setattr("utils.tenant.providers.get_alt_domain_cache_client", client_mock)
     return client_mock
