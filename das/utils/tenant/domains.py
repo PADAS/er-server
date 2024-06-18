@@ -58,12 +58,11 @@ def add_new_tenant_domains_to_settings() -> NoReturn:
 
     full_tenant_list = tms_api_client.list_tenants()
 
-    tenants_in_current_cluster = full_tenant_list
-    """  [
+    tenants_in_current_cluster = [
         tenant
         for tenant in full_tenant_list
         if tenant["clusterName"] == settings.CLUSTER_NAME and tenant["clusterNamespace"] == settings.CLUSTER_NAMESPACE
-    ] """
+    ]
 
     populate_alt_server_lookup_cache(tenants_in_current_cluster)
 
