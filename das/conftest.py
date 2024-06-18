@@ -422,9 +422,9 @@ def memory_store_client_mock(monkeypatch, tenant_response):
 
 
 @pytest.fixture
-def alt_domains_client_mock(monkeypatch, tenant_response):
-    client_mock = MagicMock()
-    monkeypatch.setattr("utils.tenant.providers.tms_api_client", client_mock)
+def get_alt_domains_client_mock(monkeypatch, tenant_response):
+    client_mock = lambda: MagicMock()
+    monkeypatch.setattr("utils.tenant.providers.get_alt_domain_cache_client", client_mock)
     return client_mock
 
 
