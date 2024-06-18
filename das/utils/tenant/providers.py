@@ -30,16 +30,17 @@ class TenantData:
 
     def get_tenant_data(self):
         if features.tms.is_on():
-            return self._get_from_tenant_data_sources()
+            return self._get_from_cache_or_tms()
         else:
             return self._get_from_django()
 
-    def _get_from_tenant_data_sources(self):
+    def _get_from_cache_or_tms(self):
         tenant_data = self._get_from_cache()
         if not tenant_data:
             tenant_data = self._fetch_from_tms()
         if not tenant_data:
-            tenant_data = self._get_from_alt_server_names_hashset()
+            self.domain_from_alts = self._get_from_alt_server_names_hashset()
+            self._get_from_cache_or_tms()
         return tenant_data
 
     def _get_from_alt_server_names_hashset(self):
@@ -49,30 +50,34 @@ class TenantData:
         return alt_domain_cache_client.hget("alt_server_lookup", self.domain)
 
     def _get_from_cache(self):
-        logger.debug("Getting tenant from cache for domain %s", self.domain)
+        domain_to_use = self.domain_override if hasattr(self, "domain_override") else self.domain
+        logger.debug("Getting tenant from cache for domain %s", domain_to_use)
+
         start_time = time.time()
         try:
-            cached_data = memory_store_client.get_key(key=self.domain)
+            cached_data = memory_store_client.get_key(key=domain_to_use)
         except ConnectionError:
             logger.warning("Could not fetch tenant data from cache due to connection error")
             return None
 
         if not cached_data:
-            logger.debug("Tenant %s not found in cache", self.domain)
+            logger.debug("Tenant %s not found in cache", domain_to_use)
             return None
         try:
             logger.debug("Retrieved tenant data in %.4f." % (time.time() - start_time))
             return json.loads(cached_data)
         except json.JSONDecodeError:
-            logger.warning("Can't parse tenant from cache for domain %s", self.domain)
+            logger.warning("Can't parse tenant from cache for domain %s", domain_to_use)
             return None
 
     def _fetch_from_tms(self):
-        logger.debug("Getting tenant from TMS for domain %s", self.domain)
-        tenant_data = tms_api_client.get_tenant_data(domain=self.domain)
+        domain_to_use = self.domain_override if hasattr(self, "domain_override") else self.domain
+        logger.debug("Getting tenant from TMS for domain %s", domain_to_use)
+
+        tenant_data = tms_api_client.get_tenant_data(domain=domain_to_use)
         if not tenant_data:
-            logger.debug("Tenant not found in TMS for domain %s", self.domain)
-            raise TenantNotFoundException(domain=self.domain)
+            logger.debug("Tenant not found in TMS for domain %s", domain_to_use)
+            raise TenantNotFoundException(domain=domain_to_use)
         return tenant_data
 
     def _get_from_django(self):
