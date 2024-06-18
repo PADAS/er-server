@@ -342,6 +342,7 @@ REALTIME_BROKER_URL = f"{REDIS_SERVER}/2"
 REALTIME_BROKER_OPTIONS = {"max_connections": 200}
 PUBSUB_BROKER_URL = f"{REDIS_SERVER}/1"
 PUBSUB_BROKER_OPTIONS = {"max_connections": 200}
+ALT_DOMAIN_CACHE_URL = f"{REDIS_SERVER}/3"
 
 # Celery Settings
 CELERY_BROKER_URL = REDIS_SERVER
@@ -644,6 +645,14 @@ TMS_API = {
 }
 
 MEMORY_STORE = {
+    "CLIENT": env.str("MEMORY_STORE_CLIENT", "utils.persistent.RedisStorageReadOnly"),
+    "HOST": env.str("MEMORY_STORE_HOST", ""),
+    "PORT": env.int("MEMORY_STORE_PORT", 6379),
+    "DATABASE": env.int("MEMORY_STORE_DATABASE", 0),
+    "API_KEY": env.str("MEMORY_STORE_API_KEY", ""),
+}
+
+ALT_SERVER_CACHE = {
     "CLIENT": env.str("MEMORY_STORE_CLIENT", "utils.persistent.RedisStorageReadOnly"),
     "HOST": env.str("MEMORY_STORE_HOST", ""),
     "PORT": env.int("MEMORY_STORE_PORT", 6379),

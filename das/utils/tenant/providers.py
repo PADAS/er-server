@@ -7,7 +7,7 @@ from redis.exceptions import ConnectionError
 
 from django.conf import settings
 
-from core import memory_store_client, tms_api_client
+from core import get_alt_domain_cache_client, memory_store_client, tms_api_client
 from utils.features import features
 from utils.tenant.builder import DjangoSettingsTenantBuilder
 from utils.tenant.exceptions import TenantNotFoundException
@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 TENANT_CACHE_KEY = "tenant"
 EXPIRATION_TIME_IN_SECONDS = 604800
+
+alt_domain_cache_client = get_alt_domain_cache_client()
 
 
 class TenantData:
@@ -28,15 +30,23 @@ class TenantData:
 
     def get_tenant_data(self):
         if features.tms.is_on():
-            return self._get_from_cache_or_tms()
+            return self._get_from_tenant_data_sources()
         else:
             return self._get_from_django()
 
-    def _get_from_cache_or_tms(self):
+    def _get_from_tenant_data_sources(self):
         tenant_data = self._get_from_cache()
         if not tenant_data:
             tenant_data = self._fetch_from_tms()
+        if not tenant_data:
+            tenant_data = self._get_from_alt_server_names_hashset()
         return tenant_data
+
+    def _get_from_alt_server_names_hashset(self):
+        logger.debug(
+            "Tenant domain not found in cache, nor in the TMS. Checking alt server names for domain %s", self.domain
+        )
+        return alt_domain_cache_client.hget("alt_server_lookup", self.domain)
 
     def _get_from_cache(self):
         logger.debug("Getting tenant from cache for domain %s", self.domain)
