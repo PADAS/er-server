@@ -49,7 +49,8 @@ class TestTenantData:
         caplog.set_level(logging.DEBUG)
         memory_store_client_mock.get_key.return_value = [None, json.dumps(tenant_response)]
         tms_api_client_mock.get_tenant_data.return_value = None
-        get_alt_domains_client_mock.hget.return_value = tenant_response["envSettings"]["altServerNames"][0]
+        alt_domains_client_mock = get_alt_domains_client_mock()
+        alt_domains_client_mock.hget.return_value = tenant_response["envSettings"]["altServerNames"][0]
 
         tenant_data = self.instance.get_tenant_data()
 
@@ -68,7 +69,8 @@ class TestTenantData:
         memory_store_client_mock.get_key.return_value = None
         tms_api_client_mock.get_tenant_data.return_value = None
         tenant_data = None
-        get_alt_domains_client_mock.hget.return_value = None
+        alt_domains_client_mock = get_alt_domains_client_mock()
+        alt_domains_client_mock.hget.return_value = None
 
         with pytest.raises(TenantNotFoundException):
             tenant_data = self.instance.get_tenant_data()
