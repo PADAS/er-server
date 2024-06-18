@@ -25,7 +25,7 @@ class TestTenantData:
 
         assert tenant_data == tenant_response
         assert f"Getting tenant from cache for domain {DOMAIN}" in caplog.text
-        assert f"Retrieved tenant data in" in caplog.text
+        assert "Retrieved tenant data in" in caplog.text
         assert "Tenant not found at cache" not in caplog.text
 
     def test_get_tenant_from_tms_passing_through_cache_first(
@@ -47,7 +47,7 @@ class TestTenantData:
         self, memory_store_client_mock, tms_api_client_mock, alt_server_name_client_mock, tenant_response, caplog
     ):
         caplog.set_level(logging.DEBUG)
-        memory_store_client_mock.get_key.return_value = None
+        memory_store_client_mock.get_key.return_value = [None, json.dumps(tenant_response)]
         tms_api_client_mock.get_tenant_data.return_value = None
 
         tenant_data = self.instance.get_tenant_data()
@@ -56,6 +56,9 @@ class TestTenantData:
         assert f"Getting tenant from cache for domain {DOMAIN}" in caplog.text
         assert f"Tenant {DOMAIN} not found in cache" in caplog.text
         assert f"Getting tenant from TMS for domain {DOMAIN}" in caplog.text
+        assert f"Tenant not found in TMS for domain {DOMAIN}" in caplog.text
+        assert "Getting tenant from cache for domain root.dev.pamdas.org" in caplog.text
+        assert "Retrieved tenant data in" in caplog.text
 
     def test_get_tenant_not_found(self, memory_store_client_mock, tms_api_client_mock, caplog):
         caplog.set_level(logging.DEBUG)
