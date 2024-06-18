@@ -15,7 +15,9 @@
     "acceptEula": false,
     "alertRateLimit": 40,
     "allServerNames": null,
-    "altServerNames": null,
+    "altServerNames": [
+      "root.dev.pamdas.org"
+    ],
     "defaultEventFilterFromDays": null,
     "defaultPatrolFilterFromDays": null,
     "eusOrg": null,

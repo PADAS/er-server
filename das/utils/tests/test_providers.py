@@ -44,11 +44,12 @@ class TestTenantData:
 
     @patch("redis.Redis", mock_redis_client)
     def test_get_tenant_from_alt_server_names(
-        self, memory_store_client_mock, tms_api_client_mock, alt_server_name_client_mock, tenant_response, caplog
+        self, memory_store_client_mock, tms_api_client_mock, get_alt_domains_client_mock, tenant_response, caplog
     ):
         caplog.set_level(logging.DEBUG)
         memory_store_client_mock.get_key.return_value = [None, json.dumps(tenant_response)]
         tms_api_client_mock.get_tenant_data.return_value = None
+        get_alt_domains_client_mock.hget.return_value = tenant_response["envSettings"]["altServerNames"][0]
 
         tenant_data = self.instance.get_tenant_data()
 
@@ -60,11 +61,14 @@ class TestTenantData:
         assert "Getting tenant from cache for domain root.dev.pamdas.org" in caplog.text
         assert "Retrieved tenant data in" in caplog.text
 
-    def test_get_tenant_not_found(self, memory_store_client_mock, tms_api_client_mock, caplog):
+    def test_get_tenant_not_found(
+        self, memory_store_client_mock, get_alt_domains_client_mock, tms_api_client_mock, caplog
+    ):
         caplog.set_level(logging.DEBUG)
         memory_store_client_mock.get_key.return_value = None
         tms_api_client_mock.get_tenant_data.return_value = None
         tenant_data = None
+        get_alt_domains_client_mock.hget.return_value = None
 
         with pytest.raises(TenantNotFoundException):
             tenant_data = self.instance.get_tenant_data()
@@ -74,6 +78,10 @@ class TestTenantData:
         assert f"Tenant {DOMAIN} not found in cache" in caplog.text
         assert f"Getting tenant from TMS for domain {DOMAIN}" in caplog.text
         assert f"Tenant not found in TMS for domain {DOMAIN}" in caplog.text
+        assert "Tenant domain not found in cache, nor in the TMS. Checking alt server names for domain" in caplog.text
+        assert (
+            "Tenant record not found. Please ensure you have created the tenant and refreshed the cache" in caplog.text
+        )
 
     @pytest.mark.parametrize(
         "data",

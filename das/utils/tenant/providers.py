@@ -51,7 +51,7 @@ class TenantData:
 
         if not primary_domain:
             logger.debug(
-                "Tenant record %s not found. Please ensure you have created the tenant and refreshed the cache",
+                "Tenant record not found. Please ensure you have created the tenant and refreshed the cache",
                 self.domain,
             )
             return None
