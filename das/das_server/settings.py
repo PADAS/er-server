@@ -652,14 +652,6 @@ MEMORY_STORE = {
     "API_KEY": env.str("MEMORY_STORE_API_KEY", ""),
 }
 
-ALT_SERVER_CACHE = {
-    "CLIENT": env.str("MEMORY_STORE_CLIENT", "utils.persistent.RedisStorageReadOnly"),
-    "HOST": env.str("MEMORY_STORE_HOST", ""),
-    "PORT": env.int("MEMORY_STORE_PORT", 6379),
-    "DATABASE": env.int("MEMORY_STORE_DATABASE", 0),
-    "API_KEY": env.str("MEMORY_STORE_API_KEY", ""),
-}
-
 DISABLE_STATSD = env.bool("DISABLE_STATSD", True)
 
 if not env.bool("IS_OAUTH2_PROVIDER_MIGRATION", False):
