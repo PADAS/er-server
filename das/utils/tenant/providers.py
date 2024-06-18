@@ -47,7 +47,16 @@ class TenantData:
         logger.debug(
             "Tenant domain not found in cache, nor in the TMS. Checking alt server names for domain %s", self.domain
         )
-        return alt_domain_cache_client.hget("alt_server_lookup", self.domain)
+        primary_domain = alt_domain_cache_client.hget("alt_server_lookup", self.domain)
+
+        if not primary_domain:
+            logger.debug(
+                "Tenant record %s not found. Please ensure you have created the tenant and refreshed the cache",
+                self.domain,
+            )
+            return None
+
+        return primary_domain
 
     def _get_from_cache(self):
         domain_to_use = self.domain_from_alts if hasattr(self, "domain_from_alts") else self.domain
