@@ -13,7 +13,7 @@ alt_domain_cache_client = get_alt_domain_cache_client()
 def get_server_names_for_tenant(tenant):
     envSettings = tenant.get("envSettings", {})
     if not envSettings:
-        return []
+        return {}
 
     all_server_names = envSettings.get("allServerNames")
     alt_server_names = envSettings.get("altServerNames")
@@ -34,7 +34,7 @@ def populate_alt_server_lookup_cache(all_tenant_data):
     for tenant in all_tenant_data:
         envSettings = tenant.get("envSettings", {})
         if not envSettings:
-            return []
+            return {}
 
         all_server_names = envSettings.get("allServerNames")
         alt_server_names = envSettings.get("altServerNames")
