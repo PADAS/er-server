@@ -4,11 +4,14 @@ from functools import reduce
 import pytest
 
 from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 
 from accounts.models import PermissionSet
+from activity.models import EventCategory
 from client_http import HTTPClient
 from utils.categories import (
+    EventCategoryRelatedPermissionSetActions,
     get_categories_and_geo_categories,
     make_eventcategory_permission_codename,
     should_apply_geographic_features,
@@ -124,3 +127,47 @@ class TestCategoriesUtils:
         user.is_superuser = True
         user.save()
         assert should_apply_geographic_features(user) == expected
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestEventCategoryRelatedPermissionSetActions:
+    @pytest.fixture
+    def event_category(self) -> EventCategory:
+        event_category = EventCategory.objects.create(value="test_ec", display="test_ec")
+        return event_category
+
+    def test_is_event_category_permission_set_not_changed(self, event_category) -> None:
+        related_permissions_actions = EventCategoryRelatedPermissionSetActions(event_category=event_category)
+
+        was_changed = related_permissions_actions.is_event_category_permission_set_changed_by_user()
+
+        assert was_changed is False
+
+    def test_is_event_category_permission_set_changed(self, event_category) -> None:
+        content_type = ContentType.objects.get(
+            app_label=event_category._meta.app_label,
+            model=event_category._meta.model_name,
+        )
+        permission_set = PermissionSet.objects.get(name=event_category.auto_permissionset_name)
+
+        permission_set.permissions.add(
+            Permission.objects.create(
+                codename="_test",
+                name="_test",
+                content_type=content_type,
+            )
+        )
+
+        related_permissions_actions = EventCategoryRelatedPermissionSetActions(event_category=event_category)
+
+        was_changed = related_permissions_actions.is_event_category_permission_set_changed_by_user()
+
+        assert was_changed is True
+
+    def test_delete_permissions_sets_and_permissions_related_to_event_category(self, event_category) -> None:
+        related_permissions_actions = EventCategoryRelatedPermissionSetActions(event_category=event_category)
+        related_permissions_actions.delete_permissions_sets_and_permissions_related_to_event_category()
+
+        assert not PermissionSet.objects.filter(name=event_category.auto_permissionset_name).exists()
+        assert not PermissionSet.objects.filter(name=event_category.auto_geographic_permission_set_name).exists()

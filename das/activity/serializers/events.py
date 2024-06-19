@@ -61,7 +61,10 @@ from core.serializers import PointValidator
 from observations.serializers import SubjectRelatedField, SubjectSerializer
 from revision.manager import ACTION_ADDED, ACTION_UPDATED, RevisionMessage
 from usercontent.serializers import UserContentSerializer
-from utils.categories import make_eventcategory_permission_codename
+from utils.categories import (
+    EventCategoryRelatedPermissionSetActions,
+    make_eventcategory_permission_codename,
+)
 from utils.feature_representation import FeatureRepresentation
 from utils.gis import get_polygon_info
 from utils.json import parse_bool
@@ -134,12 +137,18 @@ class EventCategorySerializer(ModelSerializer):
         # for that category
         request = self.context.get("request", None)
         include_event_types = self.context.get("include_event_types", None)
+        include_permission_set_changed = self.context.get("include_permission_set_changed", None)
         user, method = getattr(request, "user", None), getattr(request, "method", None)
         if user is not None and method == "GET":
             rep["permissions"] = get_allowed_actions_for_category(user, rep["value"])
         if include_event_types:
             event_types = obj.eventtype_set.all()
             rep["event_types"] = SimplifiedEventTypeSerializer(event_types, many=True, context=self.context).data
+        if include_permission_set_changed:
+            related_permissions_actions = EventCategoryRelatedPermissionSetActions(event_category=obj)
+            rep["permission_set_changed"] = (
+                related_permissions_actions.is_event_category_permission_set_changed_by_user()
+            )
         return rep
 
 

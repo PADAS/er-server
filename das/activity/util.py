@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
@@ -45,7 +46,21 @@ def return_409_response():
     return Response(status_msg, status=status.HTTP_409_CONFLICT)
 
 
-def ensure_eventcategory_perms_exist(category: EventCategory, tenant_id: uuid.UUID, geographic_only=False):
+def ensure_eventcategory_perms_exist(
+    category: EventCategory, tenant_id: uuid.UUID, geographic_only: Optional[bool] = False
+) -> None:
+    """
+    Ensures that the necessary permissions for an event category exist.
+
+    Args:
+        category (EventCategory): The event category for which to ensure permissions.
+        tenant_id (uuid.UUID): The ID of the tenant.
+        geographic_only (Optional[bool], optional): Flag indicating whether to create only geographic permissions.
+            Defaults to False.
+
+    Returns:
+        None
+    """
     content_type = ContentType.objects.get(app_label="activity", model="event")
     category_name = category.value
 
@@ -58,6 +73,7 @@ def ensure_eventcategory_perms_exist(category: EventCategory, tenant_id: uuid.UU
             codename = add_tenant_to_permission_codename(tenant_id=tenant_id, codename=codename)
             defaults = {"name": f"Can {action} {category_name} reports", "content_type": content_type}
             permission, _ = Permission.objects.get_or_create(codename=codename, defaults=defaults)
+
             permissionset.permissions.add(permission)
 
     permission_set_name = category.auto_geographic_permission_set_name
@@ -71,4 +87,5 @@ def ensure_eventcategory_perms_exist(category: EventCategory, tenant_id: uuid.UU
             "content_type": content_type,
         }
         permission, _ = Permission.objects.get_or_create(codename=codename, defaults=defaults)
+
         geographic_permission_set.permissions.add(permission)

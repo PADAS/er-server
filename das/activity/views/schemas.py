@@ -111,7 +111,7 @@ class TrackedBySchema(ListCreateAPIView):
         raise MethodNotAllowed("For Schema")
 
 
-class EventCategoryViewSchema(CustomSchema):
+class EventCategoriesViewSchema(CustomSchema):
     def get_operation(self, path, method):
         operation = super().get_operation(path, method)
         if method == "GET":
@@ -122,6 +122,44 @@ class EventCategoryViewSchema(CustomSchema):
                     "in": "query",
                     "required": False,
                     "description": "include event types related to each category",
+                },
+                {
+                    "name": "include_permission_set_changed",
+                    "in": "query",
+                    "required": False,
+                    "description": "adds the property `permission_set_changed` which indicates whether permission sets are default.",
+                },
+            ]
+            operation["parameters"].extend(query_params)
+        return operation
+
+
+class EventCategoryViewSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == "GET":
+            query_params = [
+                {
+                    "name": "include_event_types",
+                    "in": "query",
+                    "required": False,
+                    "description": "include event types related to each category",
+                },
+                {
+                    "name": "include_permission_set_changed",
+                    "in": "query",
+                    "required": False,
+                    "description": "include `permission_set_changed` if its permission sets are non-default.",
+                },
+            ]
+            operation["parameters"].extend(query_params)
+        elif method == "DELETE":
+            query_params = [
+                {
+                    "name": "keep_permission_sets",
+                    "in": "query",
+                    "required": False,
+                    "description": "to not trigger the auto-deletion of that category's linked permission sets.",
                 },
             ]
             operation["parameters"].extend(query_params)
