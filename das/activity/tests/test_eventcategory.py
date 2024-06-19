@@ -17,7 +17,7 @@ User = django.contrib.auth.get_user_model()
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-class test_retrieve_event_category_with_event_types(BaseAPITest):
+class TestRetrieveEventCategoryWithEventTypes(BaseAPITest):
     def setUp(self):
         super().setUp()
         self.event_category_url = reverse("admin:activity_eventcategory_changelist")
@@ -167,3 +167,29 @@ class test_retrieve_event_category_with_event_types(BaseAPITest):
         response = EventCategoryView.as_view()(request, eventcategory_id=eventcategory_id)
         response.render()
         self.assertEqual(response.status_code, 200)
+
+    def test_delete_event_category_with_eventtypes(self):
+        eventcategory_id = str(self.event_category_logistic.id)
+        EventType.objects.create(value="event_type", display="Event Type", category_id=eventcategory_id)
+        url = reverse("event-category", kwargs={"eventcategory_id": eventcategory_id})
+
+        request = self.factory.delete(url)
+        self.force_authenticate(request, self.user)
+        response = EventCategoryView.as_view()(request, eventcategory_id=eventcategory_id)
+        response.render()
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_retrieve_event_categories_with_include_permission_set_changed(self):
+        url = reverse("event-categories")
+
+        request = self.factory.get(f"{url}?include_permission_set_changed=true")
+        self.user.is_superuser = True
+        self.user.save()
+        self.force_authenticate(request, self.user)
+
+        response = EventCategoriesView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+
+        self.assertTrue("permission_set_changed" in response.data[0].keys())
