@@ -13,12 +13,26 @@ class RankedTool:
     max_rank: float = 1.0
     min_interval: float = 0.0001
 
-    def __init__(self, instance: Any, before_key: Union[UUID, None]) -> None:
+    def __init__(
+        self, before_key: Union[UUID, None], instance: Optional[Any] = None, queryset: Optional[models.QuerySet] = None
+    ) -> None:
         self.before_key_id = before_key
-        self.instance = instance
-        self.model = instance._meta.model
-        self.queryset = self.model.objects.all().order_by("ordernum")
+        if instance:
+            self.instance = instance
+            self.model = instance._meta.model
+            self.queryset = self.model.objects.all().order_by("ordernum")
+        elif queryset:
+            self.queryset = queryset
+            self.instance = queryset.model()
         self.order_list = []
+
+    def get_first_value_to_insert(self) -> float:
+
+        new_order_value, need_rebalance = self._get_ranked_order()
+        if need_rebalance:
+            self.make_full_rebalance(queryset=self.queryset)
+            new_order_value, _ = self._get_ranked_order()
+        return new_order_value
 
     @classmethod
     def make_full_rebalance(cls, queryset: models.QuerySet) -> None:
@@ -91,6 +105,13 @@ class RankModelMixin(models.Model):
     class Meta:
         abstract = True
         indexes = [...] + [Index(fields=["das_tenant", "ordernum"], name="%(class)s_order_idx")]
+
+    def save(self, *args, **kwargs):
+        if not self.ordernum:
+            ranked_tool = RankedTool(instance=self, before_key=None)
+            new_order_value = ranked_tool.get_first_value_to_insert()
+            self.ordernum = new_order_value
+        super().save(*args, **kwargs)
 
 
 class RankView:

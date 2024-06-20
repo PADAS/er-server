@@ -93,6 +93,17 @@ class TestRetrieveEventCategoryWithEventTypes(BaseAPITest):
         response = EventCategoriesView.as_view()(request)
         self.assertEqual(response.status_code, 403)
 
+    def test_create_event_categories_without_ordernum(self):
+        url = reverse("event-categories")
+        data = {"value": "ec_value", "display": "ec_display", "flag": "user"}
+        request = self.factory.post(url, data=data)
+        self.force_authenticate(request, self.user)
+
+        response = EventCategoriesView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["ordernum"], 0.5)
+
     def test_retrieve_event_category(self):
         eventcategory_id = str(EventCategory.objects.first().id)
         url = reverse("event-category", kwargs={"eventcategory_id": eventcategory_id})
