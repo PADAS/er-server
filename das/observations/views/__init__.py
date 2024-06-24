@@ -56,6 +56,7 @@ from observations.views.observations import FlattenObservationsView
 from utils import add_base_url
 from utils.drf import (
     BadRequestAPIException,
+    ForbiddenAPIException,
     OptionalResultsSetPagination,
     StandardResultsSetGeoJsonPagination,
     StandardResultsSetPagination,
@@ -65,7 +66,6 @@ from utils.features import features
 from utils.json import ExtendedGEOJSONRenderer, parse_bool, zeroout_microseconds
 from utils.tenant import get_tenant_settings
 
-from .exceptions import UnauthorizedView
 from .helpers import check_valid_date_string
 from .observations import ObservationsView
 
@@ -197,7 +197,7 @@ class SubjectGroupsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
-            raise UnauthorizedView
+            raise ForbiddenAPIException
 
         qparams = self.request.query_params
         if parse_bool(qparams.get("flat")):
@@ -410,7 +410,7 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS) and self.queryset_linked_user.exists():
             return self.queryset_linked_user
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
-            raise UnauthorizedView
+            raise ForbiddenAPIException
 
         use_last_known_location = parse_bool(self.request.query_params.get("use_lkl"))
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
@@ -580,7 +580,7 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixi
         subject_id = self.kwargs.get("id")
         subject = generics.get_object_or_404(models.Subject.objects.all(), pk=subject_id)
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
-            raise UnauthorizedView
+            raise ForbiddenAPIException
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
         queryset = models.Subject.objects.filter(id=subject_id)
         mou_date = self.request.user.additional.get("expiry", None)
@@ -831,7 +831,7 @@ class ObservationView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_OBSERVATION_PERMS):
-            raise UnauthorizedView
+            raise ForbiddenAPIException
 
         queryset = models.Observation.objects.all()
 
