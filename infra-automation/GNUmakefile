@@ -61,7 +61,7 @@ tf_workspace_select: ## terraform workspace select | workspace="WORKSPACE"
 .PHONY: tf_workspace_new
 tf_workspace_new: workspace ?=
 tf_workspace_new: ## terraform workspace new | workspace="WORKSPACE"
-	@ echo "" && echo "This command is no longer supported. New sites should be deploy to the MT platform" && echo "" && exit 1
+	@ echo "" && echo "This command is no longer supported. New sites should be deployed to the MT platform" && echo "" && exit 1
 
 .PHONY: tf_plan
 tf_plan: plan_options ?=
