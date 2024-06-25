@@ -199,8 +199,8 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subject/")
         self.force_authenticate(request, self.no_view_user)
         response = views.SubjectView.as_view()(request, id=str(self.ele.id))
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["data"], [])
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_user_return_subject_sources(self):
         request = self.factory.get(API_BASE + "/subject/{0}/sources".format(self.ele.id))
@@ -215,8 +215,8 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.force_authenticate(request, self.no_view_user)
 
         response = views.SubjectsView.as_view()(request, bbox=bbox)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["data"], [])
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     @patch("utils.tenant.thread._get_local_thread")
     def test_return_subjects_bbox_view_delayed(self, get_main_thread):
@@ -386,8 +386,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         self.force_authenticate(request, self.no_view_user)
 
         response = views.SubjectGroupsView.as_view()(request)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["data"], [])
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
 class SourceGroupViewTest(BasePermissionTest):
@@ -637,7 +636,7 @@ class TestSubjectsView:
 
         response = views.SubjectsView.as_view()(request)
 
-        assert len(response.data["data"]) == 0
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
 @pytest.mark.django_db
@@ -683,7 +682,7 @@ class TestSubjectView:
 
         response = views.SubjectView.as_view()(request, id=str(subject.id))
 
-        assert len(response.data["data"]) == 0
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def _test_subject_view_with_linked_user_ask_for_random_subject(self, five_subjects, superuser_client, superuser):
         subject1 = five_subjects[0]
@@ -692,5 +691,7 @@ class TestSubjectView:
         subject1.linked_user = superuser
         subject1.save()
         response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
 
         assert response.data["id"] == str(subject2.id)
