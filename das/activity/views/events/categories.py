@@ -14,7 +14,7 @@ from activity.util import return_409_response
 from activity.views.schemas import EventCategoriesViewSchema, EventCategoryViewSchema
 from utils.categories import EventCategoryRelatedPermissionSetActions
 from utils.json import parse_bool
-from utils.rank import RankSerializer, RankView
+from utils.rank import RankedTool, RankSerializer
 
 
 class EventCategoriesView(ListCreateAPIView):
@@ -88,7 +88,7 @@ class EventCategoryView(RetrieveUpdateDestroyAPIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class EventCategoryRankView(GenericAPIView, RankView):
+class EventCategoryRankView(GenericAPIView):
     lookup_field = "id"
     lookup_url_kwarg = "eventcategory_id"
     permission_classes = (EventCategoryObjectPermissions,)
@@ -96,3 +96,13 @@ class EventCategoryRankView(GenericAPIView, RankView):
 
     def get_queryset(self):
         return EventCategory.objects.all().order_by("ordernum")
+
+    def post(self, request, *args, **kwargs) -> Response:
+        instance = self.get_object()
+        before_key = request.data.get("before_key")
+        if not before_key:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        ranked_tool = RankedTool(instance=instance, before_key=before_key)
+        ranked_tool.rank()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)

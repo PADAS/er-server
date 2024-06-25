@@ -221,7 +221,10 @@ class EventCategory(TenantModelMixin, TimestampedModel, RankModelMixin):
                 name="%(app_label)s_%(class)s_unique_value_across_tenants",
             )
         ]
-        indexes = [Index(fields=["das_tenant", "value"], name="%(class)s_val_idx")]
+        indexes = [
+            Index(fields=["das_tenant", "value"], name="%(class)s_val_idx"),
+            Index(fields=["das_tenant", "ordernum"], name="%(class)s_ordernum_idx"),
+        ]
         base_manager_name = "objects"
         default_manager_name = "objects"
 
@@ -291,7 +294,7 @@ class EventTypeManager(TenantManagerMixin, models.Manager.from_queryset(EventTyp
         return self.get(value=value)
 
 
-class EventType(TenantModelMixin, TimestampedModel):
+class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
     class GeometryTypesChoices(models.TextChoices):
         POINT = "Point"
         POLYGON = "Polygon"
@@ -309,7 +312,6 @@ class EventType(TenantModelMixin, TimestampedModel):
     )
     display = models.CharField(max_length=255, blank=True)
     category = TenantForeignKey(EventCategory, null=True, on_delete=models.PROTECT)
-    ordernum = models.SmallIntegerField(blank=True, null=True)
     default_priority = models.PositiveSmallIntegerField(default=PRI_NONE, choices=PRIORITY_CHOICES)
     default_state = models.CharField(default=SC_NEW, choices=STATE_CHOICES, max_length=20)
     icon = models.CharField(max_length=100, blank=True, null=True)
@@ -355,10 +357,11 @@ class EventType(TenantModelMixin, TimestampedModel):
 
         ordering = ["display"]
         indexes = [
-            models.Index(fields=["das_tenant", "geometry_type"]),
-            models.Index(fields=["das_tenant", "is_active"]),
-            models.Index(fields=["das_tenant", "is_collection"]),
+            Index(fields=["das_tenant", "geometry_type"]),
+            Index(fields=["das_tenant", "is_active"]),
+            Index(fields=["das_tenant", "is_collection"]),
             Index(fields=["das_tenant", "value"], name="%(app_label)s_%(class)s_val_idx"),
+            Index(fields=["das_tenant", "ordernum"], name="%(class)s_ordernum_idx"),
         ]
 
     def clean(self, *args, **kwargs):
