@@ -1,10 +1,7 @@
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Optional, Tuple
 from uuid import UUID
 
 from django.contrib.gis.db import models
-from django.db.models import Index
-from rest_framework import status
-from rest_framework.response import Response
 from rest_framework.serializers import Serializer, UUIDField
 
 
@@ -13,21 +10,24 @@ class RankedTool:
     max_rank: float = 1.0
     min_interval: float = 0.0001
 
-    def __init__(
-        self, before_key: Union[UUID, None], instance: Optional[Any] = None, queryset: Optional[models.QuerySet] = None
-    ) -> None:
+    def __init__(self, instance: Any, before_key: Optional[UUID] = None) -> None:
         self.before_key_id = before_key
-        if instance:
-            self.instance = instance
-            self.model = instance._meta.model
-            self.queryset = self.model.objects.all().order_by("ordernum")
-        elif queryset:
-            self.queryset = queryset
-            self.instance = queryset.model()
+
+        self.instance = instance
+        self.model = instance._meta.model
+        self.queryset = self.model.objects.all().order_by("ordernum")
         self.order_list = []
 
     def get_first_value_to_insert(self) -> float:
+        """
+        Returns the first value to insert based on the ranked order.
 
+        If the ranked order needs rebalancing, a full rebalance is performed
+        before returning the new order value.
+
+        Returns:
+            float: The first value to insert.
+        """
         new_order_value, need_rebalance = self._get_ranked_order()
         if need_rebalance:
             self.make_full_rebalance(queryset=self.queryset)
@@ -53,11 +53,12 @@ class RankedTool:
         queryset.bulk_update(objects_to_update, ["ordernum"])
 
     def rank(self) -> None:
+        if self.queryset.first().id == self.instance.id and not self.before_key_id:
+            return None
         new_order_value, need_rebalance = self._get_ranked_order()
         if need_rebalance:
             self.make_full_rebalance(queryset=self.queryset)
             new_order_value, _ = self._get_ranked_order()
-
         self.instance.ordernum = new_order_value
         self.instance.save(update_fields=["ordernum"])
 
@@ -80,7 +81,8 @@ class RankedTool:
             return (before_value, True)
 
         mid_rank = (before_value + next_value) / 2
-        if mid_rank in self.order_list:
+
+        if mid_rank in self.order_list or mid_rank < self.min_rank:
             return (mid_rank, True)
         return (mid_rank, False)
 
@@ -88,7 +90,9 @@ class RankedTool:
         before_value = None
         next_value = None
         if self.before_key_id is None:
-            return (before_value, self.order_list[0])
+            if self.order_list:
+                next_value = self.order_list[0]
+            return (before_value, next_value)
 
         before_value = self.queryset.get(id=self.before_key_id).ordernum
         new_index_to_insert = self.order_list.index(before_value) + 1
@@ -104,7 +108,6 @@ class RankModelMixin(models.Model):
 
     class Meta:
         abstract = True
-        indexes = [...] + [Index(fields=["das_tenant", "ordernum"], name="%(class)s_order_idx")]
 
     def save(self, *args, **kwargs):
         if not self.ordernum:
@@ -112,17 +115,6 @@ class RankModelMixin(models.Model):
             new_order_value = ranked_tool.get_first_value_to_insert()
             self.ordernum = new_order_value
         super().save(*args, **kwargs)
-
-
-class RankView:
-
-    def post(self, request, *args, **kwargs) -> Response:
-        instance = self.get_object()
-        before_key = request.data.get("before_key", None)
-        ranked_tool = RankedTool(instance=instance, before_key=before_key)
-        ranked_tool.rank()
-
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RankSerializer(Serializer):

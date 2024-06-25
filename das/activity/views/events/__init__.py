@@ -17,7 +17,7 @@ from .files import EventFilesView, EventFileView
 from .notes import EventNotesView, EventNoteView
 from .relationships import EventRelationshipsView, EventRelationshipView
 from .sources import EventSourcesView, EventSourceView
-from .types import EventTypesView, EventTypeView
+from .types import EventTypeRankView, EventTypesView, EventTypeView
 
 __all__ = (
     "EventAlertTargetsListView",
@@ -43,6 +43,7 @@ __all__ = (
     "EventSourceView",
     "EventStateView",
     "EventsView",
+    "EventTypeRankView",
     "EventTypesView",
     "EventTypeView",
     "EventView",

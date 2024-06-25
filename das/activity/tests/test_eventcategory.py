@@ -6,11 +6,12 @@ import pytest
 
 import django.contrib.auth
 from django.urls import reverse
+from rest_framework import status
 
 import utils.tenant.thread
 from accounts.views import UserView
 from activity.models import EventCategory, EventType
-from activity.views import EventCategoriesView, EventCategoryView
+from activity.views import EventCategoriesView, EventCategoryRankView, EventCategoryView
 from core.tests import BaseAPITest
 
 User = django.contrib.auth.get_user_model()
@@ -178,6 +179,16 @@ class TestRetrieveEventCategoryWithEventTypes(BaseAPITest):
         response = EventCategoryView.as_view()(request, eventcategory_id=eventcategory_id)
         response.render()
         self.assertEqual(response.status_code, 200)
+
+    def test_event_category_rank_without_property(self) -> None:
+        eventcategory_id = str(EventCategory.objects.first().id)
+        url = reverse("event-category-ranking", kwargs={"eventcategory_id": eventcategory_id})
+
+        request = self.factory.post(url)
+        self.force_authenticate(request, self.user)
+        response = EventCategoryRankView.as_view()(request, eventcategory_id=eventcategory_id)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_delete_event_category_with_eventtypes(self):
         eventcategory_id = str(self.event_category_logistic.id)

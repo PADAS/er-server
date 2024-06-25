@@ -3871,7 +3871,7 @@
       "category": [
         "analyzer_event"
       ],
-      "ordernum": null,
+      "ordernum": 0,
       "default_priority": 200,
       "default_state": "new",
       "icon": null,
@@ -3981,7 +3981,7 @@
       "category": [
         "analyzer_event"
       ],
-      "ordernum": null,
+      "ordernum": 0,
       "default_priority": 200,
       "default_state": "new",
       "icon": null,
@@ -4311,7 +4311,7 @@
       "category": [
         "analyzer_event"
       ],
-      "ordernum": null,
+      "ordernum": 0,
       "default_priority": 0,
       "default_state": "new",
       "icon": "fire_rep",
@@ -4575,7 +4575,7 @@
       "category": [
         "analyzer_event"
       ],
-      "ordernum": null,
+      "ordernum": 0,
       "default_priority": 200,
       "default_state": "new",
       "icon": null,
@@ -4597,7 +4597,7 @@
       "category": [
         "analyzer_event"
       ],
-      "ordernum": null,
+      "ordernum": 0,
       "default_priority": 200,
       "default_state": "new",
       "icon": "radar_rep",
@@ -4641,7 +4641,7 @@
       "category": [
         "security"
       ],
-      "ordernum": null,
+      "ordernum": 0,
       "default_priority": 0,
       "default_state": "new",
       "icon": null,
@@ -4685,7 +4685,7 @@
       "category": [
         "analyzer_event"
       ],
-      "ordernum": null,
+      "ordernum": 0,
       "default_priority": 0,
       "default_state": "new",
       "icon": "deforestation_rep",

@@ -244,6 +244,34 @@ class TestEventTypeAPI:
         client.force_authenticate(request, client.app_user)
         return EventTypeView.as_view()(request, eventtype_id=event_type_id)
 
+    def test_event_type_ranking(self, superuser_client, event_type) -> None:
+        event_type.ordernum = 1
+        event_type.save(update_fields=["ordernum"])
+
+        url = reverse("eventtype-ranking", kwargs={"eventtype_id": str(event_type.id)})
+        superuser_client.post(url, {"before_key": None})
+
+        obj = EventType.objects.get(id=event_type.id)
+
+        assert obj.ordernum == 0.5
+
+    def test_event_type_change_category(self, superuser_client, event_type) -> None:
+        new_event_category = EventCategory.objects.create(value="new_category", display="New Category", ordernum=1)
+
+        url = reverse("eventtype-ranking", kwargs={"eventtype_id": str(event_type.id)})
+        superuser_client.post(url, {"category_id": new_event_category.id})
+
+        obj = EventType.objects.get(id=event_type.id)
+
+        assert obj.category_id == new_event_category.id
+
+    def test_event_type_rank_without_properties(self, superuser_client, event_type) -> None:
+        url = reverse("eventtype-ranking", kwargs={"eventtype_id": str(event_type.id)})
+
+        response = superuser_client.post(url)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings")

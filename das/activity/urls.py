@@ -24,6 +24,11 @@ urlpatterns = [
         name="eventtype",
     ),
     re_path(
+        rf"^events/eventtypes/(?P<eventtype_id>{regex.UUID})/rank?$",
+        views.EventTypeRankView.as_view(),
+        name="eventtype-ranking",
+    ),
+    re_path(
         r"^events/categories/?$",
         views.EventCategoriesView.as_view(),
         name="event-categories",

@@ -68,6 +68,7 @@ from utils.categories import (
 from utils.feature_representation import FeatureRepresentation
 from utils.gis import get_polygon_info
 from utils.json import parse_bool
+from utils.rank import RankSerializer
 from utils.schema_utils import (
     get_schema_renderer_method,
     validate_rendered_schema_is_wellformed,
@@ -283,6 +284,10 @@ class EventTypeSerializer(ModelSerializer):
         if self.is_schema_readonly(obj.schema):
             rep["readonly"] = True
         return rep
+
+
+class EventTypeRankSerializer(RankSerializer):
+    category_id = UUIDField(required=False)
 
 
 class EventFileSerializer(FileSerializerMixin, ModelSerializer):
