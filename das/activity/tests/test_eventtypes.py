@@ -13,6 +13,7 @@ from activity.tests import schema_examples
 from activity.views import EventTypesView, EventTypeView
 from client_http import HTTPClient
 from factories import EventTypeFactory
+from utils.rank import RankedTool
 
 pytestmark = pytest.mark.django_db
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests")
@@ -244,9 +245,10 @@ class TestEventTypeAPI:
         client.force_authenticate(request, client.app_user)
         return EventTypeView.as_view()(request, eventtype_id=event_type_id)
 
-    def test_event_type_ranking(self, superuser_client, event_type) -> None:
-        event_type.ordernum = 1
-        event_type.save(update_fields=["ordernum"])
+    def test_event_type_ranking_rank_second_as_first(self, superuser_client, five_event_types) -> None:
+        qs = EventType.objects.all().order_by("ordernum", "value")
+        RankedTool.make_full_rebalance(queryset=qs)
+        event_type = list(qs)[1]
 
         url = reverse("eventtype-ranking", kwargs={"eventtype_id": str(event_type.id)})
         superuser_client.post(url, {"before_key": None})
