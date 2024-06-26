@@ -12,13 +12,13 @@ from observations.permissions import StandardObjectPermissions
 from observations.serializers import FlattenObservationSerializer, ObservationSerializer
 from observations.utils import VIEW_OBSERVATION_PERMS, VIEW_SUBJECT_PERMS, dateparse
 from utils.drf import (
+    ForbiddenAPIException,
     StandardResultsSetCursorPagination,
     StandardResultsSetPagination,
     return_409_response,
 )
 from utils.json import parse_bool
 
-from .exceptions import UnauthorizedView
 from .helpers import check_valid_date_string
 
 logger = logging.getLogger(__name__)
@@ -130,7 +130,7 @@ class ObservationsView(ListCreateAPIView):
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_OBSERVATION_PERMS):
-            raise UnauthorizedView
+            raise ForbiddenAPIException
 
         query_params = self.request.query_params
         since = query_params.get("since")
