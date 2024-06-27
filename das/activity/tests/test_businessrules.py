@@ -62,6 +62,109 @@ power_user_permissions = [
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.django_db
+class TestEventTypesRulesGeneration:
+    def get_string_json_schema(self, field_name, type="string"):
+        json_schema = {
+            "schema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "title": "EventType Test Data 1",
+                "type": "object",
+                "properties": {field_name: {"type": type, "title": "Dummy label"}},
+            },
+            "definition": [{"key": field_name, "htmlClass": "col-lg-6"}],
+        }
+
+        return json.dumps(json_schema)
+
+    def test_should_return_a_valid_apply_to_map_with_one_valid_record(self, five_event_types):
+        event_types = five_event_types
+        event_types[0].value = "test_field_1"
+        event_types[0].schema = self.get_string_json_schema("full_name")
+
+        _, applies_to = _generate_aggregate_event_variables_class(five_event_types)
+        assert "full_name_string" in applies_to
+        assert len(applies_to) == 1
+
+    def test_should_return_a_valid_apply_to_map_with_two_valid_records(self, five_event_types):
+        event_types = five_event_types
+        event_types[0].value = "test_field_1"
+        event_types[0].schema = self.get_string_json_schema("number_of_elephants")
+
+        event_types[1].value = "test_field_2"
+        event_types[1].schema = self.get_string_json_schema("number_of_elephants", "number")
+
+        _, applies_to = _generate_aggregate_event_variables_class(five_event_types)
+        assert "number_of_elephants_string" in applies_to
+        assert "number_of_elephants_number" in applies_to
+        assert len(applies_to) == 2
+
+    def test_should_return_a_valid_apply_to_map_with_valid_records_and_apply_to_groups(self, five_event_types):
+        event_types = five_event_types
+        event_types[0].value = "test_field_1"
+        event_types[0].schema = self.get_string_json_schema("number_of_watchers")
+
+        event_types = five_event_types
+        event_types[1].value = "test_field_2"
+        event_types[1].schema = self.get_string_json_schema("number_of_cars", "number")
+
+        event_types[2].value = "test_field_3"
+        event_types[2].schema = self.get_string_json_schema("number_of_elephants")
+
+        event_types[3].value = "test_field_4"
+        event_types[3].schema = self.get_string_json_schema("number_of_marines")
+
+        event_types[4].value = "test_field_5"
+        event_types[4].schema = self.get_string_json_schema("number_of_marines", "number")
+
+        _, applies_to = _generate_aggregate_event_variables_class(five_event_types)
+
+        assert "number_of_watchers_string" in applies_to
+        assert "number_of_cars_number" in applies_to
+        assert "number_of_elephants_string" in applies_to
+        assert "number_of_marines_number" in applies_to
+        assert "number_of_marines_string" in applies_to
+
+        assert len(applies_to["number_of_watchers_string"]) == 1
+        assert len(applies_to["number_of_cars_number"]) == 1
+        assert len(applies_to["number_of_elephants_string"]) == 1
+        assert len(applies_to["number_of_marines_number"]) == 1
+        assert len(applies_to["number_of_marines_string"]) == 1
+
+        assert len(applies_to) == 5
+
+    def test_should_return_a_valid_apply_to_map_grouping_apply_to_fields_to_valid_json_schema_field_names(
+        self, five_event_types
+    ):
+        event_types = five_event_types
+        event_types[0].value = "test_field_1"
+        event_types[0].schema = self.get_string_json_schema("number_of_watchers")
+
+        event_types = five_event_types
+        event_types[1].value = "test_field_2"
+        event_types[1].schema = self.get_string_json_schema("number_of_watchers", "number")
+
+        event_types[2].value = "test_field_3"
+        event_types[2].schema = self.get_string_json_schema("number_of_watchers")
+
+        event_types[3].value = "test_field_4"
+        event_types[3].schema = self.get_string_json_schema("number_of_watchers")
+
+        event_types[4].value = "test_field_5"
+        event_types[4].schema = self.get_string_json_schema("number_of_watchers", "number")
+
+        _, applies_to = _generate_aggregate_event_variables_class(five_event_types)
+
+        assert "number_of_watchers_string" in applies_to
+        assert "number_of_watchers_number" in applies_to
+
+        assert len(applies_to["number_of_watchers_string"]) == 3
+        assert len(applies_to["number_of_watchers_number"]) == 2
+
+        assert len(applies_to) == 2
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 @patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
 class BusinessRulesTestCase(BaseAPITest):
     def setUp(self):

@@ -1,5 +1,5 @@
 import logging
-from typing import Any, NamedTuple
+from typing import Any, Dict, NamedTuple
 
 from business_rules import actions, export_rule_data, fields, variables
 
@@ -213,6 +213,29 @@ def translate_schema_type_to_type(option):
         raise NotImplementedError(f'I don\'t support type \'{option["type"]}\' yet.')
 
 
+def get_schema_type(option: Dict[str, str]) -> str:
+    if "enumNames" in option:
+        return "select"
+
+    if "type" not in option:
+        logger.warning("No 'type' present in option, so using str. option=%s", option)
+        return "string"
+
+    return option["type"]
+
+
+def remove_field_suffix(input_string: str) -> str:
+    # Find the last occurrence of '_' in the string
+    last_underscore_index = input_string.rfind("_")
+
+    if last_underscore_index != -1:
+        # If '_' is found, return the substring before '_'
+        return input_string[:last_underscore_index]
+
+    # If '_' is not found, return the original string
+    return input_string
+
+
 def accumulate_options(schema_option, accumulator=None):
     """
     Transform an Event-Type choice list from `enumNames` to business-rules friendly list.
@@ -280,35 +303,71 @@ def _generate_aggregate_event_variables_class(event_types, only_common_factors=F
     for event_type_value, schema_properties in schema_properties_map.items():
         # Create an attributes list derived from schema and suitable for
         # creating a Variables class.
-        for k, v in schema_properties.items():
-            if only_common_factors and k not in keyset_intersection:
+        for field_name, field_properties in schema_properties.items():
+            if only_common_factors and field_name not in keyset_intersection:
                 continue
 
             try:
-                rule_return_type = translate_schema_type_to_type(v)
+                rule_return_type = translate_schema_type_to_type(field_properties)
             except NotImplementedError:
                 continue
 
-            existing_attr = attributes_accumulator.get(k, None)
+            composite_key = field_name + "_" + get_schema_type(field_properties)
+            existing_attr = attributes_accumulator.get(composite_key, None)
             if existing_attr:
-                dummy = accumulate_options(v)
-                print(f"{event_type_value}.{k} options = {list(dummy.keys())}")
+                dummy = accumulate_options(field_properties)
+                logger.debug(f"{event_type_value}.{composite_key} options = {list(dummy.keys())}")
                 if existing_attr.return_type == rule_return_type:
-                    accumulate_options(v, existing_attr.optionsdict)
+                    accumulate_options(field_properties, existing_attr.optionsdict)
                 else:
-                    logger.warning("Name collision on %s with different return types.", k)
+                    logger.warning(
+                        "Collision on %s with different return types. Adding a new object with different return type",
+                        field_name,
+                    )
+                    newattr = RuleVariableSpec(
+                        attrname=field_name,
+                        return_type=rule_return_type,
+                        label=field_properties.get("title", field_name),
+                        optionsdict=accumulate_options(field_properties),
+                    )
+                    attributes_accumulator[composite_key] = newattr
             else:
                 newattr = RuleVariableSpec(
-                    attrname=k, return_type=rule_return_type, label=v.get("title", k), optionsdict=accumulate_options(v)
+                    attrname=field_name,
+                    return_type=rule_return_type,
+                    label=field_properties.get("title", field_name),
+                    optionsdict=accumulate_options(field_properties),
                 )
-                attributes_accumulator[k] = newattr
+                attributes_accumulator[composite_key] = newattr
 
-            applies_to_map.setdefault(k, []).append(event_type_value)
+            applies_to_map.setdefault(composite_key, []).append(event_type_value)
 
     attrs = dict(
-        (x.attrname, create_new_func(x.attrname, x.return_type, label=x.label, options_dict=x.optionsdict))
-        for x in attributes_accumulator.values()
+        (
+            composite_field_name,
+            create_new_func(
+                field_properties.attrname,
+                field_properties.return_type,
+                label=field_properties.label,
+                options_dict=field_properties.optionsdict,
+            ),
+        )
+        for composite_field_name, field_properties in attributes_accumulator.items()
     )
+
+    attrs = {
+        (
+            composite_field_name if key_suffix == "no_legacy" else remove_field_suffix(composite_field_name)
+        ): create_new_func(
+            field_properties.attrname,
+            field_properties.return_type,
+            label=field_properties.label,
+            options_dict=field_properties.optionsdict,
+        )
+        for composite_field_name, field_properties in attributes_accumulator.items()
+        for key_suffix in ["no_legacy", "legacy"]
+    }
+
     subject_group_func = create_subject_group_func(user)
     attrs["subject_group"] = subject_group_func
 
