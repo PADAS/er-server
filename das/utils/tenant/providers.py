@@ -37,8 +37,8 @@ class TenantData:
         if not tenant_data:
             tenant_data = self._fetch_from_tms(hostname)
         if not tenant_data:
-            secondary_hostname = self._get_from_alt_server_names_hashset(self, hostname)
-            tenant_data = self._get_from_cache_or_tms(secondary_hostname)
+            secondary_hostname = self._get_from_alt_server_names_hashset(hostname)
+            tenant_data = self._get_from_cache_or_tms(secondary_hostname) if secondary_hostname else None
 
         if not tenant_data:
             logger.error(
