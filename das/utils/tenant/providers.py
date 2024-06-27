@@ -22,69 +22,65 @@ alt_domain_cache_client = get_alt_domain_cache_client()
 
 class TenantData:
     domain: str
-    should_use_alt_domain: bool = False
 
     def __init__(self, domain: str) -> None:
         self.domain = domain.split(":")[0]
 
     def get_tenant_data(self):
         if features.tms.is_on():
-            return self._get_from_cache_or_tms()
+            return self._get_from_cache_or_tms(self.domain)
         else:
             return self._get_from_django()
 
-    def _get_from_cache_or_tms(self):
-        tenant_data = self._get_from_cache()
+    def _get_from_cache_or_tms(self, hostname: str):
+        tenant_data = self._get_from_cache(hostname)
         if not tenant_data:
-            tenant_data = self._fetch_from_tms()
+            tenant_data = self._fetch_from_tms(hostname)
         if not tenant_data:
-            self.domain_from_alts = self._get_from_alt_server_names_hashset()
-            self._get_from_cache_or_tms()
+            secondary_hostname = self._get_from_alt_server_names_hashset(self, hostname)
+            tenant_data = self._get_from_cache_or_tms(secondary_hostname)
+
+        if not tenant_data:
+            logger.error(
+                "Tenant record not found. Please ensure you have created the tenant and refreshed the cache",
+            )
+            raise TenantNotFoundException(domain=hostname)
 
         return tenant_data
 
-    def _get_from_alt_server_names_hashset(self):
+    def _get_from_alt_server_names_hashset(self, hostname):
         logger.debug(
             "Tenant domain not found in cache, nor in the TMS. Checking alt server names for domain %s", self.domain
         )
-        primary_domain = alt_domain_cache_client.hget("alt_server_lookup", self.domain)
-        self.should_use_alt_domain = True
-        return primary_domain
+        return alt_domain_cache_client.hget("alt_server_lookup", hostname)
 
-    def _get_from_cache(self):
-        domain_to_use = self.domain_from_alts if self.should_use_alt_domain else self.domain
-        logger.debug("Getting tenant from cache for domain %s", domain_to_use)
+    def _get_from_cache(self, hostname):
+        logger.debug("Getting tenant from cache for domain %s", hostname)
 
         start_time = time.time()
         try:
-            cached_data = memory_store_client.get_key(key=domain_to_use)
+            cached_data = memory_store_client.get_key(key=hostname)
         except ConnectionError:
             logger.warning("Could not fetch tenant data from cache due to connection error")
             return None
 
         if not cached_data:
-            logger.debug("Tenant %s not found in cache", domain_to_use)
+            logger.debug("Tenant %s not found in cache", hostname)
             return None
         try:
             logger.debug("Retrieved tenant data in %.4f." % (time.time() - start_time))
             return json.loads(cached_data)
         except json.JSONDecodeError:
-            logger.warning("Can't parse tenant from cache for domain %s", domain_to_use)
+            logger.warning("Can't parse tenant from cache for domain %s", hostname)
             return None
 
-    def _fetch_from_tms(self):
-        domain_to_use = self.domain_from_alts if self.should_use_alt_domain else self.domain
-        logger.debug("Getting tenant from TMS for domain %s", domain_to_use)
+    def _fetch_from_tms(self, hostname):
+        logger.debug("Getting tenant from TMS for domain %s", hostname)
 
-        tenant_data = tms_api_client.get_tenant_data(domain=domain_to_use)
+        tenant_data = tms_api_client.get_tenant_data(domain=hostname)
 
         if not tenant_data:
-            logger.debug("Tenant not found in TMS for domain %s", domain_to_use)
-            if self.should_use_alt_domain:
-                logger.error(
-                    "Tenant record not found. Please ensure you have created the tenant and refreshed the cache",
-                )
-                raise TenantNotFoundException(domain=domain_to_use)
+            logger.debug("Tenant not found in TMS for domain %s", hostname)
         return tenant_data
 
     def _get_from_django(self):
