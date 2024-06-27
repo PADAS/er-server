@@ -11,7 +11,7 @@ from django.db.models import Q
 
 from das_server import celery
 from observations.models import SourceProvider
-from utils.tenant.cache import MultitenantRedisClient
+from utils.tenant.cache import MultitenantRedisClient, remove_cache_key_prefix
 
 SERVICE_STATUS_NS = "das-service-status"
 SERVICE_STATUS_KEY_PATTERN = ":".join((SERVICE_STATUS_NS, "{provider_key}"))
@@ -107,7 +107,12 @@ def get_source_provider_statuses():
     redis_client = MultitenantRedisClient(settings.CELERY_BROKER_URL)
 
     # Build a dictionary for all the services that exist in the cache.
-    provider_statuses = [json.loads(redis_client.get(k).decode("utf8")) for k in redis_client.keys(pattern)]
+    provider_statuses = []
+    for key in redis_client.keys(pattern):
+        key = key.decode("utf8")
+        key = remove_cache_key_prefix(key)
+        if value := redis_client.get(key):
+            provider_statuses.append(json.loads(value.decode("utf8")))
 
     provider_statuses = [_add_status_indicators(s) for s in provider_statuses]
 
