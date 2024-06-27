@@ -48,7 +48,7 @@ class TestTenantData:
     ):
         caplog.set_level(logging.DEBUG)
         mocked_response = json.dumps(tenant_response)
-        memory_store_client_mock.get_key.side_effect = None
+        memory_store_client_mock.get_key.return_value = None
         tms_api_client_mock.get_tenant_data.return_value = mocked_response
         alt_domains_client_mock = get_alt_domains_client_mock()
         alt_domains_client_mock.hget.return_value = tenant_response["envSettings"]["altServerNames"][0]
