@@ -1,7 +1,6 @@
 import json
 import logging
 import time
-from typing import Callable
 
 from redis.exceptions import ConnectionError
 
@@ -23,7 +22,6 @@ alt_domain_cache_client = get_alt_domain_cache_client()
 
 class TenantData:
     domain: str
-    get_tenant_data: Callable = None
 
     def __init__(self, domain: str) -> None:
         self.domain = domain.split(":")[0]
