@@ -22,6 +22,7 @@ alt_domain_cache_client = get_alt_domain_cache_client()
 
 class TenantData:
     domain: str
+    should_use_alt_domain: bool = False
 
     def __init__(self, domain: str) -> None:
         self.domain = domain.split(":")[0]
@@ -39,6 +40,7 @@ class TenantData:
         if not tenant_data:
             self.domain_from_alts = self._get_from_alt_server_names_hashset()
             self._get_from_cache_or_tms()
+
         return tenant_data
 
     def _get_from_alt_server_names_hashset(self):
@@ -46,18 +48,11 @@ class TenantData:
             "Tenant domain not found in cache, nor in the TMS. Checking alt server names for domain %s", self.domain
         )
         primary_domain = alt_domain_cache_client.hget("alt_server_lookup", self.domain)
-
-        if not primary_domain:
-            logger.debug(
-                "Tenant record not found. Please ensure you have created the tenant and refreshed the cache",
-                self.domain,
-            )
-            return None
-
+        self.should_use_alt_domain = True
         return primary_domain
 
     def _get_from_cache(self):
-        domain_to_use = self.domain_from_alts if hasattr(self, "domain_from_alts") else self.domain
+        domain_to_use = self.domain_from_alts if self.should_use_alt_domain else self.domain
         logger.debug("Getting tenant from cache for domain %s", domain_to_use)
 
         start_time = time.time()
@@ -78,13 +73,18 @@ class TenantData:
             return None
 
     def _fetch_from_tms(self):
-        domain_to_use = self.domain_from_alts if hasattr(self, "domain_from_alts") else self.domain
+        domain_to_use = self.domain_from_alts if self.should_use_alt_domain else self.domain
         logger.debug("Getting tenant from TMS for domain %s", domain_to_use)
 
         tenant_data = tms_api_client.get_tenant_data(domain=domain_to_use)
+
         if not tenant_data:
             logger.debug("Tenant not found in TMS for domain %s", domain_to_use)
-            raise TenantNotFoundException(domain=domain_to_use)
+            if self.should_use_alt_domain:
+                logger.error(
+                    "Tenant record not found. Please ensure you have created the tenant and refreshed the cache",
+                )
+                raise TenantNotFoundException(domain=domain_to_use)
         return tenant_data
 
     def _get_from_django(self):
