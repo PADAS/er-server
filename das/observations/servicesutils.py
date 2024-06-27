@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 
 import dateutil.parser as dp
 import pytz
-import redis
 
 from django.conf import settings
 from django.contrib.postgres.fields import jsonb
@@ -105,10 +104,10 @@ def calculate_status_code(service_status):
 
 def get_source_provider_statuses():
     pattern = SERVICE_STATUS_KEY_PATTERN.format(provider_key="*")
-    r = redis.from_url(settings.CELERY_BROKER_URL)
+    redis_client = MultitenantRedisClient(settings.CELERY_BROKER_URL)
 
     # Build a dictionary for all the services that exist in the cache.
-    provider_statuses = [json.loads(r.get(k).decode("utf8")) for k in r.keys(pattern)]
+    provider_statuses = [json.loads(redis_client.get(k).decode("utf8")) for k in redis_client.keys(pattern)]
 
     provider_statuses = [_add_status_indicators(s) for s in provider_statuses]
 
