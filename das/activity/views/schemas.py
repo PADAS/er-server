@@ -163,6 +163,16 @@ class EventCategoryViewSchema(CustomSchema):
                 },
             ]
             operation["parameters"].extend(query_params)
+        elif method == "PATCH":
+            query_params = [
+                {
+                    "name": "update_permission_sets",
+                    "in": "query",
+                    "required": False,
+                    "description": "to update permission sets and permissions explicitly",
+                },
+            ]
+            operation["parameters"].extend(query_params)
         return operation
 
 

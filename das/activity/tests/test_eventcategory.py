@@ -9,6 +9,7 @@ from django.urls import reverse
 from rest_framework import status
 
 import utils.tenant.thread
+from accounts.models.permissionset import PermissionSet
 from accounts.views import UserView
 from activity.models import EventCategory, EventType
 from activity.views import EventCategoriesView, EventCategoryRankView, EventCategoryView
@@ -215,3 +216,48 @@ class TestRetrieveEventCategoryWithEventTypes(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
         self.assertTrue("permission_set_changed" in response.data[0].keys())
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.django_db
+class TestEventCategoryUpdatePermissions:
+    def test_update_event_category_permissions_silently(self, five_event_categories, superuser_client):
+        event_category = five_event_categories[1]
+        new_value = f"{event_category.value}_changed"
+        new_display = f"{event_category.display}_changed"
+
+        url = reverse("event-category", kwargs={"eventcategory_id": event_category.id})
+        data = {"value": new_value, "display": new_display}
+        response = superuser_client.patch(url, data=data)
+
+        event_category.refresh_from_db()
+        base_qs = PermissionSet.objects.prefetch_related("permissions").all()
+
+        assert response.status_code == status.HTTP_200_OK
+        assert base_qs.get(name=event_category.auto_permissionset_name)
+        assert base_qs.get(name=event_category.auto_geographic_permission_set_name)
+
+    def test_update_event_category_permissions_changed_but_updated_explitclty(
+        self, five_event_categories, superuser_client
+    ):
+        event_category = five_event_categories[1]
+        new_value = f"{event_category.value}_changed"
+
+        permission_set = PermissionSet.objects.get(name=event_category.auto_permissionset_name)
+        permission_set.name = "new_permission_name"
+        permission_set.save(update_fields=["name"])
+
+        url = reverse("event-category", kwargs={"eventcategory_id": event_category.id})
+        url = f"{url}?update_permission_sets=true"
+
+        data = {"value": new_value}
+        response = superuser_client.patch(url, data=data)
+
+        event_category.refresh_from_db()
+
+        permission_set = PermissionSet.objects.get(name="new_permission_name")
+        geo_permission_set = PermissionSet.objects.get(name=event_category.auto_geographic_permission_set_name)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert event_category.auto_permissionset_name != permission_set.name
+        assert event_category.auto_geographic_permission_set_name == geo_permission_set.name

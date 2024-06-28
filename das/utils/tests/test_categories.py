@@ -1,5 +1,6 @@
 import operator
 from functools import reduce
+from typing import Iterable
 
 import pytest
 
@@ -11,11 +12,15 @@ from accounts.models import PermissionSet
 from activity.models import EventCategory
 from client_http import HTTPClient
 from utils.categories import (
+    ACTIONS,
+    GEO_ACTIONS,
     EventCategoryRelatedPermissionSetActions,
     get_categories_and_geo_categories,
     make_eventcategory_permission_codename,
+    make_eventcategory_permission_codename_with_tenant,
     should_apply_geographic_features,
 )
+from utils.tenant.thread import get_tenant_settings
 
 
 @pytest.mark.django_db
@@ -171,3 +176,81 @@ class TestEventCategoryRelatedPermissionSetActions:
 
         assert not PermissionSet.objects.filter(name=event_category.auto_permissionset_name).exists()
         assert not PermissionSet.objects.filter(name=event_category.auto_geographic_permission_set_name).exists()
+
+    @pytest.mark.parametrize("new_value", ["new_value_test", "1", "nueva_categoria", "new_cat_changed"])
+    def test_update_event_category_permission_set(self, event_category, new_value) -> None:
+        tenant_settings = get_tenant_settings()
+
+        permissions_codenames = self._create_permissions_codenames(ACTIONS, new_value, tenant_settings.id)
+        geo_permissions_codenames = self._create_permissions_codenames(GEO_ACTIONS, new_value, tenant_settings.id, True)
+
+        related_permissions_actions = EventCategoryRelatedPermissionSetActions(event_category=event_category)
+        related_permissions_actions.update_permission_sets_and_permissions_related(
+            new_value=new_value,
+            display=event_category.display,
+        )
+
+        event_category.value = new_value
+        event_category.save(update_fields=["value"])
+
+        base_qs = PermissionSet.objects.prefetch_related("permissions").all()
+        permission_set = base_qs.get(name=event_category.auto_permissionset_name)
+        geo_permission_set = base_qs.get(name=event_category.auto_geographic_permission_set_name)
+
+        for codename in permissions_codenames:
+            assert permission_set.permissions.filter(codename=codename).exists()
+
+        for codename in geo_permissions_codenames:
+            assert geo_permission_set.permissions.filter(codename=codename).exists()
+
+    @pytest.mark.parametrize("new_value", ["new_value_test"])
+    def test_update_event_category_permission_set_with_changed_permissions_set_and_permissions(
+        self, event_category, new_value
+    ):
+        tenant_settings = get_tenant_settings()
+
+        permission_set = PermissionSet.objects.get(name=event_category.auto_permissionset_name)
+        permission_set.name = f"{permission_set.name}_changed"
+        permission_set.save(update_fields=["name"])
+
+        geo_permission_set = PermissionSet.objects.prefetch_related("permissions").get(
+            name=event_category.auto_geographic_permission_set_name
+        )
+        last_permission = geo_permission_set.permissions.last()
+        geo_permission_set.permissions.remove(last_permission)
+
+        related_permissions_actions = EventCategoryRelatedPermissionSetActions(event_category=event_category)
+        related_permissions_actions.update_permission_sets_and_permissions_related(
+            new_value=new_value,
+            display=event_category.display,
+        )
+
+        event_category.value = new_value
+        event_category.save(update_fields=["value"])
+
+        permission_set = related_permissions_actions._get_permission_set_by_name(event_category.auto_permissionset_name)
+
+        geo_permission_set = related_permissions_actions._get_permission_set_by_name(
+            event_category.auto_geographic_permission_set_name
+        )
+
+        permissions_codenames = self._create_permissions_codenames(ACTIONS, new_value, tenant_settings.id)
+        geo_permissions_codenames = self._create_permissions_codenames(GEO_ACTIONS, new_value, tenant_settings.id, True)
+
+        assert not permission_set
+        assert not Permission.objects.filter(codename__in=permissions_codenames).exists()
+        assert Permission.objects.filter(codename__in=geo_permissions_codenames).count() == 3
+
+    def _create_permissions_codenames(self, actions: Iterable[str], value: str, tenant_id, is_geographic: bool = False):
+        codenames = []
+
+        for action in actions:
+            codenames.append(
+                make_eventcategory_permission_codename_with_tenant(
+                    eventcategory_value=value,
+                    action=action,
+                    tenant_id=tenant_id,
+                    is_geographic=is_geographic,
+                )
+            )
+        return codenames

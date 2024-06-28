@@ -87,6 +87,25 @@ class EventCategoryView(RetrieveUpdateDestroyAPIView):
         self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    def patch(self, request, *args, **kwargs):
+        new_value = request.data.get("value", None)
+        new_display = request.data.get("display", None)
+        instance = self.get_object()
+
+        update_permission_sets = parse_bool(request.query_params.get("update_permission_sets", False))
+
+        if instance.value != new_value:
+            related_permissions_actions = EventCategoryRelatedPermissionSetActions(event_category=instance)
+
+            permissions_changed = related_permissions_actions.is_event_category_permission_set_changed_by_user()
+
+            if not permissions_changed or (permissions_changed and update_permission_sets):
+                related_permissions_actions.update_permission_sets_and_permissions_related(
+                    new_value=new_value, display=new_display
+                )
+
+        return super().patch(request, *args, **kwargs)
+
 
 class EventCategoryRankView(GenericAPIView):
     lookup_field = "id"
