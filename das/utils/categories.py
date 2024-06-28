@@ -1,5 +1,9 @@
+from typing import Iterable, Optional
+
 from django.contrib.auth.models import Permission
+from django.db import transaction
 from django.db.models import Q
+from django.utils.translation import gettext_lazy as _
 
 from accounts.models import PermissionSet, User
 from activity.models import EventCategory
@@ -12,7 +16,7 @@ GEOGRAPHIC_DISTANCE_SUFIX = "_gd"
 
 
 def make_eventcategory_permission_codename(
-    eventcategory_value: str, action: str, is_geographic=False, app_label=None
+    eventcategory_value: str, action: str, is_geographic: bool = False, app_label: Optional[str] = None
 ) -> str:
     """make an eventcategory based permission codename
 
@@ -30,6 +34,17 @@ def make_eventcategory_permission_codename(
             else f"{action}_{eventcategory_value}_{GEOGRAPHIC_DISTANCE}"
         )
     return f"{app_label}.{eventcategory_value}_{action}" if app_label else f"{eventcategory_value}_{action}"
+
+
+def make_eventcategory_permission_codename_with_tenant(
+    eventcategory_value: str, action: str, tenant_id, is_geographic: bool = False, app_label: Optional[str] = None
+) -> str:
+    from accounts.utils import add_tenant_to_permission_codename
+
+    codename = make_eventcategory_permission_codename(eventcategory_value, action, is_geographic, app_label)
+    codename = add_tenant_to_permission_codename(tenant_id=tenant_id, codename=codename)
+
+    return codename
 
 
 def get_categories_and_geo_categories(user: User):
@@ -70,7 +85,6 @@ class EventCategoryRelatedPermissionSetActions:
         Returns:
             bool: True if the permission set has been changed, False otherwise.
         """
-        from accounts.utils import add_tenant_to_permission_codename
 
         default_permissions_number = 4
         tenant_settings = get_tenant_settings()
@@ -78,24 +92,25 @@ class EventCategoryRelatedPermissionSetActions:
         geo_codenames = []
 
         for action in ACTIONS:
-            codename = make_eventcategory_permission_codename(
-                eventcategory_value=self.event_category.value, action=action
+            codename = make_eventcategory_permission_codename_with_tenant(
+                eventcategory_value=self.event_category.value, action=action, tenant_id=tenant_settings.id
             )
-            codename = add_tenant_to_permission_codename(tenant_id=tenant_settings.id, codename=codename)
             actions_codenames.append(codename)
         for action in GEO_ACTIONS:
-            codename = make_eventcategory_permission_codename(
-                eventcategory_value=self.event_category.value, action=action, is_geographic=True
+            codename = make_eventcategory_permission_codename_with_tenant(
+                eventcategory_value=self.event_category.value,
+                action=action,
+                tenant_id=tenant_settings.id,
+                is_geographic=True,
             )
-            codename = add_tenant_to_permission_codename(tenant_id=tenant_settings.id, codename=codename)
             geo_codenames.append(codename)
 
-        base_qs = PermissionSet.objects.prefetch_related("permissions").all()
+        permission_set = self._get_permission_set_by_name(name=self.event_category.auto_permissionset_name)
+        geo_permission_set = self._get_permission_set_by_name(
+            name=self.event_category.auto_geographic_permission_set_name
+        )
 
-        try:
-            permission_set = base_qs.get(name=self.event_category.auto_permissionset_name)
-            geo_permission_set = base_qs.get(name=self.event_category.auto_geographic_permission_set_name)
-        except PermissionSet.DoesNotExist:
+        if not permission_set or not geo_permission_set:
             return True
 
         if (
@@ -141,3 +156,77 @@ class EventCategoryRelatedPermissionSetActions:
 
         Permission.objects.filter(id__in=permissions_ids_to_delete).delete()
         related_permissions_set.delete()
+
+    def update_permission_sets_and_permissions_related(self, new_value: str, display: str):
+        permission_set = self._get_permission_set_by_name(name=self.event_category.auto_permissionset_name)
+        geo_permission_set = self._get_permission_set_by_name(
+            name=self.event_category.auto_geographic_permission_set_name
+        )
+
+        with transaction.atomic():
+            self._update_permission_set_and_permissions(
+                permission_set=permission_set,
+                actions=ACTIONS,
+                new_value=new_value,
+                display=display,
+            )
+            self._update_permission_set_and_permissions(
+                permission_set=geo_permission_set,
+                actions=GEO_ACTIONS,
+                new_value=new_value,
+                display=display,
+                is_geographic=True,
+            )
+
+    def _get_permission_set_by_name(self, name: str) -> Optional[PermissionSet]:
+        try:
+            return PermissionSet.objects.prefetch_related("permissions").get(name=name)
+        except PermissionSet.DoesNotExist:
+            return None
+
+    def _update_permission_set_and_permissions(
+        self,
+        permission_set: PermissionSet,
+        actions: Iterable[str],
+        new_value: str,
+        display: str,
+        is_geographic: bool = False,
+    ) -> None:
+
+        if permission_set:
+            tenant_settings = get_tenant_settings()
+
+            for action in actions:
+                codename = make_eventcategory_permission_codename_with_tenant(
+                    eventcategory_value=self.event_category.value,
+                    action=action,
+                    tenant_id=tenant_settings.id,
+                    is_geographic=is_geographic,
+                )
+                new_codename = make_eventcategory_permission_codename_with_tenant(
+                    eventcategory_value=new_value,
+                    action=action,
+                    tenant_id=tenant_settings.id,
+                    is_geographic=is_geographic,
+                )
+
+                name = f"Can {action} {new_value} events"
+                if is_geographic:
+                    name = f"{name} in a certain distance"
+
+                try:
+                    permission = permission_set.permissions.get(codename=codename)
+                    permission.name = name
+                    permission.codename = new_codename
+                    permission.save(update_fields=["codename", "name"])
+                except Permission.DoesNotExist:
+                    pass
+
+            if display and self.event_category.display != display:
+                if is_geographic:
+                    name = _(f"View {display} Event Geographic Permissions")
+                else:
+                    name = _(f"View {display} Event Permissions")
+
+                permission_set.name = name
+                permission_set.save(update_fields=["name"])
