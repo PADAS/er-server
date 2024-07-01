@@ -26,6 +26,7 @@ def code(migration_apps, schema_editor):
     fields.pop("children")
 
     for tenant in DASTenant.objects.all():
+        fields["das_tenant"] = tenant
         with TenantContextManager(tenant.domain):
             try:
                 existing_permission_set = PermissionSet.objects.get(name="Reported By Users")
