@@ -29,6 +29,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 import utils
+from core.permissions import UserCanExportDataPermission
 from das_server import celery
 from das_server.views import CustomSchema
 from observations import kmlutils, models, serializers
@@ -926,6 +927,7 @@ class SourceProvidersViewPartial(generics.UpdateAPIView):
 
 
 class KmlRootView(APIView):
+    permission_classes = (UserCanExportDataPermission,)
     renderer_classes = (StaticHTMLRenderer,)
 
     def build_link_for_user(self, start_date=None, end_date=None):
@@ -1259,7 +1261,7 @@ class TrackingDataViewSchema(InactiveSubjectsViewSchema):
 
 
 class TrackingDataCsvView(APIView):
-    permission_classes = (StandardObjectPermissions,)
+    permission_classes = (UserCanExportDataPermission, StandardObjectPermissions)
     schema = TrackingDataViewSchema()
 
     def get_queryset(self, subject_id=None, chronofile=None, source_provider=None):
@@ -1517,7 +1519,10 @@ class TrackingDataCsvView(APIView):
 
 
 class TrackingMetaDataExportView(APIView):
-    permission_classes = (StandardObjectPermissions,)
+    permission_classes = (
+        UserCanExportDataPermission,
+        StandardObjectPermissions,
+    )
 
     # schema = InactiveSubjectsViewSchema()
 

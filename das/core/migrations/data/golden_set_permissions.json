@@ -6109,5 +6109,23 @@
     },
     "pk": 7582,
     "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 98,
+      "codename": "view_export_event_data",
+      "name": "Can Export Event Data"
+    },
+    "pk": 7583,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 98,
+      "codename": "view_export_observation_data",
+      "name": "Can Export Observation Data"
+    },
+    "pk": 7584,
+    "model": "auth.authpermissiontemporal"
   }
 ]
