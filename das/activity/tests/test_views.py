@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 
+from accounts.models.permissionset import PermissionSet
 from activity.models import Event, EventGeometry, EventType
 from analyzers.models import FeatureProximityAnalyzerConfig
 from analyzers.proximity import FeatureProximityAnalyzer
@@ -350,6 +351,8 @@ class TestEventsExportView:
         url = reverse("events-export")
         subject = subject_source_with_proximity_analyzer_configured.subject
         source = subject_source_with_proximity_analyzer_configured.source
+        can_export_data_permission_set = PermissionSet.objects.get(name="Can Export Data")
+        ops_user.permission_sets.add(can_export_data_permission_set)
         client.force_login(ops_user)
         self._setup_observations(source, five_observations)
         self._analyze_subject(subject)

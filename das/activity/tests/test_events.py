@@ -200,6 +200,8 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.all_perms_permissionset = PermissionSet.objects.create(name="all_perms_set")
 
+        self.can_export_data_permission_set = PermissionSet.objects.get(name="Can Export Data")
+
         for permission_name in all_permissions:
             logger.info("permission: %s", permission_name)
             self.all_perms_permissionset.permissions.add(
@@ -207,6 +209,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
             )
         self.all_perms_user.permission_sets.add(self.all_perms_permissionset)
         self.all_perms_user.permission_sets.add(self.reported_by_permission_set)
+        self.all_perms_user.permission_sets.add(self.can_export_data_permission_set)
 
         self.power_user_permissionset = PermissionSet.objects.create(name="power_set")
         for permission_name in power_user_permissions:
