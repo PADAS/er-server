@@ -211,6 +211,7 @@
   },
   {
     "model": "accounts.permissionset",
+    "pk": "b5057387-9f6c-4685-8ec1-46ad29684eea",
     "fields": {
       "created_at": "2023-11-15T20:55:27.350Z",
       "updated_at": "2023-11-15T20:55:27.350Z",
