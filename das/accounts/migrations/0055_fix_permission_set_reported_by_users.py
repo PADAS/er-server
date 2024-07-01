@@ -43,7 +43,7 @@ def code(migration_apps, schema_editor):
 
                 for related_field_name in ("user_set", "subjectgroup_set", "sourcegroup_set", "children"):
                     existing_related_object = getattr(existing_permission_set, related_field_name)
-                    objects = existing_related_object.all()
+                    objects = existing_related_object.filter(das_tenant_id=tenant.id)
 
                     related_object = getattr(reported_by_users_perm_set, related_field_name)
                     related_object.add(*objects)
