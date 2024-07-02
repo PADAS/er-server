@@ -3,8 +3,6 @@ import uuid
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
-from rest_framework import status
-from rest_framework.response import Response
 
 from accounts.models.permissionset import PermissionSet
 from accounts.utils import add_tenant_to_permission_codename
@@ -40,12 +38,21 @@ def get_permitted_event_categories(request):
     return permitted_categories
 
 
-def return_409_response():
-    status_msg = {"error_message": "The request could not be completed due to conflict with existing data."}
-    return Response(status_msg, status=status.HTTP_409_CONFLICT)
+def ensure_eventcategory_perms_exist(
+    category: EventCategory, tenant_id: uuid.UUID, geographic_only: Optional[bool] = False
+) -> None:
+    """
+    Ensures that the necessary permissions for an event category exist.
 
+    Args:
+        category (EventCategory): The event category for which to ensure permissions.
+        tenant_id (uuid.UUID): The ID of the tenant.
+        geographic_only (Optional[bool], optional): Flag indicating whether to create only geographic permissions.
+            Defaults to False.
 
-def ensure_eventcategory_perms_exist(category: EventCategory, tenant_id: uuid.UUID, geographic_only=False):
+    Returns:
+        None
+    """
     content_type = ContentType.objects.get(app_label="activity", model="event")
     category_name = category.value
 

@@ -221,8 +221,8 @@ class PatrolsView(ListCreateAPIView):
     def post(self, request, *args, **kwargs):
         try:
             return super().post(request, *args, **kwargs)
-        except IntegrityError as ie:
-            return return_409_response(message=str(ie))
+        except IntegrityError as integrity_error:
+            return return_409_response(message=str(integrity_error))
 
     def get(self, request, *args, **kwargs):
         state_filters = self.request.query_params.getlist("status", None)

@@ -4,7 +4,7 @@ from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIV
 from activity.models import EventCategory
 from activity.permissions import EventCategoryObjectPermissions
 from activity.serializers import EventCategorySerializer
-from activity.util import return_409_response
+from utils.drf import return_409_response
 from utils.json import parse_bool
 
 
@@ -27,8 +27,8 @@ class EventCategoriesView(ListCreateAPIView):
     def post(self, request, *args, **kwargs):
         try:
             return super().post(request, *args, **kwargs)
-        except IntegrityError:
-            return return_409_response()
+        except IntegrityError as integrity_error:
+            return return_409_response(message=str(integrity_error))
 
 
 class EventCategoryView(RetrieveUpdateDestroyAPIView):

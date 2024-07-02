@@ -547,8 +547,9 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
         try:
             self.perform_create(serializer)
-        except IntegrityError:
-            return return_409_response()
+        except IntegrityError as integrity_error:
+            return return_409_response(message=str(integrity_error))
+
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
