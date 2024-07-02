@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import tempfile
+import uuid
 from unittest.mock import patch
 from urllib.parse import urlencode
 
@@ -364,6 +365,38 @@ class TestPatrol(BaseAPITest):
             request, id=str(self.sample_patrol_id), note_id=str(response.data["id"])
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_create_patrol_with_existing_id_responds_409_conflict(self):
+        segment_id = uuid.uuid4()
+        patrol_patrolsg = dict(
+            objective="Patrol Management",
+            priority=0,
+            title="Patrol",
+            state="open",
+            notes=[{"text": "New Note.."}],
+            patrol_segments=[
+                {
+                    "id": segment_id,
+                    "patrol_type": "routine_patrol",
+                    "leader": {"content_type": "observations.subject", "id": self.ranger_sari.id},
+                },
+            ],
+        )
+
+        url = reverse("patrols")
+        request = self.factory.post(url, data=patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        assert response.status_code == status.HTTP_201_CREATED
+
+        my_patrol_id = response.data["id"]
+
+        patrol_patrolsg["id"] = my_patrol_id
+        url = reverse("patrols")
+        request = self.factory.post(url, data=patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        assert response.status_code == status.HTTP_409_CONFLICT
 
     def test_create_patrol_and_upload_document(self):
         patrol_patrolsg = dict(

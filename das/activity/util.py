@@ -4,8 +4,6 @@ from typing import Optional
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
-from rest_framework import status
-from rest_framework.response import Response
 
 from accounts.models.permissionset import PermissionSet
 from accounts.utils import add_tenant_to_permission_codename
@@ -39,11 +37,6 @@ def get_permitted_event_categories(request):
         if request.user.has_perm(permission_name):
             permitted_categories.append(category)
     return permitted_categories
-
-
-def return_409_response():
-    status_msg = {"error_message": "The request could not be completed due to conflict with existing data."}
-    return Response(status_msg, status=status.HTTP_409_CONFLICT)
 
 
 def ensure_eventcategory_perms_exist(
