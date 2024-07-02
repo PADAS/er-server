@@ -14,7 +14,6 @@ from rest_framework.response import Response
 from activity.models import EventCategory, EventType
 from activity.permissions import EventCategoryPermissions
 from activity.serializers import EventTypeRankSerializer, EventTypeSerializer
-from activity.util import return_409_response
 from activity.views.response_headers import (
     build_event_type_etag_header,
     build_event_type_last_modified_header,
@@ -22,6 +21,7 @@ from activity.views.response_headers import (
     build_event_types_last_modified_header,
 )
 from activity.views.schemas import EventTypeViewSchema
+from utils.drf import return_409_response
 from utils.json import parse_bool
 from utils.rank import RankedTool
 
@@ -47,14 +47,14 @@ class EventTypeView(RetrieveUpdateDestroyAPIView):
     def put(self, request, *args, **kwargs):
         try:
             return self.update(request, *args, **kwargs)
-        except IntegrityError:
-            return return_409_response()
+        except IntegrityError as integrity_error:
+            return return_409_response(message=str(integrity_error))
 
     def patch(self, request, *args, **kwargs):
         try:
             return self.partial_update(request, *args, **kwargs)
-        except IntegrityError:
-            return return_409_response()
+        except IntegrityError as integrity_error:
+            return return_409_response(message=str(integrity_error))
 
     def get_serializer_context(self):
         qparams = self.request.query_params
