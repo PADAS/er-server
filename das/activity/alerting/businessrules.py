@@ -267,13 +267,17 @@ def accumulate_options(schema_option, accumulator=None):
     return {}
 
 
-def _generate_aggregate_event_variables_class(event_types, only_common_factors=False, user=None):
+def _generate_aggregate_event_variables_class(
+    event_types, only_common_factors=False, user=None, support_legacy_event_variables=False
+):
     """
     From a list of EventTypes, generate an EventVariables class adhering to business-rules interface.
     :param event_types: A list of DAS EventType objects from which to build a variables type.
     :param only_common_factors: Whether to reduce the list of variables to just those which apply to all event_types.
     :return: A `Variables` type to be used with Venmo business-rules package.
     """
+
+    supported_field_attributes = ["no_legacy"] + (["legacy"] if support_legacy_event_variables else [])
 
     schema_properties_map = {}
 
@@ -365,7 +369,7 @@ def _generate_aggregate_event_variables_class(event_types, only_common_factors=F
             options_dict=field_properties.optionsdict,
         )
         for composite_field_name, field_properties in attributes_accumulator.items()
-        for key_suffix in ["no_legacy", "legacy"]
+        for key_suffix in supported_field_attributes
     }
 
     subject_group_func = create_subject_group_func(user)
