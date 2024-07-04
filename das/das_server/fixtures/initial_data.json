@@ -9510,6 +9510,21 @@
     }
   },
   {
+    "model": "choices.choice",
+    "pk": "431e7362-b965-41ef-92bf-96214423b9d7",
+    "fields": {
+      "delete_on": null,
+      "is_active": true,
+      "model": "mapping.TileLayer",
+      "field": "service_type",
+      "value": "wms_basemap",
+      "display": "WMS Basemap",
+      "icon": null,
+      "ordernum": null,
+      "updated_at": "2024-06-19T19:19:10.748Z"
+    }
+  },
+  {
     "model": "accounts.permissionsetpermission",
     "fields": {
       "permissionset": [
