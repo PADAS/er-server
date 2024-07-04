@@ -49,8 +49,8 @@ class TestMaps(BaseAPITest):
         layer_url = self.api_base + f"/mapping/layer{layer_id}"
         update_data = dict(
             attributes={
-                "type": "google_map",
-                "title": "Google Satellite",
+                "type": "tile_server",
+                "title": "Tile Server",
                 "configuration": {"accessToken": "testaccesstoken"},
             }
         )
