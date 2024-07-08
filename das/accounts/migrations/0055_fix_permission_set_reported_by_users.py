@@ -31,7 +31,7 @@ def code(migration_apps, schema_editor):
             try:
                 existing_permission_set = PermissionSet.objects.get(name="Reported By Users")
                 existing_permission_set.name += "_changed"
-                existing_permission_set.save()
+                existing_permission_set.save(update_fields=["name"])
             except PermissionSet.DoesNotExist:
                 existing_permission_set = None
 
@@ -47,6 +47,10 @@ def code(migration_apps, schema_editor):
 
                     related_object = getattr(reported_by_users_perm_set, related_field_name)
                     related_object.add(*objects)
+
+                permissions = existing_permission_set.permissions.all()
+                reported_by_users_perm_set.permissions.add(*permissions)
+
                 existing_permission_set.delete()
 
 
