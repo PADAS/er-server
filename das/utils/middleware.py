@@ -92,7 +92,7 @@ class RequestLoggingMiddleware(object):
             content_length = len(getattr(response, "content", []))
             referer = request.META.get("HTTP_REFERER", "")
             user_agent = request.META.get("HTTP_USER_AGENT", "")
-            status = response.status_code
+            status_code = response.status_code
             path = request.get_full_path()
             host = request.get_host()
             method = request.method
@@ -101,6 +101,14 @@ class RequestLoggingMiddleware(object):
                 tenant_domain = get_tenant_settings().domain
             except TenantNotFoundException:
                 tenant_domain = "unknown"
+            error_message = getattr(response, "data", {}).get("error_message")
+            if status_code >= status.HTTP_400_BAD_REQUEST:
+                error_message = error_message or str(
+                    getattr(response, "data", {"status": {}}).get("status").get("detail", "")
+                )
+                if not error_message:
+                    # our response data is not standardised at this point, log all of it
+                    error_message = str(getattr(response, "data", ""))
 
             extra = dict(
                 remote_addr=remote_addr,
@@ -110,7 +118,7 @@ class RequestLoggingMiddleware(object):
                 content_length=content_length,
                 referer=referer,
                 user_agent=user_agent,
-                status=status,
+                status=status_code,
                 path=path,
                 method=method,
                 protocol=protocol,
@@ -118,13 +126,16 @@ class RequestLoggingMiddleware(object):
                 host=host,
             )
 
+            if error_message:
+                extra["error_message"] = error_message
+
             request_info = "{0} {1} {2}".format(method, path, protocol)
             method = '%s %s %s [] "%s" %s %s "%s" "%s" (%.02f seconds)' % (
                 remote_addr,
                 logname,
                 user_id,
                 request_info,
-                status,
+                status_code,
                 content_length,
                 referer,
                 user_agent,
@@ -135,7 +146,7 @@ class RequestLoggingMiddleware(object):
             stats.histogram(
                 "api_request_time",
                 req_time,
-                tags=[f"path:{path}", f"method:{method}" f"satus:{status}"],
+                tags=[f"path:{path}", f"method:{method}" f"satus:{status_code}"],
             )
 
         except Exception:

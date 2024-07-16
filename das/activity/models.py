@@ -1707,6 +1707,10 @@ PATROL_STATE_CHOICES = (
     (PC_CANCELLED, "Cancelled"),
 )
 
+PATROL_STATE_ALTERNATE_SPELLINGS = {
+    "canceled": PC_CANCELLED,
+}
+
 PC_SYSTEM = "system"
 PC_SENSOR = "sensor"
 PC_ANALYZER = "analyzer"
