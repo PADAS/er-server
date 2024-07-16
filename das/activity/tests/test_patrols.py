@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import tempfile
+import uuid
 from unittest.mock import patch
 from urllib.parse import urlencode
 
@@ -23,6 +24,7 @@ from rest_framework import status
 from accounts.models import PermissionSet
 from activity import views
 from activity.models import (
+    PC_CANCELLED,
     PC_DONE,
     PC_OPEN,
     Event,
@@ -363,6 +365,38 @@ class TestPatrol(BaseAPITest):
             request, id=str(self.sample_patrol_id), note_id=str(response.data["id"])
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_create_patrol_with_existing_id_responds_409_conflict(self):
+        segment_id = uuid.uuid4()
+        patrol_patrolsg = dict(
+            objective="Patrol Management",
+            priority=0,
+            title="Patrol",
+            state="open",
+            notes=[{"text": "New Note.."}],
+            patrol_segments=[
+                {
+                    "id": segment_id,
+                    "patrol_type": "routine_patrol",
+                    "leader": {"content_type": "observations.subject", "id": self.ranger_sari.id},
+                },
+            ],
+        )
+
+        url = reverse("patrols")
+        request = self.factory.post(url, data=patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        assert response.status_code == status.HTTP_201_CREATED
+
+        my_patrol_id = response.data["id"]
+
+        patrol_patrolsg["id"] = my_patrol_id
+        url = reverse("patrols")
+        request = self.factory.post(url, data=patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        assert response.status_code == status.HTTP_409_CONFLICT
 
     def test_create_patrol_and_upload_document(self):
         patrol_patrolsg = dict(
@@ -2296,6 +2330,31 @@ class TestPatrolView:
         data = dict(response.data)
 
         assert data["state"] == PC_DONE
+
+    def test_accept_mispelled_canceled_state(self):
+        now = datetime.datetime.now(tz=pytz.utc)
+        start_date = now - datetime.timedelta(hours=1)
+        patrol_data = {
+            "patrol_segments": [
+                {
+                    "patrol_type": "routine_patrol",
+                    "time_range": {"start_time": start_date.isoformat()},
+                }
+            ],
+            "title": "Patrol with past date",
+            "state": "canceled",
+        }
+
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(name="Patrols Permissions - No Delete")
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+
+        request = client.factory.post(client.api_base + f"/patrols/", data=patrol_data)
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert data["state"] == PC_CANCELLED
 
     def test_response_contains_etag_and_last_modified_headers(
         self, superuser_client, five_patrol_segment, memory_store_client_mock

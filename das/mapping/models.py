@@ -651,7 +651,6 @@ class SpatialFeatureGroupStatic(TenantModelMixin, UUIDModel, TimestampedModel):
                 name="%(app_label)s_%(class)s_unique_name_across_tenants",
             )
         ]
-        indexes = [Index(fields=["das_tenant", "name"])]
 
     def __str__(self):
         return self.name
