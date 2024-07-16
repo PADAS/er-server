@@ -30,8 +30,6 @@ def create_or_update_reported_by_users_permissionset_id(migration_apps, schema_e
         with TenantContextManager(tenant.domain):
             try:
                 existing_permission_set = PermissionSet.objects.get(name="Reported By Users")
-                existing_permission_set.name += "_changed"
-                existing_permission_set.save(update_fields=["name"])
             except PermissionSet.DoesNotExist:
                 existing_permission_set = None
 
@@ -39,6 +37,9 @@ def create_or_update_reported_by_users_permissionset_id(migration_apps, schema_e
                 reported_by_users_perm_set = PermissionSet.objects.create(**fields)
 
             elif reported_by_users_json["pk"] != str(getattr(existing_permission_set, "id", "")):
+                existing_permission_set.name += "_changed"
+                existing_permission_set.save(update_fields=["name"])
+
                 reported_by_users_perm_set = PermissionSet.objects.create(id=reported_by_users_json["pk"], **fields)
 
                 for related_field_name in ("user_set", "subjectgroup_set", "sourcegroup_set", "children"):
