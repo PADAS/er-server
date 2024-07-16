@@ -11,7 +11,7 @@ from utils.tenant.managers import TenantContextManager
 JSON_FILE = f"{settings.BASE_DIR}/das_server/fixtures/initial_data.json"
 
 
-def code(migration_apps, schema_editor):
+def create_or_update_reported_by_users_permissionset_id(migration_apps, schema_editor):
     PermissionSet = apps.get_model("accounts", "PermissionSet")
 
     initial_data_objects = load_from_file(file_path=JSON_FILE)
@@ -62,7 +62,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunPython(
-            code=code,
+            code=create_or_update_reported_by_users_permissionset_id,
             reverse_code=migrations.RunPython.noop,
         ),
     ]
