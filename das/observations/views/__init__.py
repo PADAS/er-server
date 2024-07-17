@@ -8,6 +8,7 @@ import urllib
 import dateutil.parser
 import pytz
 from kombu import exceptions
+from rest_framework_condition import etag
 
 import django
 from django.core.files.storage import default_storage
@@ -63,6 +64,7 @@ from utils.drf import (
     StandardResultsSetPagination,
     return_409_response,
 )
+from utils.etags import HashByModelBuilder
 from utils.features import features
 from utils.json import ExtendedGEOJSONRenderer, parse_bool, zeroout_microseconds
 from utils.tenant import get_tenant_settings
@@ -186,6 +188,13 @@ class RegionView(generics.RetrieveAPIView):
         return models.Region.objects.all()
 
 
+def etag_subject_groups_hash(*args, **kwargs):
+    builder = HashByModelBuilder(model=models.SubjectGroup)
+    builder.set_m2m_related_model_string(relation_name="subjects")
+    builder.set_m2m_related_model_string(relation_name="children")
+    return builder.build()
+
+
 class SubjectGroupsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
     """
     Returns all subjectgroups in the system.
@@ -195,6 +204,10 @@ class SubjectGroupsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
     permission_classes = (StandardObjectPermissions,)
     filter_backends = (create_gp_filter_class("subjectgf", ("observations.view_subjectgroup",), models.SubjectGroup),)
     schema = SubjectGroupsViewSchema()
+
+    @etag(etag_subject_groups_hash)
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
