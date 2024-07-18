@@ -145,7 +145,7 @@ class SubjectAnalyzerResult(TenantModelMixin, TimestampedModel):
     class Meta:
         base_manager_name = "objects"
         default_manager_name = "objects"
-        indexes = [Index(fields=["subject_analyzer_id", "subject"])]
+        indexes = [Index(fields=["subject_analyzer_id", "subject", "das_tenant"])]
 
     def __str__(self):
         _tmp_str = (
