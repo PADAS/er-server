@@ -27,7 +27,7 @@ from activity.models import (
     PatrolType,
 )
 from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
-from choices.models import Choice
+from choices.models import Choice, DynamicChoice
 from core.models import DASTenant
 from mapping.models import SpatialFeatureGroupStatic, SpatialFeatureType
 from observations.models import (
@@ -396,6 +396,17 @@ class ChoiceFactory(factory.django.DjangoModelFactory):
     value = factory.Sequence(lambda n: f"value_{n}")
     display = factory.Sequence(lambda n: f"display_{n}")
     ordernum = factory.Sequence(lambda n: n)
+
+
+class DynamicChoiceFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = DynamicChoice
+
+    choice_name = "rhinos"
+    model_name = "observations.subject"
+    criteria = '[["common_name_id", "black_rhino"]]'
+    value_col = "id"
+    display_col = "name"
 
 
 class CommunityFactory(factory.django.DjangoModelFactory):
