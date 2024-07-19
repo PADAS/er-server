@@ -91,8 +91,15 @@ def _get_dynamic_choices(field_details, event=None):
         if event_details:
             event_detail = event_details.first()
             object_id = event_detail.data.get("event_details").get(field_details.get("event_detail"))
-            extra_objects = model_to_filter.objects.filter(id=object_id)
-            choices = choices | extra_objects
+            try:
+                # for simple dynamic choices, the stored value is the uuid of the subject
+                object_id = uuid.UUID(object_id)
+            except (ValueError, TypeError):
+                # the stored value is not a uuid to a model object, ignore it
+                pass
+            else:
+                extra_objects = model_to_filter.objects.filter(id=object_id)
+                choices = choices | extra_objects
 
     for row in choices:
         value = getattr_jsonfield(row, dynamic_choice.value_col, None)

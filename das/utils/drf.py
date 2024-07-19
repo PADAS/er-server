@@ -75,7 +75,11 @@ def api_exception_handler(exc, context):
         status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
 
         if isinstance(exc, ValidationError):
-            data = {"detail": exc.message_dict} if detail else {}
+            try:
+                data = {"detail": exc.message_dict} if detail else {}
+            except AttributeError:
+                pass
+
             status_code = status.HTTP_400_BAD_REQUEST
 
         response = Response(data, status=status_code)
