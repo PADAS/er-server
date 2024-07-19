@@ -1,8 +1,12 @@
 from django.core.management.base import BaseCommand
-from tracking.models import AWETelemetryPlugin
 
-class Command(BaseCommand):
-    help = 'Run plugin maintenance.'
+from tracking.models import AWETelemetryPlugin
+from utils.tenant.commands import TenantCommandMixin
+
+
+class Command(TenantCommandMixin, BaseCommand):
+    help = "Run plugin maintenance."
+
     def handle(self, *args, **options):
 
         sk = AWETelemetryPlugin.objects.all()
@@ -11,5 +15,3 @@ class Command(BaseCommand):
             p._maintenance()
 
             p.execute()
-
-

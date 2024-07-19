@@ -4,9 +4,10 @@ from django.apps import apps
 from django.core.management.base import BaseCommand
 
 from tracking.tasks import execute_run_source_plugin
+from utils.tenant.commands import TenantCommandMixin
 
 
-class Command(BaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     help = "Run all the Savannah SourcePlugins that are ENABLED."
 
     def add_arguments(self, parser):
