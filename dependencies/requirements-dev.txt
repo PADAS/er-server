@@ -32,8 +32,6 @@ anyio==3.7.1
     # via
     #   -r ./requirements.txt
     #   jupyter-server
-appdirs==1.4.4
-    # via black
 arcgis==1.8.0
     # via -r ./requirements.txt
 arcgis2geojson==2.0.0
@@ -76,7 +74,7 @@ attrs==23.1.0
     #   referencing
 autoflake==2.3.1
     # via -r requirements-dev.in
-autopep8==2.0.2
+autopep8==2.0.4
     # via -r requirements-dev.in
 babel==2.12.1
     # via
@@ -104,7 +102,7 @@ billiard==4.1.0
     # via
     #   -r ./requirements.txt
     #   celery
-black==21.6b0
+black==22.12.0
     # via -r requirements-dev.in
 bleach==6.0.0
     # via
@@ -204,7 +202,7 @@ coreschema==0.0.4
     # via
     #   -r ./requirements.txt
     #   coreapi
-coverage[toml]==7.2.7
+coverage[toml]==7.5.3
     # via
     #   -r requirements-dev.in
     #   pytest-cov
@@ -376,7 +374,7 @@ executing==2.0.0
     # via
     #   -r ./requirements.txt
     #   stack-data
-factory-boy==3.2.1
+factory-boy==3.3.0
     # via
     #   -r requirements-dev.in
     #   pytest-factoryboy
@@ -597,7 +595,7 @@ jeepney==0.8.0
     #   -r ./requirements.txt
     #   keyring
     #   secretstorage
-jinja2==2.11.3
+jinja2==3.1.4
     # via
     #   -r ./requirements.txt
     #   coreschema
@@ -883,6 +881,7 @@ pkgutil-resolve-name==1.3.10
 platformdirs==3.11.0
     # via
     #   -r ./requirements.txt
+    #   black
     #   jupyter-core
     #   pylint
     #   virtualenv
@@ -890,7 +889,7 @@ pluggy==1.3.0
     # via pytest
 pprintpp==0.4.0
     # via pytest-clarity
-pre-commit==3.3.3
+pre-commit==3.5.0
     # via -r requirements-dev.in
 prometheus-client==0.17.1
     # via
@@ -987,7 +986,7 @@ pylint==2.17.7
     #   -r requirements-dev.in
     #   pylint-django
     #   pylint-plugin-utils
-pylint-django==2.5.3
+pylint-django==2.5.5
     # via -r requirements-dev.in
 pylint-plugin-utils==0.8.2
     # via pylint-django
@@ -1107,8 +1106,6 @@ referencing==0.30.2
     #   -r ./requirements.txt
     #   jsonschema
     #   jsonschema-specifications
-regex==2023.8.8
-    # via black
 requests==2.31.0
     # via
     #   -r ./requirements.txt
@@ -1257,14 +1254,13 @@ threadpoolctl==3.2.0
     #   -r ./requirements.txt
     #   scikit-learn
 toml==0.10.2
-    # via
-    #   black
-    #   pytest
+    # via pytest
 tomli==2.0.1
     # via
     #   -r ./requirements.txt
     #   autoflake
     #   autopep8
+    #   black
     #   build
     #   coverage
     #   dparse
@@ -1307,6 +1303,7 @@ typing-extensions==4.8.0
     #   -r ./requirements.txt
     #   asgiref
     #   astroid
+    #   black
     #   faker
     #   ipython
     #   kombu
