@@ -61,6 +61,21 @@ class HashByModelBuilder:
         qs = self._process_queryset(queryset=self.queryset, field_names=field_names, filter_opts=filter_opts)
         self.values_string = str(list(qs))
 
+    @classmethod
+    def build_from_queryset(cls, queryset: QuerySet) -> str:
+        """
+        Builds an etag from a queryset.
+
+        Args:
+            queryset (QuerySet): The queryset to build the etag from.
+
+        Returns:
+            str: The etag value.
+
+        """
+        string_to_be_hashed = str(list(queryset))
+        return hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
+
     def build(self) -> str:
         """
         Builds and returns the hash string.
