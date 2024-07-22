@@ -1,3 +1,5 @@
+from rest_framework_condition import etag
+
 from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.generics import (
@@ -13,14 +15,39 @@ from activity.serializers import EventCategorySerializer
 from activity.views.schemas import EventCategoriesViewSchema, EventCategoryViewSchema
 from utils.categories import EventCategoryRelatedPermissionSetActions
 from utils.drf import return_409_response
+from utils.etags import HashByModelBuilder
 from utils.json import parse_bool
 from utils.rank import RankedTool, RankSerializer
+
+
+def get_event_category_queryset(user, query_params):
+    queryset = EventCategory.objects.all_sort()
+
+    if not parse_bool(query_params.get("include_inactive")):
+        queryset = queryset.filter(is_active=True)
+
+    actions = ("create", "update", "read", "delete")
+    queryset = queryset.exclude(
+        id__in=[q.id for q in queryset if not any(user.has_perm(f"activity.{q.value}_{action}") for action in actions)]
+    )
+
+    return queryset
+
+
+def etag_event_category_hash(request):
+    queryset = get_event_category_queryset(user=request.user, query_params=request.GET)
+    queryset = queryset.values()
+    return HashByModelBuilder.build_from_queryset(queryset=queryset)
 
 
 class EventCategoriesView(ListCreateAPIView):
     permission_classes = (EventCategoryObjectPermissions,)
     serializer_class = EventCategorySerializer
     schema = EventCategoriesViewSchema()
+
+    @etag(etag_event_category_hash)
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
     def get_serializer_context(self):
         query_params = self.request.query_params if self.request and hasattr(self.request, "query_params") else {}
@@ -34,16 +61,7 @@ class EventCategoriesView(ListCreateAPIView):
         return context
 
     def get_queryset(self):
-        queryset = EventCategory.objects.all_sort()
-
-        if not parse_bool(self.request.query_params.get("include_inactive")):
-            queryset = queryset.filter(is_active=True)
-        for q in queryset:
-            actions = ("create", "update", "read", "delete")
-            permission_name = [f"activity.{q.value}_{action}" for action in actions]
-            if not any([self.request.user.has_perm(perm) for perm in permission_name]):
-                queryset = queryset.exclude(id=q.id)
-        return queryset
+        return get_event_category_queryset(user=self.request.user, query_params=self.request.query_params)
 
     def post(self, request, *args, **kwargs):
         try:
