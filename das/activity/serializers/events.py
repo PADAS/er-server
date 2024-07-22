@@ -5,6 +5,7 @@ from collections import OrderedDict
 
 from django_multitenant.utils import get_current_tenant
 from drf_extra_fields.geo_fields import PointField
+from opentelemetry import trace
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
 
@@ -93,6 +94,7 @@ from .helpers import (
 )
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 def which_field_search_for(application):
@@ -988,6 +990,11 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             self.fields.pop("is_linked_to")
 
     def to_representation(self, event):
+        with tracer.start_as_current_span("EventSerializer.to_representation") as span:
+            span.set_attribute("event_id", event.id)
+            return self._to_representation(event)
+
+    def _to_representation(self, event):
         self.fields.pop("eventsource", None)
 
         set_prefetched = hasattr(event, "event_details_set")
