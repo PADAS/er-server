@@ -426,6 +426,16 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise ForbiddenAPIException
 
+        subject_group = self.request.query_params.get("subject_group")
+        subject_ids = self.request.query_params.get("id")
+
+        # Apply request query filters that have are compatible with any of the
+        # criteria above.
+        updated_since = self.request.query_params.get("updated_since")
+        updated_until = self.request.query_params.get("updated_until")
+        bbox = self.request.query_params.get("bbox")
+        name = self.request.query_params.get("name", None)
+
         use_last_known_location = parse_bool(self.request.query_params.get("use_lkl"))
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
@@ -442,12 +452,6 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         queryset = queryset.by_user_subjects(self.request.user)
 
         queryset = queryset.select_related("subject_subtype", "subject_subtype__subject_type", "common_name")
-
-        # Allow specifying a single subject group by 'id'.
-        subject_group = self.request.query_params.get("subject_group")
-
-        # Allow specifying a comma-delimited list of subject IDs.
-        subject_ids = self.request.query_params.get("id")
 
         if subject_ids:
             queryset = queryset.by_id(subject_ids)
@@ -484,11 +488,6 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
             self._get_two_way_sources(queryset)
 
-        # Apply request query filters that have are compatible with any of the
-        # criteria above.
-        updated_since = self.request.query_params.get("updated_since")
-        updated_until = self.request.query_params.get("updated_until")
-
         is_updated_since_valid, updated_since = check_valid_date_string(updated_since, "updated_since")
         is_updated_until_valid, updated_until = check_valid_date_string(updated_until, "updated_until")
 
@@ -504,8 +503,6 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         else:
             updated_since = None
             updated_until = None
-
-        bbox = self.request.query_params.get("bbox")
 
         if bbox:
             bbox = bbox.split(",")
@@ -530,10 +527,16 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
                     updated_until=updated_until,
                 )
 
-        if self.request.query_params.get("name", None):
+        if name:
             queryset = queryset.by_name_search(self.request.query_params.get("name"))
 
-        if self.queryset_linked_user and not queryset.filter(id=self.queryset_linked_user.first().id).exists():
+        if (
+            not name
+            and not subject_group
+            and not subject_ids
+            and self.queryset_linked_user
+            and not queryset.filter(id=self.queryset_linked_user.first().id).exists()
+        ):
             queryset = queryset.union(
                 self.queryset_linked_user.select_related(
                     "subject_subtype", "subject_subtype__subject_type", "common_name"
