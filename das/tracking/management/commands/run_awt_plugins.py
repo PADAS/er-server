@@ -15,6 +15,7 @@ from tracking.models.awt import AwtClient
 from tracking.models.plugin_base import DasDefaultTarget, SourcePlugin
 from tracking.pubsub_registry import notify_new_tracks
 from tracking.tasks import execute_run_source_plugin
+from utils.tenant.commands import TenantCommandMixin
 
 AWT_ID_CONVERSION_RE = re.compile(r"0([0-9]{7})[SKY,VTI][0-9A-Z]{4}")
 
@@ -28,7 +29,7 @@ def convert_skyq_tag_to_awtplugin_tag(skyq_tag_id):
         return matches.groups(0)[0]
 
 
-class Command(BaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     logger = logging.getLogger(__name__)
     help = "Run AwtPlugin maintenance."
 

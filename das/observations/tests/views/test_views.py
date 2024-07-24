@@ -388,6 +388,60 @@ class SubjectGroupViewTest(BasePermissionTest):
         response = views.SubjectGroupsView.as_view()(request)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
+    def test_etag_should_be_the_same_on_duplicate_request(self):
+        request = self.factory.get(API_BASE + "/subjectgroups")
+        self.force_authenticate(request, self.superuser)
+
+        response = views.SubjectGroupsView.as_view()(request)
+        etag = response.headers["etag"]
+
+        assert response.status_code == status.HTTP_200_OK
+
+        second_response = views.SubjectGroupsView.as_view()(request)
+        second_etag = second_response.headers["etag"]
+
+        assert response.status_code == status.HTTP_200_OK
+        assert etag == second_etag
+
+    def test_etag_should_change_by_value_changes(self):
+        request = self.factory.get(API_BASE + "/subjectgroups")
+        self.force_authenticate(request, self.superuser)
+
+        response = views.SubjectGroupsView.as_view()(request)
+        etag = response.headers["etag"]
+
+        assert response.status_code == status.HTTP_200_OK
+
+        obj = SubjectGroup.objects.first()
+        obj.name = "new name"
+        obj.save(update_fields=["name"])
+
+        second_response = views.SubjectGroupsView.as_view()(request)
+        second_etag = second_response.headers["etag"]
+
+        assert response.status_code == status.HTTP_200_OK
+        assert etag != second_etag
+
+    def test_etag_should_change_by_m2m_relation_changes(self):
+        request = self.factory.get(API_BASE + "/subjectgroups")
+        self.force_authenticate(request, self.superuser)
+
+        response = views.SubjectGroupsView.as_view()(request)
+        etag = response.headers["etag"]
+
+        assert response.status_code == status.HTTP_200_OK
+
+        obj = SubjectGroup.objects.filter(subjects__isnull=False).first()
+        subject_obj = obj.subjects.first()
+        subject_obj.name = "new name"
+        subject_obj.save(update_fields=["name"])
+
+        second_response = views.SubjectGroupsView.as_view()(request)
+        second_etag = second_response.headers["etag"]
+
+        assert response.status_code == status.HTTP_200_OK
+        assert etag != second_etag
+
 
 class SourceGroupViewTest(BasePermissionTest):
     def setUp(self):
