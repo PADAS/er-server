@@ -261,3 +261,30 @@ class TestEventCategoryUpdatePermissions:
         assert response.status_code == status.HTTP_200_OK
         assert event_category.auto_permissionset_name != permission_set.name
         assert event_category.auto_geographic_permission_set_name == geo_permission_set.name
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.django_db
+class TestEventCategories:
+    def test_event_categories_should_have_etag(self, superuser_client):
+        url = reverse("event-categories")
+        response = superuser_client.get(url)
+        etag = response["eTag"]
+
+        response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+        assert response.status_code == status.HTTP_304_NOT_MODIFIED
+
+    def test_etag_should_change_when_event_category_is_updated(self, superuser_client):
+        url = reverse("event-categories")
+        response = superuser_client.get(url)
+        initial_etag = response["eTag"]
+
+        event_category = EventCategory.objects.first()
+        event_category.ordernum = 123.123
+        event_category.save(update_fields=["ordernum"])
+
+        response = superuser_client.get(url, HTTP_IF_NONE_MATCH=initial_etag)
+        assert response.status_code == status.HTTP_200_OK
+
+        new_etag = response["eTag"]
+        assert new_etag != initial_etag

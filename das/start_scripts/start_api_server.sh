@@ -68,4 +68,5 @@ gunicorn das_server.wsgi --name das \
     --bind 0.0.0.0:8000 \
     --limit-request-line 8190 \
     --worker-tmp-dir /dev/shm \
+    -c das_server/gunicorn.conf.py \
     --log-file -
