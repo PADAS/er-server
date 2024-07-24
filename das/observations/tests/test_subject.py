@@ -1007,7 +1007,7 @@ class TestSubjectsView:
         indirect=True,
     )
     @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-    def test_response_when_not_param_sent_and_a_linked_subject_tied(
+    def test_response_only_includes_user_linked_subject_when_no_params_sent(
         self, permission_set_with_permissions, subject_source, source_group, user_client, five_subjects
     ):
         subject = subject_source.subject
@@ -1025,11 +1025,18 @@ class TestSubjectsView:
         horton.linked_user = user
         horton.save()
         url = reverse("subjects-list-view")
+        url_with_param = url + "?id=818641e5-e901-476d-9d42-529f3313b475"
 
         response = user_client.get(url)
 
         assert response.status_code == 200
         assert len(response.data)
+
+        # now do it again with a parameter and validate no user-linked subject is returned
+        response2 = user_client.get(url_with_param)
+
+        assert response2.status_code == 200
+        assert len(response2.data) == 0
 
     def test_subjectgroup_with_default_subjectstatus_has_no_tracks_available(self, subject_source, subject_group_empty):
         subject = subject_source.subject
