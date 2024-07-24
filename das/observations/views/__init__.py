@@ -426,10 +426,7 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise ForbiddenAPIException
 
-            # Allow specifying a single subject group by 'id'.
         subject_group = self.request.query_params.get("subject_group")
-
-        # Allow specifying a comma-delimited list of subject IDs.
         subject_ids = self.request.query_params.get("id")
 
         # Apply request query filters that have are compatible with any of the
