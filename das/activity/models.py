@@ -18,6 +18,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
+from django.contrib.gis.db.models import QuerySet
 from django.contrib.gis.db.models.functions import Distance as D
 from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import DateTimeRangeField
@@ -2193,25 +2194,28 @@ class PatrolSegmentManager(TenantManagerMixin, models.Manager):
     use_in_migrations = True
 
     @staticmethod
+    def get_subjects(user=None) -> QuerySet:
+        active_subjects = (
+            Subject.objects.prefetch_related(
+                Prefetch(
+                    "subjectstatus_set",
+                    queryset=SubjectStatus.objects.filter(delay_hours=0),
+                )
+            )
+            .select_related("subject_subtype", "subject_subtype__subject_type")
+            .all()
+            .by_is_active()
+        )
+        subject_groups = PatrolConfiguration.objects.first().effective_subject_groups
+        subjects_available = active_subjects.by_subjectgroups(subject_groups, user=user)
+
+        return subjects_available
+
+    @staticmethod
     def get_leader_for_provenance(provenance, user=None):
         if PC_STAFF == provenance:
+            subjects = [(subject.name.lower(), subject) for subject in PatrolSegmentManager.get_subjects(user=user)]
 
-            def get_subjects():
-                active_subjects = (
-                    Subject.objects.prefetch_related(
-                        Prefetch("subjectstatus_set", queryset=SubjectStatus.objects.filter(delay_hours=0))
-                    )
-                    .select_related("subject_subtype", "subject_subtype__subject_type")
-                    .all()
-                    .by_is_active()
-                )
-                subject_groups = PatrolConfiguration.objects.first().effective_subject_groups
-                subjects_available = active_subjects.by_subjectgroups(subject_groups, user=user)
-
-                for subject in subjects_available:
-                    yield subject.name.lower(), subject
-
-            subjects = get_subjects()
             for sub in sorted(subjects, key=itemgetter(0)):
                 yield sub[1]
 
