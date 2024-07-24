@@ -1025,7 +1025,7 @@ class TestSubjectsView:
         horton.linked_user = user
         horton.save()
         url = reverse("subjects-list-view")
-        url_with_param = url + "?id=818641e5-e901-476d-9d42-529f3313b475"
+        url_with_param = f"{url}?id=818641e5-e901-476d-9d42-529f3313b475"
 
         response = user_client.get(url)
 
@@ -1033,10 +1033,10 @@ class TestSubjectsView:
         assert len(response.data)
 
         # now do it again with a parameter and validate no user-linked subject is returned
-        response2 = user_client.get(url_with_param)
+        response_without_linked_subject = user_client.get(url_with_param)
 
-        assert response2.status_code == 200
-        assert len(response2.data) == 0
+        assert response_without_linked_subject.status_code == 200
+        assert len(response_without_linked_subject.data) == 0
 
     def test_subjectgroup_with_default_subjectstatus_has_no_tracks_available(self, subject_source, subject_group_empty):
         subject = subject_source.subject
