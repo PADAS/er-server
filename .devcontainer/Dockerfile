@@ -82,6 +82,6 @@ ADD ./dependencies /workspace/dependencies
 SHELL ["/bin/bash", "-c"]
 
 RUN python3 -m pip install --upgrade pip
-RUN pip3 install setuptools --upgrade
+RUN pip3 install setuptools==58.0.4
 
 RUN pip3 --disable-pip-version-check --no-cache-dir install -r /workspace/dependencies/requirements-dev.txt -r /workspace/dependencies/requirements-pinned.txt -f /workspace/dependencies/wheelhouse
