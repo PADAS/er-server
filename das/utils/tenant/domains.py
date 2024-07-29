@@ -10,16 +10,14 @@ SCHEMAS = ("http", "https")
 alt_domain_cache_client = get_alt_domain_cache_client()
 
 
-def get_server_names_for_tenant(tenant):
-    envSettings = tenant.get("envSettings", {})
-    if not envSettings:
-        return {}
+def get_alt_server_names_for_tenant(tenant):
+    envSettings = tenant.get("envSettings", {}) or {}
 
     all_server_names = envSettings.get("allServerNames")
     alt_server_names = envSettings.get("altServerNames")
 
-    all_server_names = [] if all_server_names is None else all_server_names
-    alt_server_names = [] if alt_server_names is None else alt_server_names
+    all_server_names = all_server_names or []
+    alt_server_names = alt_server_names or []
 
     return list(set(all_server_names + alt_server_names))
 
@@ -32,18 +30,8 @@ def populate_alt_server_lookup_cache(all_tenant_data):
     """Populates the alt_server_lookup cache with data from all tenants, considering both alt_server_names
     and all_server_names."""
     for tenant in all_tenant_data:
-        envSettings = tenant.get("envSettings", {})
-        if not envSettings:
-            return {}
-
-        all_server_names = envSettings.get("allServerNames")
-        alt_server_names = envSettings.get("altServerNames")
-
-        all_server_names = [] if all_server_names is None else all_server_names
-        alt_server_names = [] if alt_server_names is None else alt_server_names
-
         primary_domain = tenant.get("domain")
-        server_names = list(set(alt_server_names + all_server_names))
+        server_names = get_alt_server_names_for_tenant(tenant)
 
         if primary_domain and server_names:
             for server_name in server_names:
@@ -67,7 +55,7 @@ def add_new_tenant_domains_to_settings() -> NoReturn:
     populate_alt_server_lookup_cache(tenants_in_current_cluster)
 
     alt_hosts_for_tenants = [
-        server for tenant in tenants_in_current_cluster for server in get_server_names_for_tenant(tenant)
+        server for tenant in tenants_in_current_cluster for server in get_alt_server_names_for_tenant(tenant)
     ]
 
     allowed_hosts = set(settings.ALLOWED_HOSTS) | set(alt_hosts_for_tenants)
