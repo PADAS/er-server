@@ -1,15 +1,14 @@
 from django.db import IntegrityError
 from django.db.models import Q
 from django.http import Http404
-from rest_framework import generics, status
-from rest_framework.response import Response
+from rest_framework import generics
 from rest_framework.views import APIView
 
 from choices.models import Choice
 from choices.permissions import ChoiceModelPermissions
 from choices.serializers import ChoiceIconZipSerializer, ChoiceSerializer
 from das_server.views import CustomSchema
-from utils.drf import StandardResultsSetPagination
+from utils.drf import StandardResultsSetPagination, return_409_response
 from utils.helpers import FileCompression
 from utils.json import parse_bool
 
@@ -38,11 +37,6 @@ class ChoicesViewSchema(CustomSchema):
         return operation
 
 
-def return_409_response():
-    status_msg = {"error_message": "The request could not be completed due to conflict with existing data."}
-    return Response(status_msg, status=status.HTTP_409_CONFLICT)
-
-
 class ChoicesView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     permission_classes = (ChoiceModelPermissions,)
@@ -65,8 +59,8 @@ class ChoicesView(generics.ListCreateAPIView):
     def post(self, request, *args, **kwargs):
         try:
             return self.create(request, *args, **kwargs)
-        except IntegrityError:
-            return return_409_response()
+        except IntegrityError as integrity_error:
+            return return_409_response(message=str(integrity_error))
 
 
 class ChoiceView(generics.RetrieveUpdateDestroyAPIView):
@@ -80,14 +74,14 @@ class ChoiceView(generics.RetrieveUpdateDestroyAPIView):
     def put(self, request, *args, **kwargs):
         try:
             return self.update(request, *args, **kwargs)
-        except IntegrityError:
-            return return_409_response()
+        except IntegrityError as integrity_error:
+            return return_409_response(message=str(integrity_error))
 
     def patch(self, request, *args, **kwargs):
         try:
             return self.partial_update(request, *args, **kwargs)
-        except IntegrityError:
-            return return_409_response()
+        except IntegrityError as integrity_error:
+            return return_409_response(message=str(integrity_error))
 
     def get_queryset(self):
         return Choice.objects.all()

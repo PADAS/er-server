@@ -18,6 +18,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
+from django.contrib.gis.db.models import QuerySet
 from django.contrib.gis.db.models.functions import Distance as D
 from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import DateTimeRangeField
@@ -221,7 +222,10 @@ class EventCategory(TenantModelMixin, TimestampedModel, RankModelMixin):
                 name="%(app_label)s_%(class)s_unique_value_across_tenants",
             )
         ]
-        indexes = [Index(fields=["das_tenant", "value"], name="%(class)s_val_idx")]
+        indexes = [
+            Index(fields=["das_tenant", "value"], name="%(class)s_val_idx"),
+            Index(fields=["das_tenant", "ordernum"], name="%(class)s_ordernum_idx"),
+        ]
         base_manager_name = "objects"
         default_manager_name = "objects"
 
@@ -291,7 +295,7 @@ class EventTypeManager(TenantManagerMixin, models.Manager.from_queryset(EventTyp
         return self.get(value=value)
 
 
-class EventType(TenantModelMixin, TimestampedModel):
+class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
     class GeometryTypesChoices(models.TextChoices):
         POINT = "Point"
         POLYGON = "Polygon"
@@ -309,7 +313,6 @@ class EventType(TenantModelMixin, TimestampedModel):
     )
     display = models.CharField(max_length=255, blank=True)
     category = TenantForeignKey(EventCategory, null=True, on_delete=models.PROTECT)
-    ordernum = models.SmallIntegerField(blank=True, null=True)
     default_priority = models.PositiveSmallIntegerField(default=PRI_NONE, choices=PRIORITY_CHOICES)
     default_state = models.CharField(default=SC_NEW, choices=STATE_CHOICES, max_length=20)
     icon = models.CharField(max_length=100, blank=True, null=True)
@@ -355,10 +358,11 @@ class EventType(TenantModelMixin, TimestampedModel):
 
         ordering = ["display"]
         indexes = [
-            models.Index(fields=["das_tenant", "geometry_type"]),
-            models.Index(fields=["das_tenant", "is_active"]),
-            models.Index(fields=["das_tenant", "is_collection"]),
+            Index(fields=["das_tenant", "geometry_type"]),
+            Index(fields=["das_tenant", "is_active"]),
+            Index(fields=["das_tenant", "is_collection"]),
             Index(fields=["das_tenant", "value"], name="%(app_label)s_%(class)s_val_idx"),
+            Index(fields=["das_tenant", "ordernum"], name="%(class)s_ordernum_idx"),
         ]
 
     def clean(self, *args, **kwargs):
@@ -1704,6 +1708,10 @@ PATROL_STATE_CHOICES = (
     (PC_CANCELLED, "Cancelled"),
 )
 
+PATROL_STATE_ALTERNATE_SPELLINGS = {
+    "canceled": PC_CANCELLED,
+}
+
 PC_SYSTEM = "system"
 PC_SENSOR = "sensor"
 PC_ANALYZER = "analyzer"
@@ -2186,25 +2194,28 @@ class PatrolSegmentManager(TenantManagerMixin, models.Manager):
     use_in_migrations = True
 
     @staticmethod
+    def get_subjects(user=None) -> QuerySet:
+        active_subjects = (
+            Subject.objects.prefetch_related(
+                Prefetch(
+                    "subjectstatus_set",
+                    queryset=SubjectStatus.objects.filter(delay_hours=0),
+                )
+            )
+            .select_related("subject_subtype", "subject_subtype__subject_type")
+            .all()
+            .by_is_active()
+        )
+        subject_groups = PatrolConfiguration.objects.first().effective_subject_groups
+        subjects_available = active_subjects.by_subjectgroups(subject_groups, user=user)
+
+        return subjects_available
+
+    @staticmethod
     def get_leader_for_provenance(provenance, user=None):
         if PC_STAFF == provenance:
+            subjects = [(subject.name.lower(), subject) for subject in PatrolSegmentManager.get_subjects(user=user)]
 
-            def get_subjects():
-                active_subjects = (
-                    Subject.objects.prefetch_related(
-                        Prefetch("subjectstatus_set", queryset=SubjectStatus.objects.filter(delay_hours=0))
-                    )
-                    .select_related("subject_subtype", "subject_subtype__subject_type")
-                    .all()
-                    .by_is_active()
-                )
-                subject_groups = PatrolConfiguration.objects.first().effective_subject_groups
-                subjects_available = active_subjects.by_subjectgroups(subject_groups, user=user)
-
-                for subject in subjects_available:
-                    yield subject.name.lower(), subject
-
-            subjects = get_subjects()
             for sub in sorted(subjects, key=itemgetter(0)):
                 yield sub[1]
 

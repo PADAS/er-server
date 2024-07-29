@@ -8,9 +8,8 @@ from datetime import datetime, timedelta
 from threading import local
 
 import pytz
-from google.auth.exceptions import DefaultCredentialsError
-from google.cloud import error_reporting
 from oauth2_provider.models import get_access_token_model
+from opentelemetry import trace
 
 from django.core.exceptions import DisallowedHost
 from django.http import JsonResponse
@@ -36,12 +35,6 @@ from utils.tenant.exceptions import TenantNotFoundException
 logger = logging.getLogger(__name__)
 
 request_data = local()
-
-try:
-    error_reporting_client = error_reporting.Client()
-except DefaultCredentialsError as ex:
-    error_reporting_client = None
-    logger.warning(f"Initializing err_reporting_client: {ex}")
 
 ACTIVITY_EVENTS_PATH_REGEX = (
     r"^\/api\/v1.0\/activity\/events?\/?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?\/?$"
@@ -73,8 +66,6 @@ class RequestLoggingMiddleware(object):
 
     def process_exception(self, request, exception):
         self.logger.exception("Exception handling %s", request.get_full_path)
-        if error_reporting_client:
-            error_reporting_client.report_exception(exception)
 
     def process_response(self, request, response):
         try:
@@ -92,7 +83,7 @@ class RequestLoggingMiddleware(object):
             content_length = len(getattr(response, "content", []))
             referer = request.META.get("HTTP_REFERER", "")
             user_agent = request.META.get("HTTP_USER_AGENT", "")
-            status = response.status_code
+            status_code = response.status_code
             path = request.get_full_path()
             host = request.get_host()
             method = request.method
@@ -101,6 +92,14 @@ class RequestLoggingMiddleware(object):
                 tenant_domain = get_tenant_settings().domain
             except TenantNotFoundException:
                 tenant_domain = "unknown"
+            error_message = getattr(response, "data", {}).get("error_message")
+            if status_code >= status.HTTP_400_BAD_REQUEST:
+                error_message = error_message or str(
+                    getattr(response, "data", {"status": {}}).get("status").get("detail", "")
+                )
+                if not error_message:
+                    # our response data is not standardised at this point, log all of it
+                    error_message = str(getattr(response, "data", ""))
 
             extra = dict(
                 remote_addr=remote_addr,
@@ -110,7 +109,7 @@ class RequestLoggingMiddleware(object):
                 content_length=content_length,
                 referer=referer,
                 user_agent=user_agent,
-                status=status,
+                status=status_code,
                 path=path,
                 method=method,
                 protocol=protocol,
@@ -118,13 +117,16 @@ class RequestLoggingMiddleware(object):
                 host=host,
             )
 
+            if error_message:
+                extra["error_message"] = error_message
+
             request_info = "{0} {1} {2}".format(method, path, protocol)
             method = '%s %s %s [] "%s" %s %s "%s" "%s" (%.02f seconds)' % (
                 remote_addr,
                 logname,
                 user_id,
                 request_info,
-                status,
+                status_code,
                 content_length,
                 referer,
                 user_agent,
@@ -135,8 +137,11 @@ class RequestLoggingMiddleware(object):
             stats.histogram(
                 "api_request_time",
                 req_time,
-                tags=[f"path:{path}", f"method:{method}" f"satus:{status}"],
+                tags=[f"path:{path}", f"method:{method}" f"satus:{status_code}"],
             )
+
+            span = trace.get_current_span()
+            span.set_attribute("er.tenant", tenant_domain)
 
         except Exception:
             logging.exception("RequestLoggingMiddleware Error")

@@ -8,10 +8,12 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 
+from accounts.models.permissionset import PermissionSet
 from activity.models import Event, EventGeometry, EventType
 from analyzers.models import FeatureProximityAnalyzerConfig
 from analyzers.proximity import FeatureProximityAnalyzer
 from mapping.models import SpatialFeature
+from observations.models import Subject, SubjectSubType
 from utils.gis import get_polygon_info
 
 
@@ -350,6 +352,8 @@ class TestEventsExportView:
         url = reverse("events-export")
         subject = subject_source_with_proximity_analyzer_configured.subject
         source = subject_source_with_proximity_analyzer_configured.source
+        can_export_data_permission_set = PermissionSet.objects.get(name="Can Export Data")
+        ops_user.permission_sets.add(can_export_data_permission_set)
         client.force_login(ops_user)
         self._setup_observations(source, five_observations)
         self._analyze_subject(subject)
@@ -464,3 +468,75 @@ class TestTrackedBySchemaView:
 
     def _get_subject_ids_by_subject_group(self, subject_group):
         return map(str, subject_group.subjects.values_list("id", flat=True))
+
+    def test_etag_is_same_multiple_request(self, superuser_client):
+        url = reverse("patrol-segments-schema")
+
+        first_response = superuser_client.get(url)
+        second_response = superuser_client.get(url)
+
+        assert first_response.status_code == status.HTTP_200_OK
+        assert first_response.headers["ETag"]
+        assert second_response.status_code == status.HTTP_200_OK
+        assert second_response.headers["ETag"]
+
+        first_etag = first_response.headers["ETag"]
+        second_etag = second_response.headers["ETag"]
+
+        assert first_etag == second_etag
+
+    def test_etag_is_different_after_update(self, superuser_client, patrol_configuration):
+
+        url = reverse("patrol-segments-schema")
+
+        first_response = superuser_client.get(url)
+        first_etag = first_response.headers["ETag"]
+
+        subject = Subject.objects.first()
+
+        subject.subject_subtype = SubjectSubType.objects.exclude(id=subject.subject_subtype.id).first()
+        subject.save(update_fields=["subject_subtype"])
+
+        second_response = superuser_client.get(url)
+        second_etag = second_response.headers["ETag"]
+
+        assert second_response.status_code == status.HTTP_200_OK
+        assert second_etag != first_etag
+
+    def test_etags_should_be_different_for_two_users(self, superuser_client, user_client, patrol_configuration):
+        url = reverse("patrol-segments-schema")
+
+        superuser_response = superuser_client.get(url)
+        superuser_etag = superuser_response.headers["ETag"]
+
+        user_response = user_client.get(url)
+        user_etag = user_response.headers["ETag"]
+
+        assert superuser_etag != user_etag
+
+    def test_etag_should_change_for_one_user_keep_same_for_other(
+        self, superuser_client, user_client, patrol_configuration
+    ):
+        url = reverse("patrol-segments-schema")
+
+        superuser_response = superuser_client.get(url)
+        superuser_etag = superuser_response.headers["ETag"]
+
+        user_response = user_client.get(url)
+        user_etag = user_response.headers["ETag"]
+
+        # Update subject
+        subject = Subject.objects.first()
+        subject.subject_subtype = SubjectSubType.objects.exclude(id=subject.subject_subtype.id).first()
+        subject.save(update_fields=["subject_subtype"])
+
+        superuser_response_2 = superuser_client.get(url)
+        superuser_etag_2 = superuser_response_2.headers["ETag"]
+
+        user_response_2 = user_client.get(url)
+        user_etag_2 = user_response_2.headers["ETag"]
+
+        assert superuser_etag != user_etag
+        assert superuser_etag_2 != user_etag_2
+        assert superuser_etag != superuser_etag_2
+        assert user_etag == user_etag_2

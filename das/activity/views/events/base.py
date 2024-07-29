@@ -66,6 +66,7 @@ from activity.views.helpers import (
     generate_reported_by_lookup,
 )
 from activity.views.schemas import EventsViewSchema
+from core.permissions import UserCanExportDataPermission
 from observations.models import Subject
 from utils.categories import (
     get_categories_and_geo_categories,
@@ -92,9 +93,10 @@ class EventCountView(APIView):
     Returns the count of New Events.
     """
     permission_classes = (EventCategoryPermissions,)
-    
+
     def get_queryset(self):
         return Event.objects.all()
+
     def get(self, request, *args, **kwargs):
         queryset = Event.objects.new()
 
@@ -199,7 +201,7 @@ class EventView(RetrieveUpdateDestroyAPIView):
 
 
 class EventsExportView(APIView):
-    permission_classes = (EventCategoryPermissions,)
+    permission_classes = (UserCanExportDataPermission, EventCategoryPermissions)
 
     def get_event_export_list(self):
         event_export_data = []

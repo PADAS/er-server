@@ -27,7 +27,7 @@ from activity.models import (
     PatrolType,
 )
 from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
-from choices.models import Choice
+from choices.models import Choice, DynamicChoice
 from core.models import DASTenant
 from mapping.models import SpatialFeatureGroupStatic, SpatialFeatureType
 from observations.models import (
@@ -307,7 +307,8 @@ class EventCategoryFactory(factory.django.DjangoModelFactory):
         model = EventCategory
         django_get_or_create = ("value",)
 
-    value = fuzzy.FuzzyText(length=20)
+    value = factory.Sequence(lambda n: f"value_{n}")
+    display = factory.Sequence(lambda n: f"display_{n}")
     das_tenant = factory.SubFactory(TenantFactory)
     ordernum = factory.Sequence(lambda n: n)
 
@@ -395,6 +396,17 @@ class ChoiceFactory(factory.django.DjangoModelFactory):
     value = factory.Sequence(lambda n: f"value_{n}")
     display = factory.Sequence(lambda n: f"display_{n}")
     ordernum = factory.Sequence(lambda n: n)
+
+
+class DynamicChoiceFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = DynamicChoice
+
+    choice_name = "rhinos"
+    model_name = "observations.subject"
+    criteria = '[["common_name_id", "black_rhino"]]'
+    value_col = "id"
+    display_col = "name"
 
 
 class CommunityFactory(factory.django.DjangoModelFactory):

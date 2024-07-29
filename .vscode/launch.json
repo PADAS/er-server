@@ -94,7 +94,9 @@
                 "--workers",
                 "1",
                 "--threads",
-                "1"
+                "1",
+                "-c",
+                "das_server/gunicorn.conf.py"
             ],
             "django": true,
             "justMyCode": false

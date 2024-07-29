@@ -4302,7 +4302,7 @@
     "category": [
       "security"
     ],
-    "ordernum": null,
+    "ordernum": 0,
     "schema": "{\r\n  \"schema\": {\r\n    \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n    \"title\": \"Camera Trap Event Schema\",\r\n    \"type\": \"object\",\r\n    \"properties\": {\r\n      \"cameratraprep_camera-name\": {\r\n        \"type\": \"string\",\r\n        \"title\": \"Camera Name\"\r\n      },\r\n      \"cameratraprep_camera-make\": {\r\n        \"type\": \"string\",\r\n        \"title\": \"Camera Make\"\r\n      },\r\n      \"cameratraprep_camera-version\": {\r\n        \"type\": \"string\",\r\n        \"title\": \"Camera Version\"\r\n      }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    {\r\n      \"key\": \"cameratraprep_camera-name\",\r\n      \"htmlClass\": \"col-lg-6\"\r\n    },\r\n    {\r\n      \"key\": \"cameratraprep_camera-make\",\r\n      \"htmlClass\": \"col-lg-6\"\r\n    },\r\n    {\r\n      \"key\": \"cameratraprep_camera-version\",\r\n      \"htmlClass\": \"col-lg-6\"\r\n    }\r\n  ]\r\n}",
     "is_collection": false
   }

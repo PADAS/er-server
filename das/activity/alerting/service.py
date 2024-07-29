@@ -1,15 +1,17 @@
 import logging
 
+from business_rules import run_all
+
 from django.utils import timezone
 
-
-from core.utils import OneWeekSchedule
-from business_rules import run_all
 from accounts.models import User
-
+from activity.alerting.businessrules import (
+    EventActions,
+    _generate_aggregate_event_variables_class,
+    render_event,
+)
 from activity.models import AlertRule
-from activity.alerting.businessrules import _generate_aggregate_event_variables_class, render_event, \
-    EventActions
+from core.utils import OneWeekSchedule
 
 logger = logging.getLogger(__name__)
 
@@ -17,15 +19,17 @@ logger = logging.getLogger(__name__)
 def evaluate_event(event):
 
     # Title
-    alert_rules = AlertRule.objects.filter(event_types=event.event_type, is_active=True).order_by('ordernum', 'title')
-        # .annotate(evaluation_sequence=RowNumber())
+    alert_rules = AlertRule.objects.filter(event_types=event.event_type, is_active=True).order_by("ordernum", "title")
+    # .annotate(evaluation_sequence=RowNumber())
     return evaluate_event_on_alertrules(alert_rules, event)
 
 
 def evaluate_event_on_alertrules(alert_rules, event):
 
     # Constitute an EventVariables class
-    event_variables, _ = _generate_aggregate_event_variables_class({event.event_type})
+    event_variables, _ = _generate_aggregate_event_variables_class(
+        {event.event_type}, support_legacy_event_variables=True
+    )
 
     def filter_on_schedule(alert_rule):
         return timezone.localtime() in OneWeekSchedule(alert_rule.schedule)
@@ -41,15 +45,15 @@ def evaluate_event_on_alertrules(alert_rules, event):
 
     rendered_rules = [
         {
-            'conditions': alert_rule.conditions,
-            'actions': [
+            "conditions": alert_rule.conditions,
+            "actions": [
                 {
                     "name": "send_alert",
                     "params": {
                         "alert_rule_id": str(alert_rule.id),
-                    }
+                    },
                 }
-            ]
+            ],
         }
         for alert_rule in conditional_rules
     ]
@@ -63,14 +67,15 @@ def evaluate_event_on_alertrules(alert_rules, event):
     action_list = []
 
     # Process the event against the single alert rule
-    run_all(rule_list=rendered_rules,
-            defined_variables=event_variables(rendered_event),
-            defined_actions=EventActions(rendered_event, action_list),
-            stop_on_first_trigger=False)
+    run_all(
+        rule_list=rendered_rules,
+        defined_variables=event_variables(rendered_event),
+        defined_actions=EventActions(rendered_event, action_list),
+        stop_on_first_trigger=False,
+    )
 
     # Add actions for the unconditional alert rules.
     for alert_rule in unconditional_rules:
-        action_list.append(dict(action='send_alert', event=rendered_event, alert_rule_id=str(alert_rule.id)))
+        action_list.append(dict(action="send_alert", event=rendered_event, alert_rule_id=str(alert_rule.id)))
 
     return action_list
-

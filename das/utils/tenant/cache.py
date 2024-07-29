@@ -17,6 +17,13 @@ def make_cache_key(key, key_prefix, version):
     return ":".join(map(str, key_tokens))
 
 
+def remove_cache_key_prefix(key):
+    tenant = get_tenant_settings()
+    if key.startswith(f"{tenant.id}:"):
+        return key.split(":", 3)[3]
+    return key
+
+
 def use_multitenant_cache_key(method):
     @functools.wraps(method)
     def tenant_id_prefix_wrapper(self, key, *args, **kwargs):
