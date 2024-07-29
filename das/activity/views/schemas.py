@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 import utils.schema_utils as schema_utils
-from activity.models import Event, EventType
+from activity.models import Event, EventType, PatrolSegmentManager
 from activity.permissions import EventCategoryPermissions
 from activity.search import get_event_search_schema
 from activity.serializers import EventJSONSchema, EventSerializer, TrackedBySerializer
@@ -21,6 +21,7 @@ from choices.models import Choice
 from das_server.views import CustomSchema
 from utils import add_base_url
 from utils.drf import StandardResultsSetPagination
+from utils.etags import HashByModelBuilder
 from utils.json import loads
 
 from .helpers import calculate_event_schema_etag
@@ -98,10 +99,17 @@ class EventsViewSchema(CustomSchema):
         return operation
 
 
+def etag_tracked_by_schema_hash(request, *args, **kwargs):
+    subjects_available = PatrolSegmentManager.get_subjects(user=request.user)
+
+    return HashByModelBuilder.build_from_queryset(subjects_available.values())
+
+
 class TrackedBySchema(ListCreateAPIView):
     serializer_class = TrackedBySerializer
     metadata_class = EventJSONSchema
 
+    @etag(etag_tracked_by_schema_hash)
     def get(self, request, *args, **kwargs):
         meta = self.metadata_class()
         data = meta.determine_metadata(request, self)
@@ -111,7 +119,7 @@ class TrackedBySchema(ListCreateAPIView):
         raise MethodNotAllowed("For Schema")
 
 
-class EventCategoryViewSchema(CustomSchema):
+class EventCategoriesViewSchema(CustomSchema):
     def get_operation(self, path, method):
         operation = super().get_operation(path, method)
         if method == "GET":
@@ -122,6 +130,54 @@ class EventCategoryViewSchema(CustomSchema):
                     "in": "query",
                     "required": False,
                     "description": "include event types related to each category",
+                },
+                {
+                    "name": "include_permission_set_changed",
+                    "in": "query",
+                    "required": False,
+                    "description": "adds the property `permission_set_changed` which indicates whether permission sets are default.",
+                },
+            ]
+            operation["parameters"].extend(query_params)
+        return operation
+
+
+class EventCategoryViewSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == "GET":
+            query_params = [
+                {
+                    "name": "include_event_types",
+                    "in": "query",
+                    "required": False,
+                    "description": "include event types related to each category",
+                },
+                {
+                    "name": "include_permission_set_changed",
+                    "in": "query",
+                    "required": False,
+                    "description": "include `permission_set_changed` if its permission sets are non-default.",
+                },
+            ]
+            operation["parameters"].extend(query_params)
+        elif method == "DELETE":
+            query_params = [
+                {
+                    "name": "keep_permission_sets",
+                    "in": "query",
+                    "required": False,
+                    "description": "to not trigger the auto-deletion of that category's linked permission sets.",
+                },
+            ]
+            operation["parameters"].extend(query_params)
+        elif method == "PATCH":
+            query_params = [
+                {
+                    "name": "update_permission_sets",
+                    "in": "query",
+                    "required": False,
+                    "description": "to update permission sets and permissions explicitly",
                 },
             ]
             operation["parameters"].extend(query_params)

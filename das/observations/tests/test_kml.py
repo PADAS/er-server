@@ -91,12 +91,14 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
         self.permission_set = PermissionSet.objects.create(name="permissions")
         self.permission_set.permissions.add(self.end_perm, self.view_subject_perm, self.view_group_perm)
         self.permission_set.permissions.add(self.start_perm, self.view_subject_perm, self.view_group_perm)
+        can_export_data_permission_set = PermissionSet.objects.get(name="Can Export Data")
 
         # Now grant the user permissions to see the elephants
         self.group.permission_sets.add(self.permission_set)
         self.group.save()
 
         self.user.permission_sets.add(self.permission_set)
+        self.user.permission_sets.add(can_export_data_permission_set)
         self.user.save()
 
         # Add observations to one of the elephants

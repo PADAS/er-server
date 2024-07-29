@@ -5,6 +5,7 @@ from collections import OrderedDict
 
 from django_multitenant.utils import get_current_tenant
 from drf_extra_fields.geo_fields import PointField
+from opentelemetry import trace
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
 
@@ -61,10 +62,14 @@ from core.serializers import PointValidator
 from observations.serializers import SubjectRelatedField, SubjectSerializer
 from revision.manager import ACTION_ADDED, ACTION_UPDATED, RevisionMessage
 from usercontent.serializers import UserContentSerializer
-from utils.categories import make_eventcategory_permission_codename
+from utils.categories import (
+    EventCategoryRelatedPermissionSetActions,
+    make_eventcategory_permission_codename,
+)
 from utils.feature_representation import FeatureRepresentation
 from utils.gis import get_polygon_info
 from utils.json import parse_bool
+from utils.rank import RankSerializer
 from utils.schema_utils import (
     get_schema_renderer_method,
     validate_rendered_schema_is_wellformed,
@@ -89,6 +94,7 @@ from .helpers import (
 )
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 def which_field_search_for(application):
@@ -134,12 +140,18 @@ class EventCategorySerializer(ModelSerializer):
         # for that category
         request = self.context.get("request", None)
         include_event_types = self.context.get("include_event_types", None)
+        include_permission_set_changed = self.context.get("include_permission_set_changed", None)
         user, method = getattr(request, "user", None), getattr(request, "method", None)
         if user is not None and method == "GET":
             rep["permissions"] = get_allowed_actions_for_category(user, rep["value"])
         if include_event_types:
             event_types = obj.eventtype_set.all()
             rep["event_types"] = SimplifiedEventTypeSerializer(event_types, many=True, context=self.context).data
+        if include_permission_set_changed:
+            related_permissions_actions = EventCategoryRelatedPermissionSetActions(event_category=obj)
+            rep["permission_set_changed"] = (
+                related_permissions_actions.is_event_category_permission_set_changed_by_user()
+            )
         return rep
 
 
@@ -274,6 +286,10 @@ class EventTypeSerializer(ModelSerializer):
         if self.is_schema_readonly(obj.schema):
             rep["readonly"] = True
         return rep
+
+
+class EventTypeRankSerializer(RankSerializer):
+    category_id = UUIDField(required=False)
 
 
 class EventFileSerializer(FileSerializerMixin, ModelSerializer):
@@ -974,6 +990,11 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             self.fields.pop("is_linked_to")
 
     def to_representation(self, event):
+        with tracer.start_as_current_span("EventSerializer.to_representation") as span:
+            span.set_attribute("event_id", event.id)
+            return self._to_representation(event)
+
+    def _to_representation(self, event):
         self.fields.pop("eventsource", None)
 
         set_prefetched = hasattr(event, "event_details_set")

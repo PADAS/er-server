@@ -31,9 +31,9 @@ class TestRankedTool:
     @pytest.mark.parametrize(
         ("current_object_ordernum", "expected_ordernum"),
         (
+            (0.25, 0.25),
             (2, 0.5),
-            (0.5, 0.25),
-            (0.25, 0.125),
+            (3.5, 0.5),
         ),
     )
     def test_make_rank_without_before_key(self, current_object_ordernum, expected_ordernum) -> None:

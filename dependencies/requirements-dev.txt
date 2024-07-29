@@ -32,8 +32,6 @@ anyio==3.7.1
     # via
     #   -r ./requirements.txt
     #   jupyter-server
-appdirs==1.4.4
-    # via black
 arcgis==1.8.0
     # via -r ./requirements.txt
 arcgis2geojson==2.0.0
@@ -76,7 +74,7 @@ attrs==23.1.0
     #   referencing
 autoflake==2.3.1
     # via -r requirements-dev.in
-autopep8==2.0.2
+autopep8==2.0.4
     # via -r requirements-dev.in
 babel==2.12.1
     # via
@@ -104,7 +102,7 @@ billiard==4.1.0
     # via
     #   -r ./requirements.txt
     #   celery
-black==21.6b0
+black==22.12.0
     # via -r requirements-dev.in
 bleach==6.0.0
     # via
@@ -204,7 +202,7 @@ coreschema==0.0.4
     # via
     #   -r ./requirements.txt
     #   coreapi
-coverage[toml]==7.2.7
+coverage[toml]==7.5.3
     # via
     #   -r requirements-dev.in
     #   pytest-cov
@@ -242,6 +240,7 @@ deprecated==1.2.14
     # via
     #   -r ./requirements.txt
     #   jwcrypto
+    #   opentelemetry-api
 dill==0.3.7
     # via pylint
 distlib==0.3.7
@@ -376,7 +375,7 @@ executing==2.0.0
     # via
     #   -r ./requirements.txt
     #   stack-data
-factory-boy==3.2.1
+factory-boy==3.3.0
     # via
     #   -r requirements-dev.in
     #   pytest-factoryboy
@@ -438,7 +437,9 @@ google-api-core[grpc]==2.12.0
     #   google-cloud-core
     #   google-cloud-error-reporting
     #   google-cloud-logging
+    #   google-cloud-monitoring
     #   google-cloud-storage
+    #   google-cloud-trace
 google-api-python-client==2.101.0
     # via
     #   -r ./requirements.txt
@@ -451,7 +452,9 @@ google-auth==2.23.2
     #   google-api-python-client
     #   google-auth-httplib2
     #   google-cloud-core
+    #   google-cloud-monitoring
     #   google-cloud-storage
+    #   google-cloud-trace
 google-auth-httplib2==0.1.1
     # via
     #   -r ./requirements.txt
@@ -476,11 +479,19 @@ google-cloud-logging==3.7.0
     # via
     #   -r ./requirements.txt
     #   google-cloud-error-reporting
+google-cloud-monitoring==2.22.1
+    # via
+    #   -r ./requirements.txt
+    #   opentelemetry-exporter-gcp-monitoring
 google-cloud-storage==2.11.0
     # via
     #   -r ./requirements.txt
     #   django-storages
     #   earthengine-api
+google-cloud-trace==1.13.4
+    # via
+    #   -r ./requirements.txt
+    #   opentelemetry-exporter-gcp-trace
 google-crc32c==1.5.0
     # via
     #   -r ./requirements.txt
@@ -545,6 +556,7 @@ importlib-metadata==6.8.0
     #   build
     #   fiona
     #   keyring
+    #   opentelemetry-api
 importlib-resources==6.1.0
     # via
     #   -r ./requirements.txt
@@ -597,7 +609,7 @@ jeepney==0.8.0
     #   -r ./requirements.txt
     #   keyring
     #   secretstorage
-jinja2==2.11.3
+jinja2==3.1.4
     # via
     #   -r ./requirements.txt
     #   coreschema
@@ -826,6 +838,84 @@ openapi-codec==1.3.2
     #   django-rest-swagger
 openpyxl==3.1.2
     # via -r ./requirements.txt
+opentelemetry-api==1.25.0
+    # via
+    #   -r ./requirements.txt
+    #   opentelemetry-exporter-gcp-monitoring
+    #   opentelemetry-exporter-gcp-trace
+    #   opentelemetry-instrumentation
+    #   opentelemetry-instrumentation-celery
+    #   opentelemetry-instrumentation-dbapi
+    #   opentelemetry-instrumentation-django
+    #   opentelemetry-instrumentation-psycopg2
+    #   opentelemetry-instrumentation-redis
+    #   opentelemetry-instrumentation-requests
+    #   opentelemetry-instrumentation-wsgi
+    #   opentelemetry-propagator-gcp
+    #   opentelemetry-resourcedetector-gcp
+    #   opentelemetry-sdk
+    #   opentelemetry-semantic-conventions
+opentelemetry-exporter-gcp-monitoring==1.6.0a0
+    # via -r ./requirements.txt
+opentelemetry-exporter-gcp-trace==1.6.0
+    # via -r ./requirements.txt
+opentelemetry-instrumentation==0.46b0
+    # via
+    #   -r ./requirements.txt
+    #   opentelemetry-instrumentation-celery
+    #   opentelemetry-instrumentation-dbapi
+    #   opentelemetry-instrumentation-django
+    #   opentelemetry-instrumentation-psycopg2
+    #   opentelemetry-instrumentation-redis
+    #   opentelemetry-instrumentation-requests
+    #   opentelemetry-instrumentation-wsgi
+opentelemetry-instrumentation-celery==0.46b0
+    # via -r ./requirements.txt
+opentelemetry-instrumentation-dbapi==0.46b0
+    # via
+    #   -r ./requirements.txt
+    #   opentelemetry-instrumentation-psycopg2
+opentelemetry-instrumentation-django==0.46b0
+    # via -r ./requirements.txt
+opentelemetry-instrumentation-psycopg2==0.46b0
+    # via -r ./requirements.txt
+opentelemetry-instrumentation-redis==0.46b0
+    # via -r ./requirements.txt
+opentelemetry-instrumentation-requests==0.46b0
+    # via -r ./requirements.txt
+opentelemetry-instrumentation-wsgi==0.46b0
+    # via
+    #   -r ./requirements.txt
+    #   opentelemetry-instrumentation-django
+opentelemetry-propagator-gcp==1.6.0
+    # via -r ./requirements.txt
+opentelemetry-resourcedetector-gcp==1.6.0a0
+    # via
+    #   -r ./requirements.txt
+    #   opentelemetry-exporter-gcp-monitoring
+    #   opentelemetry-exporter-gcp-trace
+opentelemetry-sdk==1.25.0
+    # via
+    #   -r ./requirements.txt
+    #   opentelemetry-exporter-gcp-monitoring
+    #   opentelemetry-exporter-gcp-trace
+    #   opentelemetry-resourcedetector-gcp
+opentelemetry-semantic-conventions==0.46b0
+    # via
+    #   -r ./requirements.txt
+    #   opentelemetry-instrumentation-celery
+    #   opentelemetry-instrumentation-dbapi
+    #   opentelemetry-instrumentation-django
+    #   opentelemetry-instrumentation-redis
+    #   opentelemetry-instrumentation-requests
+    #   opentelemetry-instrumentation-wsgi
+    #   opentelemetry-sdk
+opentelemetry-util-http==0.46b0
+    # via
+    #   -r ./requirements.txt
+    #   opentelemetry-instrumentation-django
+    #   opentelemetry-instrumentation-requests
+    #   opentelemetry-instrumentation-wsgi
 packaging==21.3
     # via
     #   -r ./requirements.txt
@@ -883,6 +973,7 @@ pkgutil-resolve-name==1.3.10
 platformdirs==3.11.0
     # via
     #   -r ./requirements.txt
+    #   black
     #   jupyter-core
     #   pylint
     #   virtualenv
@@ -890,7 +981,7 @@ pluggy==1.3.0
     # via pytest
 pprintpp==0.4.0
     # via pytest-clarity
-pre-commit==3.3.3
+pre-commit==3.5.0
     # via -r requirements-dev.in
 prometheus-client==0.17.1
     # via
@@ -909,6 +1000,8 @@ proto-plus==1.22.3
     #   google-cloud-appengine-logging
     #   google-cloud-error-reporting
     #   google-cloud-logging
+    #   google-cloud-monitoring
+    #   google-cloud-trace
 protobuf==4.24.3
     # via
     #   -r ./requirements.txt
@@ -917,6 +1010,8 @@ protobuf==4.24.3
     #   google-cloud-audit-log
     #   google-cloud-error-reporting
     #   google-cloud-logging
+    #   google-cloud-monitoring
+    #   google-cloud-trace
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status
@@ -925,7 +1020,7 @@ psutil==5.9.5
     # via
     #   -r ./requirements.txt
     #   ipykernel
-psycopg2-binary==2.9.6
+psycopg2==2.9.9
     # via -r ./requirements.txt
 ptvsd==4.3.2
     # via -r requirements-dev.in
@@ -987,7 +1082,7 @@ pylint==2.17.7
     #   -r requirements-dev.in
     #   pylint-django
     #   pylint-plugin-utils
-pylint-django==2.5.3
+pylint-django==2.5.5
     # via -r requirements-dev.in
 pylint-plugin-utils==0.8.2
     # via pylint-django
@@ -1107,8 +1202,6 @@ referencing==0.30.2
     #   -r ./requirements.txt
     #   jsonschema
     #   jsonschema-specifications
-regex==2023.8.8
-    # via black
 requests==2.31.0
     # via
     #   -r ./requirements.txt
@@ -1120,6 +1213,7 @@ requests==2.31.0
     #   google-api-core
     #   google-cloud-storage
     #   jupyterlab-server
+    #   opentelemetry-resourcedetector-gcp
     #   requests-mock
     #   requests-ntlm
     #   requests-oauthlib
@@ -1257,14 +1351,13 @@ threadpoolctl==3.2.0
     #   -r ./requirements.txt
     #   scikit-learn
 toml==0.10.2
-    # via
-    #   black
-    #   pytest
+    # via pytest
 tomli==2.0.1
     # via
     #   -r ./requirements.txt
     #   autoflake
     #   autopep8
+    #   black
     #   build
     #   coverage
     #   dparse
@@ -1307,9 +1400,12 @@ typing-extensions==4.8.0
     #   -r ./requirements.txt
     #   asgiref
     #   astroid
+    #   black
     #   faker
     #   ipython
     #   kombu
+    #   opentelemetry-resourcedetector-gcp
+    #   opentelemetry-sdk
     #   pylint
     #   pytest-factoryboy
     #   rich
@@ -1368,6 +1464,9 @@ wrapt==1.15.0
     #   -r ./requirements.txt
     #   astroid
     #   deprecated
+    #   opentelemetry-instrumentation
+    #   opentelemetry-instrumentation-dbapi
+    #   opentelemetry-instrumentation-redis
 wsproto==1.2.0
     # via
     #   -r ./requirements.txt

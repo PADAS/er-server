@@ -35,14 +35,14 @@ class TestDASTenant:
         set_tenant_settings(tenant_a)
         for count in enumerate(range(2)):
             EventCategory.objects.create(
-                value=f"value_{count}", display=f"value_{count}", das_tenant=tenant_a_das_tenant
+                value=f"value_{count}", display=f"value_{count}", das_tenant=tenant_a_das_tenant, ordernum=15
             )
 
         set_current_tenant(tenant_b_das_tenant)
         set_tenant_settings(tenant_b)
         for count in enumerate(range(2, 4)):
             EventCategory.objects.create(
-                value=f"value_{count}", display=f"value_{count}", das_tenant=tenant_b_das_tenant
+                value=f"value_{count}", display=f"value_{count}", das_tenant=tenant_b_das_tenant, ordernum=14
             )
 
         set_current_tenant(tenant_a_das_tenant)

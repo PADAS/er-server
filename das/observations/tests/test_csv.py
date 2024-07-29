@@ -43,6 +43,7 @@ class TrackingMetaDataExportViewTest(BaseAPITest):
             "new", "user@test.com", "user", is_superuser=False, is_staff=True, **new_user_const
         )
         self.user.permission_sets.add(PermissionSet.objects.get(name="View Tracks Last 60 Days"))
+        self.user.permission_sets.add(PermissionSet.objects.get(name="Can Export Data"))
         self.subject_group = SubjectGroup.objects.get(name="Indian elephant subjet group")
         self.subject_group.permission_sets.add(PermissionSet.objects.get(name="View Tracks Last 60 Days"))
 
@@ -114,6 +115,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
             "new", "user@test.com", "user", is_superuser=False, is_staff=True, **new_user_const
         )
         self.user.permission_sets.add(PermissionSet.objects.get(name="View Tracks Last 60 Days"))
+        self.user.permission_sets.add(PermissionSet.objects.get(name="Can Export Data"))
         self.subject_group = SubjectGroup.objects.get(name="Indian elephant subjet group")
         self.subject_group.permission_sets.add(PermissionSet.objects.get(name="View Tracks Last 60 Days"))
 

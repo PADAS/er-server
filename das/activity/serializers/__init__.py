@@ -21,6 +21,7 @@ from .events import (
     EventSerializerMixin,
     EventSourceSerializer,
     EventStateSerializer,
+    EventTypeRankSerializer,
     EventTypeSerializer,
 )
 from .exceptions import DuplicateResourceException
@@ -79,6 +80,7 @@ __all__ = (
     "EventSourceRelatedField",
     "EventSourceSerializer",
     "EventStateSerializer",
+    "EventTypeRankSerializer",
     "EventTypeRelatedField",
     "EventTypeSerializer",
     "LeaderRelatedField",

@@ -6,6 +6,9 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["semver-minor", "semver-patch"]
     open-pull-requests-limit: 5
     reviewers:
       - "chrisj-er"
