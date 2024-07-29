@@ -11,7 +11,7 @@ alt_domain_cache_client = get_alt_domain_cache_client()
 
 
 def get_alt_server_names_for_tenant(tenant):
-    envSettings = tenant.get("envSettings", {}) or {}
+    envSettings = tenant.get("envSettings", {})
 
     all_server_names = envSettings.get("allServerNames")
     alt_server_names = envSettings.get("altServerNames")
