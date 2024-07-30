@@ -1,13 +1,12 @@
 import json
 import logging
 import time
-from typing import Callable
 
 from redis.exceptions import ConnectionError
 
 from django.conf import settings
 
-from core import memory_store_client, tms_api_client
+from core import get_alt_domain_cache_client, memory_store_client, tms_api_client
 from utils.features import features
 from utils.tenant.builder import DjangoSettingsTenantBuilder
 from utils.tenant.exceptions import TenantNotFoundException
@@ -18,51 +17,70 @@ logger = logging.getLogger(__name__)
 TENANT_CACHE_KEY = "tenant"
 EXPIRATION_TIME_IN_SECONDS = 604800
 
+alt_domain_cache_client = get_alt_domain_cache_client()
+
 
 class TenantData:
     domain: str
-    get_tenant_data: Callable = None
 
     def __init__(self, domain: str) -> None:
         self.domain = domain.split(":")[0]
 
     def get_tenant_data(self):
         if features.tms.is_on():
-            return self._get_from_cache_or_tms()
+            return self._get_from_cache_or_tms(self.domain)
         else:
             return self._get_from_django()
 
-    def _get_from_cache_or_tms(self):
-        tenant_data = self._get_from_cache()
+    def _get_from_cache_or_tms(self, hostname: str):
+        tenant_data = self._get_from_cache(hostname)
         if not tenant_data:
-            tenant_data = self._fetch_from_tms()
+            tenant_data = self._fetch_from_tms(hostname)
+        if not tenant_data:
+            secondary_hostname = self._get_from_alt_server_names_hashset(hostname)
+            tenant_data = self._get_from_cache_or_tms(secondary_hostname) if secondary_hostname else None
+
+        if not tenant_data:
+            logger.error(
+                "Tenant record not found. Please ensure you have created the tenant and refreshed the cache",
+            )
+            raise TenantNotFoundException(domain=hostname)
+
         return tenant_data
 
-    def _get_from_cache(self):
-        logger.debug("Getting tenant from cache for domain %s", self.domain)
+    def _get_from_alt_server_names_hashset(self, hostname):
+        logger.debug(
+            "Tenant domain not found in cache, nor in the TMS. Checking alt server names for domain %s", self.domain
+        )
+        return alt_domain_cache_client.hget("alt_server_lookup", hostname)
+
+    def _get_from_cache(self, hostname):
+        logger.debug("Getting tenant from cache for domain %s", hostname)
+
         start_time = time.time()
         try:
-            cached_data = memory_store_client.get_key(key=self.domain)
+            cached_data = memory_store_client.get_key(key=hostname)
         except ConnectionError:
             logger.warning("Could not fetch tenant data from cache due to connection error")
             return None
 
         if not cached_data:
-            logger.debug("Tenant %s not found in cache", self.domain)
+            logger.debug("Tenant %s not found in cache", hostname)
             return None
         try:
             logger.debug("Retrieved tenant data in %.4f." % (time.time() - start_time))
             return json.loads(cached_data)
         except json.JSONDecodeError:
-            logger.warning("Can't parse tenant from cache for domain %s", self.domain)
+            logger.warning("Can't parse tenant from cache for domain %s", hostname)
             return None
 
-    def _fetch_from_tms(self):
-        logger.debug("Getting tenant from TMS for domain %s", self.domain)
-        tenant_data = tms_api_client.get_tenant_data(domain=self.domain)
+    def _fetch_from_tms(self, hostname):
+        logger.debug("Getting tenant from TMS for domain %s", hostname)
+
+        tenant_data = tms_api_client.get_tenant_data(domain=hostname)
+
         if not tenant_data:
-            logger.debug("Tenant not found in TMS for domain %s", self.domain)
-            raise TenantNotFoundException(domain=self.domain)
+            logger.debug("Tenant not found in TMS for domain %s", hostname)
         return tenant_data
 
     def _get_from_django(self):

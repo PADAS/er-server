@@ -1,3 +1,5 @@
+import redis
+
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
@@ -34,6 +36,13 @@ class ClientProxy:
             raise ImproperlyConfigured(f"Could not find backend {client}: {error}")
 
         return client_cls(params)
+
+
+def get_alt_domain_cache_client():
+    """Returns a Redis client instance for the alt domain cache."""
+    if not hasattr(get_alt_domain_cache_client, "client"):
+        get_alt_domain_cache_client.client = redis.from_url(settings.ALT_DOMAIN_CACHE_URL, decode_responses=True)
+    return get_alt_domain_cache_client.client
 
 
 persistent_storage = ClientProxy(config=settings.PERSISTENT_STORAGE, service_name="PERSISTENT_STORAGE")
