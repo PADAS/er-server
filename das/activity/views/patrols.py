@@ -6,6 +6,7 @@ import mimetypes
 import versatileimagefield.files
 from rest_framework_condition import condition
 
+from django.db import transaction
 from django.db.models import CharField, Prefetch, Q
 from django.db.models.functions import Cast
 from django.db.utils import IntegrityError
@@ -219,10 +220,11 @@ class PatrolsView(ListCreateAPIView):
     schema = PatrolSchema()
 
     def post(self, request, *args, **kwargs):
-        try:
-            return super().post(request, *args, **kwargs)
-        except IntegrityError as integrity_error:
-            return return_409_response(message=str(integrity_error))
+        with transaction.atomic():
+            try:
+                return super().post(request, *args, **kwargs)
+            except IntegrityError as integrity_error:
+                return return_409_response(message=str(integrity_error))
 
     def get(self, request, *args, **kwargs):
         state_filters = self.request.query_params.getlist("status", None)

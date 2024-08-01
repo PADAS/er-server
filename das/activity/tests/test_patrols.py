@@ -2279,7 +2279,7 @@ class TestPatrolFilter:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestPatrolView:
     def test_create_patrol_with_past_end_date(self):
         now = datetime.datetime.now(tz=pytz.utc)
@@ -2330,6 +2330,25 @@ class TestPatrolView:
         data = dict(response.data)
 
         assert data["state"] == PC_DONE
+
+    def test_should_fail_if_post_patrol_with_existing_segment_id_with_no_patrol_added(
+        self, five_patrol_segment, superuser_client
+    ):
+        existing_segment = five_patrol_segment[0]
+        current_patrol_count = Patrol.objects.count()
+
+        patrol_data = {
+            "patrol_segments": [{"id": existing_segment.id, "patrol_type": existing_segment.patrol_type.value}],
+            "title": "New patrol with existing segment",
+            "state": "canceled",
+        }
+
+        url = reverse("patrols")
+
+        response = superuser_client.post(url, data=patrol_data)
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert Patrol.objects.count() == current_patrol_count
 
     def test_accept_mispelled_canceled_state(self):
         now = datetime.datetime.now(tz=pytz.utc)
