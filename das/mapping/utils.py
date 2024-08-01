@@ -174,6 +174,7 @@ def set_feature_name(feature_record, feature, feature_type, name_field, counter)
         feature_record.name = feature.get(name_field)
     except Exception:
         feature_record.name = feature_type.name + str(counter)
+    feature_record.name = feature_record.name or ""
 
 
 def get_or_create_feature(attributes):
