@@ -37,7 +37,14 @@ class PatrolSchema(CustomSchema):
                     "in": "query",
                     "required": False,
                     "description": 'example: {"date_range":{"lower":"2020-09-16T00:00:00.000Z"}}',
-                }
+                },
+                {
+                    "name": "exclude_empty_patrols",
+                    "in": "query",
+                    "required": False,
+                    "description": 'Exclude the patrols without a patrol segment, defaults to "false"',
+                    "schema": {"type": "bool"},
+                },
             ]
             operation["parameters"].extend(query_params)
         return operation
