@@ -1892,6 +1892,9 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
         return queryset
 
+    def exclude_patrols_without_segments(self):
+        return self.exclude(patrol_segment__isnull=True)
+
     def by_patrol_type(self, patrol_type):
         return self.filter_field("patrol_segment__patrol_type__value", patrol_type)
 
