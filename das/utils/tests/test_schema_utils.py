@@ -8,6 +8,7 @@ from django.test import TestCase
 
 import utils.schema_utils as schema_utils
 from choices.models import Choice, DynamicChoice
+from factories import DynamicChoiceFactory, SubjectFactory
 from observations.models import CommonName, Subject
 
 
@@ -230,64 +231,6 @@ class TestReportUtils(TestCase):
         expected_map_result = [dict(value=str(sub.id), name=sub.name) for sub in elephant_list]
         self.assertListEqual(expected_map_result, json.loads(map_result))
 
-    def test_lookup_type_query_value_json_field(self):
-        DynamicChoice.objects.create(
-            choice_name="rhinos",
-            model_name="observations.subject",
-            criteria='[["common_name_id", "black_rhino"]]',
-            value_col="additional__external_id",
-            display_col="additional__external_name",
-        )
-
-        common_name_black_rhino = CommonName.objects.create(
-            **{"value": "black_rhino", "display": "Black Rhino", "subject_subtype_id": "rhino"}
-        )
-
-        rhino_list = []
-        rhino_list.append(
-            Subject.objects.create(
-                **{
-                    "name": "Alvin",
-                    "subject_subtype_id": "rhino",
-                    "common_name": common_name_black_rhino,
-                    "additional": dict(external_id="1234", external_name="Alvin 1234"),
-                }
-            )
-        )
-        rhino_list.append(
-            Subject.objects.create(
-                **{
-                    "name": "Theodore",
-                    "subject_subtype_id": "rhino",
-                    "common_name": common_name_black_rhino,
-                    "additional": dict(external_id="5678", external_name="Theodore 5678"),
-                }
-            )
-        )
-
-        rhino_list = sorted(rhino_list, key=lambda subject: subject.name)
-        zebra_list = []
-        zebra_list.append(
-            Subject.objects.create(
-                **{
-                    "name": "Simon",
-                    "subject_subtype_id": "zebra",
-                }
-            )
-        )
-
-        # As names
-        replacement_fields = [
-            {"lookup": "query", "field": "rhinos", "type": "names", "tag": "query___rhinos___names"},
-        ]
-        names_list = schema_utils.get_dynamic_choices(
-            replacement_fields[0],
-        )
-        self.assertDictEqual(
-            dict([(sub.additional["external_id"], sub.additional["external_name"]) for sub in rhino_list]),
-            json.loads(names_list),
-        )
-
     def test_rendered_schema_requires_valid_properties(self):
         rendered_schema_invalid_property_attributes = {
             "schema": {
@@ -307,5 +250,83 @@ class TestReportUtils(TestCase):
             },
             "definition": ["reported_species", "bar"],
         }
-        with self.assertRaisesRegex(schema_utils.SchemaValidationError, "reported_species.*title") as sve:
+        with self.assertRaisesRegex(schema_utils.SchemaValidationError, "reported_species.*title"):
             schema_utils.validate_rendered_schema_is_wellformed(rendered_schema_invalid_property_attributes)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestDynamicChoices:
+
+    @pytest.fixture
+    def rhino_dynamic_choice(self):
+        return DynamicChoiceFactory.create(
+            choice_name="rhinos",
+            model_name="observations.subject",
+            criteria='[["common_name_id", "black_rhino"]]',
+            value_col="additional__external_id",
+            display_col="additional__external_name",
+        )
+
+    @pytest.fixture
+    def two_rhinos(self):
+        common_name_black_rhino = CommonName.objects.create(
+            **{"value": "black_rhino", "display": "Black Rhino", "subject_subtype_id": "rhino"}
+        )
+        return [
+            SubjectFactory.create(
+                **{
+                    "name": "Alvin",
+                    "subject_subtype_id": "rhino",
+                    "common_name": common_name_black_rhino,
+                    "additional": dict(external_id="1234", external_name="Alvin 1234"),
+                }
+            ),
+            Subject.objects.create(
+                **{
+                    "name": "Theodore",
+                    "subject_subtype_id": "rhino",
+                    "common_name": common_name_black_rhino,
+                    "additional": dict(external_id="5678", external_name="Theodore 5678"),
+                }
+            ),
+        ]
+
+    @pytest.fixture
+    def one_zebra(self):
+        return [
+            SubjectFactory.create(
+                **{
+                    "name": "Simon",
+                    "subject_subtype_id": "zebra",
+                }
+            )
+        ]
+
+    def test_get_dynamic_choices_with_a_non_simple_configuration_should_return_rhino_data_and_not_zebra_data(
+        self, rhino_dynamic_choice, two_rhinos, one_zebra
+    ):
+        rhino_list = sorted(two_rhinos, key=lambda subject: subject.name)
+        replacement_fields = [
+            {"lookup": "query", "field": "rhinos", "type": "names", "tag": "query___rhinos___names"},
+        ]
+        names_list = schema_utils.get_dynamic_choices(
+            replacement_fields[0],
+        )
+        assert dict(
+            [(sub.additional["external_id"], sub.additional["external_name"]) for sub in rhino_list]
+        ) == json.loads(names_list)
+
+    def test_get_dynamic_choices_with_a_non_simple_configuration_should_return_rhino_data_when_an_existing_event_is_used_to_refine_the_result(
+        self, event_with_detail, two_rhinos, rhino_dynamic_choice
+    ):
+        rhino_list = sorted(two_rhinos, key=lambda subject: subject.name)
+        first_rhino = rhino_list[0]
+        event_with_detail.data["event_details"]["rhinos"] = first_rhino.additional["external_id"]
+        replacement_fields = [
+            {"lookup": "query", "field": "rhinos", "type": "names", "tag": "query___rhinos___names"},
+        ]
+        names_list = schema_utils.get_dynamic_choices(replacement_fields[0], event=event_with_detail.event.id)
+        assert dict(
+            [(sub.additional["external_id"], sub.additional["external_name"]) for sub in rhino_list]
+        ) == json.loads(names_list)

@@ -14,9 +14,11 @@ from psycopg2.errors import InvalidTextRepresentation
 from rest_framework_extensions.etag.decorators import etag
 
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q, TextField
+from django.db.models import Count, OuterRef, Prefetch, Q, TextField
+from django.db.models.functions import JSONObject
 from django.db.utils import DataError
 from django.http import HttpResponse
 from django.utils import timezone
@@ -37,6 +39,7 @@ from activity.models import (
     Event,
     EventCategory,
     EventFactor,
+    EventFile,
     EventFilter,
     EventGeometry,
     EventProvider,
@@ -72,6 +75,7 @@ from utils.categories import (
     get_categories_and_geo_categories,
     make_eventcategory_permission_codename,
 )
+from utils.db.expresions import ArraySubquery
 from utils.drf import StandardResultsSetGeoJsonPagination, StandardResultsSetPagination
 from utils.json import ExtendedGEOJSONRenderer, parse_bool
 
@@ -239,6 +243,7 @@ class EventsExportView(APIView):
             "Collection Report IDs",
             "Area",
             "Perimeter",
+            "Attachments",
             "CUSTOM FIELDS BEGIN HERE",
         ]
         custom_headers = []
@@ -251,12 +256,18 @@ class EventsExportView(APIView):
         user_subjects = list(Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True))
         queryset = queryset.filter(Q(related_subjects__isnull=True) | Q(related_subjects__in=user_subjects))
 
+        file_subquery = EventFile.objects.filter(event=OuterRef("id")).values(
+            data=JSONObject(usercontent_type="usercontent_type", usercontent_id="usercontent_id", id="id")
+        )
+
         for event in (
             queryset.annotate(notes_count=Count("note"))
             .annotate(full_notes=StringAgg("note__text", delimiter="\n", output_field=TextField()))
             .annotate(related_subjects_count=Count("related_subjects"))
+            .annotate(file_ids=ArraySubquery(file_subquery))
             .annotate(parent_event_serial_numbers=ArrayAgg("in_relationship__from_event__serial_number", distinct=True))
             .prefetch_related("geometries")
+            .prefetch_related("files")
             .values(
                 "id",
                 "serial_number",
@@ -273,6 +284,7 @@ class EventsExportView(APIView):
                 "reported_by_id",
                 "related_subjects_count",
                 "geometries__properties",
+                "file_ids",
             )
         ):
             if event["event_type_id"] != current_event_type_data["id"]:
@@ -328,6 +340,21 @@ class EventsExportView(APIView):
                 column_name = schema_utils.get_column_header_name(current_schema, key)
                 schema_data[column_name] = self.escape_string(details.get(item_display_name, ""))
 
+            attachments = []
+            for file_ref in event.get("file_ids"):
+                file_id = file_ref["usercontent_id"]
+                file_content_type = file_ref["usercontent_type"]
+                usercontent_type = ContentType.objects.get(id=file_content_type)
+                try:
+                    file_url = usercontent_type.model_class().objects.get(id=file_id).file.url
+                except AttributeError:
+                    self.logger.exception(
+                        "Error getting file url for contenttype %s and file id %s", file_content_type, file_id
+                    )
+                    break
+                else:
+                    attachments.append(file_url)
+
             # Now assemble the data we want to write to the csv
             event_data = {
                 "Report_Type": event_type.get("display", ""),
@@ -349,6 +376,7 @@ class EventsExportView(APIView):
                 "CUSTOM_FIELDS_BEGIN_HERE": "",
                 "Area": self._get_polygon_property(event, "area"),
                 "Perimeter": self._get_polygon_property(event, "perimeter"),
+                "Attachments": " \n".join(str(x) for x in attachments),
             }
 
             # Use cached reported_by map

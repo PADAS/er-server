@@ -1114,6 +1114,56 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertTrue("Notes" in response.content.decode("utf-8"))
         self.assertTrue(self.notes_line2_prefix in response.content.decode("utf-8"))
 
+    def test_should_export_csv_to_contain_event_attachments(self):
+        carcass_data = json.loads(
+            """{"event_type":"carcass_rep","priority":200,"event_details":{"carcassrep_species":"elephant","carcassrep_sex":"male","carcassrep_ageofanimal":"adult","carcassrep_ageofcarcass":"fresh","carcassrep_trophystatus":"intact","carcassrep_causeofdeath":"naturaldisease"},"location":{"latitude":"0.28118","longitude":"37.38544"}}"""
+        )
+
+        url = reverse("events")
+
+        request = self.factory.post(url, carcass_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        # Create a simple text file and add it to the event.
+        my_event_id = response.data["id"]
+
+        filename = os.path.join(self.temporary_folder, "some-test-file.txt")
+        with open(filename, "w") as f:
+            f.write("The quick brown fox jumps over the lazy dog.")
+
+        with open(filename, "rb") as f:
+            path = reverse("event-view-files", kwargs={"id": my_event_id})
+            request = self.factory.post(path, {"filecontent.file": f}, format="multipart")
+
+            self.force_authenticate(request, self.all_perms_user)
+            response = views.EventFilesView.as_view()(request, id=my_event_id)
+
+        filename = os.path.join(self.temporary_folder, "another-some-test-file.txt")
+        with open(filename, "w") as f:
+            f.write("The quick brown fox jumps over the lazy dog.")
+        with open(filename, "rb") as f:
+            path = reverse("event-view-files", kwargs={"id": my_event_id})
+            request = self.factory.post(path, {"filecontent.file": f}, format="multipart")
+
+            self.force_authenticate(request, self.all_perms_user)
+            response = views.EventFilesView.as_view()(request, id=my_event_id)
+
+        url = reverse("events-export")
+
+        request = self.factory.get(url)
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        raw_csv = response.content.decode("utf-8")
+        self.assertTrue("Priority" in raw_csv)
+        self.assertTrue("Notes" in raw_csv)
+        self.assertTrue("Attachments" in raw_csv)
+        self.assertTrue(self.notes_line2_prefix in raw_csv)
+
     def test_export_csv_with_qparam_value_cols_true(self):
         carcass_data = json.loads(
             """{"event_type":"carcass_rep","priority":200,"event_details":{"carcassrep_species":"elephant","carcassrep_sex":"male","carcassrep_ageofanimal":"adult","carcassrep_ageofcarcass":"fresh","carcassrep_trophystatus":"intact","carcassrep_causeofdeath":"naturaldisease"},"location":{"latitude":"0.28118","longitude":"37.38544"}}"""
@@ -1132,10 +1182,11 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         response = views.EventsExportView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
-        self.assertTrue("Priority" in response.content.decode("utf-8"))
-        self.assertTrue("Notes" in response.content.decode("utf-8"))
-        self.assertTrue("carcassrep_species" in response.content.decode("utf-8"))
-        self.assertTrue(self.notes_line2_prefix in response.content.decode("utf-8"))
+        raw_csv = response.content.decode("utf-8")
+        self.assertTrue("Priority" in raw_csv)
+        self.assertTrue("Notes" in raw_csv)
+        self.assertTrue("carcassrep_species" in raw_csv)
+        self.assertTrue(self.notes_line2_prefix in raw_csv)
 
     def test_export_events_with_invalid_et_schema(self):
         url = """/activity/events/export?value_cols=true"""

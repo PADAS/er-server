@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 import utils.schema_utils as schema_utils
-from activity.models import Event, EventType
+from activity.models import Event, EventType, PatrolSegmentManager
 from activity.permissions import EventCategoryPermissions
 from activity.search import get_event_search_schema
 from activity.serializers import EventJSONSchema, EventSerializer, TrackedBySerializer
@@ -21,6 +21,7 @@ from choices.models import Choice
 from das_server.views import CustomSchema
 from utils import add_base_url
 from utils.drf import StandardResultsSetPagination
+from utils.etags import HashByModelBuilder
 from utils.json import loads
 
 from .helpers import calculate_event_schema_etag
@@ -36,7 +37,14 @@ class PatrolSchema(CustomSchema):
                     "in": "query",
                     "required": False,
                     "description": 'example: {"date_range":{"lower":"2020-09-16T00:00:00.000Z"}}',
-                }
+                },
+                {
+                    "name": "exclude_empty_patrols",
+                    "in": "query",
+                    "required": False,
+                    "description": 'Exclude the patrols without a patrol segment, defaults to "false"',
+                    "schema": {"type": "bool"},
+                },
             ]
             operation["parameters"].extend(query_params)
         return operation
@@ -98,10 +106,17 @@ class EventsViewSchema(CustomSchema):
         return operation
 
 
+def etag_tracked_by_schema_hash(request, *args, **kwargs):
+    subjects_available = PatrolSegmentManager.get_subjects(user=request.user)
+
+    return HashByModelBuilder.build_from_queryset(subjects_available.values())
+
+
 class TrackedBySchema(ListCreateAPIView):
     serializer_class = TrackedBySerializer
     metadata_class = EventJSONSchema
 
+    @etag(etag_tracked_by_schema_hash)
     def get(self, request, *args, **kwargs):
         meta = self.metadata_class()
         data = meta.determine_metadata(request, self)

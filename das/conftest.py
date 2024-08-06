@@ -422,6 +422,17 @@ def memory_store_client_mock(monkeypatch, tenant_response):
 
 
 @pytest.fixture
+def get_alt_domains_client_mock(monkeypatch, tenant_response):
+    mock = MagicMock()
+
+    def client_mock():
+        return mock
+
+    monkeypatch.setattr("utils.tenant.providers.get_alt_domain_cache_client", client_mock)
+    return client_mock
+
+
+@pytest.fixture
 def tms_api_client_mock(monkeypatch, tenant_response):
     tms_client_mock = MagicMock()
     monkeypatch.setattr("utils.tenant.providers.tms_api_client", tms_client_mock)
@@ -456,7 +467,8 @@ def one_tenant():
 
 @pytest.fixture()
 def tenant_two(request, monkeypatch, one_tenant):
-    """Return a DASTenant and a matching tenant settings object. Additionally the initial data has been loaded into the db for this tenant"""
+    """Return a DASTenant and a matching tenant settings object.
+    Additionally the initial data has been loaded into the db for this tenant"""
     das_tenant = one_tenant[0]
     tenant_settings = one_tenant[1]
 
