@@ -1660,6 +1660,27 @@ class TestPatrol(BaseAPITest):
         assert response.status_code == 200
         assert response.data["results"] == []
 
+    def test_exclude_patrols_without_segments(self):
+        url = reverse("patrols")
+
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["count"] == 4
+        assert len(response.data["results"]) == 4
+
+        url_to_exclude_patrols = f"{url}?exclude_empty_patrols=true"
+
+        second_request = self.factory.get(url_to_exclude_patrols)
+        self.force_authenticate(second_request, self.app_user)
+        second_response = views.PatrolsView.as_view()(second_request)
+
+        assert second_response.status_code == status.HTTP_200_OK
+        assert second_response.data["count"] == 1
+        assert len(second_response.data["results"]) == 1
+
 
 @pytest.mark.usefixtures("tenant_settings")
 def test_patrol_admin_page(django_assert_max_num_queries, client, memory_store_client_mock, tenant_response):
@@ -2279,7 +2300,7 @@ class TestPatrolFilter:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestPatrolView:
     def test_create_patrol_with_past_end_date(self):
         now = datetime.datetime.now(tz=pytz.utc)
@@ -2330,6 +2351,25 @@ class TestPatrolView:
         data = dict(response.data)
 
         assert data["state"] == PC_DONE
+
+    def test_should_fail_if_post_patrol_with_existing_segment_id_with_no_patrol_added(
+        self, five_patrol_segment, superuser_client
+    ):
+        existing_segment = five_patrol_segment[0]
+        current_patrol_count = Patrol.objects.count()
+
+        patrol_data = {
+            "patrol_segments": [{"id": existing_segment.id, "patrol_type": existing_segment.patrol_type.value}],
+            "title": "New patrol with existing segment",
+            "state": "canceled",
+        }
+
+        url = reverse("patrols")
+
+        response = superuser_client.post(url, data=patrol_data)
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert Patrol.objects.count() == current_patrol_count
 
     def test_accept_mispelled_canceled_state(self):
         now = datetime.datetime.now(tz=pytz.utc)
@@ -2474,3 +2514,16 @@ class TestSerialNumberOnPatrolModel:
         assert patrol_1.serial_number == 1
         assert patrol_2.serial_number == 2
         assert patrol_3.serial_number == 3
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestPatrolFilteringQuerySet:
+    def test_exclude_patrols_without_segments_should_exclude_patrols_without_segments(self, five_patrols):
+        patrol = Patrol.objects.first()
+        PatrolSegment.objects.create(patrol=patrol)
+
+        query = Patrol.objects.exclude_patrols_without_segments()
+
+        assert Patrol.objects.count() == len(five_patrols) + 1
+        assert query.count() == 1

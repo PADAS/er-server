@@ -1,9 +1,10 @@
 from django.core.management.base import BaseCommand
 
 from tracking.tasks import run_plugins
+from utils.tenant.commands import TenantCommandMixin
 
 
-class Command(BaseCommand):
+class Command(TenantCommandMixin, BaseCommand):
     help = "Run all the SourcePlugins that are ENABLED."
 
     def add_arguments(self, parser):

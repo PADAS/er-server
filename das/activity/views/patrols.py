@@ -6,6 +6,7 @@ import mimetypes
 import versatileimagefield.files
 from rest_framework_condition import condition
 
+from django.db import transaction
 from django.db.models import CharField, Prefetch, Q
 from django.db.models.functions import Cast
 from django.db.utils import IntegrityError
@@ -42,6 +43,7 @@ from activity.views.helpers import get_segments
 from observations.models import Subject
 from usercontent.serializers import get_stored_filename
 from utils.drf import StandardResultsSetPagination, return_409_response
+from utils.json import parse_bool
 
 from .response_headers import (
     build_patrol_type_etag_header,
@@ -219,10 +221,11 @@ class PatrolsView(ListCreateAPIView):
     schema = PatrolSchema()
 
     def post(self, request, *args, **kwargs):
-        try:
-            return super().post(request, *args, **kwargs)
-        except IntegrityError as integrity_error:
-            return return_409_response(message=str(integrity_error))
+        with transaction.atomic():
+            try:
+                return super().post(request, *args, **kwargs)
+            except IntegrityError as integrity_error:
+                return return_409_response(message=str(integrity_error))
 
     def get(self, request, *args, **kwargs):
         state_filters = self.request.query_params.getlist("status", None)
@@ -241,6 +244,8 @@ class PatrolsView(ListCreateAPIView):
         queryset = Patrol.objects.all().annotate(serial_number_string=Cast("serial_number", CharField()))
         query_params = self.request.query_params
         patrol_filter = query_params.get("filter")
+        exclude_empty_patrols = parse_bool(query_params.get("exclude_empty_patrols", False))
+
         if patrol_filter:
             try:
                 patrol_filter = json.loads(patrol_filter)
@@ -252,6 +257,9 @@ class PatrolsView(ListCreateAPIView):
         if query_params.getlist("status", None):
             states = query_params.getlist("status")
             queryset = queryset.by_state(states)
+
+        if exclude_empty_patrols:
+            queryset = queryset.exclude_patrols_without_segments()
 
         queryset = self._filter_by_viewable_subjects(queryset)
 

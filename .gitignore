@@ -187,6 +187,9 @@ das/celerybeat-schedule
 das/celerybeat.pid
 
 
+GDAL-3.6.2
+
+
 das/das_server/grumeti_settings.py
 
 das/das_server/local_celery_settings.py

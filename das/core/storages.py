@@ -3,6 +3,9 @@ import re
 from pathlib import Path
 
 import google.auth
+import google.auth.transport
+from google.auth import impersonated_credentials
+from google.auth.transport import requests
 from google.cloud.exceptions import NotFound
 from storages.backends.gcloud import GoogleCloudStorage
 
@@ -85,9 +88,23 @@ class TenantGoogleCloudStorage(GoogleCloudStorage):
             name (_type_): _description_
             parameters (_type_, optional): _description_. Defaults to None.
         """
-        credentials, project_id = google.auth.default()
+        credentials = self.get_impersonated_credentials()
         if not parameters:
             parameters = {}
         parameters["credentials"] = credentials
 
         return super().url(name, parameters)
+
+    def get_impersonated_credentials(self):
+        scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+        credentials, project = google.auth.default(scopes=scopes)
+        if credentials.token is None:
+            credentials.refresh(requests.Request())
+        signing_credentials = impersonated_credentials.Credentials(
+            source_credentials=credentials,
+            target_principal=credentials.service_account_email,
+            target_scopes=scopes,
+            lifetime=datetime.timedelta(seconds=3600),
+            delegates=[credentials.service_account_email],
+        )
+        return signing_credentials

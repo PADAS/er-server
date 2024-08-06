@@ -230,6 +230,10 @@ SUBJECT_REGION_ENABLED = True
 # Do not use Django logging config
 LOGGING_CONFIG = None
 
+# OpenTelemetry Tracing to Google Cloud Trace
+TRACING_ENABLED = env.bool("TRACING_ENABLED", True)
+SERVICE_NAME = env.str("SERVICE_NAME", "das-api")
+
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
 
@@ -265,7 +269,7 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ORIGIN_WHITELIST = ()
 CORS_REPLACE_HTTPS_REFERER = True
-CORS_ALLOW_HEADERS = default_headers + ("user-profile",)
+CORS_ALLOW_HEADERS = default_headers + ("user-profile", "traceparent")
 
 ALLOWED_HOSTS = ["*"]
 
@@ -342,6 +346,7 @@ REALTIME_BROKER_URL = f"{REDIS_SERVER}/2"
 REALTIME_BROKER_OPTIONS = {"max_connections": 200}
 PUBSUB_BROKER_URL = f"{REDIS_SERVER}/1"
 PUBSUB_BROKER_OPTIONS = {"max_connections": 200}
+ALT_DOMAIN_CACHE_URL = f"{REDIS_SERVER}/3"
 
 # Celery Settings
 CELERY_BROKER_URL = REDIS_SERVER
