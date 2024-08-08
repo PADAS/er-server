@@ -5,6 +5,8 @@ from pathlib import Path
 import requests
 from requests import RequestException
 
+from django.conf import settings
+
 from core.exceptions import ConnectionTMSApiTimeoutException
 from utils.tenant.exceptions import TenantNotFoundException
 
@@ -38,8 +40,8 @@ class DjangoSettingsClient(BaseClient):
         return DjangoSettingsTenantBuilder().build().to_dict()
 
     def list_tenants(self):
-        tenant_data = self.get_tenant_data()
-        return [tenant_data]
+        tenant = self.get_tenant_data(getattr(settings, "SERVER_FQDN", None))
+        return [tenant]
 
 
 class HTTPClient(BaseClient):
