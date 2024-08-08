@@ -1054,7 +1054,7 @@ python-docx==0.8.11
     #   -r ./requirements.txt
     #   docxcompose
     #   docxtpl
-python-engineio==4.7.1
+python-engineio==4.9.1
     # via
     #   -r ./requirements.txt
     #   python-socketio
@@ -1064,7 +1064,7 @@ python-magic==0.4.27
     # via
     #   -r ./requirements.txt
     #   django-versatileimagefield
-python-socketio==5.9.0
+python-socketio==5.11.3
     # via -r ./requirements.txt
 pytz==2023.3
     # via
