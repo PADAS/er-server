@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.core.management import BaseCommand
 
 from utils.db.partition import (
@@ -31,7 +33,7 @@ class PartitionObservationTable(PartitionTableTool):
             """
         self._execute_sql_command(command=sql)
         self.logger.warning(f"Parent table: {self.partitioned_table_name} created successfully.")
-        self._set_current_step_index(step=0)
+        self._set_current_step(step=1)
 
     def _set_indexes_constraints_triggers(self) -> None:
         self.indexes = [
@@ -81,17 +83,18 @@ class PartitionObservationTable(PartitionTableTool):
                 """,
             ),
         ]
-        self._set_current_step_index(step=2)
+        self._set_current_step(step=2)
 
 
 class Command(BaseCommand):
     help = "using pg_partman, partition the observations_observation table."
 
     def handle(self, *args, **options):
+        partition_start = datetime(year=1970, month=1, day=1)
         tool = PartitionObservationTable(
             table_name="observations_observation",
             partition_column="recorded_at",
-            partition_start="1970-01-01",
-            interval=PARTITION_INTERVALS.ONE_MONTH.value,
+            partition_start=partition_start,
+            interval=PARTITION_INTERVALS.MONTHLY.value,
         )
         tool.partition_table()
