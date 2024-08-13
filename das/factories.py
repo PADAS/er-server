@@ -29,7 +29,7 @@ from activity.models import (
 from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
 from choices.models import Choice, DynamicChoice
 from core.models import DASTenant
-from mapping.models import SpatialFeatureGroupStatic, SpatialFeatureType
+from mapping.models import SpatialFeature, SpatialFeatureGroupStatic, SpatialFeatureType
 from observations.models import (
     Message,
     Observation,
@@ -285,9 +285,18 @@ class SpatialFeatureGroupStaticFactory(factory.django.DjangoModelFactory):
 
 class SpatialFeatureTypeFactory(factory.django.DjangoModelFactory):
     das_tenant = factory.SubFactory(TenantFactory)
+    name = fuzzy.FuzzyText(length=20)
 
     class Meta:
         model = SpatialFeatureType
+
+
+class SpatialFeatureFactory(factory.django.DjangoModelFactory):
+    das_tenant = factory.SubFactory(TenantFactory)
+    feature_type = factory.SubFactory(SpatialFeatureTypeFactory)
+
+    class Meta:
+        model = SpatialFeature
 
 
 class ObservationFactory(factory.django.DjangoModelFactory):

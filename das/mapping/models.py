@@ -3,6 +3,7 @@ import glob
 import logging
 import os
 import uuid
+from typing import Any
 
 import tagulous.settings
 from django_multitenant.fields import TenantForeignKey
@@ -16,7 +17,7 @@ from django.contrib.gis import geos
 from django.contrib.gis.db import models
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.files.storage import FileSystemStorage
-from django.db.models import Index, UniqueConstraint
+from django.db.models import Index, Lookup, Q, UniqueConstraint
 from django.urls import NoReverseMatch, reverse
 from django.utils.deconstruct import deconstructible
 from django.utils.translation import gettext_lazy as _
@@ -45,6 +46,25 @@ FILE_TYPES = (
     # ('geodatabase', 'Geodatabase'),
     ("geojson", "GeoJSON"),
 )
+
+
+class GeometryTypeLookup(Lookup):  # type:ignore
+    """
+    Geometry type as a lookup
+    """
+
+    lookup_name = "type"
+    prepare_rhs = False
+
+    def as_sql(self, compiler: Any, connection: Any) -> Any:
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = lhs_params + rhs_params
+
+        return "GeometryType(%s) ILIKE %s" % (lhs, rhs), params
+
+
+models.GeometryField.register_lookup(GeometryTypeLookup)
 
 
 class MapManager(TenantManagerMixin, models.Manager):
@@ -618,7 +638,21 @@ class SpatialFeatureGroupStaticFeatures(TenantThroughModel):
     )
 
 
-class SpatialFeatureGroupStaticManager(CommonTenantManager):
+class SpatialFeatureGroupStaticQuerySet(models.QuerySet):
+    def by_spatial_type(self, spatial_type: str, exclusive: bool = True):
+        ALL_FEATURE_TYPES = ["POINT", "LINESTRING", "POLYGON", "MULTIPOINT", "MULTILINESTRING", "MULTIPOLYGON"]
+        queryset = self
+        if exclusive:
+            excludes = Q()
+            for exclude in [type for type in ALL_FEATURE_TYPES if type != spatial_type]:
+                excludes &= ~Q(features__feature_geometry__type=exclude)
+            queryset = queryset.filter(excludes)
+        return queryset.filter(features__feature_geometry__type=spatial_type).distinct()
+
+
+class SpatialFeatureGroupStaticManager(
+    CommonTenantManager, models.Manager.from_queryset(SpatialFeatureGroupStaticQuerySet)
+):
     def get_by_natural_key(self, name):
         return self.get(name=name)
 

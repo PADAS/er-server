@@ -6,12 +6,14 @@ from mapping.models import SpatialFeatureGroupStatic
 
 
 class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
-
     """Geofence Analyzer for a Track.
 
     Based on the algorithm described by Jake Wall in RTM_Appendix_A.pdf
 
     """
+
+    GEOFENCE_SPATIAL_TYPE = "MULTILINESTRING"
+    CONTAINMENT_REGIONS_SPATIAL_TYPE = "MULTIPOLYGON"
 
     threshold_time = models.IntegerField(
         null=False,
