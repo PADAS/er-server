@@ -1,9 +1,16 @@
+import os
+from functools import partial
+
 import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
 from django.db.models import Count
 
 from utils.json import load_from_file
+from utils.permission_sets import create_permissionset_csv, set_permissions_set_hash
+
+current_file = os.path.basename(__file__)
+create_csv = partial(create_permissionset_csv, migration_filename=current_file)
 
 SQL = """
 DO
@@ -130,6 +137,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(
+            set_permissions_set_hash,
+            migrations.RunPython.noop,
+        ),
         migrations.CreateModel(
             name="AuthPermissionTemporal",
             fields=[
@@ -157,5 +168,9 @@ class Migration(migrations.Migration):
         migrations.RunPython(remove_duplicate_permissions_from_golden_set, reverse_code=migrations.RunPython.noop),
         migrations.DeleteModel(
             name="AuthPermissionTemporal",
+        ),
+        migrations.RunPython(
+            create_csv,
+            migrations.RunPython.noop,
         ),
     ]

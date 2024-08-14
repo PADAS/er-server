@@ -1,5 +1,12 @@
+import os
+from functools import partial
+
 from django.db import migrations
 
+from utils.permission_sets import create_permissionset_csv, set_permissions_set_hash
+
+current_file = os.path.basename(__file__)
+create_csv = partial(create_permissionset_csv, migration_filename=current_file)
 sql_create_fks = """
 DO
 $$
@@ -72,8 +79,16 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(
+            set_permissions_set_hash,
+            migrations.RunPython.noop,
+        ),
         migrations.RunSQL(
             sql=sql_create_fks,
             reverse_sql=migrations.RunSQL.noop,
+        ),
+        migrations.RunPython(
+            create_csv,
+            migrations.RunPython.noop,
         ),
     ]
