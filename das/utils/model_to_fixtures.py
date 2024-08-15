@@ -51,6 +51,9 @@ class LogModelIntoFixtures:
             current_hash = self._get_queryset_hash()
 
             if previous_hash != current_hash:
+                logger.warning(
+                    f"Hash mismatch detected in '{self.app_label},{self.model}' , prev_hash={previous_hash}, current_hash={current_hash}"
+                )
                 self._create_fixtures_for_tenants(filename_template=FILENAME_FOR_RESULTS_FIXTURES)
 
     def set_queryset_hash_to_cache(self) -> None:
