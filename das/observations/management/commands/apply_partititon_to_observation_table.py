@@ -1,12 +1,12 @@
-from datetime import datetime
-
 from django.core.management import BaseCommand
 
 from utils.db.partition import (
     PARTITION_INTERVALS,
     ConstraintData,
+    ForeignKeyData,
     IndexData,
     PartitionTableTool,
+    TableData,
     TriggerData,
 )
 
@@ -15,7 +15,7 @@ class PartitionObservationTable(PartitionTableTool):
 
     def _create_parent_table(self) -> None:
         sql = f"""
-            CREATE TABLE {self.partitioned_table_name}
+        CREATE TABLE IF NOT EXISTS {self.partitioned_table_name}
             (
                 id              uuid                     NOT NULL,
                 location        geometry(Point, 4326)    NOT NULL,
@@ -27,16 +27,33 @@ class PartitionObservationTable(PartitionTableTool):
                 das_tenant_id   uuid                     NOT NULL
                     CONSTRAINT observations_observa_das_tenant_id_fa03ec57_fk_core_dast
                         REFERENCES core_dastenant
-                        DEFERRABLE INITIALLY DEFERRED,
-                PRIMARY KEY (das_tenant_id, {self.partition_column}, id)
-                ) PARTITION BY RANGE ({self.partition_column});
+                        DEFERRABLE INITIALLY DEFERRED
+            ) PARTITION BY RANGE ({self.partition_column});
             """
         self._execute_sql_command(command=sql)
-        self.logger.warning(f"Parent table: {self.partitioned_table_name} created successfully.")
         self._set_current_step(step=1)
+        self.logger.warning(f"Parent table: {self.partitioned_table_name} created successfully.")
 
-    def _set_indexes_constraints_triggers(self) -> None:
-        self.indexes = [
+
+class Command(BaseCommand):
+    help = "using pg_partman, partition the observations_observation table."
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "-r",
+            "--rollback",
+            dest="rollback",
+            action="store",
+            default=False,
+            help="Rollback the partitioning of the table.",
+        )
+
+    def handle(self, *args, **options):
+        should_rollback = bool(options["rollback"])
+
+        self.stdout.write(self.style.SUCCESS(f"Running in [{'rollback' if should_rollback else 'normal'}] mode."))
+
+        indexes = [
             IndexData(name="observations_observation_created_at_13a1d874", columns=["created_at"]),
             IndexData(name="observations_observation_das_tenant_id_fa03ec57", columns=["das_tenant_id"]),
             IndexData(name="observations_observation_location_id", columns=["location"]),
@@ -44,20 +61,28 @@ class PartitionObservationTable(PartitionTableTool):
             IndexData(name="observations_recorded_at_location_gist", columns=["recorded_at", "location"]),
         ]
 
-        self.constraints_unique = [
+        unique_constraints = [
             ConstraintData(
-                name="observations_observation_tenant_source_at_unique",
+                name="tenant_source_at_unique",
                 columns=["das_tenant_id", "source_id", "recorded_at"],
             ),
         ]
 
-        self.triggers = [
+        foreign_keys = [
+            ForeignKeyData(
+                name="observations_observa_das_tenant_id_fa03ec57_fk_core_dast",
+                foreign_column="das_tenant_id",
+                references="core_dastenant",
+            )
+        ]
+
+        triggers = [
             TriggerData(
                 name="delete_latest_observation_source",
                 sql="""
                 CREATE TRIGGER trigger_delete_latest_observation_source
                 AFTER DELETE
-                ON observations_observation
+                ON {table_name}
                 FOR EACH ROW
                 EXECUTE PROCEDURE delete_latest_observation_source();
                 """,
@@ -67,7 +92,7 @@ class PartitionObservationTable(PartitionTableTool):
                 sql="""
                 CREATE TRIGGER trigger_insert_latest_observation_source
                 AFTER INSERT
-                ON observations_observation
+                ON {table_name}
                 FOR EACH ROW
                 EXECUTE PROCEDURE insert_latest_observation_source();
                 """,
@@ -77,24 +102,34 @@ class PartitionObservationTable(PartitionTableTool):
                 sql="""
                 CREATE TRIGGER trigger_update_latest_observation_source
                 AFTER UPDATE
-                ON observations_observation
+                ON {table_name}
                 FOR EACH ROW
                 EXECUTE PROCEDURE update_latest_observation_source();
                 """,
             ),
         ]
-        self._set_current_step(step=2)
 
-
-class Command(BaseCommand):
-    help = "using pg_partman, partition the observations_observation table."
-
-    def handle(self, *args, **options):
-        partition_start = datetime(year=1970, month=1, day=1)
-        tool = PartitionObservationTable(
-            table_name="observations_observation",
-            partition_column="recorded_at",
-            partition_start=partition_start,
-            interval=PARTITION_INTERVALS.MONTHLY.value,
+        table_data = TableData(
+            primary_key_columns=["das_tenant_id", "id"],
+            indexes=indexes,
+            unique_constraints=unique_constraints,
+            foreign_keys=foreign_keys,
+            triggers=triggers,
         )
-        tool.partition_table()
+        if not should_rollback:
+            table_data.primary_key_columns.append("recorded_at")
+
+        tool = PartitionObservationTable(
+            original_table_name="observations_observation",
+            partition_column="recorded_at",
+            partition_interval=PARTITION_INTERVALS.MONTHLY.value,
+            table_data=table_data,
+            migrate_batch_size_per_interval=10000,
+        )
+        if not should_rollback:
+            self.stdout.write(self.style.SUCCESS("Starting partitioning process."))
+            tool.partition_table()
+        else:
+            self.stdout.write(self.style.SUCCESS("Starting rollback process."))
+            tool.rollback()
+        self.stdout.write(self.style.SUCCESS(f"Process [{'rollback' if should_rollback else 'partition'}] finish."))
