@@ -69,6 +69,12 @@ class EventCategoriesView(ListCreateAPIView):
         except IntegrityError as integrity_error:
             return return_409_response(message=str(integrity_error))
 
+    def post(self, request, *args, **kwargs):
+        try:
+            return super().post(request, *args, **kwargs)
+        except IntegrityError as integrity_error:
+            return return_409_response(message=str(integrity_error))
+
 
 class EventCategoryView(RetrieveUpdateDestroyAPIView):
     lookup_field = "id"
