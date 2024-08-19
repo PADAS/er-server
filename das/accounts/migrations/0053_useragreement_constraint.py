@@ -4,7 +4,6 @@
 from django.db import migrations
 
 from utils.migrations.update_primary_key import drop_constraint
-from utils.permission_sets import set_permissions_set_hash
 
 APP_NAME = "accounts"
 APP_MODELS = ["UserAgreement"]
@@ -30,9 +29,5 @@ class Migration(migrations.Migration):
         migrations.AlterUniqueTogether(
             name="useragreement",
             unique_together={("das_tenant", "user", "eula")},
-        ),
-        migrations.RunPython(
-            set_permissions_set_hash,
-            migrations.RunPython.noop,
         ),
     ]
