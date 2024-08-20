@@ -25,6 +25,7 @@ from utils.categories import (
     GEOGRAPHIC_DISTANCE_SUFIX,
     get_categories_and_geo_categories,
 )
+from utils.etags import calculate_etag_string_for_header
 from utils.tenant import Tenant, lengthen_tenant_id, shorten_tenant_id
 
 logger = logging.getLogger(__name__)
@@ -201,7 +202,10 @@ def get_user_etag(request, *args, **kwargs) -> str:
         user = get_object_or_404(User, pk=param)
 
     etag_string = generate_user_string_etag(user=user)
-    return hashlib.md5(etag_string.encode("utf-8")).hexdigest()
+    string_to_hash = calculate_etag_string_for_header(
+        original_string=etag_string, request=request, header_name="user-profile"
+    )
+    return hashlib.md5(string_to_hash.encode("utf-8")).hexdigest()
 
 
 def generate_user_field_data(user: User) -> Iterator[str]:
