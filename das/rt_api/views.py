@@ -386,7 +386,7 @@ def create_realtime_handler(sios):
         def on_profile_change(sid, profile_message):
             PROFILE_RESP = "profile_resp"
             try:
-                profile_id = uuid.UUID(profile_message["user_id"])
+                profile_id = uuid.UUID(profile_message["profile_id"])
 
                 client.update_client(sid, profile_id=profile_id)
                 extra = dict(sid=sid, profile_message=profile_message)
@@ -394,7 +394,7 @@ def create_realtime_handler(sios):
 
                 sios.emit(
                     PROFILE_RESP,
-                    {"message": "User Profile has been changed.", "type": PROFILE_RESP, "user_id": str(profile_id)},
+                    {"message": "User Profile has been changed.", "type": PROFILE_RESP, "profile_id": str(profile_id)},
                     room=str(sid),
                     namespace=RT_NAMESPACE,
                 )
