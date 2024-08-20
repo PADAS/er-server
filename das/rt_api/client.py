@@ -15,6 +15,7 @@ from psycopg2.extras import DateTimeTZRange
 from django.conf import settings
 from django.contrib.gis.geos import MultiPolygon, Polygon
 
+from accounts.utils import get_profile_user
 from observations.models import SocketClient, UserSession
 from utils import json
 from utils.tenant.managers import TenantContextManager
@@ -48,6 +49,8 @@ class ClientData:
     bbox: Optional[Bbox] = field(metadata=config(field_name="bbox"))
     tenant_id: uuid.UUID = field(metadata=config(field_name="tenantId"))
     domain: str = field(metadata=config(field_name="domain"))
+    user_id: Optional[uuid.UUID] = field(default=None, metadata=config(field_name="userId"))
+    profile_id: Optional[uuid.UUID] = field(default=None, metadata=config(field_name="profileId"))
 
 
 SID_SUBJECTS_TIMESTAMPS_KEY = "sid-subject-timestamps-{}"
@@ -83,7 +86,7 @@ def now(tz=pytz.utc):
     return tz.localize(datetime.datetime.utcnow())
 
 
-def update_client(sid, bbox=None, event_filter=None, patrol_filter=None):
+def update_client(sid, bbox=None, event_filter=None, patrol_filter=None, profile_id=None):
     sid = str(sid)
     logger.info("update_client, sid: %s", sid)
     client_data = get_client(sid)
@@ -92,12 +95,22 @@ def update_client(sid, bbox=None, event_filter=None, patrol_filter=None):
     # realtime-stderr.log)
     if client_data:
         with TenantContextManager(domain=client_data.domain):
+            username = client_data.username
+
+            if profile_id:
+                profile_user = get_profile_user(client_data.user_id, profile_id)
+                username = profile_user.username
+            else:
+                profile_id = client_data.profile_id
+
             client_data = ClientData(
                 sid=client_data.sid,
-                username=client_data.username,
+                username=username,
                 bbox=Bbox(*bbox) if bbox else client_data.bbox,
                 tenant_id=client_data.tenant_id,
                 domain=client_data.domain,
+                user_id=client_data.user_id,
+                profile_id=profile_id,
             )
             add_client(sid, client_data)
 

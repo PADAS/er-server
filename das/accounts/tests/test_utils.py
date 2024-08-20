@@ -1,6 +1,13 @@
 import pytest
 
-from accounts.utils import fetch_organization_choices, fetch_tech_choices, get_profiles
+from rest_framework.exceptions import PermissionDenied
+
+from accounts.utils import (
+    fetch_organization_choices,
+    fetch_tech_choices,
+    get_profile_user,
+    get_profiles,
+)
 
 
 @pytest.mark.django_db
@@ -63,3 +70,18 @@ class TestGetProfiles:
 
         assert {five_users[1].id, five_users[2].id, five_users[3].id, five_users[4].id} == users
         assert father.username not in users
+
+    def test_get_profile_user_permission_denied_when_user_is_not_in_profiles(self, five_users):
+        father = five_users[0]
+        father.act_as_profiles.add(five_users[1])
+        not_profile_user_id = five_users[2].id
+        with pytest.raises(PermissionDenied):
+            profile_user = get_profile_user(father.id, not_profile_user_id)
+            assert profile_user is None
+
+    def test_get_profile_user(self, five_users):
+        user = five_users[0]
+        profile_user = five_users[1]
+        user.act_as_profiles.add(profile_user)
+
+        assert profile_user.id == get_profile_user(user.id, profile_user.id).id
