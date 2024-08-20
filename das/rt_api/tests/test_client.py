@@ -14,13 +14,17 @@ from observations.utils import dateparse
 from rt_api.client import (
     REALTIME_SERVICES_KEY,
     SID_SESSION_TIMESTAMP_KEY,
+    ClientData,
+    add_client,
     cleanup_usersessions,
     create_update_user_session_by_sid,
+    get_client,
     get_sid_subject_timestamp,
     redis_client,
     remove_all_rt_services,
     remove_invalid_rt_service_key,
     save_session_timestamp,
+    update_client,
     update_user_session_by_sid,
 )
 
@@ -255,3 +259,28 @@ class TestClient:
 
         assert bytes(current_service, "utf-8") in services_list
         assert len(new_services_list) == 1
+
+    def test_update_client_with_profile_user(self, five_users):
+        user = five_users[0]
+        profile_user = five_users[1]
+        user.act_as_profiles.add(profile_user)
+
+        user_data = ClientData(
+            username=user.username,
+            sid=self.sid,
+            bbox=None,
+            tenant_id=self.tenant_settings.id,
+            domain=self.tenant_settings.domain,
+            user_id=user.id,
+            profile_id=None,
+        )
+
+        add_client(self.sid, user_data)
+        client_data = get_client(self.sid)
+        assert client_data.profile_id is None
+        assert client_data.username == user.username
+
+        update_client(self.sid, profile_id=profile_user.id)
+        client_data = get_client(self.sid)
+        assert client_data.profile_id == profile_user.id
+        assert client_data.username == profile_user.username
