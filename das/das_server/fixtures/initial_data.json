@@ -4800,6 +4800,7 @@
   },
   {
     "model": "activity.patrolconfiguration",
+    "pk": "deb99202-2373-4c6c-b05f-e71d29cb2b26",
     "fields": {
       "name": "Default Patrol Configuration"
     }
