@@ -1,5 +1,6 @@
 import logging
 import time
+import uuid
 
 import eventlet
 
@@ -182,6 +183,8 @@ def create_realtime_handler(sios):
                         bbox=None,
                         tenant_id=get_tenant_settings().id,
                         domain=get_tenant_settings().domain,
+                        user_id=None,
+                        profile_id=None,
                     ),
                 )
 
@@ -241,6 +244,8 @@ def create_realtime_handler(sios):
                             bbox=None,
                             tenant_id=get_tenant_settings().id,
                             domain=get_tenant_settings().domain,
+                            user_id=user.id,
+                            profile_id=None,
                         )
                         client.add_client(sid, client_data)
                         client.save_session_timestamp(sid)
@@ -371,6 +376,34 @@ def create_realtime_handler(sios):
                     "patrol_filter_response",
                     {
                         "message": "Failed to set patrol_filter.",
+                        "error": str(ve),
+                    },
+                    room=str(sid),
+                    namespace=RT_NAMESPACE,
+                )
+
+        @sios.on("profile", namespace=RT_NAMESPACE)
+        def on_profile_change(sid, profile_message):
+            PROFILE_RESP = "profile_resp"
+            try:
+                profile_id = uuid.UUID(profile_message["user_id"])
+
+                client.update_client(sid, profile_id=profile_id)
+                extra = dict(sid=sid, profile_message=profile_message)
+                logger.info("on_profile_change", extra=extra)
+
+                sios.emit(
+                    PROFILE_RESP,
+                    {"message": "User Profile has been changed.", "type": PROFILE_RESP, "user_id": str(profile_id)},
+                    room=str(sid),
+                    namespace=RT_NAMESPACE,
+                )
+            except ValueError as ve:
+                sios.emit(
+                    PROFILE_RESP,
+                    {
+                        "message": "Failed to set user profile.",
+                        "type": PROFILE_RESP,
                         "error": str(ve),
                     },
                     room=str(sid),
