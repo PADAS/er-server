@@ -5,9 +5,10 @@ see https://www.ghanei.net/django-migrations-on-kubernetes/
 """
 
 from django.conf import settings
-from django.core.mail import send_mail
 from django.core.management.commands.migrate import Command as MigrateCommand
 from django.db import connections
+
+from utils.model_to_fixtures import log_permissionsets
 
 DEFAULT_LOCK_ID = getattr(settings, "MIGRATE_LOCK_ID", 1000)  # just a random number
 
@@ -45,18 +46,22 @@ class Command(MigrateCommand):
                     )
                     return
                 self.stdout.write(
-                    self.style.SUCCESS(f"Acquired migration lock with lock id {lock_id}. Proceeding with migrations for site {settings.SERVER_FQDN}.")
+                    self.style.SUCCESS(
+                        f"Acquired migration lock with lock id {lock_id}."
+                        " Proceeding with migrations for site {settings.SERVER_FQDN}."
+                    )
                 )
+                log_permissionsets.set_queryset_hash_to_cache()
+
                 MigrateCommand.handle(self, *args, **options)
-                self.stdout.write(self.style.SUCCESS(f"Migration completed successfully for site {settings.SERVER_FQDN}."))
+
+                log_permissionsets.create_queryset_fixtures_if_hash_changed()
+
+                self.stdout.write(
+                    self.style.SUCCESS(f"Migration completed successfully for site {settings.SERVER_FQDN}.")
+                )
             except Exception as e:
-                #send_mail(
-                #    f'Migration Failed for site {settings.SERVER_FQDN}',
-                #    f'An error occurred during migrations for site {settings.SERVER_FQDN}: {str(e)}',
-                #    settings.DEFAULT_FROM_EMAIL,
-                #    ['er-p0-support@allenai.pagerduty.com'],
-                #    fail_silently=False,
-                #)
-                self.stdout.write(self.style.ERROR(f'Migration failed for site {settings.SERVER_FQDN}: {str(e)}'))
+                self.stdout.write(self.style.ERROR(f"Migration failed for site {settings.SERVER_FQDN}: {str(e)}"))
             finally:
+
                 cursor.execute(f"SELECT pg_advisory_unlock({lock_id})")

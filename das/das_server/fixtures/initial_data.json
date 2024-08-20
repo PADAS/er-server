@@ -2262,6 +2262,32 @@
     }
   },
   {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2024-08-15T00:00:00.151Z",
+      "updated_at": "2024-08-15T00:00:00.151Z",
+      "value": "rabbit",
+      "display": "Rabbit",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2024-08-15T00:00:00.151Z",
+      "updated_at": "2024-08-15T00:00:00.151Z",
+      "value": "hare",
+      "display": "Hare",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
     "model": "observations.subjectgroup",
     "fields": {
       "created_at": "2016-07-07T01:00:00Z",
@@ -4774,6 +4800,7 @@
   },
   {
     "model": "activity.patrolconfiguration",
+    "pk": "deb99202-2373-4c6c-b05f-e71d29cb2b26",
     "fields": {
       "name": "Default Patrol Configuration"
     }
