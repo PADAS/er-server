@@ -103,6 +103,8 @@ def update_client(sid, bbox=None, event_filter=None, patrol_filter=None, profile
             else:
                 profile_id = client_data.profile_id
 
+            username_changed = username != client_data.username
+
             client_data = ClientData(
                 sid=client_data.sid,
                 username=username,
@@ -115,6 +117,8 @@ def update_client(sid, bbox=None, event_filter=None, patrol_filter=None, profile
             add_client(sid, client_data)
 
             update_values = {}
+            if username_changed:
+                update_values["username"] = username
             if bbox:
                 bbox_geom = MultiPolygon(Polygon.from_bbox(bbox))
                 update_values["bbox"] = bbox_geom
