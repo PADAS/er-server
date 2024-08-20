@@ -89,9 +89,11 @@ class LogModelIntoFixtures:
 
         with open(filename, "rb") as file:
             file_content = file.read()
-            default_storage.save(f"{path}{filename}", ContentFile(file_content))
-
-        logger.warning(f"File {filename} uploaded to {path}{filename}.")
+            try:
+                default_storage.save(f"{path}{filename}", ContentFile(file_content))
+                logger.warning(f"File {filename} uploaded to {path}{filename}.")
+            except Exception:
+                logger.error(f"Error when trying to upload fixture for model:{self.model} file to storage")
 
     def _exists_pending_migrations(self) -> bool:
         executor = MigrationExecutor(connection)
