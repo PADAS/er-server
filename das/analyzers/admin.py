@@ -1,8 +1,8 @@
+from typing import Any
+
 from django.contrib import admin
 
 import analyzers.models as models
-from core.admin import BaseModelAdminMixin
-
 from analyzers.forms import (
     EnvironmentalAnalyzerAdminForm,
     FeatureProximityAnalyzerForm,
@@ -13,6 +13,7 @@ from analyzers.forms import (
     LowSpeedWilcoxSubjectAnalyzerForm,
     SubjectProximityAnalyzerForm,
 )
+from core.admin import BaseModelAdminMixin
 from core.openlayers import OSMGeoExtendedAdmin
 
 
@@ -294,6 +295,9 @@ class GeofenceSubjectAnalyzerAdmin(BaseModelAdminMixin):
             },
         ),
     )
+
+    def save_form(self, request: Any, form: Any, change: Any) -> Any:
+        return super().save_form(request, form, change)
 
 
 @admin.register(models.LowSpeedWilcoxAnalyzerConfig)
