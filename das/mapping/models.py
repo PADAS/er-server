@@ -3,7 +3,6 @@ import glob
 import logging
 import os
 import uuid
-from typing import Any
 
 import tagulous.settings
 from django_multitenant.fields import TenantForeignKey
@@ -17,13 +16,21 @@ from django.contrib.gis import geos
 from django.contrib.gis.db import models
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.files.storage import FileSystemStorage
-from django.db.models import Index, Lookup, Q, UniqueConstraint
+from django.db.models import Index, Q, UniqueConstraint
 from django.urls import NoReverseMatch, reverse
 from django.utils.deconstruct import deconstructible
 from django.utils.translation import gettext_lazy as _
 
 from core.models import DASTenant, TimestampedModel, UUIDModel
 from mapping.app_settings import MBTILES
+from mapping.lookups import (
+    GEO_TYPE_LINESTRING,
+    GEO_TYPE_MULTILINESTRING,
+    GEO_TYPE_MULTIPOINT,
+    GEO_TYPE_MULTIPOLYGON,
+    GEO_TYPE_POINT,
+    GEO_TYPE_POLYGON,
+)
 from mapping.mbtiles import (
     ExtractionError,
     GoogleProjection,
@@ -46,25 +53,6 @@ FILE_TYPES = (
     # ('geodatabase', 'Geodatabase'),
     ("geojson", "GeoJSON"),
 )
-
-
-class GeometryTypeLookup(Lookup):  # type:ignore
-    """
-    Geometry type as a lookup
-    """
-
-    lookup_name = "type"
-    prepare_rhs = False
-
-    def as_sql(self, compiler: Any, connection: Any) -> Any:
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        rhs, rhs_params = self.process_rhs(compiler, connection)
-        params = lhs_params + rhs_params
-
-        return "GeometryType(%s) ILIKE %s" % (lhs, rhs), params
-
-
-models.GeometryField.register_lookup(GeometryTypeLookup)
 
 
 class MapManager(TenantManagerMixin, models.Manager):
@@ -640,7 +628,14 @@ class SpatialFeatureGroupStaticFeatures(TenantThroughModel):
 
 class SpatialFeatureGroupStaticQuerySet(models.QuerySet):
     def by_spatial_type(self, spatial_type: str, exclusive: bool = True):
-        ALL_FEATURE_TYPES = ["POINT", "LINESTRING", "POLYGON", "MULTIPOINT", "MULTILINESTRING", "MULTIPOLYGON"]
+        ALL_FEATURE_TYPES = (
+            GEO_TYPE_POINT,
+            GEO_TYPE_LINESTRING,
+            GEO_TYPE_POLYGON,
+            GEO_TYPE_MULTIPOINT,
+            GEO_TYPE_MULTILINESTRING,
+            GEO_TYPE_MULTIPOLYGON,
+        )
         queryset = self
         if exclusive:
             excludes = Q()
