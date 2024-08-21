@@ -2,6 +2,7 @@ from django.contrib.gis.db import models
 from django.utils.translation import gettext as _
 
 from analyzers.models.base import SubjectAnalyzerConfig
+from mapping.lookups import GEO_TYPE_MULTILINESTRING, GEO_TYPE_MULTIPOLYGON
 from mapping.models import SpatialFeatureGroupStatic
 
 
@@ -12,8 +13,8 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
 
     """
 
-    GEOFENCE_SPATIAL_TYPE = "MULTILINESTRING"
-    CONTAINMENT_REGIONS_SPATIAL_TYPE = "MULTIPOLYGON"
+    GEOFENCE_SPATIAL_TYPE = GEO_TYPE_MULTILINESTRING
+    CONTAINMENT_REGIONS_SPATIAL_TYPE = GEO_TYPE_MULTIPOLYGON
 
     threshold_time = models.IntegerField(
         null=False,

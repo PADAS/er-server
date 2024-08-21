@@ -4,12 +4,20 @@ import math
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-import analyzers.models as models
 from analyzers.environmental import EnvironmentalSubjectAnalyzerConfig
 from analyzers.gfw_alert_schema import GFWLayerSlugs
 from analyzers.gfw_outbound import create_subscription, update_subscription
-from analyzers.models.gfw import GlobalForestWatchSubscription
+from analyzers.models import (
+    FeatureProximityAnalyzerConfig,
+    GeofenceAnalyzerConfig,
+    GlobalForestWatchSubscription,
+    ImmobilityAnalyzerConfig,
+    LowSpeedPercentileAnalyzerConfig,
+    LowSpeedWilcoxAnalyzerConfig,
+    SubjectProximityAnalyzerConfig,
+)
 from core.forms_utils import FixedWidthFontTextArea, JSONFieldFormMixin
+from mapping.lookups import GEO_TYPE_MULTIPOINT
 from mapping.models import SpatialFeatureGroupStatic
 
 logger = logging.getLogger(__name__)
@@ -141,32 +149,32 @@ class BaseAnalyzerForm(forms.ModelForm):
 
 
 class GeofenceSubjectAnalyzerForm(BaseAnalyzerForm):
-    BaseAnalyzerForm.Meta.model = models.GeofenceAnalyzerConfig
+    BaseAnalyzerForm.Meta.model = GeofenceAnalyzerConfig
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["critical_geofence_group"].queryset = SpatialFeatureGroupStatic.objects.by_spatial_type(
-            models.GeofenceAnalyzerConfig.GEOFENCE_SPATIAL_TYPE
+            GeofenceAnalyzerConfig.GEOFENCE_SPATIAL_TYPE
         )
         self.fields["warning_geofence_group"].queryset = SpatialFeatureGroupStatic.objects.by_spatial_type(
-            models.GeofenceAnalyzerConfig.GEOFENCE_SPATIAL_TYPE
+            GeofenceAnalyzerConfig.GEOFENCE_SPATIAL_TYPE
         )
         self.fields["containment_regions"].queryset = SpatialFeatureGroupStatic.objects.by_spatial_type(
-            models.GeofenceAnalyzerConfig.CONTAINMENT_REGIONS_SPATIAL_TYPE
+            GeofenceAnalyzerConfig.CONTAINMENT_REGIONS_SPATIAL_TYPE
         )
 
 
 class ImmobilityAnalyzerForm(BaseAnalyzerForm):
-    BaseAnalyzerForm.Meta.model = models.ImmobilityAnalyzerConfig
+    BaseAnalyzerForm.Meta.model = ImmobilityAnalyzerConfig
 
 
 class FeatureProximityAnalyzerForm(BaseAnalyzerForm):
-    BaseAnalyzerForm.Meta.model = models.FeatureProximityAnalyzerConfig
+    BaseAnalyzerForm.Meta.model = FeatureProximityAnalyzerConfig
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["critical_geofence_group"].queryset = SpatialFeatureGroupStatic.objects.by_spatial_type(
-            "MULTIPOINT"
+            GEO_TYPE_MULTIPOINT
         )
 
 
@@ -184,12 +192,12 @@ class SubjectProximityAnalyzerForm(forms.ModelForm):
 
     class Meta:
         fields = "__all__"
-        model = models.SubjectProximityAnalyzerConfig
+        model = SubjectProximityAnalyzerConfig
 
 
 class LowSpeedWilcoxSubjectAnalyzerForm(BaseAnalyzerForm):
-    BaseAnalyzerForm.Meta.model = models.LowSpeedWilcoxAnalyzerConfig
+    BaseAnalyzerForm.Meta.model = LowSpeedWilcoxAnalyzerConfig
 
 
 class LowSpeedPercentileSubjectAnalyzerForm(BaseAnalyzerForm):
-    BaseAnalyzerForm.Meta.model = models.LowSpeedPercentileAnalyzerConfig
+    BaseAnalyzerForm.Meta.model = LowSpeedPercentileAnalyzerConfig
