@@ -173,7 +173,7 @@ class FeatureProximityAnalyzerForm(BaseAnalyzerForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["critical_geofence_group"].queryset = SpatialFeatureGroupStatic.objects.by_spatial_type(
+        self.fields["proximal_features"].queryset = SpatialFeatureGroupStatic.objects.by_spatial_type(
             GEO_TYPE_MULTIPOINT
         )
 

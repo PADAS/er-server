@@ -7,6 +7,7 @@ from faker import Faker
 from django.contrib.gis.geos import LineString, MultiLineString, MultiPoint, Point
 
 import mapping.views as views
+from analyzers.forms import FeatureProximityAnalyzerForm, GeofenceSubjectAnalyzerForm
 from core.tests import BaseAPITest
 from factories import SpatialFeatureFactory, SpatialFeatureGroupStaticFactory
 from mapping.models import (
@@ -216,3 +217,25 @@ class TestSpatialFeatureGroup:
         assert SpatialFeatureGroupStatic.objects.exists()
         groups = SpatialFeatureGroupStatic.objects.by_spatial_type("MULTILINESTRING")
         assert spatial_feature_group_mixed_geometry not in groups
+
+    def test_geofencesubjectanalyzerform_is_invalid_when_a_non_linestring_in_critical_geofence_group(
+        self, spatial_feature_group_mixed_geometry, spatial_feature_group_linestring_only
+    ):
+        form = GeofenceSubjectAnalyzerForm(
+            {
+                "critical_geofence_group": spatial_feature_group_mixed_geometry.pk,
+                "warning_geofence_group": spatial_feature_group_mixed_geometry.pk,
+                "containment_regions": spatial_feature_group_linestring_only.pk,
+            }
+        )
+        assert not form.is_valid()
+        assert set(["critical_geofence_group", "warning_geofence_group", "containment_regions"]).issubset(
+            form.errors.keys()
+        )
+
+    def test_featureproximityanalyzerform_is_invalid_when_a_non_multipoint_in_proximal_features(
+        self, spatial_feature_group_linestring_only
+    ):
+        form = FeatureProximityAnalyzerForm({"proximal_features": spatial_feature_group_linestring_only.pk})
+        assert not form.is_valid()
+        assert "proximal_features" in form.errors.keys()
