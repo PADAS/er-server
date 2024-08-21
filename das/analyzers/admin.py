@@ -1,5 +1,3 @@
-from typing import Any
-
 from django.contrib import admin
 
 import analyzers.models as models
@@ -295,9 +293,6 @@ class GeofenceSubjectAnalyzerAdmin(BaseModelAdminMixin):
             },
         ),
     )
-
-    def save_form(self, request: Any, form: Any, change: Any) -> Any:
-        return super().save_form(request, form, change)
 
 
 @admin.register(models.LowSpeedWilcoxAnalyzerConfig)
