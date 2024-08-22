@@ -1,10 +1,12 @@
 import json
 import logging
 import time
+import zlib
 
 from redis.exceptions import ConnectionError
 
 from django.conf import settings
+from django.core.cache import cache
 
 from core import get_alt_domain_cache_client, memory_store_client, tms_api_client
 from utils.features import features
@@ -15,7 +17,9 @@ from utils.tenant.thread import set_tenant_settings
 logger = logging.getLogger(__name__)
 
 TENANT_CACHE_KEY = "tenant"
+TENANTS_CACHE_KEY = "tenants"
 EXPIRATION_TIME_IN_SECONDS = 604800
+TENANTS_LIST_CACHE_EXPIRATION_TIME_IN_SECONDS = 300
 
 alt_domain_cache_client = get_alt_domain_cache_client()
 
@@ -31,6 +35,18 @@ class TenantData:
             return self._get_from_cache_or_tms(self.domain)
         else:
             return self._get_from_django()
+
+    def get_tenant_list_data(self):
+        if features.tms.is_on():
+            return self._get_all_from_cache_or_tms()
+        else:
+            return [self._get_from_django()]
+
+    def _get_all_from_cache_or_tms(self):
+        tenant_list_data = self._get_all_tenants_from_cache()
+        if not tenant_list_data:
+            tenant_list_data = self._fetch_all_tenants_from_tms()
+        return tenant_list_data
 
     def _get_from_cache_or_tms(self, hostname: str):
         tenant_data = self._get_from_cache(hostname)
@@ -74,6 +90,21 @@ class TenantData:
             logger.warning("Can't parse tenant from cache for domain %s", hostname)
             return None
 
+    def _get_all_tenants_from_cache(self):
+        logger.debug("Getting all tenants from cache")
+        tenants = None
+
+        try:
+            raw_cached_data = cache.get(TENANTS_CACHE_KEY)
+            cached_data = zlib.decompress(raw_cached_data).decode("utf-8") if raw_cached_data else None
+        except ConnectionError:
+            logger.warning("Could not fetch tenants data from cache due to connection error")
+            return tenants
+
+        if not cached_data:
+            logger.debug("Tenants not found in cache")
+            return tenants
+
     def _fetch_from_tms(self, hostname):
         logger.debug("Getting tenant from TMS for domain %s", hostname)
 
@@ -82,6 +113,23 @@ class TenantData:
         if not tenant_data:
             logger.debug("Tenant not found in TMS for domain %s", hostname)
         return tenant_data
+
+    def _fetch_all_tenants_from_tms(self):
+        logger.debug("Getting all tenants from TMS")
+        tenants = tms_api_client.list_tenants()
+        if not tenants:
+            logger.error("No tenants found in TMS")
+        self._set_tenant_list_cache(tenants)
+        return tenants
+
+    def _set_tenant_list_cache(self, tenants):
+        zlib_compressed_data = zlib.compress(json.dumps(tenants).encode("utf-8"))
+        logger.debug("Setting all tenants in cache")
+        cache.set(
+            key=TENANTS_CACHE_KEY,
+            value=zlib_compressed_data,
+            timeout=TENANTS_LIST_CACHE_EXPIRATION_TIME_IN_SECONDS,
+        )
 
     def _get_from_django(self):
         tenant = DjangoSettingsTenantBuilder().build()
