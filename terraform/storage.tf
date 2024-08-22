@@ -29,6 +29,18 @@ resource "google_project_iam_member" "error_reporting_binding" {
   member  = "serviceAccount:${google_service_account.earthranger_app_sa.email}"
 }
 
+resource "google_project_iam_member" "token_creator_binding" {
+  project = data.google_project.earthranger.id
+  role    = "roles/iam.serviceAccountTokenCreator"
+  member  = "serviceAccount:${google_service_account.earthranger_app_sa.email}"
+}
+
+resource "google_project_iam_member" "trace_agent_binding" {
+  project = data.google_project.earthranger.id
+  role    = "roles/cloudtrace.agent"
+  member  = "serviceAccount:${google_service_account.earthranger_app_sa.email}"
+}
+
 resource "google_service_account_key" "er_app_account_key" {
   service_account_id = google_service_account.earthranger_app_sa.name
 }
