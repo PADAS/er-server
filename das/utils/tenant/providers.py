@@ -124,6 +124,9 @@ class TenantData:
     def _fetch_all_tenants_from_tms(self):
         logger.debug("Getting all tenants from TMS")
         tenants = tms_api_client.list_tenants()
+        if not tenants:
+            logger.error("No tenants found in TMS")
+        self._set_tenant_list_cache(tenants)
         return tenants
 
     def _set_tenant_list_cache(self, tenants):
