@@ -34,17 +34,19 @@ def create_export_permission_set_and_permission(migration_apps, schema_editor):
         )
 
         with UnsetDASTenantContextManager():
-            for tenant in DASTenant.objects.all():
-                with TenantContextManager(tenant.domain):
-                    export_permission_set, _ = PermissionSet.objects.get_or_create(
-                        name="Can Export Data", das_tenant_id=tenant.id
-                    )
+            das_tenants = DASTenant.objects.all()
 
-                    export_permission_set.permissions.add(event_permission)
-                    export_permission_set.permissions.add(observation_permission)
+        for tenant in das_tenants:
+            with TenantContextManager(tenant.domain):
+                export_permission_set, _ = PermissionSet.objects.get_or_create(
+                    name="Can Export Data", das_tenant_id=tenant.id
+                )
 
-                    users_ids = User.objects.filter(is_active=True, das_tenant_id=tenant.id)
-                    export_permission_set.user_set.add(*users_ids)
+                export_permission_set.permissions.add(event_permission)
+                export_permission_set.permissions.add(observation_permission)
+
+                users_ids = User.objects.filter(is_active=True, das_tenant_id=tenant.id)
+                export_permission_set.user_set.add(*users_ids)
 
 
 class Migration(migrations.Migration):
