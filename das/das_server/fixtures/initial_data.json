@@ -11063,5 +11063,18 @@
         "subjectgroup"
       ]
     }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "value": "nest",
+      "display": "Nest",
+      "subject_type": [
+        "stationary-object"
+      ],
+      "created_at": "2024-08-15T01:01:01Z",
+      "updated_at": "2024-08-15T01:01:01Z",
+      "ordernum": null
+    }
   }
 ]
