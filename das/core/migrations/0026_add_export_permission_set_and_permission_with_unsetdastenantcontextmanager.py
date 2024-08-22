@@ -38,15 +38,21 @@ def create_export_permission_set_and_permission(migration_apps, schema_editor):
 
         for tenant in das_tenants:
             with TenantContextManager(tenant.domain):
-                export_permission_set, _ = PermissionSet.objects.get_or_create(
-                    name="Can Export Data", das_tenant_id=tenant.id
-                )
+                try:
+                    export_permission_set, _ = PermissionSet.objects.get_or_create(
+                        name="Can Export Data", das_tenant_id=tenant.id
+                    )
 
-                export_permission_set.permissions.add(event_permission)
-                export_permission_set.permissions.add(observation_permission)
+                    export_permission_set.permissions.add(event_permission)
+                    export_permission_set.permissions.add(observation_permission)
 
-                users_ids = User.objects.filter(is_active=True, das_tenant_id=tenant.id)
-                export_permission_set.user_set.add(*users_ids)
+                    users_ids = User.objects.filter(is_active=True, das_tenant_id=tenant.id)
+                    export_permission_set.user_set.add(*users_ids)
+                except (DASTenant.DoesNotExist, TenantNotFoundException):
+                    logger.warning(
+                        "DASTenant with domain %s does not exist in TMS"
+                        domain,
+                    )
 
 
 class Migration(migrations.Migration):
