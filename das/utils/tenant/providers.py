@@ -1,17 +1,14 @@
 import json
 import logging
 import time
+import zlib
 
 from redis.exceptions import ConnectionError
 
 from django.conf import settings
+from django.core.cache import cache
 
-from core import (
-    get_alt_domain_cache_client,
-    memory_store_client,
-    persistent_storage,
-    tms_api_client,
-)
+from core import get_alt_domain_cache_client, memory_store_client, tms_api_client
 from utils.features import features
 from utils.tenant.builder import DjangoSettingsTenantBuilder
 from utils.tenant.exceptions import TenantNotFoundException
@@ -98,7 +95,8 @@ class TenantData:
         tenants = None
 
         try:
-            cached_data = memory_store_client.get_key(key=TENANTS_CACHE_KEY)
+            raw_cached_data = cache.get(TENANTS_CACHE_KEY)
+            cached_data = zlib.decompress(raw_cached_data).decode("utf-8") if raw_cached_data else None
         except ConnectionError:
             logger.warning("Could not fetch tenants data from cache due to connection error")
             return tenants
@@ -130,11 +128,12 @@ class TenantData:
         return tenants
 
     def _set_tenant_list_cache(self, tenants):
+        zlib_compressed_data = zlib.compress(json.dumps(tenants).encode("utf-8"))
         logger.debug("Setting all tenants in cache")
-        persistent_storage.insert_set_key(
+        cache.set(
             key=TENANTS_CACHE_KEY,
-            value=json.dumps(tenants),
-            ttl=TENANTS_LIST_CACHE_EXPIRATION_TIME_IN_SECONDS,
+            value=zlib_compressed_data,
+            timeout=TENANTS_LIST_CACHE_EXPIRATION_TIME_IN_SECONDS,
         )
 
     def _get_from_django(self):
