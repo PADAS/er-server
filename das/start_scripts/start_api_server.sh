@@ -37,13 +37,19 @@ if [[ "${MIGRATIONS_ONLY}" == "True" ]]; then
   echo "Maintenance mode has been enabled"
 
   if app_has_migrated core '\[ \].0008_migrate'; then
-    echo "settings override"
-    # we haven't migrated to the core oauth tables yet
-    python3 manage.py migratewithlock --no-input --settings=das_server.local_settings_oauth_migration
+      echo "settings override"
+      # we haven't migrated to the core oauth tables yet
+      if ! python3 manage.py migratewithlock --no-input --settings=das_server.local_settings_oauth_migration; then
+          echo "Failed to run migratewithlock command, exiting"
+          exit 1
+      fi
   else
-    echo "no override of settings"
-    # db has been migrated past core oauth tables
-    python3 manage.py migratewithlock --no-input
+      echo "no override of settings"
+      # db has been migrated past core oauth tables
+      if ! python3 manage.py migratewithlock --no-input; then
+          echo "Failed to run migratewithlock command, exiting"
+          exit 1
+      fi
   fi
 
   python3 manage.py maintenancemode disable

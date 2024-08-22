@@ -15,6 +15,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext_lazy as _
+from rest_framework import exceptions
 
 from activity.models import EventCategory
 from choices.models import Choice
@@ -24,6 +25,7 @@ from utils.categories import (
     GEOGRAPHIC_DISTANCE_SUFIX,
     get_categories_and_geo_categories,
 )
+from utils.etags import calculate_etag_string_for_header
 from utils.tenant import Tenant, lengthen_tenant_id, shorten_tenant_id
 
 logger = logging.getLogger(__name__)
@@ -200,7 +202,10 @@ def get_user_etag(request, *args, **kwargs) -> str:
         user = get_object_or_404(User, pk=param)
 
     etag_string = generate_user_string_etag(user=user)
-    return hashlib.md5(etag_string.encode("utf-8")).hexdigest()
+    string_to_hash = calculate_etag_string_for_header(
+        original_string=etag_string, request=request, header_name="user-profile"
+    )
+    return hashlib.md5(string_to_hash.encode("utf-8")).hexdigest()
 
 
 def generate_user_field_data(user: User) -> Iterator[str]:
@@ -247,6 +252,17 @@ def get_profiles(users: List[uuid4]):
         .exclude(Q(id__in=users) | Q(profiles_count__gt=0))
         .order_by("username")
     )
+
+
+def get_profile_user(user_id: uuid4, profile_user_id: uuid4):
+    try:
+        # it looks odd but since act_as_profiles does not set "related_name" we have to use the default name which is "user"
+        # to know if the user_id is the parent to the profile_user_id
+        return User.objects.get(id=profile_user_id, user__id=user_id)
+    except User.DoesNotExist:
+        message = "User Profile %s not found in act_as_profiles list for user %s" % (profile_user_id, user_id)
+        logger.info(message)
+        raise exceptions.PermissionDenied(message)
 
 
 def validate_email_available(value):

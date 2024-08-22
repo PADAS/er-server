@@ -16,12 +16,12 @@ from django.contrib.admin.utils import (
     quote,
     unquote,
 )
+from django.contrib.admin.widgets import AutocompleteSelect
 from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
 from django.db import router, transaction
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
-from django.forms import Select
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -142,9 +142,13 @@ class SpatialFeatureGroupStaticInline(admin.TabularInline):
     autocomplete_fields = ("spatial_feature",)
     fields = ("spatial_feature",)
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related("spatial_feature")
+
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "spatial_feature":
-            kwargs["widget"] = Select(attrs={"style": "width:100%;"})
+            kwargs["widget"] = AutocompleteSelect(db_field, admin_site=self.admin_site)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
