@@ -6,6 +6,7 @@ from django.contrib.auth.models import Permission
 from django.db import migrations
 
 from core.models import DASTenant
+from utils.tenant.exceptions import TenantNotFoundException
 from utils.json import load_from_file
 from utils.tenant.managers import TenantContextManager, UnsetDASTenantContextManager
 
