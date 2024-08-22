@@ -196,10 +196,7 @@ class EventTypeAdmin(BaseModelAdminMixin):
         "default_state",
         "is_active",
     )
-    list_editable = (
-        "ordernum",
-        "default_state",
-    )
+    list_editable = ("default_state",)
     list_display_links = ("display",)
     search_fields = (
         "display",

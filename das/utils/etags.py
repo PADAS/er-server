@@ -3,6 +3,26 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from django.contrib.gis.db.models import QuerySet
+from rest_framework.request import Request
+
+
+def calculate_etag_string_for_header(original_string: str, request: Request, header_name: str) -> str:
+    """
+    Calculate the ETag string for the specified header.
+
+    Args:
+        original_string (str): The original string to calculate the ETag for.
+        request (Request): The request object containing the headers.
+        header_name (str): The name of the header to check.
+
+    Returns:
+        str: The ETag string for the specified header.
+    """
+    header_property = request.headers.get(header_name, None)
+    new_string = original_string
+    if header_property:
+        new_string += f":{header_property}"
+    return new_string
 
 
 class HashByModelBuilder:
