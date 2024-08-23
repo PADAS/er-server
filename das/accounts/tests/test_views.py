@@ -23,7 +23,7 @@ class TestUsersView:
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestUserView:
     def test_get_user(self, superuser_client, memory_store_client_mock):
-        user = User.objects.last()
+        user = superuser_client.user
         url = reverse("accounts:user", kwargs={"id": str(user.id)})
 
         response = superuser_client.get(url)
@@ -32,7 +32,7 @@ class TestUserView:
         assert "ETag" in response.headers.keys()
 
     def test_get_user_no_modified(self, superuser_client, memory_store_client_mock):
-        user = User.objects.last()
+        user = superuser_client.user
         url = reverse("accounts:user", kwargs={"id": str(user.id)})
 
         response = superuser_client.get(url)
@@ -46,8 +46,7 @@ class TestUserView:
         assert new_response.status_code == status.HTTP_304_NOT_MODIFIED
         assert etag == new_response.headers["Etag"]
 
-    def test_get_user_no_modified_profile_user(self, superuser_client, memory_store_client_mock):
-        user = User.objects.last()
+    def test_get_user_no_modified_profile_user(self, superuser_client, memory_store_client_mock, user):
         url = reverse("accounts:user", kwargs={"id": str(user.id)})
         response = superuser_client.get(url)
 
@@ -57,19 +56,17 @@ class TestUserView:
         etag = response.headers["ETag"]
 
         client = superuser_client
-        client.credentials(USER_PROFILE=User.objects.first().id)
+        client.credentials(USER_PROFILE=user)
         new_response = client.get(url, HTTP_IF_NONE_MATCH=etag)
 
         assert new_response.status_code == status.HTTP_304_NOT_MODIFIED
         assert etag == new_response.headers["Etag"]
 
-    def test_get_user_with_profile_should_resolved(self, superuser_client) -> None:
-        user = User.objects.last()
-        user_profile = User.objects.first()
-        user_profile.act_as_profiles.add(user)
+    def test_get_user_with_profile_should_resolved(self, superuser_client, user) -> None:
+        superuser = superuser_client.user
+        superuser.act_as_profiles.add(user)
 
-        url = reverse("accounts:user", kwargs={"id": str(user.id)})
-        superuser_client.force_login(user=user)
+        url = reverse("accounts:user", kwargs={"id": "me"})
         response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
@@ -81,11 +78,11 @@ class TestUserView:
 
         assert response.status_code == status.HTTP_304_NOT_MODIFIED
 
-        response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag, HTTP_USER_PROFILE=str(user_profile.id))
+        response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag, HTTP_USER_PROFILE=str(user.id))
         assert response.status_code == status.HTTP_200_OK
 
     def test_modified_user_new_etag(self, superuser_client, memory_store_client_mock) -> None:
-        user = User.objects.last()
+        user = superuser_client.user
         url = reverse("accounts:user", kwargs={"id": str(user.id)})
         response = superuser_client.get(url)
 
@@ -128,7 +125,7 @@ class TestUserView:
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestUserProfilesView:
     def test_get_empty_list_of_profiles_by_user(self, superuser_client, memory_store_client_mock):
-        user = User.objects.last()
+        user = superuser_client.user
         url = reverse("accounts:user-profiles", kwargs={"id": str(user.id)})
 
         response = superuser_client.get(url)

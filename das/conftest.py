@@ -354,8 +354,8 @@ def superuser(das_tenant):
 
 
 @pytest.fixture
-def user():
-    return UserFactory(is_superuser=False)
+def user(das_tenant):
+    return UserFactory(is_superuser=False, das_tenant=das_tenant)
 
 
 @pytest.fixture
