@@ -231,7 +231,7 @@ SUBJECT_REGION_ENABLED = True
 LOGGING_CONFIG = None
 
 # OpenTelemetry Tracing to Google Cloud Trace
-TRACING_ENABLED = env.bool("TRACING_ENABLED", True)
+TRACING_ENABLED = env.bool("TRACING_ENABLED", False)
 SERVICE_NAME = env.str("SERVICE_NAME", "das-api")
 
 # Internationalization
