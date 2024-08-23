@@ -76,6 +76,7 @@ INSTALLED_APPS = (
     "django.contrib.humanize",
     "django_extensions",
     "docs",
+    "buoy.apps.BuoyConfig",
 )
 
 MIDDLEWARE = (
