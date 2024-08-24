@@ -104,6 +104,8 @@ class TenantData:
         if not cached_data:
             logger.debug("Tenants not found in cache")
             return tenants
+        tenants = json.loads(cached_data)
+        return tenants
 
     def _fetch_from_tms(self, hostname):
         logger.debug("Getting tenant from TMS for domain %s", hostname)
