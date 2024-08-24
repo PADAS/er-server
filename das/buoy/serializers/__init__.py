@@ -4,40 +4,9 @@ import rest_framework
 import rest_framework.serializers
 
 from observations import models
+from observations.serializers import CommonNameRelatedField, SubjectSubTypeRelatedField
 
 logger = logging.getLogger(__name__)
-
-
-class SubjectSubTypeRelatedField(rest_framework.serializers.RelatedField):
-    def get_queryset(self):
-        return models.SubjectSubType.objects.all()
-
-    def to_representation(self, value):
-        return value.value if value else None
-
-    def to_internal_value(self, data):
-        if data:
-            data = data if isinstance(data, str) else data.value
-            try:
-                return models.SubjectSubType.objects.get(value=data)
-            except models.SubjectSubType.DoesNotExist:
-                raise rest_framework.serializers.ValidationError(f"subject_subtype : {data} does not exist")
-
-
-class CommonNameRelatedField(rest_framework.serializers.RelatedField):
-    def get_queryset(self):
-        return models.CommonName.objects.all()
-
-    def to_representation(self, value):
-        return value.value if value else None
-
-    def to_internal_value(self, data):
-        if data:
-            data = data if isinstance(data, str) else data.value
-            try:
-                return models.CommonName.objects.get(value=data)
-            except models.CommonName.DoesNotExist:
-                raise rest_framework.serializers.ValidationError(f"common_name : {data} does not exist")
 
 
 class GearSerializer(rest_framework.serializers.Serializer):

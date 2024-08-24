@@ -27,8 +27,6 @@ from rest_framework.schemas import get_schema_view
 from das_server import views
 from das_server.admin import dasadmin_site
 
-# from buoy import views # TODO: is this necessary?
-
 admin.autodiscover()
 admin.site.enable_nav_sidebar = False
 
