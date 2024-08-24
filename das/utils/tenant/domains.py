@@ -2,8 +2,8 @@ from typing import Iterable, List, NoReturn
 
 from django.conf import settings
 
-from core import get_alt_domain_cache_client, tms_api_client
-from utils.tenant.providers import get_current_cluster_domains
+from core import get_alt_domain_cache_client
+from utils.tenant.providers import TenantData, get_current_cluster_domains
 
 SCHEMAS = ("http", "https")
 
@@ -44,7 +44,7 @@ def add_new_tenant_domains_to_settings() -> NoReturn:
     if getattr(settings, "COLLECT_STATIC_NO_DB", False):
         return
 
-    full_tenant_list = tms_api_client.list_tenants()
+    full_tenant_list = TenantData(settings.SERVER_FQDN).get_tenant_list_data()
 
     tenants_in_current_cluster = [
         tenant
