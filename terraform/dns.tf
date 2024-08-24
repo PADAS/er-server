@@ -23,6 +23,7 @@ locals {
     "madikwefutures"         = "madikwewildlife"
     "bomani"                 = "ngamo"
     "grevyzebra"             = "grevyszebratrust"
+    "lewa"                   = "nrt"
     "ecu-pnya"               = "gc-comunitario"
     "sango"                  = "svc"
     "wpz-wildcarns"          = "ccmp"
