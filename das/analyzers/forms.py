@@ -17,7 +17,6 @@ from analyzers.models import (
     SubjectProximityAnalyzerConfig,
 )
 from core.forms_utils import FixedWidthFontTextArea, JSONFieldFormMixin
-from mapping.lookups import GEO_TYPE_MULTIPOINT
 from mapping.models import SpatialFeatureGroupStatic
 
 logger = logging.getLogger(__name__)
@@ -174,7 +173,7 @@ class FeatureProximityAnalyzerForm(BaseAnalyzerForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["proximal_features"].queryset = SpatialFeatureGroupStatic.objects.by_spatial_type(
-            GEO_TYPE_MULTIPOINT
+            FeatureProximityAnalyzerConfig.MULTI_FEATURES_SPATIAL_TYPE
         )
 
 
