@@ -9,6 +9,7 @@ from geopy import Point
 from geopy.distance import distance
 
 from das.buoy.serializers import GearSerializer
+from utils.features import features
 
 
 def generate_devices(quantity: int):
@@ -31,6 +32,7 @@ def generate_devices(quantity: int):
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("gear_subject")
+@pytest.mark.skipif(features.buoy_api_enabled.is_on() is False, reason="Buoy API feature flag is off")
 class TestGearSerializer:
     def test_with_trawl_gear_subject(self, gear_subject):
         gear_subject.additional = generate_devices(2)
