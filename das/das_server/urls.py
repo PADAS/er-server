@@ -13,6 +13,7 @@ Including another URLconf
     1. Add an import:  from blog import urls as blog_urls
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
+
 import oauth2_provider.views as oauth2_views
 
 import django.contrib.staticfiles.views
@@ -52,6 +53,7 @@ urlpatterns = [
     path("api/v1.0/reports/", include(("reports.urls", "reports"))),
     path("api/v1.0/usercontent/", include(("usercontent.urls", "usercontent"))),
     path("api/v1.0/", include("choices.urls")),
+    path("api/v1.0/buoy/", include("buoy.urls")),
 ]
 
 

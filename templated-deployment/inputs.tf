@@ -54,6 +54,12 @@ variable "api_port" {
   default = "8000"
 }
 
+variable "buoy_api_enabled" {
+  description = "Enable Buoy API"
+  type    = string
+  default = "False"
+}
+
 variable "config_container" {
   type    = string
   default = "dev-az"
