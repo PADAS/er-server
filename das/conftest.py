@@ -30,6 +30,7 @@ from factories import (
     EventNoteFactory,
     EventTypeFactory,
     FeatureProximityAnalyzerConfigFactory,
+    GearFactory,
     GeofenceAnalyzerConfigFactory,
     ObservationFactory,
     PatrolFactory,
@@ -40,7 +41,6 @@ from factories import (
     PermissionFactory,
     PermissionSetFactory,
     ProviderFactory,
-    SingleGearFactory,
     SourceFactory,
     SourceGroupFactory,
     SpatialFeatureGroupStaticFactory,
@@ -50,7 +50,6 @@ from factories import (
     SubjectSourceFactory,
     SubjectSubTypeFactory,
     TenantFactory,
-    TrawlGearFactory,
     TwoWayMessageSubjectFactory,
     UserFactory,
 )
@@ -243,13 +242,8 @@ def spatial_feature_type():
 
 
 @pytest.fixture
-def trawl_gear_subject():
-    return TrawlGearFactory()
-
-
-@pytest.fixture
-def single_gear_subject():
-    return SingleGearFactory()
+def gear_subject():
+    return GearFactory()
 
 
 @pytest.fixture

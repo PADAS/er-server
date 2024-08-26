@@ -1,5 +1,3 @@
-import json
-import random
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -7,7 +5,6 @@ import factory
 from factory import fuzzy
 from factory.fuzzy import BaseFuzzyAttribute
 from geopy import Point
-from geopy.distance import distance
 from oauth2_provider.models import get_access_token_model
 
 from django.contrib.auth import get_user_model
@@ -306,25 +303,7 @@ class ObservationFactory(factory.django.DjangoModelFactory):
         return Point(-103.313486, 20.420935)
 
 
-def generate_devices(x):
-    def generate_point_nearby(original_point, miles):
-        bearing = random.uniform(0, 360)
-        new_point = distance(miles=miles).destination(original_point, bearing)
-        return {"latitude": new_point.latitude, "longitude": new_point.longitude}
-
-    def generate_device(original_point):
-        device = dict()
-        device["name"] = fuzzy.FuzzyText(length=10, prefix="device_").evaluate(1, 1, None).__str__()
-        device["updated_at"] = str(datetime.now(tz=timezone.utc))
-        device["location"] = generate_point_nearby(original_point, 5)
-        device["label"] = fuzzy.FuzzyText(length=1).evaluate(1, 1, None).__str__()
-        return json.dumps(device)
-
-    original_point = Point(random.uniform(-90, 90), random.uniform(-180, 180))
-    return {"devices": [generate_device(original_point) for _ in range(x)]}
-
-
-class TrawlGearFactory(factory.django.DjangoModelFactory):
+class GearFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Subject
 
@@ -332,18 +311,6 @@ class TrawlGearFactory(factory.django.DjangoModelFactory):
     subject_subtype = factory.SubFactory(SubjectSubTypeFactory)
     is_active = fuzzy.FuzzyChoice([True, False])
     updated_at = datetime.now(tz=timezone.utc)
-    additional = generate_devices(2)
-
-
-class SingleGearFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Subject
-
-    name = fuzzy.FuzzyText(length=50)
-    subject_subtype = factory.SubFactory(SubjectSubTypeFactory)
-    is_active = fuzzy.FuzzyChoice([True, False])
-    updated_at = datetime.now(tz=timezone.utc)
-    additional = generate_devices(1)
 
 
 class EventCategoryFactory(factory.django.DjangoModelFactory):
