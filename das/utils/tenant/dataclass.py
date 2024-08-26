@@ -51,6 +51,7 @@ class EnvironmentSettings:
 @dataclass
 class FeatureFlags:
     alerts_enabled: Optional[bool] = field(metadata=config(field_name="alertsEnabled"), default=False)
+    buoy_api_enabled: Optional[bool] = field(metadata=config(field_name="buoyApiEnabled"), default=False)
     daily_report_enabled: Optional[bool] = field(metadata=config(field_name="dailyReportEnabled"), default=False)
     kml_export: Optional[bool] = field(metadata=config(field_name="kmlExport"), default=False)
     mapping_features_v2: Optional[bool] = field(metadata=config(field_name="mappingFeaturesV2"), default=False)
