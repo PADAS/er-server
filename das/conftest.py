@@ -30,6 +30,7 @@ from factories import (
     EventNoteFactory,
     EventTypeFactory,
     FeatureProximityAnalyzerConfigFactory,
+    GearFactory,
     GeofenceAnalyzerConfigFactory,
     ObservationFactory,
     PatrolFactory,
@@ -238,6 +239,11 @@ def spatial_feature_group_static():
 @pytest.fixture
 def spatial_feature_type():
     return SpatialFeatureTypeFactory.create()
+
+
+@pytest.fixture
+def gear_subject():
+    return GearFactory()
 
 
 @pytest.fixture
