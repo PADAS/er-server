@@ -53,7 +53,7 @@ urlpatterns = [
     path("api/v1.0/reports/", include(("reports.urls", "reports"))),
     path("api/v1.0/usercontent/", include(("usercontent.urls", "usercontent"))),
     path("api/v1.0/", include("choices.urls")),
-    path("api/v1.0/buoy/", include("buoy.urls")),
+    path("api/v1.0/gear", include("buoy.urls")),
 ]
 
 
