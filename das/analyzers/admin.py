@@ -77,14 +77,13 @@ def check_geofence_groups_have_only_one_type_feature(request, obj, field_names: 
     if not request.POST:
         for field_name in field_names:
             field = getattr(obj, field_name, None)
-            print(GEO_TYPE_MULTILINESTRING)
             if field and not all(
                 feature.feature_geometry.geom_type.lower() == geo_type.lower() for feature in field.features.all()
             ):
                 messages.add_message(
                     request=request,
                     level=messages.WARNING,
-                    message=f"'{field_name}' needs to be changed to a valid FeatureGroup",
+                    message=f"The field '{field_name}' contains invalid geometries. Please ensure all features in this group are of type '{geo_type}'.",
                 )
 
 
