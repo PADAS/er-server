@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 
 import analyzers.models as models
 from analyzers.forms import (
@@ -293,6 +293,22 @@ class GeofenceSubjectAnalyzerAdmin(BaseModelAdminMixin):
             },
         ),
     )
+
+    def get_form(self, request, obj=None, **kwargs):
+        if not request.POST:
+            for field_name in ("critical_geofence_group", "warning_geofence_group"):
+                field = getattr(obj, field_name)
+
+                if field and not all(
+                    feature.feature_geometry.geom_type == "MultiLineString" for feature in field.features.all()
+                ):
+                    messages.add_message(
+                        request=request,
+                        level=messages.WARNING,
+                        message=f"'{field_name}' needs to be changed to a valide FeatureGroup",
+                    )
+
+        return super().get_form(request, obj, **kwargs)
 
 
 @admin.register(models.LowSpeedWilcoxAnalyzerConfig)
