@@ -39,6 +39,7 @@
   },
   "featureFlags": {
     "alertsEnabled": false,
+    "buoyApiEnabled": false,
     "dailyReportEnabled": false,
     "kmlExport": false,
     "mappingFeaturesV2": true,

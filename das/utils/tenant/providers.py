@@ -105,6 +105,13 @@ class TenantData:
             logger.debug("Tenants not found in cache")
             return tenants
 
+        try:
+            tenants = json.loads(cached_data)
+        except json.JSONDecodeError:
+            logger.warning("Can't parse tenant list from cache")
+
+        return tenants
+
     def _fetch_from_tms(self, hostname):
         logger.debug("Getting tenant from TMS for domain %s", hostname)
 
