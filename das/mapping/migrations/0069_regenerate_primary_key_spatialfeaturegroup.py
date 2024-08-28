@@ -9,6 +9,9 @@ def regenerate_primary_keys(apps, schema_editor):
     add_tenant_to_primary_key(app="mapping", models=["SpatialFeatureGroupStatic"])
 
 
+DROP_INDEX_SQL = "DROP INDEX IF EXISTS mapping_spatialfeaturegroupstatictemp_das_tenant_id_729d8dd5;"
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -17,4 +20,5 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunPython(code=regenerate_primary_keys, reverse_code=migrations.RunPython.noop),
+        migrations.RunSQL(sql=DROP_INDEX_SQL),
     ]
