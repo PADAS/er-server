@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import factory
 from factory import fuzzy
 from factory.fuzzy import BaseFuzzyAttribute
+from geopy import Point
 from oauth2_provider.models import get_access_token_model
 
 from django.contrib.auth import get_user_model
@@ -300,6 +301,16 @@ class ObservationFactory(factory.django.DjangoModelFactory):
     @factory.lazy_attribute
     def location(self):
         return Point(-103.313486, 20.420935)
+
+
+class GearFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Subject
+
+    name = fuzzy.FuzzyText(length=50)
+    subject_subtype = factory.SubFactory(SubjectSubTypeFactory)
+    is_active = fuzzy.FuzzyChoice([True, False])
+    updated_at = datetime.now(tz=timezone.utc)
 
 
 class EventCategoryFactory(factory.django.DjangoModelFactory):

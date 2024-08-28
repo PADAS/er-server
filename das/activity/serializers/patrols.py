@@ -160,6 +160,7 @@ class PatrolSegmentEventSerializer(EventSerializerMixin, ModelSerializer):
     title = CharField(required=False, allow_blank=True)
     event_type = EventTypeRelatedField(required=False)
     contains = SerializerMethodField()
+    created_at = DateTimeField(read_only=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -177,6 +178,7 @@ class PatrolSegmentEventSerializer(EventSerializerMixin, ModelSerializer):
             "state",
             "contains",
             "updated_at",
+            "created_at",
         )
 
     def get_contains(self, event):
