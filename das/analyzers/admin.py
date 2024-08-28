@@ -1,3 +1,5 @@
+from typing import Tuple
+
 from django.contrib import admin, messages
 
 import analyzers.models as models
@@ -13,6 +15,7 @@ from analyzers.forms import (
 )
 from core.admin import BaseModelAdminMixin
 from core.openlayers import OSMGeoExtendedAdmin
+from mapping.lookups import GEO_TYPE_MULTILINESTRING, GEO_TYPE_MULTIPOINT
 
 
 @admin.register(models.ImmobilityAnalyzerConfig)
@@ -68,6 +71,21 @@ This analyzer requires access to Google's Earth Engine API using a service accou
 Once you have a service account, you can create a private key for it. Download the
 private key and paste it's contents in this form (be sure to use the JSON format key).
 """
+
+
+def check_geofence_groups_have_only_one_type_feature(request, obj, field_names: Tuple[str, ...], geo_type: str) -> None:
+    if not request.POST:
+        for field_name in field_names:
+            field = getattr(obj, field_name, None)
+            print(GEO_TYPE_MULTILINESTRING)
+            if field and not all(
+                feature.feature_geometry.geom_type.lower() == geo_type.lower() for feature in field.features.all()
+            ):
+                messages.add_message(
+                    request=request,
+                    level=messages.WARNING,
+                    message=f"'{field_name}' needs to be changed to a valid FeatureGroup",
+                )
 
 
 @admin.register(models.EnvironmentalSubjectAnalyzerConfig)
@@ -180,6 +198,15 @@ class FeatureProximityAnalyzerAdmin(BaseModelAdminMixin):
             },
         ),
     )
+
+    def get_form(self, request, obj=None, **kwargs):
+        check_geofence_groups_have_only_one_type_feature(
+            request=request,
+            obj=obj,
+            field_names=("proximal_features",),
+            geo_type=GEO_TYPE_MULTIPOINT,
+        )
+        return super().get_form(request, obj, **kwargs)
 
 
 @admin.register(models.SubjectProximityAnalyzerConfig)
@@ -295,19 +322,15 @@ class GeofenceSubjectAnalyzerAdmin(BaseModelAdminMixin):
     )
 
     def get_form(self, request, obj=None, **kwargs):
-        if not request.POST:
-            for field_name in ("critical_geofence_group", "warning_geofence_group"):
-                field = getattr(obj, field_name)
-
-                if field and not all(
-                    feature.feature_geometry.geom_type == "MultiLineString" for feature in field.features.all()
-                ):
-                    messages.add_message(
-                        request=request,
-                        level=messages.WARNING,
-                        message=f"'{field_name}' needs to be changed to a valide FeatureGroup",
-                    )
-
+        check_geofence_groups_have_only_one_type_feature(
+            request=request,
+            obj=obj,
+            field_names=(
+                "critical_geofence_group",
+                "warning_geofence_group",
+            ),
+            geo_type=GEO_TYPE_MULTILINESTRING,
+        )
         return super().get_form(request, obj, **kwargs)
 
 
