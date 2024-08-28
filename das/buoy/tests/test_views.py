@@ -1,6 +1,7 @@
 import pytest
 
 from django.urls import reverse
+from rest_framework import status
 
 from client_http import HTTPClient
 from das.buoy.tests.test_serializers import generate_devices
@@ -17,6 +18,7 @@ class TestGearSubjectView:
     # @pytest.fixture
     # def _get_superuser_client(self, gear_subject, superuser, superuser_client):
     #     url = reverse(self.base_url, kwargs={"id": gear_subject.id})
+    #     gear_subject.linked_user = superuser
     #     gear_subject.additional = generate_devices(2)
     #     gear_subject.save()
     #     return superuser_client.get(url), superuser
@@ -38,28 +40,29 @@ class TestGearSubjectView:
         assert response.data["id"]
         assert len(response.data["devices"]) == 2
 
-    # def test_subject_view_with_linked_user_and_not_subject_permission(self, _get_client):
-    #     response, user = _get_client
-    #     assert response.data["user"]["id"] == str(user.id)
+    def test_gear_subject_view_with_linked_user_and_not_subject_permission(self, _get_client):
+        response, _ = _get_client
+        assert response.data["id"]
+        assert len(response.data["devices"]) == 2
 
-    # def test_subject_view_without_linked_user(self, memory_store_client_mock, _get_superuser_client):
+    # def test_gear_subject_view_without_linked_user(self, _get_superuser_client):
     #     response, _ = _get_superuser_client
     #     assert not hasattr(response.data, "user")
 
-    # def test_subject_view_with_not_linked_user_or_subject_permission(self, subject):
-    #     client = HTTPClient()
-    #     url = reverse("subject-view", kwargs={"id": subject.id})
-    #     request = client.factory.get(url)
-    #     client.force_authenticate(request, client.app_user)
+    def test_gear_subject_view_with_not_linked_user_or_subject_permission(self, gear_subject):
+        client = HTTPClient()
+        url = reverse("gear-view", kwargs={"id": gear_subject.id})
+        request = client.factory.get(url)
+        client.force_authenticate(request, client.app_user)
 
-    #     response = views.SubjectView.as_view()(request, id=str(subject.id))
+        response = GearView.as_view()(request, id=str(gear_subject.id))
 
-    #     assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    # def _test_subject_view_with_linked_user_ask_for_random_subject(self, five_subjects, superuser_client, superuser):
-    #     subject1 = five_subjects[0]
-    #     subject2 = five_subjects[1]
-    #     url = reverse("subject-view", kwargs={"id": subject2.id})
+    # def test_gear_subject_view_with_linked_user_ask_for_random_subject(self, five_gears, superuser_client, superuser):
+    #     subject1 = five_gears[0]
+    #     subject2 = five_gears[1]
+    #     url = reverse("gear-view", kwargs={"id": subject2.id})
     #     subject1.linked_user = superuser
     #     subject1.save()
     #     response = superuser_client.get(url)
