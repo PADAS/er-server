@@ -219,23 +219,25 @@ class TestSpatialFeatureGroup:
         assert spatial_feature_group_mixed_geometry not in groups
 
     def test_geofencesubjectanalyzerform_is_invalid_when_a_non_linestring_in_critical_geofence_group(
-        self, spatial_feature_group_mixed_geometry, spatial_feature_group_linestring_only
+        self, spatial_feature_group_mixed_geometry, spatial_feature_group_linestring_only, django_assert_num_queries
     ):
-        form = GeofenceSubjectAnalyzerForm(
-            {
-                "critical_geofence_group": spatial_feature_group_mixed_geometry.pk,
-                "warning_geofence_group": spatial_feature_group_mixed_geometry.pk,
-                "containment_regions": spatial_feature_group_linestring_only.pk,
-            }
-        )
-        assert not form.is_valid()
-        assert set(["critical_geofence_group", "warning_geofence_group", "containment_regions"]).issubset(
-            form.errors.keys()
-        )
+        with django_assert_num_queries(3):
+            form = GeofenceSubjectAnalyzerForm(
+                {
+                    "critical_geofence_group": spatial_feature_group_mixed_geometry.pk,
+                    "warning_geofence_group": spatial_feature_group_mixed_geometry.pk,
+                    "containment_regions": spatial_feature_group_linestring_only.pk,
+                }
+            )
+            assert not form.is_valid()
+            assert set(["critical_geofence_group", "warning_geofence_group", "containment_regions"]).issubset(
+                form.errors.keys()
+            )
 
     def test_featureproximityanalyzerform_is_invalid_when_a_non_multipoint_in_proximal_features(
-        self, spatial_feature_group_linestring_only
+        self, spatial_feature_group_linestring_only, django_assert_num_queries
     ):
-        form = FeatureProximityAnalyzerForm({"proximal_features": spatial_feature_group_linestring_only.pk})
-        assert not form.is_valid()
-        assert "proximal_features" in form.errors.keys()
+        with django_assert_num_queries(1):
+            form = FeatureProximityAnalyzerForm({"proximal_features": spatial_feature_group_linestring_only.pk})
+            assert not form.is_valid()
+            assert "proximal_features" in form.errors.keys()
