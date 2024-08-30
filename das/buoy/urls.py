@@ -1,8 +1,7 @@
 from django.conf.urls import re_path
 
+from buoy import views
 from utils.constants import regex
-
-from . import views
 
 urlpatterns = [
     re_path(r"^/?$", views.GearsView, name="gear-list-view"),

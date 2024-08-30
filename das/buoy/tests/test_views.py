@@ -3,9 +3,9 @@ import pytest
 from django.urls import reverse
 from rest_framework import status
 
+from buoy import views
 from client_http import HTTPClient
 from das.buoy.tests.test_serializers import generate_devices
-from das.buoy.views import GearsView, GearView
 from utils.tenant.dataclass import FeatureFlags
 
 
@@ -33,7 +33,7 @@ class TestGearView:
         request = client.factory.get(url)
         client.force_authenticate(request, client.app_user)
 
-        return GearView.as_view()(request, id=str(gear_subject.id)), client.app_user
+        return views.GearView.as_view()(request, id=str(gear_subject.id)), client.app_user
 
     def test_single_gear_subject_view(self, _get_client):
         response, _ = _get_client
@@ -55,7 +55,7 @@ class TestGearView:
         request = client.factory.get(url)
         client.force_authenticate(request, client.app_user)
 
-        response = GearView.as_view()(request, id=str(gear_subject.id))
+        response = views.GearView.as_view()(request, id=str(gear_subject.id))
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -93,7 +93,7 @@ class TestGearsView:
         request = client.factory.get(reverse(self.base_url))
         client.force_authenticate(request, client.app_user)
 
-        return GearsView.as_view()(request), client.app_user
+        return views.GearsView.as_view()(request), client.app_user
 
     # def test_subjects_view_with_linked_user(self, memory_store_client_mock, _get_superuser_client):
     #     response, user = _get_superuser_client
@@ -115,6 +115,6 @@ class TestGearsView:
         request = client.factory.get(reverse("subjects-list-view"))
         client.force_authenticate(request, client.app_user)
 
-        response = GearsView.as_view()(request)
+        response = views.GearsView.as_view()(request)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
