@@ -31,6 +31,7 @@ from reports.observationlagnotification import (
     generate_lag_notification_email,
     get_lagging_providers,
 )
+from utils.tenant.thread import get_tenant_settings
 
 User = get_user_model()
 
@@ -227,10 +228,13 @@ class TestReportByTask:
             location=Point(0, 0),
         )
 
-        check_sources_threshold()
+        check_sources_threshold(domain=get_tenant_settings().domain)
         events = Event.objects.all()
         assert events.count() == 1
         for event in events:
+            for event_details in event.event_details.all():
+                assert event_details.data
+
             assert event.event_type.display == "Silent Source Provider"
 
     def test_one_of_many_sources_with_same_provider_reach_the_provider_threshold(self, five_subject_sources):
@@ -254,7 +258,7 @@ class TestReportByTask:
             source=source_b,
             location=Point(0, 0),
         )
-        check_sources_threshold()
+        check_sources_threshold(domain=get_tenant_settings().domain)
 
         events = Event.objects.all()
         assert events.count() == 0
@@ -280,7 +284,7 @@ class TestReportByTask:
             source=source_b,
             location=Point(0, 0),
         )
-        check_sources_threshold()
+        check_sources_threshold(domain=get_tenant_settings().domain)
 
         events = Event.objects.all()
         assert events.count() == 0
@@ -306,11 +310,14 @@ class TestReportByTask:
             source=source_b,
             location=Point(0, 0),
         )
-        check_sources_threshold()
+        check_sources_threshold(domain=get_tenant_settings().domain)
 
         events = Event.objects.all()
         assert events.count() == 2
         for event in events:
+            for event_details in event.event_details.all():
+                assert event_details.data
+
             assert event.event_type.display == "Silent Source"
 
     def test_one_source_with_inactive_subject_reach_the_provider_default_threshold_but_no_event(self, subject_source):
@@ -328,7 +335,7 @@ class TestReportByTask:
             source=source_a,
             location=Point(0, 0),
         )
-        check_sources_threshold()
+        check_sources_threshold(domain=get_tenant_settings().domain)
 
         events = Event.objects.all()
         assert events.count() == 0
@@ -353,9 +360,11 @@ class TestReportByTask:
             source=source_b,
             location=Point(0, 0),
         )
-        check_sources_threshold()
+        check_sources_threshold(domain=get_tenant_settings().domain)
 
         events = Event.objects.all()
         assert events.count() == 2
         for event in events:
+            for event_details in event.event_details.all():
+                assert event_details.data
             assert event.event_type.display == "Silent Source"
