@@ -15,6 +15,10 @@ class EventTypeQuerysetMixin:
         include_inactive = parse_bool(query_params.get("include_inactive"))
         is_collection = query_params.get("is_collection")
         queryset = EventType.objects.all_sort()
+        updated_since = query_params.get("updated_since", None)
+
+        if updated_since:
+            queryset = queryset.filter(updated_at__gte=updated_since)
 
         if include_inactive:
             queryset = queryset.filter(category__is_active=True)

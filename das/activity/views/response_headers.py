@@ -10,6 +10,7 @@ from django.http import QueryDict
 
 from activity.models import EventType, PatrolType
 from activity.views.events.utils import EventTypeQuerysetMixin
+from utils.etags import HashByModelBuilder
 
 PATROL_TYPE_FIELDS = (
     "value",
@@ -28,14 +29,22 @@ EVENT_TYPE_FIELDS = (
     "default_state",
     "display",
     "geometry_type",
-    "icon_id",
+    "icon",
     "is_active",
     "is_collection",
     "ordernum",
     "schema",
     "value",
-    "image_url",
 )
+EVENT_TYPE_CATEGORIES_FIELDS = (
+    "category__display",
+    "category__value",
+    "category__ordernum",
+    "category__is_active",
+    "category__flag",
+    "category__updated_at",
+)
+EVENT_TYPE_FIELDS_FOR_ETAG = list(EVENT_TYPE_FIELDS + EVENT_TYPE_CATEGORIES_FIELDS)
 
 
 @dataclass
@@ -69,27 +78,17 @@ def build_patrol_types_last_modified_header(*args, **kwargs) -> datetime:
     return get_most_recent_update_datetime_by_queryset(PatrolType.objects)
 
 
-def build_event_types_etag_header(request, *args, **kwargs) -> datetime:
-    event_type_to_string = partial(concatenate_fields_from_model, EVENT_TYPE_FIELDS)
+def build_event_types_etag_header(request, *args, **kwargs) -> str:
     queryset_builder = EventTypeQueryset(request.user, request.GET)
-    salt = request.META.get("HTTP_USER_AGENT")
-    return build_etag_header(event_type_to_string, queryset_builder.get_queryset(), salt=salt)
+    queryset = queryset_builder.get_queryset()
+    queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
+    return HashByModelBuilder.build_from_queryset(queryset=queryset)
 
 
 def build_event_type_etag_header(*args, **kwargs) -> str:
-    event_type_to_string = partial(concatenate_fields_from_model, EVENT_TYPE_FIELDS)
     queryset = EventType.objects.filter(id=kwargs["eventtype_id"])
-    return build_etag_header(event_type_to_string, queryset)
-
-
-def build_event_type_last_modified_header(*args, **kwargs) -> datetime:
-    queryset = EventType.objects.filter(id=kwargs["eventtype_id"])
-    return get_most_recent_update_datetime_by_queryset(queryset)
-
-
-def build_event_types_last_modified_header(request, *args, **kwargs) -> datetime:
-    queryset_builder = EventTypeQueryset(request.user, request.GET)
-    return get_most_recent_update_datetime_by_queryset(queryset_builder.get_queryset())
+    queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
+    return HashByModelBuilder.build_from_queryset(queryset=queryset)
 
 
 def get_most_recent_update_datetime_by_queryset(queryset: object) -> Optional[datetime]:
