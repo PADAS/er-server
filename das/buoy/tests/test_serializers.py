@@ -31,7 +31,7 @@ def generate_devices(quantity: int):
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("gear_subject")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 @pytest.mark.skipif(FeatureFlags.buoy_api_enabled is False, reason="Buoy API feature flag is off")
 class TestGearSerializer:
     def test_with_trawl_gear_subject(self, gear_subject):
