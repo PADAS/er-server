@@ -243,7 +243,7 @@ def spatial_feature_type():
 
 @pytest.fixture
 def gear_subject():
-    return GearFactory()
+    return GearFactory.create()
 
 
 @pytest.fixture
