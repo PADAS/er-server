@@ -200,7 +200,7 @@ jobs:
   relyance:
 
     machine:
-      image: ubuntu-2004:202010-01
+      image: default
     steps:
       - checkout
       # TODO: Add "RELYANCE_TOKEN" as circleCI environment variable. The token is available in Step 2 on the "Source Code Integration" tab in the platform.
@@ -272,7 +272,7 @@ jobs:
     steps:
       - setup_remote_docker:
           docker_layer_caching: true
-          version: 19.03.13
+          version: default
       - checkout
       - docker_login
       - run:
