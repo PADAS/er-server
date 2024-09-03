@@ -52,22 +52,21 @@ class TestGearView:
         assert not hasattr(response.data, "user")
 
     def test_gear_subject_view_with_not_linked_user_or_subject_permission(self, user_client, gear_subject):
-
-        url = reverse("gear-view", kwargs={"id": gear_subject.id})
+        url = reverse(self.base_url, kwargs={"id": gear_subject.id})
         response = user_client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    # def test_gear_subject_view_with_linked_user_ask_for_random_subject(self, five_gears, superuser_client, superuser):
-    #     subject1 = five_gears[0]
-    #     subject2 = five_gears[1]
-    #     url = reverse("gear-view", kwargs={"id": subject2.id})
-    #     subject1.linked_user = superuser
-    #     subject1.save()
-    #     response = superuser_client.get(url)
+    def test_gear_subject_view_with_linked_user_ask_for_random_subject(self, five_gears, superuser_client, superuser):
+        subject1 = five_gears[0]
+        subject2 = five_gears[1]
+        url = reverse(self.base_url, kwargs={"id": subject2.id})
+        subject1.linked_user = superuser
+        subject1.save()
+        response = superuser_client.get(url)
 
-    #     assert response.status_code == status.HTTP_200_OK
+        assert response.status_code == status.HTTP_200_OK
 
-    #     assert response.data["id"] == str(subject2.id)
+        assert response.data["id"] == str(subject2.id)
 
 
 @pytest.mark.django_db
@@ -75,44 +74,49 @@ class TestGearView:
 @pytest.mark.skipif(FeatureFlags.buoy_api_enabled is False, reason="Buoy API feature flag is off")
 class TestGearsView:
     base_url = "gear-list-view"
-
-    # @pytest.fixture
-    # def _get_superuser_client(self, subject, superuser, superuser_client):
-    #     subject.linked_user = superuser
-    #     subject.save()
-    #     return superuser_client.get(reverse(self.base_url)), superuser
-
+    
     @pytest.fixture
-    def _get_client(self, gear_subject):
-        client = HTTPClient()
-        gear_subject.linked_user = client.app_user
+    def gear_super_subject(self):
+        return GearFactory.create()
+    
+    @pytest.fixture
+    def buoy_superuser_client(self, gear_super_subject, superuser_client):
+        gear_super_subject.linked_user = superuser_client.user
+        gear_super_subject.additional = generate_devices(2)
+        gear_super_subject.save()
+        return superuser_client
+    
+    @pytest.fixture
+    def buoy_client(self, gear_subject, user_client):
+        gear_subject.linked_user = user_client.user
         gear_subject.additional = generate_devices(2)
         gear_subject.save()
-        request = client.factory.get(reverse(self.base_url))
-        client.force_authenticate(request, client.app_user)
+        return user_client
 
-        return views.GearsView.as_view()(request), client.app_user
+    def test_gear_subjects_view_with_linked_user(self, buoy_client):
+        url = reverse(self.base_url)
+        response = buoy_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
 
-    # def test_subjects_view_with_linked_user(self, memory_store_client_mock, _get_superuser_client):
-    #     response, user = _get_superuser_client
-    #     assert response.data[0]["user"]["id"] == str(user.id)
+    def test_gear_subjects_view_without_linked_user(self, buoy_superuser_client):
+        url = reverse(self.base_url)
+        response = buoy_superuser_client.get(url)
 
-    # def test_subjects_view_without_linked_user(self, memory_store_client_mock, _get_superuser_client):
-    #     response, _ = _get_superuser_client
+        assert not hasattr(response.data[0], "user")
 
-    #     assert not hasattr(response.data[0], "user")
-
-    def test_subjects_view_with_linked_user_and_not_subject_permission(self, _get_client):
-        response, _ = _get_client
+    def test_gear_subjects_view_with_linked_user_and_not_subject_permission(self, buoy_client):
+        url = reverse(self.base_url)
+        response = buoy_client.get(url)
 
         assert response.data[0]["id"]
         assert len(response.data[0]["devices"]) == 2
 
-    def test_subjects_view_with_not_linked_user_or_subject_permission(self):
+    def test_gear_subjects_view_with_not_linked_user_or_subject_permission(self):
         client = HTTPClient()
-        request = client.factory.get(reverse("subjects-list-view"))
+        request = client.factory.get(reverse(self.base_url))
         client.force_authenticate(request, client.app_user)
 
         response = views.GearsView.as_view()(request)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
