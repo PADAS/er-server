@@ -4,9 +4,9 @@ from buoy import views
 from utils.constants import regex
 
 urlpatterns = [
-    re_path(r"^/?$", views.GearsView.as_view(), name="gear-list-view"),
+    re_path(r"^gear/?$", views.GearsView.as_view(), name="gear-list-view"),
     re_path(
-        rf"^(?P<id>{regex.UUID})/?$",
+        rf"^gear/(?P<id>{regex.UUID})/?$",
         views.GearView.as_view(),
         name="gear-view",
     ),
