@@ -60,9 +60,13 @@ class GearSerializer(rest_framework.serializers.Serializer):
         gear_rep["id"] = rep["id"]
         gear_rep["display_id"] = rep["name"]
         gear_rep["state"] = "deployed" if rep["is_active"] else "hauled"
-        gear_rep["type"] = "trawl" if len(rep["additional"]["devices"]) > 1 else "single"
         gear_rep["last_updated"] = rep["updated_at"]
         # TODO: add last_change_time
-        gear_rep["devices"] = rep["additional"]["devices"]
+        if rep["additional"]:
+            gear_rep["type"] = "trawl" if rep["additional"]["devices"] and len(rep["additional"]["devices"]) > 1 else "single"
+            gear_rep["devices"] = rep["additional"]["devices"]
+        else:
+            gear_rep["type"] = "single"
+            gear_rep["devices"] = []
 
         return gear_rep
