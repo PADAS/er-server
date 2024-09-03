@@ -247,6 +247,11 @@ def gear_subject():
 
 
 @pytest.fixture
+def five_gears():
+    return GearFactory.create_batch(5)
+
+
+@pytest.fixture
 def event_type():
     return EventTypeFactory.create()
 
