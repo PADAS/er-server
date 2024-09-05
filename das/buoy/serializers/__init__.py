@@ -4,9 +4,17 @@ import rest_framework
 import rest_framework.serializers
 
 from observations import models
+from observations.models import Observation
 from observations.serializers import CommonNameRelatedField, SubjectSubTypeRelatedField
 
 logger = logging.getLogger(__name__)
+
+DISPLAY_ID_KEY = "display_id"
+DEVICES_KEY = "devices"
+ID_KEY = "id"
+GEAR_TYPE_TRAWL = "trawl"
+GEAR_TYPE_SINGLE = "single"
+
 
 
 class GearSerializer(rest_framework.serializers.Serializer):
@@ -43,7 +51,7 @@ class GearSerializer(rest_framework.serializers.Serializer):
         ) + read_only_fields
 
     def to_internal_value(self, data):
-        if "id" in data and self.read_only:
+        if ID_KEY in data and self.read_only:
             try:
                 return models.Subject.objects.get(id=data["id"])
             except models.Subject.DoesNotExist:
@@ -56,17 +64,22 @@ class GearSerializer(rest_framework.serializers.Serializer):
         additional = {k: additional[k] for k in self.additional_fields if k in additional}
         rep.update(additional)
 
+        latest_observation = Observation.objects.filter(source__subjectsource__subject=instance).latest("recorded_at")
+
         gear_rep = dict()
-        gear_rep["id"] = rep["id"]
-        gear_rep["display_id"] = rep["name"]
+        gear_rep[ID_KEY] = rep[ID_KEY]
         gear_rep["state"] = "deployed" if rep["is_active"] else "hauled"
         gear_rep["last_updated"] = rep["updated_at"]
         # TODO: add last_change_time
-        if rep["additional"]:
-            gear_rep["type"] = "trawl" if rep["additional"]["devices"] and len(rep["additional"]["devices"]) > 1 else "single"
-            gear_rep["devices"] = rep["additional"]["devices"]
+        if latest_observation.additional:
+            if DISPLAY_ID_KEY in latest_observation.additional:
+                gear_rep[DISPLAY_ID_KEY] = latest_observation.additional.display_id if latest_observation.additional[DISPLAY_ID_KEY] else rep["name"]
+            if DEVICES_KEY in latest_observation.additional:
+                gear_rep["type"] = GEAR_TYPE_TRAWL if len(latest_observation.additional[DEVICES_KEY]) > 1 else GEAR_TYPE_SINGLE
+                gear_rep[DEVICES_KEY] = latest_observation.additional[DEVICES_KEY]
         else:
-            gear_rep["type"] = "single"
-            gear_rep["devices"] = []
+            gear_rep[DISPLAY_ID_KEY] = rep["name"]
+            gear_rep["type"] = "Error: no device information"
+            gear_rep[DEVICES_KEY] = []
 
         return gear_rep

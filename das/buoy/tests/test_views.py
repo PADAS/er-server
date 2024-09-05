@@ -5,7 +5,7 @@ from rest_framework import status
 
 from buoy import views
 from client_http import HTTPClient
-from das.buoy.tests.test_serializers import generate_devices
+from das.buoy.tests import generate_devices
 from factories import GearFactory
 from utils.tenant.dataclass import FeatureFlags
 
