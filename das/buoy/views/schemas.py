@@ -1,7 +1,7 @@
-from observations.views import InactiveSubjectsViewSchema
+from observations.views import CustomSchema
 
 
-class GearsViewSchema(InactiveSubjectsViewSchema):
+class GearsViewSchema(CustomSchema):
     def get_operation(self, path, method):
         operation = super().get_operation(path, method)
         if method == "GET":

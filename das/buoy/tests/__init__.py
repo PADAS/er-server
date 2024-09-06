@@ -14,8 +14,8 @@ def generate_devices(quantity: int):
 
     def generate_device(original_point):
         device = dict()
-        device["name"] = fuzzy.FuzzyText(length=10, prefix="device_").evaluate(1, 1, None).__str__()
-        device["updated_at"] = str(datetime.now(tz=timezone.utc))
+        device["device_id"] = fuzzy.FuzzyText(length=10, prefix="device_").evaluate(1, 1, None).__str__()
+        device["last_updated"] = str(datetime.now(tz=timezone.utc))
         device["location"] = generate_point_nearby(original_point, 5)
         device["label"] = fuzzy.FuzzyText(length=1).evaluate(1, 1, None).__str__()
         return json.dumps(device)
