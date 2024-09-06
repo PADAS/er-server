@@ -41,8 +41,8 @@ class TestGearSerializer:
 
         assert serialized_gear["id"] == str(gear_subjectsource.subject.id)
         assert serialized_gear["display_id"] == gear_subjectsource.subject.name
-        assert serialized_gear["state"] in ("deployed", "hauled")
-        if serialized_gear["state"] == "deployed":
+        assert serialized_gear["status"] in ("deployed", "hauled")
+        if serialized_gear["status"] == "deployed":
             assert gear_subjectsource.subject.is_active
         else:
             assert not gear_subjectsource.subject.is_active
@@ -77,8 +77,8 @@ class TestGearSerializer:
         assert serialized_gear["id"] == str(gear_subjectsource.subject.id)
         assert serialized_gear["display_id"] == gear_subjectsource.subject.name if "display_id" not in observation.additional else observation.additional["display_id"]
 
-        assert serialized_gear["state"] in ("deployed", "hauled")
-        if serialized_gear["state"] == "deployed":
+        assert serialized_gear["status"] in ("deployed", "hauled")
+        if serialized_gear["status"] == "deployed":
             assert gear_subjectsource.subject.is_active
         else:
             assert not gear_subjectsource.subject.is_active

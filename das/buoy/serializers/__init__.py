@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 DISPLAY_ID_KEY = "display_id"
 DEVICES_KEY = "devices"
 ID_KEY = "id"
+STATUS_KEY = "status"
 GEAR_TYPE_TRAWL = "trawl"
 GEAR_TYPE_SINGLE = "single"
 SUBJECT_KEY = "subject"
@@ -118,7 +119,7 @@ class GearsSerializer(rest_framework.serializers.Serializer):
 
         gear_rep = dict()
         gear_rep[ID_KEY] = subject[ID_KEY]
-        gear_rep["state"] = "deployed" if subject["is_active"] else "hauled"
+        gear_rep[STATUS_KEY] = "deployed" if subject["is_active"] else "hauled"
         gear_rep["last_updated"] = subject["updated_at"]
         # TODO: add last_change_time
         if latest_observation.additional:

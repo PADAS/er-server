@@ -47,7 +47,7 @@ class TestGearView:
         response, user = _get_superuser_client
         assert response.data["id"] == str(user.linked_subject.id)
         assert response.data["display_id"] == user.linked_subject.name
-        assert response.data["state"] == "deployed"
+        assert response.data["status"] == "deployed"
         assert response.data["last_updated"]
 
     def test_subject_view_with_linked_user_and_not_subject_permission(self, _get_client):
@@ -172,7 +172,7 @@ class TestGearsView:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) >= 1
         assert response.data["results"][0]["id"]
-        assert response.data["results"][0]["state"]
+        assert response.data["results"][0]["status"]
         assert response.data["results"][0]["last_updated"]
         assert response.data["results"][0]["display_id"]
         assert response.data["results"][0]["type"]
