@@ -118,7 +118,7 @@ class TestGearsView:
     def buoy_superuser_client(self, gear_super_subjectsource, superuser_client):
         gear_super_subjectsource.linked_user = superuser_client.user
         gear_super_subjectsource.save()
-        return superuser_client
+        return superuser_client, gear_super_subjectsource
     
     @pytest.fixture
     def buoy_client(self, gear_super_subjectsource, user_client):
@@ -160,19 +160,28 @@ class TestGearsView:
         return views.GearsView.as_view()(request), client.app_user
 
     def test_gear_subjects_view_with_linked_user(self, buoy_client):
-        url = reverse(self.base_url)
-        user_client, _ = buoy_client
+        url = reverse(self.base_url) + "?lat=0&lon=0"
+        user_client, gear_subjectsource = buoy_client
         response = user_client.get(url)
+
+        # Arrange
+        gear_subjectsource.location = Point(0, 0)
+        gear_subjectsource.save()
 
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["results"]) == 1
 
     def test_gear_subjects_view_without_linked_user(self, buoy_superuser_client):
-        url = reverse(self.base_url)
+        url = reverse(self.base_url) + "?lat=0&lon=0"
+        buoy_superuser_client, gear_subjectsource = buoy_superuser_client
         response = buoy_superuser_client.get(url)
 
+        # Arrange
+        gear_subjectsource.location = Point(0, 0)
+        gear_subjectsource.save()
+
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 1
+        assert len(response.data["results"]) >= 1
         assert response.data["results"][0]["id"]
         assert response.data["results"][0]["status"]
         assert response.data["results"][0]["last_updated"]
@@ -259,4 +268,19 @@ class TestGearsView:
         response = views.GearsView.as_view()(request)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    # def test_gear_subjects_lat_lon_query_params(self, buoy_client):
+    #     url = reverse(self.base_url) + "?lat=0&lon=0"
+    #     user_client, gear_subjectsource = buoy_client
+
+    #     # Arrange
+    #     gear_subjectsource.location = Point(0, 0)
+    #     gear_subjectsource.save()
+
+    #     # Act
+    #     response = user_client.get(url)
+
+    #     # Assert
+    #     assert response.status_code == status.HTTP_200_OK
+    #     assert len(response.data["results"]) == 1
 
