@@ -6,12 +6,10 @@ import pytz
 from dateutil.parser import parse as parse_date
 from psycopg2.errors import UniqueViolation
 
-from django.db import transaction
 from django.conf import settings
+from django.db import transaction
 from rest_framework import serializers, status
 from rest_framework.response import Response
-
-from utils.tenant import get_tenant_settings
 
 from analyzers import gfw_inbound
 from observations import servicesutils
@@ -36,6 +34,7 @@ from sensors.vehicle_tracker import (
     TractVehicleData,
 )
 from tracking.pubsub_registry import notify_new_tracks
+from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
@@ -334,7 +333,7 @@ class ErTrackHandler(GenericSensorHandler):
             "additional": additional,
         }
 
-        if cls.exclude_observation(additional=additional):
+        if cls.exclude_observation(location=location, additional=additional):
             observation["exclusion_flags"] = Observation.EXCLUDED_AUTOMATICALLY
 
         obs_key = (str(src.id), recorded_at)
@@ -358,7 +357,7 @@ class ErTrackHandler(GenericSensorHandler):
 
     @classmethod
     def clean_invalid_ermobile_observations(cls, observations):
-        """See ERA-9406, return 207 for ER Mobile when their observation library sends an invalid payload
+        """See ERA-9406, return 200 for ER Mobile when their observation library sends an invalid payload
 
         Args:
             observations (list): raw observations from the request
@@ -368,18 +367,23 @@ class ErTrackHandler(GenericSensorHandler):
         """
         compliant_observations = []
         for observation in observations:
-            if observation.get("event"):
+            if observation.get("event") or observation.get("coords"):
                 logger.warning("Invalid ER Mobile observation received: %s", observation)
                 continue
             compliant_observations.append(observation)
         if not compliant_observations:
             return Response(data={"message": "Invalid ER Mobile observations received"}, status=status.HTTP_200_OK)
         return compliant_observations
-    
+
     @classmethod
-    def exclude_observation(cls, additional):
-        threshold = get_tenant_settings().env_settings.observation_accuracy_threshold or settings.OBSERVATION_ACCURACY_THRESHOLD
-        return float(additional.get("accuracy", 0)) >= threshold
+    def exclude_observation(cls, location, additional):
+        threshold = (
+            get_tenant_settings().env_settings.observation_accuracy_threshold or settings.OBSERVATION_ACCURACY_THRESHOLD
+        )
+        lat, lon = location.get("latitude"), location.get("longitude")
+
+        return (float(additional.get("accuracy", 0)) >= threshold) or ((lat, lon) == (0, 0)) or ((lat, lon) == (1, 1))
+
 
 class FollowltTrackerHandler:
     SENSOR_TYPE = "animal-collar-push"
