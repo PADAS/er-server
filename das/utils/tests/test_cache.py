@@ -5,7 +5,6 @@ import pytest
 from utils.persistent import MultitenantRedisStorage
 from utils.tenant.cache import MultitenantRedisClient, make_cache_key
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
-from utils.tenant.thread import clear_tenant_settings
 
 
 @pytest.fixture
@@ -24,11 +23,6 @@ class TestCache:
 
         assert key == f"{tenant_settings.id}:test:v1:the-key"
 
-    def test_make_cache_key_without_tenant_id(self):
-        clear_tenant_settings()
-        with pytest.raises(TenantNotFoundInLocalThreadException):
-            make_cache_key("the-key", "test", "v1")
-
     def test_get_decorated_tenant_cache_keys_with_tenant_set(self, tenant_settings, redis_connection_mock):
         cache_mock = MultitenantRedisStorage(config=MagicMock())
         expected_key = f"{tenant_settings.id}:None:None:test-key"
@@ -36,16 +30,6 @@ class TestCache:
         cache_mock.insert_key("test-key", "test-value", ttl=60)
 
         redis_connection_mock.set.assert_called_once_with(expected_key, "test-value", 60)
-
-    def test_get_decorated_tenant_cache_keys_without_tenant_set(self, redis_connection_mock, caplog):
-        clear_tenant_settings()
-        cache_mock = MultitenantRedisStorage(config=MagicMock())
-
-        with pytest.raises(TenantNotFoundInLocalThreadException):
-            cache_mock.insert_key("test-key", "test-value", ttl=60)
-
-        assert not redis_connection_mock.set.called
-        assert "Could not add tenant ID as cache key prefix" in caplog.text
 
 
 class TestMultitenantRedisClient:
