@@ -32,7 +32,7 @@ def add_empty_event_details_to_events_with_no_details(*args, **kwargs):
                         event=event,
                         created_at=event.created_at,
                         updated_at=event.updated_at,
-                        data={},
+                        data={"event_details": {}},
                         update_parent_event=False,
                     )
                     event_revision = event.revision.last()
