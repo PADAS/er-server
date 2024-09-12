@@ -11,7 +11,8 @@ from accounts.models import PermissionSet
 from buoy import views
 from observations.models import (
     Observation,
-    SubjectGroup
+    SubjectGroup,
+    SubjectSource
 )
 from client_http import HTTPClient
 from das.buoy.tests import generate_devices
@@ -159,7 +160,7 @@ class TestGearsView:
 
     def test_gear_subjects_view_with_linked_user(self, buoy_client):
         url = reverse(self.base_url)
-        user_client, gear_subjectsource = buoy_client
+        user_client, _ = buoy_client
         response = user_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
@@ -185,6 +186,19 @@ class TestGearsView:
 
     #     assert response.data[0]["id"]
     #     assert len(response.data[0]["devices"]) == 2
+
+    def test_gear_subjects_view_duplicate_subjects_removed(self, buoy_client):
+        user_client, gear_subjectsource = buoy_client
+        additional = gear_subjectsource.additional
+        gear_subjectsource2 = SubjectSource.objects.get(pk=gear_subjectsource.pk)
+        gear_subjectsource2.pk = None
+        gear_subjectsource2.additional = additional
+        gear_subjectsource2.save()
+        url = reverse(self.base_url)
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 1
 
     def test_gear_subjects_view_with_not_linked_user_or_subject_permission(self):
         client = HTTPClient()

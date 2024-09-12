@@ -66,7 +66,7 @@ class GearSerializer(rest_framework.serializers.Serializer):
         gear_rep = dict()
         gear_rep["id"] = rep["id"]
         gear_rep["display_id"] = rep["name"]
-        gear_rep["state"] = "deployed" if rep["is_active"] else "hauled"
+        gear_rep[STATUS_KEY] = "deployed" if rep["is_active"] else "hauled"
         # gear_rep["type"] = "trawl" if len(rep["additional"]["devices"]) > 1 else "single"
         gear_rep["last_updated"] = rep["updated_at"]
         # TODO: add last_change_time
@@ -110,9 +110,9 @@ class GearsSerializer(rest_framework.serializers.Serializer):
 
     def to_representation(self, instance):
         rep = super(GearsSerializer, self).to_representation(instance)
-        additional = instance.additional
-        additional = {k: additional[k] for k in self.additional_fields if k in additional}
-        rep.update(additional)
+        # additional = instance.additional
+        # additional = {k: additional[k] for k in self.additional_fields if k in additional}
+        # rep.update(additional)
 
         latest_observation = Observation.objects.filter(source__subjectsource__subject=instance.subject).latest("recorded_at")
         subject = rep["subject"]
