@@ -1,8 +1,6 @@
 import json
 import logging
-from datetime import datetime
 
-import pytz
 import sendsms.api
 
 from django.db.models import ObjectDoesNotExist
@@ -330,7 +328,6 @@ def render_event_alert_context(
         }
 
     # Notes
-    current_time = datetime.now(tz=pytz.utc)
     notes_list = [
         {
             "updated_at": n.updated_at,
@@ -377,7 +374,7 @@ def render_event_alert_context(
             "time": {"title": "Alert Time", "value": timezone.now()},
         },
         "site_name": get_ui_site_name(tenant_settings),
-        "site_url": get_ui_site_url(tenant_settings),
+        "site_url": get_event_url(tenant_settings, event),
         "message_subject": message_subject,
         "alert_rule": alert_rule.display_title,
         "event": {
@@ -397,6 +394,13 @@ def render_event_alert_context(
     }
 
     return report_context
+
+
+def get_event_url(tenant_settings, event):
+    base_url = get_ui_site_url(tenant_settings)
+    if not event.location:
+        return f"{base_url}/events/{event.id}"
+    return f"{base_url}/events/{event.id}?lnglat={event.location.x:.4f},{event.location.y:.4f}"
 
 
 def create_email_subject(event):
