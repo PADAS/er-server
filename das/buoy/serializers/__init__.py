@@ -60,9 +60,7 @@ class GearSerializer(rest_framework.serializers.Serializer):
     
     def to_representation(self, instance):
         rep = super(GearSerializer, self).to_representation(instance)
-        additional = instance.additional
-        additional = {k: additional[k] for k in self.additional_fields if k in additional}
-        rep.update(additional)
+
         gear_rep = dict()
         gear_rep["id"] = rep["id"]
         gear_rep["display_id"] = rep["name"]
@@ -110,9 +108,6 @@ class GearsSerializer(rest_framework.serializers.Serializer):
 
     def to_representation(self, instance):
         rep = super(GearsSerializer, self).to_representation(instance)
-        # additional = instance.additional
-        # additional = {k: additional[k] for k in self.additional_fields if k in additional}
-        # rep.update(additional)
 
         latest_observation = Observation.objects.filter(source__subjectsource__subject=instance.subject).latest("recorded_at")
         subject = rep["subject"]
