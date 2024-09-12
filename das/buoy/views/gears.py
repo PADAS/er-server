@@ -2,10 +2,9 @@ from rest_framework import generics
 
 from buoy import serializers
 from buoy.views.schemas import GearsViewSchema
-from django.db.models import F
 from django.shortcuts import get_object_or_404
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import Subject, SubjectSource
+from observations.models import Subject, SubjectSource, Source
 from observations.permissions import StandardObjectPermissions
 from observations.utils import (
     VIEW_SUBJECT_PERMS,
@@ -37,12 +36,6 @@ class GearsView(generics.ListAPIView):
 
         # First get subject-sources user has access to.
         queryset = SubjectSource.objects.filter(subject_id__in=allowed)
-
-        # Filter queryset by removing subjects where the additional field is the same        
-        queryset = queryset.annotate(
-            subjectsource_additional=F("source__subjectsource__additional"),
-        )
-        queryset = queryset.distinct("source__subjectsource__additional")
 
         return queryset
 
