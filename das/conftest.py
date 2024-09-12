@@ -261,7 +261,14 @@ def dummy_cache(settings):
     settings.CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        }
+            "LOCATION": "unique-snowflake",
+            "KEY_FUNCTION": "utils.tenant.make_cache_key",
+        },
+        settings.SHARED_CACHE_ALIAS: {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "shared-cache",
+            "KEY_PREFIX": "shared",
+        },
     }
 
 

@@ -2,6 +2,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from django.conf import settings
+from django.core.cache import caches
+
 from utils.persistent import MultitenantRedisStorage
 from utils.tenant.cache import MultitenantRedisClient, make_cache_key
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
@@ -30,6 +33,17 @@ class TestCache:
         cache_mock.insert_key("test-key", "test-value", ttl=60)
 
         redis_connection_mock.set.assert_called_once_with(expected_key, "test-value", 60)
+
+    def test_access_to_different_values_using_same_key(self):
+        default_cache = caches["default"]
+        shared_cache = caches[settings.SHARED_CACHE_ALIAS]
+
+        key = "key-a"
+        shared_cache.set(key, "value-a")
+        default_cache.set(key, "other-value-a")
+
+        assert shared_cache.get(key) == "value-a"
+        assert default_cache.get(key) == "other-value-a"
 
 
 class TestMultitenantRedisClient:
