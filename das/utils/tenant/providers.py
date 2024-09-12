@@ -6,7 +6,7 @@ import zlib
 from redis.exceptions import ConnectionError
 
 from django.conf import settings
-from django.core.cache import cache
+from django.core.cache import caches
 
 from core import get_alt_domain_cache_client, memory_store_client, tms_api_client
 from utils.features import features
@@ -95,7 +95,8 @@ class TenantData:
         tenants = None
 
         try:
-            raw_cached_data = cache.get(TENANTS_CACHE_KEY)
+            shared_cache = caches[settings.SHARED_CACHE_ALIAS]
+            raw_cached_data = shared_cache.get(TENANTS_CACHE_KEY)
             cached_data = zlib.decompress(raw_cached_data).decode("utf-8") if raw_cached_data else None
         except ConnectionError:
             logger.warning("Could not fetch tenants data from cache due to connection error")
@@ -132,7 +133,8 @@ class TenantData:
     def _set_tenant_list_cache(self, tenants):
         zlib_compressed_data = zlib.compress(json.dumps(tenants).encode("utf-8"))
         logger.debug("Setting all tenants in cache")
-        cache.set(
+        shared_cache = caches[settings.SHARED_CACHE_ALIAS]
+        shared_cache.set(
             key=TENANTS_CACHE_KEY,
             value=zlib_compressed_data,
             timeout=TENANTS_LIST_CACHE_EXPIRATION_TIME_IN_SECONDS,

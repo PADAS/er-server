@@ -7,7 +7,7 @@ import os
 from .settings import *
 
 # Let CACHES depend on settings.CELERY_ configuration.
-SHARED_CACHE_LABEL = "shared"
+
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
@@ -15,7 +15,7 @@ CACHES = {
         "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
         "KEY_FUNCTION": "utils.tenant.make_cache_key",
     },
-    SHARED_CACHE_LABEL: {
+    SHARED_CACHE_ALIAS: {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": CELERY_BROKER_URL,
         "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
