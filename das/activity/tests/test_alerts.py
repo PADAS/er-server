@@ -9,6 +9,7 @@ from mockredis import MockRedis
 
 from django.conf import settings
 from django.contrib.auth.models import Permission
+from django.contrib.gis.geos import Point
 from django.core import mail
 from django.core.management import call_command
 from django.db.models.signals import post_save
@@ -179,6 +180,24 @@ class TestAlerts(BaseAPITest):
         self.assertEqual(self.notification_method.value, kwargs.get("to_email"))
         self.assertIn("updated", kwargs.get("subject"))
         self.assertIn("Active", kwargs.get("html_content"))
+
+    def test_alert_url_contains_correct_event_details(self):
+        """Test that the alert url contains the correct event details"""
+        event = Event.objects.create(title="test event", event_type=self.event_type, created_by_user=self.owner)
+        EventDetails.objects.create(event=event, data={"event_details": {"sex": "Female"}})
+        report_context = render_event_alert_context(
+            self.alert_rule, event, self.notification_method, event_updated_fields={}, event_details_updated_fields={}
+        )
+        self.assertTrue("site_url" in report_context)
+        self.assertTrue(report_context.get("site_url").endswith(f"/events/{event.id}"))
+        self.assertTrue("lnglat" not in report_context.get("site_url"))
+
+        event.location = Point(-103.313486, 20.420935)
+        event.save()
+        report_context = render_event_alert_context(
+            self.alert_rule, event, self.notification_method, event_updated_fields={}, event_details_updated_fields={}
+        )
+        self.assertTrue("lnglat" in report_context.get("site_url"))
 
     def test_only_sending_notifications_when_the_condition_value_changes(self):
         with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
