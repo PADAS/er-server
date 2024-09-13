@@ -732,6 +732,8 @@ class SourceSerializer(PartialUpdateMixin, serializers.Serializer):
         "updated_at",
     ]
 
+    allowed_partial_update_fields = ("source_type", "manufacturer_id", "model_name", "additional", "provider")
+
     class Meta:
         model = models.Source
         fields = ("id", "source_type", "manufacturer_id", "model_name", "additional", "provider", "owner")
