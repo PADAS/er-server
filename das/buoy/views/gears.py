@@ -33,13 +33,17 @@ class GearsView(generics.ListAPIView):
 
     def get_queryset(self):
         query_params = self.request.query_params
+        # TODO: Look into using allowed users - need to add subjects to SG in unit tests
         # allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
 
-        # First get subject-sources. TODO: Look into using allowed users
+        # First get subject-sources.
         queryset = SubjectSource.objects.all()
 
         # Filter queryset by removing subjects where the additional field is the same        
-        latest_observations = Observation.objects.filter(source_id=OuterRef("source_id")).order_by("-recorded_at")# [:1]
+        latest_observations = Observation.objects.filter(
+            source_id=OuterRef("source_id"), 
+            recorded_at__contained_by=OuterRef('assigned_range')).order_by("-recorded_at")
+        
         queryset = queryset.annotate(
             latest_observation_additional=Subquery(latest_observations.values("additional")[:1])
         )
