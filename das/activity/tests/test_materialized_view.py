@@ -2,6 +2,8 @@ import json
 import uuid
 from collections import namedtuple
 
+import pytest
+
 import django.db.models as models
 from django.contrib.admin.sites import AdminSite
 from django.contrib.messages.storage.cookie import CookieStorage
@@ -12,6 +14,7 @@ from activity.admin import RefreshRecreateEventDetailViewAdmin
 from activity.materialized_view import (
     check_db_view_exists,
     generate_DDL,
+    load_schema,
     re_create_view,
     refresh_materialized_view,
 )
@@ -22,6 +25,7 @@ from activity.models import (
     RefreshRecreateEventDetailView,
 )
 from core.tests import BaseAPITest
+from factories import EventTypeFactory
 
 
 class MockSuperUser:
@@ -40,6 +44,26 @@ class details_view(models.Model):
     class Meta:
         managed = False
         app_label = "activity"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestDeactivateEventType:
+    @pytest.fixture()
+    def not_active_event_type(self, event):
+        return EventTypeFactory.create(is_active=False)
+
+    def test_not_active_event_type_not_included_in_materialized_view(self, five_event_types, not_active_event_type):
+        schema = load_schema()
+
+        assert not_active_event_type.value not in schema
+
+        re_create_view()
+        assert check_db_view_exists()
+
+        invalid_event_types = refresh_materialized_view()
+        assert check_db_view_exists()
+        assert not invalid_event_types
 
 
 class TestMaterializedView(BaseAPITest):
