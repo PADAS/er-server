@@ -22,10 +22,11 @@ def sanitize_string(string: str) -> str:
 
 
 def load_schema():
+
     render_f = schema_utils.get_schema_renderer_method()
     schema_accumulator = {}
 
-    for et in EventType.objects.all():
+    for et in EventType.objects.filter(is_active=True):
         try:
             rendered_schema = render_f(et.schema)
         except json.decoder.JSONDecodeError as exc:

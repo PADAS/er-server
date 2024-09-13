@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -342,6 +343,20 @@ class EventTypeFactory(factory.django.DjangoModelFactory):
     display = fuzzy.FuzzyText(length=50)
     category = factory.SubFactory(EventCategoryFactory)
     das_tenant = factory.SubFactory(TenantFactory)
+    schema = json.dumps(
+        {
+            "schema": {
+                "properties": {
+                    "subjects_name": {"type": "string", "title": "enum test"},
+                    "behavior_choice": {"type": "string", "title": "name and value test"},
+                    "behavior": {"type": "array", "title": "array test"},
+                    "sample_attr": {"type": "string", "title": "name and value test"},
+                },
+                "$schema": "http://json-schema.org/draft-04/schema#",
+            },
+            "definition": ["behavior_choice", "sample_attr"],
+        }
+    )
 
 
 class EventFactory(factory.django.DjangoModelFactory):
