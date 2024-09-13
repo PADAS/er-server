@@ -303,6 +303,8 @@ OAUTH2_PROVIDER = {
     "ACCESS_TOKEN_EXPIRE_SECONDS": 3600 * 48,  # two days
     "REFRESH_TOKEN_EXPIRE_SECONDS": 31 * 24 * 3600,  # one month
     "REFRESH_TOKEN_GRACE_PERIOD_SECONDS": 60 * 5,  # 5 minutes
+    "OAUTH2_VALIDATOR_CLASS": "utils.oauth2_validators.ExtendExpiresInOAuth2Validator",
+    "EXPIRE_OVERRIDES": {"er_mobile_tracker": 3600 * 24 * 30},
 }
 
 # RT API settings
