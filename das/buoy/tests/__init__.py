@@ -21,4 +21,7 @@ def generate_devices(quantity: int):
         return json.dumps(device)
 
     original_point = Point(random.uniform(-90, 90), random.uniform(-180, 180))
-    return {"devices": [generate_device(original_point) for _ in range(quantity)]}
+    return {
+        "devices": [generate_device(original_point) for _ in range(quantity)],
+        "display_id": fuzzy.FuzzyText(length=12).evaluate(1, 1, None).__str__(),
+    }

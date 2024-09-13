@@ -18,6 +18,7 @@ from das.buoy.tests import generate_devices
 @pytest.mark.skipif(FeatureFlags.buoy_api_enabled is False, reason="Buoy API feature flag is off")
 class TestGearSerializer:
     def test_with_trawl_gear_subject(self, gear_subjectsource):
+        gear_subjectsource.subject.is_active = True
         gear_subjectsource.save()
 
         source = gear_subjectsource.source
@@ -40,19 +41,20 @@ class TestGearSerializer:
         serialized_gear = GearsSerializer(gear_subjectsource).data
 
         assert serialized_gear["id"] == str(gear_subjectsource.subject.id)
-        assert serialized_gear["display_id"] == gear_subjectsource.subject.name
-        assert serialized_gear["status"] in ("deployed", "hauled")
-        if serialized_gear["status"] == "deployed":
-            assert gear_subjectsource.subject.is_active
-        else:
-            assert not gear_subjectsource.subject.is_active
-
+        assert serialized_gear["display_id"] == additional["display_id"]
+        assert serialized_gear["status"] == "deployed"
         assert date_parser.parse(serialized_gear["last_updated"])
-        assert serialized_gear["type"] in ("trawl", "single")
+        assert serialized_gear["type"] == "trawl"
         assert serialized_gear["devices"] == observation.additional["devices"]
         assert len(serialized_gear["devices"]) == 2
 
+        # Test hauled status
+        gear_subjectsource.subject.is_active = False
+        serialized_gear = GearsSerializer(gear_subjectsource).data
+        assert serialized_gear["status"] == "hauled"
+
     def test_with_single_gear_subject(self, gear_subjectsource):
+        gear_subjectsource.subject.is_active = True
         gear_subjectsource.save()
 
         source = gear_subjectsource.source
@@ -75,15 +77,14 @@ class TestGearSerializer:
         serialized_gear = GearsSerializer(gear_subjectsource).data
 
         assert serialized_gear["id"] == str(gear_subjectsource.subject.id)
-        assert serialized_gear["display_id"] == gear_subjectsource.subject.name if "display_id" not in observation.additional else observation.additional["display_id"]
-
-        assert serialized_gear["status"] in ("deployed", "hauled")
-        if serialized_gear["status"] == "deployed":
-            assert gear_subjectsource.subject.is_active
-        else:
-            assert not gear_subjectsource.subject.is_active
-
+        assert serialized_gear["display_id"] == additional["display_id"]
+        assert serialized_gear["status"] == "deployed"
         assert date_parser.parse(serialized_gear["last_updated"])
         assert serialized_gear["type"] == "single"
         assert serialized_gear["devices"] == observation.additional["devices"]
         assert len(serialized_gear["devices"]) == 1
+
+        # Test hauled status
+        gear_subjectsource.subject.is_active = False
+        serialized_gear = GearsSerializer(gear_subjectsource).data
+        assert serialized_gear["status"] == "hauled"
