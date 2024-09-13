@@ -2,9 +2,10 @@ from rest_framework import generics
 
 from buoy import serializers
 from buoy.views.schemas import GearsViewSchema
+from django.db.models import OuterRef, Subquery
 from django.shortcuts import get_object_or_404
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import Subject, SubjectSource, Source
+from observations.models import Subject, SubjectSource, SubjectSource, Observation
 from observations.permissions import StandardObjectPermissions
 from observations.utils import (
     VIEW_SUBJECT_PERMS,
@@ -32,10 +33,20 @@ class GearsView(generics.ListAPIView):
 
     def get_queryset(self):
         query_params = self.request.query_params
-        allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
+        # allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
 
-        # First get subject-sources user has access to.
-        queryset = SubjectSource.objects.filter(subject_id__in=allowed)
+        # First get subject-sources. TODO: Look into using allowed users
+        queryset = SubjectSource.objects.all()
+
+        # Filter queryset by removing subjects where the additional field is the same        
+        latest_observations = Observation.objects.filter(source_id=OuterRef("source_id")).order_by("-recorded_at")# [:1]
+        queryset = queryset.annotate(
+            latest_observation_additional=Subquery(latest_observations.values("additional")[:1])
+        )
+
+        # TODO: look into select related for perfomance 
+        # Keep an eye on performance of the query and potentially add new indexes to improve performance 
+        queryset = queryset.distinct("latest_observation_additional")
 
         return queryset
 

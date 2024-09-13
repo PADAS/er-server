@@ -11,7 +11,10 @@ from accounts.models import PermissionSet
 from buoy import views
 from observations.models import (
     Observation,
-    SubjectGroup
+    Source,
+    Subject,
+    SubjectGroup,
+    SubjectSource
 )
 from client_http import HTTPClient
 from das.buoy.tests import generate_devices
@@ -111,7 +114,6 @@ class TestGearsView:
 
         return gear_subjectsource
     
-    
     @pytest.fixture
     def buoy_superuser_client(self, gear_super_subjectsource, superuser_client):
         gear_super_subjectsource.linked_user = superuser_client.user
@@ -159,7 +161,7 @@ class TestGearsView:
 
     def test_gear_subjects_view_with_linked_user(self, buoy_client):
         url = reverse(self.base_url)
-        user_client, gear_subjectsource = buoy_client
+        user_client, _ = buoy_client
         response = user_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
@@ -179,12 +181,75 @@ class TestGearsView:
         assert response.data["results"][0]["devices"]
         assert len(response.data["results"][0]["devices"]) == 2
 
-    # def test_gear_subjects_view_with_linked_user_and_not_subject_permission(self, buoy_client):
-    #     url = reverse(self.base_url)
-    #     response = buoy_client.get(url)
+    def test_gear_subjects_view_duplicate_subjects_removed(self, buoy_client):
+        user_client, gear_subjectsource = buoy_client
+        additional = Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject).latest("recorded_at").additional
 
-    #     assert response.data[0]["id"]
-    #     assert len(response.data[0]["devices"]) == 2
+        gear_subjectsource2 = SubjectSource.objects.get(pk=gear_subjectsource.pk)
+        gear_subjectsource2.pk = None
+
+        source = gear_subjectsource2.source
+        provider = gear_subjectsource2.source.provider
+        provider.save()
+        now = timezone.now()
+        additional2 = additional
+        location_dict = json.loads(additional2["devices"][0])["location"]
+        point = Point(location_dict["longitude"], location_dict["latitude"])
+        data = {
+            "recorded_at": now,
+            "location": point,
+            "source": source,
+            "additional": additional2,
+        }
+        observation = Observation.objects.create(**data)
+        observation.save()
+        gear_subjectsource2.save()
+
+        url = reverse(self.base_url)
+        response = user_client.get(url)
+
+        assert additional["devices"] == additional2["devices"]
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 1
+
+    def test_gear_subjects_view_non_duplicates_remain(self, buoy_client):
+        user_client, gear_subjectsource = buoy_client
+        gear_subjectsource2 = SubjectSource.objects.get(pk=gear_subjectsource.pk)
+
+        gear_subjectsource2.pk = None
+        source = Source.objects.create(manufacturer_id="000")
+        source.save()
+        gear_subjectsource2.source = source
+        gear_subjectsource2.save()
+        provider = gear_subjectsource2.source.provider
+        provider.save()
+        now = timezone.now()
+        subject = Subject.objects.create(name="New Subject")
+        subject.save()
+        gear_subjectsource2.subject = subject
+        gear_subjectsource2.save()
+        additional2 = generate_devices(2)
+        location_dict = json.loads(additional2["devices"][0])["location"]
+        point = Point(location_dict["longitude"], location_dict["latitude"])
+        data = {
+            "recorded_at": now,
+            "location": point,
+            "source": source,
+            "additional": additional2,
+        }
+        observation = Observation.objects.create(**data)
+        observation.save()
+        gear_subjectsource2.save()
+
+        url = reverse(self.base_url)
+        response = user_client.get(url)
+
+        latest_obs_additional1 = Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject).latest("recorded_at").additional
+        latest_obs_additional2 = Observation.objects.filter(source__subjectsource__subject=gear_subjectsource2.subject).latest("recorded_at").additional
+
+        assert latest_obs_additional1["devices"] != latest_obs_additional2["devices"]
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 2
 
     def test_gear_subjects_view_with_not_linked_user_or_subject_permission(self):
         client = HTTPClient()
