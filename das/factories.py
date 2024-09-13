@@ -164,6 +164,7 @@ class ProviderFactory(factory.django.DjangoModelFactory):
         model = SourceProvider
 
     display_name = fuzzy.FuzzyText(length=50)
+    provider_key = fuzzy.FuzzyText(length=50)
     das_tenant = factory.SubFactory(TenantFactory)
 
 
