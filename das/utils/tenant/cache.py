@@ -10,9 +10,13 @@ logger = logging.getLogger(__name__)
 
 
 def make_cache_key(key, key_prefix, version):
-    tenant = get_tenant_settings()
-    key_tokens = (tenant.id, key_prefix, version, key)
-    logger.debug("make_cache_key key %s for tenant %s", key, tenant.id)
+    try:
+        tenant = get_tenant_settings()
+        tenant_id = tenant.id
+    except TenantNotFoundInLocalThreadException:
+        tenant_id = None
+    key_tokens = (tenant_id, key_prefix, version, key)
+    logger.debug("make_cache_key key %s for tenant %s", key, tenant_id)
 
     return ":".join(map(str, key_tokens))
 

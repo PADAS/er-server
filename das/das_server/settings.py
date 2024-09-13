@@ -312,13 +312,18 @@ ASYNC_MODE = "eventlet"
 GEOS_LIBRARY_PATH = env.str("GEOS_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu/libgeos_c.so.1")
 GDAL_LIBRARY_PATH = env.str("GDAL_LIBRARY_PATH", "/usr/lib/libgdal.so")
 
-
+SHARED_CACHE_ALIAS = "shared"
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "unique-snowflake",
         "KEY_FUNCTION": "utils.tenant.make_cache_key",
-    }
+    },
+    SHARED_CACHE_ALIAS: {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "shared-cache",
+        "KEY_PREFIX": "shared",
+    },
 }
 
 RASTER_WORKDIR = "/tmp/raster"
@@ -351,9 +356,6 @@ ALT_DOMAIN_CACHE_URL = f"{REDIS_SERVER}/3"
 
 # Celery Settings
 CELERY_BROKER_URL = REDIS_SERVER
-
-CELERY_RESULT_BACKEND = CELERY_BROKER_URL
-
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_TASK_SERIALIZER = "json"
