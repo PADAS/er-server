@@ -41,16 +41,6 @@ class GearsView(generics.ListAPIView):
         # First get subject-sources. TODO: Look into using allowed users
         queryset = SubjectSource.objects.all()
 
-        # Filter queryset by removing subjects where the additional field is the same        
-        latest_observations = Observation.objects.filter(source_id=OuterRef("source_id")).order_by("-recorded_at")# [:1]
-        queryset = queryset.annotate(
-            latest_observation_additional=Subquery(latest_observations.values("additional")[:1])
-        )
-
-        # TODO: look into select related for perfomance 
-        # Keep an eye on performance of the query and potentially add new indexes to improve performance 
-        queryset = queryset.distinct("latest_observation_additional")
-
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
         queryset = check_to_include_inactive_buoys(self.request, queryset)
@@ -61,7 +51,7 @@ class GearsView(generics.ListAPIView):
         if updated_since and is_updated_since_valid:
             queryset = queryset.by_updated_since(updated_since)
         elif updated_since and not is_updated_since_valid:
-            raise ValueError("invalid request: updated_since must be a valid date")
+            raise ValueError("updated_since must be a valid date")
 
         lat = self.request.query_params.get("lat")
         lon = self.request.query_params.get("lon")
@@ -69,9 +59,16 @@ class GearsView(generics.ListAPIView):
             lat = float(lat)
             lon = float(lon)
             queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon)
-            # queryset = queryset.filter(subject__by_bbox=(calculate_bbox(lat, lon, nautical_mile_radius)))
         else:
-            raise ValueError("invalid request: must have lat and lon")
+            raise ValueError("request must include lat and lon")
+        
+        # Filter queryset by removing subjects where the additional field is the same     
+        latest_observations = Observation.objects.filter(source_id=OuterRef("source_id")).order_by("-recorded_at")# [:1]
+        queryset.update(additional=Subquery(latest_observations.values("additional")[:1]))
+
+        # TODO: look into select related for perfomance 
+        # Keep an eye on performance of the query and potentially add new indexes to improve performance 
+        queryset = queryset.order_by('additional').distinct('additional')
 
         return queryset
 

@@ -5,7 +5,7 @@ from geopy.distance import distance
 from psycopg2.extras import DateTimeTZRange
 from django.db.models import Q
 
-from observations.models import Observation, SubjectSource, Subject
+from observations.models import LatestObservationSource, SubjectSource, Subject
 
 STATIONARY_SUBJECT_VALUE = "stationary-object"
 NAUTICAL_MILE_RADIUS = 5
@@ -68,20 +68,15 @@ def filter_by_bbox(queryset, latitude, longitude, nautical_miles=NAUTICAL_MILE_R
         :return: queryset of Subjects.
         """
         geom = Polygon.from_bbox(calculate_bbox(latitude, longitude, nautical_miles))
-        sources = queryset.values("source").filter(location__within=geom)
-        # queryset = queryset.filter(location__within=geom)
-        # queryset = queryset.exclude(subject_subtype__subject_type__value=STATIONARY_SUBJECT_VALUE)
-        # sources = Observation.objects.filter(location__within=geom)
+        sources = LatestObservationSource.objects.filter(observation__location__within=geom)
+
         sources = sources.exclude(
             source__subjectsource__subject__subject_subtype__subject_type__value=STATIONARY_SUBJECT_VALUE
         )
-        for source in sources:
-            print(source)
 
         date_range = None
         if updated_since:
             gt = updated_since
-            # queryset = queryset.filter(recorded_at__gte=gt)
             sources = sources.filter(recorded_at__gte=gt)
             date_range = DateTimeTZRange(lower=updated_since)
 
@@ -96,12 +91,8 @@ def filter_by_bbox(queryset, latitude, longitude, nautical_miles=NAUTICAL_MILE_R
             subject_sources = SubjectSource.objects.filter(
                 source__in=sources,
             )
-            for subject_source in subject_sources:
-                print(subject_source)
 
         subjects = subject_sources.values("subject")
-        for subject in subjects:
-            print(subject)
 
         if include_stationary_subjects:
             stationary_subjects = Subject.objects.filter(
@@ -112,4 +103,5 @@ def filter_by_bbox(queryset, latitude, longitude, nautical_miles=NAUTICAL_MILE_R
             )
             return queryset.values("subject").filter(Q(pk__in=subjects) | Q(pk__in=stationary_subjects))
         else:
-            return queryset.values("subject").filter(pk__in=subjects)
+            return queryset.filter(subject__in=subjects)
+        
