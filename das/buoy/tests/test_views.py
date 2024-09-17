@@ -99,7 +99,8 @@ class TestGearsView:
         provider = gear_subjectsource.source.provider
         provider.save()
         now = timezone.now()
-        additional = generate_devices(2)
+        additional = generate_devices(2, Point(0, 0))
+        # TODO: Provide location for observation that matches query params - maybe use helper function
         location_dict = json.loads(additional["devices"][0])["location"]
         point = Point(location_dict["longitude"], location_dict["latitude"])
         data = {
@@ -160,13 +161,12 @@ class TestGearsView:
         return views.GearsView.as_view()(request), client.app_user
 
     def test_gear_subjects_view_with_linked_user(self, buoy_client):
+        # Arrange
         url = reverse(self.base_url) + "?lat=0&lon=0"
         user_client, gear_subjectsource = buoy_client
-        response = user_client.get(url)
-
-        # Arrange
         gear_subjectsource.location = Point(0, 0)
         gear_subjectsource.save()
+        response = user_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["results"]) == 1
@@ -174,11 +174,9 @@ class TestGearsView:
     def test_gear_subjects_view_without_linked_user(self, buoy_superuser_client):
         url = reverse(self.base_url) + "?lat=0&lon=0"
         buoy_superuser_client, gear_subjectsource = buoy_superuser_client
-        response = buoy_superuser_client.get(url)
-
-        # Arrange
         gear_subjectsource.location = Point(0, 0)
         gear_subjectsource.save()
+        response = buoy_superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["results"]) >= 1
@@ -214,7 +212,7 @@ class TestGearsView:
         observation.save()
         gear_subjectsource2.save()
 
-        url = reverse(self.base_url)
+        url = reverse(self.base_url) + "?lat=0&lon=0"
         response = user_client.get(url)
 
         assert additional["devices"] == additional2["devices"]
@@ -237,7 +235,7 @@ class TestGearsView:
         subject.save()
         gear_subjectsource2.subject = subject
         gear_subjectsource2.save()
-        additional2 = generate_devices(2)
+        additional2 = generate_devices(2, Point(0, 0))
         location_dict = json.loads(additional2["devices"][0])["location"]
         point = Point(location_dict["longitude"], location_dict["latitude"])
         data = {
@@ -250,7 +248,7 @@ class TestGearsView:
         observation.save()
         gear_subjectsource2.save()
 
-        url = reverse(self.base_url)
+        url = reverse(self.base_url) + "?lat=0&lon=0"
         response = user_client.get(url)
 
         latest_obs_additional1 = Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject).latest("recorded_at").additional
@@ -262,25 +260,55 @@ class TestGearsView:
 
     def test_gear_subjects_view_with_not_linked_user_or_subject_permission(self):
         client = HTTPClient()
-        request = client.factory.get(reverse(self.base_url))
+        request = client.factory.get(reverse(self.base_url) + "?lat=0&lon=0")
         client.force_authenticate(request, client.app_user)
 
         response = views.GearsView.as_view()(request)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    # def test_gear_subjects_lat_lon_query_params(self, buoy_client):
-    #     url = reverse(self.base_url) + "?lat=0&lon=0"
-    #     user_client, gear_subjectsource = buoy_client
+    def test_gear_subjects_location_param_filters_subject(self, buoy_client):
+        user_client, gear_subjectsource = buoy_client
+        url = reverse(self.base_url) + "?lat=0&lon=0"
+        
+        # TODO: Change location below and devices to out of bounds - move to helper/fixture
+        gear_subjectsource.location = Point(10, 10)
+        now = timezone.now()
+        source = gear_subjectsource.source
+        additional = generate_devices(2, Point(10, 10))
+        location_dict = json.loads(additional["devices"][0])["location"]
+        point = Point(location_dict["longitude"], location_dict["latitude"])
+        data = {
+            "recorded_at": now,
+            "location": point,
+            "source": source,
+            "additional": additional,
+        }
+        observation = Observation.objects.create(**data)
+        observation.save()
 
-    #     # Arrange
+        gear_subjectsource.save()
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 0
+
+    # def test_gear_subjects_state_param_filters_subject(self, buoy_client):
+    #     user_client, gear_subjectsource = buoy_client
+    #     url = reverse(self.base_url) + "?lat=0&lon=0"
+    #     # TODO: Change state below and devices to inactive, location must be in bounds
+    #     gear_subjectsource.state = "hauled"
     #     gear_subjectsource.location = Point(0, 0)
     #     gear_subjectsource.save()
-
-    #     # Act
     #     response = user_client.get(url)
 
-    #     # Assert
     #     assert response.status_code == status.HTTP_200_OK
-    #     assert len(response.data["results"]) == 1
+    #     assert len(response.data["results"]) == 0
+
+    # def test_gear_subjects_updated_since_param_filters_subject(self, buoy_client):
+    #     user_client, gear_subjectsource = buoy_client
+    #     url = reverse(self.base_url) + "?lat=0&lon=0"
+    #     # TODO: Change updated_since to a date before the observation was created
+    #     # state should be active and location in bounds
+    #     gear_subjectsource.location = Point(0, 0)
 
