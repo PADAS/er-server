@@ -2,12 +2,38 @@ import json
 import random
 from datetime import datetime, timezone
 
+from django.utils import timezone
 from factory import fuzzy
+from factories import GearFactory
 from geopy import Point
 from geopy.distance import distance
+from observations.models import Observation
     
 
-def generate_devices(quantity: int, starting_point: Point = None):
+TEST_LOCATION = Point(0, 0)
+
+def get_custom_location_gear_subjectsource(location: Point):
+        gear_subjectsource = GearFactory.create()
+        gear_subjectsource.save()
+
+        source = gear_subjectsource.source
+        provider = gear_subjectsource.source.provider
+        provider.save()
+        now = timezone.now()
+        additional = generate_devices(2, location)
+        data = {
+            "recorded_at": now,
+            "location": location,
+            "source": source,
+            "additional": additional,
+        }
+       
+        observation = Observation.objects.create(**data)
+        observation.save()
+
+        return gear_subjectsource
+
+def generate_devices(quantity: int, starting_point: Point = TEST_LOCATION):
     def generate_point_nearby(original_point, miles):
         bearing = random.uniform(0, 360)
         new_point = distance(miles=miles).destination(original_point, bearing)
