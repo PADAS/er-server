@@ -11,6 +11,42 @@ STATIONARY_SUBJECT_VALUE = "stationary-object"
 NAUTICAL_MILE_RADIUS = 5
 
 
+def filter_by_updated_since(queryset, updated_since):
+    """
+    Filter queryset by updated_since datetime.
+    Given a queryset of SubjectSources.
+    Assumes a valid date string.
+
+    :param queryset:
+    :param updated_since:
+    :return: queryset of SubjectSources.
+    """
+    updated_since_filter = (
+        Q(subject__subjectstatus__updated_at__gte=updated_since)
+        | Q(subject__subjectstatus__recorded_at__gte=updated_since)
+        | Q(subject__subjectstatus__last_voice_call_start_at__gte=updated_since)
+        | Q(subject__subjectstatus__radio_state_at__gte=updated_since)
+    )
+
+    return queryset.filter(updated_since_filter)
+
+def check_valid_state_string(state_str):
+    """
+    Check valid state string.
+    Check if the state string is valid.
+    valid values are "deployed" or "hauled".
+
+    :param state_str:
+    :return: bool, str
+    """
+    if not state_str:
+        return False, None
+
+    state_str = state_str.lower()
+    if state_str not in ["deployed", "hauled"]:
+        raise ValueError("Invalid value for state: '%s'" % state_str)
+    return True, state_str == "deployed"
+
 def check_to_include_inactive_buoys(request, full_queryset):
     """
         Check to include inactive/hauled buoys in the query set.
@@ -97,7 +133,7 @@ def filter_by_bbox(queryset, latitude, longitude, nautical_miles=NAUTICAL_MILE_R
         if include_stationary_subjects:
             stationary_subjects = Subject.objects.filter(
                 subjectstatus__delay_hours=0,
-                # is_active=True,
+                is_active=True,
                 subjectsource__location__within=geom,
                 subject_subtype__subject_type__value=STATIONARY_SUBJECT_VALUE,
             )

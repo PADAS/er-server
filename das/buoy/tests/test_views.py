@@ -1,4 +1,5 @@
 import pytest
+from datetime import datetime
 import json
 
 from django.urls import reverse
@@ -227,5 +228,88 @@ class TestGearsView:
 
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["results"]) == 0
+
+    def test_filter_gear_subject_api_updated_since(self, buoy_client):
+        user_client, gear_subjectsource = buoy_client
+        url = reverse(self.base_url)
+        url += "?lat=0&lon=0"
+        url += "&updated_since=2019-02-03"
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 1
+
+        # Arrange - Gear_subjectsource not included if updated before 2024-02-03
+        gear_subjectsource2 = SubjectSource.objects.get(pk=gear_subjectsource.pk)
+        gear_subjectsource2.pk = None
+        source = gear_subjectsource2.source
+        dt = datetime(2019, 1, 31)
+        additional = generate_devices(2, Point(0, 0))
+        location_dict = json.loads(additional["devices"][0])["location"]
+        point = Point(location_dict["longitude"], location_dict["latitude"])
+        data = {
+            "recorded_at": dt,
+            "location": point,
+            "source": source,
+            "additional": additional,
+        }
+        observation = Observation.objects.create(**data)
+        observation.save()
+        gear_subjectsource2.save()
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 1
+
+    def test_filter_gear_subject_api_updated_since_invalid_param(self, buoy_client):
+        user_client, gear_subjectsource = buoy_client
+        url = reverse(self.base_url)
+        url += "?lat=0&lon=0"
+        url += "&updated_since=123456"
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+
+    def test_filter_gear_subject_api_state(self, buoy_client):
+        user_client, gear_subjectsource = buoy_client
+        url = reverse(self.base_url)
+        url += "?lat=0&lon=0"
+        url += "&state=deployed"
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 1
+
+        url = reverse(self.base_url)
+        url += "?lat=0&lon=0"
+        url += "&state=hauled"
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 0
+
+        # Arrange - add a gear_subjectsource with is_active=False
+        gear_subjectsource.subject.is_active = False
+        gear_subjectsource.subject.save()
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 1
+
+    def test_filter_gear_subject_api_state_invalid_param(self, buoy_client):
+        user_client, _ = buoy_client
+        url = reverse(self.base_url)
+        url += "?lat=0&lon=0"
+        url += "&state=deploy"
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 

@@ -17,8 +17,6 @@ def get_custom_location_gear_subjectsource(location: Point):
         gear_subjectsource.save()
 
         source = gear_subjectsource.source
-        provider = gear_subjectsource.source.provider
-        provider.save()
         now = timezone.now()
         additional = generate_devices(2, location)
         data = {

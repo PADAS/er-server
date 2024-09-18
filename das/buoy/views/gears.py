@@ -2,6 +2,10 @@ import json
 from rest_framework import generics
 
 from buoy import serializers
+from buoy.views.helpers import (
+    check_valid_state_string,
+    filter_by_updated_since
+)
 from buoy.views.schemas import GearsViewSchema
 from django.db.models import OuterRef, Subquery
 from buoy.views.helpers import check_to_include_inactive_buoys, filter_by_bbox
@@ -15,7 +19,6 @@ from observations.utils import (
     get_minimum_allowed_age,
 )
 from observations.views.helpers import check_valid_date_string
-
 from utils.drf import (
     ForbiddenAPIException,
     StandardResultsSetPagination,
@@ -41,29 +44,35 @@ class GearsView(generics.ListAPIView):
         # First get subject-sources. TODO: Look into using allowed users
         queryset = SubjectSource.objects.all()
 
-        # need a stable sort for pagination. this needs to match the distinct
-        # parameter set in by_user_subjects
+        # need a stable sort for pagination. 
         queryset = check_to_include_inactive_buoys(self.request, queryset)
         queryset = queryset.order_by("id")
 
-        updated_since = self.request.query_params.get("updated_since")
+        updated_since = query_params.get("updated_since")
         is_updated_since_valid, updated_since = check_valid_date_string(updated_since, "updated_since")
         if updated_since and is_updated_since_valid:
-            queryset = queryset.by_updated_since(updated_since)
+            queryset = filter_by_updated_since(queryset, updated_since)
         elif updated_since and not is_updated_since_valid:
             raise ValueError("updated_since must be a valid date")
 
-        lat = self.request.query_params.get("lat")
-        lon = self.request.query_params.get("lon")
+        # Filter queryset by deployed/hauled status
+        is_active_valid, is_active = check_valid_state_string(query_params.get("state"))
+        if is_active_valid and is_active:
+            queryset = queryset.filter(subject__is_active=True)
+        elif is_active_valid and not is_active:
+            queryset = queryset.filter(subject__is_active=False)
+
+        lat = query_params.get("lat")
+        lon = query_params.get("lon")
         if lat and lon:
             lat = float(lat)
             lon = float(lon)
-            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon)
+            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, updated_since=updated_since)
         else:
             raise ValueError("request must include lat and lon")
         
         # Filter queryset by removing subjects where the additional field is the same     
-        latest_observations = Observation.objects.filter(source_id=OuterRef("source_id")).order_by("-recorded_at")# [:1]
+        latest_observations = Observation.objects.filter(source_id=OuterRef("source_id")).order_by("-recorded_at")
         queryset.update(additional=Subquery(latest_observations.values("additional")[:1]))
 
         # TODO: look into select related for perfomance 
