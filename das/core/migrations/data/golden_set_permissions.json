@@ -6113,7 +6113,7 @@
   {
     "fields": {
       "content_type_id": 98,
-      "codename": "view_export_event_data",
+      "codename": "can_export_event_data",
       "name": "Can Export Event Data"
     },
     "pk": 7583,
@@ -6122,7 +6122,7 @@
   {
     "fields": {
       "content_type_id": 98,
-      "codename": "view_export_observation_data",
+      "codename": "can_export_observation_data",
       "name": "Can Export Observation Data"
     },
     "pk": 7584,
