@@ -6,7 +6,9 @@ from django.apps import apps
 from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.db import migrations
+from django.db.models import signals
 
+from accounts.signals import permission_codename_pre_save
 from core.models import DASTenant
 from utils.json import load_from_file
 from utils.tenant.exceptions import TenantNotFoundException
@@ -20,14 +22,15 @@ logger = logging.getLogger(__name__)
 def create_export_permission_set_and_permission(migration_apps, schema_editor):
     PermissionSet = apps.get_model("accounts", "PermissionSet")
     User = apps.get_model(settings.AUTH_USER_MODEL)
+    signals.pre_save.disconnect(permission_codename_pre_save, sender=Permission)
 
     golden_set_permissions = load_from_file(file_path=JSON_FILE)
 
     event_permission_list = list(
-        filter(lambda perms: str(perms["fields"]["codename"]) == "view_export_event_data", golden_set_permissions)
+        filter(lambda perms: str(perms["fields"]["codename"]) == "can_export_event_data", golden_set_permissions)
     )
     observation_permission_list = list(
-        filter(lambda perms: str(perms["fields"]["codename"]) == "view_export_observation_data", golden_set_permissions)
+        filter(lambda perms: str(perms["fields"]["codename"]) == "can_export_observation_data", golden_set_permissions)
     )
 
     if event_permission_list and observation_permission_list:

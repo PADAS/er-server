@@ -108,8 +108,7 @@ def ignore_permission(
     """state the condition for permission to be ignored or not."""
 
     geo_category_name = get_category_name_from_perm(perm)
-
-    if resource in ["message"]:
+    if resource in ["message", "export_event_data", "export_observation_data"]:
         return False
     elif any(
         [
@@ -160,6 +159,10 @@ def allowed_permissions(user_instance):
 
     for permission in permissions:
         app_name, perm = permission.split(".", maxsplit=1)
+        if perm in ["can_export_observation_data", "can_export_event_data"]:
+            resource = perm.split("_")[2]
+            container[resource].append("export")
+            continue
         if perm.endswith(ACTIONS):
             resource, verb = perm.rsplit("_", maxsplit=1)
         else:
