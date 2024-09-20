@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -30,7 +31,7 @@ from activity.models import (
 from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
 from choices.models import Choice, DynamicChoice
 from core.models import DASTenant
-from mapping.models import SpatialFeatureGroupStatic, SpatialFeatureType
+from mapping.models import SpatialFeature, SpatialFeatureGroupStatic, SpatialFeatureType
 from observations.models import (
     Message,
     Observation,
@@ -163,6 +164,7 @@ class ProviderFactory(factory.django.DjangoModelFactory):
         model = SourceProvider
 
     display_name = fuzzy.FuzzyText(length=50)
+    provider_key = fuzzy.FuzzyText(length=50)
     das_tenant = factory.SubFactory(TenantFactory)
 
 
@@ -286,9 +288,18 @@ class SpatialFeatureGroupStaticFactory(factory.django.DjangoModelFactory):
 
 class SpatialFeatureTypeFactory(factory.django.DjangoModelFactory):
     das_tenant = factory.SubFactory(TenantFactory)
+    name = fuzzy.FuzzyText(length=20)
 
     class Meta:
         model = SpatialFeatureType
+
+
+class SpatialFeatureFactory(factory.django.DjangoModelFactory):
+    das_tenant = factory.SubFactory(TenantFactory)
+    feature_type = factory.SubFactory(SpatialFeatureTypeFactory)
+
+    class Meta:
+        model = SpatialFeature
 
 
 class ObservationFactory(factory.django.DjangoModelFactory):
@@ -332,6 +343,20 @@ class EventTypeFactory(factory.django.DjangoModelFactory):
     display = fuzzy.FuzzyText(length=50)
     category = factory.SubFactory(EventCategoryFactory)
     das_tenant = factory.SubFactory(TenantFactory)
+    schema = json.dumps(
+        {
+            "schema": {
+                "properties": {
+                    "subjects_name": {"type": "string", "title": "enum test"},
+                    "behavior_choice": {"type": "string", "title": "name and value test"},
+                    "behavior": {"type": "array", "title": "array test"},
+                    "sample_attr": {"type": "string", "title": "name and value test"},
+                },
+                "$schema": "http://json-schema.org/draft-04/schema#",
+            },
+            "definition": ["behavior_choice", "sample_attr"],
+        }
+    )
 
 
 class EventFactory(factory.django.DjangoModelFactory):

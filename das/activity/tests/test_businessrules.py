@@ -78,23 +78,23 @@ class TestEventTypesRulesGeneration:
         return json.dumps(json_schema)
 
     def test_should_return_a_valid_apply_to_map_with_one_valid_record(self, five_event_types):
-        event_types = five_event_types
+        event_types = five_event_types[0:1]
         event_types[0].value = "test_field_1"
         event_types[0].schema = self.get_string_json_schema("full_name")
 
-        _, applies_to = _generate_aggregate_event_variables_class(five_event_types)
+        _, applies_to = _generate_aggregate_event_variables_class(event_types)
         assert "full_name_string" in applies_to
         assert len(applies_to) == 1
 
     def test_should_return_a_valid_apply_to_map_with_two_valid_records(self, five_event_types):
-        event_types = five_event_types
+        event_types = five_event_types[0:2]
         event_types[0].value = "test_field_1"
         event_types[0].schema = self.get_string_json_schema("number_of_elephants")
 
         event_types[1].value = "test_field_2"
         event_types[1].schema = self.get_string_json_schema("number_of_elephants", "number")
 
-        _, applies_to = _generate_aggregate_event_variables_class(five_event_types)
+        _, applies_to = _generate_aggregate_event_variables_class(event_types)
         assert "number_of_elephants_string" in applies_to
         assert "number_of_elephants_number" in applies_to
         assert len(applies_to) == 2

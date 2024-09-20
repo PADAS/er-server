@@ -310,6 +310,15 @@
     }
   },
   {
+    "model": "accounts.permissionset",
+    "fields": {
+      "created_at": "2024-07-01T16:19:02.961Z",
+      "updated_at": "2024-07-01T16:19:02.961Z",
+      "name": "Can Export Data",
+      "children": []
+    }
+  },
+  {
     "model": "accounts.user",
     "fields": {
       "password": "pbkdf2_sha256$100000$hlybaf8dbG2Y$9khjvieGlVnr8X5Ybe6bW1tEAM5I7Pn56pahEcwJQNI=",
@@ -10527,7 +10536,6 @@
       ]
     }
   },
-
   {
     "model": "accounts.permissionsetpermission",
     "fields": {
@@ -10541,7 +10549,6 @@
       ]
     }
   },
-
   {
     "model": "accounts.permissionsetpermission",
     "fields": {
@@ -10581,7 +10588,6 @@
       ]
     }
   },
-
   {
     "model": "accounts.permissionsetpermission",
     "fields": {
@@ -10634,7 +10640,6 @@
       ]
     }
   },
-
   {
     "model": "accounts.permissionsetpermission",
     "fields": {
@@ -11087,6 +11092,32 @@
         "view_subjectgroup",
         "observations",
         "subjectgroup"
+      ]
+    }
+  },
+  {
+    "model": "accounts.permissionsetpermission",
+    "fields": {
+      "permissionset": [
+        "Can Export Data"
+      ],
+      "permission": [
+        "can_export_observation_data",
+        "activity",
+        "event"
+      ]
+    }
+  },
+  {
+    "model": "accounts.permissionsetpermission",
+    "fields": {
+      "permissionset": [
+        "Can Export Data"
+      ],
+      "permission": [
+        "can_export_event_data",
+        "activity",
+        "event"
       ]
     }
   },

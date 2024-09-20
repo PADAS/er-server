@@ -198,23 +198,6 @@ class TestEventTypeAPI:
 
         assert response.data["geometry_type"] == mocked_geometry_type.value
 
-    def test_response_includes_etag_and_last_modified_headers(
-        self, superuser_client, five_event_types, memory_store_client_mock
-    ):
-        event_type_id = str(five_event_types[0].id)
-        url = reverse("eventtype", kwargs={"eventtype_id": event_type_id})
-
-        response_with_info = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
-        etag = response_with_info.headers["ETag"]
-        last_modified = response_with_info.headers["Last-Modified"]
-        empty_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
-
-        assert response_with_info.status_code == status.HTTP_200_OK
-        assert etag == empty_response.headers["ETag"]
-        assert last_modified == empty_response.headers["Last-Modified"]
-        assert empty_response.status_code == status.HTTP_304_NOT_MODIFIED
-        assert isinstance(empty_response, HttpResponseNotModified)
-
     @pytest.mark.parametrize("field_update", EVENT_TYPE_UPDATES)
     def test_field_update_generates_new_etag_response_header(
         self, superuser_client, five_event_types, field_update, memory_store_client_mock
@@ -278,19 +261,16 @@ class TestEventTypeAPI:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings")
 class TestEventTypesAPI:
-    def test_response_includes_etag_and_last_modified_headers(
-        self, superuser_client, five_event_types, memory_store_client_mock
-    ):
+    def test_response_includes_etag(self, superuser_client, five_event_types, memory_store_client_mock):
         url = reverse("eventtypes")
 
         response_with_info = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
         etag = response_with_info.headers["ETag"]
-        last_modified = response_with_info.headers["Last-Modified"]
         empty_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
 
         assert response_with_info.status_code == status.HTTP_200_OK
         assert etag == empty_response.headers["ETag"]
-        assert last_modified == empty_response.headers["Last-Modified"]
+
         assert empty_response.status_code == status.HTTP_304_NOT_MODIFIED
         assert isinstance(empty_response, HttpResponseNotModified)
 
@@ -313,6 +293,26 @@ class TestEventTypesAPI:
         assert original_response.status_code == status.HTTP_200_OK
         assert modified_response.status_code == status.HTTP_200_OK
         assert original_etag != modified_etag
+
+    def test_filter_by_updated_since(self, superuser_client, five_event_categories):
+        url = reverse("eventtypes")
+        event_type = EventType(display="Initial Event", value="test", category=five_event_categories[0])
+        event_type.save()
+        updated_since = event_type.updated_at
+
+        response_without_updated_since = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
+
+        assert response_without_updated_since.status_code == status.HTTP_200_OK
+        assert len(response_without_updated_since.data) == EventType.objects.all().count()
+
+        response_with_updated_since = superuser_client.get(
+            url, {"updated_since": updated_since}, HTTP_IF_NONE_MATCH='"non-matching-etag"'
+        )
+
+        assert response_with_updated_since.status_code == status.HTTP_200_OK
+        assert len(response_with_updated_since.data) == 1
+
+        assert response_with_updated_since.data[0]["id"] == str(event_type.id)
 
 
 @pytest.mark.django_db

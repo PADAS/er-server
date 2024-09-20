@@ -216,10 +216,13 @@ class PartitionTableTool(PartitionTableToolProtocol):
             self._execute_sql_command(command=create_default_partition_sql)
 
             self._execute_sql_command(command="COMMIT;")
+
+
         except Exception:
             self._execute_sql_command(command="ROLLBACK;")
             self.logger.exception("Failed to migrate batch data")
             exit(1)
+
         self._set_current_step(step=4)
 
     def _process_data_partition(self) -> None:
@@ -259,8 +262,12 @@ class PartitionTableTool(PartitionTableToolProtocol):
         self._execute_sql_command(command=f"VACUUM ANALYZE public.{self.original_table_name};")
         self._execute_sql_command(command="VACUUM;")
 
-        self._set_current_step(step=5)
         self.logger.warning("VACUUM ANALYZE is completed.")
+        for trigger in self.table_data.triggers if self.table_data.triggers else []:
+            self._drop_trigger(table_name=f"{self.original_table_name}_default", trigger_data=trigger)
+            self._create_trigger(table_name=self.original_table_name, trigger_data=trigger)
+        self.logger.warning("Triggers restored")
+        self._set_current_step(step=5)
 
     def _validate_data(self) -> None:
         self.logger.warning("Start to validate data.")
@@ -386,9 +393,6 @@ class PartitionTableTool(PartitionTableToolProtocol):
         for foreign_key in self.table_data.foreign_keys if self.table_data.foreign_keys else []:
             self._create_foreign_key(table_name=target_table_name, foreign_key_data=foreign_key)
 
-        for trigger in self.table_data.triggers if self.table_data.triggers else []:
-            self._create_trigger(table_name=target_table_name, trigger_data=trigger)
-
         self.logger.warning(f"Duplicate table: {target_table_name} is ready.")
 
     def _create_index(self, table_name: str, index_data: IndexData, is_unique: bool = False) -> None:
@@ -432,6 +436,11 @@ class PartitionTableTool(PartitionTableToolProtocol):
         sql = trigger_data.sql.format(table_name=table_name)
         self._execute_sql_command(command=sql)
         self.logger.warning(f"Trigger: {trigger_data.name} created successfully.")
+
+    def _drop_trigger(self, table_name:str, trigger_data: TriggerData) -> None:
+        sql = f"DROP TRIGGER IF EXISTS {trigger_data.name} on {table_name};"
+        self._execute_sql_command(command=sql)
+        self.logger.warning(f"Trigger: {trigger_data.name} deleted on {table_name}.")
 
     def _backup_original_table(self) -> None:
         create_backup_table_sql = f"""

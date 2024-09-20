@@ -2,7 +2,6 @@ import datetime
 import logging
 
 import pytz
-from celery_once import QueueOnce
 
 from django.db.models import Avg, Count, F
 from django.utils.dateparse import parse_duration
@@ -18,6 +17,7 @@ from reports.distribution import (
 from reports.models import SourceEvent, SourceProviderEvent
 from reports.serializers import EventSerializer
 from utils.tenant import get_tenant_settings, get_ui_site_name, get_ui_site_url
+from utils.tenant.celery import TenantQueueOnceTask
 
 logger = logging.getLogger(__name__)
 
@@ -134,8 +134,8 @@ Average lag: {avg_lag}
     return email_body, message_subject
 
 
-@celery.app.task(base=QueueOnce, once={"graceful": True})
-def check_sources_threshold():
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
+def check_sources_threshold(*args, **kwargs):
     source_providers = SourceProvider.objects.filter(
         source__subjectsource__assigned_range__contains=datetime.datetime.now(pytz.utc)
     ).distinct()

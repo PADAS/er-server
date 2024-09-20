@@ -39,9 +39,10 @@ class GearsView(generics.ListAPIView):
 
     def get_queryset(self):
         query_params = self.request.query_params
+        # TODO: Look into using allowed users - need to add subjects to SG in unit tests
         # allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
 
-        # First get subject-sources. TODO: Look into using allowed users
+        # First get subject-sources.
         queryset = SubjectSource.objects.all()
 
         # need a stable sort for pagination. 

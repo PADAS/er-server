@@ -16,13 +16,21 @@ from django.contrib.gis import geos
 from django.contrib.gis.db import models
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.files.storage import FileSystemStorage
-from django.db.models import Index, UniqueConstraint
+from django.db.models import Index, Q, UniqueConstraint
 from django.urls import NoReverseMatch, reverse
 from django.utils.deconstruct import deconstructible
 from django.utils.translation import gettext_lazy as _
 
 from core.models import DASTenant, TimestampedModel, UUIDModel
 from mapping.app_settings import MBTILES
+from mapping.lookups import (
+    GEO_TYPE_LINESTRING,
+    GEO_TYPE_MULTILINESTRING,
+    GEO_TYPE_MULTIPOINT,
+    GEO_TYPE_MULTIPOLYGON,
+    GEO_TYPE_POINT,
+    GEO_TYPE_POLYGON,
+)
 from mapping.mbtiles import (
     ExtractionError,
     GoogleProjection,
@@ -618,7 +626,28 @@ class SpatialFeatureGroupStaticFeatures(TenantThroughModel):
     )
 
 
-class SpatialFeatureGroupStaticManager(CommonTenantManager):
+class SpatialFeatureGroupStaticQuerySet(models.QuerySet):
+    def by_spatial_type(self, spatial_type: str, exclusive: bool = True):
+        ALL_FEATURE_TYPES = (
+            GEO_TYPE_POINT,
+            GEO_TYPE_LINESTRING,
+            GEO_TYPE_POLYGON,
+            GEO_TYPE_MULTIPOINT,
+            GEO_TYPE_MULTILINESTRING,
+            GEO_TYPE_MULTIPOLYGON,
+        )
+        queryset = self
+        if exclusive:
+            excludes = Q()
+            for exclude in [type for type in ALL_FEATURE_TYPES if type != spatial_type]:
+                excludes &= ~Q(features__feature_geometry__type=exclude)
+            queryset = queryset.filter(excludes)
+        return queryset.filter(features__feature_geometry__type=spatial_type).distinct()
+
+
+class SpatialFeatureGroupStaticManager(
+    CommonTenantManager, models.Manager.from_queryset(SpatialFeatureGroupStaticQuerySet)
+):
     def get_by_natural_key(self, name):
         return self.get(name=name)
 

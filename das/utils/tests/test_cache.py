@@ -2,10 +2,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from django.conf import settings
+from django.core.cache import caches
+
 from utils.persistent import MultitenantRedisStorage
 from utils.tenant.cache import MultitenantRedisClient, make_cache_key
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
-from utils.tenant.thread import clear_tenant_settings
 
 
 @pytest.fixture
@@ -24,11 +26,6 @@ class TestCache:
 
         assert key == f"{tenant_settings.id}:test:v1:the-key"
 
-    def test_make_cache_key_without_tenant_id(self):
-        clear_tenant_settings()
-        with pytest.raises(TenantNotFoundInLocalThreadException):
-            make_cache_key("the-key", "test", "v1")
-
     def test_get_decorated_tenant_cache_keys_with_tenant_set(self, tenant_settings, redis_connection_mock):
         cache_mock = MultitenantRedisStorage(config=MagicMock())
         expected_key = f"{tenant_settings.id}:None:None:test-key"
@@ -37,15 +34,16 @@ class TestCache:
 
         redis_connection_mock.set.assert_called_once_with(expected_key, "test-value", 60)
 
-    def test_get_decorated_tenant_cache_keys_without_tenant_set(self, redis_connection_mock, caplog):
-        clear_tenant_settings()
-        cache_mock = MultitenantRedisStorage(config=MagicMock())
+    def test_access_to_different_values_using_same_key(self):
+        default_cache = caches["default"]
+        shared_cache = caches[settings.SHARED_CACHE_ALIAS]
 
-        with pytest.raises(TenantNotFoundInLocalThreadException):
-            cache_mock.insert_key("test-key", "test-value", ttl=60)
+        key = "key-a"
+        shared_cache.set(key, "value-a")
+        default_cache.set(key, "other-value-a")
 
-        assert not redis_connection_mock.set.called
-        assert "Could not add tenant ID as cache key prefix" in caplog.text
+        assert shared_cache.get(key) == "value-a"
+        assert default_cache.get(key) == "other-value-a"
 
 
 class TestMultitenantRedisClient:

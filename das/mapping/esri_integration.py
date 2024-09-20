@@ -52,6 +52,19 @@ DEFAULT_POLYGON = {
 message = messages.add_message
 
 
+def get_arcgis_config(config_name):
+    return models.ArcgisConfiguration.objects.get(config_name=config_name)
+
+
+def refresh_groups(arcgis_config):
+    gis = arcgis_authentication(None, arcgis_config)
+    if gis:
+        groups_found = search_groups(gis, arcgis_config, None)
+        logger.info(f"Found {len(groups_found)} groups")
+        logger.debug(f"Found {groups_found} groups")
+        update_db_groups(groups_found, arcgis_config)
+
+
 def arcgis_integration(request, obj):
     from mapping.tasks import load_features_from_wfs
 
@@ -110,9 +123,11 @@ def arcgis_authentication(request, obj):
         return gis
     except Exception as error:
         logger.info(f"Failed to authenticate with ArcGIS Online using {obj.username} {error}")
-        message(
-            request, messages.ERROR, NETWORK_ERROR_MESSAGE.format("Invalid username or password")
-        ) if request else logger.exception(error)
+        (
+            message(request, messages.ERROR, NETWORK_ERROR_MESSAGE.format("Invalid username or password"))
+            if request
+            else logger.exception(error)
+        )
 
 
 def extract_gis_data(obj, member, errored_files, success_files, arcgis_item_id):
@@ -328,9 +343,11 @@ def get_mb_style(symbol):
     elif type == ESRI_PMS or type == ESRI_PFS:
         logger.debug(f"processing picture symbol {type}")
         presentation = {
-            "image": f"data:image/png;base64,{symbol.imageData}"
-            if hasattr(symbol, "imageData") and symbol.imageData
-            else DEFAULT_IMAGE,
+            "image": (
+                f"data:image/png;base64,{symbol.imageData}"
+                if hasattr(symbol, "imageData") and symbol.imageData
+                else DEFAULT_IMAGE
+            ),
             "width": symbol.width if hasattr(symbol, "width") and symbol.width else DEFAULT_IMAGE_WIDTH,
             "height": symbol.height if hasattr(symbol, "height") and symbol.height else DEFAULT_IMAGE_HEIGHT,
         }
