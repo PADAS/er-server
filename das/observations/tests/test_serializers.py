@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 import pytest
 import pytz
+from faker import Faker
 
 from django.contrib.gis.geos import Point
 from django.urls import reverse
@@ -18,10 +19,13 @@ from observations.models import (
 from observations.serializers import (
     FlattenObservationSerializer,
     ObservationSerializer,
+    SourceSerializer,
     SubjectSerializer,
     SubjectSourceSerializer,
     SubjectTrackSerializer,
 )
+
+faker = Faker()
 
 
 @pytest.mark.django_db
@@ -277,3 +281,35 @@ class TestSubjectSerializer:
         serialized_subject = SubjectSerializer(subject).data
 
         assert not serialized_subject["user"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestSourceSerializer:
+    def test_updating_an_existing_source(self, source):
+
+        data = {"model_name": "new model"}
+
+        serializer = SourceSerializer(source, data=data, partial=True)
+        if not serializer.is_valid():
+            assert not serializer.errors
+
+        serializer.save()
+
+        source.refresh_from_db()
+
+        assert source.model_name == data["model_name"]
+
+    def test_creating_a_source(self, source_provider):
+        data = {
+            "manufacturer_id": "111111",
+            "provider": source_provider.provider_key,
+            "source_type": "tracking-device",
+            "additional": {"collar_id": "1234"},
+            "model_name": faker.name(),
+        }
+
+        serializer = SourceSerializer(data=data)
+        if not serializer.is_valid():
+            assert not serializer.errors
+        serializer.save()

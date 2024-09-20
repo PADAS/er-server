@@ -44,7 +44,7 @@ from observations.utils import (
     is_subject_stationary_subject,
 )
 from utils import add_base_url
-from utils.json import zeroout_microseconds
+from utils.serializers import PartialUpdateMixin
 
 from .observations import FlattenObservationSerializer
 
@@ -198,7 +198,7 @@ class LinkedUserserializer(rest_framework.serializers.ModelSerializer):
         fields = ("id",)
 
 
-class SubjectSerializer(rest_framework.serializers.Serializer):
+class SubjectSerializer(PartialUpdateMixin, rest_framework.serializers.Serializer):
     content_type = ContentTypeField(read_only=True, required=False)
 
     id = rest_framework.serializers.UUIDField(
@@ -243,18 +243,6 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             except models.Subject.DoesNotExist:
                 raise rest_framework.serializers.ValidationError(f"Subject: {data} does not exist.")
         return super().to_internal_value(data)
-
-    def update(self, instance, validated_data):
-        update_fields = []
-        for k, v in validated_data.items():
-            if k not in self.allowed_partial_update_fields:
-                continue
-            if getattr(instance, k) != v:
-                setattr(instance, k, v)
-                update_fields.append(k)
-        if update_fields:
-            instance.save(update_fields=update_fields)
-        return instance
 
     def to_representation(self, instance):
         user = getattr(self.context.get("request", None), "user", None)
@@ -584,7 +572,7 @@ class SourceProviderRelatedField(rest_framework.serializers.RelatedField):
         return OrderedDict(((row.provider_key, row.display_name) for row in self.get_queryset()))
 
 
-class SourceSerializer(rest_framework.serializers.Serializer):
+class SourceSerializer(PartialUpdateMixin, rest_framework.serializers.Serializer):
     id = rest_framework.serializers.UUIDField(read_only=True)
     source_type = rest_framework.serializers.ChoiceField(
         allow_null=True,
@@ -610,6 +598,8 @@ class SourceSerializer(rest_framework.serializers.Serializer):
     content_type = ContentTypeField(read_only=True)
     created_at = rest_framework.serializers.DateTimeField(read_only=True)
     updated_at = rest_framework.serializers.DateTimeField(read_only=True)
+
+    allowed_partial_update_fields = ("source_type", "manufacturer_id", "model_name", "additional", "provider")
 
     class Meta:
         model = models.Source

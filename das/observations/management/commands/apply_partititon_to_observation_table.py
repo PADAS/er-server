@@ -78,7 +78,7 @@ class Command(BaseCommand):
 
         triggers = [
             TriggerData(
-                name="delete_latest_observation_source",
+                name="trigger_delete_latest_observation_source",
                 sql="""
                 CREATE TRIGGER trigger_delete_latest_observation_source
                 AFTER DELETE
@@ -88,7 +88,7 @@ class Command(BaseCommand):
                 """,
             ),
             TriggerData(
-                name="insert_latest_observation_source",
+                name="trigger_insert_latest_observation_source",
                 sql="""
                 CREATE TRIGGER trigger_insert_latest_observation_source
                 AFTER INSERT
@@ -98,7 +98,7 @@ class Command(BaseCommand):
                 """,
             ),
             TriggerData(
-                name="update_latest_observation_source",
+                name="trigger_update_latest_observation_source",
                 sql="""
                 CREATE TRIGGER trigger_update_latest_observation_source
                 AFTER UPDATE

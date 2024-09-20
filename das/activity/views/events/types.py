@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from rest_framework_condition import condition
+from rest_framework_condition import etag
 
 from django.db import IntegrityError
 from rest_framework import status
@@ -16,9 +16,7 @@ from activity.permissions import EventCategoryPermissions
 from activity.serializers import EventTypeRankSerializer, EventTypeSerializer
 from activity.views.response_headers import (
     build_event_type_etag_header,
-    build_event_type_last_modified_header,
     build_event_types_etag_header,
-    build_event_types_last_modified_header,
 )
 from activity.views.schemas import EventTypeViewSchema
 from utils.drf import return_409_response
@@ -34,7 +32,7 @@ class EventTypeView(RetrieveUpdateDestroyAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventTypeSerializer
 
-    @condition(etag_func=build_event_type_etag_header, last_modified_func=build_event_type_last_modified_header)
+    @etag(etag_func=build_event_type_etag_header)
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
@@ -69,7 +67,7 @@ class EventTypesView(EventTypeQuerysetMixin, ListCreateAPIView):
     serializer_class = EventTypeSerializer
     schema = EventTypeViewSchema()
 
-    @condition(etag_func=build_event_types_etag_header, last_modified_func=build_event_types_last_modified_header)
+    @etag(etag_func=build_event_types_etag_header)
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 

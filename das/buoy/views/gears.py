@@ -39,41 +39,20 @@ class GearsView(generics.ListAPIView):
 
     def get_queryset(self):
         query_params = self.request.query_params
+        # TODO: Look into using allowed users - need to add subjects to SG in unit tests
         # allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
 
-        # First get subject-sources. TODO: Look into using allowed users
+        # First get subject-sources.
         queryset = SubjectSource.objects.all()
 
-        # need a stable sort for pagination. 
-        queryset = check_to_include_inactive_buoys(self.request, queryset)
-        queryset = queryset.order_by("id")
-
-        updated_since = query_params.get("updated_since")
-        is_updated_since_valid, updated_since = check_valid_date_string(updated_since, "updated_since")
-        if updated_since and is_updated_since_valid:
-            queryset = filter_by_updated_since(queryset, updated_since)
-        elif updated_since and not is_updated_since_valid:
-            raise ValueError("updated_since must be a valid date")
-
-        # Filter queryset by deployed/hauled status
-        is_active_valid, is_active = check_valid_state_string(query_params.get("state"))
-        if is_active_valid and is_active:
-            queryset = queryset.filter(subject__is_active=True)
-        elif is_active_valid and not is_active:
-            queryset = queryset.filter(subject__is_active=False)
-
-        lat = query_params.get("lat")
-        lon = query_params.get("lon")
-        if lat and lon:
-            lat = float(lat)
-            lon = float(lon)
-            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, updated_since=updated_since)
-        else:
-            raise ValueError("request must include lat and lon")
+        # Filter queryset by removing subjects where the additional field is the same        
+        latest_observations = Observation.objects.filter(
+            source_id=OuterRef("source_id"), 
+            recorded_at__contained_by=OuterRef('assigned_range')).order_by("-recorded_at")
         
-        # Filter queryset by removing subjects where the additional field is the same     
-        latest_observations = Observation.objects.filter(source_id=OuterRef("source_id")).order_by("-recorded_at")
-        queryset.update(additional=Subquery(latest_observations.values("additional")[:1]))
+        queryset = queryset.annotate(
+            latest_observation_additional=Subquery(latest_observations.values("additional")[:1])
+        )
 
         # TODO: look into select related for perfomance 
         # Keep an eye on performance of the query and potentially add new indexes to improve performance 

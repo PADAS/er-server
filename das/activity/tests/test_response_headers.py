@@ -7,14 +7,12 @@ from django.http import QueryDict
 
 from activity.models import EventType, PatrolType
 from activity.views.response_headers import (
-    EVENT_TYPE_FIELDS,
+    EVENT_TYPE_FIELDS_FOR_ETAG,
     PATROL_TYPE_FIELDS,
     EventTypeQueryset,
     build_etag_header,
     build_event_type_etag_header,
-    build_event_type_last_modified_header,
     build_event_types_etag_header,
-    build_event_types_last_modified_header,
     build_patrol_type_etag_header,
     build_patrol_type_last_modified_header,
     build_patrol_types_etag_header,
@@ -22,7 +20,6 @@ from activity.views.response_headers import (
     concatenate_fields_from_model,
     get_most_recent_update_datetime_by_queryset,
 )
-from factories import EventTypeFactory
 
 
 @pytest.mark.django_db
@@ -70,45 +67,92 @@ class TestResponseHeaderBuilders:
 
         assert expected_last_modified == last_modified
 
-    def test_build_event_types_etag_header(self, empty_request):
-        EventType.objects.all().delete()
-        EventTypeFactory.create_batch(5)
-        individual_tags = [
-            concatenate_fields_from_model(EVENT_TYPE_FIELDS, event_type)
-            for event_type in EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
-        ]
-        concatenated_etags = ":".join(individual_tags)
-        salt = empty_request.META.get("HTTP_USER_AGENT")
-        if salt is not None:
-            concatenated_etags = concatenated_etags + str(salt)
-        expected_etag = hashlib.md5(concatenated_etags.encode("utf-8")).hexdigest()
+    def test_build_event_types_etag_header(self, empty_request, five_event_types):
+        queryset = EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
+        queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
+
+        string_to_be_hashed = str(list(queryset))
+        expected_etag = hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
 
         etag = build_event_types_etag_header(empty_request)
 
         assert expected_etag == etag
 
+    @pytest.mark.parametrize(
+        ("mocked_field", "mocked_value"),
+        (
+            ("display", "new_display_value"),
+            ("is_active", False),
+            ("flag", "new_flag"),
+            ("updated_at", "2021-01-01T00:00:00Z"),
+            ("value", "new_value"),
+            ("ordernum", 300.5),
+        ),
+    )
+    def test_build_event_types_etag_header_should_change_when_category_changes(
+        self, mocked_field, mocked_value, empty_request, five_event_types
+    ):
+        queryset = EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
+        queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
+
+        string_to_be_hashed = str(list(queryset))
+        expected_etag = hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
+
+        etag = build_event_types_etag_header(empty_request)
+
+        assert expected_etag == etag
+
+        five_event_types[0].category.ordernum = 300.5
+        setattr(five_event_types[0].category, mocked_field, mocked_value)
+        five_event_types[0].category.save(update_fields=[mocked_field])
+
+        new_etag = build_event_types_etag_header(empty_request)
+
+        assert etag != new_etag
+
     def test_build_event_type_etag_header(self, empty_request, five_event_types):
-        event_type = EventType.objects.first()
-        concatenated_fields = concatenate_fields_from_model(EVENT_TYPE_FIELDS, event_type)
-        expected_etag = hashlib.md5(concatenated_fields.encode("utf-8")).hexdigest()
+        event_type = five_event_types[0]
+        queryset = EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
+        queryset = queryset.filter(id=event_type.id).values(*EVENT_TYPE_FIELDS_FOR_ETAG)
+
+        string_to_be_hashed = str(list(queryset))
+        expected_etag = hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
 
         etag = build_event_type_etag_header(empty_request, eventtype_id=str(event_type.id))
 
         assert expected_etag == etag
 
-    def test_build_event_type_last_modified_header(self, empty_request, five_event_types):
-        event_type = EventType.objects.first()
+    @pytest.mark.parametrize(
+        ("mocked_field", "mocked_value"),
+        (
+            ("display", "new_display_value"),
+            ("is_active", False),
+            ("flag", "new_flag"),
+            ("updated_at", "2021-01-01T00:00:00Z"),
+            ("value", "new_value"),
+            ("ordernum", 300.5),
+        ),
+    )
+    def test_build_event_type_etag_header_should_change_when_category_changes(
+        self, mocked_field, mocked_value, empty_request, five_event_types
+    ):
+        event_type = five_event_types[1]
+        queryset = EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
+        queryset = queryset.filter(id=event_type.id).values(*EVENT_TYPE_FIELDS_FOR_ETAG)
 
-        last_modified = build_event_type_last_modified_header(empty_request, eventtype_id=str(event_type.id))
+        string_to_be_hashed = str(list(queryset))
+        expected_etag = hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
 
-        assert event_type.updated_at == last_modified
+        etag = build_event_type_etag_header(empty_request, eventtype_id=str(event_type.id))
 
-    def test_build_event_types_last_modified_header(self, empty_request, five_event_types):
-        expected_last_modified = EventType.objects.order_by("-updated_at").last().updated_at
+        assert expected_etag == etag
 
-        last_modified = build_event_types_last_modified_header(empty_request)
+        setattr(event_type.category, mocked_field, mocked_value)
+        event_type.category.save(update_fields=[mocked_field])
 
-        assert expected_last_modified == last_modified
+        new_etag = build_event_type_etag_header(empty_request, eventtype_id=str(event_type.id))
+
+        assert etag != new_etag
 
     def test_get_most_recent_updated_at(self, five_patrol_segment):
         last_patrol_type = PatrolType.objects.order_by("-updated_at").last()
