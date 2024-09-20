@@ -316,12 +316,11 @@ class ObservationFactory(factory.django.DjangoModelFactory):
 
 class GearFactory(factory.django.DjangoModelFactory):
     class Meta:
-        model = Subject
+        model = SubjectSource
 
-    name = fuzzy.FuzzyText(length=50)
-    subject_subtype = factory.SubFactory(SubjectSubTypeFactory)
-    is_active = fuzzy.FuzzyChoice([True, False])
-    updated_at = datetime.now(tz=timezone.utc)
+    subject = factory.SubFactory(SubjectFactory)
+    source = factory.SubFactory(SourceFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class EventCategoryFactory(factory.django.DjangoModelFactory):

@@ -1,9 +1,3 @@
-from django.http import HttpResponse
+from buoy.views.gears import GearsView, GearView
 
-
-def GearView(request, id):
-    return HttpResponse("GearView: " + str(id))
-
-
-def GearsView(request):
-    return HttpResponse("GearsView")
+__all__ = ("GearsView", "GearView")
