@@ -49,4 +49,4 @@ def generate_devices(quantity: int, starting_point: Point = TEST_LOCATION):
     return {
       "devices": [generate_device(original_point) for _ in range(quantity)],
       "display_id": fuzzy.FuzzyText(length=12).evaluate(1, 1, None).__str__(),
-
+    }
