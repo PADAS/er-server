@@ -28,6 +28,7 @@ locals {
     "sango"                  = "svc"
     "wpz-wildcarns"          = "ccmp"
     "aclap"                  = "pila-pacifico"
+    "sfguwa-hwc"             = "uwa-hwc"
   }
 
   subdomain_name = lookup(local.alt_subdomains, terraform.workspace, kubernetes_namespace.this.metadata.0.name)
