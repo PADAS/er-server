@@ -7,4 +7,4 @@ help: ## This help menu.
 # DOCKER TASKS
 start: ## Start storage containers (redis and postgres)
 	@echo " ============= Running containers ============= "
-	docker-compose -f ./.devcontainer/docker-compose.yml up -d
+	docker compose -f ./.devcontainer/docker-compose.yml up -d
