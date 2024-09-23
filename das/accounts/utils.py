@@ -1,4 +1,3 @@
-import hashlib
 import logging
 import re
 from collections import defaultdict
@@ -25,7 +24,7 @@ from utils.categories import (
     GEOGRAPHIC_DISTANCE_SUFIX,
     get_categories_and_geo_categories,
 )
-from utils.etags import calculate_etag_string_for_header
+from utils.etags import generate_etag_string
 from utils.tenant import Tenant, lengthen_tenant_id, shorten_tenant_id
 
 logger = logging.getLogger(__name__)
@@ -204,11 +203,8 @@ def get_user_etag(request, *args, **kwargs) -> str:
     if param != "me":
         user = get_object_or_404(User, pk=param)
 
-    etag_string = generate_user_string_etag(user=user)
-    string_to_hash = calculate_etag_string_for_header(
-        original_string=etag_string, request=request, header_name="user-profile"
-    )
-    return hashlib.md5(string_to_hash.encode("utf-8")).hexdigest()
+    user_string = generate_user_string(user=user)
+    return generate_etag_string(original_string=user_string, request=request)
 
 
 def generate_user_field_data(user: User) -> Iterator[str]:
@@ -231,13 +227,13 @@ def generate_user_field_data(user: User) -> Iterator[str]:
         yield str(user.linked_subject.updated_at)
 
 
-def generate_user_string_etag(user: User, include_profiles: Optional[bool] = True) -> str:
+def generate_user_string(user: User, include_profiles: Optional[bool] = True) -> str:
     base_string = ":".join(generate_user_field_data(user))
 
     if include_profiles:
         profiles = user.act_as_profiles.all()
         for profile in profiles:
-            base_string += ":" + generate_user_string_etag(user=profile, include_profiles=False)
+            base_string += ":" + generate_user_string(user=profile, include_profiles=False)
     permission_sets = user.permission_sets.all()
     if permission_sets.exists():
         base_string += ":" + ":".join((str(permission_set.id) for permission_set in permission_sets))
