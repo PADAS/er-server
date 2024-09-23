@@ -2,7 +2,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Tuple
 
 import dateutil.parser
 import pytz
@@ -427,7 +427,7 @@ def is_observation_stationary_subject(observation):
     return False
 
 
-def check_valid_date_string(date_str: Optional[str], parameter_name: str) -> (bool, Optional[datetime]):
+def check_valid_date_string(date_str: Optional[str], parameter_name: str) -> Tuple[bool, Optional[datetime]]:
     if not date_str:
         return False, None
 

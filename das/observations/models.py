@@ -429,19 +429,14 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
     def annotate_transforms(self):
         return self.annotate(source_transforms=F("source__provider__transforms"))
 
-
-class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(ObservationQuerySet)):
-    use_in_migrations = True
-
     def get_subjectsource_observations(
         self, subjectsource, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
     ):
-        queryset = Observation.objects.filter(
+        queryset = self.filter(
             source__subjectsource=subjectsource, source__subjectsource__assigned_range__contains=F("recorded_at")
         )
 
         queryset = queryset.by_since_until(since, until)
-
         queryset = queryset.by_exclusion_flags(filter_flag)
 
         if order_by:
@@ -458,10 +453,8 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
     def get_source_observations(
         self, source, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
     ):
-        queryset = Observation.objects.filter(source=source)
-
+        queryset = self.filter(source=source)
         queryset = queryset.by_since_until(since, until)
-
         queryset = queryset.by_exclusion_flags(filter_flag)
 
         if order_by:
@@ -478,7 +471,7 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
     def get_subject_observations(
         self, subject, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
     ):
-        queryset = Observation.objects.filter(
+        queryset = self.filter(
             source__subjectsource__subject=subject, source__subjectsource__assigned_range__contains=F("recorded_at")
         )
 
@@ -506,6 +499,10 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
         return self.get_subject_observations(
             subject, since=since, until=until, limit=limit, values=values, filter_flag=filter_flag
         )
+
+
+class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(ObservationQuerySet)):
+    use_in_migrations = True
 
     def set_flag(self, id_list, flags):
         """Hide the nuances of manipulating a bitmap associated with an observation."""
@@ -595,7 +592,7 @@ class Observation(TenantModelMixin, models.Model):
     # point in time of object at lat lon.
     # Note: index is set to false, as we add a compound geospatial index
     # via a migration script
-    recorded_at = models.DateTimeField("recorded at", db_index=False)
+    recorded_at = models.DateTimeField("recorded at", db_index=True)
     created_at = models.DateTimeField("row created at", auto_now_add=True, db_index=True)  # date/time this row created
     source = TenantForeignKey("Source", on_delete=models.CASCADE)
     additional = models.JSONField(null=True, blank=True)
