@@ -9,13 +9,12 @@ from drf_extra_fields.fields import DateTimeRangeField
 from drf_extra_fields.geo_fields import PointField
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 
-import rest_framework
-import rest_framework.serializers
 from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
 from django.contrib.postgres.fields import jsonb
 from django.db.models import Q
 from django.urls import reverse
+from rest_framework import serializers
 from rest_framework.fields import DateTimeField
 
 import utils.json
@@ -51,13 +50,13 @@ from .observations import FlattenObservationSerializer
 logger = logging.getLogger(__name__)
 
 
-class RegionSerializer(rest_framework.serializers.ModelSerializer):
+class RegionSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Region
         fields = ("slug", "region", "country")
 
 
-class RecursiveSerializer(rest_framework.serializers.Serializer):
+class RecursiveSerializer(serializers.Serializer):
     def to_representation(self, instance):
         serializer = self.parent.parent.__class__(instance, context=self.context)
         return serializer.data
@@ -77,7 +76,7 @@ def create_sg_serializer(name, model, serializer, include_subgroups=True):
     return type(name, (GroupSerializer,), gs_fields)
 
 
-class GroupSerializer(rest_framework.serializers.ModelSerializer):
+class GroupSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         user = getattr(self.context.get("request", None), "user", None)
         data_serializer = self.serializer(context=self.context)
@@ -112,7 +111,7 @@ def get_subject_display(subject):
     return subject.name
 
 
-class SubjectTypeRelatedField(rest_framework.serializers.RelatedField):
+class SubjectTypeRelatedField(serializers.RelatedField):
     def get_queryset(self):
         return models.SubjectType.objects.all()
 
@@ -125,10 +124,10 @@ class SubjectTypeRelatedField(rest_framework.serializers.RelatedField):
             try:
                 return models.SubjectType.objects.get(value=data)
             except models.SubjectType.DoesNotExist:
-                raise rest_framework.serializers.ValidationError(f"subject_type : {data} does not exist")
+                raise serializers.ValidationError(f"subject_type : {data} does not exist")
 
 
-class SubjectSubTypeRelatedField(rest_framework.serializers.RelatedField):
+class SubjectSubTypeRelatedField(serializers.RelatedField):
     def get_queryset(self):
         return models.SubjectSubType.objects.all()
 
@@ -141,10 +140,10 @@ class SubjectSubTypeRelatedField(rest_framework.serializers.RelatedField):
             try:
                 return models.SubjectSubType.objects.get(value=data)
             except models.SubjectSubType.DoesNotExist:
-                raise rest_framework.serializers.ValidationError(f"subject_subtype : {data} does not exist")
+                raise serializers.ValidationError(f"subject_subtype : {data} does not exist")
 
 
-class CommonNameRelatedField(rest_framework.serializers.RelatedField):
+class CommonNameRelatedField(serializers.RelatedField):
     def get_queryset(self):
         return models.CommonName.objects.all()
 
@@ -157,7 +156,7 @@ class CommonNameRelatedField(rest_framework.serializers.RelatedField):
             try:
                 return models.CommonName.objects.get(value=data)
             except models.CommonName.DoesNotExist:
-                raise rest_framework.serializers.ValidationError(f"common_name : {data} does not exist")
+                raise serializers.ValidationError(f"common_name : {data} does not exist")
 
 
 class TimezoneOverflowAwareDateTimeField(DateTimeField):
@@ -169,7 +168,7 @@ class TimezoneOverflowAwareDateTimeField(DateTimeField):
             return super().enforce_timezone(value)
 
 
-class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
+class SubjectSourceSerializer(serializers.ModelSerializer):
     assigned_range = DateTimeRangeField(child=TimezoneOverflowAwareDateTimeField())
     location = PointField(required=False)
 
@@ -192,26 +191,26 @@ class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
         return representation
 
 
-class LinkedUserserializer(rest_framework.serializers.ModelSerializer):
+class LinkedUserserializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
         fields = ("id",)
 
 
-class SubjectSerializer(PartialUpdateMixin, rest_framework.serializers.Serializer):
+class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
     content_type = ContentTypeField(read_only=True, required=False)
 
-    id = rest_framework.serializers.UUIDField(
+    id = serializers.UUIDField(
         required=False,
     )
-    name = rest_framework.serializers.CharField(max_length=100)
-    subject_type = rest_framework.serializers.CharField(max_length=100, required=False, read_only=True)
+    name = serializers.CharField(max_length=100)
+    subject_type = serializers.CharField(max_length=100, required=False, read_only=True)
     subject_subtype = SubjectSubTypeRelatedField()
     common_name = CommonNameRelatedField(required=False)
-    additional = rest_framework.serializers.JSONField(label="Additional data", required=False)
-    created_at = rest_framework.serializers.DateTimeField(read_only=True)
-    updated_at = rest_framework.serializers.DateTimeField(read_only=True)
-    is_active = rest_framework.serializers.BooleanField(required=False)
+    additional = serializers.JSONField(label="Additional data", required=False)
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+    is_active = serializers.BooleanField(required=False)
     user = LinkedUserserializer(source="linked_user", read_only=True)
 
     additional_fields = ("region", "country", "sex", "species", "additional")
@@ -241,7 +240,7 @@ class SubjectSerializer(PartialUpdateMixin, rest_framework.serializers.Serialize
             try:
                 return models.Subject.objects.get(id=data["id"])
             except models.Subject.DoesNotExist:
-                raise rest_framework.serializers.ValidationError(f"Subject: {data} does not exist.")
+                raise serializers.ValidationError(f"Subject: {data} does not exist.")
         return super().to_internal_value(data)
 
     def to_representation(self, instance):
@@ -450,7 +449,7 @@ class SubjectSerializer(PartialUpdateMixin, rest_framework.serializers.Serialize
         return ""
 
 
-class SubjectRelatedField(rest_framework.serializers.RelatedField):
+class SubjectRelatedField(serializers.RelatedField):
     def to_representation(self, value):
         rep = SubjectSerializer().to_representation(value)
         return rep
@@ -485,13 +484,7 @@ class SubjectGeoJsonSerializer(SubjectSerializer):
         child_serializer = cls(*args, **kwargs)
         list_kwargs = {"child": child_serializer}
         list_kwargs.update(
-            dict(
-                [
-                    (key, value)
-                    for key, value in kwargs.items()
-                    if key in rest_framework.serializers.LIST_SERIALIZER_KWARGS
-                ]
-            )
+            dict([(key, value) for key, value in kwargs.items() if key in serializers.LIST_SERIALIZER_KWARGS])
         )
         meta = getattr(cls, "Meta", None)
         list_serializer_class = getattr(meta, "list_serializer_class", GeoFeatureModelListSerializer)
@@ -552,7 +545,7 @@ def get_observation_location(subject, mou_date):
     return observation
 
 
-class SourceProviderRelatedField(rest_framework.serializers.RelatedField):
+class SourceProviderRelatedField(serializers.RelatedField):
     def get_queryset(self):
         return models.SourceProvider.objects.all()
 
@@ -564,7 +557,7 @@ class SourceProviderRelatedField(rest_framework.serializers.RelatedField):
             try:
                 return models.SourceProvider.objects.get(provider_key=data)
             except models.SourceProvider.DoesNotExist:
-                raise rest_framework.serializers.ValidationError({"provider_key": "Value '%s' does not exist." % data})
+                raise serializers.ValidationError({"provider_key": "Value '%s' does not exist." % data})
         return None
 
     @property
@@ -572,9 +565,9 @@ class SourceProviderRelatedField(rest_framework.serializers.RelatedField):
         return OrderedDict(((row.provider_key, row.display_name) for row in self.get_queryset()))
 
 
-class SourceSerializer(PartialUpdateMixin, rest_framework.serializers.Serializer):
-    id = rest_framework.serializers.UUIDField(read_only=True)
-    source_type = rest_framework.serializers.ChoiceField(
+class SourceSerializer(PartialUpdateMixin, serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    source_type = serializers.ChoiceField(
         allow_null=True,
         choices=(
             ("tracking-device", "Tracking Device"),
@@ -586,18 +579,16 @@ class SourceSerializer(PartialUpdateMixin, rest_framework.serializers.Serializer
         label="Type of data expected",
         required=False,
     )
-    manufacturer_id = rest_framework.serializers.CharField(
+    manufacturer_id = serializers.CharField(
         allow_null=True, label="Device manufacturer id", max_length=100, required=False
     )
-    model_name = rest_framework.serializers.CharField(
-        allow_null=True, label="Device model name", max_length=100, required=False
-    )
-    additional = rest_framework.serializers.JSONField(label="Additional data")
+    model_name = serializers.CharField(allow_null=True, label="Device model name", max_length=100, required=False)
+    additional = serializers.JSONField(label="Additional data")
     provider = SourceProviderRelatedField()
-    subject = rest_framework.serializers.JSONField(label="Subject data", required=False)
+    subject = serializers.JSONField(label="Subject data", required=False)
     content_type = ContentTypeField(read_only=True)
-    created_at = rest_framework.serializers.DateTimeField(read_only=True)
-    updated_at = rest_framework.serializers.DateTimeField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
 
     allowed_partial_update_fields = ("source_type", "manufacturer_id", "model_name", "additional", "provider")
 
@@ -639,14 +630,14 @@ class SourceSerializer(PartialUpdateMixin, rest_framework.serializers.Serializer
         return source
 
 
-class SourceProviderSerializer(rest_framework.serializers.Serializer):
-    id = rest_framework.serializers.UUIDField(read_only=True)
-    provider_key = rest_framework.serializers.CharField(label="Source Provider Value", max_length=100, required=True)
-    display_name = rest_framework.serializers.CharField(
+class SourceProviderSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    provider_key = serializers.CharField(label="Source Provider Value", max_length=100, required=True)
+    display_name = serializers.CharField(
         label="Display Name",
         max_length=100,
     )
-    additional = rest_framework.serializers.JSONField(
+    additional = serializers.JSONField(
         label="Additional Data",
     )
 
@@ -666,7 +657,7 @@ class SourceProviderSerializer(rest_framework.serializers.Serializer):
         return instance
 
 
-class SubjectTrackSerializer(rest_framework.serializers.BaseSerializer):
+class SubjectTrackSerializer(serializers.BaseSerializer):
     def to_representation(self, subject):
         image_url = subject.image_url
         user = self.context["request"].user
@@ -696,7 +687,7 @@ class SubjectTrackSerializer(rest_framework.serializers.BaseSerializer):
         return rep
 
 
-class SubjectStatusSerializer(rest_framework.serializers.BaseSerializer):
+class SubjectStatusSerializer(serializers.BaseSerializer):
     def to_representation(self, subject_status):
         coordinates = Point(x=subject_status.location.x, y=subject_status.location.y, srid=4326)
 
@@ -707,7 +698,7 @@ class SubjectStatusSerializer(rest_framework.serializers.BaseSerializer):
         return feature
 
 
-class TrackSerializer(rest_framework.serializers.Serializer):
+class TrackSerializer(serializers.Serializer):
     def to_representation(self, instance):
         # TODO: Review with Shawn, wrt to recent changes in SubjectTracksView.
         image_url = (self.context.get("subject") or instance).image_url
@@ -721,7 +712,7 @@ class TrackSerializer(rest_framework.serializers.Serializer):
         return rep
 
 
-class SourceRelatedField(rest_framework.serializers.RelatedField):
+class SourceRelatedField(serializers.RelatedField):
     def get_queryset(self):
         return models.Source.objects.select_related("provider").all()
 
@@ -744,8 +735,8 @@ class SourceRelatedField(rest_framework.serializers.RelatedField):
                 return None
 
 
-class ObservationSerializer(rest_framework.serializers.ModelSerializer):
-    source = rest_framework.serializers.UUIDField(source="source_id")
+class ObservationSerializer(serializers.ModelSerializer):
+    source = serializers.UUIDField(source="source_id")
     location = PointField(required=False)
 
     class Meta:
@@ -859,8 +850,8 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
     return feature
 
 
-class GPXTrackFileUploadSerializer(rest_framework.serializers.Serializer):
-    gpx_file = rest_framework.serializers.FileField()
+class GPXTrackFileUploadSerializer(serializers.Serializer):
+    gpx_file = serializers.FileField()
 
     class Meta:
         fields = ("gpx_file",)
@@ -869,7 +860,7 @@ class GPXTrackFileUploadSerializer(rest_framework.serializers.Serializer):
         file = data.get("gpx_file")
         file_name = file.name
         if not file_name.lower().endswith(".gpx"):
-            raise rest_framework.serializers.ValidationError({"data": "Only .gpx files can be imported."})
+            raise serializers.ValidationError({"data": "Only .gpx files can be imported."})
         return data
 
 
@@ -887,7 +878,7 @@ class SenderReceiverRelatedField(GenericRelatedField):
 class MessageSerializer(BaseSerializer, TimestampMixin):
     from core.serializers import PointValidator
 
-    id = rest_framework.serializers.UUIDField(read_only=True)
+    id = serializers.UUIDField(read_only=True)
     sender = SenderReceiverRelatedField(required=False, allow_null=True)
     receiver = SenderReceiverRelatedField(required=False, allow_null=True)
 
@@ -897,8 +888,8 @@ class MessageSerializer(BaseSerializer, TimestampMixin):
     status = choicefield_serializer(models.MESSAGE_STATE_CHOICES, default=models.PENDING)
     device_location = GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
     message_time = DateTimeField(required=False, allow_null=True)
-    read = rest_framework.serializers.BooleanField(required=False)
-    additional = rest_framework.serializers.JSONField(default=dict, allow_null=True)
+    read = serializers.BooleanField(required=False)
+    additional = serializers.JSONField(default=dict, allow_null=True)
 
     class Meta:
         model = models.Message
@@ -930,15 +921,15 @@ class MessageSerializer(BaseSerializer, TimestampMixin):
 
 
 class AnnouncementSerializer(BaseSerializer):
-    id = rest_framework.serializers.UUIDField(read_only=True)
-    title = rest_framework.serializers.CharField(allow_null=True, required=False, max_length=255)
+    id = serializers.UUIDField(read_only=True)
+    title = serializers.CharField(allow_null=True, required=False, max_length=255)
     description = text_field(
         allow_null=True,
         allow_blank=True,
         required=False,
     )
-    additional = rest_framework.serializers.JSONField(default=dict, allow_null=True)
-    link = rest_framework.serializers.URLField(allow_null=True, required=False)
+    additional = serializers.JSONField(default=dict, allow_null=True)
+    link = serializers.URLField(allow_null=True, required=False)
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
@@ -948,12 +939,12 @@ class AnnouncementSerializer(BaseSerializer):
         return rep
 
 
-class ReadAnnouncementSerializer(rest_framework.serializers.Serializer):
-    news_ids = rest_framework.serializers.ListField(child=rest_framework.serializers.UUIDField(), required=True)
+class ReadAnnouncementSerializer(serializers.Serializer):
+    news_ids = serializers.ListField(child=serializers.UUIDField(), required=True)
 
 
-class TrackLimitSerializer(rest_framework.serializers.Serializer):
-    limit = rest_framework.serializers.IntegerField(default=None, required=False)
+class TrackLimitSerializer(serializers.Serializer):
+    limit = serializers.IntegerField(default=None, required=False)
 
 
 __all__ = [
