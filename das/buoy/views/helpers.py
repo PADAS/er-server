@@ -30,6 +30,23 @@ def filter_by_updated_since(queryset, updated_since):
 
     return queryset.filter(updated_since_filter)
 
+def check_valid_lat_lon(latitude: float, longitude: float):
+    """
+    Check valid latitude and longitude.
+    Check if the latitude and longitude are valid.
+    Latitude must be between -90 and 90.
+    Longitude must be between -180 and 180.
+
+    :param latitude:
+    :param longitude:
+    :return: bool
+    """
+    if not -90 <= latitude <= 90:
+        return False
+    if not -180 <= longitude <= 180:
+        return False
+    return True
+
 def check_valid_state_string(state_str):
     """
     Check valid state string.
