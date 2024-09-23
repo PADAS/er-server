@@ -217,7 +217,6 @@ class PartitionTableTool(PartitionTableToolProtocol):
 
             self._execute_sql_command(command="COMMIT;")
 
-
         except Exception:
             self._execute_sql_command(command="ROLLBACK;")
             self.logger.exception("Failed to migrate batch data")
@@ -266,6 +265,14 @@ class PartitionTableTool(PartitionTableToolProtocol):
         for trigger in self.table_data.triggers if self.table_data.triggers else []:
             self._drop_trigger(table_name=f"{self.original_table_name}_default", trigger_data=trigger)
             self._create_trigger(table_name=self.original_table_name, trigger_data=trigger)
+
+        self._create_index(
+            table_name=self.original_table_name,
+            index_data=IndexData(name="unique", columns=self.table_data.primary_key_columns),
+            is_unique=True,
+        )
+        for unique_constraint in self.table_data.unique_constraints if self.table_data.unique_constraints else []:
+            self._create_unique_constraint(table_name=self.original_table_name, constraint_data=unique_constraint)
         self.logger.warning("Triggers restored")
         self._set_current_step(step=5)
 
@@ -437,7 +444,7 @@ class PartitionTableTool(PartitionTableToolProtocol):
         self._execute_sql_command(command=sql)
         self.logger.warning(f"Trigger: {trigger_data.name} created successfully.")
 
-    def _drop_trigger(self, table_name:str, trigger_data: TriggerData) -> None:
+    def _drop_trigger(self, table_name: str, trigger_data: TriggerData) -> None:
         sql = f"DROP TRIGGER IF EXISTS {trigger_data.name} on {table_name};"
         self._execute_sql_command(command=sql)
         self.logger.warning(f"Trigger: {trigger_data.name} deleted on {table_name}.")
