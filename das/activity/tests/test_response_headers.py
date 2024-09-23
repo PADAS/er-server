@@ -20,6 +20,7 @@ from activity.views.response_headers import (
     concatenate_fields_from_model,
     get_most_recent_update_datetime_by_queryset,
 )
+from utils.etags import get_hash_from_queryset
 
 
 @pytest.mark.django_db
@@ -71,8 +72,7 @@ class TestResponseHeaderBuilders:
         queryset = EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
         queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
 
-        string_to_be_hashed = str(list(queryset))
-        expected_etag = hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
+        expected_etag = get_hash_from_queryset(request=empty_request, queryset=queryset)
 
         etag = build_event_types_etag_header(empty_request)
 
@@ -95,8 +95,7 @@ class TestResponseHeaderBuilders:
         queryset = EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
         queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
 
-        string_to_be_hashed = str(list(queryset))
-        expected_etag = hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
+        expected_etag = get_hash_from_queryset(request=empty_request, queryset=queryset)
 
         etag = build_event_types_etag_header(empty_request)
 
@@ -115,8 +114,7 @@ class TestResponseHeaderBuilders:
         queryset = EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
         queryset = queryset.filter(id=event_type.id).values(*EVENT_TYPE_FIELDS_FOR_ETAG)
 
-        string_to_be_hashed = str(list(queryset))
-        expected_etag = hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
+        expected_etag = get_hash_from_queryset(request=empty_request, queryset=queryset)
 
         etag = build_event_type_etag_header(empty_request, eventtype_id=str(event_type.id))
 
@@ -140,8 +138,7 @@ class TestResponseHeaderBuilders:
         queryset = EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
         queryset = queryset.filter(id=event_type.id).values(*EVENT_TYPE_FIELDS_FOR_ETAG)
 
-        string_to_be_hashed = str(list(queryset))
-        expected_etag = hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
+        expected_etag = get_hash_from_queryset(request=empty_request, queryset=queryset)
 
         etag = build_event_type_etag_header(empty_request, eventtype_id=str(event_type.id))
 

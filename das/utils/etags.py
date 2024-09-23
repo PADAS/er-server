@@ -1,173 +1,69 @@
 import hashlib
-from typing import Any, Dict, List, Optional
-from uuid import UUID
+from typing import Dict, Union
 
 from django.contrib.gis.db.models import QuerySet
+from django.core.exceptions import ValidationError
+from django.core.handlers.wsgi import WSGIRequest
 from rest_framework.request import Request
 
+HEADERS_LIST_USED = ["user-profile"]
 
-def calculate_etag_string_for_header(original_string: str, request: Request, header_name: str) -> str:
+
+def generate_etag_string(original_string: str, request: Union[Request, WSGIRequest]) -> str:
     """
-    Calculate the ETag string for the specified header.
+    Generate an ETag string by hashing the original string with additional salting based on request headers and user ID.
 
     Args:
-        original_string (str): The original string to calculate the ETag for.
-        request (Request): The request object containing the headers.
-        header_name (str): The name of the header to check.
+        original_string (str): The original string to be hashed.
+        request (Union[Request, WSGIRequest]): The request object containing headers and user information.
 
     Returns:
-        str: The ETag string for the specified header.
+        str: The generated ETag string as an MD5 hash.
     """
-    header_property = request.headers.get(header_name, None)
-    new_string = original_string
-    if header_property:
-        new_string += f":{header_property}"
-    return new_string
+    string_to_be_hashed = _salt_string_to_hash(string_to_be_hashed=original_string, request=request)
+    return hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
 
 
-class HashByModelBuilder:
+def get_hash_from_queryset(queryset: QuerySet, request: Union[Request, WSGIRequest]):
     """
-    A class that builds a hash string based on the values of a model and its related models.
+    Generate a hash from a Django QuerySet.
+
+    This function converts the QuerySet to a string, salts it with request headers and user ID,
+    and then generates an MD5 hash from the salted string.
 
     Args:
-        model (Any): The main model for which the hash is being built.
-        field_names (Optional[List[str]]): The names of the fields to include in the hash calculation.
-                                            If not provided, all fields will be included. Defaults to None.
-        pk (Optional[UUID]): The primary key of the main model in case of need a hash for one instance.
-        filter_opts (Optional[Dict[str, Any]]): Optional filter options to apply to the queryset.
+        queryset (QuerySet): The Django QuerySet to be hashed.
+        request (Union[Request, WSGIRequest]): The request object containing headers and user information.
 
-    Attributes:
-        queryset (QuerySet): The queryset representing the main model.
-        values_string (str): A string representation of the values in the queryset.
-        main_model (Any): The main model for which the hash is being built.
-        related_string (str): A string representation of the related models' values.
-
-    Methods:
-        build: Builds and returns the hash string.
-        set_m2m_related_model_string: Sets the related_string attribute based on a ManyToMany relation.
-        set_related_model_string: Sets the related_string attribute based on a ForeignKey or OneToOne relation.
-
-    Private Methods:
-        _process_queryset: Processes the queryset by applying filters and selecting specific fields.
-
+    Returns:
+        str: The generated hash as an MD5 hash.
     """
+    if not queryset._fields:
+        raise ValidationError(message="Invalid QuerySet: The QuerySet is defined without a list of values.")
 
-    def __init__(
-        self,
-        model: Any,
-        field_names: Optional[List[str]] = None,
-        pk: Optional[UUID] = None,
-        filter_opts: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """
-        Initializes a new instance of the HashByModelBuilder class.
+    queryset_string = str(list(queryset))
+    string_to_be_hashed = _salt_string_to_hash(string_to_be_hashed=queryset_string, request=request)
+    return _generate_hash_from_string(string_to_be_hashed=string_to_be_hashed)
 
-        Args:
-            model (Any): The main model for which the hash is being built.
-            field_names (Optional[List[str]]): The names of the fields to include in the hash calculation.
-                                            If not provided, all fields will be included. Defaults to None.
-            pk (Optional[UUID], optional): The primary key of the main model in case of need a hash for one instance.
-                                           Defaults to None.
-            filter_opts (Optional[Dict[str, Any]], optional): Optional filter options to apply to the queryset.
-                                                              Defaults to None.
 
-        """
-        self.main_model = model
-        self.related_string = ""
-        if pk:
-            self.queryset = model.objects.filter(pk=pk)
-        else:
-            self.queryset = model.objects.all()
-        qs = self._process_queryset(queryset=self.queryset, field_names=field_names, filter_opts=filter_opts)
-        self.values_string = str(list(qs))
+def _generate_hash_from_string(string_to_be_hashed: str) -> str:
+    return hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
 
-    @classmethod
-    def build_from_queryset(cls, queryset: QuerySet) -> str:
-        """
-        Builds an etag from a queryset.
 
-        Args:
-            queryset (QuerySet): The queryset to build the etag from.
+def _get_headers(request: Union[Request, WSGIRequest]) -> Dict[str, str]:
+    headers = {}
 
-        Returns:
-            str: The etag value.
+    for header_name in HEADERS_LIST_USED:
+        header_property = request.headers.get(header_name, None)
+        if header_property:
+            headers[header_name] = header_property
+    return headers
 
-        """
-        string_to_be_hashed = str(list(queryset))
-        return hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
 
-    def build(self) -> str:
-        """
-        Builds and returns the hash string.
-
-        Returns:
-            str: The hash string.
-
-        """
-        string_to_be_hashed = self.values_string
-        if self.related_string:
-            string_to_be_hashed += self.related_string
-        return hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
-
-    def set_m2m_related_model_string(
-        self,
-        relation_name: str,
-        field_names: Optional[List[str]] = None,
-        filter_opts: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """
-        Sets the related_string attribute based on a ManyToMany relation.
-
-        Args:
-            relation_name (str): The name of the ManyToMany relation.
-            field_names (Optional[List[str]]): The names of the fields to include in the hash calculation.
-                                            If not provided, all fields will be included. Defaults to None.
-            filter_opts (Optional[Dict[str, Any]], optional): Optional filter options to apply to the related model's
-                                                            queryset. Defaults to None.
-
-        """
-        for obj in self.queryset:
-            related_model = getattr(obj, relation_name)
-
-            if related_model.exists():
-                queryset = self._process_queryset(
-                    queryset=related_model.all(), field_names=field_names, filter_opts=filter_opts
-                )
-                self.related_string += str(list(queryset))
-
-    def set_related_model_string(self, relation_name: str, field_names: Optional[List[str]] = None) -> None:
-        """
-        Sets the related_string attribute based on a ForeignKey or OneToOne relation.
-
-        Args:
-            relation_name (str): The name of the ForeignKey or OneToOne relation.
-            field_names (Optional[List[str]]): The names of the fields to include in the hash calculation.
-                                            If not provided, all fields will be included. Defaults to None.
-
-        """
-        related_model = getattr(self.main_model, relation_name)
-        queryset = self._process_queryset(queryset=related_model.all(), field_names=field_names)
-        self.related_string += str(queryset)
-
-    def _process_queryset(
-        self, queryset: QuerySet, filter_opts: Optional[Dict[str, Any]], field_names: Optional[List[str]] = None
-    ) -> QuerySet:
-        """
-        Processes the queryset by applying filters and selecting specific fields.
-
-        Args:
-            queryset (QuerySet): The queryset to process.
-            field_names (Optional[List[str]]): The names of the fields to include in the hash calculation.
-                                            If not provided, all fields will be included. Defaults to None.
-            filter_opts (Optional[Dict[str, Any]], optional): Optional filter options to apply to the queryset.
-                                                              Defaults to None.
-
-        Returns:
-            QuerySet: The processed queryset.
-
-        """
-        if filter_opts:
-            queryset = queryset.filter(**filter_opts)
-
-        queryset = queryset.values() if not field_names else queryset.values(*field_names)
-        return queryset
+def _salt_string_to_hash(string_to_be_hashed: str, request: Union[Request, WSGIRequest]) -> str:
+    headers = _get_headers(request)
+    if headers:
+        for header in headers:
+            string_to_be_hashed += f":{header}:{headers[header]}"
+    string_to_be_hashed += f":{request.user.id}"
+    return string_to_be_hashed
