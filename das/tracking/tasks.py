@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 EXPIRE_SUBTASKS = 300
 
 
-@celery.app.task(base=OverAllTenantTask, bind=True)
+@celery.app.task(base=OverAllTenantTask, bind=True, once={"graceful": True})
 def run_plugins(self, expire_subtasks=EXPIRE_SUBTASKS):
     for plugin_class in runnable_plugins:
         if issubclass(plugin_class, (TrackingPlugin,)):
@@ -73,7 +73,7 @@ def execute_run_plugin_class(*args, **kwargs):
     run_plugin_class(*args, **kwargs)
 
 
-@celery.app.task(base=OverAllTenantTask)
+@celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def schedule_firms_plugins():
     """
     This task is intended to run as a scheduled job.

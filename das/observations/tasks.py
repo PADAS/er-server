@@ -51,7 +51,7 @@ def maintain_subjectstatus_for_subject(subject_id, notify=False, **kwargs):
         pubsub.publish({"subject_id": str(subject_id)}, "das.subjectstatus.update")
 
 
-@celery.app.task(base=OverAllTenantTask)
+@celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def maintain_observation_data():
     for ssprovider in SourceProvider.objects.annotate(unique_id=F("id")):
         days_data_retain = ssprovider.additional.get("days_data_retain")
@@ -251,7 +251,7 @@ def process_gpxdata_api(self, filename, source_id, **kwargs):
         raise ValidationError(message)
 
 
-@celery.app.task(base=OverAllTenantTask)
+@celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def refresh_patrols_view():
     # FIXME By the time we consolidate all tenants in one DB we require rework on the DB view that refresh_view hit.
     patrols_view.refresh_view()
