@@ -21,10 +21,11 @@ from choices.models import Choice
 from das_server.views import CustomSchema
 from utils import add_base_url
 from utils.drf import StandardResultsSetPagination
-from utils.etags import HashByModelBuilder
+from utils.etags import get_hash_from_queryset
 from utils.json import loads
 
 from .helpers import calculate_event_schema_etag
+from .response_headers import SUBJECT_FIELDS
 
 
 class PatrolSchema(CustomSchema):
@@ -108,8 +109,7 @@ class EventsViewSchema(CustomSchema):
 
 def etag_tracked_by_schema_hash(request, *args, **kwargs):
     subjects_available = PatrolSegmentManager.get_subjects(user=request.user)
-
-    return HashByModelBuilder.build_from_queryset(subjects_available.values())
+    return get_hash_from_queryset(queryset=subjects_available.values(*SUBJECT_FIELDS), request=request)
 
 
 class TrackedBySchema(ListCreateAPIView):

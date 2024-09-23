@@ -9,7 +9,7 @@ import utils.models
 from accounts.models import PermissionSet, User
 from activity.alerts import create_alerts_permissionset
 from core.utils import DASTenantManagement
-from utils.tenant import set_tenant
+from utils.tenant.managers import set_tenant
 
 
 def create_new_permission_sets(apps, _):  # comes from das/activity/migrations/0053_migrate_existing_user_permissions.py

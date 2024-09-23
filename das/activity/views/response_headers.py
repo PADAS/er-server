@@ -6,11 +6,12 @@ from typing import Any, Callable, Iterable, Optional
 
 from django.contrib.auth.models import User
 from django.contrib.gis.db.models import Model
+from django.db.models import QuerySet
 from django.http import QueryDict
 
 from activity.models import EventType, PatrolType
 from activity.views.events.utils import EventTypeQuerysetMixin
-from utils.etags import HashByModelBuilder
+from utils.etags import get_hash_from_queryset
 
 PATROL_TYPE_FIELDS = (
     "value",
@@ -36,14 +37,26 @@ EVENT_TYPE_FIELDS = (
     "schema",
     "value",
 )
-EVENT_TYPE_CATEGORIES_FIELDS = (
-    "category__display",
-    "category__value",
-    "category__ordernum",
-    "category__is_active",
-    "category__flag",
-    "category__updated_at",
+SUBJECT_FIELDS = (
+    "id",
+    "name",
+    "owner",
+    "linked_user",
+    "additional",
+    "is_active",
+    "common_name",
+    "subject_subtype",
+    "das_tenant",
 )
+EVENT_CATEGORY_FIELDS = (
+    "display",
+    "value",
+    "ordernum",
+    "is_active",
+    "flag",
+    "updated_at",
+)
+EVENT_TYPE_CATEGORIES_FIELDS = tuple(f"category__{field}" for field in EVENT_CATEGORY_FIELDS)
 EVENT_TYPE_FIELDS_FOR_ETAG = list(EVENT_TYPE_FIELDS + EVENT_TYPE_CATEGORIES_FIELDS)
 
 
@@ -82,16 +95,16 @@ def build_event_types_etag_header(request, *args, **kwargs) -> str:
     queryset_builder = EventTypeQueryset(request.user, request.GET)
     queryset = queryset_builder.get_queryset()
     queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
-    return HashByModelBuilder.build_from_queryset(queryset=queryset)
+    return get_hash_from_queryset(queryset=queryset, request=request)
 
 
-def build_event_type_etag_header(*args, **kwargs) -> str:
+def build_event_type_etag_header(request, *args, **kwargs) -> str:
     queryset = EventType.objects.filter(id=kwargs["eventtype_id"])
     queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
-    return HashByModelBuilder.build_from_queryset(queryset=queryset)
+    return get_hash_from_queryset(queryset=queryset, request=request)
 
 
-def get_most_recent_update_datetime_by_queryset(queryset: object) -> Optional[datetime]:
+def get_most_recent_update_datetime_by_queryset(queryset: QuerySet) -> Optional[datetime]:
     if not queryset.exists():
         return None
     return queryset.order_by("-updated_at").last().updated_at
@@ -103,7 +116,7 @@ def concatenate_fields_from_model(model_fields: Iterable[str], model: Model) -> 
     return ":".join(field_values)
 
 
-def build_etag_header(entry_to_string: Callable, queryset: object, salt: str = None) -> Optional[str]:
+def build_etag_header(entry_to_string: Callable, queryset: QuerySet, salt: str = None) -> Optional[str]:
     if not queryset.exists():
         return hashlib.md5(datetime.min.isoformat().encode("utf-8")).hexdigest()
 

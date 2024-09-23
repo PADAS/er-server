@@ -5,6 +5,7 @@ from collections import namedtuple
 from functools import partial
 from uuid import UUID
 
+from celery_once.tasks import QueueOnce
 from django_multitenant.utils import get_current_tenant
 
 from django.db import close_old_connections
@@ -61,8 +62,11 @@ def get_username_sids_map():
                 user_sids_map.setdefault(username, set()).add(sid)
                 logger.debug("Added session to user_sids_map", extra={"sid": sid, "session_data": session_data})
             else:
-                logger.debug("Discard session data for sid=%s. Not associated to the current tenant domain: %s",
-                             sid, current_tenant.domain)
+                logger.debug(
+                    "Discard session data for sid=%s. Not associated to the current tenant domain: %s",
+                    sid,
+                    current_tenant.domain,
+                )
         except (UnicodeDecodeError, KeyError):
             logger.warning("Failed to parse session_data=%s", session_data)
 
@@ -210,26 +214,24 @@ def get_filtered_patrols(patrol_filter, queryset):
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
 def _broadcast_service_status(service_status_data=None, **kwargs):
     service_status_data = service_status_data or servicesutils.get_source_provider_statuses()
+    if not service_status_data:
+        return
 
     try:
-        all_connections = client.get_all_connections_list()
+        for username, sids in get_username_sids_map().items():
+            for sid in sids:
+                emit_data = {"type": "service_status", "sid": sid, "data": {"services": service_status_data}}
 
-        logger.info({"rt.conn.count": len(all_connections)})
-        for sid, session_data in all_connections.items():
-            sid = sid.decode("utf8")
-
-            emit_data = {"type": "service_status", "sid": sid, "data": {"services": service_status_data}}
-
-            logger.info("Emitting %s to sid %s", emit_data, sid)
-            payload = json.dumps(emit_data, default=dumps_helper)
-            pubsub.publish(payload, routing_key="das.realtime.emit")
+                logger.debug("Emitting %s to sid %s", emit_data, sid)
+                payload = json.dumps(emit_data, default=dumps_helper)
+                pubsub.publish(payload, routing_key="das.realtime.emit")
     except:
         logger.exception("Error emitting service status information.")
     finally:
         close_old_connections()
 
 
-@celery.app.task(base=OverAllTenantTask)
+@celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def broadcast_service_status():
     _broadcast_service_status.apply_async()
 
@@ -361,26 +363,33 @@ def handle_delete_event(event_id, **kwargs):
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
 def handle_new_source_observation(source_id, **kwargs):
 
-    logger.debug('Handling new observation for source_id=%s', source_id)
+    logger.debug("Handling new observation for source_id=%s", source_id)
 
     # Typically this will be only one subject.  But it could be more.
     for subject in Subject.objects.filter(subjectsource__source__id=source_id, is_active=True):
         logger.info(
-            "Handling new observation for source_id=%s.", source_id,
-            extra={"source_id": source_id, "subject_id": str(subject.id), "rt.event": "new_subject_obs"}
+            "Handling new observation for source_id=%s.",
+            source_id,
+            extra={"source_id": source_id, "subject_id": str(subject.id), "rt.event": "new_subject_obs"},
         )
         _observation_handler(str(subject.id))
+
 
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
 def handle_new_subject_observation(subject_id, **kwargs):
 
     if Subject.objects.filter(subject_id=subject_id, is_active=True).exists():
         logger.info(
-            "Handling new observation for subject_id=%s.", subject_id, extra={"subject_id": subject_id, "rt.event": "new_subject_obs"}
+            "Handling new observation for subject_id=%s.",
+            subject_id,
+            extra={"subject_id": subject_id, "rt.event": "new_subject_obs"},
         )
         _observation_handler(subject_id)
     else:
-        logger.info('Handling new observation for subject_id=%s, but it is inactive or does not exist.', extra={"subject_id": subject_id})
+        logger.info(
+            "Handling new observation for subject_id=%s, but it is inactive or does not exist.",
+            extra={"subject_id": subject_id},
+        )
 
 
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
@@ -580,10 +589,11 @@ def handle_emit_data(event_id, **kwargs):
     logger.info("event mailer event_id: %s", event_id)
 
 
-@celery.app.task(base=OverAllTenantTask)
+@celery.app.task(base=QueueOnce, once={"graceful": True})
 def check_redis_queues():
     """
     Periodic check of redis connections and queue sizes, ship them to statsd
+    We only do this for the server, not for each tenant.
     """
     logger.debug("Checking redis connectivity")
     conns = client.get_all_connections()

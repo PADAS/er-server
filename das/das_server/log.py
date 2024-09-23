@@ -29,8 +29,18 @@ DEFAULT_LOGGING = {
             "class": "utils.log.CloudLogsJsonFormatter",
         },
     },
+    "filters": {
+        "tenant_filter": {
+            "()": "utils.tenant.log.TenantFilter",
+        }
+    },
     "handlers": {
-        "console": {"class": "logging.StreamHandler", "stream": sys.stdout, "formatter": "json"},
+        "console": {
+            "class": "logging.StreamHandler",
+            "stream": sys.stdout,
+            "formatter": "json",
+            "filters": ["tenant_filter"],
+        },
     },
     "loggers": {
         "django": {

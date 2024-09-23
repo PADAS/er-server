@@ -18,7 +18,6 @@ from accounts.models import PermissionSet, User
 from client_http import HTTPClient
 from conftest import TENANT_RESPONSE
 from core.tests import API_BASE, BaseAPITest
-from observations import views
 from observations.models import (
     DEFAULT_ASSIGNED_RANGE,
     Observation,
@@ -28,7 +27,17 @@ from observations.models import (
     SubjectGroup,
     SubjectSource,
 )
-from observations.views import SourceView
+from observations.views import (
+    SourceGroupsView,
+    SourceProvidersViewPartial,
+    SourceView,
+    SubjectGroupsView,
+    SubjectGroupView,
+    SubjectSourcesView,
+    SubjectSubjectSourcesView,
+    SubjectsView,
+    SubjectView,
+)
 from utils.tenant import Tenant
 
 
@@ -162,7 +171,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subject/")
         self.force_authenticate(request, self.delayed_view_user)
 
-        response = views.SubjectView.as_view()(request, id=str(self.ele.id))
+        response = SubjectView.as_view()(request, id=str(self.ele.id))
         self.assertEqual(response.status_code, 200)
         self.assertTrue("last_position_date" in response.data)
         self.assertNotEqual(self.ob_today.recorded_at, response.data["last_position_date"])
@@ -171,7 +180,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subject/{0}/sources".format(self.ele.id))
         self.force_authenticate(request, self.no_view_user)
 
-        response = views.SubjectSourcesView.as_view()(request, id=str(self.ele.id))
+        response = SubjectSourcesView.as_view()(request, id=str(self.ele.id))
         self.assertEqual(response.status_code, 403)
 
     @override_settings(TIME_ZONE="Africa/Nairobi")
@@ -179,7 +188,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subject/{0}/subjectsources".format(self.ele.id))
         self.force_authenticate(request, self.realtime_view_user)
 
-        response = views.SubjectSubjectSourcesView.as_view()(request, id=str(self.ele.id))
+        response = SubjectSubjectSourcesView.as_view()(request, id=str(self.ele.id))
         assert response.status_code == 200
         assert len(response.data)
 
@@ -190,7 +199,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subject/")
         self.force_authenticate(request, self.realtime_view_user)
 
-        response = views.SubjectView.as_view()(request, id=str(self.ele.id))
+        response = SubjectView.as_view()(request, id=str(self.ele.id))
         self.assertEqual(response.status_code, 200)
         self.assertTrue("last_position_date" in response.data)
         self.assertEqual(self.ob_today.recorded_at, response.data["last_position_date"])
@@ -198,7 +207,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
     def test_unauthorised_observation_viewing_of_subject(self):
         request = self.factory.get(API_BASE + "/subject/")
         self.force_authenticate(request, self.no_view_user)
-        response = views.SubjectView.as_view()(request, id=str(self.ele.id))
+        response = SubjectView.as_view()(request, id=str(self.ele.id))
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -206,7 +215,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subject/{0}/sources".format(self.ele.id))
         self.force_authenticate(request, self.delayed_view_user)
 
-        response = views.SubjectSourcesView.as_view()(request, id=str(self.ele.id))
+        response = SubjectSourcesView.as_view()(request, id=str(self.ele.id))
         self.assertEqual(response.status_code, 200)
 
     def test_return_subjects_bbox_no_view(self):
@@ -214,7 +223,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subjects/")
         self.force_authenticate(request, self.no_view_user)
 
-        response = views.SubjectsView.as_view()(request, bbox=bbox)
+        response = SubjectsView.as_view()(request, bbox=bbox)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -225,7 +234,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subjects/?bbox={0}".format(bbox))
         self.force_authenticate(request, self.delayed_view_user)
 
-        response = views.SubjectsView.as_view()(request)
+        response = SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
 
     @patch("utils.tenant.thread._get_local_thread")
@@ -234,14 +243,14 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subjects/")
         self.force_authenticate(request, self.delayed_view_user)
 
-        response = views.SubjectsView.as_view()(request)
+        response = SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
         self.assertFalse([s for s in response.data if s["id"] == str(self.ranger.id)])
 
     def authenticate_user_and_get_subjects(self, url):
         request = self.factory.get(API_BASE + url)
         self.force_authenticate(request, self.superuser)
-        return views.SubjectsView.as_view()(request)
+        return SubjectsView.as_view()(request)
 
     @patch("utils.tenant.thread._get_local_thread")
     def test_subjects_api_call_only_returns_active_subjects(self, get_main_thread):
@@ -314,7 +323,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subjects/")
         self.force_authenticate(request, user_with_sourcegroup_access)
 
-        response = views.SubjectsView.as_view()(
+        response = SubjectsView.as_view()(
             request,
         )
         self.assertEqual(response.status_code, 200)
@@ -335,7 +344,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.delayed_view_user)
 
-        response = views.SubjectGroupsView.as_view()(request)
+        response = SubjectGroupsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "ele_group")
@@ -346,7 +355,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.realtime_view_user)
 
-        response = views.SubjectGroupsView.as_view()(request)
+        response = SubjectGroupsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "all_group")
@@ -358,7 +367,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.superuser)
 
-        response = views.SubjectGroupsView.as_view()(request)
+        response = SubjectGroupsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 2)
         self.assertTrue(response.data[0]["name"] in return_groups)
@@ -370,7 +379,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subjectgroup/{id}".format(id=self.ele_group.id))
         self.force_authenticate(request, self.superuser)
 
-        response = views.SubjectGroupView.as_view()(request, id=str(self.ele_group.id))
+        response = SubjectGroupView.as_view()(request, id=str(self.ele_group.id))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["id"], str(self.ele_group.id))
 
@@ -378,26 +387,26 @@ class SubjectGroupViewTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subjectgroup/{id}".format(id=self.ele_group.id))
         self.force_authenticate(request, self.no_view_user)
 
-        response = views.SubjectGroupView.as_view()(request, id=str(self.ele_group.id))
+        response = SubjectGroupView.as_view()(request, id=str(self.ele_group.id))
         self.assertEqual(response.status_code, 403)
 
     def test_not_return_subject_groups_no_view_permission(self):
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.no_view_user)
 
-        response = views.SubjectGroupsView.as_view()(request)
+        response = SubjectGroupsView.as_view()(request)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_etag_should_be_the_same_on_duplicate_request(self):
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.superuser)
 
-        response = views.SubjectGroupsView.as_view()(request)
+        response = SubjectGroupsView.as_view()(request)
         etag = response.headers["etag"]
 
         assert response.status_code == status.HTTP_200_OK
 
-        second_response = views.SubjectGroupsView.as_view()(request)
+        second_response = SubjectGroupsView.as_view()(request)
         second_etag = second_response.headers["etag"]
 
         assert response.status_code == status.HTTP_200_OK
@@ -407,7 +416,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.superuser)
 
-        response = views.SubjectGroupsView.as_view()(request)
+        response = SubjectGroupsView.as_view()(request)
         etag = response.headers["etag"]
 
         assert response.status_code == status.HTTP_200_OK
@@ -416,7 +425,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         obj.name = "new name"
         obj.save(update_fields=["name"])
 
-        second_response = views.SubjectGroupsView.as_view()(request)
+        second_response = SubjectGroupsView.as_view()(request)
         second_etag = second_response.headers["etag"]
 
         assert response.status_code == status.HTTP_200_OK
@@ -426,21 +435,44 @@ class SubjectGroupViewTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.superuser)
 
-        response = views.SubjectGroupsView.as_view()(request)
+        response = SubjectGroupsView.as_view()(request)
         etag = response.headers["etag"]
 
         assert response.status_code == status.HTTP_200_OK
 
-        obj = SubjectGroup.objects.filter(subjects__isnull=False).first()
-        subject_obj = obj.subjects.first()
-        subject_obj.name = "new name"
-        subject_obj.save(update_fields=["name"])
+        subject_group = SubjectGroup.objects.get(name="Subjects")
+        subject = Subject.objects.first()
+        subject.name = "new name"
+        subject.save(update_fields=["name"])
+        subject_group.subjects.add(subject)
 
-        second_response = views.SubjectGroupsView.as_view()(request)
+        second_response = SubjectGroupsView.as_view()(request)
         second_etag = second_response.headers["etag"]
 
         assert response.status_code == status.HTTP_200_OK
         assert etag != second_etag
+
+    def test_etag_should_change_between_master_and_profile(self):
+        url = reverse("subject-groups")
+        perm_set = PermissionSet.objects.get(name="View ranger_group Subject Group")
+        self.app_user.permission_sets.add(perm_set)
+        self.superuser.act_as_profiles.add(self.app_user)
+
+        request_superuser = self.factory.get(url)
+        self.force_authenticate(request_superuser, self.superuser)
+        response_superuser = SubjectGroupsView.as_view()(request_superuser)
+        etag_superuser = response_superuser.headers["etag"]
+
+        assert response_superuser.status_code == status.HTTP_200_OK
+
+        request_app_user = self.factory.get(url)
+        request_app_user.META["user-profile"] = str(self.app_user.id)
+        self.force_authenticate(request_app_user, self.app_user)
+        response_app_user = SubjectGroupsView.as_view()(request_app_user)
+        etag_app_user = response_app_user.headers["etag"]
+
+        assert response_app_user.status_code == status.HTTP_200_OK
+        assert etag_superuser != etag_app_user
 
 
 class SourceGroupViewTest(BasePermissionTest):
@@ -451,14 +483,14 @@ class SourceGroupViewTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/sourcegroups")
         self.force_authenticate(request, self.source_admin_user)
 
-        response = views.SourceGroupsView.as_view()(request)
+        response = SourceGroupsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
 
     def test_user_return_source_groups_no_view_permission(self):
         request = self.factory.get(API_BASE + "/sourcegroups")
         self.force_authenticate(request, self.no_view_user)
 
-        response = views.SourceGroupsView.as_view()(request)
+        response = SourceGroupsView.as_view()(request)
         self.assertEqual(response.status_code, 403)
 
 
@@ -558,7 +590,7 @@ class TestSourceProvider:
             },
         )
         client.force_authenticate(request, client.app_user)
-        response = views.SourceProvidersViewPartial.as_view()(request, id=source_provider.id)
+        response = SourceProvidersViewPartial.as_view()(request, id=source_provider.id)
 
         assert response.status_code == 200
         assert response.data.get("provider_key") == "New provider key"
@@ -577,7 +609,7 @@ class TestSourceProvider:
             },
         )
         client.force_authenticate(request, client.app_user)
-        response = views.SourceProvidersViewPartial.as_view()(request, id=source_provider.id)
+        response = SourceProvidersViewPartial.as_view()(request, id=source_provider.id)
 
         assert response.status_code == 200
         assert response.data.get("provider_key") == "New provider key"
@@ -667,7 +699,7 @@ class TestSubjectsView:
         request = client.factory.get(reverse(self.base_url))
         client.force_authenticate(request, client.app_user)
 
-        return views.SubjectsView.as_view()(request), client.app_user
+        return SubjectsView.as_view()(request), client.app_user
 
     def test_subjects_view_with_linked_user(self, memory_store_client_mock, _get_superuser_client):
         response, user = _get_superuser_client
@@ -688,7 +720,7 @@ class TestSubjectsView:
         request = client.factory.get(reverse("subjects-list-view"))
         client.force_authenticate(request, client.app_user)
 
-        response = views.SubjectsView.as_view()(request)
+        response = SubjectsView.as_view()(request)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -714,7 +746,7 @@ class TestSubjectView:
         request = client.factory.get(url)
         client.force_authenticate(request, client.app_user)
 
-        return views.SubjectView.as_view()(request, id=str(subject.id)), client.app_user
+        return SubjectView.as_view()(request, id=str(subject.id)), client.app_user
 
     def test_subject_view_with_linked_user(self, memory_store_client_mock, _get_superuser_client):
         response, user = _get_superuser_client
@@ -734,7 +766,7 @@ class TestSubjectView:
         request = client.factory.get(url)
         client.force_authenticate(request, client.app_user)
 
-        response = views.SubjectView.as_view()(request, id=str(subject.id))
+        response = SubjectView.as_view()(request, id=str(subject.id))
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
