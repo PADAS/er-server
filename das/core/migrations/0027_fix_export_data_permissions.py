@@ -5,8 +5,8 @@ from django.db import migrations
 
 def fix_export_data_permissions(apps, schema):
     for codename in ["view_export_event_data", "view_export_observation_data"]:
-        for permission in Permission.objects.filter(codename__endswith=f":{codename}"):
-            new_code_name = permission.codename.split(":")[1].replace("view", "can")
+        for permission in Permission.objects.filter(codename__contains=codename):
+            new_code_name = permission.codename.replace("view", "can")
             permission.codename = new_code_name
             permission.save(update_fields=["codename"])
 
