@@ -14,7 +14,7 @@ class TenantFilter(logging.Filter):
         if self.get_tenant_settings is None:
             return True
             # delayed import because log filters are set before django apps are initialized
-            from .managers import get_tenant_settings
+            from .thread import get_tenant_settings
 
             self.get_tenant_settings = get_tenant_settings
 
