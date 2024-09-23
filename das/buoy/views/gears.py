@@ -4,6 +4,7 @@ from rest_framework import generics
 from buoy import serializers
 from buoy.views.helpers import (
     check_valid_state_string,
+    check_valid_lat_lon,
     filter_by_updated_since
 )
 from buoy.views.schemas import GearsViewSchema
@@ -26,11 +27,19 @@ from utils.drf import (
 
 
 class GearsView(generics.ListAPIView):
-    """
-    get:
-    Returns a list of Gear in the system.
+    __doc__ = """
+    Returns all gears.
+    Optional query-params:
+    state, where state is either "deployed" or "hauled".
+        example: state=deployed
+    updated_since, where updated_since is a date-string to limit on updated_at
 
-    """
+    page, page number
+
+    page_size, (default is {page_size}, max is {max_page_size})
+    """.format(
+        page_size=StandardResultsSetPagination.page_size, max_page_size=StandardResultsSetPagination.max_page_size
+    )
 
     permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.GearsSerializer
