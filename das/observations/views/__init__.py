@@ -33,15 +33,43 @@ import utils
 from core.permissions import UserCanExportDataPermission
 from das_server import celery
 from das_server.views import CustomSchema
-from observations import kmlutils, models, serializers
+from observations import kmlutils
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import Subject, SubjectSource
+from observations.models import (
+    GPX_FILES_FOLDER,
+    RECEIVED,
+    Announcement,
+    Message,
+    Observation,
+    Region,
+    Source,
+    SourceGroup,
+    SourceProvider,
+    Subject,
+    SubjectGroup,
+    SubjectSource,
+    SubjectStatus,
+    SubjectSubType,
+)
 from observations.permissions import StandardObjectPermissions
 from observations.serializers import (
+    AnnouncementSerializer,
+    GPXTrackFileUploadSerializer,
+    MessageSerializer,
+    ObservationSerializer,
+    ReadAnnouncementSerializer,
+    RegionSerializer,
+    SourceProviderSerializer,
+    SourceSerializer,
+    SubjectGeoJsonSerializer,
+    SubjectSerializer,
     SubjectSourceSerializer,
+    SubjectStatusSerializer,
     SubjectTrackSerializer,
     TrackLimitSerializer,
+    TrackSerializer,
+    create_sg_serializer,
 )
 from observations.tasks import handle_outbox_message, process_gpxdata_api
 from observations.utils import (
@@ -65,7 +93,7 @@ from utils.drf import (
     StandardResultsSetPagination,
     return_409_response,
 )
-from utils.etags import HashByModelBuilder
+from utils.etags import get_hash_from_queryset
 from utils.features import features
 from utils.json import ExtendedGEOJSONRenderer, parse_bool, zeroout_microseconds
 from utils.tenant import get_tenant_settings
@@ -102,7 +130,7 @@ def default_since():
 
 
 def get_subjects_with_observations_in_daterange(start_date=None, end_date=None):
-    observations_qs = models.Observation.objects.all()
+    observations_qs = Observation.objects.all()
 
     if start_date and end_date:
         observations_qs = observations_qs.filter(Q(recorded_at__range=(start_date, end_date)))
@@ -121,15 +149,15 @@ def get_subjects_with_observations_in_daterange(start_date=None, end_date=None):
         str(i["source__subjectsource__subject_id"]) for i in subject_id_values if i["source__subjectsource__subject_id"]
     ]
 
-    return models.Subject.objects.filter(id__in=subject_ids)
+    return Subject.objects.filter(id__in=subject_ids)
 
 
 class RegionsView(generics.ListAPIView):
     lookup_field = "slug"
-    serializer_class = serializers.RegionSerializer
+    serializer_class = RegionSerializer
 
     def get_queryset(self):
-        return models.Region.objects.all()
+        return Region.objects.all()
 
 
 class SubjectGroupsViewSchema(CustomSchema):
@@ -179,43 +207,24 @@ class InactiveSubjectsViewSchema(CustomSchema):
 
 class RegionView(generics.RetrieveAPIView):
     lookup_field = "slug"
-    queryset = models.Region.objects.all()
-    serializer_class = serializers.RegionSerializer
+    queryset = Region.objects.all()
+    serializer_class = RegionSerializer
 
     def get_queryset(self):
-        return models.Region.objects.all()
+        return Region.objects.all()
 
 
-def etag_subject_groups_hash(*args, **kwargs):
-    builder = HashByModelBuilder(model=models.SubjectGroup)
-    builder.set_m2m_related_model_string(relation_name="subjects")
-    builder.set_m2m_related_model_string(relation_name="children")
-    return builder.build()
-
-
-class SubjectGroupsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
-    """
-    Returns all subjectgroups in the system.
-    """
-
-    serializer_class = serializers.create_sg_serializer("subjectgs", models.SubjectGroup, serializers.SubjectSerializer)
-    permission_classes = (StandardObjectPermissions,)
-    filter_backends = (create_gp_filter_class("subjectgf", ("observations.view_subjectgroup",), models.SubjectGroup),)
-    schema = SubjectGroupsViewSchema()
-
-    @etag(etag_subject_groups_hash)
-    def get(self, request, *args, **kwargs):
-        return self.list(request, *args, **kwargs)
-
-    def get_queryset(self):
-        if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
+class SubjectGroupGetQuerySet(TwoWaySubjectSourceMixin):
+    def get_queryset(self, request):
+        if not request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
             raise ForbiddenAPIException
 
-        qparams = self.request.query_params
+        qparams = request.GET
+
         if parse_bool(qparams.get("flat")):
-            queryset = models.SubjectGroup.objects.prefetch_related("children").all()
+            queryset = SubjectGroup.objects.prefetch_related("children").all()
         else:
-            queryset = models.SubjectGroup.objects.get_non_cyclic_subjectgroups()
+            queryset = SubjectGroup.objects.get_non_cyclic_subjectgroups()
 
         if qparams.get("group_name"):
             queryset = queryset.by_name_search(qparams.get("group_name"))
@@ -224,12 +233,45 @@ class SubjectGroupsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
         self._get_two_way_sources(queryset)
         return queryset
 
+
+def etag_subject_groups_hash(request, *args, **kwargs):
+    queryset = SubjectGroupGetQuerySet().get_queryset(request)
+
+    subject_group_fields = [field.name for field in SubjectGroup._meta.get_fields() if field.concrete]
+    children_fields = [f"children__{field.name}" for field in queryset.model._meta.get_fields() if field.concrete]
+    subject_fields = [f"subjects__{field.name}" for field in Subject._meta.get_fields() if field.concrete]
+
+    queryset = queryset.prefetch_related("children", "subjects").values(
+        *subject_group_fields,
+        *subject_fields,
+        *children_fields,
+    )
+
+    return get_hash_from_queryset(queryset=queryset, request=request)
+
+
+class SubjectGroupsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
+    """
+    Returns all subjectgroups in the system.
+    """
+
+    serializer_class = create_sg_serializer("subjectgs", SubjectGroup, SubjectSerializer)
+    permission_classes = (StandardObjectPermissions,)
+    filter_backends = (create_gp_filter_class("subjectgf", ("observations.view_subjectgroup",), SubjectGroup),)
+    schema = SubjectGroupsViewSchema()
+
+    @etag(etag_subject_groups_hash)
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
+
+    def get_queryset(self):
+        queryset = SubjectGroupGetQuerySet().get_queryset(self.request)
+        return queryset
+
     def get_serializer_class(self):
         qparams = self.request.query_params
         include_subgroups = not parse_bool(qparams.get("flat"))
-        return serializers.create_sg_serializer(
-            "subjectgs", models.SubjectGroup, serializers.SubjectSerializer, include_subgroups
-        )
+        return create_sg_serializer("subjectgs", SubjectGroup, SubjectSerializer, include_subgroups)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -245,10 +287,10 @@ class SubjectGroupView(generics.RetrieveAPIView, TwoWaySubjectSourceMixin):
     Returns a single SubjectGroup
     """
 
-    serializer_class = serializers.create_sg_serializer("subjectgs", models.SubjectGroup, serializers.SubjectSerializer)
+    serializer_class = create_sg_serializer("subjectgs", SubjectGroup, SubjectSerializer)
     permission_classes = (StandardObjectPermissions,)
     lookup_field = "id"
-    filter_backends = (create_gp_filter_class("subjectgf", ("observations.view_subjectgroup",), models.SubjectGroup),)
+    filter_backends = (create_gp_filter_class("subjectgf", ("observations.view_subjectgroup",), SubjectGroup),)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -258,7 +300,7 @@ class SubjectGroupView(generics.RetrieveAPIView, TwoWaySubjectSourceMixin):
         return context
 
     def get_queryset(self):
-        queryset = models.SubjectGroup.objects.get_non_cyclic_subjectgroups(single_sg=True)
+        queryset = SubjectGroup.objects.get_non_cyclic_subjectgroups(single_sg=True)
         queryset.order_by("name")
         self._get_two_way_sources(queryset)
         return queryset
@@ -269,12 +311,12 @@ class SourceGroupsView(generics.ListAPIView):
     Returns all sourcegroups in the system.
     """
 
-    serializer_class = serializers.create_sg_serializer("sourcegs", models.SourceGroup, serializers.SourceSerializer)
+    serializer_class = create_sg_serializer("sourcegs", SourceGroup, SourceSerializer)
     permission_classes = (StandardObjectPermissions,)
-    filter_backends = (create_gp_filter_class("sourcegf", ("observations.view_sourcegroup",), models.SourceGroup),)
+    filter_backends = (create_gp_filter_class("sourcegf", ("observations.view_sourcegroup",), SourceGroup),)
 
     def get_queryset(self):
-        queryset = models.SourceGroup.objects.filter(_parents=None)
+        queryset = SourceGroup.objects.filter(_parents=None)
         # Sorting SourceGroups based on name (use '-name' for descending order)
         queryset = queryset.order_by("name")
         return queryset
@@ -285,14 +327,14 @@ class SourceGroupView(generics.ListAPIView):
     Return all sources of given source Group (sourcegroup/sources/<name/id>/)
     """
 
-    serializer_class = serializers.SourceSerializer
+    serializer_class = SourceSerializer
     lookup_field = "slug"  # slug can have value of source group's name or id
 
     def get_queryset(self):
         slug = self.kwargs["slug"]
-        source_group = models.SourceGroup.objects.filter(name=slug).first()
+        source_group = SourceGroup.objects.filter(name=slug).first()
         if not source_group:
-            source_group = models.SourceGroup.objects.filter(id=slug).first()
+            source_group = SourceGroup.objects.filter(id=slug).first()
         if source_group:
             return source_group.get_all_sources()
         return None
@@ -300,15 +342,15 @@ class SourceGroupView(generics.ListAPIView):
 
 class RegionSubjectsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
     lookup_field = "slug"
-    serializer_class = serializers.SubjectSerializer
+    serializer_class = SubjectSerializer
     permission_classes = (StandardObjectPermissions,)
     filter_backends = (SubjectObjectPermissionsFilter,)
 
     schema = InactiveSubjectsViewSchema()
 
     def get_queryset(self):
-        region = generics.get_object_or_404(models.Region.objects.all(), slug=self.kwargs.get("slug"))
-        queryset = models.Subject.objects.all()
+        region = generics.get_object_or_404(Region.objects.all(), slug=self.kwargs.get("slug"))
+        queryset = Subject.objects.all()
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         subjects = queryset.by_region(region).annotate_with_subjectstatus()
 
@@ -383,7 +425,7 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
     """
 
-    serializer_class = serializers.SubjectSerializer
+    serializer_class = SubjectSerializer
     permission_classes = (StandardObjectPermissions,)
     pagination_class = OptionalResultsSetPagination
 
@@ -454,14 +496,12 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         if subject_ids:
             queryset = queryset.by_id(subject_ids)
         elif subject_group:
-            groups = models.SubjectGroup.objects.get_nested_groups(subject_group)
+            groups = SubjectGroup.objects.get_nested_groups(subject_group)
             queryset = queryset.by_groups(groups)
         else:
             # Fetch all the Subjects whose access is gained through Source Group
             # permissions.
-            source_groups = models.SourceGroup.objects.filter(
-                permission_sets__in=self.request.user.get_all_permission_sets()
-            )
+            source_groups = SourceGroup.objects.filter(permission_sets__in=self.request.user.get_all_permission_sets())
 
             subjects_via_source_groups = Subject.objects.filter(subjectsource__source__groups__in=source_groups)
             subjects_via_source_groups = check_to_include_inactive_subjects(self.request, subjects_via_source_groups)
@@ -471,7 +511,7 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
                 # TODO: rather than this, can we get the latest & oldest observation for each subject? (needed in
                 #  serializer.to_representation)
                 subject_linked_sources = (
-                    models.SubjectSource.objects.filter(source__groups__in=source_groups)
+                    SubjectSource.objects.filter(source__groups__in=source_groups)
                     .annotate(
                         latest_range=Window(expression=FirstValue(F("assigned_range")), **self.window_desc),
                         latest_source=Window(expression=FirstValue(F("source_id")), **self.window_desc),
@@ -574,19 +614,19 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
 
 class SubjectsGeoJsonView(SubjectsView):
-    serializer_class = serializers.SubjectGeoJsonSerializer
+    serializer_class = SubjectGeoJsonSerializer
     pagination_class = StandardResultsSetGeoJsonPagination
     renderer_classes = (ExtendedGEOJSONRenderer,)
 
 
 class SubjectView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
     permission_classes = (StandardObjectPermissions,)
-    serializer_class = serializers.SubjectSerializer
+    serializer_class = SubjectSerializer
     lookup_field = "id"
 
     def check_permissions(self, request):
         subject_id = self.kwargs.get("id")
-        self.queryset_linked_user = models.Subject.objects.filter(linked_user=request.user, id=subject_id)
+        self.queryset_linked_user = Subject.objects.filter(linked_user=request.user, id=subject_id)
         if not self.queryset_linked_user.exists():
             for permission in self.get_permissions():
                 if not permission.has_permission(request, self):
@@ -594,11 +634,11 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixi
 
     def get_queryset(self):
         subject_id = self.kwargs.get("id")
-        subject = generics.get_object_or_404(models.Subject.objects.all(), pk=subject_id)
+        subject = generics.get_object_or_404(Subject.objects.all(), pk=subject_id)
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise ForbiddenAPIException
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
-        queryset = models.Subject.objects.filter(id=subject_id)
+        queryset = Subject.objects.filter(id=subject_id)
         mou_date = self.request.user.additional.get("expiry", None)
         mou_date = dateparse(mou_date) if mou_date else None
         queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
@@ -637,16 +677,16 @@ class SubjectSubjectSourcesView(generics.ListAPIView):
 
 
 class SubjectSourcesView(generics.ListCreateAPIView):
-    serializer_class = serializers.SourceSerializer
+    serializer_class = SourceSerializer
 
     def get_queryset(self):
         subject = generics.get_object_or_404(
-            models.Subject.objects.all(), pk=self.kwargs["id"]
+            Subject.objects.all(), pk=self.kwargs["id"]
         )  # <-- Maybe annotate with subject_status
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
-        subject_sources = models.SubjectSource.objects.get_subject_sources(subject)
-        sources = models.Source.objects.filter(pk__in=subject_sources.values("source"))
+        subject_sources = SubjectSource.objects.get_subject_sources(subject)
+        sources = Source.objects.filter(pk__in=subject_sources.values("source"))
         return sources
 
     def create(self, request, *args, **kwargs):
@@ -660,13 +700,13 @@ class SubjectSourcesView(generics.ListCreateAPIView):
 
 
 class SourceSubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
-    serializer_class = serializers.SubjectSerializer
+    serializer_class = SubjectSerializer
 
     def get_queryset(self):
-        source = generics.get_object_or_404(models.Source.objects.all(), pk=self.kwargs["id"])
+        source = generics.get_object_or_404(Source.objects.all(), pk=self.kwargs["id"])
         # if not self.request.user.has_any_perms(models.Source.VIEW_SUBJECT_PERMS, source):
         #     raise PermissionDenied
-        queryset = models.Subject.objects.all()
+        queryset = Subject.objects.all()
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         self._get_two_way_sources(queryset)
         return queryset.filter(subjectsource__source=source).annotate_with_subjectstatus()
@@ -687,16 +727,16 @@ class SourceSubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
 
 class SubjectSourceView(generics.RetrieveAPIView):
-    serializer_class = serializers.SourceSerializer
+    serializer_class = SourceSerializer
 
     def get_queryset(self):
         subject = generics.get_object_or_404(
-            models.Subject.objects.all(), pk=self.kwargs["id"]
+            Subject.objects.all(), pk=self.kwargs["id"]
         )  # .annotate_with_subjectstatus()
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
 
-        return models.Source.objects.all()
+        return Source.objects.all()
 
     def get_object(self):
         queryset = self.get_queryset()
@@ -709,7 +749,7 @@ class SubjectSourceView(generics.RetrieveAPIView):
 
 class SubjectSourceTrackView(generics.RetrieveAPIView):
     lookup_field = "id"
-    serializer_class = serializers.TrackSerializer
+    serializer_class = TrackSerializer
     permission_classes = (StandardObjectPermissions,)
     schema = None
 
@@ -726,7 +766,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
         if until:
             until = dateparse(until)
 
-        sds = models.SubjectSource.objects.get_subject_source(subject, source_id)
+        sds = SubjectSource.objects.get_subject_source(subject, source_id)
         if not sds:
             raise Http404
 
@@ -735,7 +775,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
 
         coordinates = []
         times = []
-        for ob in models.Observation.objects.get_subject_source_observation_values(sds, since, until):
+        for ob in Observation.objects.get_subject_source_observation_values(sds, since, until):
             coordinates.append(ob["location"].coords)
             times.append(zeroout_microseconds(ob["recorded_at"]))
 
@@ -744,16 +784,16 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
         return context
 
     def get_queryset(self):
-        return models.Subject.objects.all()
+        return Subject.objects.all()
 
 
 class SubjectStatusView(generics.RetrieveAPIView):
     lookup_url_kwarg = "subject_id"
     lookup_field = "subject_id"
-    serializer_class = serializers.SubjectStatusSerializer
+    serializer_class = SubjectStatusSerializer
 
     def get_queryset(self):
-        ss = models.SubjectStatus.objects.select_related("subject").filter(delay_hours=0)
+        ss = SubjectStatus.objects.select_related("subject").filter(delay_hours=0)
         return ss
 
     def check_object_permissions(self, request, obj):
@@ -776,23 +816,21 @@ class SubjectTracksView(generics.RetrieveAPIView):
         self.subject_linked_sources = []
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
-        queryset = models.Subject.objects.all().select_related("subject_subtype__subject_type")
+        queryset = Subject.objects.all().select_related("subject_subtype__subject_type")
         queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24)
 
         return queryset
 
     def check_object_permissions(self, request, obj):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, obj):
-            source_groups = models.SourceGroup.objects.filter(
-                permission_sets__in=request.user.get_all_permission_sets()
-            )
+            source_groups = SourceGroup.objects.filter(permission_sets__in=request.user.get_all_permission_sets())
             all_allowed_sources = []
             for source_group in source_groups:
                 all_allowed_sources.extend(source_group.get_all_sources())
 
             # Check if Subject's current source
-            subject_sources = models.SubjectSource.objects.get_subject_sources(obj)
-            sources = models.Source.objects.filter(pk__in=subject_sources.values("source"))
+            subject_sources = SubjectSource.objects.get_subject_sources(obj)
+            sources = Source.objects.filter(pk__in=subject_sources.values("source"))
 
             pass_flag = False
             for source in sources:
@@ -843,13 +881,13 @@ class ObservationView(generics.RetrieveUpdateDestroyAPIView):
         return super().create(request, *args, **kwargs)
 
     lookup_field = "id"
-    serializer_class = serializers.ObservationSerializer
+    serializer_class = ObservationSerializer
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_OBSERVATION_PERMS):
             raise ForbiddenAPIException
 
-        queryset = models.Observation.objects.all()
+        queryset = Observation.objects.all()
 
         mou_date = self.request.user.additional.get("expiry", None)
         mou_expiry_date = dateparse(mou_date) if mou_date else None
@@ -861,7 +899,7 @@ class ObservationView(generics.RetrieveUpdateDestroyAPIView):
 
 class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
     lookup_fields = ("id", "manufacturer_id")
-    serializer_class = serializers.SourceSerializer
+    serializer_class = SourceSerializer
 
     def get_object(self):
         queryset = self.get_queryset()
@@ -877,13 +915,13 @@ class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
         return generics.get_object_or_404(queryset, **filter)
 
     def get_queryset(self):
-        return models.Source.objects.all()
+        return Source.objects.all()
 
 
 class SourcesView(
     generics.ListCreateAPIView,
 ):
-    serializer_class = serializers.SourceSerializer
+    serializer_class = SourceSerializer
     permission_classes = (StandardObjectPermissions,)
     pagination_class = StandardResultsSetPagination
 
@@ -895,7 +933,7 @@ class SourcesView(
     }
 
     def get_queryset(self):
-        queryset = models.Source.objects.all()
+        queryset = Source.objects.all()
 
         filter = {}
         for fn, fld in self.lookup_fields.items():
@@ -912,14 +950,14 @@ class SourcesView(
 
 
 class SourceProvidersView(generics.ListCreateAPIView):
-    serializer_class = serializers.SourceProviderSerializer
+    serializer_class = SourceProviderSerializer
     permission_classes = (StandardObjectPermissions,)
     pagination_class = StandardResultsSetPagination
 
     lookup_field = "provider_key"
 
     def get_queryset(self):
-        queryset = models.SourceProvider.objects.all()
+        queryset = SourceProvider.objects.all()
         return queryset
 
     def get_serializer_context(self):
@@ -928,12 +966,12 @@ class SourceProvidersView(generics.ListCreateAPIView):
 
 
 class SourceProvidersViewPartial(generics.UpdateAPIView):
-    serializer_class = serializers.SourceProviderSerializer
+    serializer_class = SourceProviderSerializer
     permission_classes = (StandardObjectPermissions,)
     lookup_field = "id"
 
     def get_queryset(self):
-        queryset = models.SourceProvider.objects.all()
+        queryset = SourceProvider.objects.all()
         return queryset
 
     def get_serializer_context(self):
@@ -1025,7 +1063,7 @@ class KmlSubjectsView(APIView):
         else:
             # return all subjects with or without tracks if no date
             # filter is passed
-            queryset = models.Subject.objects.all()
+            queryset = Subject.objects.all()
         queryset = queryset.by_user_subjects(self.request.user)
         if not parse_bool(include_inactive):
             queryset = queryset.filter(is_active=True)
@@ -1053,7 +1091,7 @@ class KmlSubjectsView(APIView):
         :return:
         """
         try:
-            return models.SubjectSubType.objects.get(value=subtype).display
+            return SubjectSubType.objects.get(value=subtype).display
         except Exception as e:
             logger.exception(e)
             return "Unassigned"
@@ -1099,12 +1137,12 @@ class KmlSubjectView(generics.RetrieveAPIView):
     lookup_field = "id"
 
     def get_queryset(self):
-        subject = generics.get_object_or_404(models.Subject.objects.all(), pk=self.kwargs.get("id"))
+        subject = generics.get_object_or_404(Subject.objects.all(), pk=self.kwargs.get("id"))
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
 
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
-        queryset = models.Subject.objects.all().annotate_with_subjectstatus(delay_hours=min_age_days * 24)
+        queryset = Subject.objects.all().annotate_with_subjectstatus(delay_hours=min_age_days * 24)
         return queryset
 
     def get_subject_color(self, subject):
@@ -1143,7 +1181,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
         if start_timestamp and end_timestamp and end_timestamp < start_timestamp:
             raise ValueError("Start date can not be greater than end date.")
 
-        return models.Observation.objects.get_subject_observations_values(
+        return Observation.objects.get_subject_observations_values(
             subject, since=lower, until=upper, filter_flag=filter_flag
         )
 
@@ -1174,7 +1212,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
         subject = generics.get_object_or_404(
-            models.Subject.objects.all().annotate_with_subjectstatus(delay_hours=min_age_days * 24),
+            Subject.objects.all().annotate_with_subjectstatus(delay_hours=min_age_days * 24),
             pk=self.kwargs["id"],
         )
         filter_parameters = self.parse_filter_parameters()
@@ -1282,7 +1320,7 @@ class TrackingDataCsvView(APIView):
     def get_queryset(self, subject_id=None, chronofile=None, source_provider=None):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise PermissionDenied
-        queryset = models.Subject.objects.all()
+        queryset = Subject.objects.all()
         # To include inactive subjects in trackingdata report
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.by_user_subjects(self.request.user)
@@ -1494,11 +1532,11 @@ class TrackingDataCsvView(APIView):
 
     def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records):
         if hasattr(subject, "subjectsource_id"):
-            qs = models.Observation.objects.get_subjectsource_observations(
+            qs = Observation.objects.get_subjectsource_observations(
                 subject.subjectsource_id, lower, upper, max_records, filter_flag=filter_flag, order_by="recorded_at"
             )
         else:
-            qs = models.Observation.objects.get_subject_observations(
+            qs = Observation.objects.get_subject_observations(
                 subject, lower, upper, max_records, filter_flag=filter_flag, order_by="recorded_at"
             )
         qs = qs.annotate(
@@ -1512,7 +1550,7 @@ class TrackingDataCsvView(APIView):
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
-        qs = models.SubjectStatus.objects.filter(delay_hours=min_age_days * 24).filter(
+        qs = SubjectStatus.objects.filter(delay_hours=min_age_days * 24).filter(
             subject__subjectsource__assigned_range__contains=now
         )
         if subject_id:
@@ -1614,7 +1652,7 @@ class TrackingMetaDataExportView(APIView):
             source_details = {}
             try:
                 # Collect Subject details.
-                subject_groups = ",".join([grp.name for grp in models.SubjectGroup.objects.filter(subjects=subject)])
+                subject_groups = ",".join([grp.name for grp in SubjectGroup.objects.filter(subjects=subject)])
 
                 source_details.update(
                     {
@@ -1709,7 +1747,7 @@ class TrackingMetaDataExportView(APIView):
 
     def get_queryset(self):
         # Get user accessible active subjects.
-        queryset = models.Subject.objects.all()
+        queryset = Subject.objects.all()
         # To include inactive subjects in trackingmetadata report
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.by_user_subjects_not_distinct(self.request.user)
@@ -1718,13 +1756,13 @@ class TrackingMetaDataExportView(APIView):
 
 class GPXFileUploadView(generics.CreateAPIView):
     permission_classes = (IsAuthenticated,)
-    serializer_class = serializers.GPXTrackFileUploadSerializer
+    serializer_class = GPXTrackFileUploadSerializer
 
     def create(self, request, *args, **kwargs):
         if not self.request.user.has_perm("observations.add_observation"):
             raise PermissionDenied
         source_id = kwargs.get("id")
-        get_object_or_404(models.Source, id=source_id)
+        get_object_or_404(Source, id=source_id)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         validated_data = dict(serializer.validated_data)
@@ -1737,7 +1775,7 @@ class GPXFileUploadView(generics.CreateAPIView):
 
     @staticmethod
     def save_in_defaultstorage(inmemory_file):
-        file_path = f"{models.GPX_FILES_FOLDER}/{inmemory_file.name}"
+        file_path = f"{GPX_FILES_FOLDER}/{inmemory_file.name}"
         return default_storage.save(file_path, inmemory_file)
 
     @staticmethod
@@ -1824,7 +1862,7 @@ class MessagesSchema(CustomSchema):
 
 
 class MessagesView(generics.ListCreateAPIView):
-    serializer_class = serializers.MessageSerializer
+    serializer_class = MessageSerializer
     permission_classes = (StandardObjectPermissions,)
     pagination_class = StandardResultsSetPagination
     schema = MessagesSchema()
@@ -1871,7 +1909,7 @@ class MessagesView(generics.ListCreateAPIView):
                 rn_receiver=Window(expression=RowNumber(), **receiver),
             )
             sql, params = messages.query.sql_with_params()
-            messages = models.Message.objects.raw(
+            messages = Message.objects.raw(
                 """
             select * from ({}) msgs where  rn_sender<= %s or rn_receiver <= %s """.format(
                     sql
@@ -1931,13 +1969,13 @@ class MessagesView(generics.ListCreateAPIView):
                 )
 
             dt = parse_datetime(data["message_time"])
-            for subject_source in models.SubjectSource.objects.filter(
+            for subject_source in SubjectSource.objects.filter(
                 source__manufacturer_id=manufacturer_id, assigned_range__contains=dt
             ).distinct("subject"):
                 data["sender"] = {"content_type": "observations.subject", "id": subject_source.subject.id}
                 data["device"] = str(subject_source.source.id)
                 # update incoming message status to received.
-                data["status"] = models.RECEIVED
+                data["status"] = RECEIVED
                 ser_data = self.save_message(request, data)
         else:
             # Handle Outbox messages
@@ -1968,7 +2006,7 @@ class MessagesView(generics.ListCreateAPIView):
 
 class MessageView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = "id"
-    serializer_class = serializers.MessageSerializer
+    serializer_class = MessageSerializer
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
@@ -1977,18 +2015,18 @@ class MessageView(generics.RetrieveUpdateDestroyAPIView):
 
 def get_user_messages(user):
     # Get messages a user has access to
-    user_subjects = models.Subject.objects.by_user_subjects(user)
+    user_subjects = Subject.objects.by_user_subjects(user)
     user_subject_ids = [subj.id for subj in user_subjects]
-    messages = models.Message.objects.filter(Q(sender_id__in=user_subject_ids) | Q(receiver_id__in=user_subject_ids))
+    messages = Message.objects.filter(Q(sender_id__in=user_subject_ids) | Q(receiver_id__in=user_subject_ids))
     return messages
 
 
 class AnnouncementsView(generics.ListCreateAPIView):
-    serializer_class = serializers.AnnouncementSerializer
+    serializer_class = AnnouncementSerializer
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
-        queryset = models.Announcement.objects.all().order_by_announcement_at()
+        queryset = Announcement.objects.all().order_by_announcement_at()
 
         query_params = self.request.query_params
         is_read = query_params.get("is_read")
@@ -2006,10 +2044,10 @@ class AnnouncementsView(generics.ListCreateAPIView):
             raise ParseError(detail=" Malformed request. Query parameter 'read' is required.")
 
         data = dict(news_ids=[x.strip() for x in read.split(",")])
-        serializer = serializers.ReadAnnouncementSerializer(data=data)
+        serializer = ReadAnnouncementSerializer(data=data)
         serializer.is_valid(raise_exception=True)
 
-        queryset = models.Announcement.objects.filter(pk__in=serializer.data.get("news_ids"))
+        queryset = Announcement.objects.filter(pk__in=serializer.data.get("news_ids"))
         [q.related_users.add(request.user) for q in queryset]
 
         context = dict(request=self.request)
@@ -2032,7 +2070,7 @@ class SubjectSourceAssignmentSchema(CustomSchema):
 
 class SubjectSourcesAssignmentView(generics.ListAPIView):
     permission_classes = (StandardObjectPermissions,)
-    serializer_class = serializers.SubjectSourceSerializer
+    serializer_class = SubjectSourceSerializer
     pagination_class = StandardResultsSetPagination
     schema = SubjectSourceAssignmentSchema()
 
@@ -2042,10 +2080,10 @@ class SubjectSourcesAssignmentView(generics.ListAPIView):
         subjects_list = parse_comma(query_params.get("subjects"))
         sources_list = parse_comma(query_params.get("sources")) or []
 
-        allowed = models.Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
+        allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
 
         # First get subject-sources user has access to.
-        queryset = models.SubjectSource.objects.filter(subject_id__in=allowed)
+        queryset = SubjectSource.objects.filter(subject_id__in=allowed)
 
         if subjects_list and sources_list:
             queryset = queryset.filter(

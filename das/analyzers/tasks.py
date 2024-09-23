@@ -66,7 +66,7 @@ def handle_source(source_id, *args, **kwargs):
             handle_subject.apply_async(args=(subject_id,), countdown=60)
 
 
-@celery.app.task(base=TenantQueueOnceTask)
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
 def analyze_subject(subject_id, *args, **kwargs):
     _analyze_subject(subject_id)
 

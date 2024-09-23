@@ -12,10 +12,11 @@ from rest_framework.response import Response
 from activity.models import EventCategory
 from activity.permissions import EventCategoryObjectPermissions
 from activity.serializers import EventCategorySerializer
+from activity.views.response_headers import EVENT_CATEGORY_FIELDS
 from activity.views.schemas import EventCategoriesViewSchema, EventCategoryViewSchema
 from utils.categories import EventCategoryRelatedPermissionSetActions
 from utils.drf import return_409_response
-from utils.etags import HashByModelBuilder
+from utils.etags import get_hash_from_queryset
 from utils.json import parse_bool
 from utils.rank import RankedTool, RankSerializer
 
@@ -36,8 +37,8 @@ def get_event_category_queryset(user, query_params):
 
 def etag_event_category_hash(request):
     queryset = get_event_category_queryset(user=request.user, query_params=request.GET)
-    queryset = queryset.values()
-    return HashByModelBuilder.build_from_queryset(queryset=queryset)
+    queryset = queryset.values(*EVENT_CATEGORY_FIELDS)
+    return get_hash_from_queryset(queryset=queryset, request=request)
 
 
 class EventCategoriesView(ListCreateAPIView):

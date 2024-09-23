@@ -13,7 +13,7 @@ CACHES = {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": CELERY_BROKER_URL,
         "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
-        "KEY_FUNCTION": "utils.tenant.make_cache_key",
+        "KEY_FUNCTION": "utils.tenant.cache.make_cache_key",
     },
     SHARED_CACHE_ALIAS: {
         "BACKEND": "django_redis.cache.RedisCache",

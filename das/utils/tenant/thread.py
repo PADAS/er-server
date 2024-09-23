@@ -30,8 +30,8 @@ def set_tenant_settings(value: dict) -> None:
 def get_tenant_settings() -> Tenant:
     local_thread = _get_local_thread()
     try:
+        # do not log in this function, becuase it is used in log filters
         tenant_settings = getattr(local_thread, TENANT_DEFAULT_KEY)
-        logger.debug("Getting tenant settings for host: %s", tenant_settings.domain)
 
         return tenant_settings
     except AttributeError:

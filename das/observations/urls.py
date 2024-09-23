@@ -106,7 +106,7 @@ urlpatterns = [
         views.ObservationsView.as_view(),
         name="observations-list-view",
     ),
-    re_path(r"^subjectgroups/?$", views.SubjectGroupsView.as_view()),
+    re_path(r"^subjectgroups/?$", views.SubjectGroupsView.as_view(), name="subject-groups"),
     re_path(rf"^subjectgroup/(?P<id>{regex.UUID})/?$", views.SubjectGroupView.as_view()),
     re_path(r"^sourcegroups/?$", views.SourceGroupsView.as_view()),
     re_path(r"^sourceproviders/?$", views.SourceProvidersView.as_view()),

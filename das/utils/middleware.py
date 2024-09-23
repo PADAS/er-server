@@ -28,9 +28,10 @@ from observations.utils import (
 from utils import add_base_url, stats
 from utils.categories import should_apply_geographic_features
 from utils.gis import convert_to_point
-from utils.tenant import get_tenant_settings, set_tenant
+from utils.tenant import get_tenant_settings
 from utils.tenant.domains import add_new_tenant_domains_to_settings
 from utils.tenant.exceptions import TenantNotFoundException
+from utils.tenant.managers import set_tenant
 
 logger = logging.getLogger(__name__)
 
@@ -92,14 +93,8 @@ class RequestLoggingMiddleware(object):
                 tenant_domain = get_tenant_settings().domain
             except TenantNotFoundException:
                 tenant_domain = "unknown"
-            error_message = getattr(response, "data", {}).get("error_message")
-            if status_code >= status.HTTP_400_BAD_REQUEST:
-                error_message = error_message or str(
-                    getattr(response, "data", {"status": {}}).get("status").get("detail", "")
-                )
-                if not error_message:
-                    # our response data is not standardised at this point, log all of it
-                    error_message = str(getattr(response, "data", ""))
+
+            error_message = self._get_error_message(response=response, status_code=status_code)
 
             extra = dict(
                 remote_addr=remote_addr,
@@ -147,6 +142,21 @@ class RequestLoggingMiddleware(object):
             logging.exception("RequestLoggingMiddleware Error")
 
         return response
+
+    def _get_error_message(self, response, status_code):
+        error_message = None
+        data = getattr(response, "data", {})
+        if isinstance(data, dict):
+            error_message = data.get("error_message")
+
+        if status_code >= status.HTTP_400_BAD_REQUEST:
+            data = getattr(response, "data", {"status": {}})
+            if isinstance(data, dict):
+                error_message = error_message or str(data.get("status").get("detail", ""))
+            if not error_message:
+                # our response data is not standardised at this point, log all of it
+                error_message = str(getattr(response, "data", ""))
+        return error_message
 
     def _save_location(self, request):
         if (

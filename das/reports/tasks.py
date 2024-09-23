@@ -20,7 +20,7 @@ from utils.tenant.celery import OverAllTenantTask
 logger = logging.getLogger(__name__)
 
 
-@celery.app.task(base=OverAllTenantTask, bind=True)
+@celery.app.task(base=OverAllTenantTask, bind=True, once={"graceful": True})
 def subjectsource_report(self, usernames=None):
     # Limit recipients to those identified by usernames argument.
     recipients = get_users_for_permission(SOURCE_REPORT_PERMISSION_CODENAME, usernames=usernames)
@@ -46,7 +46,7 @@ def subjectsource_report(self, usernames=None):
         )
 
 
-@celery.app.task(base=OverAllTenantTask, bind=True)
+@celery.app.task(base=OverAllTenantTask, bind=True, once={"graceful": True})
 def alert_lag_delay(self):
     lagging_providers = get_lagging_providers()
 
@@ -54,6 +54,6 @@ def alert_lag_delay(self):
         send_lag_delay_alert(*lagging_provider)
 
 
-@celery.app.task(base=OverAllTenantTask)
+@celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def run_check_sources_threshold():
     check_sources_threshold.apply_async()

@@ -200,7 +200,7 @@ def periodically_maintain_patrol_state():
         patrol.save()
 
 
-@celery.app.task(base=OverAllTenantTask)
+@celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def automatically_update_event_state():
     now = datetime.now(tz=pytz.utc)
     expr = ExpressionWrapper(
@@ -224,7 +224,7 @@ def execute_automatically_update_event_state(*args, **kwargs):
     automatically_update_event_state(*args, **kwargs)
 
 
-@celery.app.task(base=OverAllTenantTask)
+@celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def reset_alert_counter_for_all_users():
     reset_alert_metrics()
     for user in User.objects.all():
