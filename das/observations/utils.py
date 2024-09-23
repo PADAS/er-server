@@ -1,7 +1,8 @@
 import json
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from typing import Optional
 
 import dateutil.parser
 import pytz
@@ -424,3 +425,13 @@ def is_observation_stationary_subject(observation):
     if subject_source:
         return is_subject_stationary_subject(subject_source.subject)
     return False
+
+
+def check_valid_date_string(date_str: Optional[str], parameter_name: str) -> (bool, Optional[datetime]):
+    if not date_str:
+        return False, None
+
+    try:
+        return True, dateparse(date_str)
+    except ValueError:
+        raise ValueError("Invalid value for %s: '%s'" % (parameter_name, date_str))
