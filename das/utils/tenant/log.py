@@ -12,6 +12,7 @@ class TenantFilter(logging.Filter):
 
     def filter(self, record):
         if self.get_tenant_settings is None:
+            return True
             # delayed import because log filters are set before django apps are initialized
             from .managers import get_tenant_settings
 
