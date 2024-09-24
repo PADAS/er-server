@@ -747,7 +747,8 @@ class ObservationSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super(ObservationSerializer, self).to_representation(instance)
-        self.dict_to_representation(rep, self.context)
+        query_params = self.context.get("request").query_params if self.context.get("request") else {}
+        self.dict_to_representation(rep, query_params)
         return rep
 
     @staticmethod

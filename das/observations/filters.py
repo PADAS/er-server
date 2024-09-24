@@ -88,12 +88,11 @@ class ObservationsFilter(BaseFilterBackend):
         if len([id for id in (subject_id, source_id, subjectsource_id) if id]) > 1:
             raise ValueError("Can only specify one of: subject_id and source_id and subjectsource_id")
 
-        filter_flag = 0
-        filter_qparam = query_params.get("filter", 0)
+        filter_flag = query_params.get("filter", 0)
         try:
-            filter_flag = int(filter_qparam)
+            filter_flag = int(filter_flag)
         except (ValueError, TypeError):
-            filter_flag = None if filter_qparam == "null" else filter_flag
+            filter_flag = None if filter_flag == "null" else 0
 
         if subject_id:
             try:
