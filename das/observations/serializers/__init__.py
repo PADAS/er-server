@@ -763,9 +763,7 @@ class ObservationSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def dict_to_representation(rep, params):
-        # Since the queryset returns a dict, modify it here
         if not rep.get("source"):
-            # changing source_id to source
             rep["source"] = rep.pop("source_id")
 
         if rep.get("source_transforms") and rep.get("additional"):
