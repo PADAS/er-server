@@ -133,11 +133,10 @@ class ObservationsView(ListCreateAPIView):
 
         query_params = self.request.query_params
         created_after = query_params.get("created_after")
-        # sort_by = query_params.get("sort_by", "recorded_at")  # default to sort by recorded_at or -recorded_at??
+        created_after = dateparse(created_after) if created_after else None
 
         mou_date = self.request.user.additional.get("expiry", None)
         mou_expiry_date = dateparse(mou_date) if mou_date else None
-        created_after = dateparse(created_after) if created_after else None
 
         queryset = Observation.objects.all()
 
@@ -147,8 +146,8 @@ class ObservationsView(ListCreateAPIView):
         if created_after:
             queryset = queryset.by_created_after(created_after)
 
+        queryset = queryset.prefetch_related("source__provider")
         queryset = queryset.annotate_transforms()
-        # queryset = queryset.order_by(sort_by)
         return queryset
 
     def create(self, request, *args, **kwargs):

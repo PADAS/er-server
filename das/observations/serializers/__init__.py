@@ -738,10 +738,20 @@ class SourceRelatedField(serializers.RelatedField):
 class ObservationSerializer(serializers.ModelSerializer):
     source = serializers.UUIDField(source="source_id")
     location = PointField(required=False)
+    source_transforms = serializers.JSONField(required=False)
 
     class Meta:
         model = models.Observation
-        fields = ("id", "location", "created_at", "recorded_at", "additional", "source", "exclusion_flags")
+        fields = (
+            "id",
+            "location",
+            "created_at",
+            "recorded_at",
+            "additional",
+            "source",
+            "source_transforms",
+            "exclusion_flags",
+        )
         id_field = False
         geo_field = "location"
 
