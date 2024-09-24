@@ -592,7 +592,7 @@ class Observation(TenantModelMixin, models.Model):
     # point in time of object at lat lon.
     # Note: index is set to false, as we add a compound geospatial index
     # via a migration script
-    recorded_at = models.DateTimeField("recorded at", db_index=True)
+    recorded_at = models.DateTimeField("recorded at", db_index=False)
     created_at = models.DateTimeField("row created at", auto_now_add=True, db_index=True)  # date/time this row created
     source = TenantForeignKey("Source", on_delete=models.CASCADE)
     additional = models.JSONField(null=True, blank=True)
