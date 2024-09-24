@@ -3,6 +3,7 @@ import logging
 from django.db import IntegrityError, transaction
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.filters import OrderingFilter
 from rest_framework.generics import ListAPIView, ListCreateAPIView, get_object_or_404
 from rest_framework.response import Response
 
@@ -96,8 +97,10 @@ class ObservationsView(ListCreateAPIView):
     serializer_class = ObservationSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = (StandardObjectPermissions,)
-    filter_backends = (ObservationsFilter,)
+    filter_backends = (ObservationsFilter, OrderingFilter)
     schema = ObservationsViewSchema()
+    ordering_fields = ("recorded_at",)
+    ordering = "recorded_at"
 
     @property
     def paginator(self):
