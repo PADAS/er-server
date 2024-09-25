@@ -1060,6 +1060,71 @@ class TestSubjectsView:
         assert subject_response.get("name") == subject.name
         assert subject_response.get("tracks_available") is False
 
+    @pytest.mark.parametrize(
+        "permission_set_with_permissions",
+        [
+            [
+                ["Can view subject", "observations", "subject", "view_subject"],
+                ["Can view source", "observations", "source", "view_source"],
+                ["Can view source group", "observations", "sourcegroup", "view_sourcegroup"],
+                [
+                    "Access to real-time observations.",
+                    "observations",
+                    "subject",
+                    "view_real_time",
+                ],
+                [
+                    "Can view all historical tracks",
+                    "observations",
+                    "subject",
+                    "access_begins_all",
+                ],
+                [
+                    "Can view tracks no less than 0 days old",
+                    "observations",
+                    "subject",
+                    "access_ends_0",
+                ],
+            ]
+        ],
+        indirect=True,
+    )
+    def test_source_group_with_latest_source_observation_null_island_is_not_included_as_last_position(
+        self, permission_set_with_permissions, user_client, source_group, subject_source
+    ):
+        source_group.sources.add(subject_source.source)
+        source_group.permission_sets.add(permission_set_with_permissions)
+
+        user_client.user.permission_sets.add(permission_set_with_permissions)
+
+        obs_returned = Observation.objects.create(
+            source=subject_source.source,
+            location=Point((-122.334, 47.598)),
+            recorded_at=datetime.now(tz=pytz.UTC) - timedelta(weeks=1),
+        )
+
+        obs_excluded = Observation.objects.create(
+            source=subject_source.source,
+            location=Point((-122.334, 48.598)),
+            exclusion_flags=Observation.EXCLUDED_MANUALLY,
+            recorded_at=datetime.now(tz=pytz.UTC) - timedelta(seconds=1),
+        )
+
+        obs_null_island = Observation.objects.create(
+            source=subject_source.source,
+            location=Point(0, 0),
+            recorded_at=datetime.now(tz=pytz.UTC),
+        )
+
+        url = reverse("subjects-list-view") + "?use_lkl=true"
+        response = user_client.get(url)
+        assert response.status_code == 200
+        subject = response.data[0]
+        assert subject["name"] == subject_source.subject.name
+        assert subject["tracks_available"] is True
+        last_location = subject["last_position"]
+        assert last_location["geometry"]["coordinates"] == obs_returned.location.coords
+
     def _get_request(self, path="/subjects"):
         client = HTTPClient()
         client.app_user.is_superuser = True
