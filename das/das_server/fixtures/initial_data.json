@@ -2323,6 +2323,32 @@
     }
   },
   {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "value": "nest",
+      "display": "Nest",
+      "subject_type": [
+        "stationary-object"
+      ],
+      "created_at": "2024-08-15T01:01:01Z",
+      "updated_at": "2024-08-15T01:01:01Z",
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "value": "baboon",
+      "display": "Baboon",
+      "subject_type": [
+        "wildlife"
+      ],
+      "created_at": "2024-09-15T01:00:00Z",
+      "updated_at": "2024-09-15T01:00:00Z",
+      "ordernum": null
+    }
+  },
+  {
     "model": "observations.subjectgroup",
     "fields": {
       "created_at": "2016-07-07T01:00:00Z",
@@ -11119,19 +11145,6 @@
         "activity",
         "event"
       ]
-    }
-  },
-  {
-    "model": "observations.subjectsubtype",
-    "fields": {
-      "value": "nest",
-      "display": "Nest",
-      "subject_type": [
-        "stationary-object"
-      ],
-      "created_at": "2024-08-15T01:01:01Z",
-      "updated_at": "2024-08-15T01:01:01Z",
-      "ordernum": null
     }
   }
 ]
