@@ -4,15 +4,14 @@ from rest_framework import generics
 from buoy import serializers
 from buoy.views.helpers import (
     check_valid_state_string,
-    check_valid_lat_lon,
-    filter_by_updated_since
 )
 from buoy.views.schemas import GearsViewSchema
+from das.utils.gis import check_valid_lat_lon
 from django.db.models import OuterRef, Subquery
 from buoy.views.helpers import check_to_include_inactive_buoys, filter_by_bbox
 from django.shortcuts import get_object_or_404
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import Subject, SubjectSource, SubjectSource, Observation
+from observations.models import Subject, SubjectSource, SubjectSource, LatestObservationSource
 from observations.permissions import StandardObjectPermissions
 from observations.utils import (
     VIEW_SUBJECT_PERMS,

@@ -5,14 +5,14 @@ from datetime import datetime, timezone
 from django.utils import timezone
 from factory import fuzzy
 from factories import GearFactory
-from geopy import Point
+from django.contrib.gis.geos import Point
 from geopy.distance import distance
 from observations.models import Observation
     
 
 TEST_LOCATION = Point(0, 0)
 
-def get_custom_location_gear_subjectsource(location: Point):
+def get_custom_location_gear_subjectsource(location: Point = Point(0, 0)):
         gear_subjectsource = GearFactory.create()
         gear_subjectsource.save()
 
