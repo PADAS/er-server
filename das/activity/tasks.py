@@ -4,9 +4,9 @@ from datetime import datetime, timedelta
 import pytz
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
 
+import django.contrib.auth
 from django.db.models import DateTimeField, ExpressionWrapper, F, Q
 
-from accounts.models import User
 from activity.alerting.businessrules import resolve_event_revisions
 from activity.alerting.message import (
     get_revised_event_details_fields,
@@ -37,6 +37,8 @@ from utils.tenant import get_tenant_settings
 from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask
 
 logger = logging.getLogger(__name__)
+
+User = django.contrib.auth.get_user_model()
 
 
 @celery.app.task(bind=True)
@@ -226,6 +228,6 @@ def execute_automatically_update_event_state(*args, **kwargs):
 
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def reset_alert_counter_for_all_users():
-    reset_alert_metrics()
-    for user in User.objects.all():
+    for user in User.objects.all().by_is_active():
         reset_alerts_counter(user)
+    reset_alert_metrics()
