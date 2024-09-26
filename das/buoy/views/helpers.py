@@ -1,4 +1,4 @@
-from das.utils.gis import check_valid_lat_lon, calculate_bbox
+from utils.gis import check_valid_lat_lon, calculate_bbox
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point, Polygon
 from geopy import Point
