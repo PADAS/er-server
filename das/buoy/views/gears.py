@@ -6,7 +6,6 @@ from buoy.views.helpers import (
     check_valid_state_string,
 )
 from buoy.views.schemas import GearsViewSchema
-from das.utils.gis import check_valid_lat_lon
 from django.db.models import OuterRef, Subquery
 from buoy.views.helpers import check_to_include_inactive_buoys, filter_by_bbox
 from django.shortcuts import get_object_or_404
@@ -23,6 +22,7 @@ from utils.drf import (
     ForbiddenAPIException,
     StandardResultsSetPagination,
 )
+from utils.gis import check_valid_lat_lon
 
 
 class GearsView(generics.ListAPIView):
