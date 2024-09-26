@@ -12,7 +12,7 @@ from observations.models import Observation
 
 TEST_LOCATION = Point(0, 0)
 
-def get_custom_location_gear_subjectsource(location: Point = Point(0, 0)):
+def get_custom_location_gear_subjectsource(location: Point = TEST_LOCATION):
         gear_subjectsource = GearFactory.create()
         gear_subjectsource.save()
 

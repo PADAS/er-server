@@ -291,12 +291,12 @@ class SubjectSourceTestCase(BaseAPITest):
         )
         ss.refresh_from_db()
 
-        updated_since = ss.subject.updated_at
+        updated_since_date = ss.subject.updated_at
         qs = SubjectSource.objects.all()
 
         assert len(qs) == SubjectSource.objects.all().count()
 
-        qs = SubjectSource.objects.filter_by_updated_since(updated_since=updated_since)
+        qs = SubjectSource.objects.by_updated_since(updated_since=updated_since_date)
 
         assert len(qs) == 1
         assert qs.first().id == ss.id
