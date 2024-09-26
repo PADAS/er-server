@@ -60,9 +60,7 @@ class GearsView(generics.ListAPIView):
         updated_since = query_params.get("updated_since")
         is_updated_since_valid, updated_since = check_valid_date_string(updated_since, "updated_since")
         if updated_since and is_updated_since_valid:
-            len1 = len(queryset)
             queryset = queryset.by_updated_since(updated_since)
-            len2 = len(queryset)
         elif updated_since and not is_updated_since_valid:
             raise ValueError("updated_since must be a valid date")
 
@@ -82,7 +80,6 @@ class GearsView(generics.ListAPIView):
             if not is_lat_lon_valid:
                 raise ValueError("lat and lon are invalid values")
             queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon)
-            len3 = len(queryset)
         else:
             return queryset.none()
         
