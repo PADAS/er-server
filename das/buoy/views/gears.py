@@ -51,7 +51,7 @@ class GearsView(generics.ListAPIView):
         # allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
 
         # First get subject-sources.
-        queryset = SubjectSource.objects.all()
+        queryset = SubjectSource.objects.all().select_related("source").select_related("subject")
 
         # Filter queryset by removing subjects where the additional field is the same        
         latest_observations = Observation.objects.filter(
@@ -62,7 +62,6 @@ class GearsView(generics.ListAPIView):
             latest_observation_additional=Subquery(latest_observations.values("additional")[:1])
         )
 
-        # TODO: look into select related for perfomance 
         # Keep an eye on performance of the query and potentially add new indexes to improve performance 
         queryset = queryset.order_by('additional').distinct('additional')
 
