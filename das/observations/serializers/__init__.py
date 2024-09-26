@@ -284,24 +284,22 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
                 # according to SourceGroup permissions.
                 linked_sources = self.context.get("subject_linked_sources", {}).get(instance.id)
                 if linked_sources:
-                    # Fetch latest & oldest Observations available to plot
+                    # Fetch latest Observations available to plot
                     # latest_position & tracks_range.
                     latest_source = linked_sources["latest_source"]
                     latest_range = linked_sources["latest_range"]
-                    linked_sources["oldest_source"]
-                    oldest_range = linked_sources["oldest_range"]
 
-                    if latest_range and oldest_range:
-                        query = models.Observation.objects.filter(
-                            source=latest_source, recorded_at__range=[latest_range.lower, latest_range.upper]
+                    if latest_range:
+                        query = models.Observation.objects.get_source_observations(
+                            source=latest_source,
+                            since=latest_range.lower,
+                            until=latest_range.upper,
+                            include_empty_location=False,
+                            order_by="-recorded_at",
                         )
-                        latest_observation = query.order_by("-recorded_at").first()
-                        oldest_observation = query.order_by("recorded_at").first()
+                        latest_observation = query.first()
 
-                        rep["tracks_available"] = (
-                            statusvalues.recorded_at and statusvalues.recorded_at != models.DEFAULT_STATUS_VALUE_DATE
-                        )
-                        if latest_observation and oldest_observation:
+                        if latest_observation:
                             additional = latest_observation.additional
                             if not isinstance(additional, dict):
                                 additional = {}
