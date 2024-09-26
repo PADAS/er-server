@@ -182,7 +182,7 @@ class TestGearsView:
 
     def test_gear_subjects_view_non_duplicates_remain(self, buoy_client):
         user_client, gear_subjectsource = buoy_client
-        gear_subjectsource2 = get_custom_location_gear_subjectsource(Point(0, 0))
+        gear_subjectsource2 = get_custom_location_gear_subjectsource()
 
         url = reverse(self.base_url) + "?lat=0&lon=0"
         response = user_client.get(url)

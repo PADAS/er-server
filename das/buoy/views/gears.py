@@ -4,15 +4,14 @@ from rest_framework import generics
 from buoy import serializers
 from buoy.views.helpers import (
     check_valid_state_string,
-    check_valid_lat_lon,
-    filter_by_updated_since
 )
 from buoy.views.schemas import GearsViewSchema
+from das.utils.gis import check_valid_lat_lon
 from django.db.models import OuterRef, Subquery
 from buoy.views.helpers import check_to_include_inactive_buoys, filter_by_bbox
 from django.shortcuts import get_object_or_404
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import Subject, SubjectSource, SubjectSource, Observation
+from observations.models import Subject, SubjectSource, SubjectSource, LatestObservationSource
 from observations.permissions import StandardObjectPermissions
 from observations.utils import (
     VIEW_SUBJECT_PERMS,
@@ -61,7 +60,7 @@ class GearsView(generics.ListAPIView):
         updated_since = query_params.get("updated_since")
         is_updated_since_valid, updated_since = check_valid_date_string(updated_since, "updated_since")
         if updated_since and is_updated_since_valid:
-            queryset = filter_by_updated_since(queryset, updated_since)
+            queryset = queryset.filter_by_updated_since(updated_since)
         elif updated_since and not is_updated_since_valid:
             raise ValueError("updated_since must be a valid date")
 
@@ -85,9 +84,9 @@ class GearsView(generics.ListAPIView):
             # TODO: raising and error here breaks the open-api schema, need to find a way to handle this
             return queryset.none()
         
-        # Filter queryset by removing subjects where the additional field is the same     
-        latest_observations = Observation.objects.filter(source_id=OuterRef("source_id")).order_by("-recorded_at")
-        queryset.update(additional=Subquery(latest_observations.values("additional")[:1]))
+        # Filter queryset by removing subjects where the additional field is the same 
+        latest_observation = LatestObservationSource.objects.filter(source_id=OuterRef("source_id")) 
+        queryset.update(additional=Subquery(latest_observation.values("observation__additional")[:1]))
 
         # TODO: look into select related for perfomance 
         # Keep an eye on performance of the query and potentially add new indexes to improve performance 

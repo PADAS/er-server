@@ -638,6 +638,26 @@ class SubjectSourceQuerySet(models.QuerySet, FilterMixin):
             .prefetch_related("source", "source__provider")
         )
 
+    def filter_by_updated_since(self, updated_since) -> models.QuerySet:
+        """
+        Filter queryset by updated_since datetime.
+        Given a queryset of SubjectSources.
+
+        :param updated_since:
+        :return: queryset of SubjectSources.
+        """
+        updated_since_filter = (
+            Q(subject__subjectstatus__updated_at__gte=updated_since)
+            | Q(subject__subjectstatus__recorded_at__gte=updated_since)
+            | Q(subject__subjectstatus__last_voice_call_start_at__gte=updated_since)
+            | Q(subject__subjectstatus__radio_state_at__gte=updated_since)
+        )
+
+        # TODO: figure out why this filter does not work
+        queryset = self.filter(updated_since_filter)
+        lenqs = len(queryset)
+        return queryset
+
 
 class SubjectSourceManager(TenantManagerMixin, models.Manager.from_queryset(SubjectSourceQuerySet)):
     use_in_migrations = True
