@@ -638,7 +638,7 @@ class SubjectSourceQuerySet(models.QuerySet, FilterMixin):
             .prefetch_related("source", "source__provider")
         )
 
-    def filter_by_updated_since(self, updated_since) -> models.QuerySet:
+    def by_updated_since(self, updated_since) -> models.QuerySet:
         """
         Filter queryset by updated_since datetime.
         Given a queryset of SubjectSources.
@@ -653,9 +653,7 @@ class SubjectSourceQuerySet(models.QuerySet, FilterMixin):
             | Q(subject__subjectstatus__radio_state_at__gte=updated_since)
         )
 
-        # TODO: figure out why this filter does not work
-        queryset = self.filter(updated_since_filter)
-        lenqs = len(queryset)
+        queryset = self.filter(updated_since_filter).order_by("id").distinct("id")
         return queryset
 
 

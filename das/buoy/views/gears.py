@@ -60,7 +60,7 @@ class GearsView(generics.ListAPIView):
         updated_since = query_params.get("updated_since")
         is_updated_since_valid, updated_since = check_valid_date_string(updated_since, "updated_since")
         if updated_since and is_updated_since_valid:
-            queryset = queryset.filter_by_updated_since(updated_since)
+            queryset = queryset.by_updated_since(updated_since)
         elif updated_since and not is_updated_since_valid:
             raise ValueError("updated_since must be a valid date")
 
