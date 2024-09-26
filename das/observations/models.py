@@ -451,11 +451,22 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return queryset
 
     def get_source_observations(
-        self, source, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
+        self,
+        source,
+        since=None,
+        until=None,
+        limit=None,
+        values=None,
+        filter_flag=0,
+        order_by=None,
+        include_empty_location=True,
     ):
         queryset = self.filter(source=source)
         queryset = queryset.by_since_until(since, until)
         queryset = queryset.by_exclusion_flags(filter_flag)
+
+        if not include_empty_location:
+            queryset = queryset.exclude(location=EMPTY_POINT)
 
         if order_by:
             queryset = queryset.order_by(order_by)
