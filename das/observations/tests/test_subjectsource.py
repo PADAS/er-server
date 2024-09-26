@@ -29,7 +29,7 @@ from observations.models import (
     SubjectStatus,
 )
 from observations.serializers import ObservationSerializer
-from observations.utils import parse_comma
+from observations.utils import parse_comma, dateparse
 from observations.views import SourcesView, SubjectSourcesAssignmentView
 
 User = get_user_model()
@@ -280,6 +280,26 @@ class SubjectSourceTestCase(BaseAPITest):
         self.force_authenticate(request, self.non_superuser)
         response = SubjectSourcesAssignmentView.as_view()(request)
         self.assertEqual(len(response.data.get("results")), 0)
+
+    def test_filter_by_updated_since(self):
+        """Test Subject-Sources-Assignment filter by updated_since"""
+        subject, created = Subject.objects.get_or_create(name="#01-subject")
+        provider, created = SourceProvider.objects.get_or_create(provider_key="#01-provider")
+        source, created = Source.objects.get_or_create(manufacturer_id="#01-manufacurer_id", provider=provider)
+        ss = SubjectSource.objects.create(
+            subject=subject, source=source, assigned_range=DateTimeTZRange(lower=DEFAULT_ASSIGNED_RANGE[0])
+        )
+        ss.refresh_from_db()
+
+        updated_since = ss.subject.updated_at
+        qs = SubjectSource.objects.all()
+
+        assert len(qs) == SubjectSource.objects.all().count()
+
+        qs = SubjectSource.objects.filter_by_updated_since(updated_since=updated_since)
+
+        assert len(qs) == 1
+        assert qs.first().id == ss.id
 
 
 @pytest.mark.django_db
