@@ -9,12 +9,14 @@ class GearsViewSchema(CustomSchema):
                 { 
                     "name": "lat",
                     "in": "query",
+                    "default": 39.7749,
                     "required": True,
                     "description": "Include subjects within a range of 5 nautical miles from this latitude. This value represents the north-south position of a point and is measured in degrees. Latitude ranges from -90.0 to 90.0 are accepted.",
                 },
                 { 
                     "name": "lon",
                     "in": "query",
+                    "default": 120.4194,
                     "required": True,
                     "description": "Include subjects within a range of 5 nautical miles from this longitude. This value represents the east-west position of a point and is measured in degrees. Longitude ranges from -180.0 to 180.0 are accepted.",
                 },

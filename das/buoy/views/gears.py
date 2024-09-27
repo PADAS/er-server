@@ -28,15 +28,16 @@ from utils.gis import check_valid_lat_lon
 class GearsView(generics.ListAPIView):
     __doc__ = """
     Returns all gears.
+    
     Required query-parameters:
-    Note: lat and lon are required. If not included an empty list will be returned.
-    lat, where lat is a float.
-        example: lat=39.7749
-    lon, where lon is a float.
-        example: lon=-120.4194
+    
+    lat, lon: float
+    
     Optional query-parameters:
+    
     state, where state is either "deployed" or "hauled".
         example: state=deployed
+    
     updated_since, where updated_since is a date-string to limit on updated_at
 
     page, page number
