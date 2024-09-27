@@ -387,14 +387,14 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return self.filter(source__id=source_id)
 
     def by_since(self, recorded_since):
-        return self.filter(Q(recorded_at__gte=recorded_since))
+        return self.filter(recorded_at__gte=recorded_since)
 
     def by_until(self, recorded_until):
-        return self.filter(Q(recorded_at__lte=recorded_until))
+        return self.filter(recorded_at__lte=recorded_until)
 
     def by_since_until(self, recorded_since, recorded_until):
         if recorded_since and recorded_until:
-            return self.filter(Q(recorded_at__range=[recorded_since, recorded_until]))
+            return self.filter(recorded_at__range=[recorded_since, recorded_until])
         elif recorded_since:
             return self.by_since(recorded_since)
         elif recorded_until:
@@ -402,7 +402,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return self
 
     def by_created_after(self, timestamp):
-        return self.filter(Q(created_at__gte=timestamp))
+        return self.filter(created_at__gte=timestamp)
 
     def by_exclusion_flags(self, filter_flag=None, include_empty_location: bool = False):
         """Works with more than one filter flag, for example 3 which is manual and automatic exclusion.
@@ -423,7 +423,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             else:
                 queryset = queryset.filter(exclusion_flags=filter_flag)
             if not include_empty_location:
-                queryset = queryset.exclude(Q(location=EMPTY_POINT))
+                queryset = queryset.exclude(location=EMPTY_POINT)
         return queryset
 
     def annotate_transforms(self):
@@ -532,11 +532,11 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
         )
 
         if since and until:
-            queryset = queryset.filter(Q(recorded_at__range=(since, until)))
+            queryset = queryset.filter(recorded_at__range=(since, until))
         elif since:
-            queryset = queryset.filter(Q(recorded_at__gte=since))
+            queryset = queryset.filter(recorded_at__gte=since)
         elif until:
-            queryset = queryset.filter(Q(recorded_at__lte=until))
+            queryset = queryset.filter(recorded_at__lte=until)
 
         queryset = queryset.exclude(location=EMPTY_POINT)
         queryset = queryset.order_by("-recorded_at")
@@ -661,11 +661,9 @@ class SubjectSourceManager(TenantManagerMixin, models.Manager.from_queryset(Subj
     def get_subjects_sources(self, subjects=None, sources=None):
         queryset = self
 
-        if subjects and sources:
-            queryset = queryset.filter(Q(subject_id__in=subjects) & Q(source_id__in=sources))
-        elif subjects:
+        if subjects:
             queryset = queryset.filter(subject_id__in=subjects)
-        elif sources:
+        if sources:
             queryset = queryset.filter(source_id__in=sources)
 
         return queryset
@@ -1081,7 +1079,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
 
         if include_linked:
             return self.filter(Q(groups__in=effective_subject_group_set) | Q(linked_user=user))
-        return self.filter(Q(groups__in=effective_subject_group_set))
+        return self.filter(groups__in=effective_subject_group_set)
 
     def by_user_subjects(self, user):
         queryset = self.by_user_subjects_not_distinct(user)
@@ -2439,7 +2437,7 @@ class MessagesManager(TenantManagerMixin, models.Manager.from_queryset(MessageFi
 
 class Message(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    _limits = models.Q(app_label="observations", model="subject") | models.Q(app_label="accounts", model="user")
+    _limits = Q(app_label="observations", model="subject") | Q(app_label="accounts", model="user")
 
     sender_content_type = models.ForeignKey(
         ContentType,
