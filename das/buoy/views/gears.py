@@ -17,7 +17,7 @@ from observations.utils import (
     dateparse,
     get_minimum_allowed_age,
 )
-from observations.views.helpers import check_valid_date_string
+from das.observations.views.helpers import check_valid_date_string
 from utils.drf import (
     ForbiddenAPIException,
     StandardResultsSetPagination,
