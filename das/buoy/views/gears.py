@@ -4,6 +4,7 @@ from rest_framework import generics
 from buoy import serializers
 from buoy.views.helpers import (
     check_valid_state_string,
+    check_valid_date_string,
 )
 from buoy.views.schemas import GearsViewSchema
 from django.db.models import OuterRef, Subquery
@@ -17,7 +18,6 @@ from observations.utils import (
     dateparse,
     get_minimum_allowed_age,
 )
-from das.observations.views.helpers import check_valid_date_string
 from utils.drf import (
     ForbiddenAPIException,
     StandardResultsSetPagination,
@@ -30,14 +30,11 @@ class GearsView(generics.ListAPIView):
     Returns all gears.
     
     Required query-parameters:
-    
     lat, lon: float
     
     Optional query-parameters:
-    
     state, where state is either "deployed" or "hauled".
         example: state=deployed
-    
     updated_since, where updated_since is a date-string to limit on updated_at
 
     page, page number
