@@ -6,34 +6,32 @@ class GearsViewSchema(CustomSchema):
         operation = super().get_operation(path, method)
         if method == "GET":
             query_params = [
-                {
-                    "name": "bbox",
+                { 
+                    "name": "lat",
                     "in": "query",
-                    "description": "Include subjects having track data within this bounding box defined by a 4-tuple of coordinates marking west, south, east, north.",
+                    "default": 39.7749,
+                    "required": True,
+                    "description": "Include subjects within a range of 5 nautical miles from this latitude. This value represents the north-south position of a point and is measured in degrees. Latitude ranges from -90.0 to 90.0 are accepted.",
                 },
-                {
-                    "name": "subject_group",
+                { 
+                    "name": "lon",
                     "in": "query",
-                    "description": "Indicate a subject group for which Subjects should be listed.",
-                },
-                {
-                    "name": "subject_group",
-                    "in": "query",
-                    "description": "Indicate a subject group for which Subjects should be listed.",
-                    "schema": {"type": "UUID"},
-                },
-                {
-                    "name": "name",
-                    "in": "query",
-                    "description": "Find subjects with the given name.",
-                    "schema": {"type": "UUID"},
+                    "default": 120.4194,
+                    "required": True,
+                    "description": "Include subjects within a range of 5 nautical miles from this longitude. This value represents the east-west position of a point and is measured in degrees. Longitude ranges from -180.0 to 180.0 are accepted.",
                 },
                 {
                     "name": "updated_since",
                     "in": "query",
-                    "description": "Return Subject that have been updated since the given timestamp.",
+                    "required": False,
+                    "description": "Return Subjects that have been updated since the given timestamp.",
                 },
-                {"name": "id", "in": "query", "description": "A comma-delimited list of Subject IDs."},
+                {
+                    "name": "state",
+                    "in": "query",
+                    "required": False,
+                    "description": "Return Subjects that have the specified state. Use \"deployed\" for gear in the water, or \"hauled\" for recovered gear.",
+                },
             ]
 
             operation["parameters"].extend(query_params)
