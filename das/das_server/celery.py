@@ -187,10 +187,7 @@ app.conf.beat_schedule = {
     "postgresql_partman_run_partition_maintenance_for_observations_observation": {
         "task": "utils.db.tasks.run_partition_maintenance",
         "kwargs": {"table_name": "observations_observation"},
-        # TODO: set schedule to monthly
-        # "schedule": crontab(minute=0, hour=0, day_of_month=1),
-        # This is for testing
-        "schedule": timedelta(minutes=1),
+        "schedule": crontab(minute="0", hour="0", day_of_month="1"),
     },
 }
 
