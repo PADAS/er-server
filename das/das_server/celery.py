@@ -32,6 +32,9 @@ app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
 default_exchange = Exchange(app.conf.task_default_exchange)
 app.autodiscover_tasks()
 
+# Loading Celery tasks from other modules
+app.autodiscover_tasks(lambda: ["utils.db"])
+
 # Celery 4 changed from UPPERCASE to lower with new names. we've updated them here, but not yet in settings.py
 # We want input from chis d et al.
 # read more here: http://docs.celeryproject.org/en/latest/userguide/configuration.html?highlight=CELERY_DEFAULT_QUEUE#std:setting-beat_schedule
@@ -104,6 +107,7 @@ app.conf.task_routes = {
     "das_server.tasks.celerybeat_pulse": {
         "queue": "realtime_p1",
     },
+    "utils.db.tasks.run_partition_maintenance": {"queue": "maintenance"},
 }
 
 
@@ -179,6 +183,14 @@ app.conf.beat_schedule = {
     "set_alert_counter_for_all_users": {
         "task": "activity.tasks.reset_alert_counter_for_all_users",
         "schedule": crontab(hour=0, minute=0),
+    },
+    "postgresql_partman_run_partition_maintenance_for_observations_observation": {
+        "task": "utils.db.tasks.run_partition_maintenance",
+        "kwargs": {"table_name": "observations_observation"},
+        # TODO: set schedule to monthly
+        # "schedule": crontab(minute=0, hour=0, day_of_month=1),
+        # This is for testing
+        "schedule": timedelta(minutes=1),
     },
 }
 
