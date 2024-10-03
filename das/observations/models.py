@@ -375,6 +375,18 @@ class Source(TenantModelMixin, TimestampedModel):
         queryset = Observation.objects.filter(source=self)
         return queryset
 
+    @cached_property
+    def subject(self):
+        """Get the active subject associated with this source"""
+        subject_source = (
+            SubjectSource.objects.select_related("subject")
+            .filter(source_id=self.pk, assigned_range__contains=datetime.now(tz=timezone.utc), subject__is_active=True)
+            .order_by("-assigned_range")
+            .first()
+        )
+
+        return subject_source.subject if subject_source else None
+
 
 EMPTY_POINT = Point(0, 0)
 
