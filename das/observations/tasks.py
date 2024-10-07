@@ -14,7 +14,7 @@ from django.core.files.storage import default_storage
 from django.db.models import F
 from django.utils.translation import gettext as _
 
-import utils.db.tasks as utils_db_tasks
+import utils.db.task_helpers as utils_db_task_helpers
 from das_server import celery, pubsub
 from observations.materialized_views import patrols_view
 from observations.message_adapters import _handle_outbox_message
@@ -320,4 +320,4 @@ def run_partition_maintenance() -> None:
     """
     table_name = "observations_observation"
     logger.info(f"Running partition maintenance for {table_name}")
-    utils_db_tasks.run_partition_maintenance(table_name=table_name, logger=logger)
+    utils_db_task_helpers.run_partition_maintenance(table_name=table_name, logger=logger)

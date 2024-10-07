@@ -2,10 +2,20 @@
 PosgreSQL util functions.
 """
 
+from enum import Enum
 from logging import Logger
 from typing import Optional
 
 from django.db import ProgrammingError, connection
+
+
+class PSQLExtension(Enum):
+    """
+    PSQL extensions that can be used in our PosgreSQL instances.
+    """
+
+    # Partition Management
+    PG_PARTMAN = "pg_partman"
 
 
 def execute_sql_query(query: str, logger: Logger, fetch: bool = True) -> Optional[str]:
@@ -29,34 +39,35 @@ def execute_sql_query(query: str, logger: Logger, fetch: bool = True) -> Optiona
         try:
             cursor.execute(query)
         except ProgrammingError as e:
-            logger.exception(f"programming error: {e}")
+            logger.exception(f"programming error")
             raise e
         if fetch:
             result = cursor.fetchone()
         return result
 
 
-def is_postgresql_extension_installed(extension_name: str, logger: Logger) -> bool:
+def is_postgresql_extension_installed(psql_extension: PSQLExtension, logger: Logger) -> bool:
     """
     Check whether the postgresql extension `extension_name` is installed.
 
     Args:
-        extension_name (str): Name of the postgresql extension.
+        psql_extension (PSQLExtension): Name of the PSQLExtension.
         logger (logging.Logger): logger to use to write potential execution
         errors.
 
     Output:
         bool: Is the extension `extension_name` installed?
     """
+    sql_query = f"SELECT COUNT(*) FROM pg_extension WHERE extname = '{psql_extension.value}';"
     try:
         sql_result = execute_sql_query(
-            query=f"SELECT COUNT(*) FROM pg_extension WHERE extname = '{extension_name}';",
+            query=sql_query,
             logger=logger,
             fetch=True,
         )
         return bool(sql_result and sql_result[0] == 1)
-    except Exception as e:
-        logger.exception(f"cannot execute sql query: {e}")
+    except:
+        logger.exception(f"cannot execute sql query: {sql_query}")
         return False
 
 

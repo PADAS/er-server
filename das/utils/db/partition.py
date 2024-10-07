@@ -8,6 +8,8 @@ import pytz
 
 from django.db import ProgrammingError, connection
 
+from .postgresql import PSQLExtension, is_postgresql_extension_installed
+
 
 class PARTITION_INTERVALS(Enum):
     MONTHLY = "monthly"
@@ -344,10 +346,7 @@ class PartitionTableTool(PartitionTableToolProtocol):
             self.logger.warning("creating partman schema")
             self._execute_sql_command(command="CREATE SCHEMA partman;")
 
-        result = self._execute_sql_command(
-            "SELECT COUNT(*) FROM pg_extension WHERE extname = 'pg_partman';", fetch=True
-        )
-        if result and result[0] == 0:
+        if not is_postgresql_extension_installed(psql_extension=PSQLExtension.PG_PARTMAN, logger=self.logger):
             self.logger.warning("creating pg_partman extension")
             self._execute_sql_command("CREATE EXTENSION pg_partman SCHEMA partman;")
 

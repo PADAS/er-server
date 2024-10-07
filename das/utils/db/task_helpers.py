@@ -6,6 +6,7 @@ particular Model.
 from logging import Logger
 
 from .postgresql import (
+    PSQLExtension,
     execute_sql_query,
     is_postgresql_extension_installed,
     partman_partition_maintenance_query,
@@ -24,7 +25,10 @@ def run_partition_maintenance(table_name: str, logger: Logger) -> None:
         logger (logging.Logger): logger to write to.
     """
     logger.info(f"Running partition maintenance for {table_name}")
-    is_pg_partman_extension_available = is_postgresql_extension_installed(extension_name="pg_partman", logger=logger)
+    is_pg_partman_extension_available = is_postgresql_extension_installed(
+        psql_extension=PSQLExtension.PG_PARTMAN,
+        logger=logger,
+    )
     if not is_pg_partman_extension_available:
         logger.warning("pg_partman is not installed, cannot run the maintenance")
     else:
@@ -33,5 +37,5 @@ def run_partition_maintenance(table_name: str, logger: Logger) -> None:
             logger.info(f"maintenance_query to run: {maintenance_query}")
             execute_sql_query(maintenance_query, logger=logger, fetch=True)
             logger.info(f"partman partition maintenance done on table '{table_name}'")
-        except Exception as e:
-            logger.exception(f"cannot run partition maintenance on table {table_name}: {e}")
+        except:
+            logger.exception(f"cannot run partition maintenance on table {table_name}")
