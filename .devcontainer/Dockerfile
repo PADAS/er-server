@@ -1,7 +1,7 @@
-# gdal image: ghcr.io/osgeo/gdal:ubuntu-small-3.4.1
-# Ubuntu 20.04.3 LTS
+# gdal image: ghcr.io/osgeo/gdal:ubuntu-small-3.4.3
+# Ubuntu 20.04.4 LTS
 # python 3.8.10
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.4.1
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.4.3
 ARG PYTHON_VERSION_ID="3.8"
 ARG PYTHON_VERSION="3.8.10"
 ARG CP_VER="cp38"
