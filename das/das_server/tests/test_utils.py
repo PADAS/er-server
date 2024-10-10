@@ -37,7 +37,7 @@ class TestAppendDomainToMessage:
 
 @pytest.mark.django_db
 class TestTenantContextFromMessage:
-    def test_pubsub_message_contains_tenant(self, tenant_settings, memory_store_client_mock):
+    def test_pubsub_message_contains_tenant(self, tenant_settings, tenant_document_cache_client_mock):
         def tenant_callback(*args, **kwargs):
             assert get_tenant_settings() is not None
 

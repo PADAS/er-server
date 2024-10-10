@@ -43,7 +43,7 @@ class TestTenantContextManager:
         clear_tenant_settings_mock.assert_called_once()
 
     @pytest.mark.parametrize("domain", ["", None])
-    def test_tenant_context_manager_with_no_domain(self, domain, memory_store_client_mock):
+    def test_tenant_context_manager_with_no_domain(self, domain, tenant_document_cache_client_mock):
         with pytest.raises(ValueError) as error:
             with TenantContextManager(domain=domain):
                 pass

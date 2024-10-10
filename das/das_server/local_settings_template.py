@@ -107,7 +107,7 @@ CORS_ALLOWED_ORIGINS = ("http://127.0.0.1:9000", "http://localhost:9000", "http:
 
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
-CSRF_TRUSTED_ORIGINS = ("localhost:9000", "localhost", "127.0.0.1:9000", "127.0.0.1", "localhost:8000")
+CSRF_TRUSTED_ORIGINS = ["localhost:9000", "localhost", "127.0.0.1:9000", "127.0.0.1", "localhost:8000"]
 
 
 SECURE_PROXY_SSL_HEADER = (
