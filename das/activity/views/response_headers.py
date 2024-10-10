@@ -106,7 +106,7 @@ def build_event_types_etag_header(request, *args, **kwargs) -> str:
 def build_event_type_etag_header(request, *args, **kwargs) -> str:
     queryset = EventType.objects.filter(id=kwargs["eventtype_id"])
     queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
-    for event_type in queryset:
+    if event_type := queryset.first():
         schema = event_type["schema"]
         schema = get_schema_renderer_method(as_string=True)(schema)
     else:
