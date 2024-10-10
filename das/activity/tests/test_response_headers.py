@@ -115,9 +115,7 @@ class TestResponseHeaderBuilders:
         event_type = five_event_types[0]
         queryset = EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
         queryset = queryset.filter(id=event_type.id).values(*EVENT_TYPE_FIELDS_FOR_ETAG)
-
-        expected_etag = get_hash_from_queryset(request=empty_request, queryset=queryset)
-
+        expected_etag = get_hash_from_queryset(request=empty_request, queryset=queryset, extra_salt=event_type.schema)
         etag = build_event_type_etag_header(empty_request, eventtype_id=str(event_type.id))
 
         assert expected_etag == etag
@@ -139,16 +137,16 @@ class TestResponseHeaderBuilders:
         event_type = five_event_types[1]
         queryset = EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
         queryset = queryset.filter(id=event_type.id).values(*EVENT_TYPE_FIELDS_FOR_ETAG)
-
-        expected_etag = get_hash_from_queryset(request=empty_request, queryset=queryset)
-
+        schemas = []
+        for obj in queryset:
+            schemas.append(obj["schema"])
+        expected_etag = get_hash_from_queryset(request=empty_request, queryset=queryset, extra_salt=":".join(schemas))
         etag = build_event_type_etag_header(empty_request, eventtype_id=str(event_type.id))
 
         assert expected_etag == etag
 
         setattr(event_type.category, mocked_field, mocked_value)
         event_type.category.save(update_fields=[mocked_field])
-
         new_etag = build_event_type_etag_header(empty_request, eventtype_id=str(event_type.id))
 
         assert etag != new_etag
