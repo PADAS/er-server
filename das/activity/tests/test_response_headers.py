@@ -71,8 +71,10 @@ class TestResponseHeaderBuilders:
     def test_build_event_types_etag_header(self, empty_request, five_event_types):
         queryset = EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
         queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
-
-        expected_etag = get_hash_from_queryset(request=empty_request, queryset=queryset)
+        schemas = []
+        for event_type in queryset:
+            schemas.append(event_type["schema"])
+        expected_etag = get_hash_from_queryset(request=empty_request, queryset=queryset, extra_salt=":".join(schemas))
 
         etag = build_event_types_etag_header(empty_request)
 
@@ -94,9 +96,10 @@ class TestResponseHeaderBuilders:
     ):
         queryset = EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
         queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
-
-        expected_etag = get_hash_from_queryset(request=empty_request, queryset=queryset)
-
+        schemas = []
+        for event_type in queryset:
+            schemas.append(event_type["schema"])
+        expected_etag = get_hash_from_queryset(request=empty_request, queryset=queryset, extra_salt=":".join(schemas))
         etag = build_event_types_etag_header(empty_request)
 
         assert expected_etag == etag
@@ -106,7 +109,6 @@ class TestResponseHeaderBuilders:
         five_event_types[0].category.save(update_fields=[mocked_field])
 
         new_etag = build_event_types_etag_header(empty_request)
-
         assert etag != new_etag
 
     def test_build_event_type_etag_header(self, empty_request, five_event_types):

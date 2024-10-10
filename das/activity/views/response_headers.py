@@ -98,8 +98,7 @@ def build_event_types_etag_header(request, *args, **kwargs) -> str:
     queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
     schemas = []
     for event_type in queryset:
-        schema = event_type["schema"]
-        schemas.append(get_schema_renderer_method(as_string=True)(schema))
+        schemas.append(get_schema_renderer_method(as_string=True)(event_type["schema"]))
     return get_hash_from_queryset(queryset=queryset, request=request, extra_salt=":".join(schemas))
 
 
