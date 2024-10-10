@@ -104,6 +104,9 @@ app.conf.task_routes = {
     "das_server.tasks.celerybeat_pulse": {
         "queue": "realtime_p1",
     },
+    "das_server.tasks.refresh_tenants_cache": {
+        "queue": "maintenance",
+    },
 }
 
 
@@ -179,6 +182,10 @@ app.conf.beat_schedule = {
     "set_alert_counter_for_all_users": {
         "task": "activity.tasks.reset_alert_counter_for_all_users",
         "schedule": crontab(hour=0, minute=0),
+    },
+    "refresh_tenants_cache": {
+        "task": "das_server.tasks.refresh_tenants_cache",
+        "schedule": timedelta(hours=1),
     },
 }
 

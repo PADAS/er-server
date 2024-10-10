@@ -16,8 +16,8 @@ TMS_API = {
     "CLIENT": "core.tms.TestClient",
 }
 
-MEMORY_STORE = {
-    "CLIENT": "utils.persistent.RedisStorageReadOnly",
+TENANT_DOCUMENT_CACHE = {
+    "CLIENT": "utils.persistent.RedisStorage",
     "HOST": "redis",
     "PORT": "6379",
     "DATABASE": "10",
