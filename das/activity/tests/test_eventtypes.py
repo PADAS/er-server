@@ -290,9 +290,9 @@ class TestEventTypesAPI:
         response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
-        response_ids = [str(item.get("id")) for item in response.data]
-        assert str(event_type.id) in response_ids
+        assert str(event_type.id) in [str(item.get("id")) for item in response.data]
         old_etag = response.headers["ETag"]
+        assert len(old_etag) == 34  # ETags are MD5 hashes, 32 characters long, plus 2 quotes
 
         Choice.objects.create(
             **{
@@ -304,6 +304,7 @@ class TestEventTypesAPI:
         )
         response = superuser_client.get(url)
         new_etag = response.headers["ETag"]
+        assert len(new_etag) == 34
         assert old_etag == new_etag
 
         Choice.objects.create(
