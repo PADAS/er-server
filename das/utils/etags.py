@@ -24,7 +24,7 @@ def generate_etag_string(original_string: str, request: Union[Request, WSGIReque
     return hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
 
 
-def get_hash_from_queryset(queryset: QuerySet, request: Union[Request, WSGIRequest]):
+def get_hash_from_queryset(queryset: QuerySet, request: Union[Request, WSGIRequest], extra_salt: str = "") -> str:
     """
     Generate a hash from a Django QuerySet.
 
@@ -42,6 +42,8 @@ def get_hash_from_queryset(queryset: QuerySet, request: Union[Request, WSGIReque
         raise ValidationError(message="Invalid QuerySet: The QuerySet is defined without a list of values.")
 
     queryset_string = str(list(queryset))
+    if extra_salt:
+        queryset_string += f":{extra_salt}"
     string_to_be_hashed = _salt_string_to_hash(string_to_be_hashed=queryset_string, request=request)
     return _generate_hash_from_string(string_to_be_hashed=string_to_be_hashed)
 
