@@ -14,6 +14,7 @@ class FilterMixin(object):
 
 
 class TwoWaySubjectSourceMixin(object):
+    two_way_subject_sources = {}
 
     def _get_two_way_sources(self, queryset):
         lookup_field = {
