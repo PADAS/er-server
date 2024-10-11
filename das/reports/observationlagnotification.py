@@ -187,7 +187,7 @@ def all_observations_reach_threshold(latest_observation, datetime_threshold):
 
 
 def check_can_write_new_provider_event(source_provider, now, threshold):
-    if source_provider.events_reached_threshold.all():
+    if source_provider.events_reached_threshold.exists():
         lag = now - source_provider.events_reached_threshold.latest("created_at").created_at
         return lag > threshold
     return True
@@ -222,7 +222,7 @@ def is_threshold_reached(threshold, now, source):
 
 
 def can_write_new_source_event(source, now, threshold):
-    if source.events_reached_threshold.all():
+    if source.events_reached_threshold.exists():
         lag = now - source.events_reached_threshold.latest("created_at").created_at
         return lag > parse_duration(threshold)
     return True
@@ -230,20 +230,21 @@ def can_write_new_source_event(source, now, threshold):
 
 class SourcesReport:
     def create_silent_source_report(self, source, now, threshold, default_reached) -> None:
-        last_observations = source.observation_set.order_by("recorded_at")
+        last_observation = source.observation_set.order_by("-recorded_at").first()
+        subject = self.get_source_subject(source=source)
         self._save_silent_source_report(
-            title=self._get_report_title(source, default_reached),
+            title=self.get_report_title(source=source, subject=subject, default_reached=default_reached),
             report_time=now.strftime("%Y-%m-%d %H:%M:%S"),
-            subject_name=self._get_subject_name(source),
+            subject_name=self.get_subject_name(subject=subject),
             source_provider=source.provider.display_name,
             device_id=source.manufacturer_id,
             silence_threshold=threshold[:-3],
-            last_device_reported_at=last_observations.last().recorded_at.strftime("%Y-%m-%d %H:%M:%S"),
-            subject=self._get_source_subject(source),
+            last_device_reported_at=last_observation.recorded_at.strftime("%Y-%m-%d %H:%M:%S"),
+            subject=subject,
             source=source,
             location={
-                "latitude": last_observations.last().location.y,
-                "longitude": last_observations.last().location.x,
+                "latitude": last_observation.location.y,
+                "longitude": last_observation.location.x,
             },
         )
 
@@ -296,7 +297,7 @@ class SourcesReport:
                 event.related_subjects.add(subject)
             SourceEvent.objects.create(source=source, event=event)
         else:
-            logger.info(f"Impossible create a source report {serializer.errors}")
+            logger.warning(f"Impossible create a source report {serializer.errors}")
 
     def _save_silent_source_provider_report(
         self, title, report_time, silence_threshold, last_device_reported_at, source_provider
@@ -321,22 +322,20 @@ class SourcesReport:
             event = serializer.save()
             SourceProviderEvent.objects.create(source_provider=source_provider, event=event)
         else:
-            logger.info(f"Impossible create a source provider report {serializer.errors}")
+            logger.warning(f"Impossible create a source provider report {serializer.errors}")
 
-    def _get_report_title(self, source, default_reached=False) -> str:
+    def get_report_title(self, source, subject, default_reached=False) -> str:
         extra_title = "has gone silent" if default_reached else "is silent"
-        if source.subjectsource_set.last() and source.subjectsource_set.last().subject:
-            return f"{source.subjectsource_set.last().subject.name} {extra_title}"
+        if subject:
+            return f"{subject.name} {extra_title}"
         if default_reached:
             return f"{source.id} {extra_title}"
         return f"{source.manufacturer_id} {extra_title}"
 
-    def _get_subject_name(self, source) -> str:
-        if source.subjectsource_set.last() and source.subjectsource_set.last().subject:
-            return source.subjectsource_set.last().subject.name
+    def get_subject_name(self, subject) -> str:
+        if subject:
+            return subject.name
         return "(none)"
 
-    def _get_source_subject(self, source):
-        if source.subjectsource_set.last() and source.subjectsource_set.last().subject:
-            return source.subjectsource_set.last().subject
-        return None
+    def get_source_subject(self, source):
+        return source.subject

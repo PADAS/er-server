@@ -72,6 +72,7 @@ class DjangoSettingsTenantBuilder:
             subject_region_enabled=parse_bool(getattr(settings, "SUBJECT_REGION_ENABLED", True)),
             track_length=int(settings.TRACK_LENGTH),
             observation_accuracy_threshold=int(settings.OBSERVATION_ACCURACY_THRESHOLD),
+            alt_server_names=getattr(settings, "ALT_SERVER_NAMES", None),
         )
 
     def _load_feature_flags_from_django(self) -> FeatureFlags:

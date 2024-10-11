@@ -375,6 +375,18 @@ class Source(TenantModelMixin, TimestampedModel):
         queryset = Observation.objects.filter(source=self)
         return queryset
 
+    @cached_property
+    def subject(self):
+        """Get the active subject associated with this source"""
+        subject_source = (
+            SubjectSource.objects.select_related("subject")
+            .filter(source_id=self.pk, assigned_range__contains=datetime.now(tz=timezone.utc), subject__is_active=True)
+            .order_by("-assigned_range")
+            .first()
+        )
+
+        return subject_source.subject if subject_source else None
+
 
 EMPTY_POINT = Point(0, 0)
 
@@ -387,14 +399,14 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return self.filter(source__id=source_id)
 
     def by_since(self, recorded_since):
-        return self.filter(Q(recorded_at__gte=recorded_since))
+        return self.filter(recorded_at__gte=recorded_since)
 
     def by_until(self, recorded_until):
-        return self.filter(Q(recorded_at__lte=recorded_until))
+        return self.filter(recorded_at__lte=recorded_until)
 
     def by_since_until(self, recorded_since, recorded_until):
         if recorded_since and recorded_until:
-            return self.filter(Q(recorded_at__range=[recorded_since, recorded_until]))
+            return self.filter(recorded_at__range=[recorded_since, recorded_until])
         elif recorded_since:
             return self.by_since(recorded_since)
         elif recorded_until:
@@ -402,7 +414,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return self
 
     def by_created_after(self, timestamp):
-        return self.filter(Q(created_at__gte=timestamp))
+        return self.filter(created_at__gte=timestamp)
 
     def by_exclusion_flags(self, filter_flag=None, include_empty_location: bool = False):
         """Works with more than one filter flag, for example 3 which is manual and automatic exclusion.
@@ -423,25 +435,20 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             else:
                 queryset = queryset.filter(exclusion_flags=filter_flag)
             if not include_empty_location:
-                queryset = queryset.exclude(Q(location=EMPTY_POINT))
+                queryset = queryset.exclude(location=EMPTY_POINT)
         return queryset
 
     def annotate_transforms(self):
         return self.annotate(source_transforms=F("source__provider__transforms"))
 
-
-class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(ObservationQuerySet)):
-    use_in_migrations = True
-
     def get_subjectsource_observations(
         self, subjectsource, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
     ):
-        queryset = Observation.objects.filter(
+        queryset = self.filter(
             source__subjectsource=subjectsource, source__subjectsource__assigned_range__contains=F("recorded_at")
         )
 
         queryset = queryset.by_since_until(since, until)
-
         queryset = queryset.by_exclusion_flags(filter_flag)
 
         if order_by:
@@ -466,10 +473,8 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
         order_by=None,
         include_empty_location=True,
     ):
-        queryset = Observation.objects.filter(source=source)
-
+        queryset = self.filter(source=source)
         queryset = queryset.by_since_until(since, until)
-
         queryset = queryset.by_exclusion_flags(filter_flag)
 
         if not include_empty_location:
@@ -489,7 +494,7 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
     def get_subject_observations(
         self, subject, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
     ):
-        queryset = Observation.objects.filter(
+        queryset = self.filter(
             source__subjectsource__subject=subject, source__subjectsource__assigned_range__contains=F("recorded_at")
         )
 
@@ -518,6 +523,10 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
             subject, since=since, until=until, limit=limit, values=values, filter_flag=filter_flag
         )
 
+
+class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(ObservationQuerySet)):
+    use_in_migrations = True
+
     def set_flag(self, id_list, flags):
         """Hide the nuances of manipulating a bitmap associated with an observation."""
         Observation.objects.filter(id__in=id_list).update(exclusion_flags=F("exclusion_flags").bitor(flags))
@@ -535,11 +544,11 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
         )
 
         if since and until:
-            queryset = queryset.filter(Q(recorded_at__range=(since, until)))
+            queryset = queryset.filter(recorded_at__range=(since, until))
         elif since:
-            queryset = queryset.filter(Q(recorded_at__gte=since))
+            queryset = queryset.filter(recorded_at__gte=since)
         elif until:
-            queryset = queryset.filter(Q(recorded_at__lte=until))
+            queryset = queryset.filter(recorded_at__lte=until)
 
         queryset = queryset.exclude(location=EMPTY_POINT)
         queryset = queryset.order_by("-recorded_at")
@@ -649,6 +658,24 @@ class SubjectSourceQuerySet(models.QuerySet, FilterMixin):
             .prefetch_related("source", "source__provider")
         )
 
+    def by_updated_since(self, updated_since) -> models.QuerySet:
+        """
+        Filter queryset by updated_since datetime.
+        Given a queryset of SubjectSources.
+
+        :param updated_since:
+        :return: queryset of SubjectSources.
+        """
+        updated_since_filter = (
+            Q(subject__subjectstatus__updated_at__gte=updated_since)
+            | Q(subject__subjectstatus__recorded_at__gte=updated_since)
+            | Q(subject__subjectstatus__last_voice_call_start_at__gte=updated_since)
+            | Q(subject__subjectstatus__radio_state_at__gte=updated_since)
+        )
+
+        queryset = self.filter(updated_since_filter).order_by("id").distinct("id")
+        return queryset
+
 
 class SubjectSourceManager(TenantManagerMixin, models.Manager.from_queryset(SubjectSourceQuerySet)):
     use_in_migrations = True
@@ -664,11 +691,9 @@ class SubjectSourceManager(TenantManagerMixin, models.Manager.from_queryset(Subj
     def get_subjects_sources(self, subjects=None, sources=None):
         queryset = self
 
-        if subjects and sources:
-            queryset = queryset.filter(Q(subject_id__in=subjects) & Q(source_id__in=sources))
-        elif subjects:
+        if subjects:
             queryset = queryset.filter(subject_id__in=subjects)
-        elif sources:
+        if sources:
             queryset = queryset.filter(source_id__in=sources)
 
         return queryset
@@ -1084,7 +1109,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
 
         if include_linked:
             return self.filter(Q(groups__in=effective_subject_group_set) | Q(linked_user=user))
-        return self.filter(Q(groups__in=effective_subject_group_set))
+        return self.filter(groups__in=effective_subject_group_set)
 
     def by_user_subjects(self, user):
         queryset = self.by_user_subjects_not_distinct(user)
@@ -2442,7 +2467,7 @@ class MessagesManager(TenantManagerMixin, models.Manager.from_queryset(MessageFi
 
 class Message(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    _limits = models.Q(app_label="observations", model="subject") | models.Q(app_label="accounts", model="user")
+    _limits = Q(app_label="observations", model="subject") | Q(app_label="accounts", model="user")
 
     sender_content_type = models.ForeignKey(
         ContentType,

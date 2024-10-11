@@ -1,30 +1,48 @@
+import json
 from rest_framework import generics
 
 from buoy import serializers
+from buoy.views.helpers import (
+    check_valid_state_string,
+    check_valid_date_string,
+)
 from buoy.views.schemas import GearsViewSchema
 from django.db.models import OuterRef, Subquery
+from buoy.views.helpers import check_to_include_inactive_buoys, filter_by_bbox
 from django.shortcuts import get_object_or_404
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import Subject, SubjectSource, SubjectSource, Observation
+from observations.models import Subject, SubjectSource, SubjectSource, LatestObservationSource
 from observations.permissions import StandardObjectPermissions
 from observations.utils import (
     VIEW_SUBJECT_PERMS,
     dateparse,
     get_minimum_allowed_age,
 )
-
 from utils.drf import (
     ForbiddenAPIException,
     StandardResultsSetPagination,
 )
+from utils.gis import check_valid_lat_lon
 
 
 class GearsView(generics.ListAPIView):
-    """
-    get:
-    Returns a list of Gear in the system.
+    __doc__ = """
+    Returns all gears.
+    
+    Required query-parameters:
+    lat, lon: float
+    
+    Optional query-parameters:
+    state, where state is either "deployed" or "hauled".
+        example: state=deployed
+    updated_since, where updated_since is a date-string to limit on updated_at
 
-    """
+    page, page number
+
+    page_size, (default is {page_size}, max is {max_page_size})
+    """.format(
+        page_size=StandardResultsSetPagination.page_size, max_page_size=StandardResultsSetPagination.max_page_size
+    )
 
     permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.GearsSerializer
@@ -37,7 +55,7 @@ class GearsView(generics.ListAPIView):
         # allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
 
         # First get subject-sources.
-        queryset = SubjectSource.objects.all()
+        queryset = SubjectSource.objects.all().select_related("source").select_related("subject")
 
         # Filter queryset by removing subjects where the additional field is the same        
         latest_observations = Observation.objects.filter(
@@ -48,9 +66,8 @@ class GearsView(generics.ListAPIView):
             latest_observation_additional=Subquery(latest_observations.values("additional")[:1])
         )
 
-        # TODO: look into select related for perfomance 
         # Keep an eye on performance of the query and potentially add new indexes to improve performance 
-        queryset = queryset.distinct("latest_observation_additional")
+        queryset = queryset.order_by('additional').distinct('additional')
 
         return queryset
 

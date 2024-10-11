@@ -14,10 +14,13 @@ from pytest_factoryboy import register
 from django.apps import apps
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.gis.geos import Point
 from django.core.management import call_command
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.utils import add_tenant_to_permission_codename
+from buoy.tests import generate_devices
 from core.models import DASTenant
 from factories import (
     AccessTokenFactory,
@@ -53,6 +56,7 @@ from factories import (
     TwoWayMessageSubjectFactory,
     UserFactory,
 )
+from observations.models import Observation
 from utils.features import features
 from utils.tenant import Tenant
 from utils.tenant.managers import TenantContextManager
@@ -247,6 +251,31 @@ def gear_subjectsource():
 
 
 @pytest.fixture
+def gear_subjectsource_with_observations():
+    gear_subjectsource = GearFactory.create()
+    gear_subjectsource.save()
+
+    source = gear_subjectsource.source
+    provider = gear_subjectsource.source.provider
+    provider.save()
+    now = timezone.now()
+    additional = generate_devices(2)
+    location_dict = json.loads(additional["devices"][0])["location"]
+    point = Point(location_dict["longitude"], location_dict["latitude"])
+    data = {
+        "recorded_at": now,
+        "location": point,
+        "source": source,
+        "additional": additional,
+    }
+
+    observation = Observation.objects.create(**data)
+    observation.save()
+
+    return gear_subjectsource
+
+
+@pytest.fixture
 def five_gears():
     return GearFactory.create_batch(5)
 
@@ -432,22 +461,11 @@ def feature_tms(monkeypatch):
 
 
 @pytest.fixture
-def memory_store_client_mock(monkeypatch, tenant_response):
-    memory_store_client_mock = MagicMock()
-    memory_store_client_mock.get_key.return_value = json.dumps(tenant_response)
-    monkeypatch.setattr("utils.tenant.providers.memory_store_client", memory_store_client_mock)
-    return memory_store_client_mock
-
-
-@pytest.fixture
-def get_alt_domains_client_mock(monkeypatch, tenant_response):
-    mock = MagicMock()
-
-    def client_mock():
-        return mock
-
-    monkeypatch.setattr("utils.tenant.providers.get_alt_domain_cache_client", client_mock)
-    return client_mock
+def tenant_document_cache_client_mock(monkeypatch, tenant_response):
+    tenant_document_cache_client_mock = MagicMock()
+    tenant_document_cache_client_mock.get_key.return_value = json.dumps(tenant_response)
+    monkeypatch.setattr("utils.tenant.providers.tenant_document_cache_client", tenant_document_cache_client_mock)
+    return tenant_document_cache_client_mock
 
 
 @pytest.fixture
