@@ -11,7 +11,7 @@ from rest_framework import status
 @pytest.mark.django_db
 class TestEventViewFilters:
     def test_filter_param_is_not_vulnerable_to_sql_injection(
-        self, superuser_client, five_events_with_details, memory_store_client_mock, tenant_response
+        self, superuser_client, five_events_with_details, tenant_document_cache_client_mock, tenant_response
     ):
         url = reverse("events")
         term = (
@@ -33,7 +33,7 @@ class TestEventViewFilters:
         assert response.data["count"] == 0
 
     def test_filter_raises_invalid_text_representation(
-        self, superuser_client, five_events_with_details, memory_store_client_mock, tenant_response
+        self, superuser_client, five_events_with_details, tenant_document_cache_client_mock, tenant_response
     ):
         tms_api_client_mock.get_tenant_data.return_value = tenant_response
         url = reverse("events")
