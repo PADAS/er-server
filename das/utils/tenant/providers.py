@@ -79,6 +79,7 @@ def update_all_tenants_in_cache(tenants: list) -> None:
         pipe.delete(TENANTS_CACHE_KEY)
         pipe.rename(temp_tenants_cache_key, TENANTS_CACHE_KEY)
         pipe.expire(TENANTS_CACHE_KEY, TENANT_CACHE_TTL)
+        pipe.execute()
 
 
 def is_tenants_cache_empty() -> bool:
