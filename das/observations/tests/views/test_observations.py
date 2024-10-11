@@ -180,11 +180,12 @@ class ObservationViewTestCase(BaseAPITest):
         self.assertTrue(self.elephant.observations().count(), response.data.get("count"))
 
     def test_filter_observations_by_source_id(self):
-        filter_params = {"source_id": self.collar.id}
+        source_id = str(self.collar.id)
+        filter_params = {"source_id": source_id}
         response = self.make_observations_filter_request(filter_params)
 
         # all records are of the given source
-        self.assertTrue(all(k.get("source") == self.collar.id for k in response.data.get("results")))
+        self.assertTrue(all(k.get("source") == source_id for k in response.data.get("results")))
 
     def test_filter_observations_by_recorded_since(self):
         filter_params = {"since": self.observation_time + timedelta(days=1)}
@@ -275,7 +276,7 @@ class ObservationViewTestCase(BaseAPITest):
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestObservationsFilterView:
     def test_filter_by_subject_ascending(
-        self, five_observations, superuser_client, subject_source, tenant_response, memory_store_client_mock
+        self, five_observations, superuser_client, subject_source, tenant_response, tenant_document_cache_client_mock
     ):
         subject = subject_source.subject
         source = subject_source.source
@@ -291,7 +292,7 @@ class TestObservationsFilterView:
         assert waited_order_id == [str(item.get("id")) for item in response.data["results"]]
 
     def test_filter_by_subject_descending(
-        self, five_observations, superuser_client, subject_source, tenant_response, memory_store_client_mock
+        self, five_observations, superuser_client, subject_source, tenant_response, tenant_document_cache_client_mock
     ):
         subject = subject_source.subject
         source = subject_source.source

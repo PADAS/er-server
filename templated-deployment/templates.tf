@@ -8,7 +8,6 @@ locals {
   db_instance_private_ip = data.terraform_remote_state.site_terraform.outputs.db_instance_private_ip
 
   tms_api_host = var.tms_api_host != "" ? var.tms_api_host : var.app_infra_workspace == "dev" ? "https://er-tms-api-gateway-5sf422kw.uc.gateway.dev" : "https://er-tms-api-gateway-1r0d2ltk.ew.gateway.dev"
-  memory_store_host = var.memory_store_host != "" ? var.memory_store_host : var.app_infra_workspace == "dev" ? "redis-proxy.dev.pamdas.org" : "st-mt-proxy.pamdas.org"
 
 }
 
@@ -65,10 +64,6 @@ resource "template_dir" "deployments" {
     KUBERNETES_NAMESPACE            = var.kubernetes_namespace
     MAPBOX_TOKEN                    = var.mapbox_token
     MAPPING_FEATURES_V2             = var.mapping_features_v2
-    MEMORY_STORE_HOST               = local.memory_store_host
-    MEMORY_STORE_DATABASE           = var.memory_store_database
-    MEMORY_STORE_API_KEY            = var.memory_store_api_key
-    MEMORY_STORE_PORT               = var.memory_store_port
     OBSERVATION_ACCURACY_THRESHOLD  = var.observation_accuracy_threshold
     PATROL_ENABLED                  = var.patrol_enabled
     ROOT_LOGGING_LEVEL              = var.root_logging_level

@@ -1599,9 +1599,9 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolTypesView.as_view()(request)
         assert response.status_code == 403
 
-    @patch("utils.tenant.providers.memory_store_client")
-    def test_view_patrol_permission_can_view_patroltype(self, memory_store_client):
-        memory_store_client.get_key.return_value = None
+    @patch("utils.tenant.providers.tenant_document_cache_client")
+    def test_view_patrol_permission_can_view_patroltype(self, tenant_document_cache_client):
+        tenant_document_cache_client.get_key.return_value = None
         view_patrol_permissionset = PermissionSet.objects.get(name="View Patrols Permissions")
         self.radio_room_user.permission_sets.add(view_patrol_permissionset)
         client = Client()
@@ -1683,7 +1683,7 @@ class TestPatrol(BaseAPITest):
 
 
 @pytest.mark.usefixtures("tenant_settings")
-def test_patrol_admin_page(django_assert_max_num_queries, client, memory_store_client_mock, tenant_response):
+def test_patrol_admin_page(django_assert_max_num_queries, client, tenant_document_cache_client_mock, tenant_response):
     user_const = dict(last_name="last", first_name="first")
     user = User.objects.create_user(
         "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
@@ -1696,7 +1696,7 @@ def test_patrol_admin_page(django_assert_max_num_queries, client, memory_store_c
 
 
 @pytest.mark.usefixtures("tenant_settings")
-def test_patrols(django_assert_max_num_queries, client, memory_store_client_mock, tenant_response):
+def test_patrols(django_assert_max_num_queries, client, tenant_document_cache_client_mock, tenant_response):
     user_const = dict(last_name="last", first_name="first")
     user = User.objects.create_user(
         "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
@@ -1708,7 +1708,7 @@ def test_patrols(django_assert_max_num_queries, client, memory_store_client_mock
 
 
 @pytest.mark.usefixtures("tenant_settings")
-def test_patrolsegments(django_assert_max_num_queries, client, memory_store_client_mock, tenant_response):
+def test_patrolsegments(django_assert_max_num_queries, client, tenant_document_cache_client_mock, tenant_response):
     user_const = dict(last_name="last", first_name="first")
     user = User.objects.create_user(
         "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
@@ -2397,7 +2397,7 @@ class TestPatrolView:
         assert data["state"] == PC_CANCELLED
 
     def test_response_contains_etag_and_last_modified_headers(
-        self, superuser_client, five_patrol_segment, memory_store_client_mock
+        self, superuser_client, five_patrol_segment, tenant_document_cache_client_mock
     ):
         patrol_type_id = str(PatrolType.objects.first().id)
         url = reverse("patrol-type", kwargs={"id": patrol_type_id})
@@ -2418,7 +2418,7 @@ class TestPatrolView:
 @pytest.mark.usefixtures("tenant_settings")
 class TestPatrolsView:
     def test_response_contains_etag_and_last_modified_headers(
-        self, superuser_client, five_patrol_segment, memory_store_client_mock
+        self, superuser_client, five_patrol_segment, tenant_document_cache_client_mock
     ):
         url = reverse("patrol-types")
 

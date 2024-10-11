@@ -26,6 +26,10 @@ class SourceProviderEvent(TenantModelMixin, TimestampedModel, UUIDModel):
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
 
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+
 
 class SourceEvent(TenantModelMixin, TimestampedModel, UUIDModel):
     source = TenantForeignKey(
@@ -43,3 +47,7 @@ class SourceEvent(TenantModelMixin, TimestampedModel, UUIDModel):
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"

@@ -25,7 +25,7 @@ class TestStatusView:
     @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
     @pytest.mark.skipif(not features.tms.is_on(), reason="TMS feature flag is off")
     def test_get_status_from_view_when_tms_is_turned_on(
-        self, monkeypatch, superuser_client, tenant_response, memory_store_client_mock
+        self, monkeypatch, superuser_client, tenant_response, tenant_document_cache_client_mock
     ):
         tenant_settings = Tenant.from_dict(tenant_response)
         tenant_settings.feature_flags.alerts_enabled = True
@@ -40,7 +40,9 @@ class TestStatusView:
         self._assert_feature_flags_response_match(response)
 
     @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-    def test_get_status_not_including_support_settings(self, monkeypatch, superuser_client, memory_store_client_mock):
+    def test_get_status_not_including_support_settings(
+        self, monkeypatch, superuser_client, tenant_document_cache_client_mock
+    ):
         monkeypatch.setattr("das_server.views.settings.EUS_SETTINGS", {"invalid": "settings"})
         url = reverse("api-status")
 
@@ -50,7 +52,9 @@ class TestStatusView:
         assert "eus_settings" not in response.data
 
     @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-    def test_get_status_including_support_settings(self, monkeypatch, superuser_client, memory_store_client_mock):
+    def test_get_status_including_support_settings(
+        self, monkeypatch, superuser_client, tenant_document_cache_client_mock
+    ):
         support_settings = {
             "email": "eus_test@pamdas.org",
             "name": "eus test user",
@@ -66,7 +70,9 @@ class TestStatusView:
         assert response.data["eus_settings"] == support_settings
 
     @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-    def test_get_status_with_db_connections_param(self, monkeypatch, superuser_client, memory_store_client_mock):
+    def test_get_status_with_db_connections_param(
+        self, monkeypatch, superuser_client, tenant_document_cache_client_mock
+    ):
         cursor_mock = MagicMock()
         cursor_mock.fetchone.return_value = [5]
         connection_mock = MagicMock()
@@ -86,7 +92,9 @@ class TestStatusView:
         assert response.data["last_migration_name"] == "001_alter_db"
 
     @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-    def test_get_status_with_service_status_param(self, monkeypatch, superuser_client, memory_store_client_mock):
+    def test_get_status_with_service_status_param(
+        self, monkeypatch, superuser_client, tenant_document_cache_client_mock
+    ):
         utils_mock = MagicMock()
         utils_mock.get_source_provider_statuses.return_value = []
         monkeypatch.setattr("das_server.views.servicesutils", utils_mock)

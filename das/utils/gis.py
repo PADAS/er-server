@@ -3,6 +3,7 @@ import math
 from typing import Union
 
 from django.contrib.gis.geos import GEOSGeometry, MultiPolygon, Point, Polygon
+from geopy.distance import distance
 
 from utils.tenant import get_tenant_settings
 
@@ -41,6 +42,48 @@ def validate_bbox(bbox_as_string):
         poly = Polygon.from_bbox(bbox)
 
     return poly
+
+
+def calculate_bbox(latitude, longitude, nautical_miles):
+    """
+        Calculate the bbox.
+        Calculate the bounding box given the position and radius.
+
+        :param latitude:
+        :param longitude:
+        :param nautical_miles:
+        :return: array representing bbox [west. south, east, north].
+        """
+    # Create a Point at the original location
+    original_point = Point(latitude, longitude)
+
+    # Calculate the points at the corners of the bounding box
+    north = distance(nautical=nautical_miles).destination(original_point, 0).latitude
+    south = distance(nautical=nautical_miles).destination(original_point, 180).latitude
+    east = distance(nautical=nautical_miles).destination(original_point, 90).longitude
+    west = distance(nautical=nautical_miles).destination(original_point, 270).longitude
+
+    # Return the bounding box
+    return [west, south, east, north]
+
+
+def check_valid_lat_lon(latitude: float, longitude: float) -> bool:
+    """
+    Check valid latitude and longitude.
+    Check if the latitude and longitude are valid.
+    Latitude must be between -90 and 90.
+    Longitude must be between -180 and 180.
+
+    :param latitude:
+    :param longitude:
+    :return: bool
+    """
+    is_valid = True
+    if not -90 <= latitude <= 90:
+        is_valid = False
+    if not -180 <= longitude <= 180:
+        is_valid = False
+    return is_valid
 
 
 def points_cross_idl(point1, point2):
