@@ -7,7 +7,7 @@ from typing import Any, Callable, Iterable, Optional
 from django.contrib.auth.models import User
 from django.contrib.gis.db.models import Model
 from django.db.models import QuerySet
-from django.http import Http404, QueryDict
+from django.http import QueryDict
 
 from activity.models import EventType, PatrolType
 from activity.views.events.utils import EventTypeQuerysetMixin
@@ -105,11 +105,10 @@ def build_event_types_etag_header(request, *args, **kwargs) -> str:
 def build_event_type_etag_header(request, *args, **kwargs) -> str:
     queryset = EventType.objects.filter(id=kwargs["eventtype_id"])
     queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
+    schema = None
     if event_type := queryset.first():
         schema = event_type["schema"]
         schema = get_schema_renderer_method(as_string=True)(schema)
-    else:
-        raise Http404
     return get_hash_from_queryset(queryset=queryset, request=request, extra_salt=schema)
 
 
