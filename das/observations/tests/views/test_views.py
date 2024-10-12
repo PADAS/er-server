@@ -575,7 +575,9 @@ def subject_with_month_long_track(db, user_with_one_week_track_perms):
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_one_week_track_permissions(subject_with_month_long_track, client, tenant_response, memory_store_client_mock):
+def test_one_week_track_permissions(
+    subject_with_month_long_track, client, tenant_response, tenant_document_cache_client_mock
+):
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     oldest_time = now - datetime.timedelta(days=31)
 
@@ -682,7 +684,9 @@ class TestSourceView:
 class TestFlattenObservationsView:
     FLATTEN_URL = reverse("flatten-observations")
 
-    def test_subject_without_observations(self, subject, superuser_client, tenant_response, memory_store_client_mock):
+    def test_subject_without_observations(
+        self, subject, superuser_client, tenant_response, tenant_document_cache_client_mock
+    ):
         response = superuser_client.get(
             self.FLATTEN_URL, {"subject_id": f"{subject.id}", "created_after": "2022-10-18T14:49:15.869490+00:00"}
         )
@@ -691,7 +695,7 @@ class TestFlattenObservationsView:
         assert response.data == []
 
     def test_subject_with_observations(
-        self, superuser_client, subject_source, tenant_response, memory_store_client_mock
+        self, superuser_client, subject_source, tenant_response, tenant_document_cache_client_mock
     ):
         now = datetime.datetime.now(tz=pytz.utc)
         source = subject_source.source
@@ -731,11 +735,11 @@ class TestSubjectsView:
 
         return SubjectsView.as_view()(request), client.app_user
 
-    def test_subjects_view_with_linked_user(self, memory_store_client_mock, _get_superuser_client):
+    def test_subjects_view_with_linked_user(self, tenant_document_cache_client_mock, _get_superuser_client):
         response, user = _get_superuser_client
         assert response.data[0]["user"]["id"] == str(user.id)
 
-    def test_subjects_view_without_linked_user(self, memory_store_client_mock, _get_superuser_client):
+    def test_subjects_view_without_linked_user(self, tenant_document_cache_client_mock, _get_superuser_client):
         response, _ = _get_superuser_client
 
         assert not hasattr(response.data[0], "user")
@@ -778,7 +782,7 @@ class TestSubjectView:
 
         return SubjectView.as_view()(request, id=str(subject.id)), client.app_user
 
-    def test_subject_view_with_linked_user(self, memory_store_client_mock, _get_superuser_client):
+    def test_subject_view_with_linked_user(self, tenant_document_cache_client_mock, _get_superuser_client):
         response, user = _get_superuser_client
         assert response.data["user"]["id"] == str(user.id)
 
@@ -786,7 +790,7 @@ class TestSubjectView:
         response, user = _get_client
         assert response.data["user"]["id"] == str(user.id)
 
-    def test_subject_view_without_linked_user(self, memory_store_client_mock, _get_superuser_client):
+    def test_subject_view_without_linked_user(self, tenant_document_cache_client_mock, _get_superuser_client):
         response, _ = _get_superuser_client
         assert not hasattr(response.data, "user")
 

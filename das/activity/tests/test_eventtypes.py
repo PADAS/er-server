@@ -52,7 +52,7 @@ EVENT_TYPE_UPDATES = (
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_post_eventtype(superuser_client, monkeypatch, memory_store_client_mock, tenant_response):
+def test_post_eventtype(superuser_client, monkeypatch, tenant_document_cache_client_mock, tenant_response):
     EventType.objects.all().delete()
     url = reverse("eventtypes")
     data = {"display": "Accoustic Detection", "value": "acoustic_detection", "category": "analyzer_event"}
@@ -63,7 +63,7 @@ def test_post_eventtype(superuser_client, monkeypatch, memory_store_client_mock,
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_post_eventtype_with_schema(
-    superuser_client, basic_event_categories, memory_store_client_mock, tenant_response
+    superuser_client, basic_event_categories, tenant_document_cache_client_mock, tenant_response
 ):
     EventType.objects.all().delete()
     url = reverse("eventtypes")
@@ -79,7 +79,7 @@ def test_post_eventtype_with_schema(
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_update_event_type(
-    event_type, basic_event_categories, superuser_client, memory_store_client_mock, tenant_response
+    event_type, basic_event_categories, superuser_client, tenant_document_cache_client_mock, tenant_response
 ):
     event_category_monitoring = EventCategory.objects.get(value="monitoring")
     event_type.display = "Wildlife Sighting"
@@ -98,7 +98,7 @@ def test_update_event_type(
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_set_eventtype_to_inactive(event_type, superuser_client, memory_store_client_mock, tenant_response):
+def test_set_eventtype_to_inactive(event_type, superuser_client, tenant_document_cache_client_mock, tenant_response):
     url = reverse("eventtype", kwargs={"eventtype_id": event_type.id})
 
     response = superuser_client.delete(url)
@@ -108,7 +108,7 @@ def test_set_eventtype_to_inactive(event_type, superuser_client, memory_store_cl
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_post_eventtype_with_bad_schema(superuser_client, memory_store_client_mock, tenant_response):
+def test_post_eventtype_with_bad_schema(superuser_client, tenant_document_cache_client_mock, tenant_response):
     url = reverse("eventtypes")
     data = {
         "display": "Simple Report",
@@ -124,7 +124,9 @@ def test_post_eventtype_with_bad_schema(superuser_client, memory_store_client_mo
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_readonly_eventtype(superuser_client, basic_event_categories, memory_store_client_mock, tenant_response):
+def test_readonly_eventtype(
+    superuser_client, basic_event_categories, tenant_document_cache_client_mock, tenant_response
+):
     url = reverse("eventtypes")
     schema = """
         {
@@ -170,7 +172,7 @@ class TestEventTypeAPI:
 
     @pytest.mark.parametrize("field_update", EVENT_TYPE_UPDATES)
     def test_field_update_generates_new_etag_response_header(
-        self, superuser_client, five_event_types, field_update, memory_store_client_mock
+        self, superuser_client, five_event_types, field_update, tenant_document_cache_client_mock
     ):
         event_type = five_event_types[0]
         event_type_id = str(event_type.id)
@@ -230,7 +232,7 @@ class TestEventTypeAPI:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings")
 class TestEventTypesAPI:
-    def test_response_includes_etag(self, superuser_client, five_event_types, memory_store_client_mock):
+    def test_response_includes_etag(self, superuser_client, five_event_types, tenant_document_cache_client_mock):
         url = reverse("eventtypes")
 
         response_with_info = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
@@ -254,7 +256,7 @@ class TestEventTypesAPI:
 
     @pytest.mark.parametrize("field_update", EVENT_TYPE_UPDATES)
     def test_field_update_generates_new_etag_response_header(
-        self, superuser_client, five_event_types, field_update, memory_store_client_mock
+        self, superuser_client, five_event_types, field_update, tenant_document_cache_client_mock
     ):
         event_type = five_event_types[0]
         url = reverse("eventtypes")

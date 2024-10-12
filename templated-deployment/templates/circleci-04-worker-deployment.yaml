@@ -136,11 +136,6 @@ spec:
                 secretKeyRef:
                   name: ubi-api-credentials
                   key: ubi_password
-            - name: MEMORY_STORE_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: memory-store-api-key
-                  key: memory_store_api_key
             - name: TMS_API_KEY
               valueFrom:
                 secretKeyRef:
