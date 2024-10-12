@@ -284,8 +284,6 @@ def subject_group_etag(request, *args, **kwargs):
     queryset = SubjectGroup.objects.get_non_cyclic_subjectgroups(single_sg=True)
     TwoWaySubjectSourceMixin()._get_two_way_sources(queryset)
     queryset = queryset.values(*fields).filter(pk=kwargs["id"])
-    if not list(queryset):
-        raise Http404
     return get_hash_from_queryset(queryset=queryset, request=request)
 
 
