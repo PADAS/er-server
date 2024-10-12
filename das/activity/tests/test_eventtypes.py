@@ -245,7 +245,7 @@ class TestEventTypesAPI:
         assert empty_response.status_code == status.HTTP_304_NOT_MODIFIED
         assert isinstance(empty_response, HttpResponseNotModified)
 
-    def test_empty_response_includes_etag(self, superuser_client, five_event_types, memory_store_client_mock):
+    def test_empty_response_includes_etag(self, superuser_client, five_event_types):
         base_url = reverse("eventtypes")
         qparams = {"category": 1, "is_collection": True, "is_active": False}
         url = f"{base_url}?{urlencode(qparams)}"
@@ -253,6 +253,7 @@ class TestEventTypesAPI:
         assert response.status_code == status.HTTP_200_OK
         assert not len(response.data)
         assert "ETag" in response.headers
+        assert len(response.headers["ETag"]) == 34
 
     @pytest.mark.parametrize("field_update", EVENT_TYPE_UPDATES)
     def test_field_update_generates_new_etag_response_header(
