@@ -11,7 +11,6 @@ import pytz
 from oauth2_provider.models import get_access_token_model
 from opentelemetry import trace
 
-from django.core.exceptions import DisallowedHost
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -29,9 +28,8 @@ from utils import add_base_url, stats
 from utils.categories import should_apply_geographic_features
 from utils.gis import convert_to_point
 from utils.tenant import get_tenant_settings
-from utils.tenant.domains import add_new_tenant_domains_to_settings
 from utils.tenant.exceptions import TenantNotFoundException
-from utils.tenant.managers import set_tenant
+from utils.tenant.managers import set_tenant_by_request
 
 logger = logging.getLogger(__name__)
 
@@ -266,9 +264,9 @@ class GeographicMiddleware:
 
         if is_banned(user) and (re.search(ACTIVITY_EVENTS_PATH_REGEX, request.path)):
             warn_text = (
-                f"199 - You have violated the maximum speed configured."
-                f" Please wait a little while before trying again, or contact "
-                f"your site administrator with any questions."
+                "199 - You have violated the maximum speed configured."
+                " Please wait a little while before trying again, or contact "
+                "your site administrator with any questions."
             )
             response["Warning"] = warn_text
         return response
@@ -280,7 +278,7 @@ class TenantSettingsMiddleware:
 
     def __call__(self, request):
         try:
-            set_tenant(domain=self._get_host(request))
+            set_tenant_by_request(request=request)
         except TenantNotFoundException as ex:
             return JsonResponse(
                 data={
@@ -290,14 +288,6 @@ class TenantSettingsMiddleware:
             )
         response = self.get_response(request)
         return response
-
-    def _get_host(self, request):
-        try:
-            return request.get_host()
-        except DisallowedHost:
-            add_new_tenant_domains_to_settings()
-
-        return request.get_host()
 
 
 def is_check_eula_path(path):
