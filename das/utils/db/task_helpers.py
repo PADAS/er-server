@@ -34,7 +34,7 @@ def run_partition_maintenance(table_name: str, logger: Logger) -> None:
     else:
         try:
             maintenance_query = partman_partition_maintenance_query(table_name=table_name)
-            logger.info(f"maintenance_query to run: {maintenance_query}")
+            logger.info(f"DB maintenance query to run: {maintenance_query}")
             execute_sql_query(maintenance_query, logger=logger, fetch=True)
             logger.info(f"partman partition maintenance done on table '{table_name}'")
         except:
