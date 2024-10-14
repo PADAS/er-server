@@ -16,7 +16,8 @@
     "alertRateLimit": 40,
     "allServerNames": null,
     "altServerNames": [
-      "root.dev.pamdas.org"
+      "root.dev.pamdas.org",
+      "testserver"
     ],
     "defaultEventFilterFromDays": null,
     "defaultPatrolFilterFromDays": null,

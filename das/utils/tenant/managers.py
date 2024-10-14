@@ -14,11 +14,8 @@ from rest_framework.request import Request
 
 from core.models import DASTenant
 from utils.tenant.domains import add_new_tenant_domains_to_settings
-from utils.tenant.exceptions import (
-    TenantNotFoundException,
-    TenantNotFoundInLocalThreadException,
-)
-from utils.tenant.providers import TenantData, get_tenant_domain_from_alt_server_name
+from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
+from utils.tenant.providers import TenantData, get_tenant_data_by_host
 from utils.tenant.thread import (
     clear_tenant_settings,
     get_tenant_settings,
@@ -97,14 +94,7 @@ def set_tenant_by_request(request: Union[Request, WSGIRequest]) -> None:
     host_name = get_host(request)
     host_name = host_name.split(":")[0]  # remove any port number
 
-    try:
-        instance = TenantData(domain=host_name)
-        tenant_data = instance.get_tenant_data()
-    except TenantNotFoundException:
-        domain = get_tenant_domain_from_alt_server_name(host_name)
-        instance = TenantData(domain=domain)
-        tenant_data = instance.get_tenant_data()
-
+    tenant_data = get_tenant_data_by_host(host_name)
     set_tenant_data(tenant_data)
 
 
