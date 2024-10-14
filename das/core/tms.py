@@ -24,7 +24,9 @@ class TestClient(BaseClient):
             self.tenant_response = json.load(tenant_response)
 
     def get_tenant_data(self, domain: str):
-        return self.tenant_response
+        if self.tenant_response["domain"] == domain:
+            return self.tenant_response
+        raise TenantNotFoundException(f"Tenant not found in TestClient: {domain}", domain=domain)
 
     def list_tenants(self):
         return [self.tenant_response]
@@ -37,7 +39,10 @@ class DjangoSettingsClient(BaseClient):
     def get_tenant_data(self, domain: str):
         from utils.tenant.builder import DjangoSettingsTenantBuilder
 
-        return DjangoSettingsTenantBuilder().build().to_dict()
+        tenant_data = DjangoSettingsTenantBuilder().build().to_dict()
+        if tenant_data["domain"] == domain:
+            return tenant_data
+        raise TenantNotFoundException(f"Tenant not found in DjangoSettingsClient: {domain}", domain=domain)
 
     def list_tenants(self):
         tenant = self.get_tenant_data(getattr(settings, "SERVER_FQDN", None))

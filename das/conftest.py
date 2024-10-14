@@ -549,6 +549,14 @@ def tenant_settings(request, monkeypatch, tenant):
     monkeypatch.setattr("utils.tenant.thread._local_thread", thread)
     monkeypatch.setattr("utils.tenant.thread.set_tenant_settings", MagicMock(return_value=None))
     monkeypatch.setattr("utils.tenant.thread.clear_tenant_settings", MagicMock(return_value=None))
+
+    def get_tenant_domain_from_alt_server_name(alt_server_name):
+        if alt_server_name in tenant.env_settings.alt_server_names:
+            return tenant.domain
+
+    monkeypatch.setattr(
+        "utils.tenant.providers.get_tenant_domain_from_alt_server_name", get_tenant_domain_from_alt_server_name
+    )
     if getattr(request, "cls", None):
         request.cls.tenant_settings = tenant
     return tenant

@@ -112,6 +112,17 @@ def get_alt_hosts_for_tenants() -> set:
     return alt_hosts
 
 
+def get_tenant_data_by_host(host_name: str) -> dict:
+    try:
+        instance = TenantData(domain=host_name)
+        tenant_data = instance.get_tenant_data()
+    except TenantNotFoundException:
+        domain = get_tenant_domain_from_alt_server_name(host_name)
+        instance = TenantData(domain=domain)
+        tenant_data = instance.get_tenant_data()
+    return tenant_data
+
+
 class TenantData:
     domain: str
 

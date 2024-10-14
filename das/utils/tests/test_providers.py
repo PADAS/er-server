@@ -11,6 +11,7 @@ from utils.tenant.exceptions import TenantNotFoundException
 from utils.tenant.providers import (
     TenantData,
     get_current_cluster_domains,
+    get_tenant_data_by_host,
     get_tenant_domain_from_alt_server_name,
 )
 
@@ -55,6 +56,15 @@ class TestTenantData:
         tenant_domain = get_tenant_domain_from_alt_server_name(alt_server_name)
 
         assert tenant_domain == tenant_response["domain"]
+        assert f"Getting tenant domain from alt server name {alt_server_name}" in caplog.text
+
+    def test_get_tenant_data_from_alt_server_name(self, tenant_response, caplog):
+        caplog.set_level(logging.DEBUG)
+        alt_server_name = tenant_response["envSettings"]["altServerNames"][0]
+
+        tenant_data = get_tenant_data_by_host(alt_server_name)
+
+        assert tenant_data["domain"] == tenant_response["domain"]
         assert f"Getting tenant domain from alt server name {alt_server_name}" in caplog.text
 
     def test_get_tenant_not_found(self, tenant_document_cache_client_mock, tms_api_client_mock, caplog):
