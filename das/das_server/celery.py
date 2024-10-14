@@ -104,6 +104,7 @@ app.conf.task_routes = {
     "das_server.tasks.celerybeat_pulse": {
         "queue": "realtime_p1",
     },
+    "observations.tasks.run_partition_maintenance": {"queue": "maintenance"},
     "das_server.tasks.refresh_tenants_cache": {
         "queue": "maintenance",
     },
@@ -183,6 +184,9 @@ app.conf.beat_schedule = {
         "task": "activity.tasks.reset_alert_counter_for_all_users",
         "schedule": crontab(hour=0, minute=0),
     },
+    "postgresql_partman_run_partition_maintenance_for_observations_observation": {
+        "task": "observations.tasks.run_partition_maintenance",
+        "schedule": crontab(minute="0", hour="0", day_of_month="1"),
     "refresh_tenants_cache": {
         "task": "das_server.tasks.refresh_tenants_cache",
         "schedule": timedelta(hours=1),
