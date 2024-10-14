@@ -250,6 +250,7 @@ class TestEventTypesAPI:
         qparams = {"category": 1, "is_collection": True, "is_active": False}
         url = f"{base_url}?{urlencode(qparams)}"
         response = superuser_client.get(url)
+
         assert response.status_code == status.HTTP_200_OK
         assert not len(response.data)
         assert "ETag" in response.headers
