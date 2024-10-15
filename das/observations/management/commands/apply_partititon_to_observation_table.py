@@ -12,7 +12,6 @@ from utils.db.partition import (
 
 
 class PartitionObservationTable(PartitionTableTool):
-
     def _create_parent_table(self) -> None:
         sql = f"""
         CREATE TABLE IF NOT EXISTS {self.partitioned_table_name}
@@ -80,7 +79,7 @@ class Command(BaseCommand):
             TriggerData(
                 name="trigger_delete_latest_observation_source",
                 sql="""
-                CREATE TRIGGER trigger_delete_latest_observation_source
+                CREATE OR REPLACE TRIGGER trigger_delete_latest_observation_source
                 AFTER DELETE
                 ON {table_name}
                 FOR EACH ROW
@@ -90,7 +89,7 @@ class Command(BaseCommand):
             TriggerData(
                 name="trigger_insert_latest_observation_source",
                 sql="""
-                CREATE TRIGGER trigger_insert_latest_observation_source
+                CREATE OR REPLACE TRIGGER trigger_insert_latest_observation_source
                 AFTER INSERT
                 ON {table_name}
                 FOR EACH ROW
@@ -100,7 +99,7 @@ class Command(BaseCommand):
             TriggerData(
                 name="trigger_update_latest_observation_source",
                 sql="""
-                CREATE TRIGGER trigger_update_latest_observation_source
+                CREATE OR REPLACE TRIGGER trigger_update_latest_observation_source
                 AFTER UPDATE
                 ON {table_name}
                 FOR EACH ROW
