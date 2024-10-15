@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, NamedTuple
+from urllib.parse import urlencode
 
 import pytest
 
@@ -11,6 +11,7 @@ from rest_framework import status
 from activity.models import PRI_URGENT, SC_RESOLVED, EventCategory, EventType
 from activity.tests import schema_examples
 from activity.views import EventTypesView, EventTypeView
+from choices.models import Choice
 from client_http import HTTPClient
 from factories import EventTypeFactory
 from utils.rank import RankedTool
@@ -37,35 +38,6 @@ TEST_SCHEMA = json.dumps(
         ],
     }
 )
-
-
-class EventTypeDetails(NamedTuple):
-    eventtype: EventType
-    user: Any
-
-
-@pytest.fixture
-def eventtype_fixture(db, django_user_model):
-    EventType.objects.all().delete()
-    EventCategory.objects.all().delete()
-
-    event_category = EventCategory.objects.create(value="monitoring", display="Monitoring")
-    EventCategory.objects.create(value="analyzer_event", display="Analyzer Event")
-
-    event_type = EventType.objects.create(
-        display="Wildlife Sighting",
-        value="wildlife_sighting_rep",
-        category=event_category,
-        schema=schema_examples.WILDLIFE_SCHEMA,
-    )
-
-    user_const = dict(first_name="first", last_name="last")
-    user = django_user_model.objects.create_user(
-        "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
-    )
-
-    return EventTypeDetails(eventtype=event_type, user=user)
-
 
 EVENT_TYPE_UPDATES = (
     ("default_priority", PRI_URGENT),
@@ -193,11 +165,9 @@ class TestEventTypeAPI:
     )
     def test_event_type_response_geometry_type(self, mocked_geometry_type):
         event_type_instance = EventTypeFactory.create(geometry_type=mocked_geometry_type)
-
         response = self._get_response(event_type_id=event_type_instance.id)
 
         assert response.status_code == 200
-
         assert response.data["geometry_type"] == mocked_geometry_type.value
 
     @pytest.mark.parametrize("field_update", EVENT_TYPE_UPDATES)
@@ -237,7 +207,6 @@ class TestEventTypeAPI:
 
         url = reverse("eventtype-ranking", kwargs={"eventtype_id": str(event_type.id)})
         superuser_client.post(url, {"before_key": None})
-
         obj = EventType.objects.get(id=event_type.id)
 
         assert obj.ordernum == 0.5
@@ -276,6 +245,17 @@ class TestEventTypesAPI:
         assert empty_response.status_code == status.HTTP_304_NOT_MODIFIED
         assert isinstance(empty_response, HttpResponseNotModified)
 
+    def test_empty_response_includes_etag(self, superuser_client, five_event_types):
+        base_url = reverse("eventtypes")
+        qparams = {"category": 1, "is_collection": True, "is_active": False}
+        url = f"{base_url}?{urlencode(qparams)}"
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert not len(response.data)
+        assert "ETag" in response.headers
+        assert len(response.headers["ETag"]) == 34
+
     @pytest.mark.parametrize("field_update", EVENT_TYPE_UPDATES)
     def test_field_update_generates_new_etag_response_header(
         self, superuser_client, five_event_types, field_update, tenant_document_cache_client_mock
@@ -295,6 +275,53 @@ class TestEventTypesAPI:
         assert original_response.status_code == status.HTTP_200_OK
         assert modified_response.status_code == status.HTTP_200_OK
         assert original_etag != modified_etag
+
+    def test_schema_choices_update_generates_new_etag_response_header(self, superuser_client):
+        EventType.objects.all().delete()
+        EventCategory.objects.all().delete()
+
+        monitoring_category = EventCategory.objects.create(value="monitoring", display="Monitoring")
+        EventCategory.objects.create(value="analyzer_event", display="Analyzer Event")
+
+        event_type = EventType.objects.create(
+            display="Wildlife Sighting",
+            value="wildlife_sighting_rep",
+            category=monitoring_category,
+            schema=schema_examples.WILDLIFE_SCHEMA,
+        )
+
+        url = reverse("eventtypes")
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert str(event_type.id) in [str(item.get("id")) for item in response.data]
+        old_etag = response.headers["ETag"]
+        assert len(old_etag) == 34  # ETags are MD5 hashes, 32 characters long, plus 2 quotes
+
+        Choice.objects.create(
+            **{
+                "model": "activity.event",
+                "field": "not_relevant_field",
+                "value": "not_relevant_value",
+                "display": "Not Relevant",
+            }
+        )
+        response = superuser_client.get(url)
+        new_etag = response.headers["ETag"]
+        assert len(new_etag) == 34
+        assert old_etag == new_etag
+
+        Choice.objects.create(
+            **{
+                "model": "activity.event",
+                "field": "wildlifesightingrep_species",
+                "value": "zebra",
+                "display": "Zebra",
+            }
+        )
+        response = superuser_client.get(url)
+        new_etag = response.headers["ETag"]
+        assert old_etag != new_etag
 
     def test_filter_by_updated_since(self, superuser_client, five_event_categories):
         url = reverse("eventtypes")
