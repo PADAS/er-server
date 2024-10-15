@@ -44,7 +44,7 @@ class TestUserView:
         new_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
 
         assert new_response.status_code == status.HTTP_304_NOT_MODIFIED
-        assert etag == new_response.headers["Etag"]
+        assert etag == new_response.headers["ETag"]
 
     def test_get_user_no_modified_profile_user(self, superuser_client, tenant_document_cache_client_mock, user):
         url = reverse("accounts:user", kwargs={"id": str(user.id)})
@@ -60,7 +60,7 @@ class TestUserView:
         new_response = client.get(url, HTTP_IF_NONE_MATCH=etag)
 
         assert new_response.status_code == status.HTTP_304_NOT_MODIFIED
-        assert etag == new_response.headers["Etag"]
+        assert etag == new_response.headers["ETag"]
 
     def test_get_user_with_profile_should_resolved(self, superuser_client, user) -> None:
         superuser = superuser_client.user
@@ -109,8 +109,8 @@ class TestUserView:
 
         new_response = user_client.get(url, HTTP_IF_NONE_MATCH=etag)
         assert new_response.status_code == status.HTTP_200_OK
-        assert etag != new_response.headers["Etag"]
-        etag = new_response.headers["Etag"]
+        assert etag != new_response.headers["ETag"]
+        etag = new_response.headers["ETag"]
 
         linked_subject.additional = {"test": "test"}
         linked_subject.save()
@@ -118,7 +118,7 @@ class TestUserView:
         new_response = user_client.get(url, HTTP_IF_NONE_MATCH=etag)
         assert new_response.status_code == status.HTTP_200_OK
 
-        assert etag != new_response.headers["Etag"]
+        assert etag != new_response.headers["ETag"]
 
 
 @pytest.mark.django_db
@@ -152,7 +152,7 @@ class TestUserProfilesView:
         new_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
 
         assert new_response.status_code == status.HTTP_304_NOT_MODIFIED
-        assert etag == new_response.headers["Etag"]
+        assert etag == new_response.headers["ETag"]
 
     def test_get_user_profiles_modified_by_user(
         self, superuser_client, superuser, user, tenant_document_cache_client_mock
@@ -172,7 +172,7 @@ class TestUserProfilesView:
         new_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
 
         assert new_response.status_code == status.HTTP_200_OK
-        assert etag != new_response.headers["Etag"]
+        assert etag != new_response.headers["ETag"]
 
     def test_user_profile_linked_subject_change(
         self, superuser_client, superuser, user, subject, tenant_document_cache_client_mock
@@ -196,4 +196,4 @@ class TestUserProfilesView:
         new_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
 
         assert new_response.status_code == status.HTTP_200_OK
-        assert etag != new_response.headers["Etag"]
+        assert etag != new_response.headers["ETag"]
