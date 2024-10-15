@@ -28,6 +28,7 @@ app = Celery("das_server")
 
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
+app.autodiscover_tasks(lambda: ["utils.db"])
 
 default_exchange = Exchange(app.conf.task_default_exchange)
 app.autodiscover_tasks()
@@ -108,6 +109,7 @@ app.conf.task_routes = {
     "das_server.tasks.refresh_tenants_cache": {
         "queue": "maintenance",
     },
+    "utils.db.tasks.run_partition_maintenance_proc": {"queue": "maintenance"},
 }
 
 
@@ -191,6 +193,10 @@ app.conf.beat_schedule = {
     "refresh_tenants_cache": {
         "task": "das_server.tasks.refresh_tenants_cache",
         "schedule": timedelta(hours=1),
+    },
+    "postgresql_partman_run_partition_maintenance_proc": {
+        "task": "utils.db.tasks.run_partition_maintenance_proc",
+        "schedule": crontab(minute="0", hour="0", day_of_month="1"),
     },
 }
 
