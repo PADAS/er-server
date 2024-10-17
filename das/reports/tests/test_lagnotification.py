@@ -382,7 +382,7 @@ class TestSourcesReport:
         range_one = (now - timedelta(days=1), now + timedelta(days=1))
         SubjectSource.objects.create(subject=subject, source=source, assigned_range=range_one)
 
-        assert source.subject is None
+        assert source.active_subject is None
 
     def test_get_source_subject_returns_currently_assigned_active_subject(self, source, five_subjects):
         subject_one = five_subjects[0]
