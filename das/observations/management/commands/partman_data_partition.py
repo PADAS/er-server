@@ -7,7 +7,7 @@ from utils.db.postgresql import (
     execute_sql_query,
     is_postgresql_extension_installed,
     partman_data_partition_query,
-    vacuum_analyze,
+    vacuum_analyze_query,
 )
 
 
@@ -50,7 +50,7 @@ class Command(BaseCommand):
                 execute_sql_query(query=sql_query, logger=logger, fetch=False)
 
                 # Vacuuming
-                vacuum_analyze_sql_query = vacuum_analyze(schema=schema, table_name=table)
+                vacuum_analyze_sql_query = vacuum_analyze_query(schema=schema, table_name=table)
                 logger.info(f'running the vacuuming with: "{vacuum_analyze_sql_query}"')
                 execute_sql_query(query=vacuum_analyze_sql_query, logger=logger, fetch=False)
 

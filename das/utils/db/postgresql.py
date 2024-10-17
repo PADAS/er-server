@@ -98,7 +98,7 @@ def partman_data_partition_query(schema: str, table_name: str) -> str:
     return f"CALL partman.partition_data_proc('{schema}.{table_name}');"
 
 
-def vacuum_analyze(schema: str, table_name: str) -> str:
+def vacuum_analyze_query(schema: str, table_name: str) -> str:
     """
     Create the SQL query to vacuum analyze a table.
 
