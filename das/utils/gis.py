@@ -5,6 +5,7 @@ from typing import List, Union
 from geopy.distance import distance
 
 from django.contrib.gis.geos import GEOSGeometry, MultiPolygon, Point, Polygon
+from geopy.distance import distance
 
 from utils.tenant import get_tenant_settings
 
