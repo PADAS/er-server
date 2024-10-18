@@ -3,7 +3,7 @@
 import logging
 
 from django.apps import apps
-from django.db import migrations
+from django.db import migrations, transaction
 from django.db.models import Count
 
 from activity.models import Event, EventDetails
@@ -24,23 +24,26 @@ def add_empty_event_details_to_events_with_no_details(*args, **kwargs):
     for tenant in das_tenants:
         try:
             with TenantContextManager(tenant.domain):
-                events_without_details = Event.objects.annotate(count_details=Count("event_details")).filter(
-                    count_details=0
-                )
-                for event in events_without_details:
-                    event_detail = EventDetails.objects.create(
-                        event=event,
-                        created_at=event.created_at,
-                        updated_at=event.updated_at,
-                        data={"event_details": {}},
-                        update_parent_event=False,
+                with transaction.atomic():
+                    events_without_details = Event.objects.annotate(count_details=Count("event_details")).filter(
+                        count_details=0
                     )
-                    event_revision = event.revision.last()
-                    if event_revision:
-                        event_details_revision = EventDetailsRevision.objects.filter(object_id=event_detail.id).first()
-                        if event_details_revision:
-                            event_details_revision.user_id = event_revision.id
-                            event_details_revision.save(update_fields=["user_id"])
+                    for event in events_without_details:
+                        event_detail = EventDetails.objects.create(
+                            event=event,
+                            created_at=event.created_at,
+                            updated_at=event.updated_at,
+                            data={"event_details": {}},
+                            update_parent_event=False,
+                        )
+                        event_revision = event.revision.last()
+                        if event_revision:
+                            event_details_revision = EventDetailsRevision.objects.filter(
+                                object_id=event_detail.id
+                            ).first()
+                            if event_details_revision:
+                                event_details_revision.user_id = event_revision.id
+                                event_details_revision.save(update_fields=["user_id"])
 
         except TenantNotFoundException:
             logger.warning(
@@ -49,6 +52,7 @@ def add_empty_event_details_to_events_with_no_details(*args, **kwargs):
 
 
 class Migration(migrations.Migration):
+    atomic = False
 
     dependencies = [
         ("activity", "0183_add_empty_details_to_events_with_no_details"),
