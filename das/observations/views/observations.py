@@ -3,10 +3,12 @@ import logging
 from django.db import IntegrityError, transaction
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.filters import OrderingFilter
 from rest_framework.generics import ListAPIView, ListCreateAPIView, get_object_or_404
 from rest_framework.response import Response
 
 from das_server.views import CustomSchema
+from observations.filters import ObservationsFilter
 from observations.models import Observation, Subject
 from observations.permissions import StandardObjectPermissions
 from observations.serializers import FlattenObservationSerializer, ObservationSerializer
@@ -18,8 +20,6 @@ from utils.drf import (
     return_409_response,
 )
 from utils.json import parse_bool
-
-from .helpers import check_valid_date_string
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,10 @@ class ObservationsView(ListCreateAPIView):
     serializer_class = ObservationSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = (StandardObjectPermissions,)
+    filter_backends = (ObservationsFilter, OrderingFilter)
     schema = ObservationsViewSchema()
+    ordering_fields = ("recorded_at",)
+    ordering = "recorded_at"
 
     @property
     def paginator(self):
@@ -119,62 +122,23 @@ class ObservationsView(ListCreateAPIView):
         return self._paginator
 
     def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
+        queryset = self.filter_queryset(self.get_queryset()).values()
         page = self.paginate_queryset(queryset)
-
-        output = []
-        for item in page:
-            output.append(self.serializer_class.dict_to_representation(item, request.query_params))
-
-        return self.get_paginated_response(output)
+        serializer = self.get_serializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_OBSERVATION_PERMS):
             raise ForbiddenAPIException
 
         query_params = self.request.query_params
-        since = query_params.get("since")
-        until = query_params.get("until")
-        recorded_since_is_valid, recorded_since = check_valid_date_string(since, "recorded_since")
-        recorded_until_is_valid, recorded_until = check_valid_date_string(until, "recorded_until")
-        subject_id = query_params.get("subject_id")
-        source_id = query_params.get("source_id")
-        subjectsource_id = query_params.get("subjectsource_id")
         created_after = query_params.get("created_after")
-        sort_by = query_params.get("sort_by", "recorded_at")
-
-        filter_flag = 0
-        filter_qparam = query_params.get("filter", 0)
-        try:
-            filter_flag = int(filter_qparam)
-        except (ValueError, TypeError):
-            filter_flag = None if filter_qparam == "null" else filter_flag
-
-        if len([id for id in (subject_id, source_id, subjectsource_id) if id]) > 1:
-            raise ValueError("Can only specify one of: subject_id and source_id and subjectsource_id")
-        elif subject_id:
-            subject = get_object_or_404(Subject, pk=subject_id)
-            if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
-                raise PermissionDenied
-
-            queryset = Observation.objects.get_subject_observations(
-                subject, since=recorded_since, until=recorded_until, filter_flag=filter_flag
-            )
-        elif source_id:
-            queryset = Observation.objects.get_source_observations(
-                source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag
-            )
-        elif subjectsource_id:
-            queryset = Observation.objects.get_subjectsource_observations(
-                subjectsource_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag
-            )
-        else:
-            queryset = Observation.objects.by_since_until(recorded_since, recorded_until)
-            queryset = queryset.by_exclusion_flags(filter_flag)
+        created_after = dateparse(created_after) if created_after else None
 
         mou_date = self.request.user.additional.get("expiry", None)
         mou_expiry_date = dateparse(mou_date) if mou_date else None
-        created_after = dateparse(created_after) if created_after else None
+
+        queryset = Observation.objects.all()
 
         if mou_expiry_date:
             queryset = queryset.filter(recorded_at__lte=mou_expiry_date)
@@ -182,11 +146,9 @@ class ObservationsView(ListCreateAPIView):
         if created_after:
             queryset = queryset.by_created_after(created_after)
 
+        queryset = queryset.prefetch_related("source__provider")
         queryset = queryset.annotate_transforms()
-        queryset = queryset.prefetch_related("source__provider__transforms")
-        queryset = queryset.order_by(sort_by)
-
-        return queryset.values()
+        return queryset
 
     def create(self, request, *args, **kwargs):
         """

@@ -71,7 +71,7 @@ urlpatterns = [
         views.SubjectStatusView.as_view(),
         name="subjectstatus-view",
     ),
-    re_path(rf"^sources/?$", views.SourcesView.as_view(), name="sources-view"),
+    re_path(r"^sources/?$", views.SourcesView.as_view(), name="sources-view"),
     re_path(
         rf"^source/(?P<id>{regex.UUID})/?$",
         views.SourceView.as_view(),

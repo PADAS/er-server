@@ -19,6 +19,7 @@ from utils import stats
 from utils.tenant import get_tenant_settings
 from utils.tenant.cors import get_tenant_aware_cors_allowed_origins
 from utils.tenant.managers import TenantContextManager
+from utils.tenant.providers import get_tenant_data_by_host
 
 from .managers import DASKombuManager
 
@@ -170,7 +171,7 @@ def create_realtime_handler(sios):
 
         @sios.on("connect", namespace=RT_NAMESPACE)
         def on_connect(sid, environ, *args):
-            domain = RealtimeServices.get_host_from_environ(environ)
+            domain = RealtimeServices.get_tenant_domain_from_host(RealtimeServices.get_host_from_environ(environ))
             logger.info("on_connect: socket connecting for sid '%s' under domain '%s'", sid, domain)
             with TenantContextManager(domain):
                 # Drop the user if they don't authenticate immediately
@@ -475,6 +476,11 @@ def create_realtime_handler(sios):
             else:
                 host = environ["SERVER_NAME"]
             return host
+
+        @staticmethod
+        def get_tenant_domain_from_host(host):
+            tenant_data = get_tenant_data_by_host(host.split(":")[0])
+            return tenant_data["domain"]
 
         @staticmethod
         def update_cors_allowed_origins():

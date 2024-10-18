@@ -12,6 +12,7 @@ from django.http import QueryDict
 from activity.models import EventType, PatrolType
 from activity.views.events.utils import EventTypeQuerysetMixin
 from utils.etags import get_hash_from_queryset
+from utils.schema_utils import get_schema_renderer_method
 
 PATROL_TYPE_FIELDS = (
     "value",
@@ -95,13 +96,20 @@ def build_event_types_etag_header(request, *args, **kwargs) -> str:
     queryset_builder = EventTypeQueryset(request.user, request.GET)
     queryset = queryset_builder.get_queryset()
     queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
-    return get_hash_from_queryset(queryset=queryset, request=request)
+    schemas = []
+    for event_type in queryset:
+        schemas.append(get_schema_renderer_method(as_string=True)(event_type["schema"]))
+    return get_hash_from_queryset(queryset=queryset, request=request, extra_salt=":".join(schemas))
 
 
 def build_event_type_etag_header(request, *args, **kwargs) -> str:
     queryset = EventType.objects.filter(id=kwargs["eventtype_id"])
     queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
-    return get_hash_from_queryset(queryset=queryset, request=request)
+    schema = None
+    if event_type := queryset.first():
+        schema = event_type["schema"]
+        schema = get_schema_renderer_method(as_string=True)(schema)
+    return get_hash_from_queryset(queryset=queryset, request=request, extra_salt=schema)
 
 
 def get_most_recent_update_datetime_by_queryset(queryset: QuerySet) -> Optional[datetime]:

@@ -26,6 +26,7 @@ from reports.distribution import (
     get_users_for_permission,
 )
 from reports.observationlagnotification import (
+    SourcesReport,
     check_source_provider_lag_exceeded,
     check_sources_threshold,
     generate_lag_notification_email,
@@ -368,3 +369,30 @@ class TestReportByTask:
             for event_details in event.event_details.all():
                 assert event_details.data
             assert event.event_type.display == "Silent Source"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestSourcesReport:
+    def test_none_returned_for_source_with_no_active_subjects(self, source, subject):
+        subject.is_active = False
+        subject.save(update_fields=["is_active"])
+
+        now = datetime.now(tz=pytz.utc)
+        range_one = (now - timedelta(days=1), now + timedelta(days=1))
+        SubjectSource.objects.create(subject=subject, source=source, assigned_range=range_one)
+
+        assert source.active_subject is None
+
+    def test_get_source_subject_returns_currently_assigned_active_subject(self, source, five_subjects):
+        subject_one = five_subjects[0]
+        subject_two = five_subjects[1]
+        now = datetime.now(tz=pytz.utc)
+        range_one = (now - timedelta(days=1), now + timedelta(days=1))
+        range_two = (now - timedelta(days=5), now - timedelta(days=4))
+
+        subject_source_one = SubjectSource.objects.create(subject=subject_one, source=source, assigned_range=range_one)
+        subject_source_two = SubjectSource.objects.create(subject=subject_two, source=source, assigned_range=range_two)
+
+        source_report = SourcesReport()
+        assert subject_one == source_report.get_source_subject(source)

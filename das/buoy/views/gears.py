@@ -1,30 +1,48 @@
+import json
 from rest_framework import generics
 
 from buoy import serializers
+from buoy.views.helpers import (
+    check_valid_state_string,
+    check_valid_date_string,
+)
 from buoy.views.schemas import GearsViewSchema
 from django.db.models import OuterRef, Subquery
+from buoy.views.helpers import check_to_include_inactive_buoys, filter_by_bbox
 from django.shortcuts import get_object_or_404
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import Subject, SubjectSource, SubjectSource, Observation
+from observations.models import Subject, SubjectSource, SubjectSource, LatestObservationSource
 from observations.permissions import StandardObjectPermissions
 from observations.utils import (
     VIEW_SUBJECT_PERMS,
     dateparse,
     get_minimum_allowed_age,
 )
-
 from utils.drf import (
     ForbiddenAPIException,
     StandardResultsSetPagination,
 )
+from utils.gis import check_valid_lat_lon
 
 
 class GearsView(generics.ListAPIView):
-    """
-    get:
-    Returns a list of Gear in the system.
+    __doc__ = """
+    Returns all gears.
+    
+    Required query-parameters:
+    lat, lon: float
+    
+    Optional query-parameters:
+    state, where state is either "deployed" or "hauled".
+        example: state=deployed
+    updated_since, where updated_since is a date-string to limit on updated_at
 
-    """
+    page, page number
+
+    page_size, (default is {page_size}, max is {max_page_size})
+    """.format(
+        page_size=StandardResultsSetPagination.page_size, max_page_size=StandardResultsSetPagination.max_page_size
+    )
 
     permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.GearsSerializer
@@ -37,20 +55,44 @@ class GearsView(generics.ListAPIView):
         # allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
 
         # First get subject-sources.
-        queryset = SubjectSource.objects.all()
+        queryset = SubjectSource.objects.all().select_related("source").select_related("subject")
 
-        # Filter queryset by removing subjects where the additional field is the same        
-        latest_observations = Observation.objects.filter(
-            source_id=OuterRef("source_id"), 
-            recorded_at__contained_by=OuterRef('assigned_range')).order_by("-recorded_at")
+        # need a stable sort for pagination. 
+        queryset = check_to_include_inactive_buoys(self.request, queryset)
+        queryset = queryset.order_by("id")
+
+        updated_since = query_params.get("updated_since")
+        is_updated_since_valid, updated_since = check_valid_date_string(updated_since, "updated_since")
+        if updated_since and is_updated_since_valid:
+            queryset = queryset.by_updated_since(updated_since)
+        elif updated_since and not is_updated_since_valid:
+            raise ValueError("updated_since must be a valid date")
+
+        # Filter queryset by deployed/hauled status
+        is_active_valid, is_active = check_valid_state_string(query_params.get("state"))
+        if is_active_valid and is_active:
+            queryset = queryset.filter(subject__is_active=True)
+        elif is_active_valid and not is_active:
+            queryset = queryset.filter(subject__is_active=False)
+
+        lat = query_params.get("lat")
+        lon = query_params.get("lon")
+        if lat and lon:
+            lat = float(lat)
+            lon = float(lon)
+            is_lat_lon_valid = check_valid_lat_lon(latitude=lat, longitude=lon)
+            if not is_lat_lon_valid:
+                raise ValueError("lat and lon are invalid values")
+            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon)
+        else:
+            return queryset.none()
         
-        queryset = queryset.annotate(
-            latest_observation_additional=Subquery(latest_observations.values("additional")[:1])
-        )
+        # Filter queryset by removing subjects where the additional field is the same 
+        latest_observation = LatestObservationSource.objects.filter(source_id=OuterRef("source_id")) 
+        queryset.update(additional=Subquery(latest_observation.values("observation__additional")[:1]))
 
-        # TODO: look into select related for perfomance 
         # Keep an eye on performance of the query and potentially add new indexes to improve performance 
-        queryset = queryset.distinct("latest_observation_additional")
+        queryset = queryset.order_by('additional').distinct('additional')
 
         return queryset
 

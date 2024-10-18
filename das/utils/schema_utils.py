@@ -176,7 +176,7 @@ def get_table_choices(field_details, as_string=True):
     return return_val
 
 
-def get_schema_renderer_method():
+def get_schema_renderer_method(as_string=False):
     @memoize
     def memo_enum_choices(enum_choices_identifier):
         field_name, field_type = enum_choices_identifier.split(":")
@@ -193,9 +193,8 @@ def get_schema_renderer_method():
         return get_table_choices({"field": field_name, "type": field_type})
 
     @memoize
-    def render_f(schema):
+    def render_schema(schema):
         schema_fields = get_replacement_fields_in_schema(schema)
-
         parameters = {}
         for schema_field in schema_fields:
             if schema_field["lookup"] == "enum":
@@ -209,10 +208,16 @@ def get_schema_renderer_method():
             rendered_template = template.render(Context(parameters, autoescape=False))
         else:
             rendered_template = schema
+        return rendered_template
 
+    @memoize
+    def load_schema(schema):
+        rendered_template = render_schema(schema)
         return json.loads(rendered_template, object_pairs_hook=OrderedDict)
 
-    return render_f
+    if as_string:
+        return render_schema
+    return load_schema
 
 
 def validate(event, schema=None, raise_exception=False):
@@ -704,7 +709,7 @@ def validate_rendered_schema_is_wellformed(rendered_schema: dict):
     properties = rendered_schema["schema"].get("properties")
 
     if not properties:
-        raise SchemaValidationError(f'Schema must include a "properties" attribute.')
+        raise SchemaValidationError('Schema must include a "properties" attribute.')
 
     # Raise an error if any property exists without essential attributes.
     incomplete_properties_keyset = set()
