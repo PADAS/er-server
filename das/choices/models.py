@@ -177,6 +177,24 @@ class SubChoiceOf(TenantModelMixin, UUIDModel):
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
 
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "from_choice_id", "to_choice_id"],
+                name="%(app_label)s_%(class)s_unique_across_tenants",
+            ),
+        ]
+        indexes = [
+            Index(
+                fields=["das_tenant", "from_choice"],
+            ),
+            Index(
+                fields=["das_tenant", "to_choice"],
+            ),
+        ]
+
 
 class DisableChoice(Choice):
     class Meta:
