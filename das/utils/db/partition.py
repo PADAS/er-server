@@ -8,6 +8,8 @@ import pytz
 
 from django.db import ProgrammingError, connection
 
+from .postgresql import PSQLExtension, is_postgresql_extension_installed
+
 
 class PARTITION_INTERVALS(Enum):
     MONTHLY = "monthly"
@@ -263,12 +265,15 @@ class PartitionTableTool(PartitionTableToolProtocol):
 
         self.logger.warning("VACUUM ANALYZE is completed.")
         for trigger in self.table_data.triggers if self.table_data.triggers else []:
-            self._drop_trigger(table_name=f"{self.original_table_name}_default", trigger_data=trigger)
+            self._drop_trigger(table_name=f"{self.original_table_name}", trigger_data=trigger)
             self._create_trigger(table_name=self.original_table_name, trigger_data=trigger)
 
         self._create_index(
             table_name=self.original_table_name,
-            index_data=IndexData(name="unique", columns=self.table_data.primary_key_columns),
+            index_data=IndexData(
+                name=f"{self.original_table_name}_unique",
+                columns=self.table_data.primary_key_columns,
+            ),
             is_unique=True,
         )
         for unique_constraint in self.table_data.unique_constraints if self.table_data.unique_constraints else []:
@@ -344,10 +349,7 @@ class PartitionTableTool(PartitionTableToolProtocol):
             self.logger.warning("creating partman schema")
             self._execute_sql_command(command="CREATE SCHEMA partman;")
 
-        result = self._execute_sql_command(
-            "SELECT COUNT(*) FROM pg_extension WHERE extname = 'pg_partman';", fetch=True
-        )
-        if result and result[0] == 0:
+        if not is_postgresql_extension_installed(psql_extension=PSQLExtension.PG_PARTMAN, logger=self.logger):
             self.logger.warning("creating pg_partman extension")
             self._execute_sql_command("CREATE EXTENSION pg_partman SCHEMA partman;")
 
@@ -421,13 +423,30 @@ class PartitionTableTool(PartitionTableToolProtocol):
         self.logger.warning(f"Index: {index_data.name} created successfully.")
 
     def _create_unique_constraint(self, table_name: str, constraint_data: ConstraintData) -> None:
-        sql = f"""
-            ALTER TABLE {table_name}
-            ADD CONSTRAINT {table_name}_{constraint_data.name}
-            UNIQUE ({', '.join(constraint_data.columns)});
         """
-        self._execute_sql_command(command=sql)
-        self.logger.warning(f"Constraint: {constraint_data.name} created successfully.")
+        Create a unique constraint on table `table_name` using the provided `constraint_data`.
+        If the constraint already exists, it does nothing.
+
+        Note:
+            This method is idempotent.
+        """
+        constraint_name = f"{table_name}_{constraint_data.name}"
+
+        sql_exist_constraint = f"""
+            SELECT 1 FROM pg_constraint where conname = '{constraint_name}';
+        """
+        is_constraint = self._execute_sql_command(command=sql_exist_constraint, fetch=True)
+
+        if is_constraint and is_constraint[0] == 1:
+            self.logger.warning(f"{constraint_name} already exists for table: {table_name}, skipping.")
+        else:
+            sql = f"""
+                ALTER TABLE {table_name}
+                ADD CONSTRAINT {table_name}_{constraint_data.name}
+                UNIQUE ({', '.join(constraint_data.columns)});
+            """
+            self._execute_sql_command(command=sql)
+            self.logger.warning(f"Constraint: {constraint_data.name} created successfully.")
 
     def _create_foreign_key(self, table_name: str, foreign_key_data: ForeignKeyData) -> None:
         sql = f"""

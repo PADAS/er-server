@@ -15,7 +15,7 @@ def redis_connection_mock(monkeypatch):
     connection_mock = MagicMock()
     redis_mock = MagicMock()
     redis_mock.Redis.return_value = connection_mock
-    monkeypatch.setattr("utils.persistent.redis", redis_mock)
+    monkeypatch.setattr("utils.redis.redis", redis_mock)
 
     return connection_mock
 

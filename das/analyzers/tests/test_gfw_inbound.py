@@ -232,7 +232,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         return response
 
     @pytest.mark.usefixtures("tenant_response_for_test_case")
-    @pytest.mark.usefixtures("memory_store_client_mock")
+    @pytest.mark.usefixtures("tenant_document_cache_client_mock")
     @patch("analyzers.gfw_inbound.get_tenant_settings")
     @patch("requests.get")
     def test_filter_confidence_level_for_deforestation(self, mock_request, get_tenant_settings):
@@ -278,7 +278,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(len(clustered_alerts), Event.objects.all().count())
 
     @pytest.mark.usefixtures("tenant_response_for_test_case")
-    @pytest.mark.usefixtures("memory_store_client_mock")
+    @pytest.mark.usefixtures("tenant_document_cache_client_mock")
     @patch("analyzers.gfw_inbound.get_tenant_settings")
     @patch("analyzers.tasks.requests.post")
     def test_filter_confidence_level_for_fire(self, mock_request, get_tenant_settings):
@@ -345,7 +345,7 @@ class GFWAlertHandlerTest(BaseAPITest):
             self._verify_viirs_params(sub, date(2019, 6, 24), date(2019, 6, 25), args_dict["args"][0])
 
     @pytest.mark.usefixtures("tenant_response_for_test_case")
-    @pytest.mark.usefixtures("memory_store_client_mock")
+    @pytest.mark.usefixtures("tenant_document_cache_client_mock")
     @patch("analyzers.gfw_inbound.get_tenant_settings")
     @patch("requests.get")
     def test_eventdetails_update(self, mock_request, get_tenant_settings):

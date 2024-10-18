@@ -207,7 +207,7 @@ class TestEventGeometryPermissions:
 @pytest.mark.usefixtures("tenant_settings")
 class TestPatrolPermission:
     def test_user_with_no_permission_got_patrols_request_rejected(
-        self, five_patrol_segment_subject, user_client, memory_store_client_mock
+        self, five_patrol_segment_subject, user_client, tenant_document_cache_client_mock
     ):
         url = reverse("patrols")
 
@@ -216,7 +216,7 @@ class TestPatrolPermission:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_user_with_no_permission_got_patrol_request_rejected(
-        self, five_patrol_segment_subject, user_client, memory_store_client_mock
+        self, five_patrol_segment_subject, user_client, tenant_document_cache_client_mock
     ):
         patrol = five_patrol_segment_subject[0].patrol
         url = reverse("patrol", kwargs={"id": patrol.id})
@@ -260,7 +260,7 @@ class TestPatrolPermission:
         return segments[-1]["leader"] is not None
 
     def test_user_with_subject_leading_patrol_should_see_only_that_patrol(
-        self, five_patrol_segment_subject, user_client, memory_store_client_mock
+        self, five_patrol_segment_subject, user_client, tenant_document_cache_client_mock
     ):
         patrol = five_patrol_segment_subject[0].patrol
         subject = five_patrol_segment_subject[0].leader
@@ -276,7 +276,7 @@ class TestPatrolPermission:
         assert response.data["id"] == str(patrol.id)
 
     def test_user_with_subject_leading_patrol_should_not_see_other_patrol(
-        self, five_patrol_segment_subject, user_client, memory_store_client_mock
+        self, five_patrol_segment_subject, user_client, tenant_document_cache_client_mock
     ):
         subject = five_patrol_segment_subject[0].leader
         subject.linked_user = user_client.user
@@ -290,7 +290,7 @@ class TestPatrolPermission:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_user_should_see_all_patrols(self, five_patrols, user_client, memory_store_client_mock):
+    def test_user_should_see_all_patrols(self, five_patrols, user_client, tenant_document_cache_client_mock):
         view_patrols_permissions = PermissionSet.objects.get(name="View Patrols Permissions")
         user_client.user.permission_sets.add(view_patrols_permissions)
         url = reverse("patrols")
