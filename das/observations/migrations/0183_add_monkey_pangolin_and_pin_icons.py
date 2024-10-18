@@ -10,11 +10,6 @@ subject_subtype_wildlife_loader = (
     .add_subject_subtype(display="Pangolin", value="pangolin")
 )
 
-subject_subtype_unassigned_loader = TenantSubjectSubTypeLoader(subject_type_value="unassigned").add_subject_subtype(
-    display="Pin",
-    value="pin",
-)
-
 
 class Migration(migrations.Migration):
 
@@ -25,10 +20,6 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunPython(
             subject_subtype_wildlife_loader.load,
-            reverse_code=migrations.RunPython.noop,
-        ),
-        migrations.RunPython(
-            subject_subtype_unassigned_loader.load,
             reverse_code=migrations.RunPython.noop,
         ),
     ]
