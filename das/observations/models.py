@@ -376,7 +376,7 @@ class Source(TenantModelMixin, TimestampedModel):
         return queryset
 
     @cached_property
-    def subject(self):
+    def active_subject(self):
         """Get the active subject associated with this source"""
         subject_source = (
             SubjectSource.objects.select_related("subject")
