@@ -13,6 +13,10 @@ from utils.tenant.thread import set_tenant_settings
 
 logger = logging.getLogger(__name__)
 
+TENANT_CACHE_KEY = "tenant"
+TENANTS_CACHE_KEY = "tenants"
+EXPIRATION_TIME_IN_SECONDS = 604800
+TENANTS_LIST_CACHE_EXPIRATION_TIME_IN_SECONDS = 60 * 60  # 1 hour
 
 TENANTS_CACHE_KEY = "tenant_domains"
 ALT_SERVER_LOOKUP_CACHE_KEY = "alt_server_lookup"
