@@ -1551,14 +1551,14 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
     def image_url(self):
         image_url = static_image_finder.get_marker_icon(self._image_keys())
         if not image_url:
-            image_url = "/static/unassigned-black.svg"
+            image_url = "/static/pin-black.svg"
         return image_url
 
     @property
     def kml_image_url(self):
         image_url = static_image_finder.get_marker_icon(self._image_keys(), image_types=("png", "jpg"))
         if not image_url:
-            image_url = "/static/unassigned.png"
+            image_url = "/static/pin.png"
         return image_url
 
     def _image_keys(self):
