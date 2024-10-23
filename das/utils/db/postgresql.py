@@ -9,6 +9,18 @@ from typing import Dict, Optional
 from django.db import ProgrammingError, connection
 
 
+class PartmanEditableConfigKey(Enum):
+    """
+    Supported Partman config keys to update.
+    """
+
+    INFINITE_TIME_PARTITIONS = "infinite_time_partitions"
+    PREMAKE = "premake"
+
+    def __str__(self):
+        return self.value
+
+
 class FetchType(Enum):
     """
     How should we fetch the results when executing the SQL query?
@@ -232,3 +244,80 @@ def md5_over_column_query(schema: str, table_name: str, column_name: str = "id")
     """
     fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
     return f"SELECT MD5(STRING_AGG(CAST({column_name} AS TEXT), '')) AS md5_hash FROM {fully_qualified_table_name};"
+
+
+def partman_data_partition_query(schema: str, table_name: str) -> str:
+    """
+    Create the SQL query string for running the partman partition data procedure.
+    More information here: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#partition_data_proc
+
+    Args:
+        schema (str): psql schema where the table is stored. `public` is the
+        default one in psql.
+        table_name (str): name of the psql table.
+
+    Note: This does not check for SQL injection. Make sure to know what you are
+    doing with `schema` and `table_name`.
+    """
+    fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+    return f"CALL partman.partition_data_proc('{fully_qualified_table_name}');"
+
+
+def partman_update_config_premake_query(schema: str, table_name: str, premake: int) -> str:
+    """
+    Create the SQL query string for updating a pg_partman config on the
+    partition table represented by `schema` and `table_name`. Setting the premake entry to a new value.
+
+    Args:
+        schema (str): psql schema where the partitioned table is stored.
+        `public` is the default one in psql.
+        table_name (str): name of the partitioned parent table.
+        premake (int): new value of premake to set. Should be > 0.
+
+    Raises:
+        AssertionError: when premake <= 0
+
+    Note: This does not check for SQL injection. Make sure to know what you are
+    doing with `schema` and `table_name`.
+    """
+    assert premake > 0, "premake should be greater than 0"
+    parent_table = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+    return f"UPDATE partman.part_config SET premake = {premake} WHERE parent_table = '{parent_table}';"
+
+
+def partman_update_config_infinite_partition_times_query(
+    schema: str,
+    table_name: str,
+    infinite_time_partitions: bool,
+) -> str:
+    """
+    Create the SQL query string for updating a pg_partman config on the
+    partition table represented by `schema` and `table_name`. Setting the infinite_time_partitions entry to a new value.
+
+    Args:
+        schema (str): psql schema where the partitioned table is stored.
+        `public` is the default one in psql.
+        table_name (str): name of the partitioned parent table.
+        infinite_time_partitions (bool): new value of infinite_time_partitions to set.
+
+    Note: This does not check for SQL injection. Make sure to know what you are
+    doing with `schema` and `table_name`.
+    """
+    parent_table = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+    return f"UPDATE partman.part_config SET infinite_time_partitions = {infinite_time_partitions} WHERE parent_table = '{parent_table}';"
+
+
+def vacuum_analyze_query(schema: str, table_name: str) -> str:
+    """
+    Create the SQL query to vacuum analyze a table.
+
+    Args:
+        schema (str): psql schema where the table is stored. `public` is the
+        default one in psql.
+        table_name (str): name of the psql table.
+
+    Note: This does not check for SQL injection. Make sure to know what you are
+    doing with `schema` and `table_name`.
+    """
+    fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+    return f"VACUUM ANALYZE {fully_qualified_table_name};"
