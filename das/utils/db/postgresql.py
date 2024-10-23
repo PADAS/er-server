@@ -115,7 +115,17 @@ def is_postgresql_extension_installed(psql_extension: PSQLExtension, logger: Log
         return False
 
 
-def partman_partition_maintenance_query(table_name: str) -> str:
+def to_fully_qualified_table_name(schema: str, table_name: str) -> str:
+    """
+    Given the psql `schema` and a `table_name`, it returns a fully qualified
+    table_name.
+
+    >>> public.observations_observation
+    """
+    return f"{schema}.{table_name}"
+
+
+def partman_partition_maintenance_query(schema: str, table_name: str) -> str:
     """
     Create the SQL query string for running the partman partition maintenance.
 
@@ -126,17 +136,8 @@ def partman_partition_maintenance_query(table_name: str) -> str:
     Note: This does not check for SQL injection. Make sure to know what you are
     doing with `table_name`.
     """
-    return f"SELECT partman.run_maintenance('{table_name}');"
-
-
-def to_fully_qualified_table_name(schema: str, table_name: str) -> str:
-    """
-    Given the psql `schema` and a `table_name`, it returns a fully qualified
-    table_name.
-
-    >>> public.observations_observation
-    """
-    return f"{schema}.{table_name}"
+    fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+    return f"SELECT partman.run_maintenance('{fully_qualified_table_name}');"
 
 
 def to_partition_start_time_string(year: int, month: int, day: int = 1) -> str:

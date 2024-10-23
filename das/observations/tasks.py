@@ -319,5 +319,6 @@ def run_partition_maintenance() -> None:
     Run the partition maintenance on the observations_observation table.
     """
     table_name = "observations_observation"
-    logger.info(f"Running partition maintenance for {table_name}")
-    utils_db_task_helpers.run_partition_maintenance(table_name=table_name, logger=logger)
+    schema = "public"
+    logger.info(f"Running partition maintenance for '{schema}.{table_name}'")
+    utils_db_task_helpers.run_partition_maintenance(schema=schema, table_name=table_name, logger=logger)
