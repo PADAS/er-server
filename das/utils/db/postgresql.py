@@ -153,9 +153,9 @@ def to_partition_start_time_string(year: int, month: int, day: int = 1) -> str:
     >>> to_partition_start_time_string(year=2024, month=9, day=8)
     2025-09-08
     """
-    assert 2000 <= year <= 3000, "year should be in a valid range"
-    assert 1 <= month <= 12, "month should be in a valid range"
-    assert 1 <= day <= 31, "day should be in a valid range"
+    assert 2000 <= year <= 3000, "year should be in a valid range 2000..3000"
+    assert 1 <= month <= 12, "month should be in a valid range 1..12"
+    assert 1 <= day <= 31, "day should be in a valid range 1..31"
 
     return f"{year:04d}-{month:02d}-{day:02d}"
 
@@ -219,13 +219,16 @@ def parse_partman_partition_str(partition_str: str) -> Dict[str, str]:
 def md5_over_column_query(schema: str, table_name: str, column_name: str = "id") -> str:
     """
     Create the SQL query string to check the md5 value of the concatenated
-    casted values of column_name for the provided schema and table_name.
+    casted values of `column_name` for the provided `schema` and `table_name`.
 
     Args:
         schema (str): Name of the psql schema. eg. public.
         table_name (str): Name of the psql table to target.
         column_name (str): column name to run the MD5 over. It should be
         castable as TEXT.
+
+    Note: This does not check for SQL injection. Make sure to know what you are
+    doing with `schema`, `table_name` and `column_name`.
     """
     fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
     return f"SELECT MD5(STRING_AGG(CAST({column_name} AS TEXT), '')) AS md5_hash FROM {fully_qualified_table_name};"
@@ -240,8 +243,12 @@ def partman_data_partition_query(schema: str, table_name: str) -> str:
         schema (str): psql schema where the table is stored. `public` is the
         default one in psql.
         table_name (str): name of the psql table.
+
+    Note: This does not check for SQL injection. Make sure to know what you are
+    doing with `schema` and `table_name`.
     """
-    return f"CALL partman.partition_data_proc('{schema}.{table_name}');"
+    fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+    return f"CALL partman.partition_data_proc('{fully_qualified_table_name}');"
 
 
 def vacuum_analyze_query(schema: str, table_name: str) -> str:
@@ -252,5 +259,9 @@ def vacuum_analyze_query(schema: str, table_name: str) -> str:
         schema (str): psql schema where the table is stored. `public` is the
         default one in psql.
         table_name (str): name of the psql table.
+
+    Note: This does not check for SQL injection. Make sure to know what you are
+    doing with `schema` and `table_name`.
     """
-    return f"VACUUM ANALYZE {schema}.{table_name};"
+    fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+    return f"VACUUM ANALYZE {fully_qualified_table_name};"
