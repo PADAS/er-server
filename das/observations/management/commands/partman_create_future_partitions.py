@@ -1,5 +1,5 @@
 """
-Managemant command to manually create partitions for the
+Management command to manually create partitions for the
 observations_observation table.
 
 By default, it creates the partitions for the next 3 months (not including the
