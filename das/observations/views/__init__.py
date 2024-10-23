@@ -234,20 +234,17 @@ class SubjectGroupGetQuerySet(TwoWaySubjectSourceMixin):
         return queryset
 
 
-def etag_subject_groups_hash(request, *args, **kwargs):
+def get_subject_group_etag_fields():
+    subject_group_fields = [field.name for field in SubjectGroup._meta.concrete_fields]
+    children_fields = [f"children__{field}" for field in subject_group_fields]
+    subject_fields = [f"subjects__{field.name}" for field in Subject._meta.concrete_fields]
+    return subject_group_fields + children_fields + subject_fields
+
+
+def subject_groups_etag(request, *args, **kwargs):
     queryset = SubjectGroupGetQuerySet().get_queryset(request)
-
-    subject_group_fields = [field.name for field in SubjectGroup._meta.get_fields() if field.concrete]
-    children_fields = [f"children__{field.name}" for field in queryset.model._meta.get_fields() if field.concrete]
-    subject_fields = [f"subjects__{field.name}" for field in Subject._meta.get_fields() if field.concrete]
-
-    queryset = queryset.prefetch_related("children", "subjects").values(
-        *subject_group_fields,
-        *subject_fields,
-        *children_fields,
-    )
-
-    return get_hash_from_queryset(queryset=queryset, request=request)
+    queryset = queryset.prefetch_related("children", "subjects").values(*get_subject_group_etag_fields())
+    return get_hash_from_queryset(queryset, request)
 
 
 class SubjectGroupsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
@@ -260,7 +257,7 @@ class SubjectGroupsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
     filter_backends = (create_gp_filter_class("subjectgf", ("observations.view_subjectgroup",), SubjectGroup),)
     schema = SubjectGroupsViewSchema()
 
-    @etag(etag_subject_groups_hash)
+    @etag(subject_groups_etag)
     def get(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)
 
@@ -280,6 +277,14 @@ class SubjectGroupsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
         context["two_way_subject_sources"] = self.two_way_subject_sources
 
         return context
+
+
+def subject_group_etag(request, *args, **kwargs):
+    fields = get_subject_group_etag_fields()
+    queryset = SubjectGroup.objects.get_non_cyclic_subjectgroups(single_sg=True)
+    TwoWaySubjectSourceMixin()._get_two_way_sources(queryset)
+    queryset = queryset.values(*fields).filter(pk=kwargs["id"])
+    return get_hash_from_queryset(queryset=queryset, request=request)
 
 
 class SubjectGroupView(generics.RetrieveAPIView, TwoWaySubjectSourceMixin):
@@ -304,6 +309,10 @@ class SubjectGroupView(generics.RetrieveAPIView, TwoWaySubjectSourceMixin):
         queryset.order_by("name")
         self._get_two_way_sources(queryset)
         return queryset
+
+    @etag(subject_group_etag)
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
 
 class SourceGroupsView(generics.ListAPIView):

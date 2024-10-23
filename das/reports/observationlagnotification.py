@@ -338,4 +338,4 @@ class SourcesReport:
         return "(none)"
 
     def get_source_subject(self, source):
-        return source.subject
+        return source.active_subject

@@ -383,6 +383,36 @@ class SubjectGroupViewTest(BasePermissionTest):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["id"], str(self.ele_group.id))
 
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_single_subject_group_has_etag(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        request = self.factory.get(API_BASE + "/subjectgroup/{id}".format(id=self.ele_group.id))
+        self.force_authenticate(request, self.superuser)
+        response = SubjectGroupView.as_view()(request, id=str(self.ele_group.id))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "etag" in response.headers
+
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_single_subject_group_etag_changes_on_update(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        request = self.factory.get(API_BASE + "/subjectgroup/{id}".format(id=self.ele_group.id))
+        self.force_authenticate(request, self.superuser)
+
+        response = SubjectGroupView.as_view()(request, id=str(self.ele_group.id))
+        etag = response.headers["ETag"]
+
+        assert response.status_code == status.HTTP_200_OK
+
+        self.ele_group.name = "new name"
+        self.ele_group.save(update_fields=["name"])
+
+        second_response = SubjectGroupView.as_view()(request, id=str(self.ele_group.id))
+        second_etag = second_response.headers["ETag"]
+
+        assert response.status_code == status.HTTP_200_OK
+        assert etag != second_etag
+
     def test_not_return_subject_group_no_view_permission(self):
         request = self.factory.get(API_BASE + "/subjectgroup/{id}".format(id=self.ele_group.id))
         self.force_authenticate(request, self.no_view_user)
@@ -402,12 +432,12 @@ class SubjectGroupViewTest(BasePermissionTest):
         self.force_authenticate(request, self.superuser)
 
         response = SubjectGroupsView.as_view()(request)
-        etag = response.headers["etag"]
+        etag = response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
 
         second_response = SubjectGroupsView.as_view()(request)
-        second_etag = second_response.headers["etag"]
+        second_etag = second_response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
         assert etag == second_etag
@@ -417,7 +447,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         self.force_authenticate(request, self.superuser)
 
         response = SubjectGroupsView.as_view()(request)
-        etag = response.headers["etag"]
+        etag = response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
 
@@ -426,7 +456,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         obj.save(update_fields=["name"])
 
         second_response = SubjectGroupsView.as_view()(request)
-        second_etag = second_response.headers["etag"]
+        second_etag = second_response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
         assert etag != second_etag
@@ -436,7 +466,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         self.force_authenticate(request, self.superuser)
 
         response = SubjectGroupsView.as_view()(request)
-        etag = response.headers["etag"]
+        etag = response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
 
@@ -447,7 +477,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         subject_group.subjects.add(subject)
 
         second_response = SubjectGroupsView.as_view()(request)
-        second_etag = second_response.headers["etag"]
+        second_etag = second_response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
         assert etag != second_etag
@@ -461,7 +491,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         request_superuser = self.factory.get(url)
         self.force_authenticate(request_superuser, self.superuser)
         response_superuser = SubjectGroupsView.as_view()(request_superuser)
-        etag_superuser = response_superuser.headers["etag"]
+        etag_superuser = response_superuser.headers["ETag"]
 
         assert response_superuser.status_code == status.HTTP_200_OK
 
@@ -469,7 +499,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         request_app_user.META["user-profile"] = str(self.app_user.id)
         self.force_authenticate(request_app_user, self.app_user)
         response_app_user = SubjectGroupsView.as_view()(request_app_user)
-        etag_app_user = response_app_user.headers["etag"]
+        etag_app_user = response_app_user.headers["ETag"]
 
         assert response_app_user.status_code == status.HTTP_200_OK
         assert etag_superuser != etag_app_user
