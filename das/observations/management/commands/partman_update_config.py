@@ -19,6 +19,7 @@ from utils.db.postgresql import (
     commit,
     execute_sql_query,
     is_postgresql_extension_installed,
+    partman_get_config_query,
     partman_update_config_infinite_partition_times_query,
     partman_update_config_premake_query,
     rollback,
@@ -115,13 +116,20 @@ class Command(BaseCommand):
             str_value=str_value,
             logger=logger,
         )
-        logger.info(f"cast value: {value}")
+        logger.info(f"Updating key {key} with value {value}")
 
         if not is_postgresql_extension_installed(psql_extension=PSQLExtension.PG_PARTMAN, logger=logger):
             self.stdout.write(self.style.WARNING(f"pg_partman is not installed, skipping..."))
         else:
             try:
                 begin(logger=logger)
+                sql_query_show_config = partman_get_config_query(schema=schema, table_name=table_name)
+                initial_configset_results = execute_sql_query(
+                    query=sql_query_show_config,
+                    logger=logger,
+                    fetch_type=FetchType.ONE_DICT,
+                )
+                logger.info(f"initial config set: {initial_configset_results}")
 
                 if key == PartmanEditableConfigKey.PREMAKE:
                     sql_query = partman_update_config_premake_query(
@@ -143,8 +151,14 @@ class Command(BaseCommand):
                 else:
                     logger.warning(f"not yet implemented for key: {key}")
 
+                final_configset_results = execute_sql_query(
+                    query=sql_query_show_config,
+                    logger=logger,
+                    fetch_type=FetchType.ONE_DICT,
+                )
+                logger.info(f"final config set: {final_configset_results}")
                 commit(logger=logger)
 
-            except:
-                self.stdout.write(self.style.ERROR(f"Could not update partman config"))
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"Could not update partman config - {e}"))
                 rollback(logger=logger)
