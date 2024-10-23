@@ -228,3 +228,28 @@ def md5_over_column_query(schema: str, table_name: str, column_name: str = "id")
     """
     fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
     return f"SELECT MD5(STRING_AGG(CAST({column_name} AS TEXT), '')) AS md5_hash FROM {fully_qualified_table_name};"
+
+
+def partman_data_partition_query(schema: str, table_name: str) -> str:
+    """
+    Create the SQL query string for running the partman partition data procedure.
+    More information here: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#partition_data_proc
+
+    Args:
+        schema (str): psql schema where the table is stored. `public` is the
+        default one in psql.
+        table_name (str): name of the psql table.
+    """
+    return f"CALL partman.partition_data_proc('{schema}.{table_name}');"
+
+
+def vacuum_analyze_query(schema: str, table_name: str) -> str:
+    """
+    Create the SQL query to vacuum analyze a table.
+
+    Args:
+        schema (str): psql schema where the table is stored. `public` is the
+        default one in psql.
+        table_name (str): name of the psql table.
+    """
+    return f"VACUUM ANALYZE {schema}.{table_name};"
