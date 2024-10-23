@@ -322,7 +322,7 @@ def partman_update_config_premake_query(schema: str, table_name: str, premake: i
     return f"UPDATE partman.part_config SET premake = {premake} WHERE parent_table = '{parent_table}';"
 
 
-def partman_update_config_infinite_partition_times_query(
+def partman_update_config_infinite_time_partitions_query(
     schema: str,
     table_name: str,
     infinite_time_partitions: bool,

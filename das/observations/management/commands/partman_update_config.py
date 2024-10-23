@@ -20,7 +20,7 @@ from utils.db.postgresql import (
     execute_sql_query,
     is_postgresql_extension_installed,
     partman_get_config_query,
-    partman_update_config_infinite_partition_times_query,
+    partman_update_config_infinite_time_partitions_query,
     partman_update_config_premake_query,
     rollback,
 )
@@ -141,7 +141,7 @@ class Command(BaseCommand):
                     execute_sql_query(query=sql_query, logger=logger, fetch_type=FetchType.NONE)
 
                 elif key == PartmanEditableConfigKey.INFINITE_TIME_PARTITIONS:
-                    sql_query = partman_update_config_infinite_partition_times_query(
+                    sql_query = partman_update_config_infinite_time_partitions_query(
                         schema=schema,
                         table_name=table_name,
                         infinite_time_partitions=value,
