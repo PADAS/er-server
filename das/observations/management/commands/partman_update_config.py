@@ -80,7 +80,6 @@ class Command(BaseCommand):
             help="psql schema to target",
             default="public",
         )
-
         parser.add_argument(
             "-t",
             "--table",
