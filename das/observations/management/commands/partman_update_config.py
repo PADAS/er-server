@@ -158,6 +158,7 @@ class Command(BaseCommand):
                 )
                 logger.info(f"final config set: {final_configset_results}")
                 commit(logger=logger)
+                self.stdout.write(self.style.SUCCESS(f"Successfully set the partman config '{key}' to '{value}'."))
 
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"Could not update partman config - {e}"))
