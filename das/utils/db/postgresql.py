@@ -85,6 +85,14 @@ def partman_partition_maintenance_query(table_name: str) -> str:
     return f"SELECT partman.run_maintenance('{table_name}');"
 
 
+def partman_partition_maintenance_proc_query() -> str:
+    """
+    Create the SQL query for running the partman partition maintenance
+    procedure.
+    """
+    return f"CALL partman.run_maintenance_proc();"
+
+
 def partman_data_partition_query(schema: str, table_name: str) -> str:
     """
     Create the SQL query string for running the partman partition data procedure.
