@@ -272,6 +272,14 @@ def md5_over_column_query(schema: str, table_name: str, column_name: str = "id")
     return f"SELECT MD5(STRING_AGG(CAST({column_name} AS TEXT), '')) AS md5_hash FROM {fully_qualified_table_name};"
 
 
+def partman_partition_maintenance_proc_query() -> str:
+    """
+    Create the SQL query for running the partman partition maintenance
+    procedure.
+    """
+    return f"CALL partman.run_maintenance_proc();"
+
+
 def partman_data_partition_query(schema: str, table_name: str) -> str:
     """
     Create the SQL query string for running the partman partition data procedure.
