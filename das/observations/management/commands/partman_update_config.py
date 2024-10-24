@@ -107,6 +107,12 @@ class Command(BaseCommand):
             help="table column value to update",
             required=True,
         )
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            default=False,
+            help="Run in dry-run mode (no changes made)",
+        )
 
     def handle(self, *args, **options):
 
@@ -123,6 +129,8 @@ class Command(BaseCommand):
             str_value=str_value,
             logger=logger,
         )
+        is_dry_run = options["dry_run"]
+
         logger.info(f"Updating key {key} with value {value}")
 
         if not is_postgresql_extension_installed(psql_extension=PSQLExtension.PG_PARTMAN, logger=logger):
@@ -164,8 +172,12 @@ class Command(BaseCommand):
                     fetch_type=FetchType.ONE_DICT,
                 )
                 logger.info(f"final config set: {final_configset_results}")
-                commit(logger=logger)
                 self.stdout.write(self.style.SUCCESS(f"Successfully set the partman config '{key}' to '{value}'."))
+                if is_dry_run:
+                    logger.info(f"Dry Run Mode: Rolling back the transaction. Undoing the partman config update.")
+                    rollback(logger=logger)
+                else:
+                    commit(logger=logger)
 
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"Could not update partman config - {e}"))
