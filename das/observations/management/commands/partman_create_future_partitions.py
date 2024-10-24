@@ -65,6 +65,12 @@ class Command(BaseCommand):
             help="month offset to start creating partitions (current_month + offset)",
             default=1,
         )
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            default=False,
+            help="Run in dry-run mode (no changes made)",
+        )
 
     def run_sanity_checks(
         self,
@@ -152,6 +158,7 @@ class Command(BaseCommand):
         fully_qualified_table = to_fully_qualified_table_name(schema=schema, table_name=table_name)
         number_partitions = options["number"]
         offset = options["offset"]
+        is_dry_run = options["dry_run"]
         now = datetime.now(tz=pytz.utc)
 
         if not is_postgresql_extension_installed(psql_extension=PSQLExtension.PG_PARTMAN, logger=logger):
@@ -209,12 +216,19 @@ class Command(BaseCommand):
                     logger=logger,
                 )
 
-                commit(logger=logger)
                 self.stdout.write(
                     self.style.SUCCESS(
                         f"Created {number_partitions} new partitions in {fully_qualified_table}: {final_metadata['partitions'] - initial_metadata['partitions']}"
                     )
                 )
+
+                if is_dry_run:
+                    logger.info(
+                        f"Dry Run Mode: Rolling back the transaction. Undoing the {number_partitions} new partitions on the table {schema}.{table_name}"
+                    )
+                    rollback(logger=logger)
+                else:
+                    commit(logger=logger)
 
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"Could not create the requested partitions: {e}"))
