@@ -26,6 +26,12 @@ from utils.db.postgresql import (
 )
 
 
+class PartmanCastValueError(Exception):
+    """
+    Error used when casting values for partman configuration keys fail.
+    """
+
+
 class Command(BaseCommand):
     help = """Using pg_partman to create partitions ahead of time manually. It
     is useful when the `partman.run_maintenance_proc` procedure did not run
@@ -52,10 +58,12 @@ class Command(BaseCommand):
             type based on the provided key
 
         Raises:
-            Exception: when it is not possible to cast or the casting is
-            not yet implemented.
+            PartmanCastValueError: when it is not possible to cast or
+            the casting is not yet implemented.
         """
-        exception = Exception(f"Not possible to cast: {partman_editable_config_key} with value {str_value}.")
+        exception = PartmanCastValueError(
+            f"Not possible to cast: {partman_editable_config_key} with value {str_value}."
+        )
         if partman_editable_config_key == PartmanEditableConfigKey.INFINITE_TIME_PARTITIONS:
             if str_value == "true":
                 return True
