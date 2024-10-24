@@ -313,7 +313,13 @@ def poll_news_gcs_bucket():
             )
 
 
-@celery.app.task(base=QueueOnce)
+@celery.app.task(
+    base=QueueOnce,
+    default_retry_delay=60,
+    max_retries=5,
+    retry_backoff=30,
+    retry_backoff_max=10 * 60,
+)
 def run_partition_maintenance() -> None:
     """
     Run the partition maintenance on the observations_observation table.
