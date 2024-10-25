@@ -675,3 +675,6 @@ TENANT_ID = env.str("TENANT_ID", "")
 
 CLUSTER_NAME = env.str("CLUSTER_NAME", "UNSET")
 CLUSTER_NAMESPACE = env.str("CLUSTER_NAMESPACE", "UNSET")
+
+
+PUBSUB_PROJECT_ID = env.str(var="PUBSUB_PROJECT_ID", default="earthranger-dev")

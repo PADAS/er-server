@@ -16,7 +16,7 @@ domain_blacklist = (
 sql_create_fks = ""
 
 if domain not in domain_blacklist:
-    tenant_data = tms_api_client.get_tenant_data(domain=domain)
+    tenant_data = tms_api_client.get_tenant_data(lookup=domain)
 
     TENANT_RANGE_START = tenant_data["permissionsCustomSequenceStart"]
     TENANT_RANGE_END = tenant_data["permissionsCustomSequenceEnd"]

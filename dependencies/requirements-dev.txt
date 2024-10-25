@@ -438,6 +438,7 @@ google-api-core[grpc]==2.12.0
     #   google-cloud-error-reporting
     #   google-cloud-logging
     #   google-cloud-monitoring
+    #   google-cloud-pubsub
     #   google-cloud-storage
     #   google-cloud-trace
 google-api-python-client==2.101.0
@@ -453,6 +454,7 @@ google-auth==2.23.2
     #   google-auth-httplib2
     #   google-cloud-core
     #   google-cloud-monitoring
+    #   google-cloud-pubsub
     #   google-cloud-storage
     #   google-cloud-trace
 google-auth-httplib2==0.1.1
@@ -483,6 +485,8 @@ google-cloud-monitoring==2.22.1
     # via
     #   -r ./requirements.txt
     #   opentelemetry-exporter-gcp-monitoring
+google-cloud-pubsub==2.25.0
+    # via -r ./requirements.txt
 google-cloud-storage==2.11.0
     # via
     #   -r ./requirements.txt
@@ -516,10 +520,12 @@ grpc-google-iam-v1==0.12.6
     # via
     #   -r ./requirements.txt
     #   google-cloud-logging
+    #   google-cloud-pubsub
 grpcio==1.59.0
     # via
     #   -r ./requirements.txt
     #   google-api-core
+    #   google-cloud-pubsub
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status
@@ -527,6 +533,7 @@ grpcio-status==1.59.0
     # via
     #   -r ./requirements.txt
     #   google-api-core
+    #   google-cloud-pubsub
 gunicorn==20.1.0
     # via -r ./requirements.txt
 h11==0.14.0
@@ -841,6 +848,7 @@ openpyxl==3.1.2
 opentelemetry-api==1.25.0
     # via
     #   -r ./requirements.txt
+    #   google-cloud-pubsub
     #   opentelemetry-exporter-gcp-monitoring
     #   opentelemetry-exporter-gcp-trace
     #   opentelemetry-instrumentation
@@ -897,6 +905,7 @@ opentelemetry-resourcedetector-gcp==1.6.0a0
 opentelemetry-sdk==1.25.0
     # via
     #   -r ./requirements.txt
+    #   google-cloud-pubsub
     #   opentelemetry-exporter-gcp-monitoring
     #   opentelemetry-exporter-gcp-trace
     #   opentelemetry-resourcedetector-gcp
@@ -1001,6 +1010,7 @@ proto-plus==1.22.3
     #   google-cloud-error-reporting
     #   google-cloud-logging
     #   google-cloud-monitoring
+    #   google-cloud-pubsub
     #   google-cloud-trace
 protobuf==4.24.3
     # via
@@ -1011,6 +1021,7 @@ protobuf==4.24.3
     #   google-cloud-error-reporting
     #   google-cloud-logging
     #   google-cloud-monitoring
+    #   google-cloud-pubsub
     #   google-cloud-trace
     #   googleapis-common-protos
     #   grpc-google-iam-v1
