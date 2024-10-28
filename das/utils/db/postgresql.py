@@ -222,7 +222,7 @@ def partman_create_monthly_partition_time_query(schema: str, table_name: str, ye
         );"""
 
 
-def partman_show_partitions_query(schema: str, table_name: str) -> str:
+def partman_list_partitions_query(schema: str, table_name: str) -> str:
     """
     Create thre SQL query string for running the partman show_partitions function.
     More information here: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#show_partitions
@@ -235,23 +235,7 @@ def partman_show_partitions_query(schema: str, table_name: str) -> str:
     doing with `schema` and `table_name`.
     """
     fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
-    return f"SELECT partman.show_partitions('{fully_qualified_table_name}');"
-
-
-def parse_partman_partition_str(partition_str: str) -> Dict[str, str]:
-    """
-    Parse the partition string, one row of partman_show_partitions_query when
-    executed.
-
-    Outputs:
-        schema (str): psql schema
-        table (str): psql partition table with the _p suffix
-
-    >>> parse_partman_partition_str('(public,observations_observation_p2015_01)')
-    {'schema': public, 'table': 'observations_observation_p2015_01'}
-    """
-    parts = partition_str.replace("(", "").replace(")", "").split(",")
-    return {"schema": parts[0], "table": parts[1]}
+    return f"SELECT * FROM partman.show_partitions('{fully_qualified_table_name}');"
 
 
 def md5_over_column_query(schema: str, table_name: str, column_name: str = "id") -> str:
@@ -358,3 +342,12 @@ def vacuum_analyze_query(schema: str, table_name: str) -> str:
     """
     fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
     return f"VACUUM ANALYZE {fully_qualified_table_name};"
+
+
+def partman_fully_qualified_default_table(schema: str, table_name: str) -> str:
+    """
+    Return the fully qualified default table name for the provided schema and
+    table_name.
+    """
+    fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+    return f"{fully_qualified_table_name}_default"
