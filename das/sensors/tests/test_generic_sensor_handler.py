@@ -80,6 +80,31 @@ class GenericSensorHandlerTest(BaseAPITest):
         "additional": {"temp": 40.1},
     }
 
+    # Remove in RF-579, when Buoy PUT implemented
+    ropeless_buoy_observation = {
+        "subject_name": "test_subject",
+        "subject_subtype": "ropeless_buoy_device",
+        "manufacturer_id": "test_mfg_id",
+        "recorded_at": "2020-03-07T16:28:38+00:00",
+        "location": {"lon": "31.19239", "lat": "-24.43071"},
+        "additional": {
+            "devices": [
+                {
+                    "label": "a",
+                    "location": {
+                        "latitude": "-24.43071",
+                        "longitude": "31.19239"
+                    },
+                    "device_id": "test_device_id",
+                    "last_updated": "2024-10-16 11:08:17-08:00"
+                }
+            ],
+            "display_id": "test_display_id",
+            "radio_state": "online-gps",
+            "event_type": "gear_deployed"
+        },
+    }
+
     def setUp(self):
         super().setUp()
 
@@ -396,6 +421,15 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIsNotNone(new_source)
         self.assertEqual(1, Observation.objects.filter(source=new_source).count())
         self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
+
+    def test_ropeless_buoy_device_subtype(self):
+        # Remove in RF-579, when Buoy PUT implemented
+        response = self._post_data(json.dumps(self.ropeless_buoy_observation))
+        new_source = Source.objects.get(manufacturer_id=self.ropeless_buoy_observation["manufacturer_id"])
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(source=new_source).count())
+        self.assertIsNotNone(SubjectSubType.objects.get(value=self.ropeless_buoy_observation["subject_subtype"]))
 
     @mock.patch("utils.tenant.thread._get_local_thread")
     def test_request_with_varying_provider_key_lengths(self, get_main_thread):
