@@ -115,3 +115,4 @@ xmltodict==0.13.0
 async-lru==1.0.3
 markupsafe==2.0.1
 pygeoif==0.6
+google-cloud-pubsub==2.25.0

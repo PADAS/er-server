@@ -174,7 +174,7 @@ class TenantData:
     def _fetch_from_tms(self, hostname):
         logger.debug("Getting tenant from TMS for domain %s", hostname)
 
-        tenant_data = tms_api_client.get_tenant_data(domain=hostname)
+        tenant_data = tms_api_client.get_tenant_data(lookup=hostname)
 
         if not tenant_data:
             logger.debug("Tenant not found in TMS for domain %s", hostname)
