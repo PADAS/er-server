@@ -9,11 +9,12 @@ from django.conf import settings
 
 from core.exceptions import ConnectionTMSApiTimeoutException
 from utils.tenant.exceptions import TenantNotFoundException
+from utils.tenant.lookups import get_tenant_lookup_type
 
 
 class BaseClient(ABC):
     @abstractmethod
-    def get_tenant_data(self, domain: str):
+    def get_tenant_data(self, lookup: str):
         pass
 
 
@@ -23,10 +24,12 @@ class TestClient(BaseClient):
         with open(das_core / "fixtures/tenant-response.json") as tenant_response:
             self.tenant_response = json.load(tenant_response)
 
-    def get_tenant_data(self, domain: str):
-        if self.tenant_response["domain"] == domain:
+    def get_tenant_data(self, lookup: str):
+        lookup_type = get_tenant_lookup_type(lookup)
+
+        if self.tenant_response[lookup_type] == lookup:
             return self.tenant_response
-        raise TenantNotFoundException(f"Tenant not found in TestClient: {domain}", domain=domain)
+        raise TenantNotFoundException(f"Tenant not found in TestClient: {lookup}", domain=lookup)
 
     def list_tenants(self):
         return [self.tenant_response]
@@ -36,13 +39,34 @@ class DjangoSettingsClient(BaseClient):
     def __init__(self, config):
         pass
 
-    def get_tenant_data(self, domain: str):
+    def get_tenant_data(self, lookup: str):
+        """
+        Retrieve tenant data based on the provided lookup value.
+
+        This method fetches tenant data from the TMS (Tenant Management System) using the specified lookup value.
+        The lookup value can be the ID, domain, or slug_name, and is used to determine the type of lookup and fetch the
+        corresponding tenant data.
+
+        Args:
+            lookup (str): The lookup value used to identify the tenant. It can be the tenant domain, tenant ID, or
+            tenant slug_name.
+
+        Returns:
+            dict: A dictionary containing the tenant data if found.
+
+        Raises:
+            TenantNotFoundException: If the tenant is not found based on the lookup value.
+            ConnectionTMSApiTimeoutException: If there is a timeout while connecting to the TMS API.
+        """
+
         from utils.tenant.builder import DjangoSettingsTenantBuilder
 
         tenant_data = DjangoSettingsTenantBuilder().build().to_dict()
-        if tenant_data["domain"] == domain:
+
+        lookup_type = get_tenant_lookup_type(lookup)
+        if tenant_data[lookup_type] == lookup:
             return tenant_data
-        raise TenantNotFoundException(f"Tenant not found in DjangoSettingsClient: {domain}", domain=domain)
+        raise TenantNotFoundException(f"Tenant not found in DjangoSettingsClient: {lookup}", domain=lookup)
 
     def list_tenants(self):
         tenant = self.get_tenant_data(getattr(settings, "SERVER_FQDN", None))
@@ -66,18 +90,19 @@ class HTTPClient(BaseClient):
 
         return response.json()
 
-    def get_tenant_data(self, domain: str):
+    def get_tenant_data(self, lookup: str):
         params = self._get_default_param()
         params["should-refresh-cache"] = True
         try:
-            response = self._get(f"tenants/{domain}", params=params)
+            response = self._get(f"tenants/{lookup}", params=params)
         except RequestException as request_exception:
             raise ConnectionTMSApiTimeoutException(f"Timeout connecting to TMS API: {request_exception}")
 
         if response.status_code == requests.codes.ok:
             return response.json()
         raise TenantNotFoundException(
-            f"TMSApi status_code={response.status_code}, message={response.reason}", domain=domain
+            f"TMSApi status_code={response.status_code}, message={response.reason}",
+            domain=lookup,
         )
 
     def _get(self, *args, **kwargs):

@@ -1,5 +1,5 @@
 import logging
-import threading
+from threading import Thread
 
 import utils.json as json
 from das_server import pubsub
@@ -11,8 +11,8 @@ from rt_api.tasks import (
     handle_new_event,
     handle_new_message,
     handle_new_patrol,
-    handle_new_subject_observation,
     handle_new_source_observation,
+    handle_new_subject_observation,
     handle_subjectstatus_update,
     handle_update_event,
     handle_update_message,
@@ -47,12 +47,12 @@ def start(realtime_server):
 
     def new_observation_handler(data, message):
 
-        if subject_id := data.get('subject_id'):
+        if subject_id := data.get("subject_id"):
             handle_new_subject_observation.apply_async(
                 args=(subject_id,),
                 kwargs={"domain": data.pop("domain", None)},
             )
-        elif source_id := data.get('source_id'):
+        elif source_id := data.get("source_id"):
             handle_new_source_observation.apply_async(
                 args=(source_id,),
                 kwargs={"domain": data.pop("domain", None)},
@@ -173,7 +173,7 @@ def start(realtime_server):
             logger.exception("Error subscribing to pubsub, error %s", error)
 
     logger.info("Starting pubsub listener threads.")
-    for x in range(5):
-        logger.info("Starting pubsub listener thread (%s).", x)
-        name = f"pubsub-listener-{x}"
-        threading.Thread(target=pubsub_listener, name=name, args=(name,)).start()
+    for thread_index in range(5):
+        logger.info("Starting pubsub listener thread (%s).", thread_index)
+        name = f"pubsub-listener-{thread_index}"
+        Thread(target=pubsub_listener, name=name, args=(name,)).start()
