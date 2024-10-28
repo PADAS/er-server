@@ -173,6 +173,5 @@ def run_partition_table_check(schema: str, table_name: str, logger: Logger) -> N
         if len(errors) == 0:
             logger.info(f"{schema}.{table_name} partition table: ✅")
         else:
-            # FIXME: should send an alert or an email at least
             for error in errors:
                 logger.error(error["message"])
