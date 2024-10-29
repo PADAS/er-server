@@ -871,14 +871,10 @@ class EventRelationship(TenantModelMixin, TimestampedModel):
 
 
 class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, TimestampedModel):
-    revision_ignore_fields = "sort_at"
-    revision_follow_relations = ("activity.EventPhoto",)
-
-    ordering = ["-sort_at"]
-
     """
     An Event is something that happened. Maybe an incident, or an analyzer result, or a phone call from an informant.
     """
+
     PC_SYSTEM = "system"
     PC_SENSOR = "sensor"
     PC_ANALYZER = "analyzer"
@@ -987,6 +983,9 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventManager()
     tenant_id = "das_tenant_id"
+
+    revision_ignore_fields = "sort_at"
+    revision_follow_relations = ("activity.EventPhoto",)
 
     @property
     def display_title(self):
