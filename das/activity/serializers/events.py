@@ -5,6 +5,7 @@ from collections import OrderedDict
 
 from django_multitenant.utils import get_current_tenant
 from drf_extra_fields.geo_fields import PointField
+from google.auth.exceptions import GoogleAuthError
 from opentelemetry import trace
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
@@ -666,9 +667,7 @@ class EventSourceSerializer(ModelSerializer):
         )
 
     def to_representation(self, obj):
-        rep = super().to_representation(
-            obj,
-        )
+        rep = super().to_representation(obj)
         rep["url"] = utils.add_base_url(
             self.context["request"],
             reverse(
@@ -1008,24 +1007,24 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         rep = super().to_representation(event)
 
         details_updates = ""
+        event_details = {}
 
         if set_prefetched:
             # Apply the prefetched data back to the representation
+            if first_event_details := event.event_details_set[0]:
+                event_details = EventDetailsSerializer(first_event_details, context=self.context).data
+                rep["event_details"] = event_details
+                details_updates = event_details.get("updates")
+
+            rep["related_subjects"] = list(
+                SubjectSerializer(event.related_subjects_set, many=True, context=self.context, read_only=True).data
+            )
             try:
-                event_details_serialized = EventDetailsSerializer(
-                    event.event_details_set, many=True, context=self.context
-                ).data
-                rep["event_details"] = {}
-                if event_details_serialized:
-                    rep["event_details"] = event_details_serialized[0]
                 rep["files"] = list(EventFileSerializer(event.files_set, many=True, context=self.context).data)
-                rep["related_subjects"] = list(
-                    SubjectSerializer(event.related_subjects_set, many=True, context=self.context, read_only=True).data
-                )
-                event_details = rep["event_details"]
-                if event_details:
-                    details_updates = event_details.get("updates")
-            except Exception as ex:
+            except GoogleAuthError as ex:
+                # DefaultCredentialsError('Your default credentials were not found.
+                # To set up Application Default Credentials,
+                # see https://cloud.google.com/docs/authentication/external/set-up-adc for more information.')
                 logger.exception("Failed Event pre-fetched  {}".format(ex))
         else:
             event_details = rep["event_details"]
@@ -1033,17 +1032,15 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             if rep["event_details"] is not None:
                 details_updates = rep["event_details"].pop("updates")
 
-        try:
-            event_source = event.eventsource_event_refs.first().eventsource
-        except:
-            pass
-        else:
+        if eventsourcerefs := event.eventsource_event_refs.first():
+            event_source = eventsourcerefs.eventsource
             if event_source and event_source.eventprovider:
                 rep["external_source"] = {
                     "url": event_source.eventprovider.additional.get("external_event_url"),
                     "text": event_source.eventprovider.display,
                     "icon_url": event_source.eventprovider.additional.get("icon_url"),
                 }
+
         if "request" in self.context:
             request = self.context["request"]
 
@@ -1059,15 +1056,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                     rep = {"id": rep["id"]}
                     return rep
 
-            rep["url"] = utils.add_base_url(
-                request,
-                reverse(
-                    "event-view",
-                    args=[
-                        event.id,
-                    ],
-                ),
-            )
+            rep["url"] = utils.add_base_url(request, reverse("event-view", args=[event.id]))
             image_url = resolve_image_url(event)
             rep["image_url"] = utils.add_base_url(request, image_url)
 
