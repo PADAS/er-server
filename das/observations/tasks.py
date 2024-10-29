@@ -343,5 +343,5 @@ def run_partition_table_check() -> None:
     """
     table_name = "observations_observation"
     schema = "public"
-    logger.info(f"Running partition maintenance table check for '{schema}.{table_name}'")
+    logger.info(f"Running partition table check for '{schema}.{table_name}'")
     utils_db_task_helpers.run_partition_table_check(schema=schema, table_name=table_name, logger=logger)
