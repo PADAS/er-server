@@ -175,6 +175,7 @@ class Command(BaseCommand):
             fetch_type=FetchType.ALL_DICT,
         )
 
+        # FIXME: check that it works here! again after simplifying the script
         if partitions_result:
             result["partitions"] = {p["partition_tablename"] for p in partitions_result}
 
