@@ -87,11 +87,14 @@ def run_partition_table_check(schema: str, table_name: str, logger: Logger) -> N
     sanity checks, it logs an error message.
 
     - Check that the default partition is empty, if not, it means that the
-      partitions are not being created properly
+      partitions are not being created properly.
     - Check that the `infinite_time_partitions` partman config is set to True.
     - Check that the `premake` partman config is >= 3.
     - Check that the number of desired future partitions matches the
       `partman.part_config` table.
+
+    It logs failed checks as errors which can be picked up by our monitoring
+    system and dispatch alerts.
 
     Args:
         schema (str): psql schema where the partitioned table is stored.
@@ -143,21 +146,23 @@ def run_partition_table_check(schema: str, table_name: str, logger: Logger) -> N
 
         # Error Messages
         errors = []
+
+        # Prefix used to create a monitor and alert in our infrastructure
+        prefix_message = "ER Partman:"
         error_default_table_count = {
-            "message": f"The default table {fully_qualified_default_partition} contains {result_default_table_count['count']} rows. It should be empty. Make sure that the partitions are being created ahead of time."
+            "message": f"{prefix_message} The default table {fully_qualified_default_partition} contains {result_default_table_count['count']} rows. It should be empty. Make sure that the partitions are being created ahead of time."
         }
         error_partman_config_infinite_time_partitions = {
-            "message": "The partman config `infinite_time_partitions` is set to False. It must be set to True to make partitions ahead of time with the maintenance procedure."
+            "message": f"{prefix_message} The partman config `infinite_time_partitions` is set to False. It must be set to True to make partitions ahead of time with the maintenance procedure."
         }
         error_partman_config_premake_small = {
-            "message": f"The partman config `premake` is too small. It must be >=3 and is currently set to {result_partman_config['premake']}."
+            "message": f"{prefix_message} The partman config `premake` is too small. It must be >=3 and is currently set to {result_partman_config['premake']}."
         }
         error_missing_partitions = {
-            "message": f"Missing {len(missing_partition_table_names)} partitions given the `premake` attribute set to {result_partman_config['premake']}, namely: {missing_partition_table_names}"
+            "message": f"{prefix_message} Missing {len(missing_partition_table_names)} partitions given the `premake` attribute set to {result_partman_config['premake']}, namely: {missing_partition_table_names}"
         }
 
         # Sanity checks
-
         if result_default_table_count["count"] > 0:
             errors.append(error_default_table_count)
 
