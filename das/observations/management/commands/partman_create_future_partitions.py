@@ -132,10 +132,9 @@ class Command(BaseCommand):
         partitions_result = execute_sql_query(
             query=partman_list_partitions_query(schema=schema, table_name=table_name),
             logger=logger,
-            fetch_type=FetchType.ALL,
+            fetch_type=FetchType.ALL_DICT,
         )
 
-        # FIXME: check that it works here! again after simplifying the script
         if partitions_result:
             result["partitions"] = {p["partition_tablename"] for p in partitions_result}
 
