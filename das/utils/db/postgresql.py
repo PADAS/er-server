@@ -4,9 +4,21 @@ PosgreSQL util functions.
 
 from enum import Enum
 from logging import Logger
-from typing import Dict, Optional
+from typing import Any, Dict, List
 
 from django.db import ProgrammingError, connection
+
+
+class PartmanEditableConfigKey(Enum):
+    """
+    Supported Partman config keys to update.
+    """
+
+    INFINITE_TIME_PARTITIONS = "infinite_time_partitions"
+    PREMAKE = "premake"
+
+    def __str__(self):
+        return self.value
 
 
 class FetchType(Enum):
@@ -15,13 +27,20 @@ class FetchType(Enum):
 
     Values:
         NONE: fetch nothing
-        ONE: fetch one row
-        ALL: fetch all
+        ONE: fetch one row as tuple
+        ALL: fetch all as tuples
+        ONE_DICT: fetch one row as a dict
+        ALL_DICT: fetch all as a list of dicts
     """
 
     NONE = "none"
     ONE = "one"
     ALL = "all"
+    ONE_DICT = "one_dict"
+    ALL_DICT = "all_dict"
+
+    def __str__(self):
+        return self.value
 
 
 class PSQLExtension(Enum):
@@ -36,7 +55,23 @@ class PSQLExtension(Enum):
     PG_PARTMAN = "pg_partman"
 
 
-def execute_sql_query(query: str, logger: Logger, fetch_type: FetchType = FetchType.NONE) -> Optional[str]:
+def dictfetchall(cursor) -> List[Dict[str, Any]]:
+    """
+    Return all rows from a db cursor as a list of dicts.
+    """
+    desc = cursor.description
+    return [dict(zip([col[0] for col in desc], row)) for row in cursor.fetchall()]
+
+
+def dictfetchone(cursor) -> Dict[str, Any]:
+    """
+    Return one row from a cursor as a dict.
+    """
+    desc = cursor.description
+    return dict(zip([col[0] for col in desc], cursor.fetchone()))
+
+
+def execute_sql_query(query: str, logger: Logger, fetch_type: FetchType = FetchType.NONE) -> Any:
     """
     Execute the SQL `query`. Return one row if `fetch` is set to True.
     The process/thread is exited on execution error and an exception is written
@@ -49,13 +84,11 @@ def execute_sql_query(query: str, logger: Logger, fetch_type: FetchType = FetchT
         results? Defaults to returning Nothing.
 
     Output:
-        result (Optional[str]):  returns the sql result as a string or raise an
-        exception.
+        result (Any):  returns the sql result as a string or dict or None.
 
     Raises:
         ProgrammingError: when the SQL query cannot be executed.
     """
-    result = None
     with connection.cursor() as cursor:
         try:
             cursor.execute(query)
@@ -63,10 +96,15 @@ def execute_sql_query(query: str, logger: Logger, fetch_type: FetchType = FetchT
             logger.exception(f"programming error")
             raise e
         if fetch_type is FetchType.ONE:
-            result = cursor.fetchone()
+            return cursor.fetchone()
         elif fetch_type is FetchType.ALL:
-            result = cursor.fetchall()
-        return result
+            return cursor.fetchall()
+        elif fetch_type is FetchType.ALL_DICT:
+            return dictfetchall(cursor)
+        elif fetch_type is FetchType.ONE_DICT:
+            return dictfetchone(cursor)
+        elif fetch_type is FetchType.NONE:
+            return None
 
 
 def begin(logger: Logger) -> None:
@@ -257,6 +295,61 @@ def partman_data_partition_query(schema: str, table_name: str) -> str:
     """
     fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
     return f"CALL partman.partition_data_proc('{fully_qualified_table_name}');"
+
+
+def partman_get_config_query(schema: str, table_name: str) -> str:
+    """
+    Create the SQL query string to get the current config for partman.
+
+    Note: This does not check for SQL injection. Make sure to know what you are
+    doing with `schema` and `table_name`.
+    """
+    parent_table = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+    return f"SELECT * FROM partman.part_config WHERE parent_table = '{parent_table}';"
+
+
+def partman_update_config_premake_query(schema: str, table_name: str, premake: int) -> str:
+    """
+    Create the SQL query string for updating a pg_partman config on the
+    partition table represented by `schema` and `table_name`. Setting the premake entry to a new value.
+
+    Args:
+        schema (str): psql schema where the partitioned table is stored.
+        `public` is the default one in psql.
+        table_name (str): name of the partitioned parent table.
+        premake (int): new value of premake to set. Should be > 0.
+
+    Raises:
+        AssertionError: when premake <= 0
+
+    Note: This does not check for SQL injection. Make sure to know what you are
+    doing with `schema` and `table_name`.
+    """
+    assert premake > 0, "premake should be greater than 0"
+    parent_table = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+    return f"UPDATE partman.part_config SET premake = {premake} WHERE parent_table = '{parent_table}';"
+
+
+def partman_update_config_infinite_time_partitions_query(
+    schema: str,
+    table_name: str,
+    infinite_time_partitions: bool,
+) -> str:
+    """
+    Create the SQL query string for updating a pg_partman config on the
+    partition table represented by `schema` and `table_name`. Setting the infinite_time_partitions entry to a new value.
+
+    Args:
+        schema (str): psql schema where the partitioned table is stored.
+        `public` is the default one in psql.
+        table_name (str): name of the partitioned parent table.
+        infinite_time_partitions (bool): new value of infinite_time_partitions to set.
+
+    Note: This does not check for SQL injection. Make sure to know what you are
+    doing with `schema` and `table_name`.
+    """
+    parent_table = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+    return f"UPDATE partman.part_config SET infinite_time_partitions = {infinite_time_partitions} WHERE parent_table = '{parent_table}';"
 
 
 def vacuum_analyze_query(schema: str, table_name: str) -> str:
