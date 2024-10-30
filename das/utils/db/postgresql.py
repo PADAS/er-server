@@ -630,6 +630,26 @@ def partman_partition_data_time_query(
     return f"SELECT partman.partition_data_time({params_str});"
 
 
+def partman_partition_data_time_query(
+    schema: str,
+    table_name: str,
+) -> str:
+    """
+    Create the SQL query string for running partman partition_data_time.
+    More information here: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#partition_data_time
+
+    Args:
+        schema (str): psql schema where the table is stored. `public` is the
+        default one in psql.
+        table_name (str): name of the psql table.
+
+    Note: This does not check for SQL injection. Make sure to know what you are
+    doing with `schema` and `table_name`.
+    """
+    fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+    return f"SELECT partman.partition_data_time('{fully_qualified_table_name}');"
+
+
 def partman_get_config_query(schema: str, table_name: str) -> str:
     """
     Create the SQL query string to get the current config for partman.
