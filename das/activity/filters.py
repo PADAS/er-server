@@ -58,11 +58,7 @@ class EventPermissionsFilter(BaseFilterBackend):
             return queryset.none()
         queryset = queryset.by_category(allowed_event_categories)
 
-        queryset = queryset.by_location(
-            location=query_params.get("location", ""),
-            user=user,
-            categories_to_filter=get_categories_and_geo_categories(user),
-        )
+        queryset = queryset.by_location(query_params.get("location", ""), user, get_categories_and_geo_categories(user))
 
         return queryset
 

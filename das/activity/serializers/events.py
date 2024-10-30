@@ -1007,14 +1007,13 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         rep = super().to_representation(event)
 
         details_updates = ""
-        event_details = {}
 
         if set_prefetched:
             # Apply the prefetched data back to the representation
-            if first_event_details := event.event_details_set[0]:
-                event_details = EventDetailsSerializer(first_event_details, context=self.context).data
-                rep["event_details"] = event_details
-                details_updates = event_details.get("updates")
+            rep["event_details"] = None
+            if event.event_details_set:
+                rep["event_details"] = EventDetailsSerializer(event.event_details_set[0], context=self.context).data
+                details_updates = rep["event_details"].get("updates")
 
             rep["related_subjects"] = list(
                 SubjectSerializer(event.related_subjects_set, many=True, context=self.context, read_only=True).data
@@ -1025,10 +1024,8 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                 # DefaultCredentialsError('Your default credentials were not found.
                 # To set up Application Default Credentials,
                 # see https://cloud.google.com/docs/authentication/external/set-up-adc for more information.')
-                logger.exception("Failed Event pre-fetched  {}".format(ex))
+                logger.exception("Failed rendering event pre-fetched files  {}".format(ex))
         else:
-            event_details = rep["event_details"]
-
             if rep["event_details"] is not None:
                 details_updates = rep["event_details"].pop("updates")
 
@@ -1080,7 +1077,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             for geometry in self._render_geometries_updates(event):
                 updates.extend(geometry)
 
-            if event_details:
+            if rep.get("event_details"):
                 updates.extend(details_updates)
 
             rep["updates"] = sorted(updates, key=lambda u: u["time"], reverse=True)
