@@ -7,7 +7,7 @@ from utils.db.postgresql import (
     PSQLExtension,
     execute_sql_query,
     is_postgresql_extension_installed,
-    partman_data_partition_query,
+    partman_partition_data_proc_query,
     vacuum_analyze_query,
 )
 
@@ -42,7 +42,7 @@ class Command(BaseCommand):
         table = options["table"]
 
         if is_postgresql_extension_installed(psql_extension=PSQLExtension.PG_PARTMAN, logger=logger):
-            sql_query = partman_data_partition_query(schema=schema, table_name=table)
+            sql_query = partman_partition_data_proc_query(schema=schema, table_name=table)
             logger.info(f"pg_partman is properly installed.")
 
             try:

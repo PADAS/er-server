@@ -256,7 +256,15 @@ def md5_over_column_query(schema: str, table_name: str, column_name: str = "id")
     return f"SELECT MD5(STRING_AGG(CAST({column_name} AS TEXT), '')) AS md5_hash FROM {fully_qualified_table_name};"
 
 
-def partman_data_partition_query(schema: str, table_name: str) -> str:
+def partman_partition_maintenance_proc_query() -> str:
+    """
+    Create the SQL query for running the partman partition maintenance
+    procedure.
+    """
+    return f"CALL partman.run_maintenance_proc();"
+
+
+def partman_partition_data_proc_query(schema: str, table_name: str) -> str:
     """
     Create the SQL query string for running the partman partition data procedure.
     More information here: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#partition_data_proc
@@ -271,6 +279,26 @@ def partman_data_partition_query(schema: str, table_name: str) -> str:
     """
     fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
     return f"CALL partman.partition_data_proc('{fully_qualified_table_name}');"
+
+
+def partman_partition_data_time_query(
+    schema: str,
+    table_name: str,
+) -> str:
+    """
+    Create the SQL query string for running partman partition_data_time.
+    More information here: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#partition_data_time
+
+    Args:
+        schema (str): psql schema where the table is stored. `public` is the
+        default one in psql.
+        table_name (str): name of the psql table.
+
+    Note: This does not check for SQL injection. Make sure to know what you are
+    doing with `schema` and `table_name`.
+    """
+    fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+    return f"SELECT partman.partition_data_time('{fully_qualified_table_name}');"
 
 
 def partman_get_config_query(schema: str, table_name: str) -> str:
