@@ -17,10 +17,13 @@ class MaintenanceMiddleware:
 
     def __call__(self, request):
         if is_under_maintenance():
-            message = "EarthRanger server is offline."
-            if additional_message := get_maintenance_message():
-                message += f" {additional_message}"
-            return HttpResponseServerError(message, status=503)
+            user_agent = request.META.get("HTTP_USER_AGENT", "").lower()
+            # we want the kubernetes health probe to succeed and not receive the 503
+            if not user_agent.startswith("kube-probe"):
+                message = "EarthRanger server is offline."
+                if additional_message := get_maintenance_message():
+                    message += f" {additional_message}"
+                return HttpResponseServerError(message, status=503)
 
         # If not under maintenance, continue with the request
         response = self.get_response(request)
