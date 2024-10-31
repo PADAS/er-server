@@ -2349,6 +2349,32 @@
     }
   },
   {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "value": "monkey",
+      "display": "Monkey",
+      "subject_type": [
+        "wildlife"
+      ],
+      "created_at": "2024-10-16T01:00:00Z",
+      "updated_at": "2024-10-16T01:00:00Z",
+      "ordernum": null
+    }
+  },
+    {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "value": "pangolin",
+      "display": "Pangolin",
+      "subject_type": [
+        "wildlife"
+      ],
+      "created_at": "2024-10-16T01:00:00Z",
+      "updated_at": "2024-10-16T01:00:00Z",
+      "ordernum": null
+    }
+  },
+  {
     "model": "observations.subjectgroup",
     "fields": {
       "created_at": "2016-07-07T01:00:00Z",

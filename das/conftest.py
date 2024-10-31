@@ -249,6 +249,7 @@ def spatial_feature_type():
 def gear_subjectsource():
     return GearFactory.create()
 
+
 @pytest.fixture
 def gear_subjectsource_with_observations():
     gear_subjectsource = GearFactory.create()
@@ -267,7 +268,7 @@ def gear_subjectsource_with_observations():
         "source": source,
         "additional": additional,
     }
-    
+
     observation = Observation.objects.create(**data)
     observation.save()
 
@@ -460,22 +461,11 @@ def feature_tms(monkeypatch):
 
 
 @pytest.fixture
-def memory_store_client_mock(monkeypatch, tenant_response):
-    memory_store_client_mock = MagicMock()
-    memory_store_client_mock.get_key.return_value = json.dumps(tenant_response)
-    monkeypatch.setattr("utils.tenant.providers.memory_store_client", memory_store_client_mock)
-    return memory_store_client_mock
-
-
-@pytest.fixture
-def get_alt_domains_client_mock(monkeypatch, tenant_response):
-    mock = MagicMock()
-
-    def client_mock():
-        return mock
-
-    monkeypatch.setattr("utils.tenant.providers.get_alt_domain_cache_client", client_mock)
-    return client_mock
+def tenant_document_cache_client_mock(monkeypatch, tenant_response):
+    tenant_document_cache_client_mock = MagicMock()
+    tenant_document_cache_client_mock.get_key.return_value = json.dumps(tenant_response)
+    monkeypatch.setattr("utils.tenant.providers.tenant_document_cache_client", tenant_document_cache_client_mock)
+    return tenant_document_cache_client_mock
 
 
 @pytest.fixture
@@ -559,6 +549,14 @@ def tenant_settings(request, monkeypatch, tenant):
     monkeypatch.setattr("utils.tenant.thread._local_thread", thread)
     monkeypatch.setattr("utils.tenant.thread.set_tenant_settings", MagicMock(return_value=None))
     monkeypatch.setattr("utils.tenant.thread.clear_tenant_settings", MagicMock(return_value=None))
+
+    def get_tenant_domain_from_alt_server_name(alt_server_name):
+        if alt_server_name in tenant.env_settings.alt_server_names:
+            return tenant.domain
+
+    monkeypatch.setattr(
+        "utils.tenant.providers.get_tenant_domain_from_alt_server_name", get_tenant_domain_from_alt_server_name
+    )
     if getattr(request, "cls", None):
         request.cls.tenant_settings = tenant
     return tenant

@@ -14,3 +14,7 @@ class TenantNotFoundException(Exception):
 class TenantNotFoundInLocalThreadException(Exception):
     def __str__(self):
         return "Tenant not found in local thread"
+
+
+class WrongTenantIdentifier(Exception):
+    pass

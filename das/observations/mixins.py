@@ -22,14 +22,14 @@ class TwoWaySubjectSourceMixin(object):
             "SubjectGroup": "subjects__id",
         }
         self.two_way_subject_sources = {}
-        queryset_object = str(queryset.model.__name__)
+        model_class_name = str(queryset.model.__name__)
 
         try:
-            subjects = lookup_field[queryset_object]
+            subjects = lookup_field[model_class_name]
         except KeyError:
-            raise ValueError(f"{queryset_object} Not yet supported.")
+            raise ValueError(f"{model_class_name} Not yet supported.")
 
-        if queryset_object == "SubjectGroup":
+        if model_class_name == "SubjectGroup":
             queryset = self._get_children_subject_groups(queryset)
 
         subject_sources = models.SubjectSource.objects.filter(subject__in=queryset.values(subjects).all())

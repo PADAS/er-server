@@ -235,6 +235,17 @@ class FeatureSetFeatureType(TenantModelMixin, UUIDModel):
     objects = CommonTenantManager()
     tenant_id = "das_tenant_id"
 
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "featureset", "featuretype"],
+                name="%(app_label)s_%(class)s_unique_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "featureset"]), Index(fields=["das_tenant", "featuretype"])]
+
 
 @deconstructible
 class TempStorage(FileSystemStorage):

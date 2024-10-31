@@ -22,8 +22,7 @@ def get_response(request):
 @pytest.mark.django_db
 class TestTenantCorsMiddlewareSignal:
     @override_settings(CORS_ORIGIN_WHITELIST=[], CORS_ALLOW_ALL_ORIGINS=False)
-    def test_cors_accepts_origin_from_das_tenant(self, five_tenants):
-        tenant = five_tenants[0]
+    def test_cors_accepts_origin_from_das_tenant(self, tenant):
         request = RequestFactory().get("/", headers={"origin": f"https://{tenant.domain}"})
         request.META["HTTP_ORIGIN"] = f"https://{tenant.domain}"
         middleware = CorsMiddleware(get_response)
