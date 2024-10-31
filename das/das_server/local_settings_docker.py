@@ -80,10 +80,10 @@ CORS_REPLACE_HTTPS_REFERER = env.bool("CORS_REPLACE_HTTPS_REFERER", True)
 SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", True)
 CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", True)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-CSRF_TRUSTED_ORIGINS = (
+CSRF_TRUSTED_ORIGINS = [
     "localhost:9000",
     SERVER_FQDN,
-)  # TODO: test with CORS_ALLOWED_ORIGINS, see https://docs.djangoproject.com/en/4.2/ref/settings/#csrf-trusted-origins
+]  # TODO: test with CORS_ALLOWED_ORIGINS, see https://docs.djangoproject.com/en/4.2/ref/settings/#csrf-trusted-origins
 
 STATIC_ROOT = env.str("STATIC_ROOT", "/var/www/static/")
 

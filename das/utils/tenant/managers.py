@@ -1,5 +1,6 @@
 import logging
 from dataclasses import asdict
+from typing import Union
 
 from django_multitenant.utils import (
     get_current_tenant,
@@ -7,9 +8,14 @@ from django_multitenant.utils import (
     unset_current_tenant,
 )
 
+from django.core.exceptions import DisallowedHost
+from django.core.handlers.wsgi import WSGIRequest
+from rest_framework.request import Request
+
 from core.models import DASTenant
+from utils.tenant.domains import add_new_tenant_domains_to_settings
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
-from utils.tenant.providers import TenantData
+from utils.tenant.providers import TenantData, get_tenant_data_by_host
 from utils.tenant.thread import (
     clear_tenant_settings,
     get_tenant_settings,
@@ -72,12 +78,39 @@ class TenantContextManager:
         set_current_tenant(self.previous_tenant)
 
 
-def set_tenant(domain):
+def set_tenant_by_request(request: Union[Request, WSGIRequest]) -> None:
     """
-    Single function to set both the Tenant and the DASTenant in the current thread
+    Single function to set both the Tenant and the DASTenant in the current thread by passing in the current request object
+    """
+
+    def get_host(request):
+        try:
+            return request.get_host()
+        except DisallowedHost:
+            add_new_tenant_domains_to_settings()
+
+        return request.get_host()
+
+    host_name = get_host(request)
+    host_name = host_name.split(":")[0]  # remove any port number
+
+    tenant_data = get_tenant_data_by_host(host_name)
+    set_tenant_data(tenant_data)
+
+
+def set_tenant(domain: str) -> None:
+    """
+    Single function to set both the Tenant and the DASTenant in the current thread by passing in the tenant domain name
     """
     instance = TenantData(domain=domain)
     tenant_data = instance.get_tenant_data()
+    set_tenant_data(tenant_data)
+
+
+def set_tenant_data(tenant_data: dict) -> None:
+    """
+    Single function to set both the Tenant and the DASTenant in the current thread by passing the tenant data dictionary
+    """
     tenant_id = tenant_data.get("id")
     with UnsetDASTenantContextManager():
         das_tenant = DASTenant.objects.get(id=tenant_id)

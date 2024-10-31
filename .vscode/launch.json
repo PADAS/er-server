@@ -130,7 +130,8 @@
                 "info"
             ],
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
+                "ROOT_LOGGING_LEVEL": "INFO"
             }
         },
         {

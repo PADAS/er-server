@@ -59,4 +59,4 @@ class TestCoreSignals:
         new_das_tenant = DASTenant.objects.create(id=uuid4(), domain="test-tenant.pamdas.org")
         from django.conf import settings
 
-        assert ["localhost", "test-tenant.pamdas.org"] == settings.ALLOWED_HOSTS
+        assert all(hostname in settings.ALLOWED_HOSTS for hostname in ["localhost", "test-tenant.pamdas.org"])

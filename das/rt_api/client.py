@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import pytz
-import redis
 from dataclasses_json import config, dataclass_json
 from django_multitenant.utils import get_current_tenant
 from psycopg2.extras import DateTimeTZRange
@@ -18,10 +17,11 @@ from django.contrib.gis.geos import MultiPolygon, Polygon
 from accounts.utils import get_profile_user
 from observations.models import SocketClient, UserSession
 from utils import json
+from utils.redis import get_resilient_redis_client_from_url
 from utils.tenant.managers import TenantContextManager
 
 logger = logging.getLogger(__name__)
-redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
+redis_client = get_resilient_redis_client_from_url(url=settings.REALTIME_BROKER_URL)
 
 
 EXPIRED_CLIENT_TRACES_LIST = "rt_api.expired_traces"

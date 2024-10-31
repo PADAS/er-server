@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 import pytz
 import xmltodict
+from celery_once import QueueOnce
 from google.api_core import exceptions
 from google.cloud import storage
 
@@ -13,6 +14,7 @@ from django.core.files.storage import default_storage
 from django.db.models import F
 from django.utils.translation import gettext as _
 
+import utils.db.task_helpers as utils_db_task_helpers
 from das_server import celery, pubsub
 from observations.materialized_views import patrols_view
 from observations.message_adapters import _handle_outbox_message
@@ -309,3 +311,37 @@ def poll_news_gcs_bucket():
                 announcement_at=announcement_at,
                 link=f"https://community.earthranger.com/t/{post['id']}",
             )
+
+
+@celery.app.task(
+    base=QueueOnce,
+    default_retry_delay=60,
+    max_retries=5,
+    retry_backoff=30,
+    retry_backoff_max=10 * 60,
+)
+def run_partition_maintenance() -> None:
+    """
+    Run the partition maintenance on the observations_observation table.
+    """
+    table_name = "observations_observation"
+    schema = "public"
+    logger.info(f"Running partition maintenance for '{schema}.{table_name}'")
+    utils_db_task_helpers.run_partition_maintenance(schema=schema, table_name=table_name, logger=logger)
+
+
+@celery.app.task(
+    base=QueueOnce,
+    default_retry_delay=60,
+    max_retries=5,
+    retry_backoff=30,
+    retry_backoff_max=10 * 60,
+)
+def run_partition_table_check() -> None:
+    """
+    Run the partition table check on the observations_observation table.
+    """
+    table_name = "observations_observation"
+    schema = "public"
+    logger.info(f"Running partition table check for '{schema}.{table_name}'")
+    utils_db_task_helpers.run_partition_table_check(schema=schema, table_name=table_name, logger=logger)

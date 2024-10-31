@@ -313,3 +313,25 @@ class TestSourceSerializer:
         if not serializer.is_valid():
             assert not serializer.errors
         serializer.save()
+
+    def test_creating_a_source_with_subject(self, source):
+        source.subject = SubjectFactory()
+        source.subject.save()
+        
+        data = {
+            "manufacturer_id": "111111",
+            "provider": source.provider.provider_key,
+            "source_type": "tracking-device",
+            "additional": {"collar_id": "1234"},
+            "model_name": faker.name(),
+            "subject": {"name": source.subject.name, "id": str(source.subject.id)}
+        }
+
+        serializer = SourceSerializer(source, data=data, partial=True)
+        if not serializer.is_valid():
+            assert not serializer.errors
+        serializer.save()
+        source.refresh_from_db()
+
+        assert str(source.subject.id) == data.get("subject").get("id")
+        assert source.subject.name == data.get("subject").get("name")

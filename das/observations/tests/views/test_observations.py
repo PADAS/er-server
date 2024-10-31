@@ -276,7 +276,7 @@ class ObservationViewTestCase(BaseAPITest):
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestObservationsFilterView:
     def test_filter_by_subject_ascending(
-        self, five_observations, superuser_client, subject_source, tenant_response, memory_store_client_mock
+        self, five_observations, superuser_client, subject_source, tenant_response, tenant_document_cache_client_mock
     ):
         subject = subject_source.subject
         source = subject_source.source
@@ -292,7 +292,7 @@ class TestObservationsFilterView:
         assert waited_order_id == [str(item.get("id")) for item in response.data["results"]]
 
     def test_filter_by_subject_descending(
-        self, five_observations, superuser_client, subject_source, tenant_response, memory_store_client_mock
+        self, five_observations, superuser_client, subject_source, tenant_response, tenant_document_cache_client_mock
     ):
         subject = subject_source.subject
         source = subject_source.source

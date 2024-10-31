@@ -1,6 +1,7 @@
 """
 message publishing module
 """
+
 import logging
 import re
 import signal
@@ -8,6 +9,7 @@ import socket
 import uuid
 from functools import wraps
 from importlib import import_module
+from threading import Thread
 
 from kombu import Connection, Consumer, Exchange, Queue
 from kombu.exceptions import OperationalError
@@ -17,6 +19,7 @@ from redis.exceptions import ConnectionError
 from django.apps import apps
 from django.conf import settings
 
+from das_server.pubsub_gcloud_listener import setup_gcloud_pubsub_listener
 from das_server.utils import (
     append_domain_to_message,
     wrap_message_processing_with_tenant_context,
@@ -207,3 +210,9 @@ def start_message_queue_listeners():
                     pass
 
     logger.debug("end start_message_queue_listeners")
+
+
+def start_gcloud_pubsub_listener():
+    thread = Thread(target=setup_gcloud_pubsub_listener)
+    thread.daemon = True
+    thread.start()

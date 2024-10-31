@@ -277,7 +277,6 @@ ALLOWED_HOSTS = ["*"]
 
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
-# CSRF_TRUSTED_ORIGINS = ('localhost',)
 
 
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
@@ -355,7 +354,6 @@ REALTIME_BROKER_URL = f"{REDIS_SERVER}/2"
 REALTIME_BROKER_OPTIONS = {"max_connections": 200}
 PUBSUB_BROKER_URL = f"{REDIS_SERVER}/1"
 PUBSUB_BROKER_OPTIONS = {"max_connections": 200}
-ALT_DOMAIN_CACHE_URL = f"{REDIS_SERVER}/3"
 
 # Celery Settings
 CELERY_BROKER_URL = REDIS_SERVER
@@ -654,12 +652,11 @@ TMS_API = {
     "API_KEY": env.str("TMS_API_KEY", "secret"),
 }
 
-MEMORY_STORE = {
-    "CLIENT": env.str("MEMORY_STORE_CLIENT", "utils.persistent.RedisStorageReadOnly"),
-    "HOST": env.str("MEMORY_STORE_HOST", ""),
-    "PORT": env.int("MEMORY_STORE_PORT", 6379),
-    "DATABASE": env.int("MEMORY_STORE_DATABASE", 0),
-    "API_KEY": env.str("MEMORY_STORE_API_KEY", ""),
+TENANT_DOCUMENT_CACHE = {
+    "CLIENT": "utils.persistent.RedisStorage",
+    "HOST": REDIS_HOST,
+    "PORT": REDIS_PORT,
+    "DATABASE": 0,
 }
 
 DISABLE_STATSD = env.bool("DISABLE_STATSD", True)
@@ -678,3 +675,6 @@ TENANT_ID = env.str("TENANT_ID", "")
 
 CLUSTER_NAME = env.str("CLUSTER_NAME", "UNSET")
 CLUSTER_NAMESPACE = env.str("CLUSTER_NAMESPACE", "UNSET")
+
+
+PUBSUB_PROJECT_ID = env.str(var="PUBSUB_PROJECT_ID", default="earthranger-dev")

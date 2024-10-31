@@ -1,5 +1,5 @@
 import hashlib
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 from django.contrib.gis.db.models import QuerySet
 from django.core.exceptions import ValidationError
@@ -24,7 +24,9 @@ def generate_etag_string(original_string: str, request: Union[Request, WSGIReque
     return hashlib.md5(string_to_be_hashed.encode("utf-8")).hexdigest()
 
 
-def get_hash_from_queryset(queryset: QuerySet, request: Union[Request, WSGIRequest]):
+def get_hash_from_queryset(
+    queryset: QuerySet, request: Union[Request, WSGIRequest], extra_salt: Optional[str] = None
+) -> str:
     """
     Generate a hash from a Django QuerySet.
 
@@ -42,8 +44,8 @@ def get_hash_from_queryset(queryset: QuerySet, request: Union[Request, WSGIReque
         raise ValidationError(message="Invalid QuerySet: The QuerySet is defined without a list of values.")
 
     queryset_string = str(list(queryset))
-    string_to_be_hashed = _salt_string_to_hash(string_to_be_hashed=queryset_string, request=request)
-    return _generate_hash_from_string(string_to_be_hashed=string_to_be_hashed)
+    string_to_be_hashed = _salt_string_to_hash(queryset_string, request, extra_salt)
+    return _generate_hash_from_string(string_to_be_hashed)
 
 
 def _generate_hash_from_string(string_to_be_hashed: str) -> str:
@@ -60,10 +62,14 @@ def _get_headers(request: Union[Request, WSGIRequest]) -> Dict[str, str]:
     return headers
 
 
-def _salt_string_to_hash(string_to_be_hashed: str, request: Union[Request, WSGIRequest]) -> str:
+def _salt_string_to_hash(
+    string_to_be_hashed: str, request: Union[Request, WSGIRequest], extra_salt: Optional[str] = None
+) -> str:
     headers = _get_headers(request)
     if headers:
         for header in headers:
             string_to_be_hashed += f":{header}:{headers[header]}"
     string_to_be_hashed += f":{request.user.id}"
+    if extra_salt:
+        string_to_be_hashed += f":{extra_salt}"
     return string_to_be_hashed

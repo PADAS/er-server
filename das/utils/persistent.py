@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import redis
 
 from utils.decorator import apply_decorator_to_public_methods
+from utils.redis import get_resilient_redis_client
 from utils.tenant.cache import use_multitenant_cache_key
 
 
@@ -50,7 +51,12 @@ class RedisStorage(PersistentStorageWithSortedSet):
         self.host = config["HOST"]
         self.port = config["PORT"]
         self.db = config["DATABASE"]
-        self._connection = redis.Redis(host=self.host, port=self.port, db=self.db)
+        self._connection = get_resilient_redis_client(host=self.host, port=self.port, db=self.db)
+
+    @property
+    def connection(self):
+
+        return self._connection
 
     def insert_key(self, key, value, ttl=3600):
         self._connection.set(key, value, ttl)
@@ -60,6 +66,9 @@ class RedisStorage(PersistentStorageWithSortedSet):
 
     def delete_key(self, key):
         return self._connection.delete(key)
+
+    def rename_key(self, src_key: str, dst_key: str):
+        return self._connection.rename(src_key, dst_key)
 
     def insert_set_key(self, key, value, ttl=3600):
         self._connection.setex(name=key, time=ttl, value=value)
@@ -95,6 +104,15 @@ class RedisStorage(PersistentStorageWithSortedSet):
 
     def get_set_by_key(self, key: str):
         return self._connection.smembers(key)
+
+    def insert_hash_set(self, key: str, hash_key: str, value: str) -> int:
+        return self._connection.hset(key, hash_key, value)
+
+    def get_hash_set(self, key: str, hash_key: str) -> str:
+        return self._connection.hget(key, hash_key)
+
+    def get_keys_hash_set(self, key: str) -> list:
+        return self._connection.hkeys(key)
 
 
 class RedisStorageReadOnly(PersistentStorageReadOnly):
