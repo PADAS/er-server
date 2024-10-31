@@ -8,11 +8,12 @@ the offset and the number of partitions to create manually. See --help.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from logging import Logger
 from typing import Any, Dict
 
 import pytz
+from dateutil.relativedelta import relativedelta
 
 from django.core.management import BaseCommand
 
@@ -62,7 +63,7 @@ class Command(BaseCommand):
             "--offset",
             type=int,
             help="month offset to start creating partitions (current_month + offset)",
-            default=1,
+            default=0,
         )
         parser.add_argument(
             "--dry-run",
@@ -179,13 +180,14 @@ class Command(BaseCommand):
 
                     # The partition start dates are based on the current time and
                     # the offset in months.
-                    partition_start_date = (now + timedelta(days=31 * (i + offset))).replace(
-                        day=1,  # We reset the date to the first day of the month because not all months have 31 days.
+                    partition_start_date = (now + relativedelta(months=1 + (i + offset))).replace(
+                        day=1,
                         hour=0,
                         minute=0,
                         second=0,
                         microsecond=0,
                     )
+
                     logger.info(f"Partition start date: {partition_start_date}")
 
                     sql_query = partman_create_monthly_partition_time_query(
