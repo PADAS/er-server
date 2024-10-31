@@ -1,3 +1,13 @@
+"""
+Django management command to run `partman.partition_data_time()` on the
+observations_observation table.
+
+More information here: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#partition_data_time
+
+Some sanity checks are run before and after running the partman function to
+ensure data integrity.
+"""
+
 import logging
 from logging import Logger
 from typing import Any, Dict
@@ -34,6 +44,16 @@ class Command(BaseCommand):
     ) -> None:
         """
         Run some sanity checks and returns whether we can commit the transaction.
+
+        The following checks are run:
+
+        1. The number of elements in the default partition table is 0.
+        2. The number of elements before moving the data to new partition
+        tables and after match.
+        3. Every partition that was not created should contain the same number
+        of elements before and after.
+        4. Every partition that was not created should have the same md3 before
+        and after.
 
         Raises:
             AssertionError: when one sanity check does not pass.

@@ -1,3 +1,16 @@
+"""
+Django management command to run `partman.partition_data_proc()` on the
+observations_observation table.
+
+More information here: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#partition_data_proc
+
+Sanity checks can be run but the procedure already runs in a transaction, so we
+can't wrap it again inside a transaction and easily rollback.
+
+For more control, see the other Django Management command that runs
+`partman.partition_data_time()` instead.
+"""
+
 import logging
 
 from django.core.management import BaseCommand
