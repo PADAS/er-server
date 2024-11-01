@@ -528,8 +528,9 @@ class EventSerializerMixin:
 
     def get_geojson(self, request, event):
         geojson = None
-        if geometry := event.geometries.first():
+        for geometry in event.geometries.all():
             geojson = self.feature_representation.get_feature(request, geometry)
+            break  # we only care about the first geometry, not using .first() to avoid extra query
         if hasattr(event, "location") and event.location:
             point_geojson = self.feature_representation.get_feature(request, event)
             if geojson:
@@ -594,10 +595,19 @@ class EventHeaderSerializer(EventSerializerMixin, ModelSerializer):
 
 
 class EventRelationshipSerializer(ModelSerializer):
-    def to_internal_value(self, data):
-        return super().to_internal_value(data)
 
     type = EventRelationshipTypeRelatedField()
+
+    class Meta:
+        model = EventRelationship
+        read_only_fields = (
+            "created_at",
+            "updated_at",
+        )
+        fields = (
+            "type",
+            "ordernum",
+        )
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
@@ -624,28 +634,18 @@ class EventRelationshipSerializer(ModelSerializer):
         else:
             related_event = instance.from_event
 
-        # related_event = instance.to_event if direction == 'out' else instance.from_event
-
         rep["related_event"] = EventHeaderSerializer(instance=related_event, many=False, context=self.context).data
 
         return rep
+
+    def to_internal_value(self, data):
+        return super().to_internal_value(data)
 
     def validate(self, attrs):
         to_event_id = attrs.get("to_event_id")
         if to_event_id and to_event_id == self.instance.from_event.id:
             raise ValidationError("An event may not be related to itself.")
         return super().validate(attrs)
-
-    class Meta:
-        model = EventRelationship
-        read_only_fields = (
-            "created_at",
-            "updated_at",
-        )
-        fields = (
-            "type",
-            "ordernum",
-        )
 
 
 class EventSourceSerializer(ModelSerializer):
@@ -703,12 +703,8 @@ class EventProviderSerializer(ModelSerializer):
         fields = read_only_fields + ("display", "additional", "is_active")
 
     def to_representation(self, obj):
-        rep = super().to_representation(
-            obj,
-        )
-
+        rep = super().to_representation(obj)
         rep["owner"] = UserSerializer().to_representation(obj.owner)
-
         rep["url"] = utils.add_base_url(self.context["request"], reverse("eventprovider-view", args=[obj.id]))
 
         return rep
@@ -769,9 +765,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
     time = DateTimeField(source="event_time", required=False)
     created_at = DateTimeField(required=False)
     updated_at = DateTimeField(source="sort_at", required=False)
-    sort_at = DateTimeField(
-        required=False,
-    )
+    sort_at = DateTimeField(required=False)
     created_by_user = HiddenField(default=CurrentUserDefault())
     notes = EventNoteSerializer(many=True, required=False)
     reported_by = ReportedByRelatedField(required=False, allow_null=True)
@@ -780,6 +774,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
     title = CharField(required=False, allow_blank=True)
     # photos = EventPhotoSerializer(many=True, required=False)
     event_type = EventTypeRelatedField(required=False)
+    event_category = SerializerMethodField()
     event_details = EventDetailsSerializer(required=False, default={})
 
     eventsource = EventSourceRelatedField(required=False)
@@ -795,6 +790,70 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
     related_subjects = SubjectRelatedField(many=True, required=False)
 
     patrol_segments = PrimaryKeyRelatedField(many=True, required=False, queryset=PatrolSegment.objects.all())
+
+    class Meta:
+        model = Event
+        read_only_fields = (
+            "updated_at",
+            "created_at",
+            "icon_id",
+            "serial_number",
+        )
+        default_fields = (
+            "id",
+            "location",
+            "time",
+            "end_time",
+            "message",
+            "provenance",
+            "event_type",
+            "event_category",
+            "priority",
+            "priority_label",
+            "attributes",
+            "comment",
+            "title",
+            "created_by_user",
+            "notes",
+            "reported_by",
+            "state",
+            "event_details",
+            "contains",
+            "is_linked_to",
+            "is_contained_in",
+            "files",
+            "related_subjects",
+            "eventsource",
+            "external_event_id",
+            "sort_at",
+            "patrol_segments",
+            "geometry",
+        )
+        fields = (*default_fields, *read_only_fields)
+
+    def __init__(self, *args, **kwargs):
+        self._event_geometry_factory = GenericGeometryFactory()
+
+        super().__init__(*args, **kwargs)
+
+        if self.context.get("include_files", True):
+            self.fields["files"].context.update(self.context)
+        else:
+            self.fields.pop("files")
+
+        if self.context.get("include_notes", True):
+            self.fields["notes"].context.update(self.context)
+        else:
+            self.fields.pop("notes")
+
+        if self.context.get("include_details", True):
+            self.fields["event_details"].context.update(self.context)
+        else:
+            self.fields.pop("event_details")
+
+        if not self.context.get("include_related_events", False):
+            self.fields.pop("contains")
+            self.fields.pop("is_linked_to")
 
     def create(self, validated_data):
         geometries = validated_data.pop("geometries", None)
@@ -822,6 +881,11 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
         return instance
 
+    def get_event_category(self, event):
+        if event.event_type and event.event_type.category:
+            return event.event_type.category.value
+        return None
+
     def get_contains(self, event):
         self.context["event_relationship_direction"] = "out"
         return self._get_event_relationship(event=event, relationship_name="relationship_out_contains")
@@ -834,8 +898,12 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         self.context["event_relationship_direction"] = "in"
         return self._get_event_relationship(event=event, relationship_name="relationship_in_contains")
 
-    def _get_event_relationship(self, event: "Event", relationship_name: str) -> EventRelationshipSerializer:
+    def _get_event_relationship(self, event, relationship_name):
         if not hasattr(event, f"{relationship_name}"):
+            logger.warning(
+                f"Event {event.id} does not have the {relationship_name} attribute. "
+                f"Fetching related events using fallback mechanism."
+            )
             fallback_events_mapping = {
                 "relationship_in_contains": "contains",
                 "relationship_out_is_linked_to": "is_linked_to",
@@ -895,6 +963,9 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         return super().validate(attrs)
 
     def get_out_relation(self, event, value):
+        # Note:
+        # This is a fallback method to get the related events.
+        # If code is reaching here, it means that the event has not been prefetched with the related events.
         self.context["event_relationship_direction"] = "out"
         request = self.context.get("request")
         permitted_categories = get_permitted_event_categories(request)
@@ -916,6 +987,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         return serializer.data
 
     def get_in_relation(self, event, value):
+        # Note: Same note as in get_out_relation
         qs = event.in_relationships.filter(type__value=value).all()
         self.context["event_relationship_direction"] = "in"
         serializer = EventRelationshipSerializer(
@@ -925,75 +997,25 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         )
         return serializer.data
 
-    class Meta:
-        model = Event
-        read_only_fields = (
-            "updated_at",
-            "created_at",
-            "icon_id",
-            "serial_number",
-        )
-        default_fields = (
-            "id",
-            "location",
-            "time",
-            "end_time",
-            "message",
-            "provenance",
-            "event_type",
-            "priority",
-            "priority_label",
-            "attributes",
-            "comment",
-            "title",
-            "created_by_user",
-            "notes",
-            "reported_by",
-            "state",
-            "event_details",
-            "contains",
-            "is_linked_to",
-            "is_contained_in",
-            "files",
-            "related_subjects",
-            "eventsource",
-            "external_event_id",
-            "sort_at",
-            "patrol_segments",
-            "geometry",
-        )
-        fields = (*default_fields, *read_only_fields)
-
-    def __init__(self, *args, **kwargs):
-        self._event_geometry_factory = GenericGeometryFactory()
-
-        super().__init__(*args, **kwargs)
-
-        if self.context.get("include_files", True):
-            self.fields["files"].context.update(self.context)
-        else:
-            self.fields.pop("files")
-
-        if self.context.get("include_notes", True):
-            self.fields["notes"].context.update(self.context)
-        else:
-            self.fields.pop("notes")
-
-        if self.context.get("include_details", True):
-            self.fields["event_details"].context.update(self.context)
-        else:
-            self.fields.pop("event_details")
-
-        if not self.context.get("include_related_events", False):
-            self.fields.pop("contains")
-            self.fields.pop("is_linked_to")
-
     def to_representation(self, event):
         with tracer.start_as_current_span("EventSerializer.to_representation") as span:
             span.set_attribute("event_id", event.id)
             return self._to_representation(event)
 
     def _to_representation(self, event):
+        context = self.context
+        request = context["request"]
+
+        # Early exit if the user does not have permission to view the event, based on the event_category
+        if event.event_type and event.event_type.category:
+            category_name = event.event_type.category.value
+            permission_name = f"activity.{category_name}_read"
+            geo_permission_name = make_eventcategory_permission_codename(category_name, "view", True, "activity")
+
+            if not (request.user.has_perm(permission_name) or request.user.has_perm(geo_permission_name)):
+                rep = {"id": str(event.id)}
+                return rep
+
         self.fields.pop("eventsource", None)
 
         set_prefetched = hasattr(event, "event_details_set")
@@ -1001,8 +1023,8 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         if set_prefetched:
             # pop the following out of the representation if we've prefetched using the _set
             self.fields.pop("event_details", None)
-            self.fields.pop("files", None)
             self.fields.pop("related_subjects", None)
+            self.fields.pop("files", None)
 
         rep = super().to_representation(event)
 
@@ -1015,11 +1037,13 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                 rep["event_details"] = EventDetailsSerializer(event.event_details_set[0], context=self.context).data
                 details_updates = rep["event_details"].get("updates")
 
-            rep["related_subjects"] = list(
-                SubjectSerializer(event.related_subjects_set, many=True, context=self.context, read_only=True).data
-            )
+            rep["related_subjects"] = SubjectSerializer(
+                event.related_subjects_set, many=True, context=self.context, read_only=True
+            ).data
+
             try:
-                rep["files"] = list(EventFileSerializer(event.files_set, many=True, context=self.context).data)
+                if context.get("include_files"):
+                    rep["files"] = list(EventFileSerializer(event.files.all(), many=True, context=self.context).data)
             except GoogleAuthError as ex:
                 # DefaultCredentialsError('Your default credentials were not found.
                 # To set up Application Default Credentials,
@@ -1029,43 +1053,29 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             if rep["event_details"] is not None:
                 details_updates = rep["event_details"].pop("updates")
 
-        if eventsourcerefs := event.eventsource_event_refs.first():
-            event_source = eventsourcerefs.eventsource
+        # Be sure to prefetch this, should not query the database for each
+        # event, event_source_ref, event_source, eventprovider...
+        for event_source_ref in event.eventsource_event_refs.all():
+            event_source = event_source_ref.eventsource
             if event_source and event_source.eventprovider:
                 rep["external_source"] = {
                     "url": event_source.eventprovider.additional.get("external_event_url"),
                     "text": event_source.eventprovider.display,
                     "icon_url": event_source.eventprovider.additional.get("icon_url"),
                 }
+            break  # not using .first() to avoid extra query
 
-        if "request" in self.context:
-            request = self.context["request"]
+        rep["url"] = utils.add_base_url(request, reverse("event-view", args=[event.id]))
+        image_url = resolve_image_url(event)
+        rep["image_url"] = utils.add_base_url(request, image_url)
+        rep["geojson"] = self.get_geojson(request, event)
 
-            if event.event_type and event.event_type.category:
-                category_name = event.event_type.category.value
-                rep["event_category"] = category_name
-                permission_name = f"activity.{category_name}_read"
-                geo_permission_name = make_eventcategory_permission_codename(
-                    event.event_type.category.value, "view", True, "activity"
-                )
-
-                if not request.user.has_perm(permission_name) and not request.user.has_perm(geo_permission_name):
-                    rep = {"id": rep["id"]}
-                    return rep
-
-            rep["url"] = utils.add_base_url(request, reverse("event-view", args=[event.id]))
-            image_url = resolve_image_url(event)
-            rep["image_url"] = utils.add_base_url(request, image_url)
-
-            rep["geojson"] = self.get_geojson(request, event)
-
-        if event.event_type:
-            rep["is_collection"] = event.event_type.is_collection
+        rep["is_collection"] = event.event_type.is_collection if event.event_type else False
 
         # This is to fix https://vulcan.atlassian.net/browse/DAS-6264
-        # TODO: Consider adjusting the context within the listed Views.
-        if self.context.get("include_updates", True) and not getattr(
-            self.context.get("view", None), "get_view_name", lambda: None
+        # TODO: Consider adjusting the context within the listed Views. x2
+        if context.get("include_updates") and not getattr(
+            context.get("view", None), "get_view_name", lambda: None
         )() in ("Patrols", "Patrol", "Patrolsegment"):
             updates = self.render_updates(event)
             for note in rep.get("notes", []):

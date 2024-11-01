@@ -699,9 +699,11 @@ class EventRelationshipType(TenantModelMixin, models.Model):
     value = models.CharField(max_length=50)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     symmetrical = models.BooleanField(default=False)
+
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
-    objects = EventBaseManager()
     tenant_id = "das_tenant_id"
+
+    objects = EventBaseManager()
 
     class Meta:
         constraints = [
@@ -824,6 +826,7 @@ class EventRelationship(TenantModelMixin, TimestampedModel):
         "Event", related_name="in_relationships", related_query_name="in_relationship", on_delete=models.CASCADE
     )
     ordernum = models.SmallIntegerField(blank=True, null=True)
+
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = EventRelationshipManager()
     tenant_id = "das_tenant_id"
@@ -1554,9 +1557,6 @@ class EventsourceEvent(TenantModelMixin, TimestampedModel):
         ]
         base_manager_name = "objects"
         default_manager_name = "objects"
-
-    def clean(self):
-        super().clean()
 
 
 NOTIFICATION_METHOD_EMAIL = "email"

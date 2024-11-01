@@ -6,7 +6,6 @@ import geojson
 import jsonschema
 from geojson import Feature, FeatureCollection
 
-from django.core.exceptions import ValidationError
 from rest_framework.serializers import JSONField, RelatedField, ValidationError
 
 from activity.models import (

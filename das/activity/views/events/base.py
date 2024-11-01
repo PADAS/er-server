@@ -582,26 +582,21 @@ class EventsView(ListCreateAPIView):
         return super().get_serializer_class()
 
     def get_serializer_context(self):
-        query_params = self.request.query_params if self.request and hasattr(self.request, "query_params") else {}
-
         context = super().get_serializer_context()
-        request = context["request"]
+        query_params = self.request.query_params
         context["include_updates"] = parse_bool(query_params.get("include_updates", True))
         context["include_details"] = parse_bool(query_params.get("include_details", True))
         context["include_files"] = parse_bool(query_params.get("include_files", True))
 
         # if this is a POST, returned any contained events
-        try:
-            include_for_posts = request._request.method == "POST"  # TODO: The serializer should handle this by itself
-        except AttributeError:
-            include_for_posts = False
+        include_for_posts = self.request._request.method == "POST"  # TODO: The serializer should handle this by itself
 
         context["include_related_events"] = parse_bool(query_params.get("include_related_events", include_for_posts))
         context["include_notes"] = parse_bool(query_params.get("include_notes", include_for_posts))
 
         try:
             # TODO: request.data? Again the serializer should handle this in the save/create/update methods
-            context["eventsource_id"] = request.data.get("eventsource_id")
+            context["eventsource_id"] = self.request.data.get("eventsource_id")
         except AttributeError:
             pass
 
@@ -618,25 +613,18 @@ class EventsView(ListCreateAPIView):
         return queryset
 
     def optimize_queryset(self, queryset):
-        query_params = self.request.query_params
+        serializer_context = self.get_serializer_context()
         permitted_categories = get_permitted_event_categories(self.request)
 
-        queryset = queryset.select_related("event_type")
+        queryset = queryset.select_related("event_type__category", "created_by_user")
 
         queryset = queryset.prefetch_related(
-            Prefetch("patrol_segments"),
-            Prefetch("eventsource_event_refs"),
-            Prefetch("created_by_user"),
+            Prefetch("eventsource_event_refs__eventsource__eventprovider"),
             Prefetch("reported_by"),
-            Prefetch("out_relationships"),
             Prefetch("patrol_segments"),
             Prefetch("geometries"),
-            Prefetch("event_type__category"),
-            # Prefetch("geometries", to_attr="geometries_set"),
-            Prefetch("eventsource_event_refs", to_attr="eventsource"),
             Prefetch("event_details", to_attr="event_details_set"),
             Prefetch("related_subjects", to_attr="related_subjects_set"),
-            Prefetch("files", to_attr="files_set"),
             Prefetch(
                 "in_relationships",
                 to_attr="relationship_in_contains",
@@ -666,11 +654,10 @@ class EventsView(ListCreateAPIView):
 
         queryset = queryset.annotate(patrol_ids=ArrayAgg("patrol_segments__patrol_id"))
 
-        if parse_bool(query_params.get("include_notes", False)):
-            queryset = queryset.prefetch_related(Prefetch("notes"))
-        if parse_bool(query_params.get("include_files", False)):
-            queryset = queryset.prefetch_related(Prefetch("files"))
-
+        if serializer_context.get("include_notes"):
+            queryset = queryset.prefetch_related("notes")
+        if serializer_context.get("include_files"):
+            queryset = queryset.prefetch_related("files")
         return queryset
 
     def add_segment_to_record(self, patrol_segment_id, new_record):
