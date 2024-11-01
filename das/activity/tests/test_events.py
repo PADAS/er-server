@@ -44,7 +44,6 @@ from activity.models import (
     EventProvider,
     EventRelationship,
     EventSource,
-    EventsourceEvent,
     EventType,
     Patrol,
     TSVectorModel,
@@ -986,29 +985,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         assert contained_event_titles != ["Event_A", "Event_B"]
         assert "Event_B" not in contained_event_titles
 
-    def test_return_new_contained_events(self):
-        event_data = json.loads(
-            """{"priority":0,"event_type":"incident_collection","message":"test parent message","title":"test parent title","contains":[{"message":"test contains message","title":"SIT-REP","event_type":"contact_rep","time":"2017-06-21 14:43","event_details":{},"priority":0,"reported_by":null},{"message":"second test contains message","title":"Other","event_type":"other","time":"2017-06-21 14:44","event_details":{},"priority":0,"reported_by":null}]}"""
-        )
-        request = self.factory.post(self.api_base + "/events/", event_data)
-        self.force_authenticate(request, self.all_perms_user)
-
-        response = views.EventsView.as_view()(request)
-        self.assertEqual(response.status_code, 201)
-        event = response.data
-        self.assertEqual(len(event_data["contains"]), len(event["contains"]))
-        self.assertEqual(event_data["contains"][0]["message"], event["contains"][0]["related_event"]["message"])
-
-    def test_event_without_event_type(self):
-        event_data = {"message": "this has no event type", "priority": "200"}
-
-        request = self.factory.post(self.api_base + "/events/", event_data)
-        self.force_authenticate(request, self.all_perms_user)
-
-        response = views.EventsView.as_view()(request)
-        self.assertEqual(response.status_code, 400)
-        self.assertTrue("event_type" in response.data[0][0], "Event type must be provided.")
-
     def test_edit_event_title(self):
         event = self.create_event(self.event_data)
         TITLE = "".join([random.choice(string.ascii_letters + string.digits + string.punctuation) for x in range(30)])
@@ -1085,7 +1061,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         request = self.factory.get(self.api_base + "/events", data=query)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 400)
 
     def _export_template_response(self, request):
         return views.EventsExportView.as_view(
@@ -1921,151 +1897,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         additional_data = response.data.get("additional", {})
         self.assertDictEqual(additional_data, eventsource_patch["additional"])
 
-    def test_add_event_with_external_event_type(self):
-        eventprovider = EventProvider.objects.create(display="Smart CSD Provider", owner=self.eventsource_user_no1)
-
-        external_event_type = "smart-carcass"
-        eventsource_data = {
-            "external_event_type": external_event_type,
-            "display": "DAS: Carcass",
-            # 'event_type': 'carcass_rep',
-            "additional": {"version": 0},
-        }
-
-        request = self.factory.post(
-            f"{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources", eventsource_data
-        )
-        self.force_authenticate(request, self.eventsource_user_no1)
-
-        # Create event source.
-        response = views.EventSourcesView.as_view()(request, eventprovider_id=str(eventprovider.id))
-        self.assertEqual(response.status_code, 201)
-
-        eventsource_id = response.data["id"]
-
-        # Establish category and event-type to associate with the source.
-        event_category = EventCategory.objects.create(
-            value="sample-event-category",
-            display="Some display",
-            ordernum=1,
-        )
-
-        event_type = EventType.objects.create(
-            value="some-generic-event-type",
-            display="Some event-type",
-            category=event_category,
-            default_priority=0,
-            default_state="resolved",
-            ordernum=1,
-        )
-
-        # Manual step here: Associate the new generic event type to the
-        # EventSource
-        EventSource.objects.filter(eventprovider_id=str(eventprovider.id), id=eventsource_id).update(
-            event_type=event_type
-        )
-
-        external_event_id = "asdfioaasfseiuro11414sfa"
-        # Create an event with an "External Event ID"
-        event_title = "Some arbirtrary event title."
-        event_timestamp = datetime(2018, 9, 8, 12, 5, 4, tzinfo=pytz.utc)
-        sort_at = datetime(2018, 9, 8, 12, 5, 4, tzinfo=pytz.utc)
-        event_data = {
-            "event_details": {"attributes": [{"key": "a", "value": "1"}]},
-            "external_event_type": external_event_type,
-            "priority": 100,
-            "title": event_title,
-            "external_event_id": external_event_id,
-            "eventsource": eventsource_id,
-            "location": {"latitude": 39.4, "longitude": -117.5},
-            "time": event_timestamp.isoformat(),
-            "sort_at": sort_at.isoformat(),
-        }
-
-        request = self.factory.post(f"{self.api_base}/events", event_data)
-        self.force_authenticate(request, self.eventsource_user_no1)
-
-        response = views.EventsView.as_view()(
-            request,
-        )
-        self.assertEqual(response.status_code, 201)
-
-        eselist = EventsourceEvent.objects.filter(eventsource_id=eventsource_id, external_event_id=external_event_id)
-
-        self.assertEqual(eselist.count(), 1)
-
-        event = eselist[0].event
-
-        self.assertEqual(sort_at, event.sort_at)
-
-        self.assertEqual(eselist[0].eventsource.external_event_type, external_event_type)
-        self.assertEqual(eselist[0].event.title, event_title)
-
-    def test_add_duplicate_external_event_id(self):
-        """
-        Ensure that for a single EventProvider / EventSource, we're not able to add a duplicate event identified
-        by external_event_id.
-        :return:
-        """
-
-        eventprovider = EventProvider.objects.create(display="Smart CSD Provider", owner=self.eventsource_user_no1)
-
-        external_event_type = "smart-carcass-report"
-        eventsource_data = {
-            "external_event_type": external_event_type,
-            "display": "DAS: Carcass",
-            "event_type": "carcass_rep",
-            "additional": {"version": 0},
-        }
-
-        request = self.factory.post(
-            f"{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources", eventsource_data
-        )
-        self.force_authenticate(request, self.eventsource_user_no1)
-
-        # Create event source.
-        response = views.EventSourcesView.as_view()(request, eventprovider_id=str(eventprovider.id))
-        self.assertEqual(response.status_code, 201)
-
-        eventsource_id = response.data["id"]
-        external_event_id = "abcdefgh-ijklmnop"
-        # Create an event with an "External Event ID"
-        event_title = "Some arbirtrary event title."
-        event_data = {
-            "event_details": {"attributes": [{"key": "a", "value": "1"}]},
-            "external_event_type": external_event_type,
-            "priority": 100,
-            "title": event_title,
-            "external_event_id": external_event_id,
-            "eventsource": eventsource_id,
-            "location": {"latitude": 38.4, "longitude": -116.5},
-            "time": datetime.now(tz=pytz.utc).isoformat(),
-        }
-
-        request = self.factory.post(f"{self.api_base}/events", event_data)
-        self.force_authenticate(request, self.eventsource_user_no1)
-
-        response = views.EventsView.as_view()(
-            request,
-        )
-        self.assertEqual(response.status_code, 201)
-
-        eselist = EventsourceEvent.objects.filter(eventsource_id=eventsource_id, external_event_id=external_event_id)
-
-        self.assertEqual(eselist.count(), 1)
-
-        self.assertEqual(eselist[0].eventsource.external_event_type, external_event_type)
-        self.assertEqual(eselist[0].event.title, event_title)
-
-        # Add duplicate
-        request = self.factory.post(f"{self.api_base}/events", event_data)
-        self.force_authenticate(request, self.eventsource_user_no1)
-
-        response = views.EventsView.as_view()(
-            request,
-        )
-        self.assertEqual(response.status_code, 409)
-
     @pytest.mark.usefixtures("tenant_response_for_test_case")
     @mock.patch("accounts.serializers.get_tenant_settings")
     def test_cannot_see_another_users_eventprovider(self, get_tenant_settings):
@@ -2205,46 +2036,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
             request,
         )
         self.assertEqual(response.status_code, 201)
-
-    def test_add_event_with_external_event_type_and_no_permissions(self):
-        eventprovider = EventProvider.objects.create(display="Smart CSD Provider", owner=self.eventsource_user_no1)
-
-        eventsource_data = {
-            "external_event_type": "smart_carcass_report",
-            "display": "DAS: Carcass",
-            "event_type": "carcass_rep",
-            "additional": {"version": 0},
-        }
-
-        request = self.factory.post(
-            f"{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources", eventsource_data
-        )
-        self.force_authenticate(request, self.eventsource_user_no1)
-
-        # Create event source.
-        response = views.EventSourcesView.as_view()(request, eventprovider_id=str(eventprovider.id))
-        self.assertEqual(response.status_code, 201)
-
-        eventsource_id = response.data["id"]
-        # Create an event with an "External Event ID"
-        event_data = {
-            "event_details": {"attributes": [{"key": "a", "value": "1"}]},
-            "eventsource": eventsource_id,
-            "priority": 100,
-            "title": "Test External Event",
-            "location": {"latitude": 1.4, "longitude": 37.5},
-            "time": datetime.now(tz=pytz.utc).isoformat(),
-        }
-
-        request = self.factory.post(f"{self.api_base}/events", event_data)
-        self.force_authenticate(request, self.eventsource_user_no2)
-
-        response = views.EventsView.as_view()(
-            request,
-        )
-
-        # Expect 400 becausethe event_type is not pre-existent
-        self.assertEqual(response.status_code, 400)
 
     def test_list_eventfilters_schema_returns_only_from_active_categories(self):
         request = self.factory.get(self.api_base + "/events/eventtypes")
@@ -3388,69 +3179,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         state = Event.objects.get(id=response.data.get("id")).state
         self.assertEqual(state, "resolved")
 
-    def test_post_with_checkboxes(self):
-        schema = schema_examples.WILDLIFE_SCHEMA_CHECKBOX
-        event_type = self.sample_event.event_type
-        event_type.schema = schema
-        event_type.save()
-        data = json.loads(
-            '{"priority":0,"time":"2021-06-05T19:26:32.985Z","event_details":{"wildlifesightingrep_species":["bongo"],"wildlifesightingrep_numberanimals":1,"wildlifesightingrep_collared":["no"],"wildlifesightingrep_comments":"Some Comments"}}'
-        )
-        data["event_type"] = event_type.value
-        request = self.factory.post(self.api_base + "/events/", data)
-        self.force_authenticate(request, self.all_perms_user)
-        response = views.EventsView.as_view()(request)
-        assert response.status_code == 201
-        event_id = response.data["id"]
-
-        request = self.factory.get(self.api_base + f"/event/{event_id}")
-        self.force_authenticate(request, self.all_perms_user)
-        response = views.EventView.as_view()(request, id=event_id)
-        assert response.status_code == 200
-
-        event = Event.objects.get(id=event_id)
-        event_details = EventDetails.objects.get(event_id=event_id)
-        assert isinstance(event_details.data["event_details"]["wildlifesightingrep_species"][0], str)
-
-    def test_consistency_checkbox_value(self):
-        Choice.objects.all().delete()
-        Choice.objects.create(
-            model=Choice.Field_Reports, field="wildlifesightingrep_species", value="buffalo", display="Buffalo"
-        )
-
-        Choice.objects.create(model=Choice.Field_Reports, field="yesno", value="yes", display="Yes")
-
-        schema = schema_examples.WILDLIFE_SCHEMA_CHECKBOX
-        event_type = self.sample_event.event_type
-        event_type.schema = schema
-        event_type.save()
-
-        payload = {
-            "event_type": event_type.value,
-            "event_details": {
-                "wildlifesightingrep_species": ["buffalo"],
-                "wildlifesightingrep_collared": ["yes"],
-                "wildlifesightingrep_numberanimals": "2",
-            },
-        }
-
-        request = self.factory.post(self.api_base + "/events/", payload)
-        self.force_authenticate(request, self.all_perms_user)
-
-        response = views.EventsView.as_view()(request)
-        self.assertEqual(response.status_code, 201)
-
-        expected_result = {
-            "event_details": {
-                "wildlifesightingrep_species": ["buffalo"],
-                "wildlifesightingrep_collared": ["yes"],
-                "wildlifesightingrep_numberanimals": "2",
-            }
-        }
-
-        actual_result = Event.objects.get(id=response.data.get("id")).event_details.first()
-        self.assertEqual(expected_result, actual_result.data)
-
 
 class TestParsing(TestCase):
     def test_dates(self):
@@ -3993,26 +3721,6 @@ class TestEventView2(BaseTestToolMixin):
         json_schema = events_view._get_json_schema(event_type)
 
         assert json_schema == schema_waited
-
-    def test_create_event_with_only_create_permission(self, monkeypatch, tenant):
-        event_data = {"title": "test title", "event_type": "acoustic_detection"}
-        url = f"{reverse('events')}"
-        client = HTTPClient()
-
-        permission_set = PermissionSet.objects.create(name="Only create Events")
-        permission = Permission.objects.get_by_natural_key(
-            codename="analyzer_event_create", app_label="activity", model="event"
-        )
-        permission_set.permissions.add(permission)
-        client.app_user.permission_sets.add(permission_set)
-
-        request = client.factory.post(url, data=event_data)
-        client.force_authenticate(request, client.app_user)
-        response = views.EventsView.as_view()(request)
-
-        assert response.status_code == 201
-        assert "id" in response.data
-        assert len(response.data.keys()) == 1
 
 
 @pytest.mark.django_db

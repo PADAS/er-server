@@ -1,1 +1,1 @@
-time_zone = "America/Punta_Arenas"
+time_zone = "America/Panama"

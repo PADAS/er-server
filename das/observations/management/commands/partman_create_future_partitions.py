@@ -24,9 +24,8 @@ from utils.db.postgresql import (
     execute_sql_query,
     is_postgresql_extension_installed,
     md5_over_column_query,
-    parse_partman_partition_str,
     partman_create_monthly_partition_time_query,
-    partman_show_partitions_query,
+    partman_list_partitions_query,
     rollback,
     to_fully_qualified_table_name,
 )
@@ -131,13 +130,13 @@ class Command(BaseCommand):
             fetch_type=FetchType.ONE,
         )
         partitions_result = execute_sql_query(
-            query=partman_show_partitions_query(schema=schema, table_name=table_name),
+            query=partman_list_partitions_query(schema=schema, table_name=table_name),
             logger=logger,
-            fetch_type=FetchType.ALL,
+            fetch_type=FetchType.ALL_DICT,
         )
 
         if partitions_result:
-            result["partitions"] = {parse_partman_partition_str(p[0])["table"] for p in partitions_result}
+            result["partitions"] = {p["partition_tablename"] for p in partitions_result}
 
         if md5_result:
             result["md5"] = md5_result[0]

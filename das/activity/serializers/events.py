@@ -352,7 +352,7 @@ class EventNoteSerializer(ModelSerializer):
 
         return [
             dict(
-                message="Note {action}".format(action=get_action(revision), user=get_user_display(revision.user)),
+                message="Note {action}".format(action=get_action(revision)),
                 time=revision.revision_at.isoformat(),
                 text=revision.data.get("text", ""),
                 user=UserDisplaySerializer().to_representation(revision.user),
@@ -999,22 +999,21 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
     def to_representation(self, event):
         with tracer.start_as_current_span("EventSerializer.to_representation") as span:
-            span.set_attribute("event_id", event.id)
+            span.set_attribute("event_id", str(event.id))
             return self._to_representation(event)
 
     def _to_representation(self, event):
         context = self.context
-        request = context["request"]
+        request = context.get("request")
 
         # Early exit if the user does not have permission to view the event, based on the event_category
-        if event.event_type and event.event_type.category:
+        if request and event.event_type and event.event_type.category:
             category_name = event.event_type.category.value
             permission_name = f"activity.{category_name}_read"
             geo_permission_name = make_eventcategory_permission_codename(category_name, "view", True, "activity")
 
             if not (request.user.has_perm(permission_name) or request.user.has_perm(geo_permission_name)):
-                rep = {"id": str(event.id)}
-                return rep
+                return {"id": str(event.id)}
 
         self.fields.pop("eventsource", None)
 
@@ -1027,6 +1026,14 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             self.fields.pop("files", None)
 
         rep = super().to_representation(event)
+
+        if request:
+            rep["url"] = utils.add_base_url(request, reverse("event-view", args=[event.id]))
+            image_url = resolve_image_url(event)
+            rep["image_url"] = utils.add_base_url(request, image_url)
+            rep["geojson"] = self.get_geojson(request, event)
+
+        rep["is_collection"] = event.event_type.is_collection if event.event_type else False
 
         details_updates = ""
 
@@ -1045,9 +1052,8 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                 if context.get("include_files"):
                     rep["files"] = list(EventFileSerializer(event.files.all(), many=True, context=self.context).data)
             except GoogleAuthError as ex:
-                # DefaultCredentialsError('Your default credentials were not found.
-                # To set up Application Default Credentials,
-                # see https://cloud.google.com/docs/authentication/external/set-up-adc for more information.')
+                # DefaultCredentialsError('Your default credentials were not found,
+                # https://cloud.google.com/docs/authentication/external/set-up-adc
                 logger.exception("Failed rendering event pre-fetched files  {}".format(ex))
         else:
             if rep["event_details"] is not None:
@@ -1065,18 +1071,16 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                 }
             break  # not using .first() to avoid extra query
 
-        rep["url"] = utils.add_base_url(request, reverse("event-view", args=[event.id]))
-        image_url = resolve_image_url(event)
-        rep["image_url"] = utils.add_base_url(request, image_url)
-        rep["geojson"] = self.get_geojson(request, event)
-
-        rep["is_collection"] = event.event_type.is_collection if event.event_type else False
-
         # This is to fix https://vulcan.atlassian.net/browse/DAS-6264
         # TODO: Consider adjusting the context within the listed Views. x2
-        if context.get("include_updates") and not getattr(
-            context.get("view", None), "get_view_name", lambda: None
-        )() in ("Patrols", "Patrol", "Patrolsegment"):
+        include_updates = True
+        if "include_updates" in context:
+            include_updates = context["include_updates"]
+        if include_updates and not getattr(context.get("view"), "get_view_name", lambda: None)() in (
+            "Patrols",
+            "Patrol",
+            "Patrolsegment",
+        ):
             updates = self.render_updates(event)
             for note in rep.get("notes", []):
                 updates.extend(note["updates"])
@@ -1095,8 +1099,8 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         patrol_ids = (
             event.patrol_ids if hasattr(event, "patrol_ids") else Event.objects.get_related_patrol_ids(event=event)
         )
-
         rep["patrols"] = [item for item in patrol_ids if item is not None]
+
         return rep
 
     def _render_geometries_updates(self, event) -> list:
@@ -1217,7 +1221,7 @@ class EventPhotoSerializer(ModelSerializer):
 
         return [
             dict(
-                message="Photo {action}".format(action=get_action(revision), user=get_user_display(revision.user)),
+                message="Photo {action}".format(action=get_action(revision)),
                 time=revision.revision_at.isoformat(),
                 text=revision.data.get("text", ""),
                 user=UserDisplaySerializer().to_representation(revision.user),
