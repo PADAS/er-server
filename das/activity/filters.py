@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class EventSubjectsFilter(BaseFilterBackend):
 
     def filter_queryset(self, request, queryset, view):
-        user_subjects = list(Subject.objects.by_user_subjects(request.user).values_list("id", flat=True))
+        user_subjects = Subject.objects.by_user_subjects(request.user).values_list("id", flat=True)
         queryset = queryset.filter(Q(related_subjects__isnull=True) | Q(related_subjects__in=user_subjects))
 
         return queryset
@@ -40,16 +40,16 @@ class EventPermissionsFilter(BaseFilterBackend):
     def filter_queryset(self, request, queryset, view):
         query_params = request.query_params
         user = request.user
+
         event_categories = query_params.getlist("event_category")
 
         if not event_categories:
-            event_categories = EventCategory.objects.values_list("value").distinct()
-            event_categories = [x[0] for x in event_categories]
+            event_categories = EventCategory.objects.values_list("value", flat=True).distinct()
 
         # Check user permissions for event categories
         allowed_event_categories = []
         for event_category in event_categories:
-            permission_name = "activity.{0}_read".format(event_category)
+            permission_name = f"activity.{event_category}_read"
             geo_permission_name = f"activity.{make_eventcategory_permission_codename(event_category, 'view', True)}"
             if user.has_perm(permission_name) or user.has_perm(geo_permission_name):
                 allowed_event_categories.append(event_category)
@@ -66,12 +66,41 @@ class EventPermissionsFilter(BaseFilterBackend):
 class EventListFilter(BaseFilterBackend):
 
     def filter_queryset(self, request, queryset, view):
-        # user = request.user
         query_params = request.query_params
 
+        # Filter events by especific event_ids
         event_ids = query_params.getlist("event_ids")
         if event_ids:
             queryset = queryset.filter(id__in=event_ids)
+
+        # Filter events by state
+        state = query_params.getlist("state")
+        if state:
+            queryset = queryset.by_state(state)
+
+        # Filter events by event_type
+        event_type = query_params.getlist("event_type")
+        if event_type:
+            queryset = queryset.by_event_type(event_type)
+
+        # Filter events by updated_since
+        updated_since = query_params.get("updated_since", None)
+        if updated_since:
+            try:
+                updated_since = dateparser.parse(updated_since)
+            except ValueError:
+                raise ParseError(detail=f"Invalid value for 'updated_since' = '{updated_since}'")
+            queryset = queryset.updated_since(updated_since)
+
+        # Filter events by is_collection XOR exclude_contained
+        is_collection = query_params.get("is_collection", None)
+        exclude_contained = query_params.get("exclude_contained", None)
+        if is_collection and exclude_contained:
+            raise BadRequestAPIException(detail="Invalid use of is_collection and exclude_contained in the same call")
+        if is_collection:
+            queryset = queryset.by_is_collection(parse_bool(is_collection))
+        if exclude_contained:
+            queryset = queryset.by_exclude_contained(parse_bool(exclude_contained))
 
         # Filter events by bounding box
         bbox = query_params.get("bbox", None)
@@ -79,45 +108,19 @@ class EventListFilter(BaseFilterBackend):
             try:
                 bbox = [float(v) for v in bbox.split(",")]
             except ValueError:
-                raise ParseError(detail="invalid bbox param")
+                raise ParseError(detail="Invalid bbox param")
             if len(bbox) != 4:
-                raise ParseError(detail="invalid bbox param")
+                raise ParseError(detail="Invalid bbox param")
             queryset = queryset.by_bbox(bbox)
 
-        state = query_params.getlist("state")
-        if state:
-            queryset = queryset.by_state(state)
-
-        event_type = query_params.getlist("event_type")
-        if event_type:
-            queryset = queryset.by_event_type(event_type)
-
+        # Filter events by json filter specification
         event_filter = query_params.get("filter", None)
         if event_filter:
             try:
                 event_filter = json.loads(event_filter)
                 queryset = queryset.by_event_filter(event_filter)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
                 logger.exception("Invalid filter expression. filter=%s", event_filter)
-                raise
-
-        is_collection = query_params.get("is_collection", None)
-        exclude_contained = query_params.get("exclude_contained", None)
-        if is_collection and exclude_contained:
-            raise BadRequestAPIException(detail="invalid use of is_collection and exclude_contained in the same call")
-
-        if is_collection:
-            queryset = queryset.by_is_collection(parse_bool(is_collection))
-        if exclude_contained:
-            queryset = queryset.by_exclude_contained(parse_bool(exclude_contained))
-
-        updated_since = query_params.get("updated_since", None)
-
-        if updated_since:
-            try:
-                updated_since = dateparser.parse(updated_since)
-                queryset = queryset.updated_since(updated_since)
-            except ValueError:
-                raise BadRequestAPIException(detail=f"Invalid value for 'updated_since' = '{updated_since}'")
+                raise ParseError(detail=f"Invalid filter expression. 'filter' = '{event_filter}'") from e
 
         return queryset
