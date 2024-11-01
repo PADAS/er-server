@@ -999,7 +999,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
     def to_representation(self, event):
         with tracer.start_as_current_span("EventSerializer.to_representation") as span:
-            span.set_attribute("event_id", event.id)
+            span.set_attribute("event_id", str(event.id))
             return self._to_representation(event)
 
     def _to_representation(self, event):

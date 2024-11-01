@@ -24,7 +24,7 @@ class TestClient(BaseClient):
         with open(das_core / "fixtures/tenant-response.json") as tenant_response:
             self.tenant_response = json.load(tenant_response)
 
-    def get_tenant_data(self, lookup: str):
+    def get_tenant_data(self, lookup: str, should_refresh_cache: bool = True):
         lookup_type = get_tenant_lookup_type(lookup)
 
         if self.tenant_response[lookup_type] == lookup:
@@ -90,9 +90,9 @@ class HTTPClient(BaseClient):
 
         return response.json()
 
-    def get_tenant_data(self, lookup: str):
+    def get_tenant_data(self, lookup: str, should_refresh_cache: bool = True):
         params = self._get_default_param()
-        params["should-refresh-cache"] = True
+        params["should-refresh-cache"] = should_refresh_cache
         try:
             response = self._get(f"tenants/{lookup}", params=params)
         except RequestException as request_exception:
