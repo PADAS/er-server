@@ -2,9 +2,12 @@
 PosgreSQL util functions.
 """
 
+import math
 from enum import Enum
 from logging import Logger
 from typing import Any, Dict, List
+
+import scipy.stats as stats
 
 from django.db import ProgrammingError, connection
 
@@ -238,7 +241,13 @@ def partman_list_partitions_query(schema: str, table_name: str) -> str:
     return f"SELECT * FROM partman.show_partitions('{fully_qualified_table_name}');"
 
 
-def md5_over_column_query(schema: str, table_name: str, column_name: str = "id") -> str:
+def md5_over_column_query(
+    schema: str,
+    table_name: str,
+    order_by: str,
+    column_name: str = "id",
+    limit: int = 1000,
+) -> str:
     """
     Create the SQL query string to check the md5 value of the concatenated
     casted values of `column_name` for the provided `schema` and `table_name`.
@@ -246,14 +255,30 @@ def md5_over_column_query(schema: str, table_name: str, column_name: str = "id")
     Args:
         schema (str): Name of the psql schema. eg. public.
         table_name (str): Name of the psql table to target.
+        order_by (str): Column name to order by. Usually the primary key or an
+        index.
+        limit (int): limit of the query, defaults to 1000.
         column_name (str): column name to run the MD5 over. It should be
         castable as TEXT.
 
     Note: This does not check for SQL injection. Make sure to know what you are
-    doing with `schema`, `table_name` and `column_name`.
+    doing with `schema`, `table_name`, `column_name`, `order_by` and `limit`.
     """
+    assert limit <= 1_000_000, "the limit parameter should be lower than 1M."
+
     fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
-    return f"SELECT MD5(STRING_AGG(CAST({column_name} AS TEXT), '')) AS md5_hash FROM {fully_qualified_table_name};"
+    return f"""
+    SELECT
+      MD5(STRING_AGG(CAST({column_name} AS TEXT), '')) AS md5_hash
+    FROM
+      {fully_qualified_table_name}
+    GROUP BY
+      {order_by}
+    ORDER BY
+      {order_by}
+    LIMIT
+      {limit}
+    ;"""
 
 
 def partman_data_partition_query(schema: str, table_name: str) -> str:
@@ -351,3 +376,24 @@ def partman_fully_qualified_default_table(schema: str, table_name: str) -> str:
     """
     fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
     return f"{fully_qualified_table_name}_default"
+
+
+def get_sample_size(population_size: int, confidence_level: float, margin_of_error: float):
+    """
+    Calculate the sample size required to stay within a given confidence level and margin of error.
+
+    Args:
+        population_size (int): The total size of the population.
+        confidence_level (float): The desired confidence level, typically 0.90, 0.95, or 0.99.
+        margin_of_error (float): The desired margin of error, expressed as a decimal.
+
+    Returns:
+        int: The required sample size.
+    """
+    # Calculate the z-score for the given confidence level
+    z_score = stats.norm.ppf(1 - (1 - confidence_level) / 2)
+
+    # Calculate the sample size
+    sample_size = (z_score**2 * population_size) / (z_score**2 + (population_size - 1) * (margin_of_error**2))
+
+    return math.ceil(sample_size)
