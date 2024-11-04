@@ -52,7 +52,7 @@ class Command(BaseCommand):
         tables and after match.
         3. Every partition that was not created should contain the same number
         of elements before and after.
-        4. Every partition that was not created should have the same md3 before
+        4. Every partition that was not created should have the same md5 before
         and after.
 
         Raises:
