@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Tuple
 import scipy.stats as stats
 from psycopg2 import sql as psycopg2_sql
 
+import scipy.stats as stats
+
 from django.db import ProgrammingError, connection
 
 # Pattern to validate SQL identifiers (schema names, table names, column names)
