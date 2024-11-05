@@ -8,7 +8,7 @@ from django.http import HttpResponseNotModified
 from django.urls import reverse
 from rest_framework import status
 
-from activity.models import PRI_URGENT, SC_RESOLVED, EventCategory, EventType
+from activity.models import PRI_URGENT, SC_RESOLVED, Event, EventCategory, EventType
 from activity.tests import schema_examples
 from activity.views import EventTypesView, EventTypeView
 from choices.models import Choice
@@ -228,6 +228,23 @@ class TestEventTypeAPI:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_event_type_return_has_events_assigned(self, superuser_client, five_event_types):
+        event_type_1, event_type_2, *_ = five_event_types
+        Event.objects.create(event_type=event_type_1)
+
+        url = reverse("eventtype", kwargs={"eventtype_id": event_type_1.id})
+        response_event_type_1 = superuser_client.get(url)
+
+        assert response_event_type_1.status_code == status.HTTP_200_OK
+        assert response_event_type_1.data["has_events_assigned"] == True
+
+        url = reverse("eventtype", kwargs={"eventtype_id": event_type_2.id})
+
+        response_event_type_2 = superuser_client.get(url)
+
+        assert response_event_type_2.status_code == status.HTTP_200_OK
+        assert response_event_type_2.data["has_events_assigned"] == False
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings")
@@ -342,6 +359,24 @@ class TestEventTypesAPI:
         assert len(response_with_updated_since.data) == 1
 
         assert response_with_updated_since.data[0]["id"] == str(event_type.id)
+
+    def test_event_types_return_has_events_assigned(self, superuser_client, five_event_types):
+        url = reverse("eventtypes")
+
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        for event_type in response.data:
+            assert event_type["has_events_assigned"] == False
+
+        for event_type in EventType.objects.all():
+            Event.objects.create(event_type=event_type)
+
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        for event_type in response.data:
+            assert event_type["has_events_assigned"] == True
 
 
 @pytest.mark.django_db
