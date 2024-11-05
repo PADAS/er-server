@@ -583,7 +583,7 @@ class SourceSerializer(PartialUpdateMixin, serializers.Serializer):
     model_name = serializers.CharField(allow_null=True, label="Device model name", max_length=100, required=False)
     additional = serializers.JSONField(label="Additional data")
     provider = SourceProviderRelatedField()
-    subject = serializers.JSONField(label="Subject data", required=False)
+    subject = SubjectRelatedField(label="Subject data", required=False)
     content_type = ContentTypeField(read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)

@@ -325,4 +325,23 @@ def run_partition_maintenance() -> None:
     Run the partition maintenance on the observations_observation table.
     """
     table_name = "observations_observation"
-    utils_db_task_helpers.run_partition_maintenance(table_name=table_name, logger=logger)
+    schema = "public"
+    logger.info(f"Running partition maintenance for '{schema}.{table_name}'")
+    utils_db_task_helpers.run_partition_maintenance(schema=schema, table_name=table_name, logger=logger)
+
+
+@celery.app.task(
+    base=QueueOnce,
+    default_retry_delay=60,
+    max_retries=5,
+    retry_backoff=30,
+    retry_backoff_max=10 * 60,
+)
+def run_partition_table_check() -> None:
+    """
+    Run the partition table check on the observations_observation table.
+    """
+    table_name = "observations_observation"
+    schema = "public"
+    logger.info(f"Running partition table check for '{schema}.{table_name}'")
+    utils_db_task_helpers.run_partition_table_check(schema=schema, table_name=table_name, logger=logger)
