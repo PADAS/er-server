@@ -29,9 +29,7 @@ from activity.models import (
     EventType,
 )
 from activity.tests import schema_examples
-from choices.models import Choice
-
-from ..test_events import (
+from activity.tests.events import (
     ET_OTHER,
     all_permissions,
     eventsource_user_event_permissions,
@@ -41,6 +39,7 @@ from ..test_events import (
     radio_room_user_permissions,
     reported_by_permission_set_id,
 )
+from choices.models import Choice
 
 logger = logging.getLogger(__name__)
 
