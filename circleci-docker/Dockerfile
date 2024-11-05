@@ -1,4 +1,7 @@
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.4.1
+# gdal image: ghcr.io/osgeo/gdal:ubuntu-small-3.4.3
+# Ubuntu 20.04.4 LTS
+# python 3.8.10
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.4.3
 LABEL org.opencontainers.image.description maintainer="EarthRanger Developers developers@earthranger.com"
 
 RUN apt-get update; apt-get install -y pip git libmagic-dev postgresql-client libpq-dev; \

@@ -1,3 +1,16 @@
+"""
+Django management command to run `partman.partition_data_proc()` on the
+observations_observation table.
+
+More information here: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#partition_data_proc
+
+Sanity checks can be run but the procedure already runs in a transaction, so we
+can't wrap it again inside a transaction and easily rollback.
+
+For more control, see the other Django Management command that runs
+`partman.partition_data_time()` instead.
+"""
+
 import logging
 
 from django.core.management import BaseCommand
@@ -7,7 +20,7 @@ from utils.db.postgresql import (
     PSQLExtension,
     execute_sql_query,
     is_postgresql_extension_installed,
-    partman_data_partition_query,
+    partman_partition_data_proc_query,
     vacuum_analyze_query,
 )
 
@@ -42,7 +55,7 @@ class Command(BaseCommand):
         table = options["table"]
 
         if is_postgresql_extension_installed(psql_extension=PSQLExtension.PG_PARTMAN, logger=logger):
-            sql_query = partman_data_partition_query(schema=schema, table_name=table)
+            sql_query = partman_partition_data_proc_query(schema=schema, table_name=table)
             logger.info(f"pg_partman is properly installed.")
 
             try:
