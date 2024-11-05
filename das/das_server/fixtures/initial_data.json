@@ -2375,6 +2375,32 @@
     }
   },
   {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2024-10-15T01:00:00Z",
+      "updated_at": "2024-10-15T01:00:00Z",
+      "value": "secretary_bird",
+      "display": "Secretary Bird",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2024-10-15T01:00:00Z",
+      "updated_at": "2024-10-15T01:00:00Z",
+      "value": "european_roller",
+      "display": "European Roller",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
     "model": "observations.subjectgroup",
     "fields": {
       "created_at": "2016-07-07T01:00:00Z",

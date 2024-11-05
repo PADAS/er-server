@@ -3,6 +3,7 @@ import logging
 from django.core.management import BaseCommand
 
 from utils.db.postgresql import (
+    FetchType,
     PSQLExtension,
     execute_sql_query,
     is_postgresql_extension_installed,
@@ -47,12 +48,12 @@ class Command(BaseCommand):
             try:
                 # Data partition
                 logger.info(f'running the partition_data_proc with: "{sql_query}"')
-                execute_sql_query(query=sql_query, logger=logger, fetch=False)
+                execute_sql_query(query=sql_query, logger=logger, fetch_type=FetchType.NONE)
 
                 # Vacuuming
                 vacuum_analyze_sql_query = vacuum_analyze_query(schema=schema, table_name=table)
                 logger.info(f'running the vacuuming with: "{vacuum_analyze_sql_query}"')
-                execute_sql_query(query=vacuum_analyze_sql_query, logger=logger, fetch=False)
+                execute_sql_query(query=vacuum_analyze_sql_query, logger=logger, fetch_type=FetchType.NONE)
 
                 self.stdout.write(self.style.SUCCESS("Successfully ran the data partition procedure."))
 

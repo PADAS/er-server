@@ -167,6 +167,12 @@ class GenericSensorHandler:
         if an_observation.get("source_additional") is not None:
             source_info["additional"] = an_observation["source_additional"]
 
+        # Remove in RF-579, when Buoy PUT implemented
+        additional = an_observation.get("additional", {})
+        if subject_subtype == "ropeless_buoy_device":
+            # update_subject_source_from_observation(src, subject_info, additional)
+            subject_info["additional"] = additional
+
         src = Source.objects.ensure_source(
             source_type,
             provider=provider_key,
@@ -176,7 +182,6 @@ class GenericSensorHandler:
             **source_info,
         )
         recorded_at = an_observation.get("recorded_at")
-        additional = an_observation.get("additional", {})
         event_action = an_observation.get("additional", {}).get("event_action", cls.DEFAULT_EVENT_ACTION)
         observation = {
             "location": location,
@@ -184,7 +189,7 @@ class GenericSensorHandler:
             "source": str(src.id),
             "additional": additional,
         }
-
+ 
         obs_key = (str(src.id), recorded_at)
         # Short-circuit if we already have this observation.
         if obs_key in obs_cache:
