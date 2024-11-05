@@ -2,7 +2,6 @@ import datetime
 
 import pytz
 from django.db.models import Q
-from django.utils import timezone
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Observation, Subject, SubjectGroup
 from observations.utils import VIEW_SUBJECTGROUP_PERMS
@@ -10,18 +9,6 @@ from utils.drf import ForbiddenAPIException
 from utils.etags import get_hash_from_queryset
 from utils.json import parse_bool
 from utils.tenant.thread import get_tenant_settings
-
-current_tz_name = timezone.get_current_timezone_name()
-current_tz = pytz.timezone(current_tz_name)
-current_date = datetime.datetime.utcnow().astimezone(current_tz)
-tz_difference = current_date.utcoffset().total_seconds() / 60 / 60
-tz_offset = (
-    "GMT"
-    + ("+" if tz_difference >= 0 else "")
-    + str(int(tz_difference))
-    + ":"
-    + str(int((tz_difference - int(tz_difference)) * 60))
-)
 
 
 def get_track_days():
