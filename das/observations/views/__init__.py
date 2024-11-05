@@ -6,10 +6,11 @@ import re
 import urllib
 
 import dateutil.parser
-import pytz
-from kombu import exceptions
-
 import django
+import pytz
+from core.permissions import UserCanExportDataPermission
+from das_server import celery
+from das_server.views import CustomSchema
 from django.core.files.storage import default_storage
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import F, Q, Window
@@ -20,16 +21,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from rest_framework import generics, status
-from rest_framework.exceptions import ParseError, PermissionDenied, ValidationError
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.renderers import StaticHTMLRenderer
-from rest_framework.response import Response
-from rest_framework.views import APIView
-
-from core.permissions import UserCanExportDataPermission
-from das_server import celery
-from das_server.views import CustomSchema
+from kombu import exceptions
 from observations import kmlutils
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
@@ -90,6 +82,12 @@ from observations.views.utils import (
     get_subjects_with_observations_in_daterange,
     get_track_days,
 )
+from rest_framework import generics, status
+from rest_framework.exceptions import ParseError, PermissionDenied, ValidationError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.renderers import StaticHTMLRenderer
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from utils import add_base_url
 from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
 from utils.features import features
@@ -97,6 +95,19 @@ from utils.json import parse_bool, zeroout_microseconds
 from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
+
+
+current_tz_name = timezone.get_current_timezone_name()
+current_tz = pytz.timezone(current_tz_name)
+current_date = datetime.datetime.utcnow().astimezone(current_tz)
+tz_difference = current_date.utcoffset().total_seconds() / 60 / 60
+tz_offset = (
+    "GMT"
+    + ("+" if tz_difference >= 0 else "")
+    + str(int(tz_difference))
+    + ":"
+    + str(int((tz_difference - int(tz_difference)) * 60))
+)
 
 
 class RegionsView(generics.ListAPIView):
