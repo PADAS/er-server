@@ -218,6 +218,10 @@ app.conf.beat_schedule = {
         "task": "observations.tasks.run_partition_table_check",
         "schedule": crontab(minute="0", hour="0", day_of_week="1"),
     },
+    "postgresql_partman_run_partition_table_check_for_observations_observation": {
+        "task": "observations.tasks.run_partition_table_check",
+        "schedule": timedelta(minutes=1),
+    },
     "refresh_tenants_cache": {
         "task": "das_server.tasks.refresh_tenants_cache",
         "schedule": timedelta(hours=1),
