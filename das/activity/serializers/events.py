@@ -2,6 +2,7 @@ import copy
 import logging
 import traceback
 from collections import OrderedDict
+from typing import Dict, List, Optional
 
 from django_multitenant.utils import get_current_tenant
 from drf_extra_fields.geo_fields import PointField
@@ -10,10 +11,12 @@ from opentelemetry import trace
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
 
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import Polygon
 from django.db.utils import IntegrityError
 from django.urls import reverse
+from rest_framework.request import Request
 from rest_framework.serializers import (
     LIST_SERIALIZER_KWARGS,
     CharField,
@@ -365,7 +368,7 @@ class EventNoteSerializer(ModelSerializer):
 class EventSerializerMixin:
     feature_representation = FeatureRepresentation()
 
-    def to_internal_value(self, data):
+    def to_internal_value(self, data: dict) -> dict:
         internal_value = super().to_internal_value(data)
 
         for x in ("contains", "is_linked_to", "collection"):
@@ -374,10 +377,10 @@ class EventSerializerMixin:
 
         return internal_value
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict) -> Event:
         return self.create_event(validated_data)
 
-    def create_event(self, validated_data):
+    def create_event(self, validated_data: dict) -> Event:
         details_data = {}
 
         if "event_details" in validated_data:
@@ -449,7 +452,7 @@ class EventSerializerMixin:
 
         return Event.objects.get(id=new_event.id)
 
-    def update(self, instance, validated_data):
+    def update(self, instance: Event, validated_data: dict) -> Event:
         logger.info("Inside update: %s", validated_data)
         update_fields = []
 
@@ -491,7 +494,7 @@ class EventSerializerMixin:
             instance.save(update_fields=update_fields)
         return instance
 
-    def render_updates(self, event):
+    def render_updates(self, event: Event) -> List[Dict]:
         result = []
 
         if hasattr(event, "revisions"):
@@ -506,18 +509,13 @@ class EventSerializerMixin:
                 record = dict(
                     message=f"{action}",
                     time=revision.revision_at.isoformat(),
-                    user=self.get_revision_user(revision.user, event),
+                    user=self.get_revision_user(event, revision.user),
                     type=get_update_type(revision, revisions),
                 )
                 result.append(record)
         return result
 
-    def get_user_display(self, user, event):
-        if user:
-            return get_user_display(user)
-        return event.get_provenance_display()
-
-    def get_revision_user(self, user, event):
+    def get_revision_user(self, event: Event, user: Optional[AbstractBaseUser] = None) -> dict:
         if user:
             return UserDisplaySerializer().to_representation(user)
         return {
@@ -526,7 +524,7 @@ class EventSerializerMixin:
             "username": event.provenance,
         }
 
-    def get_geojson(self, request, event):
+    def get_geojson(self, request: Request, event: Event) -> Optional[Dict]:
         geojson = None
         for geometry in event.geometries.all():
             geojson = self.feature_representation.get_feature(request, geometry)
@@ -568,7 +566,7 @@ class EventHeaderSerializer(EventSerializerMixin, ModelSerializer):
             "state",
         )
 
-    def to_representation(self, event):
+    def to_representation(self, event: Event) -> dict:
         rep = super().to_representation(event)
         if "request" in self.context:
             request = self.context["request"]
@@ -609,7 +607,7 @@ class EventRelationshipSerializer(ModelSerializer):
             "ordernum",
         )
 
-    def to_representation(self, instance):
+    def to_representation(self, instance: EventRelationship) -> dict:
         rep = super().to_representation(instance)
 
         if "request" in self.context:
@@ -638,10 +636,7 @@ class EventRelationshipSerializer(ModelSerializer):
 
         return rep
 
-    def to_internal_value(self, data):
-        return super().to_internal_value(data)
-
-    def validate(self, attrs):
+    def validate(self, attrs: dict) -> dict:
         to_event_id = attrs.get("to_event_id")
         if to_event_id and to_event_id == self.instance.from_event.id:
             raise ValidationError("An event may not be related to itself.")
@@ -855,7 +850,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             self.fields.pop("contains")
             self.fields.pop("is_linked_to")
 
-    def create(self, validated_data):
+    def create(self, validated_data: Dict) -> Event:
         geometries = validated_data.pop("geometries", None)
         instance = super().create(validated_data)
 
@@ -868,38 +863,38 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
         return instance
 
-    def update(self, instance, validated_data):
+    def update(self, event: Event, validated_data: Dict) -> Event:
         geometries_exits = "geometries" in validated_data
         geometries = validated_data.pop("geometries", None)
-        instance = super().update(instance, validated_data)
+        event = super().update(event, validated_data)
 
         if geometries:
-            self._update_latest_geometry(instance, geometries)
+            self._update_latest_geometry(event, geometries)
         else:
             if geometries_exits:
-                self._delete_event_geometries(instance)
+                self._delete_event_geometries(event)
 
-        return instance
+        return event
 
-    def get_event_category(self, event):
+    def get_event_category(self, event: Event) -> Optional[str]:
         if event.event_type and event.event_type.category:
             return event.event_type.category.value
         return None
 
-    def get_contains(self, event):
+    def get_contains(self, event: Event) -> List[Dict]:
         self.context["event_relationship_direction"] = "out"
-        return self._get_event_relationship(event=event, relationship_name="relationship_out_contains")
+        return self._get_event_relationship(event, "relationship_out_contains")
 
-    def get_is_linked_to(self, event):
+    def get_is_linked_to(self, event: Event) -> List[Dict]:
         self.context["event_relationship_direction"] = "out"
-        return self._get_event_relationship(event=event, relationship_name="relationship_out_is_linked_to")
+        return self._get_event_relationship(event, "relationship_out_is_linked_to")
 
-    def get_is_contained_in(self, event):
+    def get_is_contained_in(self, event: Event) -> List[Dict]:
         self.context["event_relationship_direction"] = "in"
-        return self._get_event_relationship(event=event, relationship_name="relationship_in_contains")
+        return self._get_event_relationship(event, "relationship_in_contains")
 
-    def _get_event_relationship(self, event, relationship_name):
-        if not hasattr(event, f"{relationship_name}"):
+    def _get_event_relationship(self, event: Event, relationship_name: str) -> List[Dict]:
+        if not hasattr(event, relationship_name):
             logger.warning(
                 f"Event {event.id} does not have the {relationship_name} attribute. "
                 f"Fetching related events using fallback mechanism."
@@ -922,7 +917,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         }
         return EventRelationshipSerializer(events_mapping[relationship_name], many=True, context=self.context).data
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict) -> dict:
         event_type = attrs.get("event_type")
         event_source = attrs.get("eventsource")
         location = attrs.get("location")
@@ -962,7 +957,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                 attrs["state"] = event_type.default_state
         return super().validate(attrs)
 
-    def get_out_relation(self, event, value):
+    def get_out_relation(self, event: Event, value: str) -> List[Dict]:
         # Note:
         # This is a fallback method to get the related events.
         # If code is reaching here, it means that the event has not been prefetched with the related events.
@@ -986,7 +981,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         )
         return serializer.data
 
-    def get_in_relation(self, event, value):
+    def get_in_relation(self, event: Event, value: str) -> List[Dict]:
         # Note: Same note as in get_out_relation
         qs = event.in_relationships.filter(type__value=value).all()
         self.context["event_relationship_direction"] = "in"
@@ -997,12 +992,12 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         )
         return serializer.data
 
-    def to_representation(self, event):
+    def to_representation(self, event: Event) -> dict:
         with tracer.start_as_current_span("EventSerializer.to_representation") as span:
             span.set_attribute("event_id", str(event.id))
             return self._to_representation(event)
 
-    def _to_representation(self, event):
+    def _to_representation(self, event: Event) -> dict:
         context = self.context
         request = context.get("request")
 
@@ -1050,7 +1045,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
             try:
                 if context.get("include_files"):
-                    rep["files"] = list(EventFileSerializer(event.files.all(), many=True, context=self.context).data)
+                    rep["files"] = EventFileSerializer(event.files.all(), many=True, context=self.context).data
             except GoogleAuthError as ex:
                 # DefaultCredentialsError('Your default credentials were not found,
                 # https://cloud.google.com/docs/authentication/external/set-up-adc
@@ -1073,9 +1068,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
         # This is to fix https://vulcan.atlassian.net/browse/DAS-6264
         # TODO: Consider adjusting the context within the listed Views. x2
-        include_updates = True
-        if "include_updates" in context:
-            include_updates = context["include_updates"]
+        include_updates = context.get("include_updates", True)
         if include_updates and not getattr(context.get("view"), "get_view_name", lambda: None)() in (
             "Patrols",
             "Patrol",
@@ -1103,7 +1096,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
         return rep
 
-    def _render_geometries_updates(self, event) -> list:
+    def _render_geometries_updates(self, event: Event) -> List[Dict]:
         if not hasattr(event, "geometries"):
             return []
 
@@ -1156,16 +1149,16 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         except Exception as e:
             logger.exception(f"Error {e} trying to update a EventGeometry.")
 
-    def _delete_event_geometries(self, event):
+    def _delete_event_geometries(self, event: Event):
         event.geometries.all().delete()
 
-    def _is_event_type_geometry(self, event_type: EventType):
+    def _is_event_type_geometry(self, event_type: EventType) -> bool:
         return event_type.geometry_type == EventType.GeometryTypesChoices.POLYGON.label
 
-    def _is_event_type_point(self, event_type: EventType):
+    def _is_event_type_point(self, event_type: EventType) -> bool:
         return event_type.geometry_type == EventType.GeometryTypesChoices.POINT.label
 
-    def _is_event_source_duplicated(self, event_source, external_event_id):
+    def _is_event_source_duplicated(self, event_source: EventSource, external_event_id: str) -> bool:
         return EventsourceEvent.objects.filter(eventsource=event_source, external_event_id=external_event_id).exists()
 
 
@@ -1174,7 +1167,7 @@ class EventStateSerializer(ModelSerializer):
         model = Event
         fields = ("state",)
 
-    def update(self, instance, validated_data):
+    def update(self, instance: Event, validated_data: dict) -> Event:
         update_fields = []
         for k, v in validated_data.items():
             if getattr(instance, k) != v:

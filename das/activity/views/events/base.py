@@ -5,7 +5,7 @@ import logging
 import platform
 from collections import OrderedDict
 from datetime import datetime
-from typing import Union
+from typing import Dict, List, Type, Union
 
 import pytz
 from psycopg2.errors import InvalidTextRepresentation
@@ -17,6 +17,7 @@ from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
 from django.db import transaction
 from django.db.models import Count, OuterRef, Prefetch, Q, TextField
 from django.db.models.functions import JSONObject
+from django.db.models.query import QuerySet
 from django.db.utils import DataError
 from django.http import HttpResponse
 from django.utils import timezone
@@ -28,7 +29,9 @@ from rest_framework.generics import (
     RetrieveUpdateAPIView,
     RetrieveUpdateDestroyAPIView,
 )
+from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.serializers import Serializer
 from rest_framework.views import APIView
 
 import utils.schema_utils as schema_utils
@@ -529,7 +532,7 @@ class EventsView(ListCreateAPIView):
 
     schema = EventsViewSchema()
 
-    def list(self, request, *args, **kwargs):
+    def list(self, request: Request, *args, **kwargs) -> Response:
         queryset = self.filter_queryset(self.get_queryset())
         queryset = self.optimize_queryset(queryset)
 
@@ -552,7 +555,7 @@ class EventsView(ListCreateAPIView):
 
             return Response(data=data, status=status.HTTP_200_OK)
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: Request, *args, **kwargs) -> Response:
         request.POST._mutable = True
         new_record = request.data
         if isinstance(new_record, dict):
@@ -576,12 +579,12 @@ class EventsView(ListCreateAPIView):
                     logger.exception("Invalid Event type(s) provided {}".format(error))
                     return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def get_serializer_class(self):
+    def get_serializer_class(self) -> Type[Serializer]:
         if self.kwargs.get("patrol_segment") and self.request.method == "GET":
             return PatrolSegmentEventSerializer
         return super().get_serializer_class()
 
-    def get_serializer_context(self):
+    def get_serializer_context(self) -> dict:
         context = super().get_serializer_context()
         query_params = self.request.query_params
         context["include_updates"] = parse_bool(query_params.get("include_updates", True))
@@ -589,20 +592,14 @@ class EventsView(ListCreateAPIView):
         context["include_files"] = parse_bool(query_params.get("include_files", True))
 
         # if this is a POST, returned any contained events
-        include_for_posts = self.request._request.method == "POST"  # TODO: The serializer should handle this by itself
+        include_for_posts = self.request._request.method == "POST"
 
         context["include_related_events"] = parse_bool(query_params.get("include_related_events", include_for_posts))
         context["include_notes"] = parse_bool(query_params.get("include_notes", include_for_posts))
 
-        try:
-            # TODO: request.data? Again the serializer should handle this in the save/create/update methods
-            context["eventsource_id"] = self.request.data.get("eventsource_id")
-        except AttributeError:
-            pass
-
         return context
 
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet:
         queryset = Event.objects.all()
 
         patrol_segment_id = self.kwargs.get("patrol_segment")
@@ -612,7 +609,7 @@ class EventsView(ListCreateAPIView):
 
         return queryset
 
-    def optimize_queryset(self, queryset):
+    def optimize_queryset(self, queryset: QuerySet) -> QuerySet:
         serializer_context = self.get_serializer_context()
         permitted_categories = get_permitted_event_categories(self.request)
 
@@ -660,7 +657,7 @@ class EventsView(ListCreateAPIView):
             queryset = queryset.prefetch_related("files")
         return queryset
 
-    def add_segment_to_record(self, patrol_segment_id, new_record):
+    def add_segment_to_record(self, patrol_segment_id: Union[List[str], str], new_record: List[Dict]) -> List[Dict]:
         for record in new_record:
             if not record.get("patrol_segments"):
                 record["patrol_segments"] = (
