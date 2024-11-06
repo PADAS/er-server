@@ -2,7 +2,6 @@ import uuid
 
 from django.db.models import Q
 from django.db.models.fields.json import KeyTransform
-
 from observations import models
 
 
@@ -32,10 +31,10 @@ class TwoWaySubjectSourceMixin(object):
         if model_class_name == "SubjectGroup":
             queryset = self._get_children_subject_groups(queryset)
 
-        subject_sources = models.SubjectSource.objects.filter(subject__in=queryset.values(subjects).all())
-
         subject_sources = (
-            subject_sources.annotate(
+            models.SubjectSource.objects.filter(subject__in=queryset.values(subjects).all())
+            .select_related("source", "source__provider")
+            .annotate(
                 two_way_messaging=KeyTransform("two_way_messaging", "source__provider__additional"),
                 source_two_way_messaging=KeyTransform("two_way_messaging", "source__additional"),
             )
@@ -47,7 +46,6 @@ class TwoWaySubjectSourceMixin(object):
                     & (Q(source_two_way_messaging=False, source_two_way_messaging__isnull=False))
                 )
             )
-            .prefetch_related("source", "source__provider")
             .values(
                 "id",
                 "subject_id",
