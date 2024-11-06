@@ -1,19 +1,7 @@
-from rest_framework_condition import etag
-
-from django.db.models import F, Window
+from activity.permissions import StandardObjectPermissions
+from django.db.models import F, QuerySet, Window
 from django.db.models.functions import FirstValue
 from django.db.utils import IntegrityError
-from rest_framework import status
-from rest_framework.generics import (
-    ListAPIView,
-    ListCreateAPIView,
-    RetrieveAPIView,
-    RetrieveUpdateDestroyAPIView,
-    get_object_or_404,
-)
-from rest_framework.response import Response
-
-from activity.permissions import StandardObjectPermissions
 from observations.filters import create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import SourceGroup, Subject, SubjectGroup, SubjectSource
@@ -36,6 +24,16 @@ from observations.views.utils import (
     subject_group_etag,
     subject_groups_etag,
 )
+from rest_framework import status
+from rest_framework.generics import (
+    ListAPIView,
+    ListCreateAPIView,
+    RetrieveAPIView,
+    RetrieveUpdateDestroyAPIView,
+    get_object_or_404,
+)
+from rest_framework.response import Response
+from rest_framework_condition import etag
 from utils.drf import (
     BadRequestAPIException,
     ForbiddenAPIException,
@@ -79,75 +77,76 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
             F("assigned_range").desc(),
         ],
     }
+    queryset_linked_user = None
+    queryset = None
 
     def check_permissions(self, request):
         if request.user.is_anonymous:
             self.permission_denied(request)
-        self.queryset_linked_user = Subject.objects.filter(linked_user=request.user).distinct()
+
+        self.queryset_linked_user = (
+            self.queryset_linked_user or Subject.objects.filter(linked_user=request.user).distinct()
+        )
+
         if not self.queryset_linked_user.exists():
             for permission in self.get_permissions():
                 if not permission.has_permission(request, self):
                     self.permission_denied(request)
 
-    def get_queryset1(self):
-        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS) and self.queryset_linked_user.exists():
-            return self.queryset_linked_user
-        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
-            raise ForbiddenAPIException
-
-        # Initial queryset
-        queryset = Subject.objects.all()
-        queryset = check_to_include_inactive_subjects(self.request, queryset)
-        queryset = queryset.order_by("id")
-
     def get_queryset(self):
-        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS) and self.queryset_linked_user.exists():
-            return self.queryset_linked_user
-        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
+        queryset = Subject.objects.all()
+        queryset = self.get_filtered_queryset(queryset=queryset)
+
+        return queryset
+
+    def get_filtered_queryset(self, queryset: QuerySet):
+        user = self.request.user
+        query_params = self.request.query_params
+
+        if not user.has_any_perms(VIEW_SUBJECT_PERMS):
+            if self.queryset_linked_user.exists():
+                return self.queryset_linked_user
             raise ForbiddenAPIException
 
-        subject_group = self.request.query_params.get("subject_group")
-        subject_ids = self.request.query_params.get("id")
-
-        # Apply request query filters that have are compatible with any of the
+        # Apply request query filters that have been compatible with any of the
         # criteria above.
-        updated_since = self.request.query_params.get("updated_since")
-        updated_until = self.request.query_params.get("updated_until")
-        bbox = self.request.query_params.get("bbox")
-        name = self.request.query_params.get("name", None)
+        updated_since = query_params.get("updated_since")
+        updated_until = query_params.get("updated_until")
+        bbox = query_params.get("bbox")
+        name = query_params.get("name", None)
 
-        use_last_known_location = parse_bool(self.request.query_params.get("use_lkl"))
-        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+        use_last_known_location = parse_bool(query_params.get("use_lkl"))
+        min_age_days = get_minimum_allowed_age(user) or 0
 
-        mou_date = self.request.user.additional.get("expiry", None)
+        mou_date = user.additional.get("expiry", None)
         mou_date = dateparse(mou_date) if mou_date else None
-
-        queryset = Subject.objects.all()
 
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
         queryset = check_to_include_inactive_subjects(self.request, queryset)
-        queryset = queryset.order_by("id")
+        queryset = queryset.order_by("id").by_user_subjects(user).distinct()
+        queryset = queryset.select_related("subject_subtype__subject_type").prefetch_related("common_name")
 
-        queryset = queryset.by_user_subjects(self.request.user)
-
-        queryset = queryset.select_related("subject_subtype", "subject_subtype__subject_type", "common_name")
+        # Handle filters for subject ID, group, and source groups
+        subject_ids = query_params.get("id")
+        subject_group_id = query_params.get("subject_group")
 
         if subject_ids:
             queryset = queryset.by_id(subject_ids)
-        elif subject_group:
-            groups = SubjectGroup.objects.get_nested_groups(subject_group)
-            queryset = queryset.by_groups(groups)
+        elif subject_group_id:
+            subject_groups = SubjectGroup.objects.get_nested_groups(parent_id=subject_group_id)
+            queryset = queryset.by_groups(subject_groups=subject_groups)
         else:
             # Fetch all the Subjects whose access is gained through Source Group
             # permissions.
-            source_groups = SourceGroup.objects.filter(permission_sets__in=self.request.user.get_all_permission_sets())
+            source_groups = SourceGroup.objects.filter(permission_sets__in=user.get_all_permission_sets())
 
-            subjects_via_source_groups = Subject.objects.filter(subjectsource__source__groups__in=source_groups)
-            subjects_via_source_groups = check_to_include_inactive_subjects(self.request, subjects_via_source_groups)
-            queryset = queryset.distinct() | subjects_via_source_groups.distinct()
+            subjects_via_source_groups = Subject.objects.filter(
+                subjectsource__source__groups__in=source_groups
+            ).distinct()
+            queryset |= subjects_via_source_groups
 
-            if not self.request.user.is_superuser:
+            if not user.is_superuser:
                 # TODO: rather than this, can we get the latest & oldest observation for each subject? (needed in
                 #  serializer.to_representation)
                 subject_linked_sources = (
@@ -183,24 +182,27 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
             updated_until = None
 
         if bbox:
-            bbox = bbox.split(",")
-            bbox = [float(v) for v in bbox]
-            if len(bbox) != 4:
+            bbox_values = [float(v) for v in bbox.split(",")]
+
+            if len(bbox_values) != 4:
                 raise ValueError("invalid bbox param")
-            show_stationary_subjects_on_map = get_tenant_settings().env_settings.show_stationary_subjects_on_map
+
+            show_stationary_subjects = get_tenant_settings().env_settings.show_stationary_subjects_on_map
+            last_days = get_track_days()
+
             if use_last_known_location:
                 queryset = queryset.by_bbox_last_known_locations(
-                    bbox,
-                    last_days=get_track_days(),
-                    include_stationary_subjects=show_stationary_subjects_on_map,
+                    bbox_values,
+                    last_days=last_days,
+                    include_stationary_subjects=show_stationary_subjects,
                     updated_since=updated_since,
                     updated_until=updated_until,
                 )
             else:
                 queryset = queryset.by_bbox(
-                    bbox,
+                    bbox_values,
                     last_days=get_track_days(),
-                    include_stationary_subjects=show_stationary_subjects_on_map,
+                    include_stationary_subjects=show_stationary_subjects,
                     updated_since=updated_since,
                     updated_until=updated_until,
                 )
@@ -210,7 +212,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
 
         if (
             not name
-            and not subject_group
+            and not subject_group_id
             and not subject_ids
             and self.queryset_linked_user
             and not queryset.filter(id=self.queryset_linked_user.first().id).exists()
@@ -223,19 +225,19 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
         return queryset
 
     def get_serializer_context(self):
-        request = self.request
+        query_params = self.request.query_params
+
         context = super().get_serializer_context()
         context["render_last_location"] = True
-        context["tracks"] = False
+        context["tracks"] = parse_bool(query_params.get("tracks", False))
         context["subject_linked_sources"] = self.subject_linked_sources
         context["two_way_subject_sources"] = self.two_way_subject_sources
 
-        if request and parse_bool(request.query_params.get("tracks", None)):
-            context["tracks"] = True
-            for t in self.TRACK_QPARAMS:
-                context[t] = request.query_params.get(t, None)
-            for t in self.TRACK_DATE_QPARAMS:
-                context[t] = dateparse(request.query_params.get(t, None)) if request.query_params.get(t, None) else None
+        if context["tracks"]:
+            for param in (*self.TRACK_QPARAMS, *self.TRACK_DATE_QPARAMS):
+                context[param] = (
+                    dateparse(query_params.get(param)) if param in self.TRACK_DATE_QPARAMS else query_params.get(param)
+                )
         return context
 
     def create(self, request, *args, **kwargs):
