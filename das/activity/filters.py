@@ -4,8 +4,11 @@ import logging
 import dateutil.parser as dateparser
 
 from django.db.models import Q
+from django.db.models.query import QuerySet
 from rest_framework.exceptions import ParseError
 from rest_framework.filters import BaseFilterBackend
+from rest_framework.request import Request
+from rest_framework.views import APIView
 
 from activity.models import EventCategory
 from activity.views.exceptions import BadRequestAPIException
@@ -21,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 class EventSubjectsFilter(BaseFilterBackend):
 
-    def filter_queryset(self, request, queryset, view):
+    def filter_queryset(self, request: Request, queryset: QuerySet, view: APIView) -> QuerySet:
         user_subjects = Subject.objects.by_user_subjects(request.user).values_list("id", flat=True)
         queryset = queryset.filter(Q(related_subjects__isnull=True) | Q(related_subjects__in=user_subjects))
 
@@ -37,14 +40,14 @@ class EventPermissionsFilter(BaseFilterBackend):
     # TODO: Update this filter to use new category permisisons
     #
 
-    def filter_queryset(self, request, queryset, view):
+    def filter_queryset(self, request: Request, queryset: QuerySet, view: APIView) -> QuerySet:
         query_params = request.query_params
         user = request.user
 
         event_categories = query_params.getlist("event_category")
 
         if not event_categories:
-            event_categories = EventCategory.objects.values_list("value", flat=True).distinct()
+            event_categories = EventCategory.get_category_keys()
 
         # Check user permissions for event categories
         allowed_event_categories = []
@@ -65,7 +68,7 @@ class EventPermissionsFilter(BaseFilterBackend):
 
 class EventListFilter(BaseFilterBackend):
 
-    def filter_queryset(self, request, queryset, view):
+    def filter_queryset(self, request: Request, queryset: QuerySet, view: APIView) -> QuerySet:
         query_params = request.query_params
 
         # Filter events by especific event_ids

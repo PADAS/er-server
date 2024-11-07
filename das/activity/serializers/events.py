@@ -883,15 +883,15 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
     def get_contains(self, event: Event) -> List[Dict]:
         self.context["event_relationship_direction"] = "out"
-        return self._get_event_relationship(event, "relationship_out_contains")
+        return self._get_event_relationship(event=event, relationship_name="relationship_out_contains")
 
     def get_is_linked_to(self, event: Event) -> List[Dict]:
         self.context["event_relationship_direction"] = "out"
-        return self._get_event_relationship(event, "relationship_out_is_linked_to")
+        return self._get_event_relationship(event=event, relationship_name="relationship_out_is_linked_to")
 
     def get_is_contained_in(self, event: Event) -> List[Dict]:
         self.context["event_relationship_direction"] = "in"
-        return self._get_event_relationship(event, "relationship_in_contains")
+        return self._get_event_relationship(event=event, relationship_name="relationship_in_contains")
 
     def _get_event_relationship(self, event: Event, relationship_name: str) -> List[Dict]:
         if not hasattr(event, relationship_name):
