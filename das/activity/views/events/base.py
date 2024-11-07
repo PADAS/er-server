@@ -108,7 +108,7 @@ class EventCountView(APIView):
         event_categories = self.request.query_params.getlist("event_category", None)
 
         if not event_categories:
-            event_categories = EventCategory.objects.values_list("value", flat=True).distinct()
+            event_categories = EventCategory.get_category_keys()
 
         allowed_event_categories = [ec for ec in event_categories if self.request.user.has_perm(f"activity.{ec}_read")]
 

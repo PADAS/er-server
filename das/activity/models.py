@@ -28,6 +28,7 @@ from django.contrib.postgres.search import (
     SearchVector,
     SearchVectorField,
 )
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.core.validators import RegexValidator
@@ -201,6 +202,9 @@ class EventFactor(TenantModelMixin, TimestampedModel):
 
 
 class EventCategory(TenantModelMixin, TimestampedModel, RankModelMixin):
+
+    CATEGORIES_CACHE_KEY = "active_categories"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     # the value field is used as part of the codename of a set of permissions created for each EventCategory
     # this limits us to the size of the EventCategory value field as the codename field has a limit of 100 chars
@@ -209,9 +213,11 @@ class EventCategory(TenantModelMixin, TimestampedModel, RankModelMixin):
     display = models.CharField(max_length=100, blank=True)
     is_active = models.BooleanField(default=True)
     flag = models.CharField(max_length=40, default="user", choices=(("user", "User"), ("system", "System")))
+
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
-    objects = EventBaseManager()
     tenant_id = "das_tenant_id"
+
+    objects = EventBaseManager()
 
     class Meta:
         verbose_name = _("Event Category")
@@ -231,6 +237,19 @@ class EventCategory(TenantModelMixin, TimestampedModel, RankModelMixin):
 
     def __str__(self):
         return self.display
+
+    @classmethod
+    def get_active_categories(cls):
+        active_categories = cache.get(cls.CATEGORIES_CACHE_KEY)
+        if active_categories is None:
+            active_categories = list(cls.objects.filter(is_active=True))
+            cache.set(cls.CATEGORIES_CACHE_KEY, active_categories, 5 * 60)
+
+        return active_categories
+
+    @classmethod
+    def get_category_keys(cls):
+        return [category.value for category in cls.get_active_categories()]
 
     def natural_key(self):
         return (self.value,)
