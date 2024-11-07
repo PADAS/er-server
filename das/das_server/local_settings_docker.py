@@ -145,14 +145,6 @@ UI_SITE_URL = f"https://{SERVER_FQDN}"
 if DEV:
     INSTALLED_APPS += ("debug_toolbar", "silk")
 
-    DEBUG_TOOLBAR_APP = "debug_toolbar.middleware.DebugToolbarMiddleware"
-    if "debug_toolbar" in INSTALLED_APPS and DEBUG_TOOLBAR_APP not in MIDDLEWARE:
-        DEBUG = DEV = True
-        atindex = MIDDLEWARE.index("django.contrib.sessions.middleware.SessionMiddleware") + 1
-        MIDDLEWARE = list(MIDDLEWARE)
-        MIDDLEWARE.insert(atindex, DEBUG_TOOLBAR_APP)
-        MIDDLEWARE = tuple(MIDDLEWARE)
-
     SILK_APP = "silk.middleware.SilkyMiddleware"
     if "silk" in INSTALLED_APPS and SILK_APP not in MIDDLEWARE:
         DEBUG = DEV = True
@@ -161,9 +153,25 @@ if DEV:
         MIDDLEWARE.insert(atindex, SILK_APP)
         MIDDLEWARE = tuple(MIDDLEWARE)
 
-    DEBUG_TOOLBAR_CONFIG = {
-        "SHOW_TOOLBAR_CALLBACK": lambda x: True,
-    }
+        SILKY_PYTHON_PROFILER = True
+        SILKY_AUTHENTICATION = True
+        SILKY_MAX_RESPONSE_BODY_SIZE = 2048
+        SILKY_MAX_REQUEST_BODY_SIZE = -1
+        SILKY_META = True
+        SILKY_ANALYZE_QUERIES = True
+        SILKY_EXPLAIN_FLAGS = {"format": "JSON", "costs": True}
+
+    DEBUG_TOOLBAR_APP = "debug_toolbar.middleware.DebugToolbarMiddleware"
+    if "debug_toolbar" in INSTALLED_APPS and DEBUG_TOOLBAR_APP not in MIDDLEWARE:
+        DEBUG = DEV = True
+        atindex = MIDDLEWARE.index(SILK_APP) + 1
+        MIDDLEWARE = list(MIDDLEWARE)
+        MIDDLEWARE.insert(atindex, DEBUG_TOOLBAR_APP)
+        MIDDLEWARE = tuple(MIDDLEWARE)
+
+        DEBUG_TOOLBAR_CONFIG = {
+            "SHOW_TOOLBAR_CALLBACK": lambda x: True,
+        }
 
 GFW_CLUSTER_RADIUS = env.int("GFW_CLUSTER_RADIUS", 5)
 GFW_BACKFILL_INTERVAL_DAYS = env.int("GFW_BACKFILL_INTERVAL_DAYS", 10)
