@@ -24,7 +24,8 @@ class EventAlertConditionsListView(generics.ListAPIView):
     serializer_class = EventTypeSerializer
 
     def get_queryset(self):
-        qs = EventType.objects.all()
+        qs = EventType.objects.all().select_related("category")
+        qs = qs.filter(category__is_active=True, is_active=True)
 
         event_types = self.request.query_params.get("event_type", "")
         if event_types:

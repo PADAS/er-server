@@ -19,9 +19,9 @@ def fix_mapping_featuresetfeaturetype(apps, schema):
 
 
 # delete stale indexes
-drop_das_tenant_index_sql = """DROP INDEX public.mapping_featuresetfeaturetype_das_tenant_id_081c6d06;"""
-drop_feature_set_index_sql = """DROP INDEX public.mapping_featureset_types_featureset_id_fb46f6c2;"""
-drop_feature_type_index_sql = """DROP INDEX public.mapping_featureset_types_featuretype_id_4ba6a14f;"""
+drop_das_tenant_index_sql = """DROP INDEX IF EXISTS public.mapping_featuresetfeaturetype_das_tenant_id_081c6d06;"""
+drop_feature_set_index_sql = """DROP INDEX IF EXISTS public.mapping_featureset_types_featureset_id_fb46f6c2;"""
+drop_feature_type_index_sql = """DROP INDEX IF EXISTS public.mapping_featureset_types_featuretype_id_4ba6a14f;"""
 
 
 class Migration(migrations.Migration):
