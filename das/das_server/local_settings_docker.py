@@ -2,8 +2,6 @@
 Used in our production docker images
 """
 
-import os
-
 from .settings import *
 
 # Let CACHES depend on settings.CELERY_ configuration.
@@ -145,7 +143,7 @@ UI_SITE_URL = f"https://{SERVER_FQDN}"
 
 # Django Debug Toolbar Settings enabled if DEV=True
 if DEV:
-    INSTALLED_APPS += ("debug_toolbar",)
+    INSTALLED_APPS += ("debug_toolbar", "silk")
 
     DEBUG_TOOLBAR_APP = "debug_toolbar.middleware.DebugToolbarMiddleware"
     if "debug_toolbar" in INSTALLED_APPS and DEBUG_TOOLBAR_APP not in MIDDLEWARE:
@@ -155,10 +153,17 @@ if DEV:
         MIDDLEWARE.insert(atindex, DEBUG_TOOLBAR_APP)
         MIDDLEWARE = tuple(MIDDLEWARE)
 
+    SILK_APP = "silk.middleware.SilkyMiddleware"
+    if "silk" in INSTALLED_APPS and SILK_APP not in MIDDLEWARE:
+        DEBUG = DEV = True
+        atindex = MIDDLEWARE.index("django.contrib.sessions.middleware.SessionMiddleware") + 1
+        MIDDLEWARE = list(MIDDLEWARE)
+        MIDDLEWARE.insert(atindex, SILK_APP)
+        MIDDLEWARE = tuple(MIDDLEWARE)
+
     DEBUG_TOOLBAR_CONFIG = {
         "SHOW_TOOLBAR_CALLBACK": lambda x: True,
     }
-
 
 GFW_CLUSTER_RADIUS = env.int("GFW_CLUSTER_RADIUS", 5)
 GFW_BACKFILL_INTERVAL_DAYS = env.int("GFW_BACKFILL_INTERVAL_DAYS", 10)
