@@ -78,11 +78,14 @@ def update_all_tenants_in_cache(tenants: list) -> None:
 
     with tenant_document_cache_client.connection.pipeline() as pipe:
         pipe.delete(ALT_SERVER_LOOKUP_CACHE_KEY)
-        pipe.rename(temp_alt_server_lookup_cache_key, ALT_SERVER_LOOKUP_CACHE_KEY)
-        pipe.expire(ALT_SERVER_LOOKUP_CACHE_KEY, TENANT_CACHE_TTL)
+        if tenant_document_cache_client.connection.exists(temp_alt_server_lookup_cache_key):
+            pipe.rename(temp_alt_server_lookup_cache_key, ALT_SERVER_LOOKUP_CACHE_KEY)
+            pipe.expire(ALT_SERVER_LOOKUP_CACHE_KEY, TENANT_CACHE_TTL)
         pipe.delete(TENANTS_CACHE_KEY)
-        pipe.rename(temp_tenants_cache_key, TENANTS_CACHE_KEY)
-        pipe.expire(TENANTS_CACHE_KEY, TENANT_CACHE_TTL)
+
+        if tenant_document_cache_client.connection.exists(temp_tenants_cache_key):
+            pipe.rename(temp_tenants_cache_key, TENANTS_CACHE_KEY)
+            pipe.expire(TENANTS_CACHE_KEY, TENANT_CACHE_TTL)
         pipe.execute()
 
 
@@ -97,7 +100,11 @@ def refresh_tenants_cache() -> None:
         logger.error("No tenants found in TMS")
         return
     update_all_tenants_in_cache(tenants)
-    logger.info("Refreshing tenant cache complete, found %d tenants", len(tenants))
+    logger.info("Refreshing tenant cache complete, found %d tenants from TMS", len(tenants))
+    logger.info(
+        "Refreshing tenant cache complete, %d tenants cached",
+        tenant_document_cache_client.get_set_size(TENANTS_CACHE_KEY),
+    )
 
 
 def get_tenant_domain_from_alt_server_name(host_name: str) -> str:
