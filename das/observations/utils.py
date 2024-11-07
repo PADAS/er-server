@@ -6,21 +6,18 @@ from typing import Optional, Tuple
 
 import dateutil.parser
 import pytz
+from core import persistent_storage
 from dateutil.parser import parse
-from django_multitenant.utils import get_current_tenant
-from geopy.distance import geodesic
-from pytz import timezone
-
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.db import connection
 from django.db.models import Aggregate
-
-from core import persistent_storage
+from django_multitenant.utils import get_current_tenant
+from geopy.distance import geodesic
+from pytz import timezone
 from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
-
 
 VIEW_POSITION_PERMS = ("observations.view_last_position", "observations.view_real_time")
 VIEW_DELAYED_PERMS = ("observations.view_delayed",)
@@ -186,17 +183,22 @@ def calculate_subject_view_window(user, maximum_history_days=60):
 
 
 def check_to_include_inactive_subjects(request, full_queryset):
-    # by default return only active subjects
-    queryset = full_queryset.by_is_active()
+    """
+    Filters the queryset to include or exclude inactive subjects based on the request parameters.
 
-    # return all subjects if parameter is passed and set to true
-    params = request.GET.get("include_inactive", None)
-    try:
-        if params and json.loads(params.lower()):
-            queryset = full_queryset
-    except Exception:
-        pass
-    return queryset
+    Args:
+        request: The HTTP request object containing query parameters.
+        full_queryset: The initial queryset of subjects.
+
+    Returns:
+        The filtered queryset, including inactive subjects if specified in the request parameters.
+    """
+    query_params = request.query_params
+
+    include_inactive = query_params.get("include_inactive", None)
+    if not include_inactive:
+        full_queryset = full_queryset.by_is_active()
+    return full_queryset
 
 
 def assigned_range_dates(o):

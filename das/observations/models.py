@@ -23,12 +23,17 @@ from typing import NamedTuple, Set
 
 import pymet
 import pytz
+from accounts.mixins import PermissionSetGroupMixin, create_permissionsethierarchy_mixin
+from accounts.models import PermissionSet
 from bitfield import BitField
+from core.models import DASTenant, HierarchyManager, TimestampedModel, UUIDModel
+from core.models.hierachy import (
+    TenantHierarchyModel,
+    create_tenanthierarchychildren_model,
+)
+from core.utils import static_image_finder
+from das_server import settings
 from dateutil.parser import parse as parse_date
-from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
-from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
-from psycopg2.extras import DateTimeTZRange
-
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -37,6 +42,7 @@ from django.contrib.gis.db import models as dbmodels
 from django.contrib.gis.geos import Point, Polygon
 from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
+from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import connections, transaction
 from django.db.models import (
@@ -57,16 +63,8 @@ from django.utils.functional import cached_property
 from django.utils.html import escape
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
-
-from accounts.mixins import PermissionSetGroupMixin, create_permissionsethierarchy_mixin
-from accounts.models import PermissionSet
-from core.models import DASTenant, HierarchyManager, TimestampedModel, UUIDModel
-from core.models.hierachy import (
-    TenantHierarchyModel,
-    create_tenanthierarchychildren_model,
-)
-from core.utils import static_image_finder
-from das_server import settings
+from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from observations.mixins import FilterMixin
 from observations.utils import (
     VIEW_END_WINDOWS,
@@ -76,6 +74,7 @@ from observations.utils import (
     get_minimum_allowed_age,
     is_subject_stationary_subject,
 )
+from psycopg2.extras import DateTimeTZRange
 from tracking.pubsub_registry import notify_subjectstatus_update
 from utils.decorator import use_shared_resource
 from utils.interfaces import SharedResourceHandler
@@ -90,7 +89,6 @@ STATIONARY_SUBJECT_VALUE = "stationary-object"
 
 logger = logging.getLogger(__name__)
 GPX_FILES_FOLDER = getattr(settings, "GPX_FILES_FOLDER", "observations/gpxfile")
-
 
 SOURCE_TYPES = sorted(
     (
@@ -1092,6 +1090,40 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         return subjects
 
     def by_user_subjects_not_distinct(self, user, include_linked=False):
+        """
+        Filter subjects based on user permissions, optionally including linked subjects.
+
+        Args:
+            user (User): The user whose permissions are considered.
+            include_linked (bool): Whether to include linked subjects. Defaults to False.
+
+        Returns:
+            QuerySet: A queryset of subjects filtered by user permissions.
+        """
+        if not hasattr(user, "get_all_permission_sets"):
+            return self.none()
+
+        if user.is_superuser:
+            return self.all()
+
+        permission_sets = user.get_all_permission_sets()
+        allowed_subject_groups = SubjectGroup.objects.filter(permission_sets__in=permission_sets)
+
+        # Check if cached descendants are available
+        all_subject_groups = cache.get(f"user_{user.id}_subject_groups")
+        if not all_subject_groups:
+            all_subject_groups = set(allowed_subject_groups)
+            for group in allowed_subject_groups:
+                all_subject_groups.update(group.get_descendants())
+            cache.set(f"user_{user.id}_subject_groups", all_subject_groups, timeout=60)  # Cache for 1 minute
+
+        subject_filter = Q(groups__in=all_subject_groups)
+        if include_linked:
+            subject_filter |= Q(linked_user=user)
+
+        return self.filter(subject_filter)
+
+    def by_user_subjects_not_distinct2(self, user, include_linked=False):
         # Avoid checking for a user that does not have permission sets (ex.
         # AnonymousUser)
         if not hasattr(user, "get_all_permission_sets"):
@@ -1128,36 +1160,46 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         return self.none()
 
     def annotate_with_subjectstatus(self, delay_hours=0, mou_expiry_date=None):
-        if not mou_expiry_date:
-            annotate_subject_status = self.annotate(
-                s1=FilteredRelation("subjectstatus", condition=Q(subjectstatus__delay_hours=delay_hours))
-            )
-        else:
-            annotate_subject_status = self.annotate(
-                s1=FilteredRelation(
-                    "subjectstatus",
-                    condition=Q(
-                        subjectstatus__delay_hours=delay_hours,
-                        subjectstatus__recorded_at__lte=mou_expiry_date,
-                    ),
-                )
-            )
-        return (
-            annotate_subject_status.annotate(status_recorded_at=F("s1__recorded_at"))
-            .annotate(status_last_voice_call_start_at=F("s1__last_voice_call_start_at"))
-            .annotate(status_radio_state=F("s1__radio_state"))
-            .annotate(status_radio_state_at=F("s1__radio_state_at"))
-            .annotate(status_location=F("s1__location"))
-            .annotate(
-                status_device_status_properties=KeyTransform(
-                    "device_status_properties",
-                    F("s1__additional"),
-                    output_field=models.JSONField(),
-                )
-            )
+        # Define FilteredRelation with conditional logic
+        filter_condition = Q(subjectstatus__delay_hours=delay_hours)
+        if mou_expiry_date:
+            filter_condition &= Q(subjectstatus__recorded_at__lte=mou_expiry_date)
+
+        return self.annotate(
+            s1=FilteredRelation("subjectstatus", condition=filter_condition),
+            status_recorded_at=F("s1__recorded_at"),
+            status_last_voice_call_start_at=F("s1__last_voice_call_start_at"),
+            status_radio_state=F("s1__radio_state"),
+            status_radio_state_at=F("s1__radio_state_at"),
+            status_location=F("s1__location"),
+            status_device_status_properties=KeyTransform(
+                "device_status_properties", F("s1__additional"), output_field=models.JSONField()
+            ),
         )
 
     def _query_string_for_filter(self, updated_since=None, updated_until=None):
+        # Start with an empty Q object
+        date_filter = Q()
+
+        if updated_since:
+            date_filter &= (
+                Q(updated_at__gte=updated_since)
+                | Q(status_recorded_at__gte=updated_since)
+                | Q(status_last_voice_call_start_at__gte=updated_since)
+                | Q(status_radio_state_at__gte=updated_since)
+            )
+
+        if updated_until:
+            date_filter &= (
+                Q(updated_at__lte=updated_until)
+                | Q(status_recorded_at__lte=updated_until)
+                | Q(status_last_voice_call_start_at__lte=updated_until)
+                | Q(status_radio_state_at__lte=updated_until)
+            )
+
+        return date_filter
+
+    def _query_string_for_filter1(self, updated_since=None, updated_until=None):
         updated_since_filter = (
             Q(updated_at__gte=updated_since)
             | Q(status_recorded_at__gte=updated_since)
