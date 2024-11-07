@@ -14,18 +14,16 @@ Including another URLconf
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
 
-import oauth2_provider.views as oauth2_views
-
 import django.contrib.staticfiles.views
+import oauth2_provider.views as oauth2_views
+from das_server import views
+from das_server.admin import dasadmin_site
 from django.conf import settings
 from django.conf.urls import include
 from django.contrib import admin
 from django.urls import path, re_path
 from rest_framework.renderers import JSONOpenAPIRenderer
 from rest_framework.schemas import get_schema_view
-
-from das_server import views
-from das_server.admin import dasadmin_site
 
 admin.autodiscover()
 admin.site.enable_nav_sidebar = False
@@ -61,6 +59,7 @@ urlpatterns = [
 django.conf.urls.handler404 = "utils.drf.error404View"
 
 if settings.DEV:
+    urlpatterns += [path("silk/", include("silk.urls", namespace="silk"))]
     urlpatterns += [
         re_path(
             r"^(?:index.html)?$",
@@ -78,6 +77,7 @@ if settings.DEV:
         ] + urlpatterns
     except ImportError:
         pass
+
 
 else:
     urlpatterns += [
