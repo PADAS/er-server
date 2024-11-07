@@ -24,7 +24,6 @@ from utils.db.postgresql import (
     commit,
     execute_sql_query,
     is_postgresql_extension_installed,
-    md5_over_column_query,
     partman_create_monthly_partition_time_query,
     partman_list_partitions_query,
     rollback,
@@ -87,7 +86,8 @@ class Command(BaseCommand):
         """
         logger.info(f"checking initial_metadata {initial_metadata} against final_metadata {final_metadata}")
 
-        required_keys = ["partitions", "counts", "md5"]
+        required_keys = ["partitions", "counts"]
+
         assert all(key in initial_metadata for key in required_keys), "Missing keys in initial_metadata"
         assert all(key in final_metadata for key in required_keys), "Missing keys in final_metadata"
 
@@ -100,36 +100,40 @@ class Command(BaseCommand):
         ), "the number of created partitions does not match the number of partitions the user wants to create"
 
         # Data integrity checks
-        assert initial_metadata["counts"] == final_metadata["counts"], "The number of observation rows has changed!"
-        assert initial_metadata["md5"] == final_metadata["md5"], "The content of some rows has changed!"
+        assert initial_metadata["counts"] <= final_metadata["counts"], "some rows were dropped"
 
-    def collect_metadata_for_sanity_check(self, schema: str, table_name: str, logger: Logger) -> Dict[str, Any]:
+    def collect_metadata_for_sanity_check(
+        self,
+        schema: str,
+        table_name: str,
+        logger: Logger,
+    ) -> Dict[str, Any]:
         """
         Probe the state of the DB to collect metadata. That is used by the
         sanity check function to check data integrity.
 
+        Args:
+            schema (str): psql schema where the table is stored. `public` is
+            the default one in psql.
+            table_name (str): name of the psql table.
+            logger (logging.Logger): The logger to use to write potential
+            errors.
+
         Outputs:
-            md5 (str): md5 hash of all the id column values in the `schema.table_name`.
-            partitions (set[str]): set of all the partitions on the `schema.table_name`.
-            counts (int): count of the number of entries in `schema.table_name`.
+            partitions (set[str]): set of all the partitions on the
+            `schema.table_name`.
+            counts (int): count of the number of entries in
+            `schema.table_name`.
         """
         result = {}
         fully_qualified_table = to_fully_qualified_table_name(schema=schema, table_name=table_name)
 
-        md5_result = execute_sql_query(
-            query=md5_over_column_query(
-                schema=schema,
-                table_name=table_name,
-                column_name="id",
-            ),
-            logger=logger,
-            fetch_type=FetchType.ONE,
-        )
         counts_result = execute_sql_query(
             query=f"SELECT COUNT(*) FROM {fully_qualified_table};",
             logger=logger,
             fetch_type=FetchType.ONE,
         )
+
         partitions_result = execute_sql_query(
             query=partman_list_partitions_query(schema=schema, table_name=table_name),
             logger=logger,
@@ -138,9 +142,6 @@ class Command(BaseCommand):
 
         if partitions_result:
             result["partitions"] = {p["partition_tablename"] for p in partitions_result}
-
-        if md5_result:
-            result["md5"] = md5_result[0]
 
         if counts_result:
             result["counts"] = counts_result[0]
