@@ -83,7 +83,6 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
     def check_permissions(self, request):
         if request.user.is_anonymous:
             self.permission_denied(request)
-
         self.queryset_linked_user = (
             self.queryset_linked_user or Subject.objects.filter(linked_user=request.user).distinct()
         )
@@ -96,10 +95,9 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
     def get_queryset(self):
         queryset = Subject.objects.all()
         queryset = self.get_filtered_queryset(queryset=queryset)
-
         return queryset
 
-    def get_filtered_queryset(self, queryset: QuerySet):
+    def get_filtered_queryset(self, queryset: QuerySet) -> QuerySet:
         user = self.request.user
         query_params = self.request.query_params
 
@@ -124,7 +122,8 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
         queryset = check_to_include_inactive_subjects(self.request, queryset)
-        queryset = queryset.order_by("id").by_user_subjects(user).distinct()
+        queryset = queryset.order_by("id")
+        queryset = queryset.by_user_subjects(user).distinct()
         queryset = queryset.select_related("subject_subtype__subject_type", "common_name")
 
         # Handle filters for subject ID, group, and source groups
