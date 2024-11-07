@@ -125,7 +125,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
         # parameter set in by_user_subjects
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.order_by("id").by_user_subjects(user).distinct()
-        queryset = queryset.select_related("subject_subtype__subject_type").prefetch_related("common_name")
+        queryset = queryset.select_related("subject_subtype__subject_type", "common_name")
 
         # Handle filters for subject ID, group, and source groups
         subject_ids = query_params.get("id")
