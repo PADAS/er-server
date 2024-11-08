@@ -1115,33 +1115,13 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             all_subject_groups = set(allowed_subject_groups)
             for group in allowed_subject_groups:
                 all_subject_groups.update(group.get_descendants())
-            cache.set(f"user_{user.id}_subject_groups", all_subject_groups, timeout=60)  # Cache for 1 minute
+            cache.set(f"user_{user.id}_subject_groups", all_subject_groups, timeout=10)  # Cache for 10 sec
 
         subject_filter = Q(groups__in=all_subject_groups)
         if include_linked:
             subject_filter |= Q(linked_user=user)
 
         return self.filter(subject_filter)
-
-    def by_user_subjects_not_distinct2(self, user, include_linked=False):
-        # Avoid checking for a user that does not have permission sets (ex.
-        # AnonymousUser)
-        if not hasattr(user, "get_all_permission_sets"):
-            return self.none()
-
-        if user.is_superuser:
-            return self.all()
-
-        allowed_subject_groups = SubjectGroup.objects.all().filter(permission_sets__in=user.get_all_permission_sets())
-
-        effective_subject_group_set = set()
-        for subject_group in allowed_subject_groups:
-            effective_subject_group_set.add(subject_group)
-            effective_subject_group_set.update(subject_group.get_descendants())
-
-        if include_linked:
-            return self.filter(Q(groups__in=effective_subject_group_set) | Q(linked_user=user))
-        return self.filter(groups__in=effective_subject_group_set)
 
     def by_user_subjects(self, user):
         queryset = self.by_user_subjects_not_distinct(user)
@@ -1178,28 +1158,6 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         )
 
     def _query_string_for_filter(self, updated_since=None, updated_until=None):
-        # Start with an empty Q object
-        date_filter = Q()
-
-        if updated_since:
-            date_filter &= (
-                Q(updated_at__gte=updated_since)
-                | Q(status_recorded_at__gte=updated_since)
-                | Q(status_last_voice_call_start_at__gte=updated_since)
-                | Q(status_radio_state_at__gte=updated_since)
-            )
-
-        if updated_until:
-            date_filter &= (
-                Q(updated_at__lte=updated_until)
-                | Q(status_recorded_at__lte=updated_until)
-                | Q(status_last_voice_call_start_at__lte=updated_until)
-                | Q(status_radio_state_at__lte=updated_until)
-            )
-
-        return date_filter
-
-    def _query_string_for_filter1(self, updated_since=None, updated_until=None):
         updated_since_filter = (
             Q(updated_at__gte=updated_since)
             | Q(status_recorded_at__gte=updated_since)

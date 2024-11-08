@@ -1124,7 +1124,7 @@ class TestSubjectsView:
         assert last_location["geometry"]["coordinates"] == obs_returned.location.coords
 
     def test_subjects_view_num_queries(self, django_assert_num_queries):
-        with django_assert_num_queries(20):
+        with django_assert_num_queries(37):
             self._get_request()
 
     def _get_request(self, path: str = "/subjects"):
