@@ -1066,7 +1066,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                     "text": event_source.eventprovider.display,
                     "icon_url": event_source.eventprovider.additional.get("icon_url"),
                 }
-            break  # not using .first() to avoid extra query
+            break  # if we do .first() over one of this relationship managers it does not use the prefetched data
 
         # This is to fix https://vulcan.atlassian.net/browse/DAS-6264
         # TODO: Consider adjusting the context within the listed Views. x2
