@@ -397,7 +397,7 @@ def application():
 
 @pytest.fixture
 def create_user(das_tenant):
-    def _create_user(is_superuser=False, is_staff=True, das_tenant=das_tenant, **kwargs):
+    def _create_user(is_superuser=False, is_staff=False, das_tenant=das_tenant, **kwargs):
         kwargs.setdefault("das_tenant", das_tenant)
         kwargs.setdefault("is_superuser", is_superuser)
         kwargs.setdefault("is_staff", is_staff)
