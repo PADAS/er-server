@@ -1060,7 +1060,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                     "text": event_source.eventprovider.display,
                     "icon_url": event_source.eventprovider.additional.get("icon_url"),
                 }
-            break  # not using .first() to avoid extra query
+            break  # if we do .first() over one of this relationship managers it does not use the prefetched data
 
         rep["url"] = utils.add_base_url(request, reverse("event-view", args=[event.id]))
         image_url = resolve_image_url(event)
