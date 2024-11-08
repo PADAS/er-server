@@ -125,9 +125,9 @@ class EventDetailsSerializer(ModelSerializer):
 
             schema_field = all_schema_fields[k]
             enum_names = get_enum_names_for_field(k, schema_field, flattened_definitions)
-            if type(v) is dict and enum_names and "value" in v and v["value"] in enum_names:
+            if isinstance(v, dict) and enum_names and "value" in v and v["value"] in enum_names:
                 ret[k] = {"name": enum_names[v["value"]], "value": v["value"]}
-            elif type(v) is list and enum_names:
+            elif isinstance(v, list) and enum_names:
                 all_values = []
                 for value in v:
                     matches = []

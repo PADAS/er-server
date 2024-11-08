@@ -528,7 +528,9 @@ class EventSerializerMixin:
         geojson = None
         for geometry in event.geometries.all():
             geojson = self.feature_representation.get_feature(request, geometry)
-            break  # we only care about the first geometry, not using .first() to avoid extra query
+            # we only care about the first geometry
+            # if we do .first() over one of this relationship managers it does not use the prefetched data
+            break
         if hasattr(event, "location") and event.location:
             point_geojson = self.feature_representation.get_feature(request, event)
             if geojson:
