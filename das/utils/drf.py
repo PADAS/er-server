@@ -1,5 +1,6 @@
 import hashlib
 import logging
+from typing import List, Optional, Union
 
 from rest_framework_gis.pagination import GeoJsonPagination
 
@@ -7,16 +8,19 @@ import django.views.defaults
 from django.conf import settings
 from django.core.cache import caches
 from django.core.exceptions import ValidationError
-from django.core.paginator import Paginator
+from django.core.paginator import InvalidPage, Paginator
 from django.db import OperationalError, connection, transaction
+from django.db.models.query import QuerySet
 from django.http import JsonResponse
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from rest_framework import exceptions, status
 from rest_framework.pagination import CursorPagination, PageNumberPagination
 from rest_framework.permissions import SAFE_METHODS, BasePermission
+from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.views import exception_handler, set_rollback
+from rest_framework.settings import api_settings
+from rest_framework.views import APIView, exception_handler, set_rollback
 
 logger = logging.getLogger("django.request")
 
@@ -86,6 +90,48 @@ def api_exception_handler(exc, context):
     return fixup_api_response(response)
 
 
+class CachedCountPaginator(Paginator):
+
+    def __init__(self, count_cache_key: str, cache_timeout: int, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.count_cache_key = count_cache_key
+        self.cache_timeout = cache_timeout
+
+    @cached_property
+    def count(self):
+        cache = caches["default"]
+        value = cache.get(self.count_cache_key)
+        if value or value == 0:
+            return value
+
+        value = super().count
+        cache.set(self.count_cache_key, value, self.cache_timeout)
+        return value
+
+
+class TimeLimitedPaginator(Paginator):
+    """
+    Paginator that enforced a timeout on the count operation.
+    When the timeout is reached a "fake" large value is returned instead,
+    Why does this hack exist? On every admin list view, Django issues a
+    COUNT on the full queryset. There is no simple workaround. On big tables,
+    this COUNT is extremely slow and makes things unbearable. This solution
+    is what we came up with.
+    https://hakibenita.com/optimizing-the-django-admin-paginator
+    """
+
+    @cached_property
+    def count(self):
+        # We set the timeout in a db transaction to prevent it from
+        # affecting other transactions.
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute("SET LOCAL statement_timeout TO 200;")
+            try:
+                return super().count
+            except OperationalError:
+                return 9999999999
+
+
 class OptionalResultsSetPagination(PageNumberPagination):
     page_size_query_param = "page_size"
 
@@ -93,6 +139,83 @@ class OptionalResultsSetPagination(PageNumberPagination):
 class StandardResultsSetPagination(OptionalResultsSetPagination):
     page_size = settings.REST_FRAMEWORK["OPTIONAL_PAGE_SIZE"]
     max_page_size = settings.REST_FRAMEWORK["MAX_PAGE_SIZE"]
+
+
+class CachedCountResultsSetPagination(StandardResultsSetPagination):
+    """
+    This paginator caches the count of the queryset for a given timeout,
+    this is useful when the count operation is expensive...
+
+    The cache key is generated using the user, the path of the request and the query parameters that can affect the
+    number of items in the response.
+
+    The list of parameters that can be ignored when generating the cache key can be set in the view by setting the
+    `page_count_ignored_query_parameters` attribute to a list of strings.
+    """
+
+    cache_timeout = 60 * 15  # 15 minutes
+    cache_key = "{cache_prefix}:{user}:{path}:{query_parameters}"
+    cache_prefix = "pgn"
+
+    def get_parameters_for_cache_key(self, request: Request, view: Optional[APIView] = None) -> dict:
+        # We will take care of the user, the urlpath and the query parameters that can affect the number of items in
+        # the response, we will ignore the query parameters that can affect the order of the items in the response
+        ignored_query_parameters = {self.page_query_param, api_settings.ORDERING_PARAM}
+
+        if view:
+            ignored_query_parameters.update(getattr(view, "page_count_ignored_query_parameters", []))
+
+        query_parameters = request.query_params.copy()
+        for parameter in ignored_query_parameters:
+            query_parameters.pop(parameter, None)
+
+        return query_parameters
+
+    def get_cache_key(self, request: Request, view: Optional[APIView] = None) -> str:
+        query_parameters = self.get_parameters_for_cache_key(request, view)
+        # TODO...:
+        # Query parameters can be sorted to ensure the cache key is always the same
+        # Query parameters can be a list of values, so we need to read them as a list and sort them
+
+        query_parameters = "&".join([f"{key}={value}" for key, value in query_parameters.items()])
+
+        clean_path = request.get_full_path().split("?")[0]
+
+        return self.cache_key.format(
+            cache_prefix=self.cache_prefix,
+            user=str(request.user.id),
+            path=clean_path,
+            query_parameters=query_parameters,
+        )
+
+    def paginate_queryset(
+        self, queryset: QuerySet, request: Request, view: Optional[APIView] = None
+    ) -> Optional[Union[List, QuerySet]]:
+        """
+        Copied from the DRF source code but using our own paginator class
+        """
+        page_size = self.get_page_size(request)
+        if not page_size:
+            return None
+
+        cache_key = self.get_cache_key(request, view)
+        paginator = CachedCountPaginator(cache_key, self.cache_timeout, queryset, page_size)
+        page_number = request.query_params.get(self.page_query_param, 1)
+        if page_number in self.last_page_strings:
+            page_number = paginator.num_pages
+
+        try:
+            self.page = paginator.page(page_number)
+        except InvalidPage as exc:
+            msg = self.invalid_page_message.format(page_number=page_number, message=str(exc))
+            raise exceptions.NotFound(msg)
+
+        if paginator.num_pages > 1 and self.template is not None:
+            # The browsable API should display pagination controls.
+            self.display_page_controls = True
+
+        self.request = request
+        return list(self.page)
 
 
 class StandardResultsSetGeoJsonPagination(GeoJsonPagination):
@@ -161,29 +284,6 @@ class CachedCountStandardResultsSetPagination(StandardResultsSetPagination):
 class AllowAnyGet(BasePermission):
     def has_permission(self, request, view):
         return request.method in SAFE_METHODS or (request.user and request.user.is_authenticated)
-
-
-class TimeLimitedPaginator(Paginator):
-    """
-    Paginator that enforced a timeout on the count operation.
-    When the timeout is reached a "fake" large value is returned instead,
-    Why does this hack exist? On every admin list view, Django issues a
-    COUNT on the full queryset. There is no simple workaround. On big tables,
-    this COUNT is extremely slow and makes things unbearable. This solution
-    is what we came up with.
-    https://hakibenita.com/optimizing-the-django-admin-paginator
-    """
-
-    @cached_property
-    def count(self):
-        # We set the timeout in a db transaction to prevent it from
-        # affecting other transactions.
-        with transaction.atomic(), connection.cursor() as cursor:
-            cursor.execute("SET LOCAL statement_timeout TO 200;")
-            try:
-                return super().count
-            except OperationalError:
-                return 9999999999
 
 
 def return_409_response(message=None):

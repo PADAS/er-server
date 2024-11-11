@@ -615,6 +615,9 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self
 
     def by_text_filter(self, search_text):
+        search_text = search_text.strip()
+        if not search_text:
+            return self
         queryset = self
         ts_query = ":* & ".join(search_text.split()) + ":*"
         search_query = SearchQuery(ts_query, search_type="raw")
