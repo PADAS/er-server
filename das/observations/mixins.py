@@ -33,7 +33,6 @@ class TwoWaySubjectSourceMixin(object):
 
         subject_sources = (
             models.SubjectSource.objects.filter(subject__in=queryset.values(subjects).all())
-            .select_related("source", "source__provider")
             .annotate(
                 two_way_messaging=KeyTransform("two_way_messaging", "source__provider__additional"),
                 source_two_way_messaging=KeyTransform("two_way_messaging", "source__additional"),
@@ -46,6 +45,7 @@ class TwoWaySubjectSourceMixin(object):
                     & (Q(source_two_way_messaging=False, source_two_way_messaging__isnull=False))
                 )
             )
+            .prefetch_related("source", "source__provider")
             .values(
                 "id",
                 "subject_id",
