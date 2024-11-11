@@ -2,8 +2,6 @@
 Used in our production docker images
 """
 
-import os
-
 from .settings import *
 
 # Let CACHES depend on settings.CELERY_ configuration.
@@ -33,6 +31,7 @@ SECRET_KEY = "aefefsfees"
 DEBUG = env.bool("ENABLE_DEBUG", False)
 TEMPLATE_DEBUG = env.bool("ENABLE_DEBUG", False)
 DEV = env.bool("ENABLE_DEV", False)
+ENABLE_SILK = env.bool("ENABLE_SILK", False)
 
 SHOW_TRACK_DAYS = env.int("SHOW_TRACK_DAYS", 14)
 DEFAULT_EVENT_FILTER_FROM_DAYS = env.int("DEFAULT_EVENT_FILTER_FROM_DAYS", -1)
@@ -48,7 +47,7 @@ DAILY_REPORT_TEMPLATE_SUBFOLDER = SERVER_FQDN
 
 # Build a list to include legacy names for APN, FZS and WPS sites. This will be temporary
 # during a period when clients and users might still be browsing to our
-# old partner sub-domains.
+# old partner subdomains.
 SERVER_NAMES = [
     SERVER_FQDN,
     SERVER_FQDN.replace("pamdas.org", "apn.pamdas.org"),
@@ -143,10 +142,26 @@ SUBJECT_REGION_ENABLED = env.bool("SUBJECT_REGION_ENABLED", True)
 UI_SITE_NAME = f"EarthRanger {SERVER_FQDN}"
 UI_SITE_URL = f"https://{SERVER_FQDN}"
 
+if ENABLE_SILK:
+    INSTALLED_APPS += ("silk",)
+    SILK_MIDDLEWARE = "silk.middleware.SilkyMiddleware"
+    if "silk" in INSTALLED_APPS and SILK_MIDDLEWARE not in MIDDLEWARE:
+        atindex = MIDDLEWARE.index("django.contrib.sessions.middleware.SessionMiddleware") + 1
+        MIDDLEWARE = list(MIDDLEWARE)
+        MIDDLEWARE.insert(atindex, SILK_MIDDLEWARE)
+        MIDDLEWARE = tuple(MIDDLEWARE)
+
+        SILKY_PYTHON_PROFILER = True
+        SILKY_AUTHENTICATION = True
+        SILKY_MAX_RESPONSE_BODY_SIZE = 2048
+        SILKY_MAX_REQUEST_BODY_SIZE = -1
+        SILKY_META = True
+        SILKY_ANALYZE_QUERIES = True
+        SILKY_EXPLAIN_FLAGS = {"format": "JSON", "costs": True}
+
 # Django Debug Toolbar Settings enabled if DEV=True
 if DEV:
     INSTALLED_APPS += ("debug_toolbar",)
-
     DEBUG_TOOLBAR_APP = "debug_toolbar.middleware.DebugToolbarMiddleware"
     if "debug_toolbar" in INSTALLED_APPS and DEBUG_TOOLBAR_APP not in MIDDLEWARE:
         DEBUG = DEV = True
@@ -155,10 +170,9 @@ if DEV:
         MIDDLEWARE.insert(atindex, DEBUG_TOOLBAR_APP)
         MIDDLEWARE = tuple(MIDDLEWARE)
 
-    DEBUG_TOOLBAR_CONFIG = {
-        "SHOW_TOOLBAR_CALLBACK": lambda x: True,
-    }
-
+        DEBUG_TOOLBAR_CONFIG = {
+            "SHOW_TOOLBAR_CALLBACK": lambda x: True,
+        }
 
 GFW_CLUSTER_RADIUS = env.int("GFW_CLUSTER_RADIUS", 5)
 GFW_BACKFILL_INTERVAL_DAYS = env.int("GFW_BACKFILL_INTERVAL_DAYS", 10)
