@@ -79,7 +79,6 @@ if settings.DEV:
     except ImportError:
         pass
 
-
 else:
     urlpatterns += [
         re_path(r"^$", views.index),

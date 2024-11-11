@@ -162,7 +162,6 @@ if ENABLE_SILK:
 # Django Debug Toolbar Settings enabled if DEV=True
 if DEV:
     INSTALLED_APPS += ("debug_toolbar",)
-
     DEBUG_TOOLBAR_APP = "debug_toolbar.middleware.DebugToolbarMiddleware"
     if "debug_toolbar" in INSTALLED_APPS and DEBUG_TOOLBAR_APP not in MIDDLEWARE:
         DEBUG = DEV = True
