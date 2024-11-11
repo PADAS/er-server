@@ -58,8 +58,9 @@ urlpatterns = [
 # give the api a chance to override and return json
 django.conf.urls.handler404 = "utils.drf.error404View"
 
-if settings.DEV:
+if settings.ENABLE_SILK:
     urlpatterns += [path("silk/", include("silk.urls", namespace="silk"))]
+if settings.DEV:
     urlpatterns += [
         re_path(
             r"^(?:index.html)?$",
