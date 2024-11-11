@@ -77,7 +77,11 @@ from activity.views.schemas import EventsViewSchema
 from core.permissions import UserCanExportDataPermission
 from observations.models import Subject
 from utils.db.expresions import ArraySubquery
-from utils.drf import StandardResultsSetGeoJsonPagination, StandardResultsSetPagination
+from utils.drf import (
+    CachedCountResultsSetPagination,
+    StandardResultsSetGeoJsonPagination,
+    StandardResultsSetPagination,
+)
 from utils.json import ExtendedGEOJSONRenderer, parse_bool
 
 logger = logging.getLogger(__name__)
@@ -515,7 +519,7 @@ class EventsView(ListCreateAPIView):
 
     page_size, (default is {page_size}, max is {max_page_size})
     """.format(
-        page_size=StandardResultsSetPagination.page_size, max_page_size=StandardResultsSetPagination.max_page_size
+        page_size=CachedCountResultsSetPagination.page_size, max_page_size=CachedCountResultsSetPagination.max_page_size
     )
     permission_classes = (EventCategoryGeographicPermission,)
     filter_backends = (
@@ -525,10 +529,20 @@ class EventsView(ListCreateAPIView):
         OrderingFilter,
     )
     serializer_class = EventSerializer
-    pagination_class = StandardResultsSetPagination
+    pagination_class = CachedCountResultsSetPagination
     metadata_class = EventJSONSchema
     ordering_fields = ("event_time", "updated_at", "serial_number", "created_at", "sort_at")
     ordering = ("-sort_at",)
+
+    page_count_ignored_query_parameters = (
+        "format",
+        "sort_by",
+        "include_updates",
+        "include_details",
+        "include_files",
+        "include_related_events",
+        "include_notes",
+    )
 
     schema = EventsViewSchema()
 
