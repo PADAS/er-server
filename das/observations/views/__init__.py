@@ -1924,7 +1924,7 @@ class MessagesView(generics.ListCreateAPIView):
                 ),
                 params=[*params, number_recent_msg, number_recent_msg],
             )
-        return messages
+        return messages.select_related("device")
 
     def post(self, request, *args, **kwargs):
         data = request.data
