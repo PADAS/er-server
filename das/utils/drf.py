@@ -12,6 +12,7 @@ from django.core.paginator import InvalidPage, Paginator
 from django.db import OperationalError, connection, transaction
 from django.db.models.query import QuerySet
 from django.http import JsonResponse
+from django.http.request import QueryDict
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from rest_framework import exceptions, status
@@ -171,12 +172,21 @@ class CachedCountResultsSetPagination(StandardResultsSetPagination):
 
         return query_parameters
 
+    def get_sorted_query_parameters(self, query_parameters: QueryDict) -> dict:
+        sorted_query_parameters = {}
+
+        for key in sorted(query_parameters.keys()):
+            value = query_parameters.getlist(key)
+            if len(value) > 1:
+                sorted_query_parameters[key] = ",".join(sorted(value))
+            else:
+                sorted_query_parameters[key] = value[0]
+
+        return sorted_query_parameters
+
     def get_cache_key(self, request: Request, view: Optional[APIView] = None) -> str:
         query_parameters = self.get_parameters_for_cache_key(request, view)
-        # TODO...:
-        # Query parameters can be sorted to ensure the cache key is always the same
-        # Query parameters can be a list of values, so we need to read them as a list and sort them
-
+        query_parameters = self.get_sorted_query_parameters(query_parameters)
         query_parameters = "&".join([f"{key}={value}" for key, value in query_parameters.items()])
 
         clean_path = request.get_full_path().split("?")[0]
