@@ -2503,6 +2503,10 @@ class Message(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        indexes = [
+            Index(fields=["das_tenant", "-message_time"]),
+            Index(fields=["das_tenant", "read"]),
+        ]
         index_together = [
             ("das_tenant", "sender_id", "message_time"),
             ("das_tenant", "receiver_id", "message_time"),
