@@ -420,6 +420,10 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
     def image_url(self):
         return Event.marker_icon(self.icon_id, PRI_BLACK, Event.SC_NEW)
 
+    @property
+    def has_events_assigned(self) -> bool:
+        return self.event_set.exists()
+
     def set_to_inactive(self):
         self.is_active = False
         self.save()

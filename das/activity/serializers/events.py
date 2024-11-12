@@ -211,7 +211,7 @@ class EventTypeSerializer(ModelSerializer):
 
     class Meta:
         model = EventType
-        read_only_fields = ("id",)
+        read_only_fields = ("id", "has_events_assigned")
         write_only_fields = ("icon",)
         fields = (
             read_only_fields
