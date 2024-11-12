@@ -10,6 +10,7 @@ autopep8==2.0.4
 black==22.12.0
 coverage==7.5.3
 django-fakeredis==0.1.2
+django-silk==4.4.1
 factory-boy==3.3.0
 Faker==24.14.0
 flake8==6.0.0

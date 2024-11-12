@@ -1,7 +1,7 @@
-# gdal image: ghcr.io/osgeo/gdal:ubuntu-small-3.4.1
-# Ubuntu 20.04.3 LTS
+# gdal image: ghcr.io/osgeo/gdal:ubuntu-small-3.4.3
+# Ubuntu 20.04.4 LTS
 # python 3.8.10
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.4.1
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.4.3
 ARG PYTHON_VERSION_ID="3.8"
 ARG PYTHON_VERSION="3.8.10"
 ARG CP_VER="cp38"
@@ -76,12 +76,14 @@ RUN echo ogrinfo --version
 RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && apt-get update -y && apt-get install google-cloud-sdk -y
 
 
-WORKDIR /workspace
-ADD ./dependencies /workspace/dependencies
+WORKDIR /workspaces/das
+ADD ./dependencies /workspaces/das/dependencies
 
 SHELL ["/bin/bash", "-c"]
 
 RUN python3 -m pip install --upgrade pip
 RUN pip3 install setuptools==58.0.4
 
-RUN pip3 --disable-pip-version-check --no-cache-dir install -r /workspace/dependencies/requirements-dev.txt -r /workspace/dependencies/requirements-pinned.txt -f /workspace/dependencies/wheelhouse
+RUN pip3 --disable-pip-version-check --no-cache-dir install -r \
+  /workspaces/das/dependencies/requirements-dev.txt -r \
+  /workspaces/das/dependencies/requirements-pinned.txt -f /workspaces/das/dependencies/wheelhouse
