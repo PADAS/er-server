@@ -78,7 +78,6 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
         ],
     }
     queryset_linked_user = None
-    queryset = None
 
     def check_permissions(self, request):
         if request.user.is_anonymous:
@@ -92,12 +91,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
                 if not permission.has_permission(request, self):
                     self.permission_denied(request)
 
-    def get_queryset(self):
-        queryset = Subject.objects.all()
-        queryset = self.get_filtered_queryset(queryset=queryset)
-        return queryset
-
-    def get_filtered_queryset(self, queryset: QuerySet) -> QuerySet:
+    def get_queryset(self) -> QuerySet:
         user = self.request.user
         query_params = self.request.query_params
 
@@ -121,10 +115,10 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
 
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
+        queryset = Subject.objects.all()
+        queryset = queryset.select_related("subject_subtype", "subject_subtype__subject_type", "common_name")
         queryset = check_to_include_inactive_subjects(self.request, queryset)
-        queryset = queryset.order_by("id")
         queryset = queryset.by_user_subjects(user).distinct()
-        queryset = queryset.select_related("subject_subtype__subject_type", "common_name")
 
         # Handle filters for subject ID, group, and source groups
         subject_ids = query_params.get("id")
@@ -140,9 +134,11 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
             # permissions.
             source_groups = SourceGroup.objects.filter(permission_sets__in=user.get_all_permission_sets())
 
-            subjects_via_source_groups = Subject.objects.filter(
-                subjectsource__source__groups__in=source_groups
-            ).distinct()
+            subjects_via_source_groups = (
+                Subject.objects.filter(subjectsource__source__groups__in=source_groups)
+                .select_related("subjectsource__source")
+                .distinct()
+            )
             queryset |= subjects_via_source_groups
 
             if not user.is_superuser:
@@ -221,7 +217,8 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
                     "subject_subtype", "subject_subtype__subject_type", "common_name"
                 ).annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
             )
-        return queryset
+
+        return queryset.order_by("id")
 
     def get_serializer_context(self):
         query_params = self.request.query_params

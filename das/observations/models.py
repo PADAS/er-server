@@ -1104,7 +1104,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
 
         if user.is_superuser:
             return self.all()
-        allowed_subject_groups = SubjectGroup.objects.all().filter(permission_sets__in=user.get_all_permission_sets())
+        allowed_subject_groups = SubjectGroup.objects.filter(permission_sets__in=user.get_all_permission_sets())
 
         # Check if cached descendants are available
         effective_subject_group_set = set()
@@ -2125,7 +2125,7 @@ class CommonNameManager(TenantManagerMixin, models.Manager):
 class CommonName(TenantModelMixin, TimestampedModel):
     """Common name for an animal, could stretch this to other subtypes as well."""
 
-    subject_subtype = TenantForeignKey(SubjectSubType, on_delete=models.PROTECT, default=get_default_subject_subtype)
+    subject_subtype = TenantForeignKey(SubjectSubType, on_delete=models.PROTECT)
     value = models.CharField(primary_key=True, max_length=100)
     display = models.CharField(max_length=100)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
@@ -2140,6 +2140,11 @@ class CommonName(TenantModelMixin, TimestampedModel):
 
     def __str__(self):
         return self.display
+
+    def save(self, *args, **kwargs):
+        if not self.subject_subtype:
+            self.subject_subtype = get_default_subject_subtype()
+        super().save(*args, **kwargs)
 
 
 def generate_subject_status_serial_number():
