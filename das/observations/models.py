@@ -42,7 +42,6 @@ from django.contrib.gis.db import models as dbmodels
 from django.contrib.gis.geos import Point, Polygon
 from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
-from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import connections, transaction
 from django.db.models import (
@@ -1105,23 +1104,17 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
 
         if user.is_superuser:
             return self.all()
-
-        permission_sets = user.get_all_permission_sets()
-        allowed_subject_groups = SubjectGroup.objects.filter(permission_sets__in=permission_sets)
+        allowed_subject_groups = SubjectGroup.objects.all().filter(permission_sets__in=user.get_all_permission_sets())
 
         # Check if cached descendants are available
-        all_subject_groups = cache.get(f"user_{user.id}_subject_groups")
-        if not all_subject_groups:
-            all_subject_groups = set(allowed_subject_groups)
-            for group in allowed_subject_groups:
-                all_subject_groups.update(group.get_descendants())
-            cache.set(f"user_{user.id}_subject_groups", all_subject_groups, timeout=10)  # Cache for 10 sec
+        effective_subject_group_set = set()
+        for subject_group in allowed_subject_groups:
+            effective_subject_group_set.add(subject_group)
+            effective_subject_group_set.update(subject_group.get_descendants())
 
-        subject_filter = Q(groups__in=all_subject_groups)
         if include_linked:
-            subject_filter |= Q(linked_user=user)
-
-        return self.filter(subject_filter)
+            return self.filter(Q(groups__in=effective_subject_group_set) | Q(linked_user=user))
+        return self.filter(groups__in=effective_subject_group_set)
 
     def by_user_subjects(self, user):
         queryset = self.by_user_subjects_not_distinct(user)
