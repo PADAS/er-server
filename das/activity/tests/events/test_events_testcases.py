@@ -54,6 +54,20 @@ from activity.models import (
 from activity.serializers import EventDetailsSerializer
 from activity.tasks import automatically_update_event_state
 from activity.tests import schema_examples
+from activity.tests.events import (
+    ET_CARCASS,
+    ET_LOGISTICS,
+    ET_MONITORING,
+    ET_OTHER,
+    ET_SECURITY,
+    all_permissions,
+    eventsource_user_event_permissions,
+    eventsource_user_permissions,
+    guest_user_permissions,
+    power_user_permissions,
+    radio_room_user_permissions,
+    reported_by_permission_set_id,
+)
 from choices.models import Choice, DynamicChoice
 from client_http import HTTPClient
 from core.tests import BaseAPITest
@@ -73,69 +87,6 @@ from utils.tests_tools import BaseTestToolMixin
 logger = logging.getLogger(__name__)
 
 User = django.contrib.auth.get_user_model()
-ET_OTHER = "other"
-
-ET_CARCASS = "carcass_rep"
-ET_SECURITY = ET_CARCASS
-ET_MONITORING = "wildlife_sighting_rep"
-ET_LOGISTICS = "all_posts"
-
-# These permission lists are made up, and do not necessarily correspond to permission sets in production deployments
-# All perms user has... all perms
-all_permissions = [
-    "security_create",
-    "security_read",
-    "security_update",
-    "security_delete",
-    "monitoring_create",
-    "monitoring_read",
-    "monitoring_update",
-    "monitoring_delete",
-    "logistics_create",
-    "logistics_read",
-    "logistics_update",
-    "logistics_delete",
-]
-# Power user has all access to logistics and monitoring events, but can only
-# read security events
-power_user_permissions = [
-    "security_read",
-    "monitoring_create",
-    "monitoring_read",
-    "monitoring_update",
-    "monitoring_delete",
-    "logistics_create",
-    "logistics_read",
-    "logistics_update",
-    "logistics_delete",
-]
-# Radio room users can create any type of event, view/update monitoring and
-# logistics events, and delete nothing
-radio_room_user_permissions = [
-    "security_create",
-    "monitoring_create",
-    "monitoring_read",
-    "monitoring_update",
-    "logistics_create",
-    "logistics_read",
-    "logistics_update",
-]
-
-eventsource_user_permissions = [
-    "add_eventsource",
-    "change_eventsource",
-    "delete_eventsource",
-    "create_event_for_eventsource",
-]
-
-eventsource_user_event_permissions = [
-    "security_create",
-]
-
-# Guest users can see logistics events and nothing else
-guest_user_permissions = ["logistics_read"]
-
-reported_by_permission_set_id = "b5057387-9f6c-4685-8ec1-46ad29684eea"
 
 
 def fake_get_pool():
@@ -145,6 +96,10 @@ def fake_get_pool():
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 @patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
 class TestEventView(BaseTestToolMixin, BaseAPITest):
+    """
+    Legacy tests for the EventView class. Try to avoid adding new tests here.
+    """
+
     user_const = dict(last_name="last", first_name="first")
 
     def setUp(self):
@@ -3733,28 +3688,3 @@ class TestEventView2(BaseTestToolMixin):
         json_schema = events_view._get_json_schema(event_type)
 
         assert json_schema == schema_waited
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("das_tenant_monkeypatch")
-class TestSerialNumberOnEventModel:
-    def test_serial_number_added_on_save(self):
-        event_1 = Event(title="Test Event 1")
-        event_1.save()
-        event_2 = Event(title="Test Event 2")
-        event_2.save()
-        event_3 = Event(title="Test Event 3")
-        event_3.save()
-
-        assert event_1.serial_number == 1
-        assert event_2.serial_number == 2
-        assert event_3.serial_number == 3
-
-    def test_serial_number_added_on_create(self):
-        event_1 = Event.objects.create(title="Test Event 1")
-        event_2 = Event.objects.create(title="Test Event 2")
-        event_3 = Event.objects.create(title="Test Event 3")
-
-        assert event_1.serial_number == 1
-        assert event_2.serial_number == 2
-        assert event_3.serial_number == 3
