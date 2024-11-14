@@ -407,7 +407,7 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         return rep
 
     def create(self, validated_data):
-        if "request1" in self.context:
+        if "request" in self.context:
             request = self.context["request"]
             validated_data["owner"] = request.user
 
