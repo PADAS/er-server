@@ -2595,6 +2595,5 @@ class LatestObservationSource(TenantModelMixin, models.Model):
     objects = CommonTenantManager()
 
     class Meta:
-        constraints = [
-            UniqueConstraint(fields=["das_tenant", "source"], name="%(app_label)s_%(class)s_tenant_source_unique"),
-        ]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
