@@ -243,9 +243,9 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
-        user = getattr(self.context.get("request", None), "user", None)
-        render_last_location = self.context.get("render_last_location", True)
         request = self.context.get("request")
+        render_last_location = self.context.get("render_last_location", True)
+        user = getattr(request, "user", None)
 
         additional = instance.additional
         additional = {k: additional[k] for k in self.additional_fields if k in additional}
