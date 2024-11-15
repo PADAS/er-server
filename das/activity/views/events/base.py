@@ -10,28 +10,6 @@ from typing import Union
 
 import dateutil.parser as dateparser
 import pytz
-from psycopg2.errors import InvalidTextRepresentation
-from rest_framework_extensions.etag.decorators import etag
-
-from django.contrib.auth import get_user_model
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
-from django.db import transaction
-from django.db.models import Count, OuterRef, Prefetch, Q, TextField
-from django.db.models.functions import JSONObject
-from django.db.utils import DataError
-from django.http import HttpResponse
-from django.utils import timezone
-from rest_framework import status
-from rest_framework.generics import (
-    ListAPIView,
-    ListCreateAPIView,
-    RetrieveUpdateAPIView,
-    RetrieveUpdateDestroyAPIView,
-)
-from rest_framework.response import Response
-from rest_framework.views import APIView
-
 import utils.schema_utils as schema_utils
 from accounts.serializers import UserDisplaySerializer
 from activity.filters import EventObjectPermissionsFilter
@@ -70,7 +48,27 @@ from activity.views.helpers import (
 )
 from activity.views.schemas import EventsViewSchema
 from core.permissions import UserCanExportDataPermission
+from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
+from django.db import transaction
+from django.db.models import Count, OuterRef, Prefetch, Q, TextField
+from django.db.models.functions import JSONObject
+from django.db.utils import DataError
+from django.http import HttpResponse
+from django.utils import timezone
 from observations.models import Subject
+from psycopg2.errors import InvalidTextRepresentation
+from rest_framework import status
+from rest_framework.generics import (
+    ListAPIView,
+    ListCreateAPIView,
+    RetrieveUpdateAPIView,
+    RetrieveUpdateDestroyAPIView,
+)
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_extensions.etag.decorators import etag
 from utils.categories import (
     get_categories_and_geo_categories,
     make_eventcategory_permission_codename,
@@ -616,12 +614,8 @@ class EventsView(ListCreateAPIView):
             logger.debug("Filtering on patrol segment id: %s", patrol_segment_id)
             queryset = queryset.filter(patrol_segments__id=patrol_segment_id)
 
-        event_ids = query_params.get("event_ids", [])
+        event_ids = query_params.getlist("event_ids", None)
         if event_ids:
-            if isinstance(event_ids, str):
-                event_ids = [
-                    event_ids,
-                ]
             queryset = queryset.filter(id__in=event_ids)
 
         bbox = query_params.get("bbox", None)
