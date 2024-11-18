@@ -24,7 +24,9 @@ import django.contrib.auth
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point, Polygon
 from django.core.management import call_command
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import dateparse, lorem_ipsum, timezone
 from rest_framework.fields import DateTimeField
@@ -3064,7 +3066,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         event_type.schema = et_schema
         event_type.save()
 
-        url = self.api_base + f"/events/schema/eventtype/"
+        url = self.api_base + "/events/schema/eventtype/"
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
@@ -3085,10 +3087,8 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
     def test_case_insensitive_eventtype(self):
         eventtype_value = "Smart_rhino_sighting"
         event_category = EventCategory.objects.create(value="test_category", display="Test Category", ordernum=1)
-        event_type = EventType.objects.create(
-            value=eventtype_value, display="Smart Rhino Sighting", category=event_category
-        )
-        url = self.api_base + f"/events/schema/eventtype/"
+        EventType.objects.create(value=eventtype_value, display="Smart Rhino Sighting", category=event_category)
+        url = self.api_base + "/events/schema/eventtype/"
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventTypeSchemaView.as_view()(request, eventtype=eventtype_value)
@@ -3163,7 +3163,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
             assert all(inactive_choices) not in data.get("enumNames").keys()
 
     def test_flat_definition(self):
-        choice = Choice.objects.create(
+        Choice.objects.create(
             model="activity.event",
             field="wildlifesighting_species",
             value="elephant",
@@ -3214,7 +3214,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         event_type.schema = et_schema
         event_type.save()
 
-        url = self.api_base + f"/events/schema/eventtype/?definition=flat"
+        url = self.api_base + "/events/schema/eventtype/?definition=flat"
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
@@ -3241,14 +3241,14 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
             == 3
         )
 
-        url = self.api_base + f"/events/schema/eventtype/?definition=invalid"
+        url = self.api_base + "/events/schema/eventtype/?definition=invalid"
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
         assert response.status_code == 400
 
     def test_schema_with_string_arrays(self):
-        choice = Choice.objects.create(
+        Choice.objects.create(
             model="activity.event",
             field="wildlifesighting_species",
             value="elephant",
@@ -3778,6 +3778,18 @@ class TestEventView2(BaseTestToolMixin):
         assert response.status_code == 200
         for event in response.data["results"]:
             assert event["event_category"] in permissions
+
+    def test_database_hits(self, five_events_with_details):
+        """Test the number of database hits for the events view"""
+        url = reverse("events")
+        client = HTTPClient()
+
+        with CaptureQueriesContext(connection) as queries_context:
+            request = client.factory.get(url)
+            client.force_authenticate(request, client.app_user)
+            response = views.EventsView.as_view()(request)
+            assert response.status_code == 200
+            assert len(queries_context.captured_queries) <= 10
 
     def test_events_view_with_no_location(self, settings, monkeypatch, tenant):
         is_banned = MagicMock(return_value=False)

@@ -37,8 +37,10 @@ class TestEventViewFilters:
         self, superuser_client, five_events_with_details, tenant_document_cache_client_mock, tenant_response
     ):
         url = reverse("events")
-        with patch("rest_framework.generics.mixins.ListModelMixin.list") as list_mock:
-            list_mock.side_effect = InvalidTextRepresentation("This message should not reach the user")
+        with patch("activity.views.events.base.EventsView.get_paginated_response") as get_paginated_response_mock:
+            get_paginated_response_mock.side_effect = InvalidTextRepresentation(
+                "This message should not reach the user"
+            )
             response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
