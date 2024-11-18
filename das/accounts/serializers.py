@@ -55,7 +55,7 @@ class UserDisplaySerializer(rest_framework.serializers.ModelSerializer):
         read_only_fields = fields
 
     def to_internal_value(self, data):
-        if not "id" in data:
+        if "id" not in data:
             raise ValidationError("Missing id in deserializing User object")
         obj = get_user_model().objects.get(id=data["id"])
         return obj

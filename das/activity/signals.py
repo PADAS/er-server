@@ -3,6 +3,7 @@ import logging
 
 from django_multitenant.utils import get_current_tenant
 
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models.signals import m2m_changed, post_delete, post_save, pre_save
 from django.dispatch import receiver
@@ -171,6 +172,7 @@ def update_patrolstate(sender, instance, **kwargs):
             instance.state = PC_OPEN
 
 
+# EventCategory signals
 @receiver(post_save, sender=EventCategory)
 def ensure_perms_exist(sender, **kwargs):
     if not get_current_tenant():
@@ -185,3 +187,9 @@ def ensure_perms_exist(sender, **kwargs):
 def slugify_category_value_field(sender, instance, **kwargs):
     if instance._state.adding:
         instance.value = slugify(instance.value)
+
+
+@receiver(post_save, sender=EventCategory)
+@receiver(post_delete, sender=EventCategory)
+def invalidate_active_categories_cache(sender, **kwargs):
+    cache.delete(EventCategory.CATEGORIES_CACHE_KEY)

@@ -8,8 +8,7 @@ class ReportedByRelatedField(GenericRelatedField):
 
     def check_has_event_category_permission(self):
         # Checks if the user has any event-category permission.
-        event_categories = EventCategory.objects.values_list("value").distinct()
-        event_categories = [ec[0] for ec in event_categories]
+        event_categories = EventCategory.get_category_keys()
         actions = ("create", "update", "read", "delete")
         request = self.context.get("request")
 
