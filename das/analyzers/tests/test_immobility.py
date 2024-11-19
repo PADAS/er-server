@@ -7,6 +7,7 @@ from django_multitenant.utils import set_current_tenant
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.gis.db import models
+from django.core.cache import cache
 from django.core.management import call_command
 from django.db import transaction
 
@@ -215,6 +216,7 @@ class TestImmobilityAnalyzer(BaseAPITest):
         request = self.factory.get(self.api_base + "/events/")
         self.force_authenticate(request, self.app_user)
 
+        cache.clear()
         response = views.EventsView.as_view()(request)
         assert response.status_code == 200
         assert len(response.data["results"]) == 1

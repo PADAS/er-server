@@ -2,17 +2,21 @@ import copy
 import logging
 import traceback
 from collections import OrderedDict
+from typing import Dict, List, Optional
 
 from django_multitenant.utils import get_current_tenant
 from drf_extra_fields.geo_fields import PointField
+from google.auth.exceptions import GoogleAuthError
 from opentelemetry import trace
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
 
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import Polygon
 from django.db.utils import IntegrityError
 from django.urls import reverse
+from rest_framework.request import Request
 from rest_framework.serializers import (
     LIST_SERIALIZER_KWARGS,
     CharField,
@@ -364,7 +368,7 @@ class EventNoteSerializer(ModelSerializer):
 class EventSerializerMixin:
     feature_representation = FeatureRepresentation()
 
-    def to_internal_value(self, data):
+    def to_internal_value(self, data: dict) -> dict:
         internal_value = super().to_internal_value(data)
 
         for x in ("contains", "is_linked_to", "collection"):
@@ -373,10 +377,10 @@ class EventSerializerMixin:
 
         return internal_value
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict) -> Event:
         return self.create_event(validated_data)
 
-    def create_event(self, validated_data):
+    def create_event(self, validated_data: dict) -> Event:
         details_data = {}
 
         if "event_details" in validated_data:
@@ -448,7 +452,7 @@ class EventSerializerMixin:
 
         return Event.objects.get(id=new_event.id)
 
-    def update(self, instance, validated_data):
+    def update(self, instance: Event, validated_data: dict) -> Event:
         logger.info("Inside update: %s", validated_data)
         update_fields = []
 
@@ -490,7 +494,7 @@ class EventSerializerMixin:
             instance.save(update_fields=update_fields)
         return instance
 
-    def render_updates(self, event):
+    def render_updates(self, event: Event) -> List[Dict]:
         result = []
 
         if hasattr(event, "revisions"):
@@ -505,18 +509,13 @@ class EventSerializerMixin:
                 record = dict(
                     message=f"{action}",
                     time=revision.revision_at.isoformat(),
-                    user=self.get_revision_user(revision.user, event),
+                    user=self.get_revision_user(event, revision.user),
                     type=get_update_type(revision, revisions),
                 )
                 result.append(record)
         return result
 
-    def get_user_display(self, user, event):
-        if user:
-            return get_user_display(user)
-        return event.get_provenance_display()
-
-    def get_revision_user(self, user, event):
+    def get_revision_user(self, event: Event, user: Optional[AbstractBaseUser] = None) -> dict:
         if user:
             return UserDisplaySerializer().to_representation(user)
         return {
@@ -525,10 +524,13 @@ class EventSerializerMixin:
             "username": event.provenance,
         }
 
-    def get_geojson(self, request, event):
+    def get_geojson(self, request: Request, event: Event) -> Optional[Dict]:
         geojson = None
-        if geometry := event.geometries.first():
+        for geometry in event.geometries.all():
             geojson = self.feature_representation.get_feature(request, geometry)
+            # we only care about the first geometry
+            # if we do .first() over one of this relationship managers it does not use the prefetched data
+            break
         if hasattr(event, "location") and event.location:
             point_geojson = self.feature_representation.get_feature(request, event)
             if geojson:
@@ -566,7 +568,7 @@ class EventHeaderSerializer(EventSerializerMixin, ModelSerializer):
             "state",
         )
 
-    def to_representation(self, event):
+    def to_representation(self, event: Event) -> dict:
         rep = super().to_representation(event)
         if "request" in self.context:
             request = self.context["request"]
@@ -593,12 +595,21 @@ class EventHeaderSerializer(EventSerializerMixin, ModelSerializer):
 
 
 class EventRelationshipSerializer(ModelSerializer):
-    def to_internal_value(self, data):
-        return super().to_internal_value(data)
 
     type = EventRelationshipTypeRelatedField()
 
-    def to_representation(self, instance):
+    class Meta:
+        model = EventRelationship
+        read_only_fields = (
+            "created_at",
+            "updated_at",
+        )
+        fields = (
+            "type",
+            "ordernum",
+        )
+
+    def to_representation(self, instance: EventRelationship) -> dict:
         rep = super().to_representation(instance)
 
         if "request" in self.context:
@@ -623,28 +634,15 @@ class EventRelationshipSerializer(ModelSerializer):
         else:
             related_event = instance.from_event
 
-        # related_event = instance.to_event if direction == 'out' else instance.from_event
-
         rep["related_event"] = EventHeaderSerializer(instance=related_event, many=False, context=self.context).data
 
         return rep
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict) -> dict:
         to_event_id = attrs.get("to_event_id")
         if to_event_id and to_event_id == self.instance.from_event.id:
             raise ValidationError("An event may not be related to itself.")
         return super().validate(attrs)
-
-    class Meta:
-        model = EventRelationship
-        read_only_fields = (
-            "created_at",
-            "updated_at",
-        )
-        fields = (
-            "type",
-            "ordernum",
-        )
 
 
 class EventSourceSerializer(ModelSerializer):
@@ -666,9 +664,7 @@ class EventSourceSerializer(ModelSerializer):
         )
 
     def to_representation(self, obj):
-        rep = super().to_representation(
-            obj,
-        )
+        rep = super().to_representation(obj)
         rep["url"] = utils.add_base_url(
             self.context["request"],
             reverse(
@@ -704,12 +700,8 @@ class EventProviderSerializer(ModelSerializer):
         fields = read_only_fields + ("display", "additional", "is_active")
 
     def to_representation(self, obj):
-        rep = super().to_representation(
-            obj,
-        )
-
+        rep = super().to_representation(obj)
         rep["owner"] = UserSerializer().to_representation(obj.owner)
-
         rep["url"] = utils.add_base_url(self.context["request"], reverse("eventprovider-view", args=[obj.id]))
 
         return rep
@@ -770,9 +762,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
     time = DateTimeField(source="event_time", required=False)
     created_at = DateTimeField(required=False)
     updated_at = DateTimeField(source="sort_at", required=False)
-    sort_at = DateTimeField(
-        required=False,
-    )
+    sort_at = DateTimeField(required=False)
     created_by_user = HiddenField(default=CurrentUserDefault())
     notes = EventNoteSerializer(many=True, required=False)
     reported_by = ReportedByRelatedField(required=False, allow_null=True)
@@ -781,6 +771,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
     title = CharField(required=False, allow_blank=True)
     # photos = EventPhotoSerializer(many=True, required=False)
     event_type = EventTypeRelatedField(required=False)
+    event_category = SerializerMethodField()
     event_details = EventDetailsSerializer(required=False, default={})
 
     eventsource = EventSourceRelatedField(required=False)
@@ -796,135 +787,6 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
     related_subjects = SubjectRelatedField(many=True, required=False)
 
     patrol_segments = PrimaryKeyRelatedField(many=True, required=False, queryset=PatrolSegment.objects.all())
-
-    def create(self, validated_data):
-        geometries = validated_data.pop("geometries", None)
-        instance = super().create(validated_data)
-
-        if geometries:
-            self._create_geometries(instance, geometries)
-
-        request = self.context["request"]
-        if hasattr(request, "auth") and request.auth:
-            auto_add_report_to_patrols(request.auth.application, instance)
-
-        return instance
-
-    def update(self, instance, validated_data):
-        geometries_exits = "geometries" in validated_data
-        geometries = validated_data.pop("geometries", None)
-        instance = super().update(instance, validated_data)
-
-        if geometries:
-            self._update_latest_geometry(instance, geometries)
-        else:
-            if geometries_exits:
-                self._delete_event_geometries(instance)
-
-        return instance
-
-    def get_contains(self, event):
-        self.context["event_relationship_direction"] = "out"
-        return self._get_event_relationship(event=event, relationship_name="relationship_out_contains")
-
-    def get_is_linked_to(self, event):
-        self.context["event_relationship_direction"] = "out"
-        return self._get_event_relationship(event=event, relationship_name="relationship_out_is_linked_to")
-
-    def get_is_contained_in(self, event):
-        self.context["event_relationship_direction"] = "in"
-        return self._get_event_relationship(event=event, relationship_name="relationship_in_contains")
-
-    def _get_event_relationship(self, event: "Event", relationship_name: str) -> EventRelationshipSerializer:
-        if not hasattr(event, f"{relationship_name}"):
-            fallback_events_mapping = {
-                "relationship_in_contains": "contains",
-                "relationship_out_is_linked_to": "is_linked_to",
-                "relationship_out_contains": "contains",
-            }
-            return (
-                self.get_in_relation(event=event, value=fallback_events_mapping[relationship_name])
-                if relationship_name == "relationship_in_contains"
-                else self.get_out_relation(event=event, value=fallback_events_mapping[relationship_name])
-            )
-
-        events_mapping = {
-            "relationship_in_contains": event.relationship_in_contains,
-            "relationship_out_is_linked_to": event.relationship_out_is_linked_to,
-            "relationship_out_contains": event.relationship_out_contains,
-        }
-        return EventRelationshipSerializer(events_mapping[relationship_name], many=True, context=self.context).data
-
-    def validate(self, attrs):
-        event_type = attrs.get("event_type")
-        event_source = attrs.get("eventsource")
-        location = attrs.get("location")
-        geometries = attrs.get("geometries")
-        end_time = attrs.get("end_time")
-        priority = attrs.get("priority")
-        state = attrs.get("state")
-        external_event_id = attrs.get("external_event_id")
-
-        if event_type and self._is_event_type_geometry(event_type) and location:
-            raise ValidationError({"location": "This field is not allowed for events with polygon type."})
-
-        if event_type and self._is_event_type_point(event_type) and geometries:
-            raise ValidationError({"geometry": "This field is not allowed for events with point type."})
-
-        if end_time and end_time < self.instance.time:
-            raise ValidationError("Event end_time must not be earlier than event time.")
-
-        # For creating an event, if event_type is not present in the request, raise ValidationError.
-        if not self.instance:
-            if not event_type:
-                if event_source and event_source.event_type:
-                    attrs["event_type"] = event_source.event_type
-                else:
-                    raise ValidationError({"event_type": "Event type must be provided."})
-
-            if self._is_event_source_duplicated(event_source, external_event_id):
-                raise DuplicateResourceException(
-                    fieldname="external_event_id",
-                    detail="External event ID already exists.",
-                )
-
-            # Set default priority from event type if not provided in POST.
-            if not priority and event_type:
-                attrs["priority"] = event_type.default_priority
-            if not state and event_type:
-                attrs["state"] = event_type.default_state
-        return super().validate(attrs)
-
-    def get_out_relation(self, event, value):
-        self.context["event_relationship_direction"] = "out"
-        request = self.context.get("request")
-        permitted_categories = get_permitted_event_categories(request)
-
-        qs = (
-            event.out_relationships.filter(
-                to_event__event_type__category__in=permitted_categories,
-                type__value=value,
-            )
-            .all()
-            .order_by("ordernum", "to_event__created_at")
-        )
-
-        serializer = EventRelationshipSerializer(
-            instance=qs,
-            many=True,
-            context=self.context,
-        )
-        return serializer.data
-
-    def get_in_relation(self, event, value):
-        qs = event.in_relationships.filter(type__value=value).all()
-        self.context["event_relationship_direction"] = "in"
-        serializer = EventRelationshipSerializer(
-            instance=qs,
-            many=True,
-            context=self.context,
-        )
-        return serializer.data
 
     class Meta:
         model = Event
@@ -942,6 +804,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             "message",
             "provenance",
             "event_type",
+            "event_category",
             "priority",
             "priority_label",
             "attributes",
@@ -989,12 +852,167 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             self.fields.pop("contains")
             self.fields.pop("is_linked_to")
 
-    def to_representation(self, event):
+    def create(self, validated_data: Dict) -> Event:
+        geometries = validated_data.pop("geometries", None)
+        instance = super().create(validated_data)
+
+        if geometries:
+            self._create_geometries(instance, geometries)
+
+        request = self.context["request"]
+        if hasattr(request, "auth") and request.auth:
+            auto_add_report_to_patrols(request.auth.application, instance)
+
+        return instance
+
+    def update(self, event: Event, validated_data: Dict) -> Event:
+        geometries_exits = "geometries" in validated_data
+        geometries = validated_data.pop("geometries", None)
+        event = super().update(event, validated_data)
+
+        if geometries:
+            self._update_latest_geometry(event, geometries)
+        else:
+            if geometries_exits:
+                self._delete_event_geometries(event)
+
+        return event
+
+    def get_event_category(self, event: Event) -> Optional[str]:
+        if event.event_type and event.event_type.category:
+            return event.event_type.category.value
+        return None
+
+    def get_contains(self, event: Event) -> List[Dict]:
+        self.context["event_relationship_direction"] = "out"
+        return self._get_event_relationship(event=event, relationship_name="relationship_out_contains")
+
+    def get_is_linked_to(self, event: Event) -> List[Dict]:
+        self.context["event_relationship_direction"] = "out"
+        return self._get_event_relationship(event=event, relationship_name="relationship_out_is_linked_to")
+
+    def get_is_contained_in(self, event: Event) -> List[Dict]:
+        self.context["event_relationship_direction"] = "in"
+        return self._get_event_relationship(event=event, relationship_name="relationship_in_contains")
+
+    def _get_event_relationship(self, event: Event, relationship_name: str) -> List[Dict]:
+        if not hasattr(event, relationship_name):
+            logger.warning(
+                f"Event {event.id} does not have the {relationship_name} attribute. "
+                f"Fetching related events using fallback mechanism."
+            )
+            fallback_events_mapping = {
+                "relationship_in_contains": "contains",
+                "relationship_out_is_linked_to": "is_linked_to",
+                "relationship_out_contains": "contains",
+            }
+            return (
+                self.get_in_relation(event=event, value=fallback_events_mapping[relationship_name])
+                if relationship_name == "relationship_in_contains"
+                else self.get_out_relation(event=event, value=fallback_events_mapping[relationship_name])
+            )
+
+        events_mapping = {
+            "relationship_in_contains": event.relationship_in_contains,
+            "relationship_out_is_linked_to": event.relationship_out_is_linked_to,
+            "relationship_out_contains": event.relationship_out_contains,
+        }
+        return EventRelationshipSerializer(events_mapping[relationship_name], many=True, context=self.context).data
+
+    def validate(self, attrs: dict) -> dict:
+        event_type = attrs.get("event_type")
+        event_source = attrs.get("eventsource")
+        location = attrs.get("location")
+        geometries = attrs.get("geometries")
+        end_time = attrs.get("end_time")
+        priority = attrs.get("priority")
+        state = attrs.get("state")
+        external_event_id = attrs.get("external_event_id")
+
+        if event_type and self._is_event_type_geometry(event_type) and location:
+            raise ValidationError({"location": "This field is not allowed for events with polygon type."})
+
+        if event_type and self._is_event_type_point(event_type) and geometries:
+            raise ValidationError({"geometry": "This field is not allowed for events with point type."})
+
+        if end_time and end_time < self.instance.time:
+            raise ValidationError("Event end_time must not be earlier than event time.")
+
+        # For creating an event, if event_type is not present in the request, raise ValidationError.
+        if not self.instance:
+            if not event_type:
+                if event_source and event_source.event_type:
+                    attrs["event_type"] = event_source.event_type
+                else:
+                    raise ValidationError({"event_type": "Event type must be provided."})
+
+            if self._is_event_source_duplicated(event_source, external_event_id):
+                raise DuplicateResourceException(
+                    fieldname="external_event_id",
+                    detail="External event ID already exists.",
+                )
+
+            # Set default priority from event type if not provided in POST.
+            if not priority and event_type:
+                attrs["priority"] = event_type.default_priority
+            if not state and event_type:
+                attrs["state"] = event_type.default_state
+        return super().validate(attrs)
+
+    def get_out_relation(self, event: Event, value: str) -> List[Dict]:
+        # Note:
+        # This is a fallback method to get the related events.
+        # If code is reaching here, it means that the event has not been prefetched with the related events.
+        self.context["event_relationship_direction"] = "out"
+        request = self.context.get("request")
+        permitted_categories = get_permitted_event_categories(request)
+
+        qs = (
+            event.out_relationships.filter(
+                to_event__event_type__category__in=permitted_categories,
+                type__value=value,
+            )
+            .all()
+            .order_by("ordernum", "to_event__created_at")
+        )
+
+        serializer = EventRelationshipSerializer(
+            instance=qs,
+            many=True,
+            context=self.context,
+        )
+        return serializer.data
+
+    def get_in_relation(self, event: Event, value: str) -> List[Dict]:
+        # Note: Same note as in get_out_relation
+        qs = event.in_relationships.filter(type__value=value).all()
+        self.context["event_relationship_direction"] = "in"
+        serializer = EventRelationshipSerializer(
+            instance=qs,
+            many=True,
+            context=self.context,
+        )
+        return serializer.data
+
+    def to_representation(self, event: Event) -> dict:
         with tracer.start_as_current_span("EventSerializer.to_representation") as span:
             span.set_attribute("event_id", str(event.id))
             return self._to_representation(event)
 
-    def _to_representation(self, event):
+    def _to_representation(self, event: Event) -> dict:
+        context = self.context
+        request = context["request"]
+
+        # Early exit if the user does not have permission to view the event, based on the event_category
+        if event.event_type and event.event_type.category:
+            category_name = event.event_type.category.value
+            permission_name = f"activity.{category_name}_read"
+            geo_permission_name = make_eventcategory_permission_codename(category_name, "view", True, "activity")
+
+            if not (request.user.has_perm(permission_name) or request.user.has_perm(geo_permission_name)):
+                rep = {"id": str(event.id)}
+                return rep
+
         self.fields.pop("eventsource", None)
 
         set_prefetched = hasattr(event, "event_details_set")
@@ -1002,8 +1020,8 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         if set_prefetched:
             # pop the following out of the representation if we've prefetched using the _set
             self.fields.pop("event_details", None)
-            self.fields.pop("files", None)
             self.fields.pop("related_subjects", None)
+            self.fields.pop("files", None)
 
         rep = super().to_representation(event)
 
@@ -1011,76 +1029,54 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
         if set_prefetched:
             # Apply the prefetched data back to the representation
-            try:
-                event_details_serialized = EventDetailsSerializer(
-                    event.event_details_set, many=True, context=self.context
-                ).data
-                rep["event_details"] = {}
-                if event_details_serialized:
-                    rep["event_details"] = event_details_serialized[0]
-                rep["files"] = list(EventFileSerializer(event.files_set, many=True, context=self.context).data)
-                rep["related_subjects"] = list(
-                    SubjectSerializer(event.related_subjects_set, many=True, context=self.context, read_only=True).data
-                )
-                event_details = rep["event_details"]
-                if event_details:
-                    details_updates = event_details.get("updates")
-            except Exception as ex:
-                logger.exception("Failed Event pre-fetched  {}".format(ex))
-        else:
-            event_details = rep["event_details"]
+            rep["event_details"] = None
+            if event.event_details_set:
+                rep["event_details"] = EventDetailsSerializer(event.event_details_set[0], context=self.context).data
+                details_updates = rep["event_details"].get("updates")
 
+            rep["related_subjects"] = SubjectSerializer(
+                event.related_subjects_set, many=True, context=self.context, read_only=True
+            ).data
+
+            try:
+                if context.get("include_files"):
+                    rep["files"] = EventFileSerializer(event.files.all(), many=True, context=self.context).data
+            except GoogleAuthError as ex:
+                # DefaultCredentialsError('Your default credentials were not found.
+                # To set up Application Default Credentials,
+                # see https://cloud.google.com/docs/authentication/external/set-up-adc for more information.')
+                logger.exception("Failed rendering event pre-fetched files  {}".format(ex))
+        else:
             if rep["event_details"] is not None:
                 details_updates = rep["event_details"].pop("updates")
 
-        try:
-            event_source = event.eventsource_event_refs.first().eventsource
-        except:
-            pass
-        else:
+        # Be sure to prefetch this, should not query the database for each
+        # event, event_source_ref, event_source, eventprovider...
+        for event_source_ref in event.eventsource_event_refs.all():
+            event_source = event_source_ref.eventsource
             if event_source and event_source.eventprovider:
                 rep["external_source"] = {
                     "url": event_source.eventprovider.additional.get("external_event_url"),
                     "text": event_source.eventprovider.display,
                     "icon_url": event_source.eventprovider.additional.get("icon_url"),
                 }
-        if "request" in self.context:
-            request = self.context["request"]
+            break  # if we do .first() over one of this relationship managers it does not use the prefetched data
 
-            if event.event_type and event.event_type.category:
-                category_name = event.event_type.category.value
-                rep["event_category"] = category_name
-                permission_name = f"activity.{category_name}_read"
-                geo_permission_name = make_eventcategory_permission_codename(
-                    event.event_type.category.value, "view", True, "activity"
-                )
+        rep["url"] = utils.add_base_url(request, reverse("event-view", args=[event.id]))
+        image_url = resolve_image_url(event)
+        rep["image_url"] = utils.add_base_url(request, image_url)
+        rep["geojson"] = self.get_geojson(request, event)
 
-                if not request.user.has_perm(permission_name) and not request.user.has_perm(geo_permission_name):
-                    rep = {"id": rep["id"]}
-                    return rep
-
-            rep["url"] = utils.add_base_url(
-                request,
-                reverse(
-                    "event-view",
-                    args=[
-                        event.id,
-                    ],
-                ),
-            )
-            image_url = resolve_image_url(event)
-            rep["image_url"] = utils.add_base_url(request, image_url)
-
-            rep["geojson"] = self.get_geojson(request, event)
-
-        if event.event_type:
-            rep["is_collection"] = event.event_type.is_collection
+        rep["is_collection"] = event.event_type.is_collection if event.event_type else False
 
         # This is to fix https://vulcan.atlassian.net/browse/DAS-6264
-        # TODO: Consider adjusting the context within the listed Views.
-        if self.context.get("include_updates", True) and not getattr(
-            self.context.get("view", None), "get_view_name", lambda: None
-        )() in ("Patrols", "Patrol", "Patrolsegment"):
+        # TODO: Consider adjusting the context within the listed Views. x2
+        include_updates = context.get("include_updates", True)
+        if include_updates and not getattr(context.get("view"), "get_view_name", lambda: None)() in (
+            "Patrols",
+            "Patrol",
+            "Patrolsegment",
+        ):
             updates = self.render_updates(event)
             for note in rep.get("notes", []):
                 updates.extend(note["updates"])
@@ -1091,7 +1087,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             for geometry in self._render_geometries_updates(event):
                 updates.extend(geometry)
 
-            if event_details:
+            if rep.get("event_details"):
                 updates.extend(details_updates)
 
             rep["updates"] = sorted(updates, key=lambda u: u["time"], reverse=True)
@@ -1103,7 +1099,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         rep["patrols"] = [item for item in patrol_ids if item is not None]
         return rep
 
-    def _render_geometries_updates(self, event) -> list:
+    def _render_geometries_updates(self, event: Event) -> List[Dict]:
         if not hasattr(event, "geometries"):
             return []
 
@@ -1156,16 +1152,16 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         except Exception as e:
             logger.exception(f"Error {e} trying to update a EventGeometry.")
 
-    def _delete_event_geometries(self, event):
+    def _delete_event_geometries(self, event: Event):
         event.geometries.all().delete()
 
-    def _is_event_type_geometry(self, event_type: EventType):
+    def _is_event_type_geometry(self, event_type: EventType) -> bool:
         return event_type.geometry_type == EventType.GeometryTypesChoices.POLYGON.label
 
-    def _is_event_type_point(self, event_type: EventType):
+    def _is_event_type_point(self, event_type: EventType) -> bool:
         return event_type.geometry_type == EventType.GeometryTypesChoices.POINT.label
 
-    def _is_event_source_duplicated(self, event_source, external_event_id):
+    def _is_event_source_duplicated(self, event_source: EventSource, external_event_id: str) -> bool:
         return EventsourceEvent.objects.filter(eventsource=event_source, external_event_id=external_event_id).exists()
 
 
@@ -1174,7 +1170,7 @@ class EventStateSerializer(ModelSerializer):
         model = Event
         fields = ("state",)
 
-    def update(self, instance, validated_data):
+    def update(self, instance: Event, validated_data: dict) -> Event:
         update_fields = []
         for k, v in validated_data.items():
             if getattr(instance, k) != v:
