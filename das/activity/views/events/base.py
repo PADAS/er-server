@@ -75,6 +75,15 @@ from activity.views.helpers import (
 )
 from activity.views.schemas import EventsViewSchema
 from core.permissions import UserCanExportDataPermission
+from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
+from django.db import transaction
+from django.db.models import Count, OuterRef, Prefetch, Q, TextField
+from django.db.models.functions import JSONObject
+from django.db.utils import DataError
+from django.http import HttpResponse
+from django.utils import timezone
 from observations.models import Subject
 from utils.db.expresions import ArraySubquery
 from utils.drf import (
