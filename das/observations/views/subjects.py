@@ -1,7 +1,19 @@
-from activity.permissions import StandardObjectPermissions
+from rest_framework_condition import etag
+
 from django.db.models import F, QuerySet, Window
 from django.db.models.functions import FirstValue
 from django.db.utils import IntegrityError
+from rest_framework import status
+from rest_framework.generics import (
+    ListAPIView,
+    ListCreateAPIView,
+    RetrieveAPIView,
+    RetrieveUpdateDestroyAPIView,
+    get_object_or_404,
+)
+from rest_framework.response import Response
+
+from activity.permissions import StandardObjectPermissions
 from observations.filters import create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import SourceGroup, Subject, SubjectGroup, SubjectSource
@@ -24,16 +36,6 @@ from observations.views.utils import (
     subject_group_etag,
     subject_groups_etag,
 )
-from rest_framework import status
-from rest_framework.generics import (
-    ListAPIView,
-    ListCreateAPIView,
-    RetrieveAPIView,
-    RetrieveUpdateDestroyAPIView,
-    get_object_or_404,
-)
-from rest_framework.response import Response
-from rest_framework_condition import etag
 from utils.drf import (
     BadRequestAPIException,
     ForbiddenAPIException,
@@ -154,9 +156,12 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
                     )
                     .distinct("subject_id")
                     .values("subject_id", "latest_range", "oldest_range", "latest_source", "oldest_source")
+                    .order_by("subject_id")
                 )
-
-                self.subject_linked_sources = {ss["subject_id"]: ss for ss in subject_linked_sources}
+                latest_subject_linked_user = subject_linked_sources.last()
+                self.subject_linked_sources = (
+                    {latest_subject_linked_user.values()} if latest_subject_linked_user else {}
+                )
 
             self._get_two_way_sources(queryset)
 
