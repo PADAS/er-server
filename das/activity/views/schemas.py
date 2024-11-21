@@ -100,7 +100,6 @@ class EventsViewSchema(CustomSchema):
                 {"name": "include_details", "in": "query", "description": "Boolean value"},
                 {"name": "include_notes", "in": "query", "description": "Boolean value"},
                 {"name": "include_related_events", "in": "query", "description": "Boolean value"},
-                {"name": "eventsource_id", "in": "query", "description": "id of related subject->sources"},
                 {"name": "state", "in": "query", "description": "event states to filter on, ex: new, active, resolved"},
             ]
             operation["parameters"].extend(query_params)

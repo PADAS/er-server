@@ -42,7 +42,7 @@ class EventTypeQuerysetMixin:
         return queryset
 
     def _get_allowed_categories_by_user(self, user):
-        event_categories = (entry[0] for entry in EventCategory.objects.values_list("value").distinct())
+        event_categories = EventCategory.get_category_keys()
         allowed_categories = [
             event_category
             for event_category in event_categories

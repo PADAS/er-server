@@ -49,9 +49,9 @@ def make_eventcategory_permission_codename_with_tenant(
 
 def get_categories_and_geo_categories(user: User):
     results = {"categories": [], "geo_categories": []}
-    events_categories = list(EventCategory.objects.values_list("value", flat=True))
+    event_categories = EventCategory.get_category_keys()
 
-    for event_category in events_categories:
+    for event_category in event_categories:
         for action in ACTIONS:
             permission_name = make_eventcategory_permission_codename(event_category, action, app_label="activity")
             if user.has_perm(permission_name):
