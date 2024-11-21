@@ -1,14 +1,12 @@
 import copy
 import csv
-import itertools
 import json
 import logging
 import platform
 from collections import OrderedDict
 from datetime import datetime
-from typing import Union
+from typing import Dict, List, Type, Union
 
-import dateutil.parser as dateparser
 import pytz
 from psycopg2.errors import InvalidTextRepresentation
 from rest_framework_extensions.etag.decorators import etag
@@ -19,22 +17,30 @@ from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
 from django.db import transaction
 from django.db.models import Count, OuterRef, Prefetch, Q, TextField
 from django.db.models.functions import JSONObject
+from django.db.models.query import QuerySet
 from django.db.utils import DataError
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status
+from rest_framework.filters import OrderingFilter
 from rest_framework.generics import (
     ListAPIView,
     ListCreateAPIView,
     RetrieveUpdateAPIView,
     RetrieveUpdateDestroyAPIView,
 )
+from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.serializers import Serializer
 from rest_framework.views import APIView
 
 import utils.schema_utils as schema_utils
 from accounts.serializers import UserDisplaySerializer
-from activity.filters import EventObjectPermissionsFilter
+from activity.filters import (
+    EventListFilter,
+    EventPermissionsFilter,
+    EventSubjectsFilter,
+)
 from activity.models import (
     Event,
     EventCategory,
@@ -62,7 +68,6 @@ from activity.serializers import (
 )
 from activity.serializers.geometries import EventGeometryRevisionSerializer
 from activity.util import get_permitted_event_categories
-from activity.views.exceptions import BadRequestAPIException
 from activity.views.helpers import (
     calculate_event_etag,
     generate_event_type_cache,
@@ -70,13 +75,22 @@ from activity.views.helpers import (
 )
 from activity.views.schemas import EventsViewSchema
 from core.permissions import UserCanExportDataPermission
+from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
+from django.db import transaction
+from django.db.models import Count, OuterRef, Prefetch, Q, TextField
+from django.db.models.functions import JSONObject
+from django.db.utils import DataError
+from django.http import HttpResponse
+from django.utils import timezone
 from observations.models import Subject
-from utils.categories import (
-    get_categories_and_geo_categories,
-    make_eventcategory_permission_codename,
-)
 from utils.db.expresions import ArraySubquery
-from utils.drf import StandardResultsSetGeoJsonPagination, StandardResultsSetPagination
+from utils.drf import (
+    CachedCountResultsSetPagination,
+    StandardResultsSetGeoJsonPagination,
+    StandardResultsSetPagination,
+)
 from utils.json import ExtendedGEOJSONRenderer, parse_bool
 
 logger = logging.getLogger(__name__)
@@ -107,7 +121,7 @@ class EventCountView(APIView):
         event_categories = self.request.query_params.getlist("event_category", None)
 
         if not event_categories:
-            event_categories = EventCategory.objects.values_list("value", flat=True).distinct()
+            event_categories = EventCategory.get_category_keys()
 
         allowed_event_categories = [ec for ec in event_categories if self.request.user.has_perm(f"activity.{ec}_read")]
 
@@ -514,32 +528,46 @@ class EventsView(ListCreateAPIView):
 
     page_size, (default is {page_size}, max is {max_page_size})
     """.format(
-        page_size=StandardResultsSetPagination.page_size, max_page_size=StandardResultsSetPagination.max_page_size
+        page_size=CachedCountResultsSetPagination.page_size, max_page_size=CachedCountResultsSetPagination.max_page_size
     )
     permission_classes = (EventCategoryGeographicPermission,)
-    filter_backends = (EventObjectPermissionsFilter,)
+    filter_backends = (
+        EventListFilter,
+        EventPermissionsFilter,
+        EventSubjectsFilter,
+        OrderingFilter,
+    )
     serializer_class = EventSerializer
-    pagination_class = StandardResultsSetPagination
+    pagination_class = CachedCountResultsSetPagination
     metadata_class = EventJSONSchema
+    ordering_fields = ("event_time", "updated_at", "serial_number", "created_at", "sort_at")
+    ordering = ("-sort_at",)
+
+    page_count_ignored_query_parameters = (
+        "format",
+        "sort_by",
+        "include_updates",
+        "include_details",
+        "include_files",
+        "include_related_events",
+        "include_notes",
+    )
 
     schema = EventsViewSchema()
 
-    sort_keys = ["event_time", "updated_at", "serial_number", "created_at", "sort_at"]
-    eligible_sort_by = list(itertools.chain(*[(k, f"-{k}") for k in sort_keys]))
+    def list(self, request: Request, *args, **kwargs) -> Response:
+        queryset = self.filter_queryset(self.get_queryset())
+        queryset = self.optimize_queryset(queryset)
 
-    def add_segment_to_record(self, patrol_segment_id, new_record):
-        for record in new_record:
-            if not record.get("patrol_segments"):
-                record["patrol_segments"] = (
-                    patrol_segment_id if isinstance(patrol_segment_id, list) else [patrol_segment_id]
-                )
-            else:
-                record["patrol_segments"].append(patrol_segment_id)
-        return new_record
-
-    def get(self, request, *args, **kwargs):
         try:
-            return super().get(request, *args, **kwargs)
+            if self.paginator:
+                queryset = self.paginate_queryset(queryset)
+                serializer = self.get_serializer(queryset, many=True)
+                return self.get_paginated_response(serializer.data)
+
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+
         except InvalidTextRepresentation as error:
             logger.exception(f"Possible SQL injection detected, returning empty results: {error}")
             data = {"count": 0, "next": None, "previous": None, "results": []}
@@ -550,7 +578,7 @@ class EventsView(ListCreateAPIView):
 
             return Response(data=data, status=status.HTTP_200_OK)
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: Request, *args, **kwargs) -> Response:
         request.POST._mutable = True
         new_record = request.data
         if isinstance(new_record, dict):
@@ -574,138 +602,49 @@ class EventsView(ListCreateAPIView):
                     logger.exception("Invalid Event type(s) provided {}".format(error))
                     return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def get_serializer_context(self):
-        query_params = self.request.query_params if self.request and hasattr(self.request, "query_params") else {}
+    def get_serializer_class(self) -> Type[Serializer]:
+        if self.kwargs.get("patrol_segment") and self.request.method == "GET":
+            return PatrolSegmentEventSerializer
+        return super().get_serializer_class()
 
+    def get_serializer_context(self) -> dict:
         context = super().get_serializer_context()
-        request = context["request"]
+        query_params = self.request.query_params
         context["include_updates"] = parse_bool(query_params.get("include_updates", True))
-
         context["include_details"] = parse_bool(query_params.get("include_details", True))
         context["include_files"] = parse_bool(query_params.get("include_files", True))
 
         # if this is a POST, returned any contained events
-        try:
-            include_for_posts = request._request.method == "POST"
-        except AttributeError:
-            include_for_posts = False
+        include_for_posts = self.request._request.method == "POST"
 
         context["include_related_events"] = parse_bool(query_params.get("include_related_events", include_for_posts))
         context["include_notes"] = parse_bool(query_params.get("include_notes", include_for_posts))
 
-        try:
-            context["eventsource_id"] = request.data.get("eventsource_id")
-        except AttributeError:
-            pass
-
         return context
 
-    def get_queryset(self):
-        query_params = self.request.query_params
+    def get_queryset(self) -> QuerySet:
+        queryset = Event.objects.all()
 
-        sort_by = query_params.get("sort_by", "-sort_at")
-
-        if sort_by not in self.eligible_sort_by:
-            raise BadRequestAPIException(
-                detail=f"sort_by '{sort_by}' is not valid. Valid values are {self.eligible_sort_by}.",
-            )
-
-        queryset = Event.objects.all_sort(sort_by=sort_by).prefetch_related("eventsource_event_refs", "patrol_segments")
         patrol_segment_id = self.kwargs.get("patrol_segment")
         if patrol_segment_id:
             logger.debug("Filtering on patrol segment id: %s", patrol_segment_id)
             queryset = queryset.filter(patrol_segments__id=patrol_segment_id)
 
-        event_ids = query_params.get("event_ids", [])
-        if event_ids:
-            if isinstance(event_ids, str):
-                event_ids = [
-                    event_ids,
-                ]
-            queryset = queryset.filter(id__in=event_ids)
+        return queryset
 
-        bbox = query_params.get("bbox", None)
-        if bbox:
-            bbox = bbox.split(",")
-            bbox = [float(v) for v in bbox]
-            if len(bbox) != 4:
-                raise BadRequestAPIException(detail="invalid bbox param")
-
-            queryset = queryset.by_bbox(bbox)
-        state = query_params.getlist("state", None)
-        if state:
-            queryset = queryset.by_state(state)
-
-        event_type = query_params.getlist("event_type", None)
-        if event_type:
-            queryset = queryset.by_event_type(event_type)
-
-        event_filter = self.request.query_params.get("filter", None)
-        if event_filter:
-            try:
-                event_filter = json.loads(event_filter)
-                queryset = queryset.by_event_filter(event_filter)
-            except json.JSONDecodeError:
-                logger.exception("Invalid filter expression. filter=%s", event_filter)
-                raise
-
-        is_collection = query_params.get("is_collection", None)
-        exclude_contained = query_params.get("exclude_contained", None)
-        if is_collection and exclude_contained:
-            raise BadRequestAPIException(detail="invalid use of is_collection and exclude_contained in the same call")
-
-        if is_collection:
-            queryset = queryset.by_is_collection(parse_bool(is_collection))
-        if exclude_contained:
-            queryset = queryset.by_exclude_contained(parse_bool(exclude_contained))
-
-        updated_since = query_params.get("updated_since", None)
-
-        if updated_since:
-            try:
-                updated_since = dateparser.parse(updated_since)
-                queryset = queryset.updated_since(updated_since)
-            except ValueError:
-                raise BadRequestAPIException(detail=f"Invalid value for 'updated_since' = '{updated_since}'")
-
-        event_categories = query_params.getlist("event_category", None)
-        if event_categories is None or len(event_categories) == 0:
-            event_categories = EventCategory.objects.values_list("value").distinct()
-            event_categories = [x[0] for x in event_categories]
-
-        allowed_event_categories = []
-        for event_category in event_categories:
-            permission_name = "activity.{0}_read".format(event_category)
-            geo_permission_name = f"activity.{make_eventcategory_permission_codename(event_category, 'view', True)}"
-            if self.request.user.has_perm(permission_name) or self.request.user.has_perm(geo_permission_name):
-                allowed_event_categories.append(event_category)
-
-        if len(allowed_event_categories) > 0:
-            queryset = queryset.by_category(allowed_event_categories)
-        else:
-            return queryset.none()
-
-        user_subjects = list(Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True))
-        queryset = queryset.filter(Q(related_subjects__isnull=True) | Q(related_subjects__in=user_subjects))
-
-        queryset = queryset.select_related("event_type")
-        queryset = queryset.prefetch_related(Prefetch("related_subjects"))
-        queryset = queryset.prefetch_related(Prefetch("event_type"))
-        queryset = queryset.prefetch_related(Prefetch("created_by_user"))
-        queryset = queryset.prefetch_related(Prefetch("reported_by"))
-        queryset = queryset.prefetch_related(Prefetch("out_relationships"))
-        queryset = queryset.prefetch_related(Prefetch("patrol_segments"))
-        queryset = queryset.prefetch_related(Prefetch("geometries"))
-        queryset = queryset.prefetch_related(Prefetch("event_type__category"))
-
+    def optimize_queryset(self, queryset: QuerySet) -> QuerySet:
+        serializer_context = self.get_serializer_context()
         permitted_categories = get_permitted_event_categories(self.request)
 
+        queryset = queryset.select_related("event_type__category", "created_by_user")
+
         queryset = queryset.prefetch_related(
-            Prefetch("geometries", to_attr="geometries_set"),
-            Prefetch("eventsource_event_refs", to_attr="eventsource"),
+            Prefetch("eventsource_event_refs__eventsource__eventprovider"),
+            Prefetch("reported_by"),
+            Prefetch("patrol_segments"),
+            Prefetch("geometries"),
             Prefetch("event_details", to_attr="event_details_set"),
             Prefetch("related_subjects", to_attr="related_subjects_set"),
-            Prefetch("files", to_attr="files_set"),
             Prefetch(
                 "in_relationships",
                 to_attr="relationship_in_contains",
@@ -735,22 +674,21 @@ class EventsView(ListCreateAPIView):
 
         queryset = queryset.annotate(patrol_ids=ArrayAgg("patrol_segments__patrol_id"))
 
-        if parse_bool(query_params.get("include_notes", False)):
-            queryset = queryset.prefetch_related(Prefetch("notes"))
-        if parse_bool(query_params.get("include_files", False)):
-            queryset = queryset.prefetch_related(Prefetch("files"))
-
-        queryset = queryset.by_location(
-            location=self.request.GET.get("location", ""),
-            user=self.request.user,
-            categories_to_filter=get_categories_and_geo_categories(self.request.user),
-        )
+        if serializer_context.get("include_notes"):
+            queryset = queryset.prefetch_related("notes")
+        if serializer_context.get("include_files"):
+            queryset = queryset.prefetch_related("files")
         return queryset
 
-    def get_serializer_class(self):
-        if self.kwargs.get("patrol_segment") and self.request.method == "GET":
-            return PatrolSegmentEventSerializer
-        return super().get_serializer_class()
+    def add_segment_to_record(self, patrol_segment_id: Union[List[str], str], new_record: List[Dict]) -> List[Dict]:
+        for record in new_record:
+            if not record.get("patrol_segments"):
+                record["patrol_segments"] = (
+                    patrol_segment_id if isinstance(patrol_segment_id, list) else [patrol_segment_id]
+                )
+            else:
+                record["patrol_segments"].append(patrol_segment_id)
+        return new_record
 
 
 class EventsGeoJsonView(EventsView):

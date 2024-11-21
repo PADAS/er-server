@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Dict, Optional, Union
 
 from geojson import Feature, Polygon
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
@@ -28,18 +28,20 @@ class EventGeometrySerializer(GeoFeatureModelSerializer):
 
 
 class FeatureRepresentation:
-    """ A class for figure representation such as Point, Polygon as GeoJSON. """
-    serializers = {"Event": EventSerializer,
-                   "EventGeometry": EventGeometrySerializer}
+    """A class for figure representation such as Point, Polygon as GeoJSON."""
 
-    def get_feature(self, request: Request, instance: Union[Event, EventGeometry]):
+    serializers = {
+        "Event": EventSerializer,
+        "EventGeometry": EventGeometrySerializer,
+    }
+
+    def get_feature(self, request: Request, instance: Union[Event, EventGeometry]) -> Optional[Dict]:
         try:
             model_name = instance._meta.object_name
             feature = self.serializers[model_name](instance).data
             if model_name == "Event":
                 image_url = self._get_image_url(request, instance)
-                feature["properties"] = self._get_properties(
-                    instance, image_url)
+                feature["properties"] = self._get_properties(instance, image_url)
                 if image_url:
                     feature["properties"]["icon"] = self._get_icon(image_url)
             elif model_name == "EventGeometry":
@@ -51,9 +53,7 @@ class FeatureRepresentation:
     def _get_properties(self, event: Event, imagen_url: str):
         return {
             "message": event.message,
-            "datetime": event.time
-            if isinstance(event.time, str)
-            else event.time.isoformat(),
+            "datetime": event.time if isinstance(event.time, str) else event.time.isoformat(),
             "image": imagen_url,
         }
 
@@ -83,9 +83,7 @@ class PolygonFeature(GeometryFeature):
 
 
 class FeatureFactory:
-    _features = {
-        "Polygon": PolygonFeature()
-    }
+    _features = {"Polygon": PolygonFeature()}
 
     def get_for_feature(self, sort):
         try:
