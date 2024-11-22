@@ -154,7 +154,7 @@ def allowed_permissions(user_instance):
 
     container = defaultdict(list)
     user_categories_and_geo_categories = get_categories_and_geo_categories(user_instance)
-    event_categories = set(EventCategory.objects.values_list("value", flat=True))
+    event_categories = EventCategory.get_category_keys()
 
     for permission in permissions:
         app_name, perm = permission.split(".", maxsplit=1)

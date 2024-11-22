@@ -78,7 +78,8 @@ def run_partition_maintenance_proc(logger: Logger) -> None:
             execute_sql_query(maintenance_query, logger=logger, fetch_type=FetchType.NONE)
             logger.info(f"partman partition maintenance procedure done")
         except:
-            logger.exception(f"cannot run the partition maintenance procedure.")
+            prefix_message = "ER Partman:"
+            logger.error(f"{prefix_message} Cannot run the partition maintenance procedure.")
 
 
 def run_partition_table_check(schema: str, table_name: str, logger: Logger) -> None:

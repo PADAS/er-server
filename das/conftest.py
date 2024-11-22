@@ -396,35 +396,48 @@ def application():
 
 
 @pytest.fixture
-def superuser(das_tenant):
-    return UserFactory(is_superuser=True, das_tenant=das_tenant)
+def create_user(das_tenant):
+    def _create_user(is_superuser=False, is_staff=False, das_tenant=das_tenant, **kwargs):
+        kwargs.setdefault("das_tenant", das_tenant)
+        kwargs.setdefault("is_superuser", is_superuser)
+        kwargs.setdefault("is_staff", is_staff)
+        return UserFactory(**kwargs)
+
+    return _create_user
 
 
 @pytest.fixture
-def user(das_tenant):
-    return UserFactory(is_superuser=False, das_tenant=das_tenant)
+def superuser(create_user):
+    return create_user(is_superuser=True)
 
 
 @pytest.fixture
-def superuser_client(application, superuser, tenant):
-    with TenantContextManager(domain=tenant.domain):
-        token = AccessTokenFactory(user=superuser, application=application).token
-    client = APIClientWithUser()
-    client.credentials(HTTP_AUTHORIZATION="Bearer " + token)
-    client.force_login(user=superuser)
-    client.user = superuser
-    return client
+def user(create_user):
+    return create_user()
 
 
 @pytest.fixture
-def user_client(application, user, tenant):
-    with TenantContextManager(domain=tenant.domain):
-        token = AccessTokenFactory(user=user, application=application).token
-    client = APIClientWithUser()
-    client.credentials(HTTP_AUTHORIZATION="Bearer " + token)
-    client.force_login(user=user)
-    client.user = user
-    return client
+def create_client_for_user(application, tenant):
+    def _create_client_for_user(user, application=application, tenant=tenant):
+        with TenantContextManager(domain=tenant.domain):
+            token = AccessTokenFactory(user=user, application=application).token
+        client = APIClientWithUser()
+        client.credentials(HTTP_AUTHORIZATION="Bearer " + token)
+        client.force_login(user=user)
+        client.user = user
+        return client
+
+    return _create_client_for_user
+
+
+@pytest.fixture
+def superuser_client(create_client_for_user, superuser):
+    return create_client_for_user(superuser)
+
+
+@pytest.fixture
+def user_client(create_client_for_user, user):
+    return create_client_for_user(user)
 
 
 @pytest.fixture
