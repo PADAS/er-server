@@ -15,7 +15,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.core import serializers
-from django.db.models import Max
+from django.db.models import Max, QuerySet
 
 from activity.constants import PRIORITY_CHOICES
 from core.models import DASTenant
@@ -44,12 +44,12 @@ class RevisionManager(TenantManagerMixin, models.Manager):
 
         f = {"object_id": self.instance.pk}
         queryset = super(RevisionManager, self).get_queryset().filter(**f)
-
+        queryset = queryset.select_related("das_tenant", "user")
         return queryset
 
     def all_user(self):
         """prefetch user"""
-        queryset = self.select_related("user")
+        queryset = self.select_related("das_tenant", "user")
         return queryset
 
 
@@ -287,35 +287,53 @@ class RevisionMixin(object):
 
 
 class RevisionMessage:
-    @classmethod
-    def get_action(cls, revision, event):
+    def __init__(self, revisions: QuerySet):
+        self.revisions = list(revisions.order_by("-revision_at"))
+
+    def get_action(self, revision) -> str:
         if revision.action in (ACTION_ADDED,):
             return "Created"
 
         elif revision.action in (ACTION_UPDATED,):
-            return cls._action_updated(revision, event)
+            return self._action_updated(revision)
 
         elif revision.action == ACTION_RELATION_DELETED:
-            return cls._action_deleted(revision)
+            return self._action_deleted(revision)
 
         else:
             return revision.get_action_display()
 
-    @classmethod
-    def _action_updated(cls, revision, event):
+    def _action_updated(self, revision) -> str:
         field_names = [key for key, value in revision.data.items() if key in get_field_mapping()]
 
         messages = []
         for field_name in field_names:
-            data = get_value_from_previous_revision(event, revision, field_name)
+            data = self._get_value_from_previous_revision(revision, field_name)
             messages.append(get_revision_message(**data))
         return ", ".join(messages)
 
-    @classmethod
-    def _action_deleted(cls, revision):
+    def _action_deleted(self, revision):
         field_mapping = {"message": "Description", "related_query_name": "{}"}
         fieldnames = [field_mapping[k].format(revision.data[k]) for k, v in revision.data.items() if k in field_mapping]
+
         return "{0} fields: {1}".format(revision.get_action_display(), ", ".join(fieldnames))
+
+    def _get_value_from_previous_revision(self, revision, field_name: str) -> dict:
+        previous_revision = list(
+            filter(
+                lambda rev: field_name in rev.data and rev.revision_at < revision.revision_at and rev.id != revision.id,
+                self.revisions,
+            )
+        )
+
+        data = {
+            "field_name": field_name,
+            "previous_value": "",
+            "value": revision.data[field_name],
+        }
+        if previous_revision:
+            data["previous_value"] = previous_revision[0].data[field_name]
+        return data
 
 
 def get_field_mapping() -> dict:
@@ -331,23 +349,6 @@ def get_field_mapping() -> dict:
         "created_by_user": "str",
         "title": "str",
     }
-
-
-def get_value_from_previous_revision(event, revision, field_name: str) -> dict:
-    previous_revision = (
-        event.revision.filter(data__has_key=field_name, revision_at__lt=revision.revision_at)
-        .order_by("-revision_at")
-        .first()
-    )
-
-    data = {
-        "field_name": field_name,
-        "previous_value": "",
-        "value": revision.data[field_name],
-    }
-    if previous_revision:
-        data["previous_value"] = previous_revision.data[field_name]
-    return data
 
 
 def get_revision_message(field_name: str, value: str, previous_value: str) -> str:

@@ -14,6 +14,9 @@ from versatileimagefield.serializers import VersatileImageFieldSerializer
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import Polygon
+from django.db.models import JSONField as DB_JSONField
+from django.db.models import OuterRef, Subquery
+from django.db.models.functions import JSONObject
 from django.db.utils import IntegrityError
 from django.urls import reverse
 from rest_framework.request import Request
@@ -497,14 +500,14 @@ class EventSerializerMixin:
     def render_updates(self, event: Event) -> List[Dict]:
         result = []
 
-        if hasattr(event, "revisions"):
-            revisions = list(iter(event.revisions))
+        if hasattr(event, "revision"):
+            revisions = event.revision.all()
         else:
-            revisions = list(iter(event.revision.all_user().order_by("sequence")))
+            revisions = event.revision.all_user().order_by("sequence")
 
-        while revisions:
-            revision = revisions.pop()
-            action = RevisionMessage.get_action(revision, event)
+        revision_message = RevisionMessage(revisions)
+        for revision in reversed(revisions):
+            action = revision_message.get_action(revision)
             if action:
                 record = dict(
                     message=f"{action}",
@@ -1014,7 +1017,6 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                 return rep
 
         self.fields.pop("eventsource", None)
-
         set_prefetched = hasattr(event, "event_details_set")
 
         if set_prefetched:
@@ -1070,19 +1072,16 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         rep["is_collection"] = event.event_type.is_collection if event.event_type else False
 
         # This is to fix https://vulcan.atlassian.net/browse/DAS-6264
-        # TODO: Consider adjusting the context within the listed Views. x2
-        include_updates = context.get("include_updates", True)
-        if include_updates and not getattr(context.get("view"), "get_view_name", lambda: None)() in (
-            "Patrols",
-            "Patrol",
-            "Patrolsegment",
-        ):
+        # TODO: Consider adjusting the context within the listed Views.
+        include_updates = self.context.get("include_updates", True)
+        if include_updates and not self._get_view_name() in ("Patrols", "Patrol", "Patrolsegment"):
             updates = self.render_updates(event)
+
             for note in rep.get("notes", []):
                 updates.extend(note["updates"])
 
-            for f in rep.get("files", []):
-                updates.extend(f["updates"])
+            for _file in rep.get("files", []):
+                updates.extend(_file["updates"])
 
             for geometry in self._render_geometries_updates(event):
                 updates.extend(geometry)
@@ -1092,19 +1091,35 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
             rep["updates"] = sorted(updates, key=lambda u: u["time"], reverse=True)
 
-        patrol_ids = (
-            event.patrol_ids if hasattr(event, "patrol_ids") else Event.objects.get_related_patrol_ids(event=event)
-        )
-
-        rep["patrols"] = [item for item in patrol_ids if item is not None]
+        rep["patrols"] = self._get_patrols_ids(event)
         return rep
+
+    def _get_view_name(self) -> str:
+        view = self.context.get("view", None)
+        view_name = getattr(view, "get_view_name", lambda: "")()
+        return view_name
+
+    def _get_patrols_ids(self, event: Event) -> List[str]:
+        if hasattr(event, "patrol_ids"):
+            patrol_ids = event.patrol_ids
+        else:
+            patrol_ids = Event.objects.get_related_patrol_ids(event=event)
+
+        return [item for item in patrol_ids if item is not None]
 
     def _render_geometries_updates(self, event: Event) -> List[Dict]:
         if not hasattr(event, "geometries"):
             return []
 
+        subquery = Subquery(
+            EventGeometry.objects.filter(id=OuterRef("object_id"))
+            .annotate(event_data=JSONObject(provenance="event__provenance"))
+            .values("event_data")[:1],
+            output_field=DB_JSONField(),
+        )
+
         return [
-            EventGeometryRevisionSerializer(geometry.revision.all(), many=True).data
+            EventGeometryRevisionSerializer(geometry.revision.annotate(event_data=subquery).all(), many=True).data
             for geometry in event.geometries.all()
         ]
 
