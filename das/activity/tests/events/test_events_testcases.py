@@ -24,7 +24,9 @@ import django.contrib.auth
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point, Polygon
 from django.core.management import call_command
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import dateparse, lorem_ipsum, timezone
 from rest_framework.fields import DateTimeField
@@ -53,6 +55,20 @@ from activity.models import (
 from activity.serializers import EventDetailsSerializer
 from activity.tasks import automatically_update_event_state
 from activity.tests import schema_examples
+from activity.tests.events import (
+    ET_CARCASS,
+    ET_LOGISTICS,
+    ET_MONITORING,
+    ET_OTHER,
+    ET_SECURITY,
+    all_permissions,
+    eventsource_user_event_permissions,
+    eventsource_user_permissions,
+    guest_user_permissions,
+    power_user_permissions,
+    radio_room_user_permissions,
+    reported_by_permission_set_id,
+)
 from choices.models import Choice, DynamicChoice
 from client_http import HTTPClient
 from core.tests import BaseAPITest
@@ -72,69 +88,6 @@ from utils.tests_tools import BaseTestToolMixin
 logger = logging.getLogger(__name__)
 
 User = django.contrib.auth.get_user_model()
-ET_OTHER = "other"
-
-ET_CARCASS = "carcass_rep"
-ET_SECURITY = ET_CARCASS
-ET_MONITORING = "wildlife_sighting_rep"
-ET_LOGISTICS = "all_posts"
-
-# These permission lists are made up, and do not necessarily correspond to permission sets in production deployments
-# All perms user has... all perms
-all_permissions = [
-    "security_create",
-    "security_read",
-    "security_update",
-    "security_delete",
-    "monitoring_create",
-    "monitoring_read",
-    "monitoring_update",
-    "monitoring_delete",
-    "logistics_create",
-    "logistics_read",
-    "logistics_update",
-    "logistics_delete",
-]
-# Power user has all access to logistics and monitoring events, but can only
-# read security events
-power_user_permissions = [
-    "security_read",
-    "monitoring_create",
-    "monitoring_read",
-    "monitoring_update",
-    "monitoring_delete",
-    "logistics_create",
-    "logistics_read",
-    "logistics_update",
-    "logistics_delete",
-]
-# Radio room users can create any type of event, view/update monitoring and
-# logistics events, and delete nothing
-radio_room_user_permissions = [
-    "security_create",
-    "monitoring_create",
-    "monitoring_read",
-    "monitoring_update",
-    "logistics_create",
-    "logistics_read",
-    "logistics_update",
-]
-
-eventsource_user_permissions = [
-    "add_eventsource",
-    "change_eventsource",
-    "delete_eventsource",
-    "create_event_for_eventsource",
-]
-
-eventsource_user_event_permissions = [
-    "security_create",
-]
-
-# Guest users can see logistics events and nothing else
-guest_user_permissions = ["logistics_read"]
-
-reported_by_permission_set_id = "b5057387-9f6c-4685-8ec1-46ad29684eea"
 
 
 def fake_get_pool():
@@ -144,6 +97,10 @@ def fake_get_pool():
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 @patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
 class TestEventView(BaseTestToolMixin, BaseAPITest):
+    """
+    Legacy tests for the EventView class. Try to avoid adding new tests here.
+    """
+
     user_const = dict(last_name="last", first_name="first")
 
     def setUp(self):
@@ -3109,7 +3066,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         event_type.schema = et_schema
         event_type.save()
 
-        url = self.api_base + f"/events/schema/eventtype/"
+        url = self.api_base + "/events/schema/eventtype/"
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
@@ -3130,10 +3087,8 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
     def test_case_insensitive_eventtype(self):
         eventtype_value = "Smart_rhino_sighting"
         event_category = EventCategory.objects.create(value="test_category", display="Test Category", ordernum=1)
-        event_type = EventType.objects.create(
-            value=eventtype_value, display="Smart Rhino Sighting", category=event_category
-        )
-        url = self.api_base + f"/events/schema/eventtype/"
+        EventType.objects.create(value=eventtype_value, display="Smart Rhino Sighting", category=event_category)
+        url = self.api_base + "/events/schema/eventtype/"
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventTypeSchemaView.as_view()(request, eventtype=eventtype_value)
@@ -3208,7 +3163,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
             assert all(inactive_choices) not in data.get("enumNames").keys()
 
     def test_flat_definition(self):
-        choice = Choice.objects.create(
+        Choice.objects.create(
             model="activity.event",
             field="wildlifesighting_species",
             value="elephant",
@@ -3259,7 +3214,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         event_type.schema = et_schema
         event_type.save()
 
-        url = self.api_base + f"/events/schema/eventtype/?definition=flat"
+        url = self.api_base + "/events/schema/eventtype/?definition=flat"
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
@@ -3286,14 +3241,14 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
             == 3
         )
 
-        url = self.api_base + f"/events/schema/eventtype/?definition=invalid"
+        url = self.api_base + "/events/schema/eventtype/?definition=invalid"
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
         assert response.status_code == 400
 
     def test_schema_with_string_arrays(self):
-        choice = Choice.objects.create(
+        Choice.objects.create(
             model="activity.event",
             field="wildlifesighting_species",
             value="elephant",
@@ -3824,6 +3779,18 @@ class TestEventView2(BaseTestToolMixin):
         for event in response.data["results"]:
             assert event["event_category"] in permissions
 
+    def test_database_hits(self, five_events_with_details):
+        """Test the number of database hits for the events view"""
+        url = reverse("events")
+        client = HTTPClient()
+
+        with CaptureQueriesContext(connection) as queries_context:
+            request = client.factory.get(url)
+            client.force_authenticate(request, client.app_user)
+            response = views.EventsView.as_view()(request)
+            assert response.status_code == 200
+            assert len(queries_context.captured_queries) <= 10
+
     def test_events_view_with_no_location(self, settings, monkeypatch, tenant):
         is_banned = MagicMock(return_value=False)
         monkeypatch.setattr("activity.models.is_banned", is_banned)
@@ -4013,28 +3980,3 @@ class TestEventView2(BaseTestToolMixin):
         assert response.status_code == 201
         assert "id" in response.data
         assert len(response.data.keys()) == 1
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("das_tenant_monkeypatch")
-class TestSerialNumberOnEventModel:
-    def test_serial_number_added_on_save(self):
-        event_1 = Event(title="Test Event 1")
-        event_1.save()
-        event_2 = Event(title="Test Event 2")
-        event_2.save()
-        event_3 = Event(title="Test Event 3")
-        event_3.save()
-
-        assert event_1.serial_number == 1
-        assert event_2.serial_number == 2
-        assert event_3.serial_number == 3
-
-    def test_serial_number_added_on_create(self):
-        event_1 = Event.objects.create(title="Test Event 1")
-        event_2 = Event.objects.create(title="Test Event 2")
-        event_3 = Event.objects.create(title="Test Event 3")
-
-        assert event_1.serial_number == 1
-        assert event_2.serial_number == 2
-        assert event_3.serial_number == 3

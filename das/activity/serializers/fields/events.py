@@ -6,7 +6,6 @@ import geojson
 import jsonschema
 from geojson import Feature, FeatureCollection
 
-from django.core.exceptions import ValidationError
 from rest_framework.serializers import JSONField, RelatedField, ValidationError
 
 from activity.models import (
@@ -138,8 +137,7 @@ class EventTypeRelatedField(RelatedField):
     def get_queryset(self):
         queryset = EventType.objects.all_sort()
         if self.context.get("view").get_view_name() == "Event Schema":
-            event_categories = EventCategory.objects.values_list("value").distinct()
-            event_categories = [ec[0] for ec in event_categories]
+            event_categories = EventCategory.get_category_keys()
             actions = ("create", "update", "read", "delete")
             allowed_event_categories = []
             for event_category in event_categories:

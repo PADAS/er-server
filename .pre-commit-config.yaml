@@ -11,6 +11,7 @@ repos:
     rev: 5.13.2
     hooks:
       - id: isort
+        args: ["--profile", "black", "--filter-files"]
   - repo: https://github.com/myint/autoflake
     rev: v2.3.1
     hooks:
@@ -35,4 +36,4 @@ repos:
     hooks:
       - id: ggshield
         language_version: python3
-        stages: [commit]
+        stages: [pre-commit]

@@ -32,7 +32,7 @@ def get_er_user():
 def get_permitted_event_categories(request):
     permitted_categories = []
 
-    for category in EventCategory.objects.filter(is_active=True):
+    for category in EventCategory.get_active_categories():
         permission_name = "activity.{0}_{1}".format(category.value, EventCategoryPermissions.http_method_map["GET"])
         if request.user.has_perm(permission_name):
             permitted_categories.append(category)
