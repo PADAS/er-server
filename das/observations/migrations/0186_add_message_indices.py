@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("observations", "0184_add_subjectsubtype_icons_secretary_bird_and_european_roller"),
+        ("observations", "0185_ensure_latest_source_observation_trigger_set"),
     ]
 
     operations = [
