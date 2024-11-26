@@ -677,4 +677,9 @@ CLUSTER_NAME = env.str("CLUSTER_NAME", "UNSET")
 CLUSTER_NAMESPACE = env.str("CLUSTER_NAMESPACE", "UNSET")
 
 
-PUBSUB_PROJECT_ID = env.str(var="PUBSUB_PROJECT_ID", default="earthranger-dev")
+if CLUSTER_NAME in ["das1-prod-asia", "das-prod1"]:
+    PUBSUB_PROJECT_ID = "earthranger-prod"
+elif CLUSTER_NAME == "das-dev":
+    PUBSUB_PROJECT_ID = "earthranger-dev"
+else:
+    PUBSUB_PROJECT_ID = env.str(var="PUBSUB_PROJECT_ID", default="earthranger-dev")
