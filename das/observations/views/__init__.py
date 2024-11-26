@@ -13,8 +13,9 @@ from rest_framework_condition import etag
 import django
 from django.core.files.storage import default_storage
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db.models import F, Q, Window
+from django.db.models import F, Q, QuerySet, Window
 from django.db.models.functions import FirstValue, RowNumber
+from django.db.models.query import RawQuerySet
 from django.db.utils import IntegrityError
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
@@ -1875,6 +1876,24 @@ class MessagesView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     schema = MessagesSchema()
 
+    def _get_recent_messages(self, messages: QuerySet, number_recent_msg: int) -> RawQuerySet:
+        sender = {"partition_by": F("sender_id"), "order_by": [F("message_time").desc()]}
+        receiver = {"partition_by": F("receiver_id"), "order_by": [F("message_time").desc()]}
+
+        messages = messages.annotate(
+            rn_sender=Window(expression=RowNumber(), **sender),
+            rn_receiver=Window(expression=RowNumber(), **receiver),
+        )
+        sql, params = messages.query.sql_with_params()
+        messages = Message.objects.raw(
+            """
+            select * from ({}) msgs where  rn_sender<= %s or rn_receiver <= %s """.format(
+                sql
+            ),
+            params=[*params, number_recent_msg, number_recent_msg],
+        )
+        return messages
+
     def get_queryset(self):
         query_params = self.request.query_params
         messages = get_user_messages(self.request.user)
@@ -1906,24 +1925,11 @@ class MessagesView(generics.ListCreateAPIView):
             # Default to last 30 days until UI is updated to handle pagination
             since = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=30)
 
-        messages = messages.by_date_range(since, until)
+        messages = messages.by_date_range(since, until).select_related("device")
 
         if number_recent_msg and number_recent_msg.isdigit():
-            sender = {"partition_by": F("sender_id"), "order_by": [F("message_time").desc()]}
-            receiver = {"partition_by": F("receiver_id"), "order_by": [F("message_time").desc()]}
+            return self._get_recent_messages(messages=messages, number_recent_msg=number_recent_msg)
 
-            messages = messages.annotate(
-                rn_sender=Window(expression=RowNumber(), **sender),
-                rn_receiver=Window(expression=RowNumber(), **receiver),
-            )
-            sql, params = messages.query.sql_with_params()
-            messages = Message.objects.raw(
-                """
-            select * from ({}) msgs where  rn_sender<= %s or rn_receiver <= %s """.format(
-                    sql
-                ),
-                params=[*params, number_recent_msg, number_recent_msg],
-            )
         return messages
 
     def post(self, request, *args, **kwargs):

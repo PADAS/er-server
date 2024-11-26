@@ -19,7 +19,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from functools import reduce
 from operator import getitem
-from typing import NamedTuple, Set
+from typing import NamedTuple, Set, Union
 
 import pymet
 import pytz
@@ -48,6 +48,7 @@ from django.db.models import (
     Index,
     Max,
     Q,
+    QuerySet,
     Value,
     When,
 )
@@ -2442,16 +2443,16 @@ MESSAGE_TYPES = (
 
 
 class MessageFilteringQuerySet(models.QuerySet, FilterMixin):
-    def by_subject_ids(self, subject_ids):
+    def by_subject_ids(self, subject_ids) -> QuerySet:
         return self.filter(Q(sender_id__in=subject_ids) | Q(receiver_id__in=subject_ids))
 
-    def by_source_id(self, source_id):
+    def by_source_id(self, source_id) -> QuerySet:
         return self.filter(device=source_id)
 
-    def by_read(self, read):
+    def by_read(self, read) -> QuerySet:
         return self.filter(read=read)
 
-    def by_date_range(self, since, until):
+    def by_date_range(self, since: Union[datetime, None], until: Union[datetime, None]) -> QuerySet:
         if not since and not until:
             return self
         if not since:
@@ -2503,6 +2504,10 @@ class Message(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        indexes = [
+            Index(fields=["das_tenant", "-message_time"]),
+            Index(fields=["das_tenant", "read"]),
+        ]
         index_together = [
             ("das_tenant", "sender_id", "message_time"),
             ("das_tenant", "receiver_id", "message_time"),
