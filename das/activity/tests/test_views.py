@@ -10,8 +10,10 @@ from rest_framework import status
 
 from accounts.models.permissionset import PermissionSet
 from activity.models import Event, EventGeometry, EventType
+from activity.views import EventView
 from analyzers.models import FeatureProximityAnalyzerConfig
 from analyzers.proximity import FeatureProximityAnalyzer
+from client_http import HTTPClient
 from mapping.models import SpatialFeature
 from observations.models import Subject, SubjectSubType
 from utils.gis import get_polygon_info
@@ -208,7 +210,6 @@ class TestEventView:
             ),
             properties={"title": "This is a little title"},
         )
-
         url = reverse("event-view", args=[event_with_detail.event.pk])
         response = superuser_client.patch(url, {"geometry": geometry})
 
@@ -265,6 +266,39 @@ class TestEventView:
 
         assert response.status_code == status.HTTP_200_OK
         assert event_with_detail.event.geometries.count() == 0
+
+    def test_assert_query_number_when_event_and_event_geometry_has_100_or_more_revisions(
+        self, superuser_client, event_geometry_with_polygon, django_assert_max_num_queries
+    ):
+        # update event 100 times
+        event = event_geometry_with_polygon.event
+
+        for idx in range(100):
+            event.title = f"{event.title}-{idx}"
+            event.save(update_fields=["title"])
+
+        assert event.revision.count() >= 100
+
+        # update geometry 100 times
+        for idx in range(100):
+            event_geometry_with_polygon.properties = {idx: idx}
+            event_geometry_with_polygon.save(update_fields=["properties"])
+
+        assert event_geometry_with_polygon.revision.count() >= 100
+
+        url = reverse("event-view", kwargs={"id": event.pk})
+
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+
+        request = client.factory.patch(url, data={"title": "new_title"})
+        client.force_authenticate(request, client.app_user)
+
+        with django_assert_max_num_queries(64) as query_count:
+            response = EventView.as_view()(request, id=event.id)
+
+            assert response.status_code == status.HTTP_200_OK
 
 
 @pytest.mark.django_db

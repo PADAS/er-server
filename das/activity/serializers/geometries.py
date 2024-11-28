@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from accounts.serializers import UserDisplaySerializer
-from activity.models import EventGeometry
+from activity.models import Event, EventGeometry
 from revision.manager import ACTION_ADDED, ACTION_UPDATED
 
 
@@ -25,19 +25,36 @@ class EventGeometryRevisionSerializer(serializers.Serializer):
         return self._get_update_type(obj)
 
     def get_user(self, obj):
-        return self._get_revision_user(obj.user, self._get_event_geometry(obj).event)
+        return self._get_revision_user(obj.user, obj)
 
     def _get_event_geometry(self, obj):
         return EventGeometry.objects.get(id=obj.object_id)
 
-    def _get_revision_user(self, user, event):
+    def _get_revision_user(self, user, obj):
         if user:
             return UserDisplaySerializer().to_representation(user)
+
+        if hasattr(obj, "event_data"):
+            provenance = obj.event_data["provenance"]
+            provenance_display = self._get_provenance_display(provenance)
+        else:
+            event = self._get_event_geometry(obj).event
+            provenance = event.provenance
+            provenance_display = event.get_provenance_display()
+
         return {
-            "first_name": event.get_provenance_display(),
+            "first_name": provenance_display,
             "last_name": "",
-            "username": event.provenance,
+            "username": provenance,
         }
+
+    def _get_provenance_display(self, provenance: str) -> str:
+        provenance_display = list(filter(lambda choice: choice[0] == provenance, Event.PROVENANCE_CHOICES))
+
+        if provenance_display and len(provenance_display[0]) == 2:
+            return provenance_display[0][1]
+
+        return ""
 
     def _get_update_type(self, revision):
         field_mapping = (

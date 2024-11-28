@@ -6,22 +6,31 @@ import re
 import urllib
 
 import dateutil.parser
-import django
 import pytz
-from core.permissions import UserCanExportDataPermission
-from das_server import celery
-from das_server.views import CustomSchema
+from kombu import exceptions
+
+import django
 from django.core.files.storage import default_storage
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db.models import F, Q, Window
+from django.db.models import F, Q, QuerySet, Window
 from django.db.models.functions import RowNumber
+from django.db.models.query import RawQuerySet
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from kombu import exceptions
+from rest_framework import generics, status
+from rest_framework.exceptions import ParseError, PermissionDenied, ValidationError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.renderers import StaticHTMLRenderer
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from core.permissions import UserCanExportDataPermission
+from das_server import celery
+from das_server.views import CustomSchema
 from observations import kmlutils
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
@@ -82,12 +91,6 @@ from observations.views.utils import (
     get_subjects_with_observations_in_daterange,
     get_track_days,
 )
-from rest_framework import generics, status
-from rest_framework.exceptions import ParseError, PermissionDenied, ValidationError
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.renderers import StaticHTMLRenderer
-from rest_framework.response import Response
-from rest_framework.views import APIView
 from utils import add_base_url
 from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
 from utils.features import features
@@ -1387,6 +1390,24 @@ class MessagesView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     schema = MessagesSchema()
 
+    def _get_recent_messages(self, messages: QuerySet, number_recent_msg: int) -> RawQuerySet:
+        sender = {"partition_by": F("sender_id"), "order_by": [F("message_time").desc()]}
+        receiver = {"partition_by": F("receiver_id"), "order_by": [F("message_time").desc()]}
+
+        messages = messages.annotate(
+            rn_sender=Window(expression=RowNumber(), **sender),
+            rn_receiver=Window(expression=RowNumber(), **receiver),
+        )
+        sql, params = messages.query.sql_with_params()
+        messages = Message.objects.raw(
+            """
+            select * from ({}) msgs where  rn_sender<= %s or rn_receiver <= %s """.format(
+                sql
+            ),
+            params=[*params, number_recent_msg, number_recent_msg],
+        )
+        return messages
+
     def get_queryset(self):
         query_params = self.request.query_params
         messages = get_user_messages(self.request.user)
@@ -1418,24 +1439,11 @@ class MessagesView(generics.ListCreateAPIView):
             # Default to last 30 days until UI is updated to handle pagination
             since = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=30)
 
-        messages = messages.by_date_range(since, until)
+        messages = messages.by_date_range(since, until).select_related("device")
 
         if number_recent_msg and number_recent_msg.isdigit():
-            sender = {"partition_by": F("sender_id"), "order_by": [F("message_time").desc()]}
-            receiver = {"partition_by": F("receiver_id"), "order_by": [F("message_time").desc()]}
+            return self._get_recent_messages(messages=messages, number_recent_msg=number_recent_msg)
 
-            messages = messages.annotate(
-                rn_sender=Window(expression=RowNumber(), **sender),
-                rn_receiver=Window(expression=RowNumber(), **receiver),
-            )
-            sql, params = messages.query.sql_with_params()
-            messages = Message.objects.raw(
-                """
-            select * from ({}) msgs where  rn_sender<= %s or rn_receiver <= %s """.format(
-                    sql
-                ),
-                params=[*params, number_recent_msg, number_recent_msg],
-            )
         return messages
 
     def post(self, request, *args, **kwargs):

@@ -40,9 +40,10 @@ class Command(TenantCommandMixin, BaseCommand):
         if not options["pks"]:
             raise ValueError("requires list of event ids")
 
-        with transaction.atomic():
-            for pk in iter(options["pks"].readline, ""):
-                self.remove_event(pk.strip())
+        for pk in iter(options["pks"].readline, ""):
+            if pk := pk.strip():
+                with transaction.atomic():
+                    self.remove_event(pk.strip())
 
     def remove_event(self, event_id):
         event_id = uuid.UUID(event_id)

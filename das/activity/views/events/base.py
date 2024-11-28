@@ -196,6 +196,9 @@ class EventView(RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         queryset = Event.objects.all()
+        queryset = queryset.select_related("das_tenant", "event_type", "event_type__category").prefetch_related(
+            "geometries"
+        )
 
         event_filter = self.request.query_params.get("filter", None)
         if event_filter:
