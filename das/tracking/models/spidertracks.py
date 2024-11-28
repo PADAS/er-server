@@ -169,7 +169,8 @@ class SpiderTracksPlugin(TrackingPlugin):
                 t.send(observation)
         self.save()
 
-        (notify_new_tracks(sid) for sid in notify_these)
+        for sid in notify_these:
+            notify_new_tracks(sid)
 
     def fetch(self):
 

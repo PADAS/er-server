@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from json import JSONDecodeError
-from typing import Callable
+from typing import Callable, Union
 
 from google.api_core.exceptions import (
     DeadlineExceeded,
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 TOPIC_ID = "tms-refresh-single-cache"
-SUBSCRIPTION_ID = f"das-tenant-listener-{settings.CLUSTER_NAME}"
+SUBSCRIPTION_ID = f"das-tenant-listener-{settings.CLUSTER_NAME}-{settings.CLUSTER_NAMESPACE}"
 
 
 def setup_gcloud_pubsub_listener(delay: int = 3, timeout=120) -> None:
@@ -96,27 +96,16 @@ class GCloudPubSubListener:
     def get_subscription_path(self) -> str:
         return self.subscriber.subscription_path(project=self.project_id, subscription=self.subscription_id)
 
-    def subscription_exists(self) -> bool:
+    def _get_subscription(self) -> Union[Subscription, bool]:
         try:
             subscription_path = self.get_subscription_path()
             request = GetSubscriptionRequest(subscription=subscription_path)
             subscription = self.subscriber.get_subscription(request=request)
-
-            return subscription or False
+            return subscription
         except NotFound:
             return False
 
-    def delete_subscription(self) -> None:
-        subscription_path = self.get_subscription_path()
-        try:
-            self.subscriber.delete_subscription(subscription=subscription_path)
-        except Exception as error:
-            logger.error("Error deleting subscription: %s", str(error))
-
     def _create_subscription(self) -> Subscription:
-        if self.subscription_exists():
-            self.delete_subscription()
-
         predicate = if_exception_type(
             DeadlineExceeded,
             GoogleAPICallError,
@@ -132,6 +121,17 @@ class GCloudPubSubListener:
             retry=retry,
         )
 
+    def get_or_create_subscription(self) -> Subscription:
+        subscription_path = self.get_subscription_path()
+        subscription = self._get_subscription()
+
+        if subscription:
+            logger.debug("Found existing subscription: %s", subscription_path)
+            return subscription
+
+        logger.debug("Creating subscription: %s", subscription_path)
+        return self._create_subscription()
+
     def get_subscription_listener(self, callback: Callable[..., None]) -> StreamingPullFuture:
-        self._create_subscription()
+        self.get_or_create_subscription()
         return self.subscriber.subscribe(self.get_subscription_path(), callback=callback)
