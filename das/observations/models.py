@@ -23,17 +23,12 @@ from typing import NamedTuple, Set
 
 import pymet
 import pytz
-from accounts.mixins import PermissionSetGroupMixin, create_permissionsethierarchy_mixin
-from accounts.models import PermissionSet
 from bitfield import BitField
-from core.models import DASTenant, HierarchyManager, TimestampedModel, UUIDModel
-from core.models.hierachy import (
-    TenantHierarchyModel,
-    create_tenanthierarchychildren_model,
-)
-from core.utils import static_image_finder
-from das_server import settings
 from dateutil.parser import parse as parse_date
+from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
+from psycopg2.extras import DateTimeTZRange
+
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -62,8 +57,16 @@ from django.utils.functional import cached_property
 from django.utils.html import escape
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
-from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
-from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
+
+from accounts.mixins import PermissionSetGroupMixin, create_permissionsethierarchy_mixin
+from accounts.models import PermissionSet
+from core.models import DASTenant, HierarchyManager, TimestampedModel, UUIDModel
+from core.models.hierachy import (
+    TenantHierarchyModel,
+    create_tenanthierarchychildren_model,
+)
+from core.utils import static_image_finder
+from das_server import settings
 from observations.mixins import FilterMixin
 from observations.utils import (
     VIEW_END_WINDOWS,
@@ -73,7 +76,6 @@ from observations.utils import (
     get_minimum_allowed_age,
     is_subject_stationary_subject,
 )
-from psycopg2.extras import DateTimeTZRange
 from tracking.pubsub_registry import notify_subjectstatus_update
 from utils.decorator import use_shared_resource
 from utils.interfaces import SharedResourceHandler
@@ -784,6 +786,11 @@ class SubjectSource(TenantModelMixin, models.Model):
     class Meta:
         verbose_name = _("Subject Source Assignment")
         verbose_name_plural = _("Subject Source Assignments")
+        indexes = [
+            Index(fields=["das_tenant", "subject"]),
+            Index(fields=["das_tenant", "source"]),
+            Index(fields=["das_tenant", "location"]),
+        ]
 
     def __str__(self):
         ind = " (expired)" if datetime.now(tz=pytz.utc) not in self.assigned_range else ""
@@ -1255,8 +1262,15 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         updated_until=None,
     ):
         geometry = Polygon.from_bbox(bbox)
+
+        subject_source_exists = SubjectSource.objects.filter(location__within=geometry).exists()
+        _filter = Q(subjectstatus__location__within=geometry)
+
+        if subject_source_exists:
+            _filter = _filter | Q(subjectsource__location__within=geometry)
+
         queryset = self.filter(
-            Q(subjectstatus__location__within=geometry) | Q(subjectsource__location__within=geometry),
+            _filter,
             subjectstatus__delay_hours=0,
             subjectstatus__subject__is_active=True,
         )
