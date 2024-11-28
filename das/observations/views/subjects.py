@@ -80,6 +80,8 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
         ],
     }
     queryset_linked_user = None
+    queryset = None
+    query_params = None
 
     def check_permissions(self, request):
         if request.user.is_anonymous:
@@ -94,8 +96,11 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
                     self.permission_denied(request)
 
     def get_queryset(self) -> QuerySet:
-        user = self.request.user
         query_params = self.request.query_params
+
+        if self.queryset and self.query_params == query_params:
+            return self.queryset
+        user = self.request.user
 
         if not user.has_any_perms(VIEW_SUBJECT_PERMS):
             if self.queryset_linked_user.exists():
@@ -156,12 +161,9 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
                     )
                     .distinct("subject_id")
                     .values("subject_id", "latest_range", "oldest_range", "latest_source", "oldest_source")
-                    .order_by("subject_id")
                 )
-                latest_subject_linked_user = subject_linked_sources.last()
-                self.subject_linked_sources = (
-                    {latest_subject_linked_user.values()} if latest_subject_linked_user else {}
-                )
+
+                self.subject_linked_sources = {ss["subject_id"]: ss for ss in subject_linked_sources}
 
             self._get_two_way_sources(queryset)
 
@@ -191,6 +193,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
             last_days = get_track_days()
 
             if use_last_known_location:
+                # queryset = queryset.prefetch_related("subjectsources")
                 queryset = queryset.by_bbox_last_known_locations(
                     bbox_values,
                     last_days=last_days,
@@ -223,7 +226,10 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
                 ).annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
             )
 
-        return queryset.order_by("id")
+        queryset = queryset.order_by("id")
+        self.queryset = queryset
+        self.query_params = query_params
+        return queryset
 
     def get_serializer_context(self):
         query_params = self.request.query_params
