@@ -11,7 +11,7 @@ drop_subjectsource_subject_id_index_sql = "DROP INDEX IF EXISTS public.observati
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("observations", "0186_add_message_indices"),
+        ("observations", "0187_add_white_rhino_icon"),
     ]
 
     operations = [
