@@ -2,7 +2,7 @@
 
 from django.db import migrations
 
-DELETE_DUPLICATED_TSVECTORMODELS = """
+DELETE_DUPLICATED_EVENT_TSVECTORS = """
 WITH duplicates AS (
     SELECT
         ctid,
@@ -37,7 +37,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunSQL(
-            sql=DELETE_DUPLICATED_TSVECTORMODELS,
+            sql=DELETE_DUPLICATED_EVENT_TSVECTORS,
             reverse_sql=migrations.RunSQL.noop,
         ),
     ]
