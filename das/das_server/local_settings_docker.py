@@ -165,7 +165,7 @@ if DEV:
     DEBUG_TOOLBAR_APP = "debug_toolbar.middleware.DebugToolbarMiddleware"
     if "debug_toolbar" in INSTALLED_APPS and DEBUG_TOOLBAR_APP not in MIDDLEWARE:
         DEBUG = DEV = True
-        atindex = MIDDLEWARE.index("django.contrib.sessions.middleware.SessionMiddleware") + 1
+        atindex = MIDDLEWARE.index(SILK_APP) + 1
         MIDDLEWARE = list(MIDDLEWARE)
         MIDDLEWARE.insert(atindex, DEBUG_TOOLBAR_APP)
         MIDDLEWARE = tuple(MIDDLEWARE)
