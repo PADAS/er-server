@@ -2,7 +2,6 @@ import uuid
 
 from django.db.models import Q
 from django.db.models.fields.json import KeyTransform
-
 from observations import models
 
 
@@ -32,10 +31,9 @@ class TwoWaySubjectSourceMixin(object):
         if model_class_name == "SubjectGroup":
             queryset = self._get_children_subject_groups(queryset)
 
-        subject_sources = models.SubjectSource.objects.filter(subject__in=queryset.values(subjects).all())
-
         subject_sources = (
-            subject_sources.annotate(
+            models.SubjectSource.objects.filter(subject__in=queryset.values(subjects).all())
+            .annotate(
                 two_way_messaging=KeyTransform("two_way_messaging", "source__provider__additional"),
                 source_two_way_messaging=KeyTransform("two_way_messaging", "source__additional"),
             )
@@ -58,17 +56,17 @@ class TwoWaySubjectSourceMixin(object):
             )
         )
 
+        self.two_way_subject_sources = {}
         for source in subject_sources:
             source_id = source["source_id"]
-            if source_id not in self.two_way_subject_sources:
-                self.two_way_subject_sources[source_id] = {}
-            self.two_way_subject_sources[source_id][source["id"]] = source
+            self.two_way_subject_sources.setdefault(source_id, {})[source["id"]] = source
 
     def _get_children_subject_groups(self, queryset):
         subject_groups_id = {str(subject_group.id) for subject_group in queryset}
         for subject_group in queryset:
-            subject_groups_id |= self._get_nested_subject_groups_id(subject_group.id)
+            subject_groups_id.update(self._get_nested_subject_groups_id(subject_group.id))
 
+        # Prefetch children in a single query to reduce hits
         return models.SubjectGroup.objects.prefetch_related("children").filter(id__in=subject_groups_id)
 
     def _get_nested_subject_groups_id(self, subject_group_id: str) -> set:
