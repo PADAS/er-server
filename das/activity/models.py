@@ -22,12 +22,7 @@ from django.contrib.gis.db.models import QuerySet
 from django.contrib.gis.db.models.functions import Distance as D
 from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import DateTimeRangeField
-from django.contrib.postgres.search import (
-    SearchQuery,
-    SearchRank,
-    SearchVector,
-    SearchVectorField,
-)
+from django.contrib.postgres.search import SearchQuery, SearchVectorField
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
@@ -601,7 +596,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             lower, upper = parse_date_range(filter.get("update_date"))
             queryset = queryset.by_updated_date(lower=lower, upper=upper)
 
-        return queryset.distinct()
+        return queryset
 
     def by_duration(self, duration):
         if duration:
@@ -622,23 +617,14 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         search_text = search_text.strip()
         if not search_text:
             return self
-        queryset = self
         ts_query = ":* & ".join(search_text.split()) + ":*"
         search_query = SearchQuery(ts_query, search_type="raw")
-        search_rank = SearchRank(
-            SearchVector(F("tsvectormodel__tsvector_event")),
-            search_query,
-            cover_density=True,
-        )
         filter_query = (
             Q(tsvectormodel__tsvector_event=search_query)
             | Q(tsvectormodel__tsvector_event_note=search_query)
             | Q(serial_number__istartswith=search_text)
         )
-
-        queryset = queryset.annotate(rank=search_rank).filter(filter_query).order_by("-rank").all_sort().distinct()
-
-        return queryset
+        return self.filter(filter_query)
 
     def by_created_date(self, lower=None, upper=None):
         if lower and upper:
@@ -1719,6 +1705,12 @@ class TSVectorModel(TenantModelMixin, models.Model):
     objects = CommonTenantManager()
 
     class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "event"],
+                name="%(app_label)s_%(class)s_unique",
+            ),
+        ]
         base_manager_name = "objects"
         default_manager_name = "objects"
 
