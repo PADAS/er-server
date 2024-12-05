@@ -535,8 +535,8 @@ class EventsView(ListCreateAPIView):
     )
     permission_classes = (EventCategoryGeographicPermission,)
     filter_backends = (
-        EventListFilter,
         EventPermissionsFilter,
+        EventListFilter,
         EventSubjectsFilter,
         OrderingFilter,
     )
