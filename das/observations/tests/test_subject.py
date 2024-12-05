@@ -8,12 +8,14 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import dateutil.parser as dateparser
+import django.contrib.auth
 import pytest
 import pytz
-from faker import Faker
-from pytz import UTC
-
-import django.contrib.auth
+from accounts.models import PermissionSet
+from activity.tools.createevents import gen_random_point
+from client_http import HTTPClient
+from conftest import TENANT_RESPONSE
+from core.tests import BaseAPITest
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
@@ -24,12 +26,7 @@ from django.db import transaction
 from django.http import QueryDict
 from django.test import RequestFactory, override_settings
 from django.urls import reverse
-
-from accounts.models import PermissionSet
-from activity.tools.createevents import gen_random_point
-from client_http import HTTPClient
-from conftest import TENANT_RESPONSE
-from core.tests import BaseAPITest
+from faker import Faker
 from observations.admin import GPXAdmin
 from observations.models import (
     SEX_MALE,
@@ -52,6 +49,7 @@ from observations.views import (
     SubjectsView,
     SubjectView,
 )
+from pytz import UTC
 from utils.tenant import Tenant
 
 User = django.contrib.auth.get_user_model()
@@ -1125,7 +1123,11 @@ class TestSubjectsView:
         last_location = subject["last_position"]
         assert last_location["geometry"]["coordinates"] == obs_returned.location.coords
 
-    def _get_request(self, path="/subjects"):
+    def test_subjects_view_num_queries(self, django_assert_num_queries):
+        with django_assert_num_queries(20):
+            self._get_request()
+
+    def _get_request(self, path: str = "/subjects"):
         client = HTTPClient()
         client.app_user.is_superuser = True
         client.app_user.save()

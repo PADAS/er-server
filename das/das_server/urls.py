@@ -61,6 +61,7 @@ django.conf.urls.handler404 = "utils.drf.error404View"
 if settings.ENABLE_SILK:
     urlpatterns += [path("silk/", include("silk.urls", namespace="silk"))]
 if settings.DEV:
+    urlpatterns += [path("silk/", include("silk.urls", namespace="silk"))]
     urlpatterns += [
         re_path(
             r"^(?:index.html)?$",

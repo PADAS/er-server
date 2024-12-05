@@ -6,11 +6,11 @@ import re
 import urllib
 
 import dateutil.parser
-import pytz
-from kombu import exceptions
-from rest_framework_condition import etag
-
 import django
+import pytz
+from core.permissions import UserCanExportDataPermission
+from das_server import celery
+from das_server.views import CustomSchema
 from django.core.files.storage import default_storage
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import F, Q, QuerySet, Window
@@ -23,17 +23,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from rest_framework import generics, status
-from rest_framework.exceptions import ParseError, PermissionDenied, ValidationError
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.renderers import StaticHTMLRenderer
-from rest_framework.response import Response
-from rest_framework.views import APIView
-
-import utils
-from core.permissions import UserCanExportDataPermission
-from das_server import celery
-from das_server.views import CustomSchema
+from kombu import exceptions
 from observations import kmlutils
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
@@ -63,7 +53,6 @@ from observations.serializers import (
     RegionSerializer,
     SourceProviderSerializer,
     SourceSerializer,
-    SubjectGeoJsonSerializer,
     SubjectSerializer,
     SubjectSourceSerializer,
     SubjectStatusSerializer,
@@ -76,38 +65,38 @@ from observations.tasks import handle_outbox_message, process_gpxdata_api
 from observations.utils import (
     VIEW_OBSERVATION_PERMS,
     VIEW_SUBJECT_PERMS,
-    VIEW_SUBJECTGROUP_PERMS,
     calculate_subject_view_window,
     check_to_include_inactive_subjects,
-    check_valid_date_string,
     dateparse,
     get_minimum_allowed_age,
     parse_comma,
 )
 from observations.views.observations import FlattenObservationsView, ObservationsView
-from utils import add_base_url
-from utils.drf import (
-    BadRequestAPIException,
-    ForbiddenAPIException,
-    OptionalResultsSetPagination,
-    StandardResultsSetGeoJsonPagination,
-    StandardResultsSetPagination,
-    return_409_response,
+from observations.views.schemas import InactiveSubjectsViewSchema
+from observations.views.subjects import (
+    SubjectGroupsView,
+    SubjectGroupView,
+    SubjectsGeoJsonView,
+    SubjectsView,
+    SubjectView,
 )
-from utils.etags import get_hash_from_queryset
+from observations.views.utils import (
+    get_subjects_with_observations_in_daterange,
+    get_track_days,
+)
+from rest_framework import generics, status
+from rest_framework.exceptions import ParseError, PermissionDenied, ValidationError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.renderers import StaticHTMLRenderer
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from utils import add_base_url
+from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
 from utils.features import features
-from utils.json import ExtendedGEOJSONRenderer, parse_bool, zeroout_microseconds
+from utils.json import parse_bool, zeroout_microseconds
 from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
-
-
-def get_track_days():
-    show_track_days = get_tenant_settings().env_settings.show_track_days
-    return datetime.timedelta(days=int(show_track_days))
-
-
-ONE_YEAR = datetime.timedelta(days=365)
 
 
 current_tz_name = timezone.get_current_timezone_name()
@@ -123,87 +112,12 @@ tz_offset = (
 )
 
 
-def default_since():
-    """default value for since
-    last days is the default
-    """
-    return datetime.datetime.now(pytz.utc) - get_track_days()
-
-
-def get_subjects_with_observations_in_daterange(start_date=None, end_date=None):
-    observations_qs = Observation.objects.all()
-
-    if start_date and end_date:
-        observations_qs = observations_qs.filter(Q(recorded_at__range=(start_date, end_date)))
-    elif start_date:
-        observations_qs = observations_qs.filter(Q(recorded_at__gte=start_date))
-    elif end_date:
-        observations_qs = observations_qs.filter(Q(recorded_at__lte=end_date))
-
-    subject_id_values = (
-        observations_qs.distinct("source__subjectsource__subject")
-        .order_by("source__subjectsource__subject_id")
-        .values("source__subjectsource__subject_id")
-    )
-
-    subject_ids = [
-        str(i["source__subjectsource__subject_id"]) for i in subject_id_values if i["source__subjectsource__subject_id"]
-    ]
-
-    return Subject.objects.filter(id__in=subject_ids)
-
-
 class RegionsView(generics.ListAPIView):
     lookup_field = "slug"
     serializer_class = RegionSerializer
 
     def get_queryset(self):
         return Region.objects.all()
-
-
-class SubjectGroupsViewSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
-            query_params = [
-                {
-                    "name": "include_hidden",
-                    "in": "query",
-                    "description": "If true, return all subject groups including hidden groups. Default is false.",
-                },
-                {
-                    "name": "isvisible",
-                    "in": "query",
-                    "description": "Return only visible groups by default. If isvisible=false then return only hidden groups. see include_hidden",
-                },
-                {
-                    "name": "include_inactive",
-                    "in": "query",
-                    "description": "Include inactive subjects in subject group list.",
-                },
-                {
-                    "name": "flat",
-                    "in": "query",
-                    "description": "flatten the list of groups returned, no nested parent/child",
-                },
-                {"name": "group_name", "in": "query", "description": "find subject groups with this name"},
-            ]
-            operation["parameters"].extend(query_params)
-        return operation
-
-
-class InactiveSubjectsViewSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
-            query_params = {
-                "name": "include_inactive",
-                "in": "query",
-                "description": "Include inactive subjects in list.",
-            }
-
-            operation["parameters"].append(query_params)
-        return operation
 
 
 class RegionView(generics.RetrieveAPIView):
@@ -213,107 +127,6 @@ class RegionView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return Region.objects.all()
-
-
-class SubjectGroupGetQuerySet(TwoWaySubjectSourceMixin):
-    def get_queryset(self, request):
-        if not request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
-            raise ForbiddenAPIException
-
-        qparams = request.GET
-
-        if parse_bool(qparams.get("flat")):
-            queryset = SubjectGroup.objects.prefetch_related("children").all()
-        else:
-            queryset = SubjectGroup.objects.get_non_cyclic_subjectgroups()
-
-        if qparams.get("group_name"):
-            queryset = queryset.by_name_search(qparams.get("group_name"))
-
-        queryset = queryset.order_by("name")
-        self._get_two_way_sources(queryset)
-        return queryset
-
-
-def get_subject_group_etag_fields():
-    subject_group_fields = [field.name for field in SubjectGroup._meta.concrete_fields]
-    children_fields = [f"children__{field}" for field in subject_group_fields]
-    subject_fields = [f"subjects__{field.name}" for field in Subject._meta.concrete_fields]
-    return subject_group_fields + children_fields + subject_fields
-
-
-def subject_groups_etag(request, *args, **kwargs):
-    queryset = SubjectGroupGetQuerySet().get_queryset(request)
-    queryset = queryset.prefetch_related("children", "subjects").values(*get_subject_group_etag_fields())
-    return get_hash_from_queryset(queryset, request)
-
-
-class SubjectGroupsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
-    """
-    Returns all subjectgroups in the system.
-    """
-
-    serializer_class = create_sg_serializer("subjectgs", SubjectGroup, SubjectSerializer)
-    permission_classes = (StandardObjectPermissions,)
-    filter_backends = (create_gp_filter_class("subjectgf", ("observations.view_subjectgroup",), SubjectGroup),)
-    schema = SubjectGroupsViewSchema()
-
-    @etag(subject_groups_etag)
-    def get(self, request, *args, **kwargs):
-        return self.list(request, *args, **kwargs)
-
-    def get_queryset(self):
-        queryset = SubjectGroupGetQuerySet().get_queryset(self.request)
-        return queryset
-
-    def get_serializer_class(self):
-        qparams = self.request.query_params
-        include_subgroups = not parse_bool(qparams.get("flat"))
-        return create_sg_serializer("subjectgs", SubjectGroup, SubjectSerializer, include_subgroups)
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["render_last_location"] = True
-        context["request"] = self.request
-        context["two_way_subject_sources"] = self.two_way_subject_sources
-
-        return context
-
-
-def subject_group_etag(request, *args, **kwargs):
-    fields = get_subject_group_etag_fields()
-    queryset = SubjectGroup.objects.get_non_cyclic_subjectgroups(single_sg=True)
-    TwoWaySubjectSourceMixin()._get_two_way_sources(queryset)
-    queryset = queryset.values(*fields).filter(pk=kwargs["id"])
-    return get_hash_from_queryset(queryset=queryset, request=request)
-
-
-class SubjectGroupView(generics.RetrieveAPIView, TwoWaySubjectSourceMixin):
-    """
-    Returns a single SubjectGroup
-    """
-
-    serializer_class = create_sg_serializer("subjectgs", SubjectGroup, SubjectSerializer)
-    permission_classes = (StandardObjectPermissions,)
-    lookup_field = "id"
-    filter_backends = (create_gp_filter_class("subjectgf", ("observations.view_subjectgroup",), SubjectGroup),)
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["render_last_location"] = True
-        context["two_way_subject_sources"] = self.two_way_subject_sources
-
-        return context
-
-    def get_queryset(self):
-        queryset = SubjectGroup.objects.get_non_cyclic_subjectgroups(single_sg=True)
-        queryset.order_by("name")
-        self._get_two_way_sources(queryset)
-        return queryset
-
-    @etag(subject_group_etag)
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
 
 
 class SourceGroupsView(generics.ListAPIView):
@@ -371,307 +184,6 @@ class RegionSubjectsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
         context["two_way_subject_sources"] = self.two_way_subject_sources
 
         return context
-
-
-class SubjectsViewSchema(InactiveSubjectsViewSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
-            query_params = [
-                {"name": "tracks_since", "in": "query", "description": "Include tracks since this timestamp"},
-                {
-                    "name": "tracks_until",
-                    "in": "query",
-                    "description": "Include tracks up through this timestamp",
-                },
-                {
-                    "name": "bbox",
-                    "in": "query",
-                    "description": "Include subjects having track data within this bounding box defined by a 4-tuple of coordinates marking west, south, east, north.",
-                },
-                {
-                    "name": "subject_group",
-                    "in": "query",
-                    "description": "Indicate a subject group for which Subjects should be listed.",
-                },
-                {
-                    "name": "subject_group",
-                    "in": "query",
-                    "description": "Indicate a subject group for which Subjects should be listed.",
-                    "schema": {"type": "UUID"},
-                },
-                {
-                    "name": "name",
-                    "in": "query",
-                    "description": "Find subjects with the given name.",
-                    "schema": {"type": "UUID"},
-                },
-                {
-                    "name": "updated_since",
-                    "in": "query",
-                    "description": "Return Subject that have been updated since the given timestamp.",
-                },
-                {
-                    "name": "render_last_location",
-                    "in": "query",
-                    "description": "Indicate whether to render each subject's last location.",
-                },
-                {
-                    "name": "tracks",
-                    "in": "query",
-                    "description": "Indicate whether to render each subject's recent tracks.",
-                },
-                {"name": "id", "in": "query", "description": "A comma-delimited list of Subject IDs."},
-            ]
-
-            operation["parameters"].extend(query_params)
-        return operation
-
-
-class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
-    """
-    get:
-    Returns a list of Subject in the system.
-
-    """
-
-    serializer_class = SubjectSerializer
-    permission_classes = (StandardObjectPermissions,)
-    pagination_class = OptionalResultsSetPagination
-
-    TRACK_QPARAMS = ("tracks_limit",)
-    TRACK_DATE_QPARAMS = ("tracks_since", "tracks_until")
-
-    schema = SubjectsViewSchema()
-
-    # Ensure this attribute is present with a sensible default for any child
-    # classes.
-    subject_linked_sources = {}
-
-    window_asc = {
-        "partition_by": F("subject_id"),
-        "order_by": [
-            F("assigned_range").asc(),
-        ],
-    }
-    window_desc = {
-        "partition_by": F("subject_id"),
-        "order_by": [
-            F("assigned_range").desc(),
-        ],
-    }
-
-    def check_permissions(self, request):
-        if request.user.is_anonymous:
-            self.permission_denied(request)
-        self.queryset_linked_user = Subject.objects.filter(linked_user=request.user).distinct()
-        if not self.queryset_linked_user.exists():
-            for permission in self.get_permissions():
-                if not permission.has_permission(request, self):
-                    self.permission_denied(request)
-
-    def get_queryset(self):
-        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS) and self.queryset_linked_user.exists():
-            return self.queryset_linked_user
-        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
-            raise ForbiddenAPIException
-
-        subject_group = self.request.query_params.get("subject_group")
-        subject_ids = self.request.query_params.get("id")
-
-        # Apply request query filters that have are compatible with any of the
-        # criteria above.
-        updated_since = self.request.query_params.get("updated_since")
-        updated_until = self.request.query_params.get("updated_until")
-        bbox = self.request.query_params.get("bbox")
-        name = self.request.query_params.get("name", None)
-
-        use_last_known_location = parse_bool(self.request.query_params.get("use_lkl"))
-        min_age_days = get_minimum_allowed_age(self.request.user) or 0
-
-        mou_date = self.request.user.additional.get("expiry", None)
-        mou_date = dateparse(mou_date) if mou_date else None
-
-        queryset = Subject.objects.all()
-
-        # need a stable sort for pagination. this needs to match the distinct
-        # parameter set in by_user_subjects
-        queryset = check_to_include_inactive_subjects(self.request, queryset)
-        queryset = queryset.order_by("id")
-
-        queryset = queryset.by_user_subjects(self.request.user)
-
-        queryset = queryset.select_related("subject_subtype", "subject_subtype__subject_type", "common_name")
-
-        if subject_ids:
-            queryset = queryset.by_id(subject_ids)
-        elif subject_group:
-            groups = SubjectGroup.objects.get_nested_groups(subject_group)
-            queryset = queryset.by_groups(groups)
-        else:
-            # Fetch all the Subjects whose access is gained through Source Group
-            # permissions.
-            source_groups = SourceGroup.objects.filter(permission_sets__in=self.request.user.get_all_permission_sets())
-
-            subjects_via_source_groups = Subject.objects.filter(subjectsource__source__groups__in=source_groups)
-            subjects_via_source_groups = check_to_include_inactive_subjects(self.request, subjects_via_source_groups)
-            queryset = queryset.distinct() | subjects_via_source_groups.distinct()
-
-            if not self.request.user.is_superuser:
-                # TODO: rather than this, can we get the latest & oldest observation for each subject? (needed in
-                #  serializer.to_representation)
-                subject_linked_sources = (
-                    SubjectSource.objects.filter(source__groups__in=source_groups)
-                    .annotate(
-                        latest_range=Window(expression=FirstValue(F("assigned_range")), **self.window_desc),
-                        latest_source=Window(expression=FirstValue(F("source_id")), **self.window_desc),
-                        oldest_range=Window(expression=FirstValue(F("assigned_range")), **self.window_asc),
-                        oldest_source=Window(expression=FirstValue(F("source_id")), **self.window_asc),
-                    )
-                    .distinct("subject_id")
-                    .values("subject_id", "latest_range", "oldest_range", "latest_source", "oldest_source")
-                )
-
-                self.subject_linked_sources = {ss["subject_id"]: ss for ss in subject_linked_sources}
-
-            self._get_two_way_sources(queryset)
-
-        is_updated_since_valid, updated_since = check_valid_date_string(updated_since, "updated_since")
-        is_updated_until_valid, updated_until = check_valid_date_string(updated_until, "updated_until")
-
-        queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
-        if is_updated_since_valid and is_updated_until_valid:
-            queryset = queryset.by_updated_since_until(updated_since, updated_until)
-        elif is_updated_since_valid:
-            queryset = queryset.by_updated_since(updated_since)
-            updated_until = None
-        elif is_updated_until_valid:
-            queryset = queryset.by_updated_until(updated_until)
-            updated_since = None
-        else:
-            updated_since = None
-            updated_until = None
-
-        if bbox:
-            bbox = bbox.split(",")
-            bbox = [float(v) for v in bbox]
-            if len(bbox) != 4:
-                raise ValueError("invalid bbox param")
-            show_stationary_subjects_on_map = get_tenant_settings().env_settings.show_stationary_subjects_on_map
-            if use_last_known_location:
-                queryset = queryset.by_bbox_last_known_locations(
-                    bbox,
-                    last_days=get_track_days(),
-                    include_stationary_subjects=show_stationary_subjects_on_map,
-                    updated_since=updated_since,
-                    updated_until=updated_until,
-                )
-            else:
-                queryset = queryset.by_bbox(
-                    bbox,
-                    last_days=get_track_days(),
-                    include_stationary_subjects=show_stationary_subjects_on_map,
-                    updated_since=updated_since,
-                    updated_until=updated_until,
-                )
-
-        if name:
-            queryset = queryset.by_name_search(self.request.query_params.get("name"))
-
-        if (
-            not name
-            and not subject_group
-            and not subject_ids
-            and self.queryset_linked_user
-            and not queryset.filter(id=self.queryset_linked_user.first().id).exists()
-        ):
-            queryset = queryset.union(
-                self.queryset_linked_user.select_related(
-                    "subject_subtype", "subject_subtype__subject_type", "common_name"
-                ).annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
-            )
-        return queryset
-
-    def get_serializer_context(self):
-        request = self.request
-        context = super().get_serializer_context()
-        context["render_last_location"] = True
-        context["tracks"] = False
-        context["subject_linked_sources"] = self.subject_linked_sources
-        context["two_way_subject_sources"] = self.two_way_subject_sources
-
-        if request and parse_bool(request.query_params.get("tracks", None)):
-            context["tracks"] = True
-            for t in self.TRACK_QPARAMS:
-                context[t] = request.query_params.get(t, None)
-            for t in self.TRACK_DATE_QPARAMS:
-                context[t] = dateparse(request.query_params.get(t, None)) if request.query_params.get(t, None) else None
-        return context
-
-    def create(self, request, *args, **kwargs):
-        many = True if isinstance(request.data, list) else False
-
-        serializer = self.get_serializer(data=request.data, many=many)
-        serializer.is_valid(raise_exception=True)
-
-        try:
-            self.perform_create(serializer)
-        except IntegrityError as integrity_error:
-            return return_409_response(message=str(integrity_error))
-
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
-
-class SubjectsGeoJsonView(SubjectsView):
-    serializer_class = SubjectGeoJsonSerializer
-    pagination_class = StandardResultsSetGeoJsonPagination
-    renderer_classes = (ExtendedGEOJSONRenderer,)
-
-
-class SubjectView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
-    permission_classes = (StandardObjectPermissions,)
-    serializer_class = SubjectSerializer
-    lookup_field = "id"
-
-    def check_permissions(self, request):
-        subject_id = self.kwargs.get("id")
-        self.queryset_linked_user = Subject.objects.filter(linked_user=request.user, id=subject_id)
-        if not self.queryset_linked_user.exists():
-            for permission in self.get_permissions():
-                if not permission.has_permission(request, self):
-                    self.permission_denied(request)
-
-    def get_queryset(self):
-        subject_id = self.kwargs.get("id")
-        subject = generics.get_object_or_404(Subject.objects.all(), pk=subject_id)
-        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
-            raise ForbiddenAPIException
-        min_age_days = get_minimum_allowed_age(self.request.user) or 0
-        queryset = Subject.objects.filter(id=subject_id)
-        mou_date = self.request.user.additional.get("expiry", None)
-        mou_date = dateparse(mou_date) if mou_date else None
-        queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
-        self._get_two_way_sources(queryset)
-        return queryset
-
-    def get_object(self):
-        if self.queryset_linked_user.exists():
-            subject_id = self.kwargs.get("id")
-            return get_object_or_404(self.queryset_linked_user, pk=subject_id)
-        return super().get_object()
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["two_way_subject_sources"] = self.two_way_subject_sources
-
-        return context
-
-    def patch(self, request, *args, **kwargs):
-        subject_id = self.kwargs["id"]
-        if "id" in request.data and request.data["id"] != subject_id:
-            raise BadRequestAPIException(detail="id in patch request does not match subject_id")
-        return super().patch(request, *args, **kwargs)
 
 
 class SubjectSubjectSourcesView(generics.ListAPIView):
@@ -1006,7 +518,7 @@ class KmlRootView(APIView):
         }
         params = urllib.parse.urlencode(params)
         url = reverse("subjects-kml-view")
-        return utils.add_base_url(self.request, f"{url}?{params}")
+        return add_base_url(self.request, f"{url}?{params}")
 
     def get(self, request, *args, **kwargs):
         start_date = self.request.GET.get("start")
@@ -1088,7 +600,7 @@ class KmlSubjectsView(APIView):
         params = {k: v for k, v in zip(["auth", "start", "end"], [token, start_date, end_date]) if v}
         params = urllib.parse.urlencode(params)
         url = reverse("subject-kml-view", args=[subject["id"]])
-        return utils.add_base_url(self.request, f"{url}?{params}")
+        return add_base_url(self.request, f"{url}?{params}")
 
     def subject_context(self, subject):
         return {"name": subject.name, "visibility": 0, "href": self.build_link_for_subject(subject)}
@@ -1243,8 +755,8 @@ class KmlSubjectView(generics.RetrieveAPIView):
             "points_color": color,
             "track_color": color,
             "last_position_color": color,
-            "subject_icon": utils.add_base_url(request, subject.kml_image_url),
-            "kml_overlay_image": utils.add_base_url(request, kml_overlay_image) if kml_overlay_image else None,
+            "subject_icon": add_base_url(request, subject.kml_image_url),
+            "kml_overlay_image": add_base_url(request, kml_overlay_image) if kml_overlay_image else None,
             "timezone_name": current_tz_name,
             "timezone": current_tz,
         }
@@ -1383,7 +895,7 @@ class TrackingDataCsvView(APIView):
         request_source_provider = self.request.GET.get("source_provider", None)
 
         # get current status? or historical observations
-        get_current = utils.json.parse_bool(self.request.GET.get("current_status", "false"))
+        get_current = parse_bool(self.request.GET.get("current_status", "false"))
 
         # This call will embed a in order manufactured serial number per returned row
         #  do we start at 0 or some other number? This is for STE downloader

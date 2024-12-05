@@ -1,9 +1,5 @@
 import uuid
 
-from django_multitenant.fields import TenantForeignKey
-from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
-from django_multitenant.models import TenantManager, TenantModel
-
 import django.db.models.fields.related
 from django.conf import settings
 from django.contrib.gis.db import models
@@ -13,7 +9,9 @@ from django.db.models.fields.related import (
     make_model_tuple,
     resolve_relation,
 )
-
+from django_multitenant.fields import TenantForeignKey
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
+from django_multitenant.models import TenantManager, TenantModel
 from utils.migrations.columns import default_tenant_id
 
 
@@ -171,16 +169,19 @@ def create_tenant_many_to_many_intermediary_model(field, klass):
 
 
 class HierarchyManager(TenantManagerMixin, models.Manager):
-    def get_ancestors(self, child, ancestors=None):
-        ancestors = set() if not ancestors else ancestors
-        if child not in ancestors:
-            ancestors.add(child)
-            for parent in child.parents():
-                if parent not in ancestors:
-                    yield parent
-                    for gparent in self.get_ancestors(parent, ancestors):
-                        if gparent not in ancestors:
-                            yield gparent
+    def get_ancestors(self, child):
+        ancestors = set()
+        queue = [child]
+
+        while queue:
+            current = queue.pop(0)
+            if current not in ancestors:
+                ancestors.add(current)
+                parents = current.parents()
+                for parent in parents:
+                    if parent not in ancestors:
+                        queue.append(parent)
+                        yield parent
 
     def get_descendants(self, node, children=None):
         children = set() if not children else children

@@ -5,18 +5,6 @@ from datetime import MAXYEAR, MINYEAR, datetime
 from typing import NamedTuple
 
 import pytz
-from drf_extra_fields.fields import DateTimeRangeField
-from drf_extra_fields.geo_fields import PointField
-from rest_framework_gis.serializers import GeoFeatureModelListSerializer
-
-from django.contrib.auth import get_user_model
-from django.contrib.gis.geos import Point
-from django.contrib.postgres.fields import jsonb
-from django.db.models import Q
-from django.urls import reverse
-from rest_framework import serializers
-from rest_framework.fields import DateTimeField
-
 import utils.json
 from accounts.serializers import UserDisplaySerializer
 from core.fields import GEOPointField, choicefield_serializer, text_field
@@ -26,6 +14,13 @@ from core.serializers import (
     GenericRelatedField,
     TimestampMixin,
 )
+from django.contrib.auth import get_user_model
+from django.contrib.gis.geos import Point
+from django.contrib.postgres.fields import jsonb
+from django.db.models import Q
+from django.urls import reverse
+from drf_extra_fields.fields import DateTimeRangeField
+from drf_extra_fields.geo_fields import PointField
 from observations import models
 from observations.models import (
     STATIONARY_SUBJECT_VALUE,
@@ -42,6 +37,9 @@ from observations.utils import (
     get_null_point,
     is_subject_stationary_subject,
 )
+from rest_framework import serializers
+from rest_framework.fields import DateTimeField
+from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from utils import add_base_url
 from utils.serializers import PartialUpdateMixin
 
@@ -244,10 +242,11 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         return super().to_internal_value(data)
 
     def to_representation(self, instance):
-        user = getattr(self.context.get("request", None), "user", None)
+        rep = super().to_representation(instance)
+        request = self.context.get("request")
         render_last_location = self.context.get("render_last_location", True)
+        user = getattr(request, "user", None)
 
-        rep = super(SubjectSerializer, self).to_representation(instance)
         additional = instance.additional
         additional = {k: additional[k] for k in self.additional_fields if k in additional}
         rep.update(additional)
@@ -256,8 +255,6 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         is_stationary_subject = self._is_stationary_subject(instance)
         if is_stationary_subject:
             rep["is_static"] = True
-
-        request = self.context.get("request")
 
         if user and render_last_location:
             # Find the user's allowed viewable date range
