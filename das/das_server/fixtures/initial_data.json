@@ -2401,6 +2401,19 @@
     }
   },
   {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2024-12-01T00:00:00Z",
+      "updated_at": "2024-12-03T00:00:00Z",
+      "value": "white_rhino",
+      "display": "White Rhino",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
     "model": "observations.subjectgroup",
     "fields": {
       "created_at": "2016-07-07T01:00:00Z",
