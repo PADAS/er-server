@@ -369,6 +369,14 @@ class EventsExportView(APIView):
                 "Priority_Internal_Value": event.get("priority", ""),
                 "Report_Status": "Resolved" if event["state"] == Event.SC_RESOLVED else "Active",
                 reported_at: utils.date.convert_to_timezone(event["event_time"], current_tz).strftime("%Y-%m-%d %H:%M"),
+                "Latitude": event["location"].y if event["location"] is not None else "",
+                "Longitude": event["location"].x if event["location"] is not None else "",
+                "Number_of_Notes": event.get("notes_count", ""),
+                "Notes": self.escape_string(event.get("full_notes", "")),
+                "Number_of_Related_Subjects": event.get("", ""),
+                "Collection_Report_IDs": ";".join(
+                    (str(x) for x in event["parent_event_serial_numbers"] if x is not None)
+                ),
                 "CUSTOM_FIELDS_BEGIN_HERE": "",
                 "Area": self._get_polygon_property(event, "area"),
                 "Perimeter": self._get_polygon_property(event, "perimeter"),
