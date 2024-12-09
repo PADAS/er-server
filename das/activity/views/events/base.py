@@ -377,10 +377,7 @@ class EventsExportView(APIView):
                 "Priority": Event.PRIORITY_LABELS_MAP.get(event.get("priority", ""), ""),
                 "Priority_Internal_Value": event.get("priority", ""),
                 "Report_Status": "Resolved" if event["state"] == Event.SC_RESOLVED else "Active",
-                # reported_at.replace(" ", "_"): event["event_time"].astimezone(current_tz).strftime("%Y-%m-%d %H:%M"),
-                reported_at.replace(" ", "_"): utils.date.convert_to_timezone(event["event_time"], current_tz).strftime(
-                    "%Y-%m-%d %H:%M"
-                ),
+                reported_at: utils.date.convert_to_timezone(event["event_time"], current_tz).strftime("%Y-%m-%d %H:%M"),
                 "CUSTOM_FIELDS_BEGIN_HERE": "",
                 "Area": self._get_polygon_property(event, "area"),
                 "Perimeter": self._get_polygon_property(event, "perimeter"),
