@@ -1,5 +1,8 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from datetime import timezone as tz
+from unittest.mock import MagicMock, patch
 
+import pytest
 import pytz
 
 from django.utils import timezone
@@ -7,47 +10,65 @@ from django.utils import timezone
 from utils.date import convert_to_timezone, get_current_time_zone, get_timezone_offset
 
 
+@pytest.fixture
+def get_current_timezone_name_mock():
+    mock = MagicMock()
+    mock.return_value = "America/New_York"
+    return mock
+
+
+@pytest.fixture
+def mock_time_zone():
+    mock = MagicMock()
+    mock.return_value = tz(timedelta(hours=2))
+    return mock
+
+
 def test_get_timezone_offset_utc():
-    current_date = datetime(2023, 10, 1, 12, 0, 0, tzinfo=timezone.utc)
-    assert get_timezone_offset(current_date) == "GMT+ 0:0"
+    current_date = datetime(2023, 10, 1, 12, 0, 0, tzinfo=tz.utc)
+    assert get_timezone_offset(current_date) == "GMT+0:0"
 
 
 def test_get_timezone_offset_positive_offset():
-    tzinfo = timezone(timedelta(hours=5, minutes=30))
+    tzinfo = tz(timedelta(hours=5, minutes=30))
     current_date = datetime(2023, 10, 1, 12, 0, 0, tzinfo=tzinfo)
-    assert get_timezone_offset(current_date) == "GMT+ 5:30"
+    assert get_timezone_offset(current_date) == "GMT+5:30"
 
 
 def test_get_timezone_offset_negative_offset():
-    tzinfo = timezone(timedelta(hours=-4))
+    tzinfo = tz(timedelta(hours=-4))
     current_date = datetime(2023, 10, 1, 12, 0, 0, tzinfo=tzinfo)
-    assert get_timezone_offset(current_date) == "GMT- 4:0"
+    assert get_timezone_offset(current_date) == "GMT-4:0"
 
 
-def test_get_current_time_zone_non_utc(mocker):
-    mocker.patch("django.utils.timezone.get_current_timezone_name", return_value="America/New_York")
+def test_get_current_time_zone_non_utc(get_current_timezone_name_mock):
+    current_tz = pytz.timezone(zone=timezone.get_current_timezone_name())
 
-    current_tz = get_current_time_zone()
-
-    assert current_tz == pytz.timezone("America/New_York")
+    assert current_tz == get_current_time_zone()
 
 
-def test_convert_to_timezone_naive(mocker):
-    mocker.patch("utils.date.get_current_time_zone", return_value=timezone(timedelta(hours=2)))
+def test_convert_naive_datetime(mock_time_zone):
     naive_date = datetime(2023, 10, 1, 12, 0, 0)
-    expected_date = naive_date.replace(tzinfo=timezone.utc).astimezone(tz=timezone(timedelta(hours=2)))
-    assert convert_to_timezone(naive_date) == expected_date
+    expected_date = naive_date.replace(tzinfo=tz.utc).astimezone(tz=mock_time_zone.return_value)
+
+    with patch("utils.date.get_current_time_zone", mock_time_zone):
+        with patch("utils.date.is_naive", return_value=True):
+            result = convert_to_timezone(naive_date)
+            assert result == expected_date
 
 
-def test_convert_to_timezone_aware(mocker):
-    mocker.patch("utils.date.get_current_time_zone", return_value=timezone(timedelta(hours=2)))
-    aware_date = datetime(2023, 10, 1, 12, 0, 0, tzinfo=timezone.utc)
-    expected_date = aware_date.astimezone(tz=timezone(timedelta(hours=2)))
-    assert convert_to_timezone(aware_date) == expected_date
+def test_convert_aware_datetime(mock_time_zone):
+    aware_date = datetime(2023, 10, 1, 12, 0, 0, tzinfo=tz.utc)
+    expected_date = aware_date.astimezone(tz=mock_time_zone.return_value)
+
+    with patch("utils.date.get_current_time_zone", mock_time_zone):
+        with patch("utils.date.is_naive", return_value=False):
+            result = convert_to_timezone(aware_date)
+            assert result == expected_date
 
 
 def test_convert_to_timezone_specific_tz():
-    specific_tz = timezone(timedelta(hours=5, minutes=30))
-    aware_date = datetime(2023, 10, 1, 12, 0, 0, tzinfo=timezone.utc)
+    specific_tz = tz(timedelta(hours=5, minutes=30))
+    aware_date = datetime(2023, 10, 1, 12, 0, 0, tzinfo=tz.utc)
     expected_date = aware_date.astimezone(tz=specific_tz)
     assert convert_to_timezone(aware_date, specific_tz) == expected_date
