@@ -77,6 +77,7 @@ INSTALLED_APPS = (
     "django_extensions",
     "docs",
     "buoy.apps.BuoyConfig",
+    "schemas.apps.SchemasConfig",
 )
 
 MIDDLEWARE = (
