@@ -36,6 +36,7 @@ from observations.views.utils import (
     subject_group_etag,
     subject_groups_etag,
 )
+from schemas.view_mixins import DynamicSchemaMixin
 from utils.drf import (
     BadRequestAPIException,
     ForbiddenAPIException,
@@ -47,7 +48,7 @@ from utils.json import ExtendedGEOJSONRenderer, parse_bool
 from utils.tenant.thread import get_tenant_settings
 
 
-class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
+class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaMixin):
     """
     get:
     Returns a list of Subject in the system.
