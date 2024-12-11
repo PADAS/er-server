@@ -1,15 +1,13 @@
 import re
 from itertools import chain
 
-from django_multitenant.fields import TenantForeignKey
-
 import django.db.models as models
+from accounts.models.permissionset import PermissionSet
 from django.contrib import auth
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import UniqueConstraint
 from django.utils.translation import gettext_lazy as _
-
-from accounts.models.permissionset import PermissionSet
+from django_multitenant.fields import TenantForeignKey
 from utils.tenant.models import TenantThroughModel
 
 
@@ -214,6 +212,8 @@ class PermissionsMixin(models.Model):
         we return Group A and Group Five.
         """
         if self.is_superuser:
+            if only_ids:
+                return PermissionSet.objects.values_list("id", flat=True)
             return PermissionSet.objects.all()
 
         direct_ps = self.permission_sets.all()

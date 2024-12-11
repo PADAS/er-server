@@ -92,7 +92,6 @@ STATIONARY_SUBJECT_VALUE = "stationary-object"
 logger = logging.getLogger(__name__)
 GPX_FILES_FOLDER = getattr(settings, "GPX_FILES_FOLDER", "observations/gpxfile")
 
-
 SOURCE_TYPES = sorted(
     (
         ("tracking-device", "Tracking Device"),
@@ -788,6 +787,11 @@ class SubjectSource(TenantModelMixin, models.Model):
     class Meta:
         verbose_name = _("Subject Source Assignment")
         verbose_name_plural = _("Subject Source Assignments")
+        indexes = [
+            Index(fields=["das_tenant", "subject"]),
+            Index(fields=["das_tenant", "source"]),
+            Index(fields=["das_tenant", "location"]),
+        ]
 
     def __str__(self):
         ind = " (expired)" if datetime.now(tz=pytz.utc) not in self.assigned_range else ""
@@ -1093,16 +1097,24 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         return subjects
 
     def by_user_subjects_not_distinct(self, user, include_linked=False):
-        # Avoid checking for a user that does not have permission sets (ex.
-        # AnonymousUser)
+        """
+        Filter subjects based on user permissions, optionally including linked subjects.
+
+        Args:
+            user (User): The user whose permissions are considered.
+            include_linked (bool): Whether to include linked subjects. Defaults to False.
+
+        Returns:
+            QuerySet: A queryset of subjects filtered by user permissions.
+        """
         if not hasattr(user, "get_all_permission_sets"):
             return self.none()
 
         if user.is_superuser:
             return self.all()
+        allowed_subject_groups = SubjectGroup.objects.filter(permission_sets__in=user.get_all_permission_sets())
 
-        allowed_subject_groups = SubjectGroup.objects.all().filter(permission_sets__in=user.get_all_permission_sets())
-
+        # Check if cached descendants are available
         effective_subject_group_set = set()
         for subject_group in allowed_subject_groups:
             effective_subject_group_set.add(subject_group)
@@ -1129,33 +1141,21 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         return self.none()
 
     def annotate_with_subjectstatus(self, delay_hours=0, mou_expiry_date=None):
-        if not mou_expiry_date:
-            annotate_subject_status = self.annotate(
-                s1=FilteredRelation("subjectstatus", condition=Q(subjectstatus__delay_hours=delay_hours))
-            )
-        else:
-            annotate_subject_status = self.annotate(
-                s1=FilteredRelation(
-                    "subjectstatus",
-                    condition=Q(
-                        subjectstatus__delay_hours=delay_hours,
-                        subjectstatus__recorded_at__lte=mou_expiry_date,
-                    ),
-                )
-            )
-        return (
-            annotate_subject_status.annotate(status_recorded_at=F("s1__recorded_at"))
-            .annotate(status_last_voice_call_start_at=F("s1__last_voice_call_start_at"))
-            .annotate(status_radio_state=F("s1__radio_state"))
-            .annotate(status_radio_state_at=F("s1__radio_state_at"))
-            .annotate(status_location=F("s1__location"))
-            .annotate(
-                status_device_status_properties=KeyTransform(
-                    "device_status_properties",
-                    F("s1__additional"),
-                    output_field=models.JSONField(),
-                )
-            )
+        # Define FilteredRelation with conditional logic
+        filter_condition = Q(subjectstatus__delay_hours=delay_hours)
+        if mou_expiry_date:
+            filter_condition &= Q(subjectstatus__recorded_at__lte=mou_expiry_date)
+
+        return self.annotate(
+            s1=FilteredRelation("subjectstatus", condition=filter_condition),
+            status_recorded_at=F("s1__recorded_at"),
+            status_last_voice_call_start_at=F("s1__last_voice_call_start_at"),
+            status_radio_state=F("s1__radio_state"),
+            status_radio_state_at=F("s1__radio_state_at"),
+            status_location=F("s1__location"),
+            status_device_status_properties=KeyTransform(
+                "device_status_properties", F("s1__additional"), output_field=models.JSONField()
+            ),
         )
 
     def _query_string_for_filter(self, updated_since=None, updated_until=None):
@@ -1263,8 +1263,15 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         updated_until=None,
     ):
         geometry = Polygon.from_bbox(bbox)
+
+        subject_source_exists = SubjectSource.objects.filter(location__within=geometry).exists()
+        _filter = Q(subjectstatus__location__within=geometry)
+
+        if subject_source_exists:
+            _filter = _filter | Q(subjectsource__location__within=geometry)
+
         queryset = self.filter(
-            Q(subjectstatus__location__within=geometry) | Q(subjectsource__location__within=geometry),
+            _filter,
             subjectstatus__delay_hours=0,
             subjectstatus__subject__is_active=True,
         )
@@ -2133,7 +2140,7 @@ class CommonNameManager(TenantManagerMixin, models.Manager):
 class CommonName(TenantModelMixin, TimestampedModel):
     """Common name for an animal, could stretch this to other subtypes as well."""
 
-    subject_subtype = TenantForeignKey(SubjectSubType, on_delete=models.PROTECT, default=get_default_subject_subtype)
+    subject_subtype = TenantForeignKey(SubjectSubType, on_delete=models.PROTECT)
     value = models.CharField(primary_key=True, max_length=100)
     display = models.CharField(max_length=100)
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
@@ -2148,6 +2155,11 @@ class CommonName(TenantModelMixin, TimestampedModel):
 
     def __str__(self):
         return self.display
+
+    def save(self, *args, **kwargs):
+        if not self.subject_subtype:
+            self.subject_subtype = get_default_subject_subtype()
+        super().save(*args, **kwargs)
 
 
 def generate_subject_status_serial_number():
