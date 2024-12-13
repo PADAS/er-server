@@ -110,7 +110,6 @@ app.conf.task_routes = {
     "das_server.tasks.refresh_tenants_cache": {
         "queue": "maintenance",
     },
-    "utils.db.tasks.run_partition_maintenance_proc": {"queue": "maintenance"},
 }
 
 
