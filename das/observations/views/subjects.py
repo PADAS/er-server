@@ -232,6 +232,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
         return queryset
 
     def get_serializer_context(self):
+        request = self.request
         query_params = self.request.query_params
 
         context = super().get_serializer_context()
@@ -240,10 +241,15 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin):
         context["subject_linked_sources"] = self.subject_linked_sources
         context["two_way_subject_sources"] = self.two_way_subject_sources
 
-        if context["tracks"]:
-            for param in (*self.TRACK_QPARAMS, *self.TRACK_DATE_QPARAMS):
-                context[param] = (
-                    dateparse(query_params.get(param)) if param in self.TRACK_DATE_QPARAMS else query_params.get(param)
+        if request and parse_bool(request.query_params.get("tracks", None)):
+            context["tracks"] = True
+            for track_param in self.TRACK_QPARAMS:
+                context[track_param] = request.query_params.get(track_param, None)
+            for track_param in self.TRACK_DATE_QPARAMS:
+                context[track_param] = (
+                    dateparse(request.query_params.get(track_param, None))
+                    if request.query_params.get(track_param, None)
+                    else None
                 )
         return context
 
