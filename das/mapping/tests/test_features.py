@@ -5,6 +5,7 @@ import pytest
 from faker import Faker
 
 from django.contrib.gis.geos import LineString, MultiLineString, MultiPoint, Point
+from django.urls import reverse
 
 import mapping.views as views
 from analyzers.forms import FeatureProximityAnalyzerForm, GeofenceSubjectAnalyzerForm
@@ -241,3 +242,103 @@ class TestSpatialFeatureGroup:
             form = FeatureProximityAnalyzerForm({"proximal_features": spatial_feature_group_linestring_only.pk})
             assert not form.is_valid()
             assert "proximal_features" in form.errors.keys()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestSpatialFeatureListView:
+    @pytest.fixture
+    def category1(self):
+        return DisplayCategory.objects.create(name="Category One")
+
+    @pytest.fixture
+    def category2(self):
+        return DisplayCategory.objects.create(name="Category Two")
+
+    @pytest.fixture
+    def feature_type1(self, category1):
+        return SpatialFeatureType.objects.create(name="Type One", display_category=category1)
+
+    @pytest.fixture
+    def feature_type2(self, category2):
+        return SpatialFeatureType.objects.create(name="Type Two", display_category=category2)
+
+    @pytest.fixture
+    def feature1(self, feature_type1):
+        return SpatialFeature.objects.create(
+            name="Feature One", feature_type=feature_type1, feature_geometry=Point(-122.1, 47.5)
+        )
+
+    @pytest.fixture
+    def feature2(self, feature_type1):
+        return SpatialFeature.objects.create(
+            name="Feature Two", feature_type=feature_type1, feature_geometry=Point(-122.2, 47.6)
+        )
+
+    @pytest.fixture
+    def feature3(self, feature_type2):
+        return SpatialFeature.objects.create(
+            name="Feature Three", feature_type=feature_type2, feature_geometry=Point(-122.3, 47.7)
+        )
+
+    def test_list_all_features(self, user_client, feature1, feature2, feature3):
+        url = reverse("mapping:spatialfeature-list")
+        response = user_client.get(url)
+        assert response.status_code == 200
+        data = response.json()
+
+        assert isinstance(data, dict)
+        assert "data" in data
+        data = data["data"]
+        assert len(data) == 3
+
+        # Check structure of first feature
+        feature = data[0]
+        assert feature["type"] == "Feature"
+        assert "geometry" in feature
+        assert "properties" in feature
+        expected_properties = [
+            "id",
+            "name",
+            "feature_type_id",
+            "feature_type_name",
+            "feature_set_id",
+            "feature_set_name",
+            "description",
+            "short_name",
+        ]
+        for prop in expected_properties:
+            assert prop in feature["properties"]
+
+    def test_filter_by_feature_type(self, user_client, feature1, feature2, feature3, feature_type1):
+        url = reverse("mapping:spatialfeature-list")
+        response = user_client.get(url, {"feature_type": str(feature_type1.id)})
+        assert response.status_code == 200
+        data = response.json()
+        data = data["data"]
+
+        # Only feature1 and feature2 belong to feature_type1
+        assert len(data) == 2
+        names = [f["properties"]["name"] for f in data]
+        assert "Feature One" in names
+        assert "Feature Two" in names
+
+    def test_filter_by_feature_set(self, user_client, feature1, feature2, feature3, category2):
+        url = reverse("mapping:spatialfeature-list")
+        response = user_client.get(url, {"feature_set": str(category2.id)})
+        assert response.status_code == 200
+        data = response.json()
+        data = data["data"]
+
+        # Only feature3 belongs to category2
+        assert len(data) == 1
+        assert data[0]["properties"]["name"] == "Feature Three"
+
+    def test_filter_by_feature_set_and_feature_type_error(self, user_client, category1, feature_type1):
+        url = reverse("mapping:spatialfeature-list")
+        response = user_client.get(url, {"feature_set": str(category1.id), "feature_type": str(feature_type1.id)})
+        assert response.status_code == 400
+        data = response.json()
+        assert "status" in data
+        assert "detail" in data["status"]
+        assert "You can't filter by both feature_set and feature_type" in data["status"]["detail"]
