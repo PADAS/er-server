@@ -12,17 +12,18 @@ from django.utils.translation import gettext as _
 
 import choices.models as models
 from choices.forms import ChoiceForm
-from core.admin import ModelAdminDisplayingManyToManyFieldMixin, BaseModelAdminMixin
+from core.admin import BaseModelAdminMixin, ModelAdminDisplayingManyToManyFieldMixin
+from utils.admin import ExportDataActionMixin
 
 
 @admin.register(models.Choice)
-class ChoiceAdmin(ModelAdminDisplayingManyToManyFieldMixin):
+class ChoiceAdmin(ModelAdminDisplayingManyToManyFieldMixin, ExportDataActionMixin):
     change_list_template = "admin/disable_change_list.html"
     delete_confirmation_template = "admin/soft_delete_confirmation.html"
     delete_selected_confirmation_template = "admin/soft_delete_selected_confirmation.html"
 
     form = ChoiceForm
-    actions = ("disable_choices",)
+    actions = ("disable_choices", "export_data_as_csv")
     ordering = ("model", "field", "value", "display", "ordernum", "is_active")
     list_display = ("model", "field", "value", "display", "ordernum", "_icon_display", "is_active")
     list_display_links = ("model", "field")
@@ -30,6 +31,16 @@ class ChoiceAdmin(ModelAdminDisplayingManyToManyFieldMixin):
     list_filter = ("model", "field")
     list_editable = ("value", "display", "ordernum")
     exclude = ("delete_on", "is_active")
+    fields_to_export = [
+        "model",
+        "field",
+        "value",
+        "display",
+        "icon",
+        "ordernum",
+        "sub_choice_of",
+        "is_active",
+    ]
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
