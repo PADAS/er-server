@@ -10,24 +10,28 @@ from rest_framework.views import APIView
 from utils.drf import sorted_query_parameters_to_string
 
 
-class DynamicSchemaMixin:
+class DynamicSchemaDataMixin:
 
-    def get_schema_queryset(self, values: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    def get_schema_data(self, fields: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """
-        Hook to modify, optimize or filter the queryset used to generate dynamic schemas.
+        Use this hook to return a list of dictionaries with the data to build the schema.
 
-        For the default implementation, we call the get_queryset method and filter the values.
-        This implementation skips pagination and other optimizations that may be needed.
+        The default implementation will call `get_queryset` method and try to run filters.
 
-        Also that goes directly to the data without any serialization, so
+        attributes:
+            fields: List[str] = None
+                A list of fields required to build the schema, may be used to optimize the query.
         """
-        assert values is not None, "values must be provided"
 
-        queryset = self.filter_queryset(self.get_queryset())
+        queryset = self.get_queryset()
+        if hasattr(self, "filter_queryset"):
+            queryset = self.filter_queryset(queryset)
         if hasattr(self, "optimize_queryset"):
             queryset = self.optimize_queryset(queryset)
+        if fields:
+            queryset = queryset.values(*fields)
 
-        return queryset.values(*values)
+        return queryset
 
 
 class DynamicSchemaFromSourceView(APIView):
