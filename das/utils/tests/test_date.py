@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from datetime import timezone as tz
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import pytz
@@ -41,13 +41,13 @@ def test_get_timezone_offset_negative_offset():
     assert get_timezone_offset(current_date) == "GMT-4:0"
 
 
-def test_get_current_time_zone_non_utc(get_current_timezone_name_mock):
+def test_get_current_time_zone_non_utc():
     current_tz = pytz.timezone(zone=timezone.get_current_timezone_name())
 
     assert current_tz == get_current_time_zone()
 
 
-def test_convert_naive_datetime(mock_time_zone):
+def test_convert_naive_datetime(mock_time_zone: Mock):
     naive_date = datetime(2023, 10, 1, 12, 0, 0)
     expected_date = naive_date.replace(tzinfo=tz.utc).astimezone(tz=mock_time_zone.return_value)
 
@@ -57,7 +57,7 @@ def test_convert_naive_datetime(mock_time_zone):
             assert result == expected_date
 
 
-def test_convert_aware_datetime(mock_time_zone):
+def test_convert_aware_datetime(mock_time_zone: Mock):
     aware_date = datetime(2023, 10, 1, 12, 0, 0, tzinfo=tz.utc)
     expected_date = aware_date.astimezone(tz=mock_time_zone.return_value)
 
