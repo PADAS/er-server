@@ -34,7 +34,6 @@ from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 from rest_framework.views import APIView
 
-import utils.date
 import utils.schema_utils as schema_utils
 from accounts.serializers import UserDisplaySerializer
 from activity.filters import (
@@ -77,7 +76,7 @@ from activity.views.helpers import (
 from activity.views.schemas import EventsViewSchema
 from core.permissions import UserCanExportDataPermission
 from observations.models import Subject
-from utils.date import get_timezone_offset
+from utils.date import convert_to_timezone, get_current_time_zone, get_timezone_offset
 from utils.db.expresions import ArraySubquery
 from utils.drf import (
     CachedCountResultsSetPagination,
@@ -223,7 +222,7 @@ class EventsExportView(APIView):
         renderer = schema_utils.get_schema_renderer_method()
 
         current_event_type_data = {"id": None}
-        current_tz = utils.date.get_current_time_zone()
+        current_tz = get_current_time_zone()
         current_date = datetime.now(tz=current_tz)
 
         tz_offset = get_timezone_offset(current_date)
@@ -368,7 +367,7 @@ class EventsExportView(APIView):
                 "Priority": Event.PRIORITY_LABELS_MAP.get(event.get("priority", ""), ""),
                 "Priority_Internal_Value": event.get("priority", ""),
                 "Report_Status": "Resolved" if event["state"] == Event.SC_RESOLVED else "Active",
-                reported_at: utils.date.convert_to_timezone(event["event_time"], current_tz).strftime("%Y-%m-%d %H:%M"),
+                reported_at: convert_to_timezone(event["event_time"], current_tz).strftime("%Y-%m-%d %H:%M"),
                 "Latitude": event["location"].y if event["location"] is not None else "",
                 "Longitude": event["location"].x if event["location"] is not None else "",
                 "Number_of_Notes": event.get("notes_count", ""),
