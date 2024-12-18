@@ -56,7 +56,7 @@ def setup_gcloud_pubsub_listener(delay: int = 3, timeout=120) -> None:
 def get_tenant_data_with_retry(tenant_id: str, max_retries: int = 3, delay: int = 4) -> dict:
     for attempt in range(max_retries):
         try:
-            tenant = tms_api_client.get_tenant_data(lookup=tenant_id, should_refresh_cache=False)
+            tenant = tms_api_client.get_tenant_data(lookup=tenant_id)
             return tenant
         except Exception as error:
             logger.error("Attempt %d: Failed to get tenant data: %s", attempt + 1, str(error))
