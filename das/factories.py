@@ -351,6 +351,7 @@ class EventTypeFactory(factory.django.DjangoModelFactory):
                     "behavior_choice": {"type": "string", "title": "name and value test"},
                     "behavior": {"type": "array", "title": "array test"},
                     "sample_attr": {"type": "string", "title": "name and value test"},
+                    "date_time": {"type": "string", "title": "date time test"},
                 },
                 "$schema": "http://json-schema.org/draft-04/schema#",
             },

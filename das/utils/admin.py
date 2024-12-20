@@ -1,6 +1,12 @@
+import csv
+from typing import List
 from urllib.parse import urlencode
 
+from django.contrib import admin
+from django.db.models import QuerySet
+from django.http import HttpResponse
 from django.shortcuts import redirect
+from django.utils import timezone
 
 
 class DefaultFilterMixin:
@@ -32,3 +38,26 @@ class FieldSetElementMixin:
             field for field in fieldsets[fieldset_index][field_index]["fields"] if not field in (field_to_remove,)
         )
         return fieldsets
+
+
+class ExportDataActionMixin:
+    queryset: QuerySet = None
+    fields_to_export: List[str] = []
+
+    @admin.action(description="Export selected items")
+    def export_data_as_csv(self, request, queryset) -> HttpResponse:
+        """Enable admin page to export current data as CSV file."""
+        model = queryset.model
+        now = timezone.now()
+        download_filename = f'{model._meta.model_name}_data_{now.strftime("%Y-%m-%d")}.csv'
+
+        response = HttpResponse(
+            content_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={download_filename}"},
+        )
+        data = queryset.values(*self.fields_to_export)
+        writer = csv.DictWriter(response, fieldnames=self.fields_to_export)
+        writer.writeheader()
+        writer.writerows(data)
+
+        return response
