@@ -22,6 +22,7 @@ from activity.exceptions import (
 from activity.models import EventDetails
 from choices.models import Choice, DynamicChoice
 from observations.models import Subject
+from utils.date import convert_to_timezone
 from utils.memoize import memoize
 from utils.models import getattr_jsonfield
 
@@ -309,14 +310,16 @@ def is_date(value_string: str) -> bool:
     return bool(re.match(regex, value_string))
 
 
-def change_format_date_string(date_string: str) -> str:
+def change_format_date_string(date_string: str, _format: str = "%Y-%m-%d %H:%M") -> str:
     """
     Try to convert date time string into datetime object to change the format.
     Fallback: return original date string
     """
     try:
         date_obj = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ")
-        return date_obj.strftime("%Y-%m-%d %H:%M")
+        date_obj = convert_to_timezone(date_obj)
+
+        return date_obj.strftime(_format)
     except ValueError:
         return date_string
 

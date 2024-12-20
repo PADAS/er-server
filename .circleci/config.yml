@@ -71,7 +71,7 @@ commands:
           command: |
             cd infra-automation
             make generate_manifest current_branch="$CIRCLE_BRANCH"
-            regex="das-2-.*-.*"
+            regex="release-2.*.*"
             ENVIRONMENT_BRANCH="${CIRCLE_BRANCH}"
             if [[ $CIRCLE_BRANCH =~ $regex ]]; then
               echo "Staging"
@@ -413,7 +413,7 @@ workflows:
           filters:
             branches:
               only:
-                - /das-2-.*-.*/
+                - /release-2.*.*/
       - docker_build_image:
           requires:
             - 'build_sphinx_docs'
