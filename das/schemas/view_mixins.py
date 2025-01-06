@@ -1,43 +1,55 @@
 import json
 from typing import Any, Dict, List, Optional, Type
 
+from django.db.models import QuerySet
 from django.http import QueryDict
-from rest_framework.renderers import BrowsableAPIRenderer, JSONRenderer
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from utils.dict_utils import get_nested_value
 from utils.drf import sorted_query_parameters_to_string
+from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer
 
 
 class DynamicSchemaDataMixin:
+    """
+    A mixin that provides an interface for `DynamicSchemaFromSourceView` to interact with it's  `source_view`,
 
-    def get_schema_data(self, fields: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    Provides methods that can be ovrrided to optimize the queryset, filter data, and avoid unnecessary
+    serialization/de-serialization.
+    """
+
+    def get_schema_queryset(self) -> QuerySet:
+        """Override this method to customize the queryset used to build schemas"""
+        assert hasattr(
+            self, "get_queryset"
+        ), "You must implement a `get_queryset` method or override `get_schema_queryset`"
+        return self.get_queryset()
+
+    def get_schema_data(self) -> List[Dict[str, Any]]:
         """
-        Use this hook to return a list of dictionaries with the data to build the schema.
-
-        The default implementation will call `get_queryset` method and try to run filters.
-
-        attributes:
-            fields: List[str] = None
-                A list of fields required to build the schema, may be used to optimize the query.
+        This is the main method to get the data to build the schema, it will use the queryset from
+        `get_schema_queryset`, the default implementation will imitate the logic of
+        `ListAPIView.list()` but without pagination.
         """
+        queryset = self.get_schema_queryset()
 
-        queryset = self.get_queryset()
         if hasattr(self, "filter_queryset"):
             queryset = self.filter_queryset(queryset)
         if hasattr(self, "optimize_queryset"):
             queryset = self.optimize_queryset(queryset)
-        if fields:
-            queryset = queryset.values(*fields)
+        if hasattr(self, "get_serializer"):
+            serializer = self.get_serializer(queryset, many=True)
+            return serializer.data
 
-        return queryset
+        return queryset.values()
 
 
 class DynamicSchemaFromSourceView(APIView):
     """
-    A view that generates a list of values in JSON schema format, using an existing view as source (that must be a
-    subclass of `rest_framework.views.APIView`).
+    A view that "dinamically" generates a JSON schema based on data from an existing view as source
+    (that must be a subclass of `rest_framework.views.APIView`).
 
     An example result would be something like:
 
@@ -98,7 +110,7 @@ class DynamicSchemaFromSourceView(APIView):
     - `s_type`: The type of value to use in the schema.
     """
 
-    renderer_classes = [BrowsableAPIRenderer, JSONRenderer]
+    renderer_classes = (DirectBrowsableAPIRenderer, DirectJSONRenderer)
 
     allowed_methods: List[str] = ["get"]
 
@@ -113,7 +125,7 @@ class DynamicSchemaFromSourceView(APIView):
 
     # Query parameters to ignore when building the schema id and the schema items, at the moment we are ignoring
     # pagination parameters.
-    ignored_query_params = ["format", "page", "page_size", "offset", "limit"]
+    ignored_query_params = ["page", "page_size", "offset", "limit"]
 
     # The fields to describe/build the schema
     schema_title: Optional[str] = None
@@ -125,7 +137,7 @@ class DynamicSchemaFromSourceView(APIView):
     default_description_field: Optional[str] = None  # Default value for the `description` field
     # To define x- attributes, use a dictionary with the key as the x- attribute and the value as the field name.
     # For example: {"icon": "item_icon_field"} will add {"x-icon": "item_icon_field"}
-    default_x_fields: Optional[Dict[str, str]] = None
+    default_x_fields: Dict[str, str] = {}
 
     default_mode = "oneOf"
     default_type = "string"
@@ -155,74 +167,54 @@ class DynamicSchemaFromSourceView(APIView):
                 query_params.pop(key)
         return query_params
 
-    # cached_property?
     def get_fields_map(self, request: Request) -> Dict[str, str]:
         """
         Builds a map of the fields to render in the schema, based on default fields and query parameters.
         """
         query_params = self.get_query_params(request)
-        requested_fields = {
+        fields_map = {
             "const": query_params.get("s_const", self.default_const_field),
             "title": query_params.get("s_title", self.default_title_field),
         }
         if description_field := query_params.get("s_description", self.default_description_field):
-            requested_fields["description"] = description_field
+            fields_map["description"] = description_field
 
         if x_fields := query_params.get("s_x", self.default_x_fields):
             if isinstance(x_fields, str):
                 x_fields = json.loads(x_fields)
             for key, value in x_fields.items():
-                requested_fields[f"x-{key}"] = value
+                fields_map[f"x-{key}"] = value
 
-        return requested_fields
-
-    def get_requested_fields(self, request: Request) -> List[str]:
-        """
-        Returns the list of fields to retrieve with the queryset, by default it will be based on
-        the results of the `get_fields_dict()` method.
-        """
-        return list(self.get_fields_map(request).values())
+        return fields_map
 
     def get_data_from_source_view(self, request: Request) -> List[Dict[str, Any]]:
         """
-        Main method that runs the source view and gets the data to build the schema.
-
-        Depending on the implementation of the source view, it may be convenient to get a queryset with some values, or
-        we may need to call the view and get the data from the response.
-
-        If the view has a 'get_schema_queryset' method, it will be called to get the queryset,
+        Main method that uses source view and gets the data to build the schema.
+        If the view does not have a 'get_schema_data' method, it will call the view and get the data from the response.
         """
 
         source_view = self.instantiate_source_view(request)
         original_request = request._request
         original_request.GET = self.get_query_params(request)
 
-        if hasattr(source_view, "get_schema_queryset"):
-            # Leverage the queryset method to get the data
+        if hasattr(source_view, "get_schema_data"):
             source_view.request = request
-            source_view.args = []
-            source_view.kwargs = {}
-
-            return source_view.get_schema_queryset(values=self.get_requested_fields(request))
-
-        response = source_view.dispatch(original_request)
-        if hasattr(response, "render"):
-            response.render()
-            data = response.data
+            source_view.format_kwarg = source_view.get_format_suffix()
+            data = source_view.get_schema_data()
         else:
-            content = response.content
-            try:
-                data = json.loads(content)
-            except ValueError:
-                raise ValueError(
-                    f"We expect a json object to consume its data, content does not look like it: {content}"
-                )
+            response = source_view.dispatch(original_request)
+            if hasattr(response, "render"):
+                response.render()
+                data = response.data
+            else:
+                content = response.content
+                try:
+                    data = json.loads(content)
+                except ValueError:
+                    raise ValueError(f"Unable to parse response content: {content}")
 
         if self.data_path:
-            for key in self.data_path.split("."):
-                if key in data:
-                    data = data[key]
-
+            data = get_nested_value(data, self.data_path, [])
         return data
 
     def get_schema_items(self, request: Request, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -238,12 +230,16 @@ class DynamicSchemaFromSourceView(APIView):
         for item in data:
             schema_item = {}
             for key, attr_name in fields_map.items():
-                if hasattr(self, f"get_{attr_name}_from_item"):
-                    schema_item[key] = getattr(self, f"get_{attr_name}_from_item")(item)
-                elif attr_name in item:
-                    schema_item[key] = item[attr_name]
+                attr_path = attr_name.split(".")
+
+                if field_method := getattr(self, f"get_{attr_path[0]}_from_item", None):
+                    value = field_method(item)
+                    if sub_attr_path := ".".join(attr_path[1:]):
+                        value = get_nested_value(value, sub_attr_path)
                 else:
-                    schema_item[key] = None
+                    value = get_nested_value(item, attr_name)
+                schema_item[key] = value
+
             schema_items.append(schema_item)
 
         return schema_items
@@ -263,20 +259,25 @@ class DynamicSchemaFromSourceView(APIView):
         return f"{base_url}?{query_string}"
 
     def render_schema(self, request: Request) -> Dict[str, Any]:
-        data = self.get_data_from_source_view(request)
+        """
+        Main method to render the schema, it will use the data from the source view to build the schema.
+        """
         query_params = self.get_query_params(request)
-
         schema_mode = query_params.get("s_mode", self.default_mode)
         schema_type = query_params.get("s_type", self.default_type)
-
         schema = {
             "$id": self.get_schema_id(request),
-            # "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "type": schema_type,
             "title": self.schema_title or "Dynamic schema field",
             "description": self.schema_description or "Dynamic schema description",
         }
+
+        data = self.get_data_from_source_view(request)
+        if not isinstance(data, list):
+            data = [data]
         schema_items = self.get_schema_items(request, data)
+
         if schema_mode == "anyOf":
             schema["anyOf"] = schema_items
         elif schema_mode in ["oneOf", "array", "object"]:
@@ -285,5 +286,5 @@ class DynamicSchemaFromSourceView(APIView):
 
         return schema
 
-    def get(self, request: Request, *args, **kwargs) -> Dict[str, Any]:
+    def get(self, request: Request, *args, **kwargs) -> dict:
         return Response(self.render_schema(request))
