@@ -214,7 +214,9 @@ class DynamicSchemaFromSourceView(APIView):
                     raise ValueError(f"Unable to parse response content: {content}")
 
         if self.data_path:
-            data = get_nested_value(data, self.data_path, [])
+            data = get_nested_value(data, self.data_path)
+            if data is None:
+                raise ValueError(f"Unable to find data at path: {self.data_path or 'root'}")
         return data
 
     def get_schema_items(self, request: Request, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
