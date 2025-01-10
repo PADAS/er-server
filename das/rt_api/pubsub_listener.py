@@ -56,6 +56,7 @@ def start(realtime_server):
             handle_new_source_observation.apply_async(
                 args=(source_id,),
                 kwargs={"domain": data.pop("domain", None)},
+                countdown=30,
             )
 
     def subjectstatus_update_handler(data, message):
