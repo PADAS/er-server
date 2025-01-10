@@ -55,8 +55,8 @@ class DynamicSchemaFromSourceView(APIView):
 
     ```json
     {
-        "$id": "http://tenant.pamdas.org/api/v1.0/featurecategories.json",
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "a unique url based on the request url and query parameters",
+        "$schema": "draft/2020-12/schema",
 
         "title": "FeatureCategories",
         "description": "A list of all feature categories available to the client",
@@ -69,8 +69,7 @@ class DynamicSchemaFromSourceView(APIView):
             {
                 "const": "uuid2",
                 "title": "Feature category 2"
-            },
-            ...
+            }
         ]
     }
     ```
