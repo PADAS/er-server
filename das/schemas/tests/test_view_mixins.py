@@ -175,7 +175,7 @@ class NestedMockSourceView(ListAPIView, DynamicSchemaDataMixin):
         raise NotImplementedError
 
     def get_schema_data(self):
-        # Instead of returning a list directly, we nest it under payload.inner.items
+        # Instead of returning a list directly, we nest it under data.inner.items
         return {
             "status": 200,
             "data": {
@@ -218,22 +218,22 @@ class NestedTestDynamicSchemaView(DynamicSchemaFromSourceView):
     default_title_field = "profile.name"
     default_description_field = "details.bio"
 
-    # Optionally define x-fields if you like
+    # Optionally define x-fields
     default_x_fields = {"lang": "details.language"}
 
 
 @pytest.mark.django_db
 class TestDynamicSchemaFromNestedSourceView:
 
-    def test_data_path_and_nested_fields(superuser_client, add_view_to_urls):
+    def test_data_path_and_nested_fields(self, superuser_client, add_view_to_urls):
         """
         Verifies that:
         1. The top-level data is found under `data.inner.items`
         2. Fields with dots (profile.id, profile.name, details.bio, details.language) are correctly resolved.
         """
 
-        add_view_to_urls(NestedTestDynamicSchemaView, route="test-nested-path", name="test-nested-path")
-        url = reverse("tests:test-nested-path")
+        add_view_to_urls(NestedTestDynamicSchemaView, route="test-schema", name="test-schema")
+        url = reverse("tests:test-schema")
         response = superuser_client.get(url)
 
         assert response.status_code == 200, response.content
