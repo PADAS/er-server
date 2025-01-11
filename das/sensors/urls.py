@@ -18,11 +18,11 @@ PROVIDER_KEY_SUFFIX: str = r"(?P<provider_key>[\w-]{3,100})/status/?$"
 
 urlpatterns = [
     re_path(r"^openapi-schema/?$", schema_view, name="openapi-schema"),
-    re_path(rf"^gsat/{PROVIDER_KEY_SUFFIX}",
-            views.GsatHandlerView.as_view()),
+    re_path(rf"^gsat/{PROVIDER_KEY_SUFFIX}", views.GsatHandlerView.as_view()),
     re_path(
         rf"^dasradioagent/{PROVIDER_KEY_SUFFIX}",
         views.RadioAgentHandlerView.as_view(),
+        name="dasradioagenthandler",
     ),
     re_path(
         rf"^camera-trap/{PROVIDER_KEY_SUFFIX}",
@@ -59,10 +59,8 @@ urlpatterns = [
         views.SigfoxV2FoundationHandlerView.as_view(),
         name="sigfox-v2-view",
     ),
-    re_path(rf"^gate/{PROVIDER_KEY_SUFFIX}",
-            views.GateHandlerView.as_view()),
-    re_path(rf"^test/{PROVIDER_KEY_SUFFIX}",
-            views.TestHandlerView.as_view()),
+    re_path(rf"^gate/{PROVIDER_KEY_SUFFIX}", views.GateHandlerView.as_view()),
+    re_path(rf"^test/{PROVIDER_KEY_SUFFIX}", views.TestHandlerView.as_view()),
     re_path(
         rf"^capturs-tracker/{PROVIDER_KEY_SUFFIX}",
         views.CaptursHandlerView.as_view(),
