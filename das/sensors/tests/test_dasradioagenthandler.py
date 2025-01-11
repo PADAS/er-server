@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 
@@ -12,6 +13,7 @@ from sensors.views import RadioAgentHandlerView
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@patch("django.db.close_old_connections", lambda: None)
 class DasRadioAgentHandlerTest(BaseAPITest):
     PROVIDER_KEY = "dasradioagent"
 
