@@ -48,13 +48,35 @@ app.conf.task_queues = (
 
 
 app.conf.task_routes = {
+    "activity.tasks.send_alert_to_notificationmethod": {
+        "queue": "realtime_p1",
+    },
     "rt_api.tasks.handle_emit_data": {
         "queue": "realtime_p1",
     },
+    "das_server.tasks.celerybeat_pulse": {
+        "queue": "realtime_p1",
+    },
+    "rt_api.tasks.broadcast_service_status": {"queue": "realtime_p1"},
     "rt_api.tasks.handle_new_event": {
         "queue": "realtime_p2",
     },
     "rt_api.tasks.handle_update_event": {
+        "queue": "realtime_p2",
+    },
+    "rt_api.tasks.handle_new_patrol": {
+        "queue": "realtime_p2",
+    },
+    "rt_api.tasks.handle_update_patrol": {
+        "queue": "realtime_p2",
+    },
+    "activity.tasks.automatically_update_event_state": {
+        "queue": "realtime_p2",
+    },
+    "activity.tasks.periodically_maintain_patrol_state": {
+        "queue": "realtime_p2",
+    },
+    "observations.tasks.handle_source_with_new_observations": {
         "queue": "realtime_p2",
     },
     "rt_api.tasks.handle_delete_event": {
@@ -66,21 +88,11 @@ app.conf.task_routes = {
     "rt_api.tasks.handle_new_subject_observation": {
         "queue": "realtime_p3",
     },
-    "rt_api.tasks.broadcast_service_status": {"queue": "realtime_p1"},
-    "rt_api.tasks.handle_new_patrol": {
-        "queue": "realtime_p2",
-    },
-    "rt_api.tasks.handle_update_patrol": {
-        "queue": "realtime_p2",
-    },
     "rt_api.tasks.handle_delete_patrol": {
         "queue": "realtime_p3",
     },
-    "activity.tasks.periodically_maintain_patrol_state": {
-        "queue": "realtime_p2",
-    },
-    "observations.tasks.handle_source_with_new_observations": {
-        "queue": "realtime_p2",
+    "reports.tasks.alert_lag_delay": {
+        "queue": "realtime_p3",
     },
     "observations.tasks.maintain_subjectstatus_for_subject": {
         "queue": "maintenance",
@@ -89,6 +101,10 @@ app.conf.task_routes = {
         "queue": "maintenance",
     },
     "mapping.tasks.automate_download_features_from_wfs": {
+        "queue": "maintenance",
+    },
+    "observations.tasks.run_partition_table_check": {"queue": "maintenance"},
+    "das_server.tasks.refresh_tenants_cache": {
         "queue": "maintenance",
     },
     "mapping.tasks.load_features_from_wfs": {"queue": "maintenance"},
@@ -102,12 +118,8 @@ app.conf.task_routes = {
     "tracking.tasks.run_firms_plugin": {
         "queue": "analyzers",
     },
-    "das_server.tasks.celerybeat_pulse": {
-        "queue": "realtime_p1",
-    },
-    "observations.tasks.run_partition_table_check": {"queue": "maintenance"},
-    "das_server.tasks.refresh_tenants_cache": {
-        "queue": "maintenance",
+    "activity.tasks.evaluate_alert_rules": {
+        "queue": "analyzers",
     },
 }
 
