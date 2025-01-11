@@ -1,9 +1,9 @@
 import json
 from datetime import datetime, timedelta, timezone
 
-import pytest
-
+from django.db import OperationalError, connections
 from django.urls import resolve
+from rest_framework import status
 
 from core.tests import BaseAPITest
 from observations.servicesutils import get_source_provider_statuses
@@ -11,7 +11,6 @@ from sensors.handlers import DasRadioAgentHandler
 from sensors.views import RadioAgentHandlerView
 
 
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class DasRadioAgentHandlerTest(BaseAPITest):
     PROVIDER_KEY = "dasradioagent"
 
@@ -32,7 +31,9 @@ class DasRadioAgentHandlerTest(BaseAPITest):
         )
 
         self.force_authenticate(request, self.app_user)
-        RadioAgentHandlerView.as_view()(request, self.PROVIDER_KEY)
+        result = RadioAgentHandlerView.as_view()(request, self.PROVIDER_KEY)
+        assert result.status_code == status.HTTP_200_OK
+
         current_services = get_source_provider_statuses()
 
         # No new service key stored in redis
@@ -44,7 +45,7 @@ class DasRadioAgentHandlerTest(BaseAPITest):
     def test_services_in_status(self):
         now = datetime.now(tz=timezone.utc)
 
-        status = {
+        status_data = {
             "message_key": "heartbeat",
             "heartbeat": {
                 "title": "System Activity",
@@ -60,11 +61,20 @@ class DasRadioAgentHandlerTest(BaseAPITest):
                 "latest_at": now.isoformat(),
             },
         }
-        request = self.factory.post(self.api_path, data=json.dumps(status), content_type="application/json")
+        request = self.factory.post(self.api_path, data=json.dumps(status_data), content_type="application/json")
 
         self.force_authenticate(request, self.app_user)
-        RadioAgentHandlerView.as_view()(request, self.PROVIDER_KEY)
-        current_services = get_source_provider_statuses()
+        result = RadioAgentHandlerView.as_view()(request, self.PROVIDER_KEY)
+        assert result.status_code == status.HTTP_200_OK
+
+        try:
+            # theory is that request above left the db connection in a bad state
+            # so we see the next test "test_url_handler" fail as well
+            # the teardownClass cleans up connections, so the next test cases recover
+            current_services = get_source_provider_statuses()
+        except OperationalError:
+            connections.close_all()
+            current_services = get_source_provider_statuses()
 
         # valid data from all preexistent keys
         self.assertTrue(all(k in r.keys() for k in ["heartbeat", "datasource"]) for r in current_services)
