@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from django.db import OperationalError, connections
+from django.db.utils import InterfaceError
 from django.urls import resolve
 from rest_framework import status
 
@@ -72,7 +73,7 @@ class DasRadioAgentHandlerTest(BaseAPITest):
             # so we see the next test "test_url_handler" fail as well
             # the teardownClass cleans up connections, so the next test cases recover
             current_services = get_source_provider_statuses()
-        except OperationalError:
+        except (OperationalError, InterfaceError):
             connections.close_all()
             current_services = get_source_provider_statuses()
 
