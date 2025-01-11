@@ -1,9 +1,8 @@
-import json
 from datetime import datetime, timedelta, timezone
 
-from django.db import OperationalError, connections
-from django.db.utils import InterfaceError
-from django.urls import resolve
+import pytest
+
+from django.urls import resolve, reverse
 from rest_framework import status
 
 from core.tests import BaseAPITest
@@ -14,6 +13,11 @@ from sensors.views import RadioAgentHandlerView
 
 class DasRadioAgentHandlerTest(BaseAPITest):
     PROVIDER_KEY = "dasradioagent"
+
+    @pytest.fixture(autouse=True)
+    def inject_fixtures(self, request):
+        # Access the fixture using request.getfixturevalue
+        self.user_client = request.getfixturevalue("user_client")
 
     def setUp(self):
         super().setUp()
@@ -27,13 +31,13 @@ class DasRadioAgentHandlerTest(BaseAPITest):
 
     def test_invalid_services_in_status(self):
         initial_services = get_source_provider_statuses()
-        request = self.factory.post(
-            self.api_path, data=json.dumps({"message_key": "heartbeat"}), content_type="application/json"
-        )
 
-        self.force_authenticate(request, self.app_user)
-        result = RadioAgentHandlerView.as_view()(request, self.PROVIDER_KEY)
-        assert result.status_code == status.HTTP_200_OK
+        status_data = {"message_key": "heartbeat"}
+
+        url = reverse("dasradioagenthandler", kwargs={"provider_key": str(self.PROVIDER_KEY)})
+        response = self.user_client.post(url, data=status_data)
+
+        assert response.status_code == status.HTTP_200_OK
 
         current_services = get_source_provider_statuses()
 
@@ -62,23 +66,13 @@ class DasRadioAgentHandlerTest(BaseAPITest):
                 "latest_at": now.isoformat(),
             },
         }
-        request = self.factory.post(self.api_path, data=json.dumps(status_data), content_type="application/json")
 
-        self.force_authenticate(request, self.app_user)
-        result = RadioAgentHandlerView.as_view()(request, self.PROVIDER_KEY)
-        assert result.status_code == status.HTTP_200_OK
+        url = reverse("dasradioagenthandler", kwargs={"provider_key": str(self.PROVIDER_KEY)})
+        response = self.user_client.post(url, data=status_data)
 
-        try:
-            # theory is that request above left the db connection in a bad state
-            # so we see the next test "test_url_handler" fail as well
-            # the teardownClass cleans up connections, so the next test cases recover
-            current_services = get_source_provider_statuses()
-        except (OperationalError, InterfaceError):
-            for conn in connections.all():
-                conn.close_if_unusable_or_obsolete()
-                conn.close()
-                conn.connect()
-            current_services = get_source_provider_statuses()
+        assert response.status_code == status.HTTP_200_OK
+
+        current_services = get_source_provider_statuses()
 
         # valid data from all preexistent keys
         self.assertTrue(all(k in r.keys() for k in ["heartbeat", "datasource"]) for r in current_services)
