@@ -74,7 +74,10 @@ class DasRadioAgentHandlerTest(BaseAPITest):
             # the teardownClass cleans up connections, so the next test cases recover
             current_services = get_source_provider_statuses()
         except (OperationalError, InterfaceError):
-            connections.close_all()
+            for conn in connections.all():
+                conn.close_if_unusable_or_obsolete()
+                conn.close()
+                conn.connect()
             current_services = get_source_provider_statuses()
 
         # valid data from all preexistent keys
