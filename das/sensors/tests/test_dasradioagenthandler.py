@@ -17,6 +17,7 @@ from sensors.views import RadioAgentHandlerView
 class DasRadioAgentHandlerTest(BaseAPITest):
     PROVIDER_KEY = "dasradioagent"
 
+    @patch("django.db.close_old_connections", lambda: None)
     def setUp(self):
         super().setUp()
         self.api_path = "/".join(
