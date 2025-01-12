@@ -9,7 +9,7 @@ from observations.servicesutils import get_source_provider_statuses
 from sensors.views import RadioAgentHandlerView
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestDasRadioAgentHandler:
     PROVIDER_KEY = "dasradioagent"
@@ -34,7 +34,8 @@ class TestDasRadioAgentHandler:
         assert len(initial_services) == len(current_services)
 
         # valid data from all preexistent keys
-        assert [all(k in r.keys() for k in ["heartbeat", "datasource"]) for r in current_services]
+
+        assert all([all(k in r.keys() for k in ["heartbeat", "datasource"]) for r in current_services])
 
     def test_services_in_status(self, user_client):
         now = datetime.now(tz=timezone.utc)
@@ -64,4 +65,4 @@ class TestDasRadioAgentHandler:
         current_services = get_source_provider_statuses()
 
         # valid data from all preexistent keys
-        assert [all(k in r.keys() for k in ["heartbeat", "datasource"]) for r in current_services]
+        assert all([all(k in r.keys() for k in ["heartbeat", "datasource"]) for r in current_services])
