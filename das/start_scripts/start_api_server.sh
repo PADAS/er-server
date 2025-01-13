@@ -33,9 +33,6 @@ if [[ "${MIGRATIONS_ONLY}" == "True" ]]; then
     exit 0
   fi
 
-  python3 manage.py maintenancemode enable
-  echo "Maintenance mode has been enabled"
-
   if app_has_migrated core '\[ \].0008_migrate'; then
       echo "settings override"
       # we haven't migrated to the core oauth tables yet
