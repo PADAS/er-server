@@ -1,50 +1,46 @@
-import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from django.urls import resolve
+from django.urls import resolve, reverse
+from rest_framework import status
 
-from core.tests import BaseAPITest
 from observations.servicesutils import get_source_provider_statuses
-from sensors.handlers import DasRadioAgentHandler
 from sensors.views import RadioAgentHandlerView
 
 
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-class DasRadioAgentHandlerTest(BaseAPITest):
+class TestDasRadioAgentHandler:
     PROVIDER_KEY = "dasradioagent"
 
-    def setUp(self):
-        super().setUp()
-        self.api_path = "/".join(
-            (self.api_base, "sensors", DasRadioAgentHandler.SENSOR_TYPE, self.PROVIDER_KEY, "status")
-        )
-
     def test_url_handler(self):
-        resolver = resolve(self.api_path + "/")
+        resolver = resolve(f"/api/v1.0/sensors/dasradioagent/{self.PROVIDER_KEY}/status/")
         assert resolver.func.cls == RadioAgentHandlerView
 
-    def test_invalid_services_in_status(self):
+    def test_invalid_services_in_status(self, user_client):
         initial_services = get_source_provider_statuses()
-        request = self.factory.post(
-            self.api_path, data=json.dumps({"message_key": "heartbeat"}), content_type="application/json"
-        )
 
-        self.force_authenticate(request, self.app_user)
-        RadioAgentHandlerView.as_view()(request, self.PROVIDER_KEY)
+        status_data = {"message_key": "heartbeat"}
+
+        url = reverse("dasradioagenthandler", kwargs={"provider_key": str(self.PROVIDER_KEY)})
+        response = user_client.post(url, data=status_data)
+
+        assert response.status_code == status.HTTP_200_OK
+
         current_services = get_source_provider_statuses()
 
         # No new service key stored in redis
-        self.assertEqual(len(initial_services), len(current_services))
+        assert len(initial_services) == len(current_services)
 
         # valid data from all preexistent keys
-        self.assertTrue(all(k in r.keys() for k in ["heartbeat", "datasource"]) for r in current_services)
 
-    def test_services_in_status(self):
+        assert all([all(k in r.keys() for k in ["heartbeat", "datasource"]) for r in current_services])
+
+    def test_services_in_status(self, user_client):
         now = datetime.now(tz=timezone.utc)
 
-        status = {
+        status_data = {
             "message_key": "heartbeat",
             "heartbeat": {
                 "title": "System Activity",
@@ -60,11 +56,13 @@ class DasRadioAgentHandlerTest(BaseAPITest):
                 "latest_at": now.isoformat(),
             },
         }
-        request = self.factory.post(self.api_path, data=json.dumps(status), content_type="application/json")
 
-        self.force_authenticate(request, self.app_user)
-        RadioAgentHandlerView.as_view()(request, self.PROVIDER_KEY)
+        url = reverse("dasradioagenthandler", kwargs={"provider_key": str(self.PROVIDER_KEY)})
+        response = user_client.post(url, data=status_data)
+
+        assert response.status_code == status.HTTP_200_OK
+
         current_services = get_source_provider_statuses()
 
         # valid data from all preexistent keys
-        self.assertTrue(all(k in r.keys() for k in ["heartbeat", "datasource"]) for r in current_services)
+        assert all([all(k in r.keys() for k in ["heartbeat", "datasource"]) for r in current_services])

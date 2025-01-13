@@ -211,7 +211,7 @@ def get_filtered_patrols(patrol_filter, queryset):
     return queryset
 
 
-@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True, "timeout": 600})
 def _broadcast_service_status(service_status_data=None, **kwargs):
     service_status_data = service_status_data or servicesutils.get_source_provider_statuses()
     if not service_status_data:
@@ -231,7 +231,7 @@ def _broadcast_service_status(service_status_data=None, **kwargs):
         close_old_connections()
 
 
-@celery.app.task(base=OverAllTenantTask, once={"graceful": True})
+@celery.app.task(base=OverAllTenantTask, once={"graceful": True, "timeout": 600})
 def broadcast_service_status():
     _broadcast_service_status.apply_async()
 
@@ -360,7 +360,7 @@ def handle_delete_event(event_id, **kwargs):
     _event_handler(event_id, "delete_event")
 
 
-@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True, "timeout": 600}, soft_time_limit=60, time_limit=65)
 def handle_new_source_observation(source_id, **kwargs):
 
     logger.debug("Handling new observation for source_id=%s", source_id)

@@ -57,6 +57,7 @@ class CameraTrapTest(BaseAPITest):
     user_const = dict(last_name="last", first_name="first")
     sensor_type = "camera-trap"
 
+    @patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
     def setUp(self):
         super().setUp()
         call_command("loaddata", "event_data_model.json")
