@@ -2,6 +2,9 @@ import copy
 import datetime
 import random
 
+import pytest
+from django_multitenant.utils import get_current_tenant, set_current_tenant
+
 from django.contrib.auth.models import ContentType, Permission
 from django.core.exceptions import ValidationError
 from django.test import TestCase
@@ -10,6 +13,7 @@ from rest_framework.exceptions import PermissionDenied
 import accounts.views as views
 from accounts.models import PermissionSet, User
 from core.tests import BaseAPITest
+from factories import PermissionSetFactory
 
 
 def random_string(length=10):
@@ -27,6 +31,51 @@ def make_n_users(n=1):
 
 def make_n_permissionsets(n=1):
     return [PermissionSet.objects.create(name=random_string()) for x in range(n)]
+
+
+@pytest.mark.django_db()
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestTenantPermissionSets:
+
+    @pytest.fixture
+    def view_subjects_permission_set_five_tenants(
+        self, view_subjects_permission_set, view_subject_permissions, five_tenants
+    ):
+        five_tenants = list(five_tenants)
+        permission_sets = []
+        previous_tenant = get_current_tenant()
+
+        try:
+            for tenant in five_tenants:
+                set_current_tenant(tenant)
+                permission_set = PermissionSetFactory.create(
+                    das_tenant=tenant, id=view_subjects_permission_set.id, permissions=view_subject_permissions
+                )
+                permission_sets.append(permission_set)
+        finally:
+            set_current_tenant(previous_tenant)
+        return permission_sets
+
+    def test_two_tenants_sharing_common_permissionset_id(
+        self, view_subjects_permission_set, view_subjects_permission_set_five_tenants, five_tenants
+    ):
+        current_tenant = self.das_tenant
+        set_current_tenant(current_tenant)
+
+        #  we are confirming an issue with the PermissionSet model where the same permissionset.id
+        #  is being used across multiple tenants for some older default permissionsets resulting in
+        #  duplicate permissions when we use the permissions accessor on the permissionset object
+        permissions = list(view_subjects_permission_set.permissions.all())
+
+        # given the permissions list, detect duplicate permissions in the list on the permission.id field
+        duplicate_permissions = [permission for permission in permissions if permissions.count(permission) > 1]
+        assert len(duplicate_permissions) > 0
+
+        # now we force the tenant filtering on the permissionset through table
+        permissions = list(view_subjects_permission_set.permissions.filter(permission_sets__das_tenant=current_tenant))
+
+        duplicate_permissions = [permission for permission in permissions if permissions.count(permission) > 1]
+        assert len(duplicate_permissions) == 0
 
 
 class BaseTestCase(TestCase):
