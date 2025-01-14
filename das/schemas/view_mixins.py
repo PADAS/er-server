@@ -114,7 +114,7 @@ class DynamicSchemaFromSourceView(APIView):
     allowed_methods: List[str] = ("get",)
 
     source_view: Type[APIView]  # The source view to get the data from
-    source_view_initkwargs = {}  # Extra kwargs to pass to the source view
+    source_view_initkwargs: dict  # Extra kwargs to pass to the source view
 
     # In case we are using the complete response of the view, then this `path` can be used to traverse the data
     # structure and reach the list of items to use as source data.
@@ -146,12 +146,15 @@ class DynamicSchemaFromSourceView(APIView):
             return self.source_view
         raise NotImplementedError("`source_view` must be defined or `get_source_view` must be implemented")
 
+    def get_source_view_initkwargs(self, request: Request) -> dict:
+        return getattr(self, "source_view_initkwargs", {})
+
     def instantiate_source_view(self, request: Request, **kwargs) -> APIView:
         """
         Instantiates a view class, pass the request and the specified kwargs
         """
         source_view_class = self.get_source_view(request)
-        kwargs.update(self.source_view_initkwargs)
+        kwargs.update(self.get_source_view_initkwargs(request))
         source_view_instance = source_view_class(**kwargs)
 
         return source_view_instance
