@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 import redis
 
 from django.conf import settings
@@ -48,3 +50,12 @@ def set_maintenance_message(message):
 
 def get_maintenance_message():
     return redis_client.get(MAINTENANCEMESSAGE_KEY)
+
+
+@contextmanager
+def maintenant_mode():
+    set_maintenance_mode()
+    try:
+        yield None
+    finally:
+        unset_maintenance_mode()

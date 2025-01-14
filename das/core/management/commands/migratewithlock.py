@@ -8,6 +8,7 @@ from django.conf import settings
 from django.core.management.commands.migrate import Command as MigrateCommand
 from django.db import connections
 
+from core.middleware import maintenant_mode
 from utils.model_to_fixtures import log_permissionsets
 
 DEFAULT_LOCK_ID = getattr(settings, "MIGRATE_LOCK_ID", 1000)  # just a random number
@@ -53,7 +54,8 @@ class Command(MigrateCommand):
                 )
                 log_permissionsets.set_queryset_hash_to_cache()
 
-                MigrateCommand.handle(self, *args, **options)
+                with maintenant_mode():
+                    MigrateCommand.handle(self, *args, **options)
 
                 log_permissionsets.create_queryset_fixtures_if_hash_changed()
 
