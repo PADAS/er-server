@@ -1,7 +1,11 @@
+import csv
+from datetime import datetime, timedelta
 from functools import reduce
+from io import StringIO
 from itertools import chain
 
 import pytest
+import pytz
 
 from django.contrib.gis.geos import MultiPoint, Point, Polygon
 from django.urls import reverse
@@ -414,6 +418,32 @@ class TestEventsExportView:
         assert len(superuser_report) == 2
         assert len(user_report) == 1
 
+    def test_event_export_dates(self, superuser_client, five_events_with_details):
+        url = reverse("events-export")
+        delta = timedelta(days=0)
+
+        for detail in five_events_with_details:
+            date_time = datetime(2024, 1, 1, 12, 0, 0) + delta
+            aware_datetime = timezone.make_aware(date_time, timezone=pytz.UTC)
+            detail.event.event_time = aware_datetime
+            detail.event.save()
+            event_time = detail.event.event_time
+
+            event_detail = detail.data["event_details"]
+            event_detail["date_time"] = event_time.strftime("%Y-%m-%dT%H:%M:%S") + ".000Z"
+            detail.save(update_fields=["data"])
+
+            delta = delta + timedelta(days=15)
+
+        response = superuser_client.get(url)
+        data = self._response_to_dict(response)
+
+        for record in data:
+            reported_at = record["Reported_At_(GMT-8:0)"]
+            date_time = record["date_time_test"]
+
+            assert reported_at == date_time
+
     def _setup_observations(self, source, observations):
         locations = Point(-103, 20.001155774646055), Point(-103, 20.001798483879462)
         now = timezone.now()
@@ -430,6 +460,11 @@ class TestEventsExportView:
 
     def _get_response_content(self, response):
         return [line.decode() for line in response.content.split(b"\r\n") if line]
+
+    def _response_to_dict(self, response):
+        csv_content = response.content.decode("utf-8")  # Decode the byte content into a string
+        csv_file_like = StringIO(csv_content)
+        return [row for row in csv.DictReader(csv_file_like)]
 
 
 @pytest.mark.django_db
