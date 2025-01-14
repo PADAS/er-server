@@ -111,7 +111,7 @@ class DynamicSchemaFromSourceView(APIView):
 
     renderer_classes = (DirectBrowsableAPIRenderer, DirectJSONRenderer)
 
-    allowed_methods: List[str] = ["get"]
+    allowed_methods: List[str] = ("get",)
 
     source_view: Type[APIView]  # The source view to get the data from
     source_view_initkwargs = {}  # Extra kwargs to pass to the source view
@@ -124,7 +124,7 @@ class DynamicSchemaFromSourceView(APIView):
 
     # Query parameters to ignore when building the schema id and the schema items, at the moment we are ignoring
     # pagination parameters.
-    ignored_query_params = ["page", "page_size", "offset", "limit"]
+    ignored_query_params = ("page", "page_size", "offset", "limit")
 
     # The fields to describe/build the schema
     schema_title: Optional[str] = None
@@ -136,13 +136,13 @@ class DynamicSchemaFromSourceView(APIView):
     default_description_field: Optional[str] = None  # Default value for the `description` field
     # To define x- attributes, use a dictionary with the key as the x- attribute and the value as the field name.
     # For example: {"icon": "item_icon_field"} will add {"x-icon": "item_icon_field"}
-    default_x_fields: Dict[str, str] = {}
+    default_x_fields: Optional[Dict[str, str]] = None
 
     default_mode = "oneOf"
     default_type = "string"
 
     def get_source_view(self, request: Request) -> Type[APIView]:
-        if hasattr(self, "source_view") and self.source_view:
+        if getattr(self, "source_view", None):
             return self.source_view
         raise NotImplementedError("`source_view` must be defined or `get_source_view` must be implemented")
 
@@ -180,7 +180,12 @@ class DynamicSchemaFromSourceView(APIView):
 
         if x_fields := query_params.get("s_x", self.default_x_fields):
             if isinstance(x_fields, str):
-                x_fields = json.loads(x_fields)
+                try:
+                    x_fields = json.loads(x_fields)
+                except json.JSONDecodeError:
+                    raise ValueError(f"Unable to parse x-fields: {x_fields}")
+            if not isinstance(x_fields, dict):
+                raise ValueError(f"Invalid x-fields: {x_fields}")
             for key, value in x_fields.items():
                 fields_map[f"x-{key}"] = value
 
@@ -209,8 +214,8 @@ class DynamicSchemaFromSourceView(APIView):
                 content = response.content
                 try:
                     data = json.loads(content)
-                except ValueError:
-                    raise ValueError(f"Unable to parse response content: {content}")
+                except (ValueError, json.JSONDecodeError) as e:
+                    raise ValueError(f"Unable to parse response content: {content}") from e
 
         if self.data_path:
             data = get_nested_value(data, self.data_path)
@@ -250,7 +255,7 @@ class DynamicSchemaFromSourceView(APIView):
         Returns the schema id, based on the url and the query parameters of the request, in order to help the
         caching of the schema, we will sort the query parameters and append them to the url.
         """
-        base_url = request.get_full_path().split("?")[0]
+        base_url = request.build_absolute_uri()
         query_params = self.get_query_params(request)
         query_string = sorted_query_parameters_to_string(query_params)
 
