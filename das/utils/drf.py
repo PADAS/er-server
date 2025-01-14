@@ -1,6 +1,7 @@
 import hashlib
 import logging
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
+from urllib.parse import quote
 
 from rest_framework_gis.pagination import GeoJsonPagination
 
@@ -142,6 +143,33 @@ class StandardResultsSetPagination(OptionalResultsSetPagination):
     max_page_size = settings.REST_FRAMEWORK["MAX_PAGE_SIZE"]
 
 
+def get_sorted_query_parameters(query_parameters: QueryDict) -> dict:
+    """
+    Let's sort the query parameters to generate a consistent dictionary, this is useful for caching or generating an
+    id for the request
+    """
+    sorted_query_parameters = {}
+
+    for key in sorted(query_parameters.keys()):
+        value = query_parameters.getlist(key)
+        if len(value) > 1:
+            sorted_query_parameters[key] = ",".join(sorted(value))
+        else:
+            sorted_query_parameters[key] = value[0]
+
+    return sorted_query_parameters
+
+
+def sorted_query_parameters_to_string(query_parameters: Union[QueryDict, Dict]) -> str:
+    """
+    Main idea behind this is to generate a constant string that can be used as a cache key for example,
+    """
+    if isinstance(query_parameters, QueryDict):
+        query_parameters = get_sorted_query_parameters(query_parameters)
+
+    return "&".join([f"{key}={quote(value)}" for key, value in query_parameters.items()])
+
+
 class CachedCountResultsSetPagination(StandardResultsSetPagination):
     """
     This paginator caches the count of the queryset for a given timeout,
@@ -172,30 +200,15 @@ class CachedCountResultsSetPagination(StandardResultsSetPagination):
 
         return query_parameters
 
-    def get_sorted_query_parameters(self, query_parameters: QueryDict) -> dict:
-        sorted_query_parameters = {}
-
-        for key in sorted(query_parameters.keys()):
-            value = query_parameters.getlist(key)
-            if len(value) > 1:
-                sorted_query_parameters[key] = ",".join(sorted(value))
-            else:
-                sorted_query_parameters[key] = value[0]
-
-        return sorted_query_parameters
-
     def get_cache_key(self, request: Request, view: Optional[APIView] = None) -> str:
         query_parameters = self.get_parameters_for_cache_key(request, view)
-        query_parameters = self.get_sorted_query_parameters(query_parameters)
-        query_parameters = "&".join([f"{key}={value}" for key, value in query_parameters.items()])
-
         clean_path = request.get_full_path().split("?")[0]
 
         return self.cache_key.format(
             cache_prefix=self.cache_prefix,
             user=str(request.user.id),
             path=clean_path,
-            query_parameters=query_parameters,
+            query_parameters=sorted_query_parameters_to_string(query_parameters),
         )
 
     def paginate_queryset(
