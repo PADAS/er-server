@@ -109,7 +109,7 @@ class DynamicSchemaFromSourceView(APIView):
     - `s_type`: The type of value to use in the schema.
     """
 
-    renderer_classes = (DirectBrowsableAPIRenderer, DirectJSONRenderer)
+    renderer_classes = (DirectJSONRenderer, DirectBrowsableAPIRenderer)
 
     allowed_methods: List[str] = ("get",)
 
