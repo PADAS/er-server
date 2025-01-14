@@ -14,16 +14,18 @@ Including another URLconf
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
 
-import django.contrib.staticfiles.views
 import oauth2_provider.views as oauth2_views
-from das_server import views
-from das_server.admin import dasadmin_site
+
+import django.contrib.staticfiles.views
 from django.conf import settings
 from django.conf.urls import include
 from django.contrib import admin
 from django.urls import path, re_path
 from rest_framework.renderers import JSONOpenAPIRenderer
 from rest_framework.schemas import get_schema_view
+
+from das_server import views
+from das_server.admin import dasadmin_site
 
 admin.autodiscover()
 admin.site.enable_nav_sidebar = False
@@ -38,6 +40,7 @@ urlpatterns = [
     path("api/v1.0/sensors/", include("sensors.urls")),
     path("api/v1.0/activity/", include("activity.urls")),
     path("api/v1.0/analyzers/", include("analyzers.urls")),
+    path("api/v1.0/dynamic-schemas/", include("schemas.urls", namespace="dynamic-schemas")),
     path("api/v1.0/", include("rt_api.urls")),
     path("api/v1.0/api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     path("api/v1.0/api-schema/", schema_view, name="openapi-schema"),

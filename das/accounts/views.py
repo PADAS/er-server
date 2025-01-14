@@ -19,6 +19,7 @@ from accounts.models.eula import EULA, UserAgreement
 from accounts.permissions import EulaPermission, UserObjectPermissions
 from accounts.serializers import AcceptEulaSerializer, EulaSerializer, UserSerializer
 from accounts.utils import allowed_permissions
+from schemas.view_mixins import DynamicSchemaDataMixin
 from utils.tenant import get_tenant_settings
 
 from .utils import get_user_etag
@@ -26,7 +27,7 @@ from .utils import get_user_etag
 logger = logging.getLogger(__name__)
 
 
-class UsersView(generics.ListAPIView):
+class UsersView(generics.ListAPIView, DynamicSchemaDataMixin):
     serializer_class = UserSerializer
     permission_classes = (UserObjectPermissions,)
     filter_backends = (UserObjectPermissionsFilter,)
