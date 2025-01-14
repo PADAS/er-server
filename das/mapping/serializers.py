@@ -1,6 +1,7 @@
 import logging
 
 import simplejson as json
+from rest_framework_gis.serializers import GeoFeatureModelSerializer
 
 from django.core.serializers import serialize
 from django.urls import reverse
@@ -115,32 +116,34 @@ class FeatureTypeSerializer(serializers.ModelSerializer):
 # )
 
 
-class SpatialFeatureListSerializer(serializers.ModelSerializer):
+class SpatialFeatureListSerializer(GeoFeatureModelSerializer):
+    feature_type_name = serializers.SerializerMethodField()
+    feature_set_name = serializers.SerializerMethodField()
+    feature_set_id = serializers.SerializerMethodField()
+
     class Meta:
         model = SpatialFeature
-        fields = ("id", "name", "feature_type", "feature_geometry")
+        geo_field = "feature_geometry"
 
-    def to_representation(self, instance: SpatialFeature) -> dict:
-        geometry_data = json.loads(instance.feature_geometry.geojson)
+        fields = (
+            "id",
+            "name",
+            "short_name",
+            "description",
+            "feature_type_name",
+            "feature_type_id",
+            "feature_set_name",
+            "feature_set_id",
+        )
 
-        return {
-            "type": "Feature",
-            "geometry": geometry_data,
-            "properties": {
-                "id": str(instance.id),
-                "name": instance.name,
-                "short_name": instance.short_name,
-                "description": instance.description,
-                "feature_type_id": str(instance.feature_type.id),
-                "feature_type_name": instance.feature_type.name,
-                "feature_set_id": (
-                    str(instance.feature_type.display_category.id) if instance.feature_type.display_category else None
-                ),
-                "feature_set_name": (
-                    instance.feature_type.display_category.name if instance.feature_type.display_category else None
-                ),
-            },
-        }
+    def get_feature_type_name(self, obj):
+        return obj.feature_type.name
+
+    def get_feature_set_name(self, obj):
+        return obj.feature_type.display_category.name if obj.feature_type.display_category else None
+
+    def get_feature_set_id(self, obj):
+        return obj.feature_type.display_category.id if obj.feature_type.display_category else None
 
 
 class SpatialFeatureSerializer(serializers.ModelSerializer):
