@@ -42,9 +42,9 @@ class FlattenObservationsView(ListAPIView):
 
 
 class ObservationsViewSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
             query_params = [
                 {"name": "subject_id", "in": "query", "description": "filter to a single subject"},
                 {"name": "source_id", "in": "query", "description": "filter to a single source"},
@@ -84,6 +84,7 @@ class ObservationsViewSchema(CustomSchema):
                     "description": "default is to use a page based paginator, which does not scale to a large dataset. Set use_cursor=true to employ a paginator that can handle millions of rows by using next/prev urls.",
                 },
             ]
+            operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)
         return operation
 

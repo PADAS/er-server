@@ -2,23 +2,23 @@ from das_server.views import CustomSchema
 
 
 class InactiveSubjectsViewSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
             query_params = {
                 "name": "include_inactive",
                 "in": "query",
                 "description": "Include inactive subjects in list.",
             }
-
+            operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].append(query_params)
         return operation
 
 
 class SubjectsViewSchema(InactiveSubjectsViewSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
             query_params = [
                 {"name": "tracks_since", "in": "query", "description": "Include tracks since this timestamp"},
                 {
@@ -65,15 +65,15 @@ class SubjectsViewSchema(InactiveSubjectsViewSchema):
                 },
                 {"name": "id", "in": "query", "description": "A comma-delimited list of Subject IDs."},
             ]
-
+            operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)
         return operation
 
 
 class SubjectGroupsViewSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
             query_params = [
                 {
                     "name": "include_hidden",
@@ -97,5 +97,6 @@ class SubjectGroupsViewSchema(CustomSchema):
                 },
                 {"name": "group_name", "in": "query", "description": "find subject groups with this name"},
             ]
+            operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)
         return operation

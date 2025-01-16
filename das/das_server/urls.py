@@ -15,6 +15,11 @@ Including another URLconf
 """
 
 import oauth2_provider.views as oauth2_views
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
 
 import django.contrib.staticfiles.views
 from django.conf import settings
@@ -44,6 +49,9 @@ urlpatterns = [
     path("api/v1.0/", include("rt_api.urls")),
     path("api/v1.0/api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     path("api/v1.0/api-schema/", schema_view, name="openapi-schema"),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
     path("api/v1.0/docs/interactive/", views.SwaggerTemplate.as_view()),
     path("api/v1.0/docs/", include("docs.urls")),
     path("admin/", admin.site.urls),

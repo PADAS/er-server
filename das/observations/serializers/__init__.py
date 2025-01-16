@@ -5,6 +5,18 @@ from datetime import MAXYEAR, MINYEAR, datetime
 from typing import NamedTuple
 
 import pytz
+from drf_extra_fields.fields import DateTimeRangeField
+from drf_extra_fields.geo_fields import PointField
+from rest_framework_gis.serializers import GeoFeatureModelListSerializer
+
+from django.contrib.auth import get_user_model
+from django.contrib.gis.geos import Point
+from django.contrib.postgres.fields import jsonb
+from django.db.models import Q
+from django.urls import reverse
+from rest_framework import serializers
+from rest_framework.fields import DateTimeField
+
 import utils.json
 from accounts.serializers import UserDisplaySerializer
 from core.fields import GEOPointField, choicefield_serializer, text_field
@@ -14,13 +26,6 @@ from core.serializers import (
     GenericRelatedField,
     TimestampMixin,
 )
-from django.contrib.auth import get_user_model
-from django.contrib.gis.geos import Point
-from django.contrib.postgres.fields import jsonb
-from django.db.models import Q
-from django.urls import reverse
-from drf_extra_fields.fields import DateTimeRangeField
-from drf_extra_fields.geo_fields import PointField
 from observations import models
 from observations.models import (
     STATIONARY_SUBJECT_VALUE,
@@ -37,9 +42,6 @@ from observations.utils import (
     get_null_point,
     is_subject_stationary_subject,
 )
-from rest_framework import serializers
-from rest_framework.fields import DateTimeField
-from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from utils import add_base_url
 from utils.serializers import PartialUpdateMixin
 
@@ -652,7 +654,7 @@ class SourceProviderSerializer(serializers.Serializer):
         return instance
 
 
-class SubjectTrackSerializer(serializers.BaseSerializer):
+class SubjectTrackSerializer(serializers.Serializer):
     def to_representation(self, subject):
         image_url = subject.image_url
         user = self.context["request"].user
@@ -682,7 +684,7 @@ class SubjectTrackSerializer(serializers.BaseSerializer):
         return rep
 
 
-class SubjectStatusSerializer(serializers.BaseSerializer):
+class SubjectStatusSerializer(serializers.Serializer):
     def to_representation(self, subject_status):
         coordinates = Point(x=subject_status.location.x, y=subject_status.location.y, srid=4326)
 
