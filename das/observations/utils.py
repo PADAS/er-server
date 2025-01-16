@@ -6,15 +6,17 @@ from typing import Optional, Tuple
 
 import dateutil.parser
 import pytz
-from core import persistent_storage
 from dateutil.parser import parse
+from django_multitenant.utils import get_current_tenant
+from geopy.distance import geodesic
+from pytz import timezone
+
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.db import connection
 from django.db.models import Aggregate
-from django_multitenant.utils import get_current_tenant
-from geopy.distance import geodesic
-from pytz import timezone
+
+from core import persistent_storage
 from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
@@ -202,7 +204,18 @@ def check_to_include_inactive_subjects(request, full_queryset):
 
 
 def assigned_range_dates(o):
-    # return subject source assigned range dates
+    """Safely return the subjectsource assigned range. Empty or out of range values are returned as "-".
+
+    Args:
+        o (subjectsource): subjectsource model object
+
+    Returns:
+        (start_date, end_date): as the actual values, or strings if the value are out of bounds
+    """
+    if o.assigned_range.isempty:
+        return "-", "-"
+    # Here we are checking for values that will overflow or underflow when rendered in some
+    # timezone offsets.
     start_date, end_date = o.safe_assigned_range.lower, o.safe_assigned_range.upper
     if start_date.year <= 1000:
         start_date = "-"
