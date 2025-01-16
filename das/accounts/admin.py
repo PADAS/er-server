@@ -1,5 +1,6 @@
 import copy
 
+from django_multitenant.utils import get_current_tenant
 from oauth2_provider.models import (
     get_access_token_admin_class,
     get_access_token_model,
@@ -88,7 +89,12 @@ class PermissionSetAdmin(ModelAdminDisplayingManyToManyFieldMixin, DjangoGroupAd
         return super().formfield_for_dbfield(db_field, **kwargs)
 
     def all_permissions(self, instance):
-        permissions = instance.permissions.all()
+        # This is the only place where one member of the through table does not have a tenant_id
+        # because of that when we say instance.permissions.all() we get all the permissions assoicated
+        # with thiswithout
+        # filtering by tenant_id
+
+        permissions = instance.permissions.filter(permission_sets__das_tenant=get_current_tenant())
         return make_html_list(sorted(ps.name for ps in permissions))
 
     all_permissions.short_description = "Permissions"

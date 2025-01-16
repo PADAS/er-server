@@ -114,7 +114,18 @@ class ExtendedJSONRenderer(JSONRenderer):
             data = {"data": data, "status": {"code": response.status_code, "message": response.status_text}}
             if response.status_code == HTTPStatus.NO_CONTENT:
                 response.status_code = HTTPStatus.OK
-        return super(ExtendedJSONRenderer, self).render(data, *args, **kwargs)
+        return super().render(data, *args, **kwargs)
+
+
+class DirectJSONRenderer(JSONRenderer):
+    """
+    Renders data without any additional wrapping or formatting.
+    """
+
+    encoder_class = ExtendedJSONEncoder
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        return super().render(data, accepted_media_type, renderer_context)
 
 
 class JSONTextParser(BaseParser):
@@ -149,7 +160,15 @@ class ExtendedBrowsableAPIRenderer(BrowsableAPIRenderer):
         # Some responses will have data=None (Ex. 204 No Content)
         if not data or "status" not in data:
             data = {"data": data, "status": {"code": response.status_code, "message": response.status_text}}
-        return super(ExtendedBrowsableAPIRenderer, self).render(data, *args, **kwargs)
+        return super().render(data, *args, **kwargs)
+
+
+class DirectBrowsableAPIRenderer(BrowsableAPIRenderer):
+    def get_default_renderer(self, view):
+        return DirectJSONRenderer()
+
+    def render(self, data, *args, **kwargs):
+        return super().render(data, *args, **kwargs)
 
 
 def dumps(obj, **kwargs):

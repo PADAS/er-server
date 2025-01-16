@@ -252,9 +252,9 @@ class GeographicMiddleware:
 
         if (
             request.method == "GET"
-            and should_apply_geographic_features(user)
-            and not request.GET.get("location")
             and re.search(ACTIVITY_EVENTS_PATH_REGEX, request.path)
+            and not request.GET.get("location")
+            and should_apply_geographic_features(user)
         ):
             warn_text = (
                 "The required 'location' parameter is either invalid or missing."
