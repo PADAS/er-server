@@ -184,6 +184,7 @@ django==3.2.21
     #   django-versatileimagefield
     #   djangorestframework
     #   drf-spectacular
+    #   drf-spectacular-sidecar
 django-bitfield==2.2.0
     # via -r requirements.in
 django-cors-headers==3.14.0
@@ -251,7 +252,9 @@ dparse==0.6.3
     # via safety
 drf-extensions==0.7.1
     # via -r requirements.in
-drf-spectacular[sidecar]==0.17.0
+drf-spectacular==0.17.0
+    # via -r requirements.in
+drf-spectacular-sidecar==2024.12.1
     # via -r requirements.in
 earthengine-api==0.1.371
     # via pymet
