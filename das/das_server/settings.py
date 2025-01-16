@@ -58,7 +58,9 @@ INSTALLED_APPS = (
     "oauth2_provider",
     "rest_framework",
     "rest_framework_gis",
-    "rest_framework_swagger",
+    # "rest_framework_swagger",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",
     "observations.apps.ObservationsConfig",
     "analyzers.apps.AnalyzersConfig",
     "das_server.apps.DasServerConfig",
@@ -281,6 +283,17 @@ CSRF_COOKIE_SECURE = True
 
 
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Your Project API",
+    "DESCRIPTION": "Your project description",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SWAGGER_UI_DIST": "SIDECAR",  # shorthand to use the sidecar instead
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    "REDOC_DIST": "SIDECAR",
+    # OTHER SETTINGS
+}
 
 SWAGGER_SETTINGS = {
     "api_version": "v1.0",

@@ -2,7 +2,9 @@ import copy
 from datetime import datetime, timedelta
 
 import pytz
-from drf_extra_fields.geo_fields import PointField
+
+# from rest_framework.schemas.openapi import AutoSchema
+from drf_spectacular.openapi import AutoSchema
 from oauth2_provider.models import get_access_token_model, get_application_model
 from oauthlib.common import generate_token
 
@@ -14,12 +16,11 @@ from django.utils import timezone
 from django.views.generic import TemplateView
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
-from rest_framework.schemas.openapi import AutoSchema
-from rest_framework.serializers import ChoiceField
 
 from activity.alerts import has_alerts_permissionset, has_patrol_view_permission
-from activity.serializers import LeaderRelatedField, PatrolList
-from activity.serializers.fields import DateTimeRangeField
+
+# from activity.serializers import LeaderRelatedField, PatrolList
+# from activity.serializers.fields import DateTimeRangeField
 from core.utils import get_site_name
 
 # This import ensures we register user-login receivers.
@@ -29,6 +30,9 @@ from observations import servicesutils
 from observations.servicesutils import has_message_view_permission
 from utils.json import parse_bool
 from utils.tenant import get_tenant_settings
+
+# from rest_framework.serializers import ChoiceField
+
 
 CLIENT_ID = "das_web_client"
 AccessToken = get_access_token_model()
@@ -40,74 +44,88 @@ def index(request):
 
 
 class CustomSchema(AutoSchema):
-    def get_operation(self, path, method):
+    def get_operation(self, *args, **kwargs):
         # Add operation tags and summary to schema
-        operation = super().get_operation(path, method)
-        operation["tags"] = [self._view.__module__.split(".")[0]]
-        operation["summary"] = getattr(self.view, method.lower()).__doc__
+        operation = super().get_operation(*args, **kwargs)
+        if not operation:
+            return operation
+        if tags := operation.get("tags"):
+            operation["tags"] = [self._view.__module__.split(".")[0]] + tags
+        else:
+            operation["tags"] = [self._view.__module__.split(".")[0]]
+
+        method_name = self.method_mapping[self.method.lower()]
+        method_name = method_name if hasattr(self.view, method_name) else self.method.lower()
+        method = getattr(self.view, method_name, None)
+
+        summary = operation.get("summary", "")
+        if summary and method:
+            operation["summary"] = f"{method.__doc__} :=== AND ===: {summary}"
+        elif method and not summary:
+            operation["summary"] = method.__doc__
 
         return operation
 
-    def get_serializer_class(self):
-        if self.view.serializer_class:
-            return self.view.serializer_class
-        else:
-            return self.view.__class__
+    # def get_serializer_class(self):
+    #     if self.view.serializer_class:
+    #         return self.view.serializer_class
+    #     else:
+    #         return self.view.__class__
 
-    def _get_operation_id(self, path, method):
-        # Patch get_serializer_class to use views class if no serializer class
-        # is defined
-        if hasattr(self.view, "get_serializer_class"):
-            self.view.get_serializer_class = self.get_serializer_class
+    # def _get_operation_id(self, path, method):
+    #     # Patch get_serializer_class to use views class if no serializer class
+    #     # is defined
+    #     if hasattr(self.view, "get_serializer_class"):
+    #         self.view.get_serializer_class = self.get_serializer_class
 
-        return super()._get_operation_id(path, method)
+    #     return super()._get_operation_id(path, method)
 
-    def _map_serializer(self, serializer):
-        # update default values to be json serializable
-        result = super()._map_serializer(serializer)
-        for res in result.get("properties").values():
-            if res.get("default"):
-                try:
-                    res["default"] = res["default"]()
-                except Exception:
-                    pass
+    # def _map_serializer(self, serializer):
+    #     # update default values to be json serializable
+    #     result = super()._map_serializer(serializer)
+    #     for res in result.get("properties").values():
+    #         if res.get("default"):
+    #             try:
+    #                 res["default"] = res["default"]()
+    #             except Exception:
+    #                 pass
 
-        # add required field to result to fix the break when clearing the same
-        # field for a patch method in _get_request_body.
-        for method in self._view.allowed_methods:
-            if method == "PATCH" and "required" not in result:
-                result["required"] = []
-        return result
+    #     # add required field to result to fix the break when clearing the same
+    #     # field for a patch method in _get_request_body.
+    #     for method in self._view.allowed_methods:
+    #         if method == "PATCH" and "required" not in result:
+    #             result["required"] = []
+    #     return result
 
-    def _map_field(self, field):
-        if isinstance(field, PointField):
-            return {"type": "object", "properties": {"latitude": {"type": "string"}, "longitude": {"type": "string"}}}
-        if isinstance(field, DateTimeRangeField):
-            return {
-                "type": "object",
-                "properties": {
-                    "start_time": {"type": "string", "format": "date-time"},
-                    "end_time": {"type": "string", "format": "date-time"},
-                },
-            }
+    # def _map_field(self, field):
+    #     if isinstance(field, PointField):
+    #         return {"type": "object", "properties": {"latitude": {"type": "string"}, "longitude": {"type": "string"}}}
+    #     if isinstance(field, DateTimeRangeField):
+    #         return {
+    #             "type": "object",
+    #             "properties": {
+    #                 "start_time": {"type": "string", "format": "date-time"},
+    #                 "end_time": {"type": "string", "format": "date-time"},
+    #             },
+    #         }
 
-        if isinstance(field, ChoiceField):
-            return {"type": "integer" if isinstance(field.default, int) else "string"}
+    #     if isinstance(field, ChoiceField):
+    #         return {"type": "integer" if isinstance(field.default, int) else "string"}
 
-        if isinstance(field, LeaderRelatedField):
-            return {"type": "object", "properties": {}}
+    #     if isinstance(field, LeaderRelatedField):
+    #         return {"type": "object", "properties": {}}
 
-        if isinstance(field, PatrolList):
-            return {
-                "type": "object",
-                "properties": {
-                    "id": {"type": "string", "format": "uuid", "readOnly": True},
-                    "title": {"type": "string", "maxLength": 255},
-                    "priority": {"type": "integer"},
-                    "state": {"type": "string", "maxLength": 255},
-                },
-            }
-        return super()._map_field(field)
+    #     if isinstance(field, PatrolList):
+    #         return {
+    #             "type": "object",
+    #             "properties": {
+    #                 "id": {"type": "string", "format": "uuid", "readOnly": True},
+    #                 "title": {"type": "string", "maxLength": 255},
+    #                 "priority": {"type": "integer"},
+    #                 "state": {"type": "string", "maxLength": 255},
+    #             },
+    #         }
+    #     return super()._map_field(field)
 
 
 class StatusView(generics.RetrieveAPIView):

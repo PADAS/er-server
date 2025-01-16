@@ -25,14 +25,15 @@ class ChoiceZipIcon(APIView):
 
 
 class ChoicesViewSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
             query_params = [
                 {"name": "model", "in": "query", "description": "Filter by 'model' field"},
                 {"name": "field", "in": "query", "description": "Filter by 'field' field"},
                 {"name": "include_inactive", "in": "query", "description": "include inactive choices"},
             ]
+            operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)
         return operation
 

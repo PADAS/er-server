@@ -162,6 +162,9 @@ class ExtendedBrowsableAPIRenderer(BrowsableAPIRenderer):
             data = {"data": data, "status": {"code": response.status_code, "message": response.status_text}}
         return super().render(data, *args, **kwargs)
 
+    def render_form_for_serializer(self, serializer):
+        return super().render_form_for_serializer(serializer)
+
 
 class DirectBrowsableAPIRenderer(BrowsableAPIRenderer):
     def get_default_renderer(self, view):
