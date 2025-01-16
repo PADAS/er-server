@@ -48,7 +48,8 @@ django-pgviews==0.5.7
 django-readonly-field==1.1.2
 django-redis==5.2.0
 django-rest-framework-condition==0.1.1
-drf-spectacular[sidecar]==0.17.0
+drf-spectacular==0.17.0
+drf-spectacular-sidecar==2024.12.1
 # django-rest-swagger==2.2.0
 django-sendsms==0.5
 django-ses==3.5.0
