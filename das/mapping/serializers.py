@@ -1,4 +1,6 @@
 import logging
+import uuid
+from typing import Optional
 
 import simplejson as json
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
@@ -136,13 +138,13 @@ class SpatialFeatureListSerializer(GeoFeatureModelSerializer):
             "feature_set_id",
         )
 
-    def get_feature_type_name(self, obj):
+    def get_feature_type_name(self, obj: SpatialFeature) -> str:
         return obj.feature_type.name
 
-    def get_feature_set_name(self, obj):
+    def get_feature_set_name(self, obj: SpatialFeature) -> Optional[str]:
         return obj.feature_type.display_category.name if obj.feature_type.display_category else None
 
-    def get_feature_set_id(self, obj):
+    def get_feature_set_id(self, obj: SpatialFeature) -> Optional[uuid.UUID]:
         return obj.feature_type.display_category.id if obj.feature_type.display_category else None
 
 
