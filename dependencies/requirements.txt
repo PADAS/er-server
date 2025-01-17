@@ -252,7 +252,7 @@ dparse==0.6.3
     # via safety
 drf-extensions==0.7.1
     # via -r requirements.in
-drf-spectacular==0.17.0
+drf-spectacular==0.28.0
     # via -r requirements.in
 drf-spectacular-sidecar==2024.12.1
     # via -r requirements.in
@@ -979,6 +979,7 @@ twilio==8.2.2
 typing-extensions==4.8.0
     # via
     #   asgiref
+    #   drf-spectacular
     #   ipython
     #   kombu
     #   opentelemetry-resourcedetector-gcp
