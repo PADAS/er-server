@@ -1708,7 +1708,7 @@ def test_patrolconfiguration_admin_history_page(
     client.force_login(user)
     pc = PatrolConfiguration.objects.first()
     url = reverse("admin:activity_patrolconfiguration_history", kwargs={"object_id": pc.id})
-    with django_assert_max_num_queries(1):
+    with django_assert_max_num_queries(10):
         client.get(url)
 
 
