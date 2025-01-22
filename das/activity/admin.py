@@ -2,15 +2,28 @@ import datetime
 import logging
 from abc import ABC
 from enum import Enum
+from uuid import UUID
 
 from celery_once import AlreadyQueued
 from psycopg2.extras import DateTimeTZRange
 
 from django.contrib import messages
 from django.contrib.admin import FieldListFilter, SimpleListFilter
+from django.contrib.admin.models import LogEntry
+from django.contrib.admin.options import get_content_type_for_model
 from django.contrib.auth import get_permission_codename, get_user_model
 from django.contrib.gis import admin
-from django.db.models import Case, CharField, F, OuterRef, Q, Subquery, Value, When
+from django.db.models import (
+    Case,
+    CharField,
+    F,
+    OuterRef,
+    Q,
+    QuerySet,
+    Subquery,
+    Value,
+    When,
+)
 from django.db.utils import DataError
 from django.forms.fields import JSONField
 from django.http import HttpResponseRedirect
@@ -20,6 +33,7 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _
 
 import activity.models as models
+from accounts.models import User
 from activity.forms import (
     AlertRuleForm,
     EventForm,
@@ -891,3 +905,39 @@ class PatrolConfiguration(ModelAdminDisplayingManyToManyFieldMixin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def _get_queryset_log_entries_for_tenant(self, tenant_id: UUID, object_id: UUID) -> QuerySet:
+        """
+        Override the QuerySet for fetching the LogEntries for the given
+        `tenant_id` and `object_id`.
+        """
+        # Fetch users that are part of the tenant
+        users_in_tenant = User.objects.filter(das_tenant_id=tenant_id)
+        return (
+            LogEntry.objects.filter(
+                object_id=object_id,
+                content_type=get_content_type_for_model(self.model),
+                # Filter user ids that are part of the current tenant
+                user_id__in=users_in_tenant,
+            )
+            .select_related()
+            .order_by("-action_time")
+        )
+
+    def history_view(self, request, object_id, extra_context=None):
+        """
+        Override the `history_view` method to filter out log entries that are
+        not part of the current tenant.
+        """
+        tenant_id = request.user.das_tenant_id
+        action_list = self._get_queryset_log_entries_for_tenant(
+            tenant_id=tenant_id,
+            object_id=object_id,
+        )
+        extra_context = {"action_list": action_list}
+
+        return super().history_view(
+            request=request,
+            object_id=object_id,
+            extra_context=extra_context,
+        )
