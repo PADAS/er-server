@@ -31,6 +31,7 @@ from activity.models import (
     EventRelationship,
     EventType,
     Patrol,
+    PatrolConfiguration,
     PatrolNote,
     PatrolSegment,
     PatrolType,
@@ -1692,6 +1693,22 @@ def test_patrol_admin_page(django_assert_max_num_queries, client, tenant_documen
     client.force_login(user)
     url = reverse("admin:activity_patrol_changelist")
     with django_assert_max_num_queries(25):
+        client.get(url)
+
+
+@pytest.mark.usefixtures("tenant_settings")
+def test_patrolconfiguration_admin_history_page(
+    django_assert_max_num_queries, client, tenant_document_cache_client_mock, tenant_response
+):
+    user_const = dict(last_name="last", first_name="first")
+    user = User.objects.create_user(
+        "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
+    )
+
+    client.force_login(user)
+    pc = PatrolConfiguration.objects.first()
+    url = reverse("admin:activity_patrolconfiguration_history", kwargs={"object_id": pc.id})
+    with django_assert_max_num_queries(1):
         client.get(url)
 
 
