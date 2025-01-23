@@ -913,12 +913,19 @@ class PatrolConfiguration(ModelAdminDisplayingManyToManyFieldMixin):
         """
         # Fetch users that are part of the tenant
         users_in_tenant = User.objects.filter(das_tenant_id=tenant_id)
-        return LogEntry.objects.filter(
-            object_id=object_id,
-            content_type=get_content_type_for_model(self.model),
-            # Filter user ids that are part of the current tenant
-            user_id__in=users_in_tenant,
-        ).order_by("-action_time")
+        # Hardcoded default admin user id from the fixture file
+        # initial_admin.yaml
+        user_id_admin_user_default = "3880239a-ffcd-47a8-9035-0ce3c9d90bdd"
+        return (
+            LogEntry.objects.filter(
+                object_id=object_id,
+                content_type=get_content_type_for_model(self.model),
+                # Filter user ids that are part of the current tenant
+                user_id__in=users_in_tenant,
+            )
+            .exclude(user_id=user_id_admin_user_default)
+            .order_by("-action_time")
+        )
 
     def history_view(self, request, object_id, extra_context=None):
         """
