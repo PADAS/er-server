@@ -18,7 +18,11 @@ from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import SimpleListFilter
-from django.contrib.admin.options import FORMFIELD_FOR_DBFIELD_DEFAULTS
+from django.contrib.admin.models import LogEntry
+from django.contrib.admin.options import (
+    FORMFIELD_FOR_DBFIELD_DEFAULTS,
+    get_content_type_for_model,
+)
 from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
 from django.contrib.admin.utils import quote
 from django.contrib.admin.widgets import FilteredSelectMultiple
@@ -37,6 +41,7 @@ from django.db.models import (
     Min,
     OuterRef,
     Q,
+    QuerySet,
     Subquery,
     Window,
 )
@@ -54,7 +59,7 @@ from django.utils.translation import gettext_lazy as _
 
 import observations.forms
 import observations.models as models
-from accounts.models import PermissionSet
+from accounts.models import PermissionSet, User
 from core.admin import (
     BaseModelAdminMixin,
     CustomM2MChecks,
@@ -1560,6 +1565,45 @@ class SourceGroupAdmin(HierarchyModelAdmin):
         (_("Member Source Groups"), {"fields": ("children",)}),
     )
     filter_horizontal = ("children", "permission_sets", "sources")
+
+    def _get_queryset_log_entries_for_tenant(self, tenant_id: UUID, object_id: UUID) -> QuerySet:
+        """
+        Override the QuerySet for fetching the LogEntries for the given
+        `tenant_id` and `object_id`.
+        """
+        # Fetch users that are part of the tenant
+        users_in_tenant = User.objects.filter(das_tenant_id=tenant_id)
+        # Hardcoded default admin user id from the fixture file
+        # initial_admin.yaml
+        user_id_admin_user_default = "3880239a-ffcd-47a8-9035-0ce3c9d90bdd"
+        return (
+            LogEntry.objects.filter(
+                object_id=object_id,
+                content_type=get_content_type_for_model(self.model),
+                # Filter user ids that are part of the current tenant
+                user_id__in=users_in_tenant,
+            )
+            .exclude(user_id=user_id_admin_user_default)
+            .order_by("-action_time")
+        )
+
+    def history_view(self, request, object_id, extra_context=None):
+        """
+        Override the `history_view` method to filter out log entries that are
+        not part of the current tenant.
+        """
+        tenant_id = request.user.das_tenant_id
+        action_list = self._get_queryset_log_entries_for_tenant(
+            tenant_id=tenant_id,
+            object_id=object_id,
+        )
+        extra_context = {"action_list": action_list}
+
+        return super().history_view(
+            request=request,
+            object_id=object_id,
+            extra_context=extra_context,
+        )
 
 
 class RadioStatusFilter(admin.SimpleListFilter):
