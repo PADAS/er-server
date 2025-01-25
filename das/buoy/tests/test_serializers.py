@@ -1,16 +1,15 @@
-import pytest
 import json
+
+import pytest
 from dateutil import parser as date_parser
 
-from django.utils import timezone
 from django.contrib.gis.geos import Point
+from django.utils import timezone
 
 from das.buoy.serializers import GearsSerializer
-from observations.models import (
-    Observation,
-)
-from utils.tenant.dataclass import FeatureFlags
 from das.buoy.tests import generate_devices
+from observations.models import Observation
+from utils.tenant.dataclass import FeatureFlags
 
 
 @pytest.mark.django_db
@@ -34,7 +33,7 @@ class TestGearSerializer:
             "source": source,
             "additional": additional,
         }
-       
+
         observation = Observation.objects.create(**data)
         observation.save()
 
@@ -70,7 +69,7 @@ class TestGearSerializer:
             "source": source,
             "additional": additional,
         }
-       
+
         observation = Observation.objects.create(**data)
         observation.save()
 
@@ -88,3 +87,37 @@ class TestGearSerializer:
         gear_subjectsource.subject.is_active = False
         serialized_gear = GearsSerializer(gear_subjectsource).data
         assert serialized_gear["status"] == "hauled"
+
+    def test_with_trawl_gear_subject_mismatch_is_active(self, gear_subjectsource):
+        gear_subjectsource.subject.is_active = True
+        gear_subjectsource.save()
+
+        source = gear_subjectsource.source
+        provider = gear_subjectsource.source.provider
+        provider.save()
+        now = timezone.now()
+        additional = generate_devices(2)
+        additional["event_type"] = "gear_hauled"
+        location_dict = json.loads(additional["devices"][0])["location"]
+        point = Point(location_dict["longitude"], location_dict["latitude"])
+        data = {
+            "recorded_at": now,
+            "location": point,
+            "source": source,
+            "additional": additional,
+        }
+
+        observation = Observation.objects.create(**data)
+        observation.save()
+
+        serialized_gear = GearsSerializer(gear_subjectsource).data
+
+        assert serialized_gear["status"] == "hauled"
+
+        # Test deployed status
+        data["recorded_at"] = timezone.now()
+        data["additional"]["event_type"] = "gear_deployed"
+        observation = Observation.objects.create(**data)
+        observation.save()
+        serialized_gear = GearsSerializer(gear_subjectsource).data
+        assert serialized_gear["status"] == "deployed"
