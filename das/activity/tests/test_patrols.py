@@ -1771,6 +1771,7 @@ def test_patrols_materialized_view(django_assert_max_num_queries, client):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestPatrolFilter:
     def test_filter_in_serial_number(self, five_patrols):
         self._arrange_patrol_serial_number_sql()
