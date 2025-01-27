@@ -379,6 +379,9 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
             Index(fields=["das_tenant", "ordernum"], name="%(class)s_ordernum_idx"),
         ]
 
+    def __str__(self):
+        return self.display
+
     def clean(self, *args, **kwargs):
         if not self.auto_resolve and self.resolve_time:
             raise ValidationError({"resolve_time": "'resolve_time' must be null if 'auto_resolve' is false."})
@@ -390,38 +393,31 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
         self.value = self.value.lower()
         return super().save(*args, **kwargs)
 
-    def __str__(self):
-        return self.display
+    def set_to_inactive(self):
+        self.is_active = False
+        self.save()
 
-    def natural_key(self):
+    def natural_key(self) -> tuple:
         return (self.value,)
 
     @property
-    def icon_id(self):
+    def icon_id(self) -> str:
         if not self.icon:
             if static_image_finder.get_marker_icon(
-                chain(
-                    [
-                        self.value,
-                    ],
-                    Event.generate_image_keys(self.value, PRI_BLACK, self.default_state),
-                )
+                chain([self.value], Event.generate_image_keys(self.value, PRI_BLACK, self.default_state))
             ):
                 return self.value
             return DEFAULT_EVENT_PATROL_ICON_ID
         return self.icon
 
     @property
-    def image_url(self):
+    def image_url(self) -> str:
         return Event.marker_icon(self.icon_id, PRI_BLACK, Event.SC_NEW)
 
     @property
     def has_events_assigned(self) -> bool:
+        # Note: We can remove this property, by adding an annotation to the queryset...
         return self.event_set.exists()
-
-    def set_to_inactive(self):
-        self.is_active = False
-        self.save()
 
 
 def parse_date_range(val):
