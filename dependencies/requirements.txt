@@ -176,6 +176,7 @@ django==3.2.21
     #   django-extensions
     #   django-extra-fields
     #   django-fast-update
+    #   django-filter
     #   django-js-asset
     #   django-leaflet
     #   django-model-utils
@@ -204,6 +205,8 @@ django-extensions==3.2.3
 django-extra-fields==3.0.2
     # via -r requirements.in
 django-fast-update==0.2.3
+    # via -r requirements.in
+django-filter==23.5
     # via -r requirements.in
 django-js-asset==2.1.0
     # via django-mptt

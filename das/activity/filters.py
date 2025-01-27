@@ -2,6 +2,7 @@ import json
 import logging
 
 import dateutil.parser as dateparser
+from django_filters import rest_framework as filters
 
 from django.db.models import Q
 from django.db.models.query import QuerySet
@@ -10,7 +11,7 @@ from rest_framework.filters import BaseFilterBackend
 from rest_framework.request import Request
 from rest_framework.views import APIView
 
-from activity.models import EventCategory
+from activity.models import EventCategory, EventType
 from activity.views.exceptions import BadRequestAPIException
 from observations.models import Subject
 from utils.categories import (
@@ -20,6 +21,44 @@ from utils.categories import (
 from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
+
+
+class ActiveByDefaultBooleanFilter(filters.BooleanFilter):
+    """
+    Custom BooleanFilter which defaults to returning only `is_active=True` records.
+    """
+
+    def filter(self, qs, value):
+        # If `value` is None, it means the parameter is missing,
+        # so default to only active records.
+        if value is None:
+            return qs.filter(is_active=True)
+
+        # If a value *is* provided, treat it as a boolean:
+        # True  -> return all records
+        # False -> return only active
+        return qs if value else qs.filter(is_active=True)
+
+
+class EventTypeFilter(filters.FilterSet):
+    """
+    FilterSet for EventType objects, avoiding the use of custom filters implemented in
+    the manager of EventTypes
+    """
+
+    updated_since = filters.DateTimeFilter(field_name="updated_at", lookup_expr="gte")
+    is_collection = filters.BooleanFilter(field_name="is_collection")
+    category = filters.CharFilter(field_name="category__value", lookup_expr="exact")
+    include_inactive = ActiveByDefaultBooleanFilter()
+
+    class Meta:
+        model = EventType
+        fields = [
+            "updated_since",
+            "is_collection",
+            "category",
+            "include_inactive",
+        ]
 
 
 class EventSubjectsFilter(BaseFilterBackend):

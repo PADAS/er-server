@@ -1,3 +1,5 @@
+from typing import List
+
 from django.contrib.gis.geos import Point
 
 from activity.models import Event, EventSource
@@ -71,7 +73,7 @@ def resolve_external_event_source(user, external_event_type):
         pass
 
 
-def get_allowed_actions_for_category(user, category_name):
+def get_allowed_actions_for_category(user, category_name) -> List[str]:
     allowed_actions = set()
 
     actions = {
