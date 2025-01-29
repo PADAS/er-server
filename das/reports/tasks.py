@@ -1,6 +1,5 @@
 import logging
 import random
-from datetime import timedelta
 from smtplib import SMTPSenderRefused, SMTPServerDisconnected
 
 from django.template.loader import render_to_string
@@ -29,7 +28,7 @@ def subjectsource_report(self, usernames=None):
         raise ValueError("The usernames argument is not supported for this task.")
 
     delay_in_seconds = random.randint(1, 60)
-    subjectsource_report_for_tenant.apply_async(eta=timedelta(seconds=delay_in_seconds))
+    subjectsource_report_for_tenant.apply_async(countdown=delay_in_seconds)
 
 
 @celery.app.task(
@@ -39,7 +38,7 @@ def subjectsource_report(self, usernames=None):
         "graceful": True,
     },
 )
-def subjectsource_report_for_tenant(self, usernames=None):
+def subjectsource_report_for_tenant(self, usernames=None, **kwargs):
     # Limit recipients to those identified by usernames argument.
     recipients = get_users_for_permission(SOURCE_REPORT_PERMISSION_CODENAME, usernames=usernames)
 
