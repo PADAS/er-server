@@ -34,6 +34,7 @@ def subjectsource_report(self, usernames=None):
 
 @celery.app.task(
     base=TenantQueueOnceTask,
+    bind=True,
     once={
         "graceful": True,
     },
