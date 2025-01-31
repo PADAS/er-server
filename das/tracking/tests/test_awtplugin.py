@@ -18,7 +18,7 @@ from core.tests import fake_get_pool
 from observations.models import Source, Subject
 from tracking.models import SourcePlugin
 from tracking.models.awt import AwtClient, AwtPlugin
-from tracking.tasks import DasPluginSourceRetryError, execute_run_source_plugin
+from tracking.tasks import DasPluginSourceRetryError, run_source_plugin
 
 FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fixtures")
 TESTDATA_FILENAME = os.path.join(FIXTURE_PATH, "awt_plugin_data.txt")
@@ -62,7 +62,7 @@ class AwtPluginTest(TestCase):
                 if plugin.run_source_plugins:
                     for sp in plugin.source_plugins.filter(status="enabled"):
                         if sp.should_run():
-                            execute_run_source_plugin(sp.id, domain="zoo.com")
+                            run_source_plugin(sp.id)
                 else:
                     plugin.execute()
 
@@ -84,8 +84,8 @@ class AwtPluginTest(TestCase):
             with self.assertRaises(DasPluginSourceRetryError):
                 sp.execute()
 
-            with self.assertRaises(celery.exceptions.Retry):
-                execute_run_source_plugin(sp.id, domain="zoo.com")
+            result = run_source_plugin.apply(args=(sp.id,))
+            assert result.state == celery.states.RETRY
 
     def test_awt_temp_and_batt_saved_as_floats(self):
         test_data = {

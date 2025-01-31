@@ -3,7 +3,7 @@ import logging
 from django.apps import apps
 from django.core.management.base import BaseCommand
 
-from tracking.tasks import execute_run_source_plugin
+from tracking.tasks import run_source_plugin
 from utils.tenant.commands import TenantCommandMixin
 
 
@@ -33,6 +33,6 @@ class Command(TenantCommandMixin, BaseCommand):
                             for observations in sp.plugin.fetch(sp.source, sp.cursor_data, dry_run):
                                 logger.info(observations)
                         else:
-                            execute_run_source_plugin(sp.id)
+                            run_source_plugin.apply(args=(sp.id,))
             else:
                 plugin.execute()
