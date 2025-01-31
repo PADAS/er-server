@@ -57,7 +57,16 @@ app.conf.task_routes = {
     "das_server.tasks.celerybeat_pulse": {
         "queue": "realtime_p1",
     },
-    "rt_api.tasks.broadcast_service_status": {"queue": "realtime_p1"},
+    "tracking.tasks.run_plugins": {
+        "queue": "realtime_p1",
+    },
+    "tracking.tasks.run_plugin_class": {
+        "queue": "realtime_p1",
+    },
+    "tracking.tasks.run_source_plugin": {
+        "queue": "realtime_p1",
+    },
+    "rt_api.tasks.broadcast_service_status": {"queue": "realtime_p2"},
     "rt_api.tasks.handle_new_event": {
         "queue": "realtime_p2",
     },
