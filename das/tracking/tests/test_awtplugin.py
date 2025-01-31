@@ -62,7 +62,7 @@ class AwtPluginTest(TestCase):
                 if plugin.run_source_plugins:
                     for sp in plugin.source_plugins.filter(status="enabled"):
                         if sp.should_run():
-                            run_source_plugin(sp.id)
+                            run_source_plugin.apply(args=(sp.id,))
                 else:
                     plugin.execute()
 
