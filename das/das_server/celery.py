@@ -142,7 +142,6 @@ app.conf.beat_schedule = {
     "plugins": {
         "task": "tracking.tasks.run_plugins",
         "schedule": timedelta(seconds=PLUGINS_INTERVAL),
-        "kwargs": {"expire_subtasks": PLUGINS_INTERVAL},
         "options": {"expires": PLUGINS_INTERVAL},
     },
     "firms-plugins": {
