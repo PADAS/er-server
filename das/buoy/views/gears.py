@@ -1,5 +1,4 @@
-from django.db.models import OuterRef, Subquery
-from django.db.models.expressions import RawSQL
+from django.db.models import F, Func, OuterRef, Subquery, Value
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 
@@ -62,17 +61,18 @@ class GearsView(generics.ListAPIView):
 
         # Keep an eye on performance of the query and potentially add new indexes to improve performance
         # Remove subject_name so we can distinct on the additional field
-        queryset.update(additional=GearsView.jsonfield_pop("additional", "subject_name"))
+        queryset.update(
+            additional=Func(
+                F("additional"),
+                Value("{subject_name}"),  # Path to the key inside the JSON
+                Value("1"),  # New value for subject_name
+                function="jsonb_set",
+            )
+        )
+
         queryset = queryset.order_by("additional").distinct("additional")
 
         return queryset
-
-    @staticmethod
-    def jsonfield_pop(field_name, key):
-        sql = f"""
-            jsonb_set({field_name}, '{{{key}}}', '"1"')
-        """
-        return RawSQL(sql, [])
 
 
 class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
