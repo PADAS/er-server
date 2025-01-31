@@ -1,37 +1,30 @@
-import json
+from django.db.models import F, Func, OuterRef, Subquery, Value
+from django.shortcuts import get_object_or_404
 from rest_framework import generics
 
 from buoy import serializers
 from buoy.views.helpers import (
-    check_valid_state_string,
+    check_to_include_inactive_buoys,
     check_valid_date_string,
+    check_valid_state_string,
+    filter_by_bbox,
 )
 from buoy.views.schemas import GearsViewSchema
-from django.db.models import OuterRef, Subquery
-from buoy.views.helpers import check_to_include_inactive_buoys, filter_by_bbox
-from django.shortcuts import get_object_or_404
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import Subject, SubjectSource, SubjectSource, LatestObservationSource
+from observations.models import LatestObservationSource, Subject, SubjectSource
 from observations.permissions import StandardObjectPermissions
-from observations.utils import (
-    VIEW_SUBJECT_PERMS,
-    dateparse,
-    get_minimum_allowed_age,
-)
-from utils.drf import (
-    ForbiddenAPIException,
-    StandardResultsSetPagination,
-)
+from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
+from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
 from utils.gis import check_valid_lat_lon
 
 
 class GearsView(generics.ListAPIView):
     __doc__ = """
     Returns all gears.
-    
+
     Required query-parameters:
     lat, lon: float
-    
+
     Optional query-parameters:
     state, where state is either "deployed" or "hauled".
         example: state=deployed
@@ -57,7 +50,7 @@ class GearsView(generics.ListAPIView):
         # First get subject-sources.
         queryset = SubjectSource.objects.all().select_related("source").select_related("subject")
 
-        # need a stable sort for pagination. 
+        # need a stable sort for pagination.
         queryset = check_to_include_inactive_buoys(self.request, queryset)
         queryset = queryset.order_by("id")
 
@@ -86,13 +79,23 @@ class GearsView(generics.ListAPIView):
             queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon)
         else:
             return queryset.none()
-        
-        # Filter queryset by removing subjects where the additional field is the same 
-        latest_observation = LatestObservationSource.objects.filter(source_id=OuterRef("source_id")) 
+
+        # Filter queryset by removing subjects where the additional field is the same
+        latest_observation = LatestObservationSource.objects.filter(source_id=OuterRef("source_id"))
         queryset.update(additional=Subquery(latest_observation.values("observation__additional")[:1]))
 
-        # Keep an eye on performance of the query and potentially add new indexes to improve performance 
-        queryset = queryset.order_by('additional').distinct('additional')
+        # Keep an eye on performance of the query and potentially add new indexes to improve performance
+        # Remove subject_name so we can distinct on the additional field
+        queryset.update(
+            additional=Func(
+                F("additional"),
+                Value("{subject_name}"),  # Path to the key inside the JSON
+                Value("1"),  # New value for subject_name
+                function="jsonb_set",
+            )
+        )
+
+        queryset = queryset.order_by("additional").distinct("additional")
 
         return queryset
 
