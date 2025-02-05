@@ -109,6 +109,7 @@ class EtagRetrieveModelMixin:
         return get_hash_from_model_instance(obj, request)
 
     def retrieve(self, request: Request, *args, **kwargs) -> Response:
+        """Retrieve a model instance, with etag and last-modified support."""
         instance = self.get_object()
 
         last_modified = None

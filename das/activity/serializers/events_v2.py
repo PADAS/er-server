@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 from rest_framework import serializers
@@ -6,6 +7,8 @@ from activity.models import EventCategory, EventType
 from activity.serializers.events import SimplifiedEventTypeSerializer
 from activity.serializers.helpers import get_allowed_actions_for_category
 from utils.categories import EventCategoryRelatedPermissionSetActions
+
+logger = logging.getLogger(__name__)
 
 
 class EventCategorySerializer(serializers.HyperlinkedModelSerializer):
@@ -89,8 +92,11 @@ class EventTypeSerializer(serializers.ModelSerializer):
 
     def get_has_events_assigned(self, obj) -> bool:
         """
-        Returns whether the event type is currently in use.
+        Returns whether the event type is being used in any event.
         Implementation is based on the `in_use` annotation in the queryset.
         Avoids the to perform a separate query to check if the event type is in use.
         """
-        return obj.in_use
+        if hasattr(obj, "in_use"):
+            return obj.in_use
+        logger.warning("Missing `in_use` annotation in EventType queryset for EventType %s", obj)
+        return obj.event_set.exists()
