@@ -17,7 +17,7 @@ from observations.models import (
     SubjectType,
 )
 from tracking.models import SourcePlugin, VectronicsPlugin
-from tracking.tasks import execute_run_source_plugin
+from tracking.tasks import run_source_plugin
 
 from .vectronic_sample_data import positions
 
@@ -68,7 +68,7 @@ class VectronicsPluginTest(TestCase):
             if plugin.run_source_plugins:
                 for sp in plugin.source_plugins.filter(status="enabled"):
                     if sp.should_run():
-                        execute_run_source_plugin(sp.id)
+                        run_source_plugin.apply(args=(sp.id,))
             else:
                 plugin.execute()
         self.assertTrue(len(self.henry.observations()) > 0)
@@ -88,7 +88,7 @@ class VectronicsPluginTest(TestCase):
             if plugin.run_source_plugins:
                 for sp in plugin.source_plugins.filter(status="enabled"):
                     if sp.should_run():
-                        execute_run_source_plugin(sp.id, domain="zoo.com")
+                        run_source_plugin.apply(args=(sp.id,))
             else:
                 plugin.execute()
 

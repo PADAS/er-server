@@ -14,7 +14,7 @@ from observations.models import Source, SourceProvider
 from tracking.models.awt import AwtClient
 from tracking.models.plugin_base import DasDefaultTarget, SourcePlugin
 from tracking.pubsub_registry import notify_new_tracks
-from tracking.tasks import execute_run_source_plugin
+from tracking.tasks import run_source_plugin
 from utils.tenant.commands import TenantCommandMixin
 
 AWT_ID_CONVERSION_RE = re.compile(r"0([0-9]{7})[SKY,VTI][0-9A-Z]{4}")
@@ -85,7 +85,7 @@ class Command(TenantCommandMixin, BaseCommand):
             if plugin.run_source_plugins:
                 for sp in plugin.source_plugins.filter(status="enabled"):
                     if sp.should_run():
-                        execute_run_source_plugin(sp.id)
+                        run_source_plugin.apply(args=(sp.id))
             else:
                 plugin.execute()
 

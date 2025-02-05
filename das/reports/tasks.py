@@ -1,4 +1,6 @@
 import logging
+import random
+from smtplib import SMTPSenderRefused, SMTPServerDisconnected
 
 from django.template.loader import render_to_string
 from django.utils.translation import gettext_lazy as _
@@ -15,13 +17,28 @@ from reports.observationlagnotification import (
     send_lag_delay_alert,
 )
 from reports.subjectsourcereport import generate_user_reports
-from utils.tenant.celery import OverAllTenantTask
+from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask
 
 logger = logging.getLogger(__name__)
 
 
 @celery.app.task(base=OverAllTenantTask, bind=True, once={"graceful": True})
 def subjectsource_report(self, usernames=None):
+    if usernames:
+        raise ValueError("The usernames argument is not supported for this task.")
+
+    delay_in_seconds = random.randint(1, 60)
+    subjectsource_report_for_tenant.apply_async(countdown=delay_in_seconds)
+
+
+@celery.app.task(
+    base=TenantQueueOnceTask,
+    bind=True,
+    once={
+        "graceful": True,
+    },
+)
+def subjectsource_report_for_tenant(self, usernames=None, **kwargs):
     # Limit recipients to those identified by usernames argument.
     recipients = get_users_for_permission(SOURCE_REPORT_PERMISSION_CODENAME, usernames=usernames)
 
@@ -38,12 +55,18 @@ def subjectsource_report(self, usernames=None):
         report_timestamp = report_context.get("report_date").strftime("%b %d, %Y %H:%M (utc)")
 
         message_subject = _(f"EarthRanger Source Report - {report_timestamp}")
-        send_report(
-            subject=message_subject,
-            to_email=user.email,
-            text_content=_("EarthRanger Source report (attached as HTML)."),
-            html_content=email_body,
-        )
+
+        try:
+            send_report(
+                subject=message_subject,
+                to_email=user.email,
+                text_content=_("EarthRanger Source report (attached as HTML)."),
+                html_content=email_body,
+            )
+        except SMTPServerDisconnected:
+            logger.exception(f"Failed to send Subject Source Report to {user.username} ({user.email})")
+        except SMTPSenderRefused as ex_sr:
+            logger.warning(f"Failed to send Subject Source Report to {user.username} ({user.email}), %s", ex_sr)
 
 
 @celery.app.task(base=OverAllTenantTask, bind=True, once={"graceful": True})
