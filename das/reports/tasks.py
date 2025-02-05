@@ -17,6 +17,7 @@ from reports.observationlagnotification import (
     send_lag_delay_alert,
 )
 from reports.subjectsourcereport import generate_user_reports
+from utils.tenant import get_tenant_settings
 from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ def subjectsource_report(self, usernames=None):
 def subjectsource_report_for_tenant(self, usernames=None, **kwargs):
     # Limit recipients to those identified by usernames argument.
     recipients = get_users_for_permission(SOURCE_REPORT_PERMISSION_CODENAME, usernames=usernames)
+    tenant_settings = get_tenant_settings()
 
     recipients = list(recipients)
     if len(recipients) < 1:
@@ -54,7 +56,7 @@ def subjectsource_report_for_tenant(self, usernames=None, **kwargs):
 
         report_timestamp = report_context.get("report_date").strftime("%b %d, %Y %H:%M (utc)")
 
-        message_subject = _(f"EarthRanger Source Report - {report_timestamp}")
+        message_subject = _(f"EarthRanger Source Report for {tenant_settings.domain} - {report_timestamp}")
 
         try:
             send_report(
