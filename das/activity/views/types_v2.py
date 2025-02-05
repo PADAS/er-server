@@ -36,11 +36,12 @@ class EventCategoryViewSet(ModelViewSet):
 
 class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, ModelViewSet):
     """
-    Main handler for V2 of EventTypes API.
-        - Supports dynamic schema generation.
+    V2 Event Types API. Supports dynamic `schema` generation, which means rendering of references ($ref) in the schemas.
+    Features:
         - eTag generation for list and detail views.
-        - Cache control for schema rendering and  in list and detail views.
-        - Supports filtering with the same query parameters as the existing EventTypesView.
+        - FUTURE: Cache control for schema rendering.
+        - FUTURE: Validation of schemas.
+        - Supports filtering with the same query parameters as the other existing EventTypesView.
 
     Notes:
         - My approach will be:
@@ -48,7 +49,6 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
             with django-filter (DjangoFilterBackend)
             - identify and implement the same exising tests but for the new implementation.
             - implement the missing features in the new implementation.
-
     """
 
     permission_classes = (EventCategoryPermissions,)
@@ -60,9 +60,8 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
 
     def get_queryset(self):
         queryset = (
-            EventType.objects.all_sort()
-            .select_related("category")
-            .filter(category__is_active=True)
+            EventType.objects.select_related("category")
+            .filter(category__is_active=True)  # Always filter out inactive categories.
             .annotate(in_use=models.Exists(Event.objects.filter(event_type=models.OuterRef("id"))))
         )
         user = self.request.user

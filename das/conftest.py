@@ -290,6 +290,25 @@ def five_event_types():
     return EventTypeFactory.create_batch(5)
 
 
+@pytest.fixture
+def cat1_cat2_event_types():
+    """
+    Creates a controlled batch of EventTypes:
+      - Two event types in category "cat1" (active)
+      - One event type in category "cat2" (active)
+      - One inactive event type in category "cat1"
+      - One event type in category "cat1" with is_collection=True
+    """
+    cat1 = EventCategoryFactory.create(value="cat1")
+    cat2 = EventCategoryFactory.create(value="cat2")
+    et1 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=False)
+    et2 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=True)
+    et3 = EventTypeFactory.create(category=cat2, is_active=True, is_collection=False)
+    et4 = EventTypeFactory.create(category=cat1, is_active=False, is_collection=False)
+    et5 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=False)
+    return [et1, et2, et3, et4, et5]
+
+
 @pytest.fixture(autouse=True)
 def dummy_cache(settings):
     settings.CACHES = {

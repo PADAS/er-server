@@ -1,11 +1,10 @@
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import factory
 from factory import fuzzy
 from factory.fuzzy import BaseFuzzyAttribute
-from geopy import Point
 from oauth2_provider.models import get_access_token_model
 
 from django.contrib.auth import get_user_model
@@ -328,8 +327,8 @@ class EventCategoryFactory(factory.django.DjangoModelFactory):
         model = EventCategory
         django_get_or_create = ("value",)
 
-    value = factory.Sequence(lambda n: f"value_{n}")
-    display = factory.Sequence(lambda n: f"display_{n}")
+    value = factory.Sequence(lambda n: f"cat_{n}")
+    display = factory.Sequence(lambda n: f"Category {n}")
     das_tenant = factory.SubFactory(TenantFactory)
     ordernum = factory.Sequence(lambda n: n)
 
@@ -339,10 +338,15 @@ class EventTypeFactory(factory.django.DjangoModelFactory):
         model = EventType
         django_get_or_create = ("value",)
 
-    value = fuzzy.FuzzyText(length=20)
-    display = fuzzy.FuzzyText(length=50)
+    value = factory.Sequence(lambda n: f"eventtype_{n}")
+    display = factory.Sequence(lambda n: f"Event Type {n}")
     category = factory.SubFactory(EventCategoryFactory)
     das_tenant = factory.SubFactory(TenantFactory)
+    is_active = True
+    is_collection = fuzzy.FuzzyChoice([True, False])
+    ordernum = factory.Sequence(lambda n: n)
+    updated_at = factory.LazyFunction(timezone.now)
+
     schema = json.dumps(
         {
             "schema": {

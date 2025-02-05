@@ -1,4 +1,5 @@
 import hashlib
+from collections import OrderedDict
 from typing import Dict, Optional, Union
 
 from django.contrib.gis.db.models import Model, QuerySet
@@ -64,8 +65,11 @@ def get_hash_from_model_instance(
     Returns:
         str: The generated hash as an MD5 hash.
     """
+    # Get ordered list of fields from the model instance.
     if isinstance(model_instance, Model):
-        model_instance = model_instance.__dict__
+        fields = [field.name for field in model_instance._meta.concrete_fields]
+        model_instance = OrderedDict((field, getattr(model_instance, field)) for field in fields)
+
     model_instance_string = str(model_instance)
     string_to_be_hashed = _salt_string_to_hash(model_instance_string, request, extra_salt)
     return _generate_hash_from_string(string_to_be_hashed)
