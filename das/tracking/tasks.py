@@ -24,14 +24,11 @@ EXPIRE_SUBTASKS = 300
 
 
 @celery.app.task(base=OverAllTenantTask, bind=True, once={"graceful": True})
-def run_plugins(self, expire_subtasks=EXPIRE_SUBTASKS):
+def run_plugins(self):
     for plugin_class in runnable_plugins:
         if issubclass(plugin_class, (TrackingPlugin,)):
-            execute_run_plugin_class(
-                plugin_class.__name__,
-                expire_subtasks=expire_subtasks,
-                domain=get_tenant_settings().domain if features.tms.is_on() else None,
-                expires=expire_subtasks,
+            run_plugin_class.apply_async(
+                kwargs=dict(plugin_class=plugin_class.__name__, domain=get_tenant_settings().domain)
             )
         else:
             logger.error(
@@ -43,11 +40,12 @@ def run_plugins(self, expire_subtasks=EXPIRE_SUBTASKS):
 
 @celery.app.task(
     base=TenantQueueOnceTask,
+    bind=True,
     once={
         "graceful": True,
     },
 )
-def run_plugin_class(plugin_class, expire_subtasks=EXPIRE_SUBTASKS, **kwargs):
+def run_plugin_class(self, plugin_class, **kwargs):
     """Fetch all instances of plugin_class and execute."""
     if isinstance(plugin_class, str):
         plugin_class = apps.get_model("tracking", plugin_class)
@@ -57,20 +55,11 @@ def run_plugin_class(plugin_class, expire_subtasks=EXPIRE_SUBTASKS, **kwargs):
             if plugin.status == TrackingPlugin.STATUS_ENABLED:
                 for sp in plugin.source_plugins.filter(status=TrackingPlugin.STATUS_ENABLED):
                     if sp.should_run():
-                        # Expire in N seconds where N is the same as the period for the scheduled task.
-                        # This is to avoid letting our task queue get jammed with
-                        # redundant tasks.
-                        execute_run_source_plugin(
-                            str(sp.id),
-                            expires=expire_subtasks,
-                            domain=get_tenant_settings().domain if features.tms.is_on() else None,
+                        run_source_plugin.apply_async(
+                            kwargs=dict(source_plugin_id=str(sp.id), domain=get_tenant_settings().domain)
                         )
         else:
             plugin.execute()
-
-
-def execute_run_plugin_class(*args, **kwargs):
-    run_plugin_class(*args, **kwargs)
 
 
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
@@ -132,10 +121,6 @@ def run_source_plugin(self, source_plugin_id, **kwargs):
         logger.debug(
             "Finished running plugin {} for source {} with result.count={}".format(sp, sp.source, result.count)
         )
-
-
-def execute_run_source_plugin(*args, **kwargs):
-    run_source_plugin(*args, **kwargs)
 
 
 def run_demo_plugins():

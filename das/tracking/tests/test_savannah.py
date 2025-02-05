@@ -19,7 +19,7 @@ from observations.models import (
     SubjectType,
 )
 from tracking.models import SavannahPlugin, SourcePlugin
-from tracking.tasks import execute_run_plugin_class
+from tracking.tasks import run_plugin_class
 
 
 def make_data_download(request_mock, host):
@@ -231,7 +231,7 @@ class SavannahPluginTest(TestCase):
         plugin_class = apps.get_model("tracking", "SavannahPlugin")
 
         # run plugin to fetch observations and alert type data
-        execute_run_plugin_class(plugin_class, domain="zoo.com")
+        run_plugin_class.apply(args=(plugin_class,))
 
         self.assertEqual(len(self.henry.observations()), 8)
 

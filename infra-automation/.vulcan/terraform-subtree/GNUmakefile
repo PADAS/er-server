@@ -31,6 +31,10 @@ help:
 terraform_version: $(terraform_binary)
 	export PATH="$(coerced_path_for_terraform)" && terraform version
 
+.PHONY: terraform_show
+terraform_show: $(terraform_binary)
+	export PATH="$(coerced_path_for_terraform)" && terraform show
+
 .PHONY: terraform_fmt
 terraform_fmt: fmt_dir ?=
 terraform_fmt: fmt_options ?=
