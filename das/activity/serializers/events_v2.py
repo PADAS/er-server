@@ -1,56 +1,10 @@
 import logging
-from typing import List
 
 from rest_framework import serializers
 
 from activity.models import EventCategory, EventType
-from activity.serializers.events import SimplifiedEventTypeSerializer
-from activity.serializers.helpers import get_allowed_actions_for_category
-from utils.categories import EventCategoryRelatedPermissionSetActions
 
 logger = logging.getLogger(__name__)
-
-
-class EventCategorySerializer(serializers.HyperlinkedModelSerializer):
-    permissions = serializers.SerializerMethodField()
-    permission_set_changed = serializers.SerializerMethodField(read_only=True)
-    event_types = SimplifiedEventTypeSerializer(many=True, read_only=True, source="eventtype_set")
-
-    class Meta:
-        model = EventCategory
-        read_only_fields = ("id",)
-        fields = (
-            "id",
-            "value",
-            "display",
-            "is_active",
-            "ordernum",
-            "flag",
-            "permissions",
-            "event_types",
-            "permission_set_changed",
-        )
-
-    def get_permissions(self, obj) -> List[str]:
-        user = getattr(self.context.get("request", None), "user", None)
-        if user is not None:
-            return get_allowed_actions_for_category(user, obj.value)
-
-    def get_permission_set_changed(self, obj) -> bool:
-        related_permissions_actions = EventCategoryRelatedPermissionSetActions(event_category=obj)
-        return related_permissions_actions.is_event_category_permission_set_changed_by_user()
-
-    def get_fields(self):
-        fields = super().get_fields()
-
-        if not self.context.get("include_event_types", False):
-            fields.pop("event_types")
-        if not self.context.get("include_permission_set_changed", False):
-            fields.pop("permission_set_changed")
-        if not self.context.get("include_permissions", False):
-            fields.pop("permissions")
-
-        return fields
 
 
 class EventTypeSerializer(serializers.ModelSerializer):

@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 
 class GenericEventCategoryPermission(IsAuthenticated):
     """
-    Permission class for EventCategory dependant objects.
+    Permission class for EventCategory dependent objects.
     """
 
     def __init__(self, *args, **kwargs):

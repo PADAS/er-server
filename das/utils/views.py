@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from utils.etags import get_hash_from_model_instance, get_hash_from_queryset
 
 
-def uses_modified_since_headers(request: Request) -> bool:
+def has_modified_since_headers(request: Request) -> bool:
     """
     Returns True if the request includes either 'If-Modified-Since' or 'If-Unmodified-Since'
     headers for conditional requests.
@@ -23,7 +23,7 @@ def uses_modified_since_headers(request: Request) -> bool:
     return "HTTP_IF_UNMODIFIED_SINCE" in meta_keys or "HTTP_IF_MODIFIED_SINCE" in meta_keys
 
 
-def add_response_headers(response: Response, etag: str, last_modified: Optional[str]) -> Response:
+def add_etag_headers_to_response(response: Response, etag: str, last_modified: Optional[str]) -> Response:
     """
     Appends ETag and Last-Modified headers to the given Response (if last_modified is provided).
     """
@@ -55,7 +55,7 @@ class EtagListModelMixin:
 
     def get_list_etag(self, request: Request, queryset: models.QuerySet) -> str:
         """
-        By default, this method will compute a hash of the etire queryset.
+        By default, this method will compute a hash of the entire queryset.
 
         Override for custom ETag generation.
         """
@@ -68,7 +68,7 @@ class EtagListModelMixin:
         page = self.paginate_queryset(queryset)
 
         last_modified = None
-        if uses_modified_since_headers(request):
+        if has_modified_since_headers(request):
             last_modified = self.get_list_last_modified(queryset)
 
         etag = quote_etag(self.get_list_etag(request, queryset))
@@ -83,7 +83,7 @@ class EtagListModelMixin:
                 serializer = self.get_serializer(queryset, many=True)
                 response = Response(serializer.data)
 
-        return add_response_headers(response, etag, last_modified)
+        return add_etag_headers_to_response(response, etag, last_modified)
 
 
 class EtagRetrieveModelMixin:
@@ -113,7 +113,7 @@ class EtagRetrieveModelMixin:
         instance = self.get_object()
 
         last_modified = None
-        if uses_modified_since_headers(request):
+        if has_modified_since_headers(request):
             last_modified = self.get_object_last_modified(instance)
 
         etag = quote_etag(self.get_object_etag(request, instance))
@@ -123,7 +123,7 @@ class EtagRetrieveModelMixin:
             serializer = self.get_serializer(instance)
             response = Response(serializer.data)
 
-        return add_response_headers(response, etag, last_modified)
+        return add_etag_headers_to_response(response, etag, last_modified)
 
 
 class EtagListRetrieveModelMixin(EtagListModelMixin, EtagRetrieveModelMixin):
