@@ -172,9 +172,9 @@ class FeatureProximityAnalyzer(ProximityAnalyzer):
                 # Create the analyzer result
                 result = SubjectAnalyzerResult(
                     subject_analyzer=self.config,
-                    title=self.subject.name + str(_(" proximal to ")) + prox.spatial_feature_name + ".",
+                    title=self.subject.name + str(_(" proximal to ")) + prox.spatial_feature_name,
                     level=CRITICAL,
-                    message=self.subject.name + str(_(" proximal to ")) + prox.spatial_feature_name + ".",
+                    message=self.subject.name + str(_(" proximal to ")) + prox.spatial_feature_name,
                     analyzer_revision=1,
                     subject=self.subject,
                 )
