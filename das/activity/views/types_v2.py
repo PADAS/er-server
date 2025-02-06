@@ -1,6 +1,9 @@
+from typing import Optional
+
 from django_filters import rest_framework as filters
 
 from django.db import models
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.request import Request
@@ -8,30 +11,11 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from activity.filters import EventTypeFilter
-from activity.models import Event, EventCategory, EventType
+from activity.models import Event, EventType
 from activity.permissions import EventCategoryPermissions
-from activity.serializers.events_v2 import EventCategorySerializer, EventTypeSerializer
+from activity.serializers.events_v2 import EventTypeSerializer
 from activity.views.events.utils import AllowedCategoriesMixin
 from utils.views import EtagListRetrieveModelMixin
-
-
-class EventCategoryViewSet(ModelViewSet):
-
-    permission_classes = (EventCategoryPermissions,)
-    serializer_class = EventCategorySerializer
-    queryset = EventCategory.objects.all()
-    lookup_field = "value"
-    ordering = ("ordernum",)
-
-    def perform_destroy(self, instance: models.Model):
-        instance.set_to_inactive()
-
-    def create(self, request, *args, **kwargs):
-        raise NotImplementedError("Method not supported")
-
-    def update(self, request: Request, *args, **kwargs):
-        super().update(request)
-        raise NotImplementedError("Method not supported")
 
 
 class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, ModelViewSet):
@@ -79,12 +63,12 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         instance.set_to_inactive()
 
     def create(self, request, *args, **kwargs):
-        # Temporal implementation to avoid creating new event types.
-        raise NotImplementedError("Method not supported")
+        # Temporary implementation to avoid creating new event types.
+        return Response({"detail": "Method not supported"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def update(self, request: Request, *args, **kwargs):
-        # Temporal implementation to avoid updating event types.
-        raise NotImplementedError("Method not supported")
+        # Temporary implementation to avoid updating event types.
+        return Response({"detail": "Method not supported"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     @action(methods=["get"], detail=False, url_path="schemas")
     def list_schemas(self, request: Request) -> Response:
@@ -93,20 +77,18 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         Keyed by value field in event_type.
         """
         # Note:
-        # Temporal implementation to get all the schemas just to show the idea of having a
+        # Temporary implementation to get all the schemas just to show the idea of having a
         # separate endpoint for schemas.
-        # TODO: Implement rendering of the schema for each event type.
         queryset = self.filter_queryset(self.get_queryset())
-
-        schemas = {}
-        for event_type in queryset:
-            schemas[event_type.value] = event_type.schema
+        schemas = {et.value: et.schema for et in queryset}
         return Response(schemas)
 
-    @action(methods=["get"], detail=True, url_path="schema.json")
-    def retrieve_schema(self, request: Request, value: str) -> Response:
+    @action(methods=["get"], detail=True, url_path="schema")
+    def retrieve_schema(self, request: Request, value: str, format: Optional[str] = None) -> Response:
         """
         Returns the rendered schema for the specified event type.
         """
+        print(f"Retrieve schema for {value}")
+        print(f"Format: {format}")
         instance = self.get_object()
         return Response(instance.schema)

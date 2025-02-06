@@ -205,6 +205,7 @@ class TestEventTypesV2:
         response3 = superuser_client.get(url, {"category": "cat1"})
         etag3 = response3.get("ETag")
         assert etag3 != etag1
+        assert etag3 != etag2
 
     def test_list_conditional_response_if_none_match(self, superuser_client, cat1_cat2_event_types):
         """
