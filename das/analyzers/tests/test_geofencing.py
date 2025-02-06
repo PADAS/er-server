@@ -537,6 +537,59 @@ class TestGeofenceAnalyzerQuietPeriod:
         },
     ]
 
+    def _setup_geofence_test(
+        self,
+        subject_source,
+        spatial_feature_type,
+        spatial_feature_group_static,
+        geofence_analyzer_config,
+        dummy_cache,
+        event_type,
+        caplog,
+        monkeypatch,
+    ):
+
+        wildlife_subject_type = SubjectType.objects.get(value="wildlife")
+        elephant_subject_subtype = SubjectSubType.objects.get(value="elephant")
+        elephant_subject_subtype.subject_type = wildlife_subject_type
+        elephant_subject_subtype.save()
+
+        subject_source.subject.subject_subtype = elephant_subject_subtype
+        subject_source.subject.save()
+
+        subject = subject_source.subject
+
+        subject_group = geofence_analyzer_config.subject_group
+        subject_group.name = "geofence_subject_analyzer_group1"
+        subject_group.save()
+        subject_group.subjects.add(subject)
+
+        spatial_feature = SpatialFeature.objects.create(
+            feature_type=spatial_feature_type,
+            feature_geometry=LineString(Point(3.543898, 10.009698), Point(3.505531, 10.028968)),
+        )
+        spatial_feature_group_static.features.add(spatial_feature)
+
+        geofence_analyzer_config.quiet_period = timedelta(0, 9000)
+        geofence_analyzer_config.critical_geofence_group = spatial_feature_group_static
+        geofence_analyzer_config.subject_group = subject_group
+        geofence_analyzer_config.save()
+
+        event_type.value = "geofence_break"
+        event_type.save()
+
+        test_observations = [parse_recorded_at(point) for point in self.OBSERVATIONS]
+        store_observations(
+            observations=test_observations,
+            timeshift=False,
+            source=subject_source.source,
+        )
+        for minutes, observation in enumerate(Observation.objects.all(), 1):
+            observation.recorded_at = timezone.now() - timedelta(hours=6, minutes=minutes * 15)
+            observation.save()
+
+        analyze_subject_(subject.id)
+
     def test_geofence_quiet_period(
         self,
         subject_source,
@@ -551,50 +604,22 @@ class TestGeofenceAnalyzerQuietPeriod:
     ):
         set_current_tenant(das_tenant_monkeypatch)
         caplog.set_level(logging.INFO)
-        wildlife_subject_type = SubjectType.objects.get(value="wildlife")
-        elephant_subject_subtype = SubjectSubType.objects.get(value="elephant")
-        elephant_subject_subtype.subject_type = wildlife_subject_type
-        elephant_subject_subtype.save()
 
-        subject_source.subject.subject_subtype = elephant_subject_subtype
-        subject_source.subject.save()
-
-        subject = subject_source.subject
-
-        subject_group = geofence_analyzer_config.subject_group
-        subject_group.name = "geofence_subject_analyzer_group1"
-        subject_group.save()
-        subject_group.subjects.add(subject)
-
-        spatial_feature = SpatialFeature.objects.create(
-            feature_type=spatial_feature_type,
-            feature_geometry=LineString(Point(3.543898, 10.009698), Point(3.505531, 10.028968)),
+        self._setup_geofence_test(
+            subject_source,
+            spatial_feature_type,
+            spatial_feature_group_static,
+            geofence_analyzer_config,
+            dummy_cache,
+            event_type,
+            caplog,
+            monkeypatch,
         )
-        spatial_feature_group_static.features.add(spatial_feature)
-
-        geofence_analyzer_config.quiet_period = timedelta(0, 9000)
-        geofence_analyzer_config.critical_geofence_group = spatial_feature_group_static
-        geofence_analyzer_config.subject_group = subject_group
-        geofence_analyzer_config.save()
-
-        event_type.value = "geofence_break"
-        event_type.save()
-
-        test_observations = [parse_recorded_at(point) for point in self.OBSERVATIONS]
-        store_observations(
-            observations=test_observations,
-            timeshift=False,
-            source=subject_source.source,
-        )
-        for minutes, observation in enumerate(Observation.objects.all(), 1):
-            observation.recorded_at = timezone.now() - timedelta(hours=6, minutes=minutes * 15)
-            observation.save()
-
-        analyze_subject_(subject.id)
 
         assert f"Pausing analyzer with id={geofence_analyzer_config.id}" in caplog.text
         assert f"The analyzer {geofence_analyzer_config.id} is quiet for a while" not in caplog.text
         assert Event.objects.all().count() == 4
+        assert Event.objects.all()[0].event_type.value == "geofence_break"
 
     def test_geofence_quiet_period_check_analyzer_is_paused(
         self,
@@ -607,50 +632,52 @@ class TestGeofenceAnalyzerQuietPeriod:
         caplog,
         monkeypatch,
     ):
+
         caplog.set_level(logging.INFO)
-
-        wildlife_subject_type = SubjectType.objects.get(value="wildlife")
-        elephant_subject_subtype = SubjectSubType.objects.get(value="elephant")
-        elephant_subject_subtype.subject_type = wildlife_subject_type
-        elephant_subject_subtype.save()
-
-        subject_source.subject.subject_subtype = elephant_subject_subtype
-        subject_source.subject.save()
-
-        subject = subject_source.subject
-
-        subject_group = geofence_analyzer_config.subject_group
-        subject_group.name = "geofence_subject_analyzer_group1"
-        subject_group.save()
-        subject_group.subjects.add(subject)
-
-        spatial_feature = SpatialFeature.objects.create(
-            feature_type=spatial_feature_type,
-            feature_geometry=LineString(Point(3.543898, 10.009698), Point(3.505531, 10.028968)),
+        self._setup_geofence_test(
+            subject_source,
+            spatial_feature_type,
+            spatial_feature_group_static,
+            geofence_analyzer_config,
+            dummy_cache,
+            event_type,
+            caplog,
+            monkeypatch,
         )
-        spatial_feature_group_static.features.add(spatial_feature)
 
-        geofence_analyzer_config.quiet_period = timedelta(0, 9000)
-        geofence_analyzer_config.critical_geofence_group = spatial_feature_group_static
-        geofence_analyzer_config.subject_group = subject_group
-        geofence_analyzer_config.save()
-
-        event_type.value = "geofence_break"
-        event_type.save()
-
-        test_observations = [parse_recorded_at(point) for point in self.OBSERVATIONS]
-        store_observations(
-            observations=test_observations,
-            timeshift=False,
-            source=subject_source.source,
-        )
-        for minutes, observation in enumerate(Observation.objects.all(), 1):
-            observation.recorded_at = timezone.now() - timedelta(hours=6, minutes=minutes * 15)
-            observation.save()
-
-        analyze_subject_(subject.id)
-        analyze_subject_(subject.id)
+        analyze_subject_(subject_source.subject.id)
+        analyze_subject_(subject_source.subject.id)
 
         assert f"Pausing analyzer with id={geofence_analyzer_config.id}" in caplog.text
         assert f"The analyzer {geofence_analyzer_config.id} is quiet for a while" in caplog.text
         assert Event.objects.all().count() == 4
+
+    def test_geofence_event_details_rounding(
+        self,
+        subject_source,
+        spatial_feature_type,
+        spatial_feature_group_static,
+        geofence_analyzer_config,
+        dummy_cache,
+        event_type,
+        caplog,
+        monkeypatch,
+    ):
+
+        caplog.set_level(logging.INFO)
+        self._setup_geofence_test(
+            subject_source,
+            spatial_feature_type,
+            spatial_feature_group_static,
+            geofence_analyzer_config,
+            dummy_cache,
+            event_type,
+            caplog,
+            monkeypatch,
+        )
+
+        analyze_subject_(subject_source.subject.id)
+        assert Event.objects.all().count() == 4
+
+        speed = Event.objects.all()[0].event_details.first().data.get("event_details", {}).get("subject_speed_kmhr")
+        assert speed == round(speed, 2)
