@@ -343,7 +343,7 @@ class EventTypeFactory(factory.django.DjangoModelFactory):
     category = factory.SubFactory(EventCategoryFactory)
     das_tenant = factory.SubFactory(TenantFactory)
     is_active = True
-    is_collection = fuzzy.FuzzyChoice([True, False])
+    is_collection = False
     ordernum = factory.Sequence(lambda n: n)
     updated_at = factory.LazyFunction(timezone.now)
 
