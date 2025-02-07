@@ -52,5 +52,5 @@ class EventTypeSerializer(serializers.ModelSerializer):
         """
         if hasattr(obj, "in_use"):
             return obj.in_use
-        logger.warning("Missing `in_use` annotation in EventType queryset for EventType %s", obj)
+        logger.warning("Missing `in_use` annotation in EventType queryset for EventType %s", obj.value)
         return obj.event_set.exists()
