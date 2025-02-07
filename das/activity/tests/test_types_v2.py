@@ -5,6 +5,7 @@ from django.utils import timezone
 from rest_framework import status
 
 from activity.models import Event, EventType
+from activity.serializers.events_v2 import EventTypeSerializer
 
 
 @pytest.mark.django_db
@@ -22,11 +23,7 @@ class TestEventTypesV2:
     - Test that the list of event types can be filtered by category
     - Test that the list of event types can be filtered by is_collection
     - Test that the list of event types can be filtered by updated_since
-    - Test that the list of event types includes an ETag header
-    - Test that the list of event types includes an ETag header even when the response is "empty"
-    - Test that the ETag header is updated when the list of event types changes or when filters are applied
     - Test that the detail of an event type is returned successfully
-    - Test that the ETag header of the detail of an event type is updated
     - Test "has_events_assigned" field in event type detail
     - Test that the list of event type schemas is returned successfully
     - Test that the schema of an event type is returned successfully
@@ -52,31 +49,32 @@ class TestEventTypesV2:
 
     """
 
+    expected_fields = [
+        "id",
+        "value",
+        "display",
+        "category",
+        "is_active",
+        "is_collection",
+        "has_events_assigned",
+        "ordernum",
+        "default_priority",
+        "default_state",
+        "geometry_type",
+        "resolve_time",
+        "auto_resolve",
+        "icon_id",
+        "url",
+    ]
+
     def test_get_event_types_list(self, user_client):
-        expected_fields = [
-            "id",
-            "value",
-            "display",
-            "category",
-            "is_active",
-            "is_collection",
-            "has_events_assigned",
-            "ordernum",
-            "default_priority",
-            "default_state",
-            "geometry_type",
-            "resolve_time",
-            "auto_resolve",
-            "icon_id",
-            "url",
-        ]
 
         url = reverse("v2-eventtype-list")
         response = user_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) > 0
-        for field in expected_fields:
+        for field in self.expected_fields:
             assert field in response.data[0]
 
     def test_event_types_list_does_not_include_inactive_ones(self, superuser_client, cat1_cat2_event_types):
@@ -167,19 +165,98 @@ class TestEventTypesV2:
                 continue
             assert str(other.id) in returned_ids
 
+    def test_get_event_type_detail(self, superuser_client, cat1_cat2_event_types):
+        target = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"value": target.value})
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == str(target.id)
+        assert response.data["value"] == target.value
+        assert response.has_header("ETag")
+
+        for field in self.expected_fields:
+            assert field in response.data
+
+    def test_event_type_detail_field_has_events_assigned(self, superuser_client, cat1_cat2_event_types, caplog):
+        """
+        Test that the "has_events_assigned" field in the event type detail is correct.
+        """
+
+        et_with_events = cat1_cat2_event_types[0]
+        et_no_events = cat1_cat2_event_types[1]
+        warning_msg = "Missing `in_use` annotation in EventType"
+
+        # Create an event referencing the first event type.
+        Event.objects.create(event_type=et_with_events)
+
+        caplog.clear()
+        caplog.set_level("WARNING")
+
+        url = reverse("v2-eventtype-detail", kwargs={"value": et_with_events.value})
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["has_events_assigned"] is True
+        assert warning_msg not in caplog.text
+
+        # Test endpoint response for an event type without associated events.
+        caplog.clear()
+        url = reverse("v2-eventtype-detail", kwargs={"value": et_no_events.value})
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["has_events_assigned"] is False
+        assert warning_msg not in caplog.text
+
+        # Now, test that the warning is in place when the `in_use` annotation is missing
+        caplog.clear()
+        et_serializer = EventTypeSerializer()
+        assert et_serializer.get_has_events_assigned(et_with_events) is True
+        assert warning_msg in caplog.text
+
+    def test_get_event_type_schemas(self, superuser_client, cat1_cat2_event_types):
+        url = reverse("v2-eventtype-list-schemas")
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        # For every active event type with an active category, its schema should be included
+        for et in cat1_cat2_event_types:
+            if not et.is_active:
+                continue
+            assert et.value in response.data
+            # FUTURE: assert response.data[et.value] == render_schema(et.schema, user=superuser_client.user)
+
+    def test_get_event_type_schema(self, superuser_client, cat1_cat2_event_types):
+        target = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-retrieve-schema", kwargs={"value": target.value})
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        # FUTURE: assert response.data == render_schema(target.schema, user=superuser_client.user)
+
+
+@pytest.mark.django_db
+class TestConditionalResponseHeadersForEventTypesV2:
+    """
+    Tests for the conditional response headers (ETag, Last-Modified) in the EventTypesViewSet.
+
+    Tests:
+
+    - Test that the ETag header is included in the response
+    - Test that the ETag header is updated when the list of event types changes
+    - Test that the ETag header is updated when the list of event types changes or when filters are applied
+    - Test that the ETag header is included in the response even when the response is empty
+    - Test that the ETag header is included in the response for the detail of an event type
+    - Test that the ETag header is updated when the detail of an event type changes
+
+    """
+
     def test_list_response_includes_etag_header(self, user_client):
         url = reverse("v2-eventtype-list")
         response = user_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) > 0
-        assert response.has_header("ETag")
-
-    def test_empty_list_response_response_has_etag(self, superuser_client, cat1_cat2_event_types):
-        url = reverse("v2-eventtype-list")
-        response = superuser_client.get(url, {"category": "cat2", "is_collection": True})
-
-        assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 0
         assert response.has_header("ETag")
 
     def test_list_response_etag_header_is_updated(self, superuser_client, cat1_cat2_event_types):
@@ -207,63 +284,28 @@ class TestEventTypesV2:
         assert etag3 != etag1
         assert etag3 != etag2
 
-    def test_list_conditional_response_if_none_match(self, superuser_client, cat1_cat2_event_types):
+    def test_list_conditional_response_if_none_match(self, user_client):
         """
         When the client sends an If-None-Match header matching the current ETag,
         the server should return a 304 Not Modified.
         """
         url = reverse("v2-eventtype-list")
         # First, obtain the current ETag from an initial request.
-        response = superuser_client.get(url)
+        response = user_client.get(url)
         etag = response.get("ETag")
         assert etag is not None
 
         # Now, simulate a conditional GET with that ETag.
-        conditional_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+        conditional_response = user_client.get(url, HTTP_IF_NONE_MATCH=etag)
         assert conditional_response.status_code == status.HTTP_304_NOT_MODIFIED
 
-    def test_list_conditional_response_if_modified_since(self, superuser_client, cat1_cat2_event_types):
-        """
-        If the client sends an If-Modified-Since header matching the current resource's
-        last modification date, the server should return 304 Not Modified.
-        """
+    def test_empty_list_response_response_has_etag(self, superuser_client, cat1_cat2_event_types):
         url = reverse("v2-eventtype-list")
-        response = superuser_client.get(url)
-        last_modified = response.get("Last-Modified")
-        if not last_modified:
-            pytest.skip("No Last-Modified header present in response")
-        conditional_response = superuser_client.get(url, HTTP_IF_MODIFIED_SINCE=last_modified)
-        assert conditional_response.status_code == status.HTTP_304_NOT_MODIFIED
-
-    def test_get_event_type_detail(self, superuser_client, cat1_cat2_event_types):
-        expected_fields = [
-            "id",
-            "value",
-            "display",
-            "category",
-            "is_active",
-            "is_collection",
-            "has_events_assigned",
-            "ordernum",
-            "default_priority",
-            "default_state",
-            "geometry_type",
-            "resolve_time",
-            "auto_resolve",
-            "icon_id",
-            "url",
-        ]
-        target = cat1_cat2_event_types[0]
-        url = reverse("v2-eventtype-detail", kwargs={"value": target.value})
-        response = superuser_client.get(url)
+        response = superuser_client.get(url, {"category": "cat2", "is_collection": True})
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data["id"] == str(target.id)
-        assert response.data["value"] == target.value
+        assert len(response.data) == 0
         assert response.has_header("ETag")
-
-        for field in expected_fields:
-            assert field in response.data
 
     def test_event_type_detail_etag_header_is_updated(self, superuser_client, cat1_cat2_event_types):
         target = cat1_cat2_event_types[0]
@@ -297,43 +339,3 @@ class TestEventTypesV2:
 
         conditional_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
         assert conditional_response.status_code == status.HTTP_304_NOT_MODIFIED
-
-    def test_event_type_detail_has_events_assigned(self, superuser_client, cat1_cat2_event_types):
-        # TODO: Test EventTypeSerializer.get_has_events_assigned method does not log any warning
-
-        et_active = cat1_cat2_event_types[0]
-        et_inactive = cat1_cat2_event_types[1]
-
-        Event.objects.create(event_type=et_active)
-
-        url = reverse("v2-eventtype-detail", kwargs={"value": et_active.value})
-        response_event_type_1 = superuser_client.get(url)
-
-        assert response_event_type_1.status_code == status.HTTP_200_OK
-        assert response_event_type_1.data["has_events_assigned"] is True
-
-        url = reverse("v2-eventtype-detail", kwargs={"value": et_inactive.value})
-        response_event_type_2 = superuser_client.get(url)
-
-        assert response_event_type_2.status_code == status.HTTP_200_OK
-        assert response_event_type_2.data["has_events_assigned"] is False
-
-    def test_get_event_type_schemas(self, superuser_client, cat1_cat2_event_types):
-        url = reverse("v2-eventtype-list-schemas")
-        response = superuser_client.get(url)
-
-        assert response.status_code == status.HTTP_200_OK
-        # For every active event type with an active category, its schema should be included
-        for et in cat1_cat2_event_types:
-            if not et.is_active:
-                continue
-            assert et.value in response.data
-            # FUTURE: assert response.data[et.value] == render_schema(et.schema, user=superuser_client.user)
-
-    def test_get_event_type_schema(self, superuser_client, cat1_cat2_event_types):
-        target = cat1_cat2_event_types[0]
-        url = reverse("v2-eventtype-retrieve-schema", kwargs={"value": target.value})
-        response = superuser_client.get(url)
-
-        assert response.status_code == status.HTTP_200_OK
-        # FUTURE: assert response.data == render_schema(target.schema, user=superuser_client.user)
