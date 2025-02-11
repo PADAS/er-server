@@ -39,6 +39,7 @@ from core.admin import (
     CustomM2MChecks,
     InlineExtraDynamicMixin,
     ModelAdminDisplayingManyToManyFieldMixin,
+    ModelAdminHistoryViewHideSharedAdminUserRevisionsMixin,
 )
 from core.common import TIMEZONE_USED, AdminFeatureFlag
 from core.openlayers import OSMGeoExtendedAdmin, PropsOSMGeoAdminMixin
@@ -880,7 +881,10 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
 
 @AdminFeatureFlag(models.PatrolConfiguration, flag="PATROL_ENABLED")
 @admin.register(models.PatrolConfiguration)
-class PatrolConfiguration(ModelAdminDisplayingManyToManyFieldMixin):
+class PatrolConfiguration(
+    ModelAdminDisplayingManyToManyFieldMixin,
+    ModelAdminHistoryViewHideSharedAdminUserRevisionsMixin,
+):
     list_display = ("name",)
     filter_horizontal = ("subject_groups",)
 
