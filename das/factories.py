@@ -346,6 +346,7 @@ class EventTypeFactory(factory.django.DjangoModelFactory):
     is_collection = False
     ordernum = factory.Sequence(lambda n: n)
     updated_at = factory.LazyFunction(timezone.now)
+    version = EventType.VersionChoices.VERSION_1
 
     schema = json.dumps(
         {
