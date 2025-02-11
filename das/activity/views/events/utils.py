@@ -40,7 +40,9 @@ class EventTypeQuerysetMixin(AllowedCategoriesMixin):
         include_inactive = parse_bool(query_params.get("include_inactive"))
         is_collection = query_params.get("is_collection")
         updated_since = query_params.get("updated_since", None)
-        queryset = EventType.objects.all_sort().select_related("category")
+        queryset = (
+            EventType.objects.all_sort().select_related("category").filter(version=EventType.VersionChoices.VERSION_1)
+        )
 
         if updated_since:
             queryset = queryset.filter(updated_at__gte=updated_since)
