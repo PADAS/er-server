@@ -98,14 +98,15 @@ def get_migration_models():
     This isolates the model definitions from changes in the live code.
 
     Notes:
-    - Give an alias to the model classes to avoid conflicts with the live models.
+    - Give an alias to the model classes to avoid conflicts with the live models or any other model definitions across
+      the project. E.g., Migration0010EventType
     - In the meta class, the following attributes are important:
         - `managed = False`: This is to prevent Django from modifying the table for this model.
         - `app_label = "activity"`: This is to ensure that the model is in the correct app.
         - `db_table = "activity_eventtype"`: This is to ensure that the model is mapped to the correct table.
     """
 
-    from activity.models import EventCategory
+    # For models that are not likely to change like DASTenant, import them `directly`.
     from core.models import DASTenant, TimestampedModel
 
     PRI_URGENT = 300
@@ -128,6 +129,33 @@ def get_migration_models():
         (SC_RESOLVED, "Resolved"),
     )
 
+    class Migration0010EventCategory(TenantModelMixin, TimestampedModel):
+        id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+        value = models.CharField(max_length=100, unique=True)
+        display = models.CharField(max_length=100, blank=True)
+        ordernum = models.SmallIntegerField(blank=True, null=True)
+        is_active = models.BooleanField(default=True)
+        flag = models.CharField(max_length=40, default="user", choices=(("user", "User"), ("system", "System")))
+        das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
+        tenant_id = "das_tenant_id"
+
+        class Meta:
+            managed = False
+            app_label = "activity"
+            db_table = "activity_eventcategory"
+            unique_together = ["id", "das_tenant"]
+
+        def natural_key(self):
+            return (self.value,)
+
+        @property
+        def auto_permissionset_name(self):
+            return f"View {self.display} Event Permissions"
+
+        @property
+        def auto_geographic_permission_set_name(self):
+            return f"View {self.display} Event Geographic Permissions"
+
     class Migration0010EventType(TenantModelMixin, TimestampedModel):
         """
         Frozen version of EventType model as it existed at the time of this migration.
@@ -140,15 +168,13 @@ def get_migration_models():
         id = models.UUIDField(primary_key=True, default=uuid.uuid4)
         value = models.CharField(max_length=40, unique=True)
         display = models.CharField(max_length=100, blank=True)
-        category = TenantForeignKey(EventCategory, null=True, on_delete=models.PROTECT)
+        category = TenantForeignKey(
+            Migration0010EventCategory, null=True, on_delete=models.PROTECT, related_name="event_types"
+        )
         ordernum = models.SmallIntegerField(blank=True, null=True)
-
         default_priority = models.PositiveSmallIntegerField(default=PRI_NONE, choices=PRIORITY_CHOICES)
-
         default_state = models.CharField(default=SC_NEW, choices=STATE_CHOICES, max_length=20)
-
         icon = models.CharField(max_length=100, blank=True, null=True)
-
         schema = models.TextField(
             blank=True,
             default="""{
@@ -162,14 +188,14 @@ def get_migration_models():
                     "definition": []
                     }""",
         )
-
         is_collection = models.BooleanField(default=False)
         is_active = models.BooleanField(default=True)
         auto_resolve = models.BooleanField(default=False)
-        # Specify integer of hour(s).
         resolve_time = models.PositiveSmallIntegerField(blank=True, null=True)
         geometry_type = models.CharField(
-            choices=GeometryTypesChoices.choices, default=GeometryTypesChoices.POINT, max_length=20
+            choices=GeometryTypesChoices.choices,
+            default=GeometryTypesChoices.POINT,
+            max_length=20,
         )
 
         das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, blank=True, null=True)
@@ -188,7 +214,7 @@ def get_migration_models():
             ]
             unique_together = ["id", "das_tenant"]
 
-    return EventCategory, Migration0010EventType
+    return Migration0010EventCategory, Migration0010EventType
 
 
 def forwards(apps, schema_editor):

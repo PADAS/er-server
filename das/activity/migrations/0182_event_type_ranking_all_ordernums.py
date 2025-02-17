@@ -27,14 +27,9 @@ def get_migration_models():
         - `db_table = "activity_eventtype"`: This is to ensure that the model is mapped to the correct table.
     """
 
-    from activity.models import EventCategory
-
-    # For models that haven't changed (like DASTenant and EventCategory), import them `directly`, in the future some
-    # of this models may change, and we will need to check their implementation at the moment of the creation of this
-    # migration and redefine them here.
+    # For models that are not likely to change like DASTenant, import them `directly`.
     from core.models import DASTenant, TimestampedModel
     from utils.migrations.columns import default_tenant_id
-    from utils.rank import RankModelMixin
 
     PRI_URGENT = 300
     PRI_IMPORTANT = 200
@@ -56,7 +51,52 @@ def get_migration_models():
         (SC_RESOLVED, "Resolved"),
     )
 
-    class Migration0182EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
+    class Migration0182EventCategory(TenantModelMixin, TimestampedModel):
+
+        id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+        value = models.CharField(max_length=67)
+        display = models.CharField(max_length=100, blank=True)
+        ordernum = models.FloatField(default=0)
+        is_active = models.BooleanField(default=True)
+        flag = models.CharField(max_length=40, default="user", choices=(("user", "User"), ("system", "System")))
+
+        das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+        tenant_id = "das_tenant_id"
+
+        class Meta:
+            managed = False
+            app_label = "activity"
+            db_table = "activity_eventcategory"
+            constraints = [
+                UniqueConstraint(
+                    fields=["das_tenant", "value"],
+                    name="%(app_label)s_%(class)s_unique_value_across_tenants",
+                )
+            ]
+            indexes = [
+                Index(fields=["das_tenant", "value"], name="%(class)s_val_idx"),
+                Index(fields=["das_tenant", "ordernum"], name="%(class)s_ordernum_idx"),
+            ]
+
+        def save(self, *args, **kwargs):
+            if not self.ordernum:
+                ranked_tool = RankedTool(instance=self, before_key=None)
+                new_order_value = ranked_tool.get_first_value_to_insert()
+                self.ordernum = new_order_value
+            super().save(*args, **kwargs)
+
+        def natural_key(self):
+            return (self.value,)
+
+        @property
+        def auto_permissionset_name(self):
+            return f"View {self.display} Event Permissions"
+
+        @property
+        def auto_geographic_permission_set_name(self):
+            return f"View {self.display} Event Geographic Permissions"
+
+    class Migration0182EventType(TenantModelMixin, TimestampedModel):
         """
         Frozen version of EventType model as it existed at the time of this migration.
         """
@@ -68,7 +108,10 @@ def get_migration_models():
         id = models.UUIDField(primary_key=True, default=uuid.uuid4)
         value = models.CharField(max_length=255)
         display = models.CharField(max_length=255, blank=True)
-        category = TenantForeignKey(EventCategory, null=True, on_delete=models.PROTECT)
+        category = TenantForeignKey(
+            Migration0182EventCategory, null=True, on_delete=models.PROTECT, related_name="eventtypes"
+        )
+        ordernum = models.FloatField(default=0)
         default_priority = models.PositiveSmallIntegerField(default=PRI_NONE, choices=PRIORITY_CHOICES)
         default_state = models.CharField(default=SC_NEW, choices=STATE_CHOICES, max_length=20)
         icon = models.CharField(max_length=100, blank=True, null=True)
@@ -87,15 +130,14 @@ def get_migration_models():
         is_collection = models.BooleanField(default=False)
         is_active = models.BooleanField(default=True)
         auto_resolve = models.BooleanField(default=False)
-        # Specify integer of hour(s).
         resolve_time = models.PositiveSmallIntegerField(blank=True, null=True)
         geometry_type = models.CharField(
             choices=GeometryTypesChoices.choices,
             default=GeometryTypesChoices.POINT,
             max_length=20,
         )
+
         das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
-        # django-multitenant uses this attribute to determine the tenant field.
         tenant_id = "das_tenant_id"
 
         class Meta:
@@ -124,18 +166,27 @@ def get_migration_models():
                 Index(fields=["das_tenant", "ordernum"], name="%(class)s_ordernum_idx"),
             ]
 
-    return Migration0182EventType, DASTenant, EventCategory
+        def save(self, *args, **kwargs):
+            if not self.ordernum:
+                ranked_tool = RankedTool(instance=self, before_key=None)
+                new_order_value = ranked_tool.get_first_value_to_insert()
+                self.ordernum = new_order_value
+            super().save(*args, **kwargs)
+
+    return Migration0182EventCategory, Migration0182EventType, DASTenant
 
 
 def set_default_ordernum_value_ranked(migration_apps, schema_editor):
 
-    EventType, DASTenant, EventCategory = get_migration_models()
+    EventCategory, EventType, DASTenant = get_migration_models()
+
+    db_alias = schema_editor.connection.alias
 
     for tenant in DASTenant.objects.all():
         with TenantContextManager(domain=tenant.domain):
-            for category in EventCategory.objects.filter(das_tenant_id=tenant.id, eventtype__isnull=False):
+            for category in EventCategory.objects.filter(das_tenant_id=tenant.id, eventtypes__isnull=False):
                 qs = (
-                    EventType.objects.using(schema_editor.connection.alias)
+                    EventType.objects.using(db_alias)
                     .filter(das_tenant_id=tenant.id, category_id=category.id)
                     .order_by("ordernum", "value")
                 )
