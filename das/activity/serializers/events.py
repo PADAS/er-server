@@ -279,26 +279,21 @@ class EventTypeSerializer(ModelSerializer):
         return super().to_internal_value(data)
 
     @staticmethod
-    def is_schema_readonly(schema):
+    def is_schema_readonly(obj) -> bool:
         try:
-            rendered_whole = get_schema_renderer_method()(schema)
-            rendered = get_schema_renderer_method(empty=True)(schema)
-        except Exception:
-            pass
+            rendered_schema = get_schema_renderer_method(empty=True)(obj.schema)
+        except Exception as exc:
+            logger.error("Failed to render schema for event type %s: %s", obj.value, exc)
         else:
-            _schema_whole = rendered_whole.get("schema", {})
-            _schema = rendered.get("schema", {})
-            is_readonly_whole = parse_bool(_schema_whole.get("readonly"))
-            is_readonly = parse_bool(_schema.get("readonly"))
-            if is_readonly_whole != is_readonly:
-                raise ValidationError("Schema readonly is inconsistent.")
-            return True if parse_bool(_schema.get("readonly")) else False
+            _schema = rendered_schema.get("schema", {})
+            return parse_bool(_schema.get("readonly"))
+        return False
 
     def to_representation(self, obj):
         rep = super().to_representation(obj)
         rep["url"] = utils.add_base_url(self.request, reverse("eventtype", args=[obj.id]))
 
-        if self.is_schema_readonly(obj.schema):
+        if self.is_schema_readonly(obj):
             rep["readonly"] = True
         return rep
 
