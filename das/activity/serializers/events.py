@@ -211,6 +211,7 @@ class SimplifiedEventTypeSerializer(ModelSerializer):
 
 class EventTypeSerializer(ModelSerializer):
     category = EventCategoryRelatedField()
+    has_events_assigned = SerializerMethodField()
 
     class Meta:
         model = EventType
@@ -259,6 +260,17 @@ class EventTypeSerializer(ModelSerializer):
             except SchemaValidationError as exc:
                 raise ValidationError(exc)
         return schema
+
+    def get_has_events_assigned(self, obj) -> bool:
+        """
+        Returns whether the event type is being used in any event.
+        Implementation is based on the `in_use` annotation in the queryset.
+        Avoids the to perform a separate query to check if the event type is in use.
+        """
+        if hasattr(obj, "in_use"):
+            return obj.in_use
+        logger.warning("Missing `in_use` annotation in EventType queryset for EventType %s", obj.value)
+        return obj.event_set.exists()
 
     def to_internal_value(self, data):
         if data.get("icon_id"):
