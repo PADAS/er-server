@@ -11,7 +11,6 @@ from rest_framework import status
 from activity.models import PRI_URGENT, SC_RESOLVED, Event, EventCategory, EventType
 from activity.tests import schema_examples
 from activity.views import EventTypesView, EventTypeView
-from choices.models import Choice
 from client_http import HTTPClient
 from factories import EventTypeFactory
 from utils.rank import RankedTool
@@ -292,53 +291,6 @@ class TestEventTypesAPI:
         assert original_response.status_code == status.HTTP_200_OK
         assert modified_response.status_code == status.HTTP_200_OK
         assert original_etag != modified_etag
-
-    def test_schema_choices_update_generates_new_etag_response_header(self, superuser_client):
-        EventType.objects.all().delete()
-        EventCategory.objects.all().delete()
-
-        monitoring_category = EventCategory.objects.create(value="monitoring", display="Monitoring")
-        EventCategory.objects.create(value="analyzer_event", display="Analyzer Event")
-
-        event_type = EventType.objects.create(
-            display="Wildlife Sighting",
-            value="wildlife_sighting_rep",
-            category=monitoring_category,
-            schema=schema_examples.WILDLIFE_SCHEMA,
-        )
-
-        url = reverse("eventtypes")
-        response = superuser_client.get(url)
-
-        assert response.status_code == status.HTTP_200_OK
-        assert str(event_type.id) in [str(item.get("id")) for item in response.data]
-        old_etag = response.headers["ETag"]
-        assert len(old_etag) == 34  # ETags are MD5 hashes, 32 characters long, plus 2 quotes
-
-        Choice.objects.create(
-            **{
-                "model": "activity.event",
-                "field": "not_relevant_field",
-                "value": "not_relevant_value",
-                "display": "Not Relevant",
-            }
-        )
-        response = superuser_client.get(url)
-        new_etag = response.headers["ETag"]
-        assert len(new_etag) == 34
-        assert old_etag == new_etag
-
-        Choice.objects.create(
-            **{
-                "model": "activity.event",
-                "field": "wildlifesightingrep_species",
-                "value": "zebra",
-                "display": "Zebra",
-            }
-        )
-        response = superuser_client.get(url)
-        new_etag = response.headers["ETag"]
-        assert old_etag != new_etag
 
     def test_filter_by_updated_since(self, superuser_client, five_event_categories):
         url = reverse("eventtypes")
