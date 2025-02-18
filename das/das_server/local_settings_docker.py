@@ -106,18 +106,15 @@ EXPORT_KML_ENABLED = env.bool("KML_EXPORT", True)
 KML_OVERLAY_IMAGE = env.str("KML_OVERLAY_IMAGE", None)
 KML_FEED_TITLE = env.str("KML_FEED_TITLE", KML_FEED_TITLE)
 
-_DIRECT_DB_CONFIG = {
-    "ENGINE": "utils.db.backends.postgis",
-    "NAME": env.str("DB_NAME", "das"),
-    "USER": env.str("DB_USER", "das"),
-    "HOST": env.str("DB_HOST", "postgis"),
-    "PORT": env.str("DB_PORT", "5432"),
-    "PASSWORD": env.str("DB_PASSWORD", "das"),
-}
-
 DATABASES = {
-    "default": _DIRECT_DB_CONFIG,
-    "direct_db": _DIRECT_DB_CONFIG,
+    "default": {
+        "ENGINE": "utils.db.backends.postgis",
+        "NAME": env.str("DB_NAME", "das"),
+        "USER": env.str("DB_USER", "das"),
+        "HOST": env.str("DB_HOST", "postgis"),
+        "PORT": env.str("DB_PORT", "5432"),
+        "PASSWORD": env.str("DB_PASSWORD", "das"),
+    }
 }
 
 # use these when you want to send SMS from kenya
