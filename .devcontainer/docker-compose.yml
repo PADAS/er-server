@@ -1,5 +1,6 @@
 services:
   ## ----------------------------- DB -----------------------------
+  ### Primary instance
   postgis:
     container_name: postgis
     image: kartoza/postgis:14-3.3
