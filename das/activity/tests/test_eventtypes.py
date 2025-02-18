@@ -4,7 +4,9 @@ from urllib.parse import urlencode
 
 import pytest
 
+from django.db import connection
 from django.http import HttpResponseNotModified
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from rest_framework import status
 
@@ -329,6 +331,15 @@ class TestEventTypesAPI:
         assert response.status_code == status.HTTP_200_OK
         for event_type in response.data:
             assert event_type["has_events_assigned"] == True
+
+    def test_event_type_database_hits(self, superuser_client, five_event_types):
+        """Test that the number of database hits is less than 10."""
+        url = reverse("eventtypes")
+
+        with CaptureQueriesContext(connection) as queries_context:
+            response = superuser_client.get(url)
+            assert response.status_code == status.HTTP_200_OK
+            assert len(queries_context.captured_queries) <= 10
 
 
 @pytest.mark.django_db
