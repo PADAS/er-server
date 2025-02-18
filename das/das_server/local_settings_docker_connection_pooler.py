@@ -7,7 +7,7 @@ The connection pooler will be rolled out to our different services (RT, Celery,
 etc) as we confirm that it works as expected in prod environments.
 
 WARNING:
-This setting wHOULD NOT be used for running Django migrations as they will
+This setting SHOULD NOT be used for running Django migrations as they will
 fail for some DDL SQL queries.
 """
 
