@@ -42,19 +42,27 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
     lookup_field = "value"
     ordering = ("ordernum",)
 
-    def get_queryset(self):
-        queryset = (
-            EventType.objects.select_related("category")
-            .filter(category__is_active=True)  # Always filter out inactive categories.
-            .annotate(in_use=models.Exists(Event.objects.filter(event_type=models.OuterRef("id"))))
-        )
+    def get_queryset(self) -> models.QuerySet:
         user = self.request.user
         allowed_categories = self._get_allowed_categories_by_user(user)
-        if allowed_categories:
-            queryset = queryset.filter(category__value__in=allowed_categories)
+
+        if not allowed_categories:
+            return EventType.objects.none()
+
+        queryset = (
+            EventType.objects.filter(
+                version=EventType.VersionChoices.VERSION_2,
+                category__is_active=True,  # Always filter out inactive categories.
+                category__value__in=allowed_categories,
+            )
+            .select_related("category")
+            .annotate(
+                in_use=models.Exists(Event.objects.filter(event_type=models.OuterRef("id"))),
+            )
+        )
         return queryset
 
-    def get_list_etag(self, request, queryset):
+    def get_list_etag(self, request: Request, queryset: models.QuerySet) -> str:
         queryset = queryset.values("updated_at", "category__updated_at")
         return super().get_list_etag(request, queryset)
 

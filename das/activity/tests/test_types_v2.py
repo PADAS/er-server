@@ -9,6 +9,7 @@ from activity.serializers.events_v2 import EventTypeSerializer
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventTypesV2:
     """
     Tests for the EventTypesViewSet - V2 Event Types API.
@@ -67,15 +68,33 @@ class TestEventTypesV2:
         "url",
     ]
 
-    def test_get_event_types_list(self, user_client):
+    def test_get_event_types_list(self, superuser_client, cat1_cat2_event_types):
 
         url = reverse("v2-eventtype-list")
-        response = user_client.get(url)
+        response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) > 0
         for field in self.expected_fields:
             assert field in response.data[0]
+
+    def test_event_types_list_does_not_include_v1_ones(self, superuser_client, cat1_cat2_event_types, five_event_types):
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        response_ids = {et_data["id"] for et_data in response.data}
+        v1_count = v2_count = 0
+
+        for et in EventType.objects.filter(category__is_active=True, is_active=True):
+            if et.version == EventType.VersionChoices.VERSION_2:
+                assert str(et.id) in response_ids
+                v2_count += 1
+            else:
+                assert str(et.id) not in response_ids
+                v1_count += 1
+        assert v1_count > 0
+        assert v2_count == 4  # 4 active v2 event types in the cat1_cat2_event_types fixture
 
     def test_event_types_list_does_not_include_inactive_ones(self, superuser_client, cat1_cat2_event_types):
         url = reverse("v2-eventtype-list")
@@ -178,6 +197,34 @@ class TestEventTypesV2:
         for field in self.expected_fields:
             assert field in response.data
 
+    def test_event_type_detail_not_found(self, superuser_client):
+        url = reverse("v2-eventtype-detail", kwargs={"value": "nonexistent"})
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_get_v1_event_type_detail_returns_not_found(
+        self, superuser_client, cat1_cat2_event_types, five_event_types
+    ):
+        v1_et = five_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"value": v1_et.value})
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_get_event_type_detail_inactive(self, superuser_client, cat1_cat2_event_types):
+        target = cat1_cat2_event_types[1]
+        target.set_to_inactive()
+        url = reverse("v2-eventtype-detail", kwargs={"value": target.value})
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_get_event_type_detail_inactive_include_inactive_param(self, superuser_client, cat1_cat2_event_types):
+        target = cat1_cat2_event_types[1]
+        target.set_to_inactive()
+        url = reverse("v2-eventtype-detail", kwargs={"value": target.value})
+        response = superuser_client.get(url, {"include_inactive": "true"})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == str(target.id)
+
     def test_event_type_detail_field_has_events_assigned(self, superuser_client, cat1_cat2_event_types, caplog):
         """
         Test that the "has_events_assigned" field in the event type detail is correct.
@@ -237,7 +284,8 @@ class TestEventTypesV2:
 
 
 @pytest.mark.django_db
-class TestConditionalResponseHeadersForEventTypesV2:
+@pytest.mark.usefixtures("tenant_settings")
+class TestEventTypesV2ConditionalResponses:
     """
     Tests for the conditional response headers (ETag, Last-Modified) in the EventTypesViewSet.
 
@@ -252,9 +300,9 @@ class TestConditionalResponseHeadersForEventTypesV2:
 
     """
 
-    def test_list_response_includes_etag_header(self, user_client):
+    def test_list_response_includes_etag_header(self, superuser_client, cat1_cat2_event_types):
         url = reverse("v2-eventtype-list")
-        response = user_client.get(url)
+        response = superuser_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) > 0
         assert response.has_header("ETag")
