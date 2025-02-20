@@ -378,7 +378,6 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
             ),
         ]
 
-        ordering = ["display"]
         indexes = [
             Index(fields=["das_tenant", "geometry_type"]),
             Index(fields=["das_tenant", "is_active"]),
