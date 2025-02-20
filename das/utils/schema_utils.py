@@ -221,11 +221,7 @@ def get_schema_renderer_method(as_string=False, empty=False):
         schema_fields = get_replacement_fields_in_schema(schema)
         parameters = {}
         for schema_field in schema_fields:
-            if schema_field["lookup"] == "enum":
-                parameters[schema_field["tag"]] = "[]"
-            elif schema_field["lookup"] == "query":
-                parameters[schema_field["tag"]] = "[]"
-            elif schema_field["lookup"] == "table":
+            if schema_field["lookup"] in ["enum", "query", "table"]:
                 parameters[schema_field["tag"]] = "[]"
         if parameters:
             template = Template(schema)
