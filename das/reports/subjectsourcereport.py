@@ -12,6 +12,7 @@ from observations.models import (
     Subject,
     SubjectSource,
 )
+from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
@@ -204,6 +205,7 @@ def generate_user_reports(userlist):
     """
     report_records = list(generate_subject_records())
     report_timestamp = datetime.now(tz=pytz.utc)
+    tenant_settings = get_tenant_settings()
 
     for user in userlist:
         user_filtered_records = filter_by_user(report_records, user)
@@ -214,6 +216,7 @@ def generate_user_reports(userlist):
             "groups": group_list,
             "report_date": report_timestamp,
             "report_legend": build_legend(),
+            "site_name": tenant_settings.domain,
         }
 
         yield user, message_context

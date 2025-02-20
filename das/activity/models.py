@@ -422,11 +422,6 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
     def image_url(self) -> str:
         return Event.marker_icon(self.icon_id, PRI_BLACK, Event.SC_NEW)
 
-    @property
-    def has_events_assigned(self) -> bool:
-        # Note: We can remove this property, by adding an annotation to the queryset...
-        return self.event_set.exists()
-
 
 def parse_date_range(val):
     lower, upper = (val.get("lower"), val.get("upper"))

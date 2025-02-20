@@ -177,7 +177,7 @@ def get_table_choices(field_details, as_string=True):
     return return_val
 
 
-def get_schema_renderer_method(as_string=False):
+def get_schema_renderer_method(as_string=False, empty=False):
     @memoize
     def memo_enum_choices(enum_choices_identifier):
         field_name, field_type = enum_choices_identifier.split(":")
@@ -216,6 +216,29 @@ def get_schema_renderer_method(as_string=False):
         rendered_template = render_schema(schema)
         return json.loads(rendered_template, object_pairs_hook=OrderedDict)
 
+    @memoize
+    def render_empty_schema(schema):
+        schema_fields = get_replacement_fields_in_schema(schema)
+        parameters = {}
+        for schema_field in schema_fields:
+            if schema_field["lookup"] in ["enum", "query", "table"]:
+                parameters[schema_field["tag"]] = "[]"
+        if parameters:
+            template = Template(schema)
+            rendered_template = template.render(Context(parameters, autoescape=False))
+        else:
+            rendered_template = schema
+        return rendered_template
+
+    @memoize
+    def load_empty_schema(schema):
+        rendered_template = render_empty_schema(schema)
+        return json.loads(rendered_template, object_pairs_hook=OrderedDict)
+
+    if empty and as_string:
+        return render_empty_schema
+    if empty:
+        return load_empty_schema
     if as_string:
         return render_schema
     return load_schema

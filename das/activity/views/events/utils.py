@@ -1,4 +1,6 @@
-from activity.models import EventCategory, EventType
+from django.db import models
+
+from activity.models import Event, EventCategory, EventType
 from utils.categories import (
     ACTIONS,
     GEO_ACTIONS,
@@ -41,7 +43,10 @@ class EventTypeQuerysetMixin(AllowedCategoriesMixin):
         is_collection = query_params.get("is_collection")
         updated_since = query_params.get("updated_since", None)
         queryset = (
-            EventType.objects.all_sort().select_related("category").filter(version=EventType.VersionChoices.VERSION_1)
+            EventType.objects.all_sort()
+            .filter(version=EventType.VersionChoices.VERSION_1)
+            .select_related("category")
+            .annotate(in_use=models.Exists(Event.objects.filter(event_type=models.OuterRef("id"))))
         )
 
         if updated_since:
@@ -52,12 +57,13 @@ class EventTypeQuerysetMixin(AllowedCategoriesMixin):
         else:
             queryset = queryset.filter(category__is_active=True, is_active=True)
 
+        allowed_categories = self._get_allowed_categories_by_user(user)
+
         if category:
-            # TODO: Check if user has permission to view this category
+            if category not in allowed_categories:
+                return queryset.none()
             queryset = queryset.by_category(category)
         else:
-            allowed_categories = self._get_allowed_categories_by_user(user)
-
             if allowed_categories:
                 queryset = queryset.by_category(allowed_categories)
             elif not is_collection:
