@@ -265,7 +265,7 @@ class EventTypeSerializer(ModelSerializer):
         """
         Returns whether the event type is being used in any event.
         Implementation is based on the `in_use` annotation in the queryset.
-        Avoids the to perform a separate query to check if the event type is in use.
+        Prevents from performing a separate query to check if the event type is in use.
         """
         if hasattr(obj, "in_use"):
             return obj.in_use
