@@ -8,7 +8,6 @@ from django.db import connection
 from activity.models import EventType
 from utils import schema_utils
 
-cursor = connection.cursor()
 table_name = "event_details_view"
 
 invalid_eventtypes = []
