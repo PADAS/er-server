@@ -30,6 +30,7 @@
 [general]
 host = "0.0.0.0"
 port = 6432
+server_tls = true # required by AlloyDB
 admin_username = "pgcat"
 admin_password = "pgcat"
 
