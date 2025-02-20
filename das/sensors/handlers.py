@@ -8,6 +8,7 @@ from psycopg2.errors import UniqueViolation
 
 from django.conf import settings
 from django.db import transaction
+from django.db.utils import IntegrityError
 from rest_framework import serializers, status
 from rest_framework.response import Response
 
@@ -88,6 +89,8 @@ class GenericSensorHandler:
     def save_and_notify_tracks_listeners(cls, obs_to_persist, errors, obs_cache):
         # save and notify only if there are new, non-dup observations
 
+        error_status = status.HTTP_400_BAD_REQUEST
+
         def notify_tracks_listeners():
             src_ids = {src_id for (src_id, _) in obs_cache}
             for src_id in src_ids:
@@ -96,13 +99,18 @@ class GenericSensorHandler:
         if obs_to_persist:
             bulk_serializer = ObservationSerializer(data=obs_to_persist, many=True)
             if bulk_serializer.is_valid():
-                bulk_serializer.save()
+                try:
+                    bulk_serializer.save()
+                except IntegrityError as e:
+                    logger.error("Error saving observations: %s", e)
+                    error_status = status.HTTP_409_CONFLICT
+                    errors.append(str(e))
             else:
                 errors.append(bulk_serializer.errors)
             transaction.on_commit(notify_tracks_listeners)
         for error in errors:
             if error:
-                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response(errors, status=error_status)
 
     @classmethod
     def process_all_observations(cls, data: list, provider_key: str, sensor_type: str, user, batch_size: int = 128):
@@ -124,7 +132,8 @@ class GenericSensorHandler:
                 created |= cls.process_one_observation(
                     an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors, user
                 )
-        cls.save_and_notify_tracks_listeners(obs_to_persist, errors, obs_cache)
+        if response := cls.save_and_notify_tracks_listeners(obs_to_persist, errors, obs_cache):
+            return response
 
         return Response({}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
@@ -189,7 +198,7 @@ class GenericSensorHandler:
             "source": str(src.id),
             "additional": additional,
         }
- 
+
         obs_key = (str(src.id), recorded_at)
         # Short-circuit if we already have this observation.
         if obs_key in obs_cache:
@@ -265,7 +274,8 @@ class ErTrackHandler(GenericSensorHandler):
                 created |= cls.process_one_observation(
                     an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors, user
                 )
-        cls.save_and_notify_tracks_listeners(obs_to_persist, errors, obs_cache)
+        if response := cls.save_and_notify_tracks_listeners(obs_to_persist, errors, obs_cache):
+            return response
 
         return Response({}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
