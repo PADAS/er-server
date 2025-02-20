@@ -18,6 +18,7 @@ from observations.filters import create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import SourceGroup, Subject, SubjectGroup, SubjectSource
 from observations.serializers import (
+    AllGroupsSerializer,
     SubjectGeoJsonSerializer,
     SubjectSerializer,
     create_sg_serializer,
@@ -31,10 +32,11 @@ from observations.utils import (
 )
 from observations.views.schemas import SubjectGroupsViewSchema, SubjectsViewSchema
 from observations.views.utils import (
+    GetAllSubjectGroupsAndChildren,
     SubjectGroupGetQuerySet,
+    all_group_subjects_etag,
     get_track_days,
     subject_group_etag,
-    subject_groups_etag,
 )
 from schemas.view_mixins import DynamicSchemaDataMixin
 from utils.drf import (
@@ -325,30 +327,47 @@ class SubjectGroupsView(ListAPIView, TwoWaySubjectSourceMixin):
     Returns all subjectgroups in the system.
     """
 
-    serializer_class = create_sg_serializer("subjectgs", SubjectGroup, SubjectSerializer)
+    serializer_class = AllGroupsSerializer
     permission_classes = (StandardObjectPermissions,)
     filter_backends = (create_gp_filter_class("subjectgf", ("observations.view_subjectgroup",), SubjectGroup),)
     schema = SubjectGroupsViewSchema()
 
-    @etag(subject_groups_etag)
+    @etag(all_group_subjects_etag)
     def get(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)
 
-    def get_queryset(self):
-        queryset = SubjectGroupGetQuerySet().get_queryset(self.request)
-        return queryset
+    def list(self, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
 
-    def get_serializer_class(self):
         qparams = self.request.query_params
         include_subgroups = not parse_bool(qparams.get("flat"))
-        return create_sg_serializer("subjectgs", SubjectGroup, SubjectSerializer, include_subgroups)
+
+        user = getattr(self.request, "user", None)
+        include_inactive = getattr(self.request, "include_inactive", None)
+        mou_date = user.additional.get("expiry", None)
+        mou_date = dateparse(mou_date) if mou_date else None
+
+        mounted_hierarchy = GetAllSubjectGroupsAndChildren.get_all_subjects_and_children_from_group_query(
+            queryset, user, include_inactive, mou_date, include_subgroups
+        )
+        self._get_two_way_sources_by_subject_ids(GetAllSubjectGroupsAndChildren.all_subjects_ids)
+        serializer = AllGroupsSerializer(mounted_hierarchy, context=self.get_serializer_context(), many=True)
+
+        return Response(serializer.data)
+
+    def get_queryset(self):
+        queryset = SubjectGroupGetQuerySet().get_all_queryset()
+
+        if self.request.query_params.get("group_name"):
+            queryset = queryset.by_name_search(self.request.query_params.get("group_name"))
+
+        return queryset
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context["render_last_location"] = True
         context["request"] = self.request
         context["two_way_subject_sources"] = self.two_way_subject_sources
-
         return context
 
 

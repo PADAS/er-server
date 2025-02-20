@@ -1332,6 +1332,20 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         except ObjectDoesNotExist:
             return None
 
+    def by_ids_user_and_mou_expiry_date(self, id_list: list, user=None, active=None, mou_expiry_date=None):
+        min_age_days = get_minimum_allowed_age(user) or 0 if user else 0
+
+        queryset = (
+            self.filter(id__in=id_list)
+            .annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_expiry_date)
+            .select_related("subject_subtype__subject_type", "linked_user")
+            .prefetch_related("subjectsources")
+        )
+        if active is not None:
+            queryset = queryset.by_is_active(active=active).order_by("name")
+
+        return queryset
+
 
 class SubjectManager(TenantManagerMixin, models.Manager.from_queryset(SubjectQuerySet)):
     use_in_migrations = True
