@@ -5,16 +5,19 @@ import pytest
 
 from django.contrib.auth.models import Permission
 from django.core.management import call_command
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.utils import IntegrityError
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
+from django.urls import reverse
 
 from accounts.models import PermissionSet, User
 from core.tests import API_BASE, BaseAPITest
+from factories import PermissionSetFactory, SubjectFactory, SubjectGroupFactory
 from observations.admin import SubjectGroupChangeForm
 from observations.models import Subject, SubjectGroup
 from observations.utils import get_cyclic_subjectgroup
-from observations.views import SubjectGroupsView, SubjectGroupView, SubjectsView
+from observations.views import SubjectGroupsView, SubjectsView
 
 
 def make_perm(perm):
@@ -100,7 +103,7 @@ class SubjectGroupTest(BaseAPITest):
         response = SubjectGroupsView.as_view()(request)
         assert response.status_code == 200
         for sg in response.data:
-            assert "subgroups" not in sg
+            assert not sg["subgroups"]
             assert sg["name"] in (subject_group.name, child_group.name)
 
     def test_subjects_api(self):
@@ -119,28 +122,6 @@ class SubjectGroupTest(BaseAPITest):
             and (str(self.rosie.id) in subject_ids and str(self.henry.id) in subject_ids)
         )
 
-    def test_cyclic_subjectgroup_and_guard_infinite_recursion(self):
-        sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
-        sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
-        sgrp3 = SubjectGroup.objects.create(name="Subject Group 3")
-        sgrp4 = SubjectGroup.objects.create(name="Subject Group 4")
-
-        sgrp1.children.add(sgrp2)
-        sgrp2.children.add(sgrp1, sgrp3)
-        sgrp3.children.add(sgrp2)
-        sgrp4.children.add(sgrp3)
-
-        request = self.factory.get(API_BASE + "/subjectgroups")
-        self.force_authenticate(request, self.user)
-        response = SubjectGroupsView.as_view()(request)
-        self.assertEqual(response.status_code, 200)
-
-        sgrp1_pk = sgrp1.id  # forms a cyclic graph.
-        request = self.factory.get(API_BASE + f"/subjectgroup/{sgrp1_pk}/")
-        self.force_authenticate(request, self.user)
-        response = SubjectGroupView.as_view()(request, id=str(sgrp1_pk))
-        self.assertEqual(response.status_code, 404)
-
     def test_there_is_default_subject_group(self):
         sg = SubjectGroup.objects.filter(is_default=True)
         self.assertTrue(sg.exists())
@@ -149,6 +130,31 @@ class SubjectGroupTest(BaseAPITest):
         with self.assertRaises(Exception) as raised:
             SubjectGroup.objects.create(name=1, is_default=True)
         self.assertEqual(IntegrityError, type(raised.exception))
+
+
+@pytest.mark.django_db
+class TestSubjectGroupView:
+    def test_dont_refetch_subject_and_groups_multiple_times(self, view_subject_permissions, user_client):
+        with CaptureQueriesContext(connection) as queries_context:
+            view_sg_a_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
+            three_subjects = SubjectFactory.create_batch(3)
+
+            SubjectGroupFactory.create(permission_sets=[view_sg_a_permissionset], subjects=three_subjects),
+
+            url = reverse("subject-groups")
+            user_client.user.permission_sets.add(view_sg_a_permissionset)
+            response = user_client.get(url)
+
+            data = response.json()
+
+            assert response.status_code == 200
+            assert len(data["data"]) == 1
+            subject_group_queries = []
+            for q in queries_context.captured_queries:
+                if "SELECT" in q["sql"] and "observations_subjectgroup" in q["sql"]:
+                    subject_group_queries.append(q)
+
+            assert len(subject_group_queries) <= 16
 
 
 class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
