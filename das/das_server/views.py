@@ -40,46 +40,8 @@ def index(request):
 
 
 class CustomSchema(AutoSchema):
-    def get_operation(self, path, method):
-        # Add operation tags and summary to schema
-        operation = super().get_operation(path, method)
-        operation["tags"] = [self._view.__module__.split(".")[0]]
-        operation["summary"] = getattr(self.view, method.lower()).__doc__
 
-        return operation
-
-    def get_serializer_class(self):
-        if self.view.serializer_class:
-            return self.view.serializer_class
-        else:
-            return self.view.__class__
-
-    def _get_operation_id(self, path, method):
-        # Patch get_serializer_class to use views class if no serializer class
-        # is defined
-        if hasattr(self.view, "get_serializer_class"):
-            self.view.get_serializer_class = self.get_serializer_class
-
-        return super()._get_operation_id(path, method)
-
-    def _map_serializer(self, serializer):
-        # update default values to be json serializable
-        result = super()._map_serializer(serializer)
-        for res in result.get("properties").values():
-            if res.get("default"):
-                try:
-                    res["default"] = res["default"]()
-                except Exception:
-                    pass
-
-        # add required field to result to fix the break when clearing the same
-        # field for a patch method in _get_request_body.
-        for method in self._view.allowed_methods:
-            if method == "PATCH" and "required" not in result:
-                result["required"] = []
-        return result
-
-    def _map_field(self, field):
+    def map_field(self, field):
         if isinstance(field, PointField):
             return {"type": "object", "properties": {"latitude": {"type": "string"}, "longitude": {"type": "string"}}}
         if isinstance(field, DateTimeRangeField):
@@ -107,7 +69,7 @@ class CustomSchema(AutoSchema):
                     "state": {"type": "string", "maxLength": 255},
                 },
             }
-        return super()._map_field(field)
+        return super().map_field(field)
 
 
 class StatusView(generics.RetrieveAPIView):

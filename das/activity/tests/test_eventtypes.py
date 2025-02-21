@@ -63,6 +63,21 @@ def test_post_eventtype(superuser_client, monkeypatch, tenant_document_cache_cli
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_new_eventtype_is_v1_by_default(superuser_client):
+    EventType.objects.all().delete()
+    assert EventType.objects.count() == 0
+
+    url = reverse("eventtypes")
+    data = {"display": "Accoustic Detection", "value": "acoustic_detection", "category": "analyzer_event"}
+    response = superuser_client.post(url, data=data)
+    assert response.status_code == 201
+    assert response.data.get("value") == "acoustic_detection"
+
+    event_type = EventType.objects.get(value="acoustic_detection")
+    assert event_type.version == EventType.VersionChoices.VERSION_1
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_post_eventtype_with_schema(
     superuser_client, basic_event_categories, tenant_document_cache_client_mock, tenant_response
 ):
@@ -262,6 +277,24 @@ class TestEventTypesAPI:
 
         assert empty_response.status_code == status.HTTP_304_NOT_MODIFIED
         assert isinstance(empty_response, HttpResponseNotModified)
+
+    def test_response_includes_only_v1_event_types(self, superuser_client, five_event_types, cat1_cat2_event_types):
+        url = reverse("eventtypes")
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        response_ids = {et_data["id"] for et_data in response.data}
+        v1_count = v2_count = 0
+
+        for et in EventType.objects.filter(category__is_active=True, is_active=True):
+            if et.version == EventType.VersionChoices.VERSION_1:
+                assert str(et.id) in response_ids
+                v1_count += 1
+            else:
+                assert str(et.id) not in response_ids
+                v2_count += 1
+        assert v1_count > 0
+        assert v2_count == 4  # 4 active v2 event types in the cat1_cat2_event_types fixture
 
     def test_empty_response_includes_etag(self, superuser_client, five_event_types):
         base_url = reverse("eventtypes")

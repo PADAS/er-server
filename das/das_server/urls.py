@@ -55,6 +55,7 @@ urlpatterns = [
     path("api/v1.0/usercontent/", include(("usercontent.urls", "usercontent"))),
     path("api/v1.0/", include("choices.urls")),
     path("api/v1.0/", include("buoy.urls")),
+    path("api/v2.0/activity/", include("activity.urls_v2")),
 ]
 
 
