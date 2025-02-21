@@ -127,6 +127,21 @@ def auto_add_report_to_patrols(application, event):
                     segment.events.add(event)
 
 
+class SimplifiedEventTypeSerializer(ModelSerializer):
+    class Meta:
+        model = EventType
+        read_only_fields = ("id",)
+        fields = (
+            "display",
+            "geometry_type",
+            "icon",
+            "id",
+            "is_active",
+            "ordernum",
+            "value",
+        )
+
+
 class EventCategorySerializer(ModelSerializer):
     class Meta:
         model = EventCategory
@@ -163,7 +178,7 @@ class EventCategorySerializer(ModelSerializer):
 
 
 class EventCategoryRelatedField(RelatedField):
-    def to_representation(self, value):
+    def to_representation(self, value) -> dict:
         rep = EventCategorySerializer().to_representation(value)
         user = getattr(self.context.get("request", None), "user", None)
         if user is not None:
@@ -192,21 +207,6 @@ class EventCategoryRelatedField(RelatedField):
             queryset = queryset[:cutoff]
 
         return OrderedDict([(self.to_representation(item).get("value"), self.display_value(item)) for item in queryset])
-
-
-class SimplifiedEventTypeSerializer(ModelSerializer):
-    class Meta:
-        model = EventType
-        read_only_fields = ("id",)
-        fields = (
-            "display",
-            "geometry_type",
-            "icon",
-            "id",
-            "is_active",
-            "ordernum",
-            "value",
-        )
 
 
 class EventTypeSerializer(ModelSerializer):
