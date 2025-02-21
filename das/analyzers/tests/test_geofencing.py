@@ -132,12 +132,17 @@ class TestGeofenceAnalyzer(TestCase):
 
             # Print a link to view results at geojson.io
             data = urllib.parse.quote(json.dumps(fences))
-            print(f"http://geojson.io/#data=data:application/json,{data}")
+            logger.info(f"http://geojson.io/#data=data:application/json,{data}")
 
     def setUp(self):
         set_current_tenant(self.das_tenant)
 
         data = File(open(os.path.join(FIXTURE_PATH, "lines.geojson"), "rb"))
+        feature_types_file = File(open(os.path.join(FIXTURE_PATH, "spatial_feature_types.geojson"), "rb"))
+        spatialfile = SpatialFeatureFile.objects.create(data=data, feature_types_file=feature_types_file)
+        process_spatialfile(spatialfile)
+
+        data = File(open(os.path.join(FIXTURE_PATH, "polygons.geojson"), "rb"))
         feature_types_file = File(open(os.path.join(FIXTURE_PATH, "spatial_feature_types.geojson"), "rb"))
         spatialfile = SpatialFeatureFile.objects.create(data=data, feature_types_file=feature_types_file)
         process_spatialfile(spatialfile)
@@ -191,7 +196,7 @@ class TestGeofenceAnalyzer(TestCase):
         results = SubjectAnalyzerResult.objects.filter(subject=sub)
 
         for result in results:
-            print(f"Geofence Result: {result}")
+            logger.info(f"Geofence Result: {result}")
 
         self.assertEqual(len(results), 1)
 
@@ -200,7 +205,7 @@ class TestGeofenceAnalyzer(TestCase):
 
         for e in Event.objects.all():
             for ed in e.event_details.all():
-                print(f"Event Details: {ed.data}")
+                logger.info(f"Event Details: {ed.data}")
 
     def test_geofencing_logic(self):
         """Test functioning of the geofence algorithm logic"""
@@ -232,7 +237,8 @@ class TestGeofenceAnalyzer(TestCase):
         gf_grp.save()
 
         # Create a containment regions grp
-        contain_rgns = SpatialFeature.objects.filter(name="Pardamat Conservancy")
+        contain_region_name = "Pardamat Conservancy"
+        contain_rgns = SpatialFeature.objects.filter(name=contain_region_name)
         logger.info("Containment region count: %s" % str(len(contain_rgns)))
         cr_grp = SpatialFeatureGroupStatic.objects.create(
             name="Geofence Containment Regions",
@@ -258,14 +264,15 @@ class TestGeofenceAnalyzer(TestCase):
         results = SubjectAnalyzerResult.objects.filter(subject=sub)
         self.assertTrue(len(results) == 2)
         for result in results:
-            print("Geofence Result: %s" % result)
+            logger.info("Geofence Result: %s" % result)
 
         for e in Event.objects.all():
             self.assertTrue(e.event_details.all().exists())
+            assert e.event_details.all().first().data["event_details"]["contain_regions"] == "Pardamat Conservancy"
 
         for e in Event.objects.all():
             for ed in e.event_details.all():
-                print("Event Details: %s" % ed.data)
+                logger.info("Event Details: %s" % ed.data)
 
     def test_geofencing_for_crooked_boundaries(self):
         sub = Subject.objects.create(name="dumbo", subject_subtype_id="elephant")
@@ -319,7 +326,7 @@ class TestGeofenceAnalyzer(TestCase):
         # There should be 2 geofence breaks from this analysis.
         results = SubjectAnalyzerResult.objects.filter(subject=sub)
         for result in results:
-            print("Geofence Result: %s" % result)
+            logger.info("Geofence Result: %s" % result)
 
         self.assertEqual(len(results), 6)
 
@@ -380,6 +387,7 @@ class TestGeofenceAnalyzer(TestCase):
         results = SubjectAnalyzerResult.objects.filter(subject=sub)
         for result in results:
             logger.info("Geofence Result: %s" % result)
+            assert result.values["contain_regions"] == "Pardamat Conservancy"
 
         self.assertEqual(len(results), 1)
 
@@ -439,7 +447,7 @@ class TestGeofenceAnalyzer(TestCase):
         # There should be 2 geofence breaks from this analysis.
         results = SubjectAnalyzerResult.objects.filter(subject=sub)
         for result in results:
-            print("Geofence Result: %s" % result)
+            logger.info("Geofence Result: %s" % result)
 
         self.assertEqual(len(results), 0)
 
@@ -499,7 +507,7 @@ class TestGeofenceAnalyzer(TestCase):
         # There should be 2 geofence breaks from this analysis.
         results = SubjectAnalyzerResult.objects.filter(subject=sub)
         for result in results:
-            print("Geofence Result: %s" % result)
+            logger.info("Geofence Result: %s" % result)
 
         self.assertEqual(len(results), 0)
 
