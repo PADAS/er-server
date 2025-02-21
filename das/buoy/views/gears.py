@@ -24,6 +24,7 @@ class GearsView(generics.ListAPIView):
 
     Required query-parameters:
     lat, lon: float
+    (Unless the user is edgetech, blueoceangear, or admin)
 
     Optional query-parameters:
     state, where state is either "deployed" or "hauled".
@@ -78,7 +79,9 @@ class GearsView(generics.ListAPIView):
                 raise ValueError("lat and lon are invalid values")
             queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon)
         else:
-            return queryset.none()
+            allowed_users_no_location = {"edgetech", "admin", "blueoceangear"}
+            if self.request.user.username not in allowed_users_no_location:
+                raise ForbiddenAPIException("lat and lon are required query parameters")
 
         # Filter queryset by removing subjects where the additional field is the same
         latest_observation = LatestObservationSource.objects.filter(source_id=OuterRef("source_id"))

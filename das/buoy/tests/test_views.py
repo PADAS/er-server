@@ -1,25 +1,19 @@
-import pytest
-from datetime import datetime
 import json
+from datetime import datetime
 
+import pytest
+
+from django.contrib.auth.models import Permission
+from django.contrib.gis.geos import Point
 from django.urls import reverse
 from django.utils import timezone
-from django.contrib.gis.geos import Point
-from django.contrib.auth.models import Permission
 from rest_framework import status
 
 from accounts.models import PermissionSet
 from buoy import views
-from observations.models import (
-    Observation,
-    SubjectGroup,
-    SubjectSource
-)
 from client_http import HTTPClient
-from das.buoy.tests import (
-    generate_devices, 
-    get_custom_location_gear_subjectsource
-)
+from das.buoy.tests import generate_devices, get_custom_location_gear_subjectsource
+from observations.models import Observation, SubjectGroup, SubjectSource
 from utils.tenant.dataclass import FeatureFlags
 
 
@@ -90,13 +84,13 @@ class TestGearView:
 @pytest.mark.skipif(FeatureFlags.buoy_api_enabled is False, reason="Buoy API feature flag is off")
 class TestGearsView:
     base_url = "gear-list-view"
-    
+
     @pytest.fixture
     def buoy_superuser_client(self, gear_subjectsource_with_observations, superuser_client):
         gear_subjectsource_with_observations.linked_user = superuser_client.user
         gear_subjectsource_with_observations.save()
         return superuser_client, gear_subjectsource_with_observations
-    
+
     @pytest.fixture
     def buoy_client(self, gear_subjectsource_with_observations, user_client):
         gear_subjectsource_with_observations.linked_user = user_client.user
@@ -153,7 +147,11 @@ class TestGearsView:
         user_client, gear_subjectsource = buoy_client
 
         # Arrange - additional on observations for gear_subjectsources must match
-        additional = Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject).latest("recorded_at").additional
+        additional = (
+            Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject)
+            .latest("recorded_at")
+            .additional
+        )
         gear_subjectsource2 = SubjectSource.objects.get(pk=gear_subjectsource.pk)
         gear_subjectsource2.pk = None
         source = gear_subjectsource2.source
@@ -173,8 +171,16 @@ class TestGearsView:
         url = reverse(self.base_url) + "?lat=0&lon=0"
         response = user_client.get(url)
 
-        latest_obs_additional1 = Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject).latest("recorded_at").additional
-        latest_obs_additional2 = Observation.objects.filter(source__subjectsource__subject=gear_subjectsource2.subject).latest("recorded_at").additional
+        latest_obs_additional1 = (
+            Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject)
+            .latest("recorded_at")
+            .additional
+        )
+        latest_obs_additional2 = (
+            Observation.objects.filter(source__subjectsource__subject=gear_subjectsource2.subject)
+            .latest("recorded_at")
+            .additional
+        )
 
         assert latest_obs_additional1["devices"] == latest_obs_additional2["devices"]
         assert response.status_code == status.HTTP_200_OK
@@ -187,8 +193,16 @@ class TestGearsView:
         url = reverse(self.base_url) + "?lat=0&lon=0"
         response = user_client.get(url)
 
-        latest_obs_additional1 = Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject).latest("recorded_at").additional
-        latest_obs_additional2 = Observation.objects.filter(source__subjectsource__subject=gear_subjectsource2.subject).latest("recorded_at").additional
+        latest_obs_additional1 = (
+            Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject)
+            .latest("recorded_at")
+            .additional
+        )
+        latest_obs_additional2 = (
+            Observation.objects.filter(source__subjectsource__subject=gear_subjectsource2.subject)
+            .latest("recorded_at")
+            .additional
+        )
 
         assert latest_obs_additional1["devices"] != latest_obs_additional2["devices"]
         assert response.status_code == status.HTTP_200_OK
@@ -206,7 +220,7 @@ class TestGearsView:
     def test_gear_subjects_location_param_filters_subject(self, buoy_client):
         user_client, gear_subjectsource = buoy_client
         url = reverse(self.base_url) + "?lat=0&lon=0"
-        
+
         # Arrange - Create new observation with location outside of radius
         gear_subjectsource.location = Point(10, 10)
         now = timezone.now()
@@ -223,7 +237,7 @@ class TestGearsView:
         observation = Observation.objects.create(**data)
         observation.save()
         gear_subjectsource.save()
-        
+
         response = user_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
@@ -312,4 +326,26 @@ class TestGearsView:
 
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
+    def test_filter_gear_subject_api_location_not_required(self, buoy_client):
+        user_client, _ = buoy_client
+        url = reverse(self.base_url)
+        user_client.user.username = "edgetech"
+        user_client.user.save()
 
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+
+        user_client.user.username = "blueoceangear"
+        user_client.user.save()
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+
+        user_client.user.username = "not_edgetech"
+        user_client.user.save()
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
