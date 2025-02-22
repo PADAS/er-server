@@ -1,12 +1,13 @@
 from django.core.management.base import CommandError
+from django.db import transaction
 
-from activity.management.commands.loaddata_with_tenant import Command as LoadDataCommand
 from activity.models import Event, EventCategory, EventType
 from choices.models import Choice, DynamicChoice
-from utils.tenant.commands import TenantCommandMixin
+from core.management.commands.loaddata_with_tenant import Command as LoadDataCommand
+from utils.tenant import get_tenant_settings
 
 
-class Command(TenantCommandMixin, LoadDataCommand):
+class Command(LoadDataCommand):
     help = """Load a data model. File should be in dumpdata format, typically a JSON file.
     Typcally this is a replacement of the current event types, event categories and choices when setting up
     a new tenant.
@@ -30,11 +31,16 @@ class Command(TenantCommandMixin, LoadDataCommand):
                 "Please delete all Event objects before running this command."
             )
 
-        EventType.objects.all().delete()
-        EventCategory.objects.all().delete()
+        self.stdout.write(
+            "Deleting existing EventType, EventCategory, Choices for domain %s" % (get_tenant_settings().domain,)
+        )
 
-        Choice.objects.all().delete()
-        DynamicChoice.objects.all().delete()
+        with transaction.atomic():
+            EventType.objects.all().delete()
+            EventCategory.objects.all().delete()
+
+            Choice.objects.all().delete()
+            DynamicChoice.objects.all().delete()
 
         # Execute loaddata command
         super().handle(*args, **options)
