@@ -102,7 +102,7 @@ def build_event_types_etag_header(request, *args, **kwargs) -> str:
     schemas = []
     for event_type in queryset:
         try:
-            schemas.append(get_schema_renderer_method(as_string=True)(event_type["schema"]))
+            schemas.append(get_schema_renderer_method(empty=True, as_string=True)(event_type["schema"]))
         except LookupError:
             logger.exception("Missing Choice table in event_type %s", event_type["value"])
 

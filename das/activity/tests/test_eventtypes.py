@@ -4,14 +4,15 @@ from urllib.parse import urlencode
 
 import pytest
 
+from django.db import connection
 from django.http import HttpResponseNotModified
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from rest_framework import status
 
 from activity.models import PRI_URGENT, SC_RESOLVED, Event, EventCategory, EventType
 from activity.tests import schema_examples
 from activity.views import EventTypesView, EventTypeView
-from choices.models import Choice
 from client_http import HTTPClient
 from factories import EventTypeFactory
 from utils.rank import RankedTool
@@ -59,6 +60,21 @@ def test_post_eventtype(superuser_client, monkeypatch, tenant_document_cache_cli
     response = superuser_client.post(url, data=data)
     assert response.status_code == 201
     assert response.data.get("value") == "acoustic_detection"
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_new_eventtype_is_v1_by_default(superuser_client):
+    EventType.objects.all().delete()
+    assert EventType.objects.count() == 0
+
+    url = reverse("eventtypes")
+    data = {"display": "Accoustic Detection", "value": "acoustic_detection", "category": "analyzer_event"}
+    response = superuser_client.post(url, data=data)
+    assert response.status_code == 201
+    assert response.data.get("value") == "acoustic_detection"
+
+    event_type = EventType.objects.get(value="acoustic_detection")
+    assert event_type.version == EventType.VersionChoices.VERSION_1
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
@@ -262,6 +278,24 @@ class TestEventTypesAPI:
         assert empty_response.status_code == status.HTTP_304_NOT_MODIFIED
         assert isinstance(empty_response, HttpResponseNotModified)
 
+    def test_response_includes_only_v1_event_types(self, superuser_client, five_event_types, cat1_cat2_event_types):
+        url = reverse("eventtypes")
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        response_ids = {et_data["id"] for et_data in response.data}
+        v1_count = v2_count = 0
+
+        for et in EventType.objects.filter(category__is_active=True, is_active=True):
+            if et.version == EventType.VersionChoices.VERSION_1:
+                assert str(et.id) in response_ids
+                v1_count += 1
+            else:
+                assert str(et.id) not in response_ids
+                v2_count += 1
+        assert v1_count > 0
+        assert v2_count == 4  # 4 active v2 event types in the cat1_cat2_event_types fixture
+
     def test_empty_response_includes_etag(self, superuser_client, five_event_types):
         base_url = reverse("eventtypes")
         qparams = {"category": 1, "is_collection": True, "is_active": False}
@@ -292,53 +326,6 @@ class TestEventTypesAPI:
         assert original_response.status_code == status.HTTP_200_OK
         assert modified_response.status_code == status.HTTP_200_OK
         assert original_etag != modified_etag
-
-    def test_schema_choices_update_generates_new_etag_response_header(self, superuser_client):
-        EventType.objects.all().delete()
-        EventCategory.objects.all().delete()
-
-        monitoring_category = EventCategory.objects.create(value="monitoring", display="Monitoring")
-        EventCategory.objects.create(value="analyzer_event", display="Analyzer Event")
-
-        event_type = EventType.objects.create(
-            display="Wildlife Sighting",
-            value="wildlife_sighting_rep",
-            category=monitoring_category,
-            schema=schema_examples.WILDLIFE_SCHEMA,
-        )
-
-        url = reverse("eventtypes")
-        response = superuser_client.get(url)
-
-        assert response.status_code == status.HTTP_200_OK
-        assert str(event_type.id) in [str(item.get("id")) for item in response.data]
-        old_etag = response.headers["ETag"]
-        assert len(old_etag) == 34  # ETags are MD5 hashes, 32 characters long, plus 2 quotes
-
-        Choice.objects.create(
-            **{
-                "model": "activity.event",
-                "field": "not_relevant_field",
-                "value": "not_relevant_value",
-                "display": "Not Relevant",
-            }
-        )
-        response = superuser_client.get(url)
-        new_etag = response.headers["ETag"]
-        assert len(new_etag) == 34
-        assert old_etag == new_etag
-
-        Choice.objects.create(
-            **{
-                "model": "activity.event",
-                "field": "wildlifesightingrep_species",
-                "value": "zebra",
-                "display": "Zebra",
-            }
-        )
-        response = superuser_client.get(url)
-        new_etag = response.headers["ETag"]
-        assert old_etag != new_etag
 
     def test_filter_by_updated_since(self, superuser_client, five_event_categories):
         url = reverse("eventtypes")
@@ -377,6 +364,15 @@ class TestEventTypesAPI:
         assert response.status_code == status.HTTP_200_OK
         for event_type in response.data:
             assert event_type["has_events_assigned"] == True
+
+    def test_event_type_database_hits(self, superuser_client, five_event_types):
+        """Test that the number of database hits is less than 10."""
+        url = reverse("eventtypes")
+
+        with CaptureQueriesContext(connection) as queries_context:
+            response = superuser_client.get(url)
+            assert response.status_code == status.HTTP_200_OK
+            assert len(queries_context.captured_queries) <= 10
 
 
 @pytest.mark.django_db

@@ -24,6 +24,7 @@ class GearsView(generics.ListAPIView):
 
     Required query-parameters:
     lat, lon: float
+    (Unless the user is edgetech, blueoceangear, or admin)
 
     Optional query-parameters:
     state, where state is either "deployed" or "hauled".
