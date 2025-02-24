@@ -698,6 +698,11 @@ class TestGearsView:
         response = user_client.get(url + "?lat=0&lon=0&max_nm_range=1000")
         assert response.status_code == status.HTTP_200_OK
 
+    def test_filter_gear_subject_api_location_not_required(self, buoy_client):
+        user_client, _ = buoy_client
+        url = reverse(self.base_url)
+        user_client.user.username = "edgetech"
+        user_client.user.save()
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
