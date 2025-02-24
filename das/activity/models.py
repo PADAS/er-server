@@ -310,6 +310,11 @@ class EventTypeManager(TenantManagerMixin, models.Manager.from_queryset(EventTyp
 
 
 class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
+
+    class VersionChoices(models.TextChoices):
+        VERSION_1 = "1"
+        VERSION_2 = "2"
+
     class GeometryTypesChoices(models.TextChoices):
         POINT = "Point"
         POLYGON = "Polygon"
@@ -351,9 +356,12 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
     geometry_type = models.CharField(
         choices=GeometryTypesChoices.choices, default=GeometryTypesChoices.POINT, max_length=20
     )
+    version = models.CharField(max_length=1, default=VersionChoices.VERSION_1, choices=VersionChoices.choices)
+
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
-    objects = EventTypeManager()
     tenant_id = "das_tenant_id"
+
+    objects = EventTypeManager()
 
     class Meta:
         base_manager_name = "objects"
@@ -370,14 +378,17 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
             ),
         ]
 
-        ordering = ["display"]
         indexes = [
             Index(fields=["das_tenant", "geometry_type"]),
             Index(fields=["das_tenant", "is_active"]),
             Index(fields=["das_tenant", "is_collection"]),
+            Index(fields=["das_tenant", "version"]),
             Index(fields=["das_tenant", "value"], name="%(app_label)s_%(class)s_val_idx"),
             Index(fields=["das_tenant", "ordernum"], name="%(class)s_ordernum_idx"),
         ]
+
+    def __str__(self):
+        return self.display
 
     def clean(self, *args, **kwargs):
         if not self.auto_resolve and self.resolve_time:
@@ -390,38 +401,26 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
         self.value = self.value.lower()
         return super().save(*args, **kwargs)
 
-    def __str__(self):
-        return self.display
+    def set_to_inactive(self):
+        self.is_active = False
+        self.save()
 
-    def natural_key(self):
+    def natural_key(self) -> tuple:
         return (self.value,)
 
     @property
-    def icon_id(self):
+    def icon_id(self) -> str:
         if not self.icon:
             if static_image_finder.get_marker_icon(
-                chain(
-                    [
-                        self.value,
-                    ],
-                    Event.generate_image_keys(self.value, PRI_BLACK, self.default_state),
-                )
+                chain([self.value], Event.generate_image_keys(self.value, PRI_BLACK, self.default_state))
             ):
                 return self.value
             return DEFAULT_EVENT_PATROL_ICON_ID
         return self.icon
 
     @property
-    def image_url(self):
+    def image_url(self) -> str:
         return Event.marker_icon(self.icon_id, PRI_BLACK, Event.SC_NEW)
-
-    @property
-    def has_events_assigned(self) -> bool:
-        return self.event_set.exists()
-
-    def set_to_inactive(self):
-        self.is_active = False
-        self.save()
 
 
 def parse_date_range(val):
