@@ -25,30 +25,30 @@ _DB_CONFIG_DIRECT = {
 }
 
 # Connection pooler in transaction mode using reads/writes parsing
-_DB_CONFIG_LOAD_BALANCED = {
+_DB_CONFIG_POOLER = {
     "ENGINE": "utils.db.backends.postgis",
-    "NAME": env.str("DB_LOAD_BALANCED_NAME", "main"),
-    "USER": env.str("DB_LOAD_BALANCED_USER", "das"),
-    "HOST": env.str("DB_LOAD_BALANCED_HOST", "pgcat"),
-    "PORT": env.str("DB_LOAD_BALANCED_PORT", "6432"),
-    "PASSWORD": env.str("DB_LOAD_BALANCED_PASSWORD", "das"),
+    "NAME": env.str("DB_POOLER_NAME", "main"),
+    "USER": env.str("DB_USER", "das"),
+    "HOST": env.str("DB_POOLER_HOST", "pgcat"),
+    "PORT": env.str("DB_POOLER_PORT", "6432"),
+    "PASSWORD": env.str("DB_PASSWORD", "das"),
     "DISABLE_SERVER_SIDE_CURSORS": True,
 }
 
 # Connection pooler in session mode that directs all traffic to the primary instance
-_DB_CONFIG_PROXY_PRIMARY = {
+_DB_CONFIG_POOLER_PROXY_PRIMARY = {
     "ENGINE": "utils.db.backends.postgis",
-    "NAME": env.str("DB_PROXY_PRIMARY_NAME", "proxy_primary"),
-    "USER": env.str("DB_PROXY_PRIMARY_USER", "das"),
-    "HOST": env.str("DB_PROXY_PRIMARY_HOST", "pgcat"),
-    "PORT": env.str("DB_PROXY_PRIMARY_PORT", "6432"),
-    "PASSWORD": env.str("DB_PROXY_PRIMARY_PASSWORD", "das"),
+    "NAME": env.str("DB_POOLER_PROXY_NAME", "proxy_primary"),
+    "USER": env.str("DB_USER", "das"),
+    "HOST": env.str("DB_POOLER_HOST", "pgcat"),
+    "PORT": env.str("DB_POOLER_PORT", "6432"),
+    "PASSWORD": env.str("DB_PASSWORD", "das"),
     "DISABLE_SERVER_SIDE_CURSORS": True,
 }
 
 DATABASES = {
-    "default": _DB_CONFIG_PROXY_PRIMARY,
-    # "default": _DB_CONFIG_LOAD_BALANCED,
-    "proxy_primary": _DB_CONFIG_PROXY_PRIMARY,
+    "default": _DB_CONFIG_POOLER_PROXY_PRIMARY,
+    # "default": _DB_CONFIG_POOLER,
+    "proxy_primary": _DB_CONFIG_POOLER_PROXY_PRIMARY,
     "direct_db": _DB_CONFIG_DIRECT,
 }

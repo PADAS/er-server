@@ -62,7 +62,7 @@
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_connection_pooler",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler",
                 "ROOT_LOGGING_LEVEL": "INFO"
             },
             "args": [
@@ -80,7 +80,7 @@
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_connection_pooler",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler",
                 "ROOT_LOGGING_LEVEL": "INFO"
             },
             "args": [
