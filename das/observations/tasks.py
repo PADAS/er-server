@@ -17,7 +17,7 @@ from django.utils.translation import gettext as _
 import utils.db.task_helpers as utils_db_task_helpers
 from das_server import celery, pubsub
 from observations.materialized_views import patrols_view
-from observations.message_adapters import _handle_outbox_message
+from observations.message_adapters import SendError, _handle_outbox_message
 from observations.models import (
     Announcement,
     GPXTrackFile,
@@ -259,9 +259,13 @@ def refresh_patrols_view():
     patrols_view.refresh_view()
 
 
-@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
-def handle_outbox_message(message_id, user_email, **kwargs):
-    _handle_outbox_message(message_id, user_email)
+@celery.app.task(base=TenantQueueOnceTask, bind=True, once={"graceful": True}, max_retries=10)
+def handle_outbox_message(self, message_id, user_email, **kwargs):
+    try:
+        _handle_outbox_message(message_id, user_email)
+    except SendError as exc:
+        logger.error("SendError in task handle_outbox_message %s", exc)
+        self.retry(exc=exc, retry_backoff=True)
 
 
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
