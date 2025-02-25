@@ -21,7 +21,6 @@ class TwoWaySubjectSourceMixin(object):
             "Subject": "id",
             "SubjectGroup": "subjects__id",
         }
-        self.two_way_subject_sources = {}
         model_class_name = str(queryset.model.__name__)
 
         try:
@@ -35,6 +34,7 @@ class TwoWaySubjectSourceMixin(object):
         self._get_two_way_sources_by_subject_ids(queryset.values(subjects).all())
 
     def _get_two_way_sources_by_subject_ids(self, subject_ids: set):
+        self.two_way_subject_sources = {}
         subject_sources = (
             models.SubjectSource.objects.filter(subject__in=subject_ids)
             .annotate(

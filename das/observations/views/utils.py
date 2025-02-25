@@ -82,32 +82,17 @@ class SubjectGroupGetQuerySet(TwoWaySubjectSourceMixin):
         return SubjectGroup.objects.prefetch_related("children").annotate(subject_ids=ArrayAgg("subjects__id"))
 
 
-class GetAllSubjectGroupsAndChildren:
-    all_subjects_ids = ()
+@dataclass
+class TypedGroup:
+    id: str
+    name: str
+    subgroups: List
+    subjects: List
 
-    @dataclass
-    class TypedGroup:
-        id: str
-        name: str
-        subgroups: List
-        subjects: List
 
-    @classmethod
-    def get_all_subjects_and_children_from_group_query(
-        cls, all_groups_flat_query, user, include_inactive, mou_date, include_subgroups
-    ) -> List[TypedGroup]:
-        all_subject_ids = cls._build_all_subjects_ids_set(all_groups_query=all_groups_flat_query)
-        cls.all_subjects_ids = all_subject_ids
-
-        all_subjects_map = cls._get_all_subjects_map(user, include_inactive, mou_date, all_subject_ids)
-        groups_lookup = cls._build_groups_lookup(all_groups_flat_query, all_subjects_map)
-
-        if not include_subgroups:
-            return [group for group in groups_lookup.values()]
-
-        return cls._rebuild_groups_hierarchy(groups_lookup, all_groups_flat_query)
-
-    @staticmethod
+def get_all_subjects_and_children_from_group_query(
+    all_groups_flat_query, user, include_inactive, mou_date, include_subgroups
+) -> List[TypedGroup]:
     def _get_all_subjects_map(user, include_inactive, mou_date, distinct_subject_ids) -> Dict[UUID, Subject]:
         if not include_inactive:
             include_inactive = True
@@ -118,7 +103,6 @@ class GetAllSubjectGroupsAndChildren:
 
         return {subject.id: subject for subject in queryset}
 
-    @staticmethod
     def _build_all_subjects_ids_set(all_groups_query) -> set:
         subject_ids_set = set()
 
@@ -128,10 +112,9 @@ class GetAllSubjectGroupsAndChildren:
 
         return subject_ids_set
 
-    @classmethod
-    def _build_groups_lookup(cls, all_groups_query_set, all_subjects_map) -> Dict[UUID, TypedGroup]:
+    def _build_groups_lookup(all_groups_query_set, all_subjects_map) -> Dict[UUID, TypedGroup]:
         return {
-            group.get("id"): cls.TypedGroup(
+            group.get("id"): TypedGroup(
                 id=group.get("id"),
                 name=group.get("name"),
                 subgroups=[],
@@ -140,8 +123,7 @@ class GetAllSubjectGroupsAndChildren:
             for group in all_groups_query_set.values("id", "name", "subject_ids", "children", "is_visible")
         }
 
-    @classmethod
-    def _rebuild_groups_hierarchy(self, groups_lookup, all_groups_flat_query) -> List[TypedGroup]:
+    def _rebuild_groups_hierarchy(groups_lookup, all_groups_flat_query) -> List[TypedGroup]:
         group_is_child = set()
 
         for group in all_groups_flat_query.values("id", "name", "subject_ids", "children", "is_visible"):
@@ -152,6 +134,16 @@ class GetAllSubjectGroupsAndChildren:
                 group_is_child.add(child_id)
 
         return [group for group in groups_lookup.values() if group.id not in group_is_child]
+
+    all_subject_ids = _build_all_subjects_ids_set(all_groups_query=all_groups_flat_query)
+
+    all_subjects_map = _get_all_subjects_map(user, include_inactive, mou_date, all_subject_ids)
+    groups_lookup = _build_groups_lookup(all_groups_flat_query, all_subjects_map)
+
+    if not include_subgroups:
+        return [group for group in groups_lookup.values()], all_subject_ids
+
+    return _rebuild_groups_hierarchy(groups_lookup, all_groups_flat_query), all_subject_ids
 
 
 def subject_group_etag(request, *args, **kwargs):

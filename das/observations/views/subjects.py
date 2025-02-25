@@ -32,9 +32,9 @@ from observations.utils import (
 )
 from observations.views.schemas import SubjectGroupsViewSchema, SubjectsViewSchema
 from observations.views.utils import (
-    GetAllSubjectGroupsAndChildren,
     SubjectGroupGetQuerySet,
     all_group_subjects_etag,
+    get_all_subjects_and_children_from_group_query,
     get_track_days,
     subject_group_etag,
 )
@@ -347,10 +347,10 @@ class SubjectGroupsView(ListAPIView, TwoWaySubjectSourceMixin):
         mou_date = user.additional.get("expiry", None)
         mou_date = dateparse(mou_date) if mou_date else None
 
-        mounted_hierarchy = GetAllSubjectGroupsAndChildren.get_all_subjects_and_children_from_group_query(
+        mounted_hierarchy, related_sujects_ids = get_all_subjects_and_children_from_group_query(
             queryset, user, include_inactive, mou_date, include_subgroups
         )
-        self._get_two_way_sources_by_subject_ids(GetAllSubjectGroupsAndChildren.all_subjects_ids)
+        self._get_two_way_sources_by_subject_ids(related_sujects_ids)
         serializer = AllGroupsSerializer(mounted_hierarchy, context=self.get_serializer_context(), many=True)
 
         return Response(serializer.data)
