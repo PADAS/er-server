@@ -1,6 +1,7 @@
 from django.db.models import F, Func, OuterRef, Subquery, Value
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
+from rest_framework.response import Response
 
 from buoy import serializers
 from buoy.views.helpers import (
@@ -83,6 +84,16 @@ class GearsView(generics.ListAPIView):
             if self.request.user.username not in allowed_users_no_location:
                 raise ForbiddenAPIException("lat and lon are required query parameters")
 
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        # NOTE:
+        # Code extracted from `get_queryset` and included in the normal flow of DRF list method,
+        # to preserve operations performed on the original method.
+        # Requires further analisys from buoy team, for checking business logic.
+
+        queryset = self.filter_queryset(self.get_queryset())
+
         # Filter queryset by removing subjects where the additional field is the same
         latest_observation = LatestObservationSource.objects.filter(source_id=OuterRef("source_id"))
         queryset.update(additional=Subquery(latest_observation.values("observation__additional")[:1]))
@@ -100,7 +111,13 @@ class GearsView(generics.ListAPIView):
 
         queryset = queryset.order_by("additional").distinct("additional")
 
-        return queryset
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
