@@ -45,6 +45,13 @@ class GearsView(generics.ListAPIView):
     schema = GearsViewSchema()
 
     def get_queryset(self):
+        return SubjectSource.objects.none()
+
+    def list(self, request, *args, **kwargs):
+        # NOTE:
+        # Code extracted from `get_queryset` method and placed here to preserve operations performed on the
+        # original method, requires further analisys from buoy team, for checking business logic.
+
         query_params = self.request.query_params
         # TODO: Look into using allowed users - need to add subjects to SG in unit tests
         # allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
