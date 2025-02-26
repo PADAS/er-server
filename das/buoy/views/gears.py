@@ -44,6 +44,9 @@ class GearsView(generics.ListAPIView):
     pagination_class = StandardResultsSetPagination
     schema = GearsViewSchema()
 
+    def get_queryset(self):
+        return SubjectSource.objects.none()
+
     def list(self, request, *args, **kwargs):
         # NOTE:
         # Code extracted from `get_queryset` method and placed here to preserve operations performed on the
