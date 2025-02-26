@@ -1,6 +1,7 @@
 from django.db.models import F, Func, OuterRef, Subquery, Value
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
+from rest_framework.response import Response
 
 from buoy import serializers
 from buoy.views.helpers import (
@@ -44,6 +45,13 @@ class GearsView(generics.ListAPIView):
     schema = GearsViewSchema()
 
     def get_queryset(self):
+        return SubjectSource.objects.none()
+
+    def list(self, request, *args, **kwargs):
+        # NOTE:
+        # Code extracted from `get_queryset` method and placed here to preserve operations performed on the
+        # original method, requires further analisys from buoy team, for checking business logic.
+
         query_params = self.request.query_params
         # TODO: Look into using allowed users - need to add subjects to SG in unit tests
         # allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
@@ -107,7 +115,14 @@ class GearsView(generics.ListAPIView):
         # Filter queryset by removing subjects where the additional field is the same
         queryset = queryset.order_by("additional").distinct("additional")
 
-        return queryset
+        # Normal ListAPIView.list() code here
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
