@@ -111,15 +111,9 @@ class GearsSerializer(serializers.Serializer):
         latest_observation = LatestObservationSource.objects.filter(source_id=instance.source_id).first().observation
         subject = rep["subject"]
 
-        def get_status():
-            if latest_observation.additional and "event_type" in latest_observation.additional:
-                event_type = latest_observation.additional["event_type"]
-                return "deployed" if event_type == "gear_deployed" else "hauled"
-            return "deployed" if subject["is_active"] else "hauled"
-
         gear_rep = dict()
         gear_rep[ID_KEY] = subject[ID_KEY]
-        gear_rep[STATUS_KEY] = get_status()
+        gear_rep[STATUS_KEY] = "deployed" if subject["is_active"] else "hauled"
         gear_rep["last_updated"] = subject["updated_at"]
         # TODO: add last_change_time
         if latest_observation.additional:

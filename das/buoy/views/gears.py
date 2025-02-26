@@ -63,6 +63,16 @@ class GearsView(generics.ListAPIView):
             raise ValueError("updated_since must be a valid date")
 
         # Filter queryset by deployed/hauled status
+        # Update the queryset with the latest observation
+        latest_observation = LatestObservationSource.objects.filter(source_id=OuterRef("source_id"))
+        queryset.update(additional=Subquery(latest_observation.values("observation__additional")[:1]))
+
+        # Tech Debt tracked by ticket RF-755: Workaround from RF-816
+        subjects_qs = Subject.objects.filter(subjectsource__in=queryset.filter(additional__event_type="gear_deployed"))
+        subjects_qs.update(is_active=True)
+        subjects_qs = Subject.objects.filter(subjectsource__in=queryset.filter(additional__event_type="gear_hauled"))
+        subjects_qs.update(is_active=False)
+
         is_active_valid, is_active = check_valid_state_string(query_params.get("state"))
         if is_active_valid and is_active:
             queryset = queryset.filter(subject__is_active=True)
@@ -83,12 +93,8 @@ class GearsView(generics.ListAPIView):
             if self.request.user.username not in allowed_users_no_location:
                 raise ForbiddenAPIException("lat and lon are required query parameters")
 
-        # Filter queryset by removing subjects where the additional field is the same
-        latest_observation = LatestObservationSource.objects.filter(source_id=OuterRef("source_id"))
-        queryset.update(additional=Subquery(latest_observation.values("observation__additional")[:1]))
-
         # Keep an eye on performance of the query and potentially add new indexes to improve performance
-        # Remove subject_name so we can distinct on the additional field
+        # Remove subject_name so we can distinct on the additional field to remove duplicate gearsets from the qs
         queryset.update(
             additional=Func(
                 F("additional"),
@@ -98,6 +104,7 @@ class GearsView(generics.ListAPIView):
             )
         )
 
+        # Filter queryset by removing subjects where the additional field is the same
         queryset = queryset.order_by("additional").distinct("additional")
 
         return queryset
