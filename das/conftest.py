@@ -260,6 +260,7 @@ def gear_subjectsource_with_observations():
     provider.save()
     now = timezone.now()
     additional = generate_devices(2)
+    additional["event_type"] = "gear_deployed"
     location_dict = json.loads(additional["devices"][0])["location"]
     point = Point(location_dict["longitude"], location_dict["latitude"])
     data = {

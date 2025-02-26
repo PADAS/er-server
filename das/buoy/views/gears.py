@@ -62,7 +62,7 @@ class GearsView(generics.ListAPIView):
         )
 
         # Keep an eye on performance of the query and potentially add new indexes to improve performance
-        # Remove subject_name so we can distinct on the additional field
+        # Remove subject_name so we can distinct on the additional field to remove duplicate gearsets from the qs
         queryset.update(
             additional=Func(
                 F("additional"),
@@ -72,6 +72,7 @@ class GearsView(generics.ListAPIView):
             )
         )
 
+        # Filter queryset by removing subjects where the additional field is the same
         queryset = queryset.order_by("additional").distinct("additional")
 
         page = self.paginate_queryset(queryset)
