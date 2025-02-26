@@ -1,6 +1,7 @@
 from django.db.models import F, Func, OuterRef, Subquery, Value
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
+from rest_framework.response import Response
 
 from buoy import serializers
 from buoy.views.helpers import (
@@ -73,7 +74,13 @@ class GearsView(generics.ListAPIView):
 
         queryset = queryset.order_by("additional").distinct("additional")
 
-        return queryset
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
