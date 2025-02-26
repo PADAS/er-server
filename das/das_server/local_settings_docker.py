@@ -114,6 +114,7 @@ DATABASES = {
         "HOST": env.str("DB_HOST", "postgis"),
         "PORT": env.str("DB_PORT", "5432"),
         "PASSWORD": env.str("DB_PASSWORD", "password"),
+        "DISABLE_SERVER_SIDE_CURSORS": True,
     },
 }
 

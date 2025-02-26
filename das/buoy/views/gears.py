@@ -44,7 +44,11 @@ class GearsView(generics.ListAPIView):
     pagination_class = StandardResultsSetPagination
     schema = GearsViewSchema()
 
-    def get_queryset(self):
+    def list(self, request, *args, **kwargs):
+        # NOTE:
+        # Code extracted from `get_queryset` method and placed here to preserve operations performed on the
+        # original method, requires further analisys from buoy team, for checking business logic.
+
         query_params = self.request.query_params
         # TODO: Look into using allowed users - need to add subjects to SG in unit tests
         # allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
@@ -64,6 +68,16 @@ class GearsView(generics.ListAPIView):
             raise ValueError("updated_since must be a valid date")
 
         # Filter queryset by deployed/hauled status
+        # Update the queryset with the latest observation
+        latest_observation = LatestObservationSource.objects.filter(source_id=OuterRef("source_id"))
+        queryset.update(additional=Subquery(latest_observation.values("observation__additional")[:1]))
+
+        # Tech Debt tracked by ticket RF-755: Workaround from RF-816
+        subjects_qs = Subject.objects.filter(subjectsource__in=queryset.filter(additional__event_type="gear_deployed"))
+        subjects_qs.update(is_active=True)
+        subjects_qs = Subject.objects.filter(subjectsource__in=queryset.filter(additional__event_type="gear_hauled"))
+        subjects_qs.update(is_active=False)
+
         is_active_valid, is_active = check_valid_state_string(query_params.get("state"))
         if is_active_valid and is_active:
             queryset = queryset.filter(subject__is_active=True)
@@ -84,22 +98,8 @@ class GearsView(generics.ListAPIView):
             if self.request.user.username not in allowed_users_no_location:
                 raise ForbiddenAPIException("lat and lon are required query parameters")
 
-        return queryset
-
-    def list(self, request, *args, **kwargs):
-        # NOTE:
-        # Code extracted from `get_queryset` and included in the normal flow of DRF list method,
-        # to preserve operations performed on the original method.
-        # Requires further analisys from buoy team, for checking business logic.
-
-        queryset = self.filter_queryset(self.get_queryset())
-
-        # Filter queryset by removing subjects where the additional field is the same
-        latest_observation = LatestObservationSource.objects.filter(source_id=OuterRef("source_id"))
-        queryset.update(additional=Subquery(latest_observation.values("observation__additional")[:1]))
-
         # Keep an eye on performance of the query and potentially add new indexes to improve performance
-        # Remove subject_name so we can distinct on the additional field
+        # Remove subject_name so we can distinct on the additional field to remove duplicate gearsets from the qs
         queryset.update(
             additional=Func(
                 F("additional"),
@@ -109,8 +109,10 @@ class GearsView(generics.ListAPIView):
             )
         )
 
+        # Filter queryset by removing subjects where the additional field is the same
         queryset = queryset.order_by("additional").distinct("additional")
 
+        # Normal ListAPIView.list() code here
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)

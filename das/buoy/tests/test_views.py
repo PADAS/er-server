@@ -208,6 +208,62 @@ class TestGearsView:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["results"]) == 2
 
+    def test_gear_subjects_view_is_active_updated(self, buoy_client):
+        user_client, gear_subjectsource = buoy_client
+
+        # Gear is not included when is_active=True but gear is hauled
+        gear_subjectsource.location = Point(0, 0)
+        now = timezone.now()
+        source = gear_subjectsource.source
+        additional = generate_devices(2, Point(0, 0))
+        additional["event_type"] = "gear_hauled"
+        location_dict = json.loads(additional["devices"][0])["location"]
+        point = Point(location_dict["longitude"], location_dict["latitude"])
+        data = {
+            "recorded_at": now,
+            "location": point,
+            "source": source,
+            "additional": additional,
+        }
+        observation = Observation.objects.create(**data)
+        observation.save()
+        gear_subjectsource.save()
+        gear_subjectsource.subject.is_active = True
+        gear_subjectsource.subject.save()
+
+        url = reverse(self.base_url) + "?lat=0&lon=0"
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 0
+
+        # Gear is included when is_active=True and gear is deployed
+        gear_subjectsource.location = Point(0, 0)
+        now = timezone.now()
+        source = gear_subjectsource.source
+        additional = generate_devices(2, Point(0, 0))
+        additional["event_type"] = "gear_deployed"
+        location_dict = json.loads(additional["devices"][0])["location"]
+        point = Point(location_dict["longitude"], location_dict["latitude"])
+        data = {
+            "recorded_at": now,
+            "location": point,
+            "source": source,
+            "additional": additional,
+        }
+        observation = Observation.objects.create(**data)
+        observation.save()
+        gear_subjectsource.save()
+        gear_subjectsource.subject.is_active = True
+        gear_subjectsource.subject.save()
+
+        url = reverse(self.base_url) + "?lat=0&lon=0"
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 1
+        assert response.data["results"][0]["status"] == "deployed"
+
     def test_gear_subjects_view_with_not_linked_user_or_subject_permission(self):
         client = HTTPClient()
         request = client.factory.get(reverse(self.base_url) + "?lat=0&lon=0")
@@ -308,6 +364,22 @@ class TestGearsView:
         assert len(response.data["results"]) == 0
 
         # Arrange - add a gear_subjectsource with is_active=False
+        gear_subjectsource.location = Point(0, 0)
+        now = timezone.now()
+        source = gear_subjectsource.source
+        additional = generate_devices(2, Point(0, 0))
+        additional["event_type"] = "gear_hauled"
+        location_dict = json.loads(additional["devices"][0])["location"]
+        point = Point(location_dict["longitude"], location_dict["latitude"])
+        data = {
+            "recorded_at": now,
+            "location": point,
+            "source": source,
+            "additional": additional,
+        }
+        observation = Observation.objects.create(**data)
+        observation.save()
+        gear_subjectsource.save()
         gear_subjectsource.subject.is_active = False
         gear_subjectsource.subject.save()
 
