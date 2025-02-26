@@ -222,7 +222,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             and not queryset.filter(id=self.queryset_linked_user.first().id).exists()
         ):
             queryset = queryset.union(
-                self.queryset_linked_user.filter(is_active=True)
+                check_to_include_inactive_subjects(self.request, self.queryset_linked_user)
                 .select_related("subject_subtype", "subject_subtype__subject_type", "common_name")
                 .annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
             )
