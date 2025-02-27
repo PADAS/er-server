@@ -8,14 +8,12 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import dateutil.parser as dateparser
-import django.contrib.auth
 import pytest
 import pytz
-from accounts.models import PermissionSet
-from activity.tools.createevents import gen_random_point
-from client_http import HTTPClient
-from conftest import TENANT_RESPONSE
-from core.tests import BaseAPITest
+from faker import Faker
+from pytz import UTC
+
+import django.contrib.auth
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
@@ -26,7 +24,12 @@ from django.db import transaction
 from django.http import QueryDict
 from django.test import RequestFactory, override_settings
 from django.urls import reverse
-from faker import Faker
+
+from accounts.models import PermissionSet
+from activity.tools.createevents import gen_random_point
+from client_http import HTTPClient
+from conftest import TENANT_RESPONSE
+from core.tests import BaseAPITest
 from observations.admin import GPXAdmin
 from observations.models import (
     SEX_MALE,
@@ -49,7 +52,6 @@ from observations.views import (
     SubjectsView,
     SubjectView,
 )
-from pytz import UTC
 from utils.tenant import Tenant
 
 User = django.contrib.auth.get_user_model()
@@ -1035,6 +1037,57 @@ class TestSubjectsView:
 
         assert response_without_linked_subject.status_code == 200
         assert len(response_without_linked_subject.data) == 0
+
+    @pytest.mark.parametrize(
+        "permission_set_with_permissions",
+        [
+            [
+                ["Can view subject", "observations", "subject", "view_subject"],
+                [
+                    "Access to updated observations as they become available, includes view_last_position.",
+                    "observations",
+                    "subject",
+                    "view_real_time1",
+                ],
+                ["Permission to subscribe to an alert on this Subject.", "observations", "subject", "subscribe_alerts"],
+            ]
+        ],
+        indirect=True,
+    )
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_response_not_include_user_linked_subject_when_subject_inactive(
+        self, permission_set_with_permissions, subject_source, source_group, user_client, five_subjects
+    ):
+        source = subject_source.source
+
+        permission_set_with_permissions.name = "View Subjects"
+        permission_set_with_permissions.save()
+        source_group.sources.add(source)
+        source_group.permission_sets.add(permission_set_with_permissions)
+        user = user_client.user
+        user.permission_sets.add(permission_set_with_permissions)
+
+        horton = five_subjects[0]
+        horton.linked_user = user
+        horton.is_active = False
+        horton.save()
+
+        url = reverse("subjects-list-view")
+
+        response = user_client.get(url)
+
+        assert response.status_code == 200
+        assert len(response.data) == 1
+        assert response.data[0]["is_active"] is True
+
+        # double check subject is returned if is_active is set to True
+        horton.is_active = True
+        horton.save()
+
+        res = user_client.get(url)
+        assert len(res.data) == 2
+        for subject in res.data:
+            assert subject["is_active"] is True
 
     def test_subjectgroup_with_default_subjectstatus_has_no_tracks_available(self, subject_source, subject_group_empty):
         subject = subject_source.subject
