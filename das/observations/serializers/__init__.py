@@ -114,10 +114,10 @@ class AllGroupsSerializer(serializers.Serializer):
     subgroups = serializers.SerializerMethodField(read_only=True)
 
     def get_subgroups(self, obj):
-        return [AllGroupsSerializer(g).data for g in obj.subgroups if g]
+        return [AllGroupsSerializer(g).data for g in obj.subgroups]
 
     def get_subjects(self, obj):
-        return [SubjectSerializer(subject, context=self.context).data for subject in obj.subjects if subject]
+        return [SubjectSerializer(subject, context=self.context).data for subject in obj.subjects]
 
 
 def get_subject_display(subject):

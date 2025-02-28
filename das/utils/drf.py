@@ -326,3 +326,9 @@ class ForbiddenAPIException(exceptions.APIException):
     status_code = status.HTTP_403_FORBIDDEN
     default_detail = _("Forbidden.")
     default_code = "error"
+
+
+class CycleDetectedException(exceptions.APIException):
+    status_code = 508
+    default_detail = "Cyclic SubjectGroup found"
+    default_code = "loop_detected"
