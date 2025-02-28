@@ -13,6 +13,7 @@ from django.urls import reverse
 
 from accounts.models import PermissionSet, User
 from core.tests import API_BASE, BaseAPITest
+from das.observations.views.subjects import SubjectGroupView
 from factories import PermissionSetFactory, SubjectFactory, SubjectGroupFactory
 from observations.admin import SubjectGroupChangeForm
 from observations.models import Subject, SubjectGroup
@@ -122,6 +123,23 @@ class SubjectGroupTest(BaseAPITest):
             and (str(self.rosie.id) in subject_ids and str(self.henry.id) in subject_ids)
         )
 
+    def test_cyclic_subjectgroup_and_guard_infinite_recursion(self):
+        sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
+        sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
+        sgrp3 = SubjectGroup.objects.create(name="Subject Group 3")
+        sgrp4 = SubjectGroup.objects.create(name="Subject Group 4")
+
+        sgrp1.children.add(sgrp2)
+        sgrp2.children.add(sgrp1, sgrp3)
+        sgrp3.children.add(sgrp2)
+        sgrp4.children.add(sgrp3)
+
+        sgrp1_pk = sgrp1.id  # forms a cyclic graph.
+        request = self.factory.get(API_BASE + f"/subjectgroup/{sgrp1_pk}/")
+        self.force_authenticate(request, self.user)
+        response = SubjectGroupView.as_view()(request, id=str(sgrp1_pk))
+        self.assertEqual(response.status_code, 404)
+
     def test_there_is_default_subject_group(self):
         sg = SubjectGroup.objects.filter(is_default=True)
         self.assertTrue(sg.exists())
@@ -155,6 +173,34 @@ class TestSubjectGroupView:
                     subject_group_queries.append(q)
 
             assert len(subject_group_queries) <= 16
+
+    def test_cycle_in_subjectgroup_avoids_infinite_loop(self, view_subject_permissions, user_client):
+        view_sg_a_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
+
+        sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
+        sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
+        sgrp3 = SubjectGroup.objects.create(name="Subject Group 3")
+
+        sgrp1.permission_sets.add(view_sg_a_permissionset)
+        sgrp2.permission_sets.add(view_sg_a_permissionset)
+        sgrp3.permission_sets.add(view_sg_a_permissionset)
+
+        sgrp1.children.add(sgrp2)
+        sgrp2.children.add(sgrp1, sgrp3)
+        sgrp3.children.add(sgrp2)
+
+        url = reverse("subject-groups")
+        user_client.user.permission_sets.add(view_sg_a_permissionset)
+        response = user_client.get(url)
+
+        assert response.status_code == 508
+        assert response.json()["status"] == {
+            "code": 508,
+            "message": "Loop Detected",
+            "detail": "Cyclic SubjectGroup found",
+        }
+
+        SubjectGroup.objects.all().delete()
 
 
 class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):

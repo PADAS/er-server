@@ -10,8 +10,8 @@ from django.db.models import Q
 
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Observation, Subject, SubjectGroup
-from observations.utils import VIEW_SUBJECTGROUP_PERMS
-from utils.drf import ForbiddenAPIException
+from observations.utils import VIEW_SUBJECTGROUP_PERMS, get_cyclic_subjectgroup
+from utils.drf import CycleDetectedException, ForbiddenAPIException
 from utils.etags import get_hash_from_queryset
 from utils.json import parse_bool
 from utils.tenant.thread import get_tenant_settings
@@ -79,6 +79,9 @@ class SubjectGroupGetQuerySet(TwoWaySubjectSourceMixin):
         return queryset
 
     def get_all_queryset(self):
+        if get_cyclic_subjectgroup(check_any_cycle=True):
+            raise CycleDetectedException("Cyclic SubjectGroup found")
+
         return SubjectGroup.objects.prefetch_related("children").annotate(subject_ids=ArrayAgg("subjects__id"))
 
 
@@ -90,10 +93,10 @@ class TypedGroup:
     subjects: List
 
 
-def get_all_subjects_and_children_from_group_query(
-    all_groups_flat_query, user, include_inactive, mou_date, include_subgroups
+def build_groups_hierarchy_with_all_subjects(
+    all_groups_query, user, include_inactive, mou_date, include_subgroups
 ) -> List[TypedGroup]:
-    def _get_all_subjects_map(user, include_inactive, mou_date, distinct_subject_ids) -> Dict[UUID, Subject]:
+    def _fetch_all_subjects_map(user, include_inactive, mou_date, distinct_subject_ids) -> Dict[UUID, Subject]:
         if not include_inactive:
             include_inactive = True
 
@@ -107,12 +110,12 @@ def get_all_subjects_and_children_from_group_query(
         subject_ids_set = set()
 
         for subject_group in all_groups_query:
-            if None not in subject_group.subject_ids:
-                subject_ids_set.update(subject_group.subject_ids)
+            if None not in subject_group.get("subject_ids"):
+                subject_ids_set.update(subject_group.get("subject_ids"))
 
         return subject_ids_set
 
-    def _build_groups_lookup(all_groups_query_set, all_subjects_map) -> Dict[UUID, TypedGroup]:
+    def _build_groups_lookup(all_groups_flat_query, all_subjects_map) -> Dict[UUID, TypedGroup]:
         return {
             group.get("id"): TypedGroup(
                 id=group.get("id"),
@@ -120,13 +123,13 @@ def get_all_subjects_and_children_from_group_query(
                 subgroups=[],
                 subjects=[all_subjects_map.get(subject_id) for subject_id in group.get("subject_ids") if subject_id],
             )
-            for group in all_groups_query_set.values("id", "name", "subject_ids", "children", "is_visible")
+            for group in all_groups_flat_query
         }
 
     def _rebuild_groups_hierarchy(groups_lookup, all_groups_flat_query) -> List[TypedGroup]:
         group_is_child = set()
 
-        for group in all_groups_flat_query.values("id", "name", "subject_ids", "children", "is_visible"):
+        for group in all_groups_flat_query:
             parent_id = group.get("id")
             child_id = group.get("children")
             if child_id and child_id in groups_lookup:
@@ -135,9 +138,10 @@ def get_all_subjects_and_children_from_group_query(
 
         return [group for group in groups_lookup.values() if group.id not in group_is_child]
 
-    all_subject_ids = _build_all_subjects_ids_set(all_groups_query=all_groups_flat_query)
+    all_groups_flat_query = all_groups_query.values("id", "name", "subject_ids", "children", "is_visible")
+    all_subject_ids = _build_all_subjects_ids_set(all_groups_flat_query)
 
-    all_subjects_map = _get_all_subjects_map(user, include_inactive, mou_date, all_subject_ids)
+    all_subjects_map = _fetch_all_subjects_map(user, include_inactive, mou_date, all_subject_ids)
     groups_lookup = _build_groups_lookup(all_groups_flat_query, all_subjects_map)
 
     if not include_subgroups:

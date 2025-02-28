@@ -34,7 +34,7 @@ from observations.views.schemas import SubjectGroupsViewSchema, SubjectsViewSche
 from observations.views.utils import (
     SubjectGroupGetQuerySet,
     all_group_subjects_etag,
-    get_all_subjects_and_children_from_group_query,
+    build_groups_hierarchy_with_all_subjects,
     get_track_days,
     subject_group_etag,
 )
@@ -333,21 +333,18 @@ class SubjectGroupsView(ListAPIView, TwoWaySubjectSourceMixin):
     schema = SubjectGroupsViewSchema()
 
     @etag(all_group_subjects_etag)
-    def get(self, request, *args, **kwargs):
-        return self.list(request, *args, **kwargs)
-
-    def list(self, *args, **kwargs):
+    def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
 
-        qparams = self.request.query_params
+        qparams = request.query_params
         include_subgroups = not parse_bool(qparams.get("flat"))
 
-        user = getattr(self.request, "user", None)
-        include_inactive = getattr(self.request, "include_inactive", None)
+        user = getattr(request, "user", None)
+        include_inactive = request.query_params.get("include_inactive")
         mou_date = user.additional.get("expiry", None)
         mou_date = dateparse(mou_date) if mou_date else None
 
-        mounted_hierarchy, related_sujects_ids = get_all_subjects_and_children_from_group_query(
+        mounted_hierarchy, related_sujects_ids = build_groups_hierarchy_with_all_subjects(
             queryset, user, include_inactive, mou_date, include_subgroups
         )
         self._get_two_way_sources_by_subject_ids(related_sujects_ids)
