@@ -340,7 +340,7 @@ class SubjectGroupsView(ListAPIView, TwoWaySubjectSourceMixin):
         include_subgroups = not parse_bool(qparams.get("flat"))
 
         user = getattr(request, "user", None)
-        include_inactive = request.query_params.get("include_inactive")
+        include_inactive = parse_bool(qparams.get("include_inactive"))
         mou_date = user.additional.get("expiry", None)
         mou_date = dateparse(mou_date) if mou_date else None
 

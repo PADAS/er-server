@@ -96,12 +96,9 @@ class TypedGroup:
 def build_groups_hierarchy_with_all_subjects(
     all_groups_query, user, include_inactive, mou_date, include_subgroups
 ) -> List[TypedGroup]:
-    def _fetch_all_subjects_map(user, include_inactive, mou_date, distinct_subject_ids) -> Dict[UUID, Subject]:
-        if not include_inactive:
-            include_inactive = True
-
+    def _fetch_all_subjects_map(user, mou_date, distinct_subject_ids) -> Dict[UUID, Subject]:
         queryset = Subject.objects.by_ids_user_and_mou_expiry_date(
-            id_list=distinct_subject_ids, user=user, active=include_inactive, mou_expiry_date=mou_date
+            id_list=distinct_subject_ids, user=user, active=not include_inactive, mou_expiry_date=mou_date
         )
 
         return {subject.id: subject for subject in queryset}
@@ -141,7 +138,7 @@ def build_groups_hierarchy_with_all_subjects(
     all_groups_flat_query = all_groups_query.values("id", "name", "subject_ids", "children", "is_visible")
     all_subject_ids = _build_all_subjects_ids_set(all_groups_flat_query)
 
-    all_subjects_map = _fetch_all_subjects_map(user, include_inactive, mou_date, all_subject_ids)
+    all_subjects_map = _fetch_all_subjects_map(user, mou_date, all_subject_ids)
     groups_lookup = _build_groups_lookup(all_groups_flat_query, all_subjects_map)
 
     if not include_subgroups:
