@@ -69,7 +69,7 @@ class SubjectGroupTest(BaseAPITest):
     def test_subject_groups_api(self):
         # Test subjectgroups api(lists subjectgroups and linked subjects)
         # whether this api returns inactive subjects of subjectgroups
-        request = self.factory.get(API_BASE + "/subjectgroups")
+        request = self.factory.get(API_BASE + "/subjectgroups", {"include_inactive": False})
         self.force_authenticate(request, self.user)
 
         response = SubjectGroupsView.as_view()(request)

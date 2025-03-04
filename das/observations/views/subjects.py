@@ -355,8 +355,8 @@ class SubjectGroupsView(ListAPIView, TwoWaySubjectSourceMixin):
     def get_queryset(self):
         queryset = SubjectGroupGetQuerySet().get_all_queryset()
 
-        if self.request.query_params.get("group_name"):
-            queryset = queryset.by_name_search(self.request.query_params.get("group_name"))
+        if group_name := self.request.query_params.get("group_name"):
+            queryset = queryset.by_name_search(group_name)
 
         return queryset
 
