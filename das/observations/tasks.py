@@ -297,24 +297,29 @@ def poll_news_gcs_bucket():
     logger.debug(f"Announcements data from gcs {announcement}")
 
     for post in announcement["topic_list"]["topics"]:
-        # ignore announcement that is already in db:
+        # skip any posts missing the 'cooked' property
+        if "cooked" not in post:
+            continue
 
-        if not Announcement.objects.filter(additional__id=post["id"]).exists():
-            announcement_at = dateparse(post["created_at"])
-            Announcement.objects.create(
-                title=post["title"],
-                description=post["cooked"],
-                additional=dict(
-                    slug=post["slug"],
-                    id=post["id"],
-                    fancy_title=post["fancy_title"],
-                    created_at=post["created_at"],
-                    category_id=post["category_id"],
-                    last_poster_username=post["last_poster_username"],
-                ),
-                announcement_at=announcement_at,
-                link=f"https://community.earthranger.com/t/{post['id']}",
-            )
+        # ignore announcements if they are already in the DB:
+        if Announcement.objects.filter(additional__id=post["id"]).exists():
+            continue
+
+        announcement_at = dateparse(post["created_at"])
+        Announcement.objects.create(
+            title=post["title"],
+            description=post["cooked"],
+            additional=dict(
+                slug=post["slug"],
+                id=post["id"],
+                fancy_title=post["fancy_title"],
+                created_at=post["created_at"],
+                category_id=post["category_id"],
+                last_poster_username=post["last_poster_username"],
+            ),
+            announcement_at=announcement_at,
+            link=f"https://community.earthranger.com/t/{post['id']}",
+        )
 
 
 @celery.app.task(
