@@ -107,8 +107,8 @@ def build_groups_hierarchy_with_all_subjects(
         subject_ids_set = set()
 
         for subject_group in all_groups_query:
-            if None not in subject_group.get("subject_ids"):
-                subject_ids_set.update(subject_group.get("subject_ids"))
+            if ids := subject_group.get("subject_ids"):
+                subject_ids_set.update(ids)
 
         return subject_ids_set
 
