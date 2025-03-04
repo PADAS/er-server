@@ -98,7 +98,7 @@ def build_groups_hierarchy_with_all_subjects(
 ) -> List[TypedGroup]:
     def _fetch_all_subjects_map(user, mou_date, distinct_subject_ids) -> Dict[UUID, Subject]:
         queryset = Subject.objects.by_ids_user_and_mou_expiry_date(
-            id_list=distinct_subject_ids, user=user, active=not include_inactive, mou_expiry_date=mou_date
+            id_list=distinct_subject_ids, user=user, include_inactive=include_inactive, mou_expiry_date=mou_date
         )
 
         return {subject.id: subject for subject in queryset}
@@ -142,9 +142,9 @@ def build_groups_hierarchy_with_all_subjects(
     groups_lookup = _build_groups_lookup(all_groups_flat_query, all_subjects_map)
 
     if not include_subgroups:
-        return [group for group in groups_lookup.values()], all_subject_ids
+        return [group for group in groups_lookup.values()], set(all_subjects_map.keys())
 
-    return _rebuild_groups_hierarchy(groups_lookup, all_groups_flat_query), all_subject_ids
+    return _rebuild_groups_hierarchy(groups_lookup, all_groups_flat_query), set(all_subjects_map.keys())
 
 
 def subject_group_etag(request, *args, **kwargs):

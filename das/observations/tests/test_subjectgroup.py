@@ -202,6 +202,33 @@ class TestSubjectGroupView:
 
         SubjectGroup.objects.all().delete()
 
+    def test_include_inactive_qparam_on_subjects(self, view_subject_permissions, user_client):
+        view_sg_a_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
+        three_subjects = SubjectFactory.create_batch(3)
+        inactive_subject = SubjectFactory.create(is_active=False)
+
+        SubjectGroupFactory.create(
+            permission_sets=[view_sg_a_permissionset], subjects=[*three_subjects, inactive_subject]
+        )
+
+        url = reverse("subject-groups")
+        user_client.user.permission_sets.add(view_sg_a_permissionset)
+        response = user_client.get(url, {"include_inactive": True})
+
+        data = response.json()
+
+        assert response.status_code == 200
+        assert len(data["data"]) == 1
+        assert len(data["data"][0]["subjects"]) == 1
+
+        # assert inactive subject is not in the response
+        res = user_client.get(url, {"include_inactive": False})
+        assert len(res.json()["data"][0]["subjects"]) == 3
+
+        # assert parameter is not passed and all subjects are returned
+        response = user_client.get(url)
+        assert len(response.json()["data"][0]["subjects"]) == 4
+
 
 class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
     user_const = dict(last_name="last", first_name="first")

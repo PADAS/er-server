@@ -80,7 +80,7 @@ from observations.utils import (
 from tracking.pubsub_registry import notify_subjectstatus_update
 from utils.decorator import use_shared_resource
 from utils.interfaces import SharedResourceHandler
-from utils.json import zeroout_microseconds
+from utils.json import parse_bool, zeroout_microseconds
 from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager, get_next_int_val
 from utils.tenant.thread import get_tenant_settings
@@ -1332,7 +1332,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         except ObjectDoesNotExist:
             return None
 
-    def by_ids_user_and_mou_expiry_date(self, id_list: list, user=None, active=None, mou_expiry_date=None):
+    def by_ids_user_and_mou_expiry_date(self, id_list: list, user=None, include_inactive=None, mou_expiry_date=None):
         min_age_days = get_minimum_allowed_age(user) or 0 if user else 0
 
         queryset = (
@@ -1341,8 +1341,9 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             .select_related("subject_subtype__subject_type", "linked_user")
             .prefetch_related("subjectsources")
         )
-        if active is not None:
-            queryset = queryset.by_is_active(active=active).order_by("name")
+        if include_inactive is not None:
+            is_active = not parse_bool(include_inactive)
+            queryset = queryset.by_is_active(active=is_active).order_by("name")
 
         return queryset
 
