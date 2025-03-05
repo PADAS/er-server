@@ -5,16 +5,20 @@ import pytest
 
 from django.contrib.auth.models import Permission
 from django.core.management import call_command
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.utils import IntegrityError
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
+from django.urls import reverse
 
 from accounts.models import PermissionSet, User
 from core.tests import API_BASE, BaseAPITest
+from das.observations.views.subjects import SubjectGroupView
+from factories import PermissionSetFactory, SubjectFactory, SubjectGroupFactory
 from observations.admin import SubjectGroupChangeForm
 from observations.models import Subject, SubjectGroup
 from observations.utils import get_cyclic_subjectgroup
-from observations.views import SubjectGroupsView, SubjectGroupView, SubjectsView
+from observations.views import SubjectGroupsView, SubjectsView
 
 
 def make_perm(perm):
@@ -65,7 +69,7 @@ class SubjectGroupTest(BaseAPITest):
     def test_subject_groups_api(self):
         # Test subjectgroups api(lists subjectgroups and linked subjects)
         # whether this api returns inactive subjects of subjectgroups
-        request = self.factory.get(API_BASE + "/subjectgroups")
+        request = self.factory.get(API_BASE + "/subjectgroups", {"include_inactive": False})
         self.force_authenticate(request, self.user)
 
         response = SubjectGroupsView.as_view()(request)
@@ -100,7 +104,7 @@ class SubjectGroupTest(BaseAPITest):
         response = SubjectGroupsView.as_view()(request)
         assert response.status_code == 200
         for sg in response.data:
-            assert "subgroups" not in sg
+            assert not sg["subgroups"]
             assert sg["name"] in (subject_group.name, child_group.name)
 
     def test_subjects_api(self):
@@ -130,11 +134,6 @@ class SubjectGroupTest(BaseAPITest):
         sgrp3.children.add(sgrp2)
         sgrp4.children.add(sgrp3)
 
-        request = self.factory.get(API_BASE + "/subjectgroups")
-        self.force_authenticate(request, self.user)
-        response = SubjectGroupsView.as_view()(request)
-        self.assertEqual(response.status_code, 200)
-
         sgrp1_pk = sgrp1.id  # forms a cyclic graph.
         request = self.factory.get(API_BASE + f"/subjectgroup/{sgrp1_pk}/")
         self.force_authenticate(request, self.user)
@@ -149,6 +148,86 @@ class SubjectGroupTest(BaseAPITest):
         with self.assertRaises(Exception) as raised:
             SubjectGroup.objects.create(name=1, is_default=True)
         self.assertEqual(IntegrityError, type(raised.exception))
+
+
+@pytest.mark.django_db
+class TestSubjectGroupView:
+    def test_dont_refetch_subject_and_groups_multiple_times(self, view_subject_permissions, user_client):
+        with CaptureQueriesContext(connection) as queries_context:
+            view_sg_a_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
+            three_subjects = SubjectFactory.create_batch(3)
+
+            SubjectGroupFactory.create(permission_sets=[view_sg_a_permissionset], subjects=three_subjects),
+
+            url = reverse("subject-groups")
+            user_client.user.permission_sets.add(view_sg_a_permissionset)
+            response = user_client.get(url)
+
+            data = response.json()
+
+            assert response.status_code == 200
+            assert len(data["data"]) == 1
+            subject_group_queries = []
+            for q in queries_context.captured_queries:
+                if "SELECT" in q["sql"] and "observations_subjectgroup" in q["sql"]:
+                    subject_group_queries.append(q)
+
+            assert len(subject_group_queries) <= 16
+
+    def test_cycle_in_subjectgroup_avoids_infinite_loop(self, view_subject_permissions, user_client):
+        view_sg_a_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
+
+        sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
+        sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
+        sgrp3 = SubjectGroup.objects.create(name="Subject Group 3")
+
+        sgrp1.permission_sets.add(view_sg_a_permissionset)
+        sgrp2.permission_sets.add(view_sg_a_permissionset)
+        sgrp3.permission_sets.add(view_sg_a_permissionset)
+
+        sgrp1.children.add(sgrp2)
+        sgrp2.children.add(sgrp1, sgrp3)
+        sgrp3.children.add(sgrp2)
+
+        url = reverse("subject-groups")
+        user_client.user.permission_sets.add(view_sg_a_permissionset)
+        response = user_client.get(url)
+
+        assert response.status_code == 508
+        assert response.json()["status"] == {
+            "code": 508,
+            "message": "Loop Detected",
+            "detail": "Cyclic SubjectGroup found",
+        }
+
+        SubjectGroup.objects.all().delete()
+
+    def test_include_inactive_qparam_on_subjects(self, view_subject_permissions, user_client):
+        view_sg_a_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
+        three_subjects = SubjectFactory.create_batch(3)
+        inactive_subject = SubjectFactory.create(is_active=False)
+
+        SubjectGroupFactory.create(
+            permission_sets=[view_sg_a_permissionset], subjects=[*three_subjects, inactive_subject]
+        )
+
+        url = reverse("subject-groups")
+        user_client.user.permission_sets.add(view_sg_a_permissionset)
+        response = user_client.get(url, {"include_inactive": True})
+
+        data = response.json()
+
+        assert response.status_code == 200
+        assert len(data["data"]) == 1
+        assert len(data["data"][0]["subjects"]) == 1
+
+        # assert inactive subject is not in the response
+        res = user_client.get(url, {"include_inactive": False})
+        assert len(res.json()["data"][0]["subjects"]) == 3
+
+        # assert parameter is not passed and all subjects are returned
+        response = user_client.get(url)
+        assert len(response.json()["data"][0]["subjects"]) == 4
 
 
 class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
