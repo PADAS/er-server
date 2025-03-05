@@ -47,8 +47,8 @@ _DB_CONFIG_POOLER_PROXY_PRIMARY = {
 }
 
 DATABASES = {
-    "default": _DB_CONFIG_POOLER_PROXY_PRIMARY,
-    # "default": _DB_CONFIG_POOLER,
+    # "default": _DB_CONFIG_POOLER_PROXY_PRIMARY,
+    "default": _DB_CONFIG_POOLER,
     "proxy_primary": _DB_CONFIG_POOLER_PROXY_PRIMARY,
     "direct_db": _DB_CONFIG_DIRECT,
 }
