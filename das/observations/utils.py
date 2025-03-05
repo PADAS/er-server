@@ -261,7 +261,7 @@ def ensure_timezone_aware(dt: datetime, default_timezone: timezone = pytz.utc):
     return dt if dt.tzinfo else dt.replace(tzinfo=default_timezone)
 
 
-def get_cyclic_subjectgroup():
+def get_cyclic_subjectgroup(check_any_cycle=False):
     # TODO: To improve performace add WHERE clause condition to inner select, when all tables have das_tenant_id column
     # See ticket: ERA-9036
 
@@ -285,13 +285,16 @@ def get_cyclic_subjectgroup():
         SELECT DISTINCT graph.from_subjectgroup_id
         FROM   graph
         JOIN observations_subjectgroup sg ON sg.id = graph.from_subjectgroup_id
-        WHERE sg.das_tenant_id = %(das_tenant_id)s AND cycle;
+        WHERE sg.das_tenant_id = %(das_tenant_id)s AND cycle
     """
+    if check_any_cycle:
+        query = f"{query} LIMIT 1"
+
     tenant = get_current_tenant()
 
     with connection.cursor() as cursor:
         cursor.execute(
-            sql=query,
+            sql=f"{query};",
             params={"das_tenant_id": tenant.id},
         )
         return [row[0] for row in cursor.fetchall()]

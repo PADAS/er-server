@@ -2,6 +2,7 @@ import uuid
 
 from django.db.models import Q
 from django.db.models.fields.json import KeyTransform
+
 from observations import models
 
 
@@ -20,7 +21,6 @@ class TwoWaySubjectSourceMixin(object):
             "Subject": "id",
             "SubjectGroup": "subjects__id",
         }
-        self.two_way_subject_sources = {}
         model_class_name = str(queryset.model.__name__)
 
         try:
@@ -31,8 +31,12 @@ class TwoWaySubjectSourceMixin(object):
         if model_class_name == "SubjectGroup":
             queryset = self._get_children_subject_groups(queryset)
 
+        self._get_two_way_sources_by_subject_ids(queryset.values(subjects).all())
+
+    def _get_two_way_sources_by_subject_ids(self, subject_ids: set):
+        self.two_way_subject_sources = {}
         subject_sources = (
-            models.SubjectSource.objects.filter(subject__in=queryset.values(subjects).all())
+            models.SubjectSource.objects.filter(subject__in=subject_ids)
             .annotate(
                 two_way_messaging=KeyTransform("two_way_messaging", "source__provider__additional"),
                 source_two_way_messaging=KeyTransform("two_way_messaging", "source__additional"),
@@ -45,7 +49,7 @@ class TwoWaySubjectSourceMixin(object):
                     & (Q(source_two_way_messaging=False, source_two_way_messaging__isnull=False))
                 )
             )
-            .prefetch_related("source", "source__provider")
+            .select_related("source", "source__provider")
             .values(
                 "id",
                 "subject_id",
@@ -56,7 +60,6 @@ class TwoWaySubjectSourceMixin(object):
             )
         )
 
-        self.two_way_subject_sources = {}
         for source in subject_sources:
             source_id = source["source_id"]
             self.two_way_subject_sources.setdefault(source_id, {})[source["id"]] = source
