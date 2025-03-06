@@ -152,6 +152,7 @@ class SubjectGroupTest(BaseAPITest):
 
 @pytest.mark.django_db
 class TestSubjectGroupView:
+
     def test_dont_refetch_subject_and_groups_multiple_times(self, view_subject_permissions, user_client):
         with CaptureQueriesContext(connection) as queries_context:
             view_sg_a_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
