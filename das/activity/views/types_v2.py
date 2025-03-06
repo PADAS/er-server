@@ -71,8 +71,9 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         instance.set_to_inactive()
 
     def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
         # Temporary implementation to avoid creating new event types.
-        return Response({"detail": "Method not supported"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        # return Response({"detail": "Method not supported"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def update(self, request: Request, *args, **kwargs):
         # Temporary implementation to avoid updating event types.
