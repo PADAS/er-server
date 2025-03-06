@@ -18,11 +18,11 @@ from observations.filters import create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import SourceGroup, Subject, SubjectGroup, SubjectSource
 from observations.serializers import (
-    AllGroupsSerializer,
     SubjectGeoJsonSerializer,
     SubjectSerializer,
     create_sg_serializer,
 )
+from observations.serializers.all_groups import AllGroupsSerializer
 from observations.utils import (
     VIEW_SUBJECT_PERMS,
     check_to_include_inactive_subjects,
