@@ -15,7 +15,7 @@ class AllGroupsSerializer(Serializer):
     subgroups = SerializerMethodField(read_only=True)
 
     def get_subgroups(self, obj):
-        return [AllGroupsSerializer(group, context=self.context).data for group in obj.subgroups if group]
+        return [AllGroupsSerializer(group, context=self.context).data for group in obj.subgroups]
 
     def get_subjects(self, obj):
         subjects_cache = self.context.get("subjects_cache", {})
