@@ -3,6 +3,8 @@ import logging
 from rest_framework import serializers
 
 from activity.models import EventCategory, EventType
+from das.activity.serializers.fields.json_schema import JSONSchemaField
+from das.activity.serializers.types_schemas import main_event_type_schema
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +12,8 @@ logger = logging.getLogger(__name__)
 class EventTypeSerializer(serializers.ModelSerializer):
     category = serializers.SlugRelatedField(slug_field="value", queryset=EventCategory.objects.all())
     has_events_assigned = serializers.SerializerMethodField()
-    schema = serializers.CharField(write_only=True, allow_blank=True)
+    schema = JSONSchemaField(meta_schema=main_event_type_schema)
+
     serializer_url_field = "value"
     url = serializers.HyperlinkedIdentityField(view_name="v2-eventtype-detail", lookup_field="value")
 
