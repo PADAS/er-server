@@ -15,7 +15,7 @@ from django.contrib.postgres.fields import jsonb
 from django.db.models import Q
 from django.urls import reverse
 from rest_framework import serializers
-from rest_framework.fields import CharField, DateTimeField
+from rest_framework.fields import DateTimeField
 
 import utils.json
 from accounts.serializers import UserDisplaySerializer
@@ -105,19 +105,6 @@ class GroupSerializer(serializers.ModelSerializer):
         data = [data_serializer.to_representation(s) for s in queryset]
         rep[contained_field] = data
         return rep
-
-
-class AllGroupsSerializer(serializers.Serializer):
-    id = serializers.UUIDField(read_only=True)
-    name = CharField(read_only=True)
-    subjects = serializers.SerializerMethodField(read_only=True)
-    subgroups = serializers.SerializerMethodField(read_only=True)
-
-    def get_subgroups(self, obj):
-        return [AllGroupsSerializer(group).data for group in obj.subgroups if group]
-
-    def get_subjects(self, obj):
-        return [SubjectSerializer(subject, context=self.context).data for subject in obj.subjects if subject]
 
 
 def get_subject_display(subject):
