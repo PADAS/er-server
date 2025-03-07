@@ -1,7 +1,7 @@
 from django.urls import path
 
-from core.views import DeleteObjectStatusView
+from core.views import TaskStatusView
 
 urlpatterns = [
-    path("deletestatus/<str:task_id>/", DeleteObjectStatusView.as_view(), name="delete-object-status"),
+    path("taskstatus/<str:task_id>/", TaskStatusView.as_view(), name="task-status"),
 ]

@@ -1,10 +1,11 @@
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.tasks import delete_object_status
+from core.tasks import get_task_status
 
 
-class DeleteObjectStatusView(APIView):
+class TaskStatusView(APIView):
     def get(self, request, task_id, *args, **kwargs):
-        result = delete_object_status(task_id)
-        return Response(result)
+        result = get_task_status(task_id)
+        return Response(status=status.HTTP_200_OK, data=result)
