@@ -27,7 +27,7 @@ def delete_object(object):
     args = (content_type_id, object.id)
     kwargs = dict(domain=get_tenant_settings().domain)
     task = delete_object_task.apply_async(args=args, kwargs=kwargs)
-    data = {"task_id": task.id, "location": reverse("delete-object-status", args=[task.id]), "status": task.status}
+    data = {"task_id": task.id, "location": reverse("task-status", args=[task.id]), "status": task.status}
     return Response(status=status.HTTP_204_NO_CONTENT, data=data)
 
 
@@ -47,6 +47,11 @@ def delete_object_task(self, content_type_id, object_id, *args, **kwargs):
         logger.exception("Failed to delete object %s of type %s", str(object_id), str(content_type_id))
 
 
-def delete_object_status(task_id):
+def get_task_status(task_id):
     result = AsyncResult(task_id)
-    return {"task_id": task_id, "status": result.status, "result": result.result}
+    return {
+        "task_id": task_id,
+        "status": result.status,
+        "result": result.result,
+        "location": reverse("task-status", args=[task_id]),
+    }
