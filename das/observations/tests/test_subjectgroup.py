@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 from uuid import uuid4
 
@@ -152,6 +153,16 @@ class SubjectGroupTest(BaseAPITest):
 
 @pytest.mark.django_db
 class TestSubjectGroupView:
+    @pytest.fixture
+    def setup(self, view_subject_permissions):
+        view_sg_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
+        self.sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
+        self.sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
+        self.sgrp3 = SubjectGroup.objects.create(name="Subject Group 3")
+
+        self.sgrp1.permission_sets.add(view_sg_permissionset)
+        self.sgrp2.permission_sets.add(view_sg_permissionset)
+        self.sgrp2.permission_sets.add(view_sg_permissionset)
 
     def test_dont_refetch_subject_and_groups_multiple_times(self, view_subject_permissions, user_client):
         with CaptureQueriesContext(connection) as queries_context:
@@ -175,23 +186,14 @@ class TestSubjectGroupView:
 
             assert len(subject_group_queries) <= 16
 
-    def test_cycle_in_subjectgroup_avoids_infinite_loop(self, view_subject_permissions, user_client):
-        view_sg_a_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
+    def test_cycle_in_subjectgroup_avoids_infinite_loop(self, setup, view_subject_permissions, user_client):
 
-        sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
-        sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
-        sgrp3 = SubjectGroup.objects.create(name="Subject Group 3")
-
-        sgrp1.permission_sets.add(view_sg_a_permissionset)
-        sgrp2.permission_sets.add(view_sg_a_permissionset)
-        sgrp3.permission_sets.add(view_sg_a_permissionset)
-
-        sgrp1.children.add(sgrp2)
-        sgrp2.children.add(sgrp1, sgrp3)
-        sgrp3.children.add(sgrp2)
+        self.sgrp1.children.add(self.sgrp2)
+        self.sgrp2.children.add(self.sgrp1, self.sgrp3)
+        self.sgrp3.children.add(self.sgrp2)
 
         url = reverse("subject-groups")
-        user_client.user.permission_sets.add(view_sg_a_permissionset)
+        user_client.user.permission_sets.add(self.sgrp1.permission_sets.first())
         response = user_client.get(url)
 
         assert response.status_code == 508
@@ -229,6 +231,32 @@ class TestSubjectGroupView:
         # assert parameter is not passed and all subjects are returned
         response = user_client.get(url)
         assert len(response.json()["data"][0]["subjects"]) == 4
+
+    def test_subject_serializes_equaly_in_each_group(self, setup, superuser_client, subject_source_with_observations):
+        subject = subject_source_with_observations[0].subject
+        self.sgrp1.subjects.add(subject)
+        self.sgrp2.subjects.add(subject)
+        self.sgrp1.children.add(self.sgrp2)
+
+        self.sgrp3.subjects.add(subject)
+
+        url = reverse("subject-groups")
+        response = superuser_client.get(url)
+        data = response.json()
+
+        assert response.status_code == 200
+
+        subject_set = set()
+        for sg in data["data"]:
+            for s in sg["subjects"]:
+                assert s["tracks_available"]
+                subject_set.add(json.dumps(s))
+            for subgroup in sg["subgroups"]:
+                for s in subgroup["subjects"]:
+                    assert s["tracks_available"]
+                    subject_set.add(json.dumps(s))
+
+        assert len(subject_set) == 1
 
 
 class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
