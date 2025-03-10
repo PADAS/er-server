@@ -78,7 +78,7 @@ class GearsView(generics.ListAPIView):
         # Tech Debt tracked by ticket RF-755: Workaround from RF-816
         subjects_qs = Subject.objects.filter(subjectsource__in=queryset.filter(additional__event_type="gear_deployed"))
         subjects_qs.update(is_active=True)
-        subjects_qs = Subject.objects.filter(subjectsource__in=queryset.filter(additional__event_type="gear_hauled"))
+        subjects_qs = Subject.objects.filter(subjectsource__in=queryset.filter(additional__event_type="gear_retrieved"))
         subjects_qs.update(is_active=False)
 
         is_active_valid, is_active = check_valid_state_string(query_params.get("state"))
@@ -113,7 +113,7 @@ class GearsView(generics.ListAPIView):
         )
 
         # Filter queryset by removing subjects where the additional field is the same
-        queryset = queryset.order_by("additional").distinct("additional")
+        queryset = queryset.order_by("subject__name", "additional").distinct("subject__name", "additional")
 
         # Normal ListAPIView.list() code here
         page = self.paginate_queryset(queryset)
