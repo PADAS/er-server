@@ -3,8 +3,8 @@ import logging
 from rest_framework import serializers
 
 from activity.models import EventCategory, EventType
+from das.activity.serializers.eventtype_meta_schemas import main_event_type_schema
 from das.activity.serializers.fields.json_schema import JSONSchemaField
-from das.activity.serializers.types_schemas import main_event_type_schema
 
 logger = logging.getLogger(__name__)
 
