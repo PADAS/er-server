@@ -1,4 +1,3 @@
-import logging
 import uuid
 from argparse import FileType
 from sys import stdin
@@ -21,7 +20,6 @@ REVISION_DELETIONS = [
 
 
 class Command(TenantCommandMixin, BaseCommand):
-    logger = logging.getLogger(__name__)
     help = "Purge event(s)"
 
     def add_arguments(self, parser):
@@ -34,6 +32,12 @@ class Command(TenantCommandMixin, BaseCommand):
             default=False,
             help="No deletion, dry run.",
         )
+        parser.add_argument(
+            "--by-eventtype",
+            action="store_true",
+            default=False,
+            help="Delete all events with these event type ids.",
+        )
 
     def handle(self, *args, **options):
         self.dry_run = options["dry_run"]
@@ -42,19 +46,30 @@ class Command(TenantCommandMixin, BaseCommand):
 
         for pk in iter(options["pks"].readline, ""):
             if pk := pk.strip():
-                with transaction.atomic():
-                    self.remove_event(pk.strip())
+                if options["by_eventtype"]:
+                    event_type_id = uuid.UUID(pk)
+                    event_type = models.EventType.objects.get(id=event_type_id)
+                    self.stdout.write(self.style.SUCCESS(f"Deleting all events with event type {event_type}"))
+                    for event_id in models.Event.objects.filter(event_type_id=event_type_id).values_list(
+                        "id", flat=True
+                    ):
+                        with transaction.atomic():
+                            self.remove_event(event_id)
+
+                else:
+                    with transaction.atomic():
+                        self.remove_event(pk)
 
     def remove_event(self, event_id):
-        event_id = uuid.UUID(event_id)
+        event_id = uuid.UUID(event_id) if not isinstance(event_id, uuid.UUID) else event_id
         try:
             event = models.Event.objects.get(id=event_id)
         except models.Event.DoesNotExist:
-            self.logger.info(f"Event with id {event_id} not found")
+            self.stdout.write(self.style.WARNING(f"Event with id {event_id} not found"))
             return
 
         if self.dry_run:
-            self.logger.info(f"Dry Run - would have removed {event_id}")
+            self.stdout.write(self.style.SUCCESS(f"Dry Run - would have removed {event}"))
             return
 
         # remove supporting records
