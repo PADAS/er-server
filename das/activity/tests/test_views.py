@@ -439,7 +439,8 @@ class TestEventsExportView:
         data = self._response_to_dict(response)
 
         for record in data:
-            reported_at = record["Reported_At_(GMT-8:0)"]
+            result = dict(filter(lambda item: item[0].startswith("Reported_At"), record.items()))
+            reported_at = record[list(result.keys())[0]]
             date_time = record["date_time_test"]
 
             assert reported_at == date_time
