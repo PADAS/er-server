@@ -305,13 +305,13 @@ class TestEventTypesV2:
                             "title": "Size of the Poaching Group",
                             "type": "number",
                         },
-                        "what_is_the_response?": {
-                            "default": "",
-                            "deprecated": False,
-                            "description": "",
-                            "title": "What is the response?",
-                            "type": "string",
-                        },
+                        # "what_is_the_response?": {
+                        #    "default": "",
+                        #    "deprecated": False,
+                        #    "description": "",
+                        #    "title": "What is the response?",
+                        #    "type": "string",
+                        # },
                     },
                 }
             },
