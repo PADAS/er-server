@@ -3,6 +3,8 @@ import pytest
 from django.urls import reverse
 from rest_framework import status
 
+from observations.models import Source
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
@@ -22,5 +24,6 @@ class TestAsyncDelete:
         status_response = superuser_client.get(status_url)
         assert status_response.status_code == status.HTTP_200_OK
         assert "status" in status_response.data
-
+        with pytest.raises(Source.DoesNotExist):
+            Source.objects.get(id=source.id)
         assert status_response.data["status"] in ("SUCCESS", "PENDING")
