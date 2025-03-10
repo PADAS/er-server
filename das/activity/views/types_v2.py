@@ -1,3 +1,5 @@
+import json
+import logging
 from typing import Optional
 
 from django_filters import rest_framework as filters
@@ -10,12 +12,17 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from activity.filters import EventTypeFilter
+from activity.filters import EventTypeFilter, EventTypeSchemaFilter
 from activity.models import Event, EventType
 from activity.permissions import EventCategoryPermissions
+from activity.schemas.schema_rendering import dereference_schema
+from activity.schemas.schema_retrieving import build_dynamic_schemas_registry
 from activity.serializers.events_v2 import EventTypeSerializer
 from activity.views.events.utils import AllowedCategoriesMixin
+from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer
 from utils.views import EtagListRetrieveModelMixin
+
+logger = logging.getLogger(__name__)
 
 
 class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, ModelViewSet):
@@ -78,25 +85,64 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         # Temporary implementation to avoid updating event types.
         return Response({"detail": "Method not supported"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
-    @action(methods=["get"], detail=False, url_path="schemas")
+    @action(
+        methods=["get"],
+        detail=False,
+        url_path="schemas",
+        filterset_class=EventTypeSchemaFilter,
+        renderer_classes=(DirectJSONRenderer, DirectBrowsableAPIRenderer),
+    )
     def list_schemas(self, request: Request) -> Response:
         """
         Returns a dictionary of schemas for the EventTypes API.
         Keyed by value field in event_type.
         """
-        # Note:
-        # Temporary implementation to get all the schemas just to show the idea of having a
-        # separate endpoint for schemas.
         queryset = self.filter_queryset(self.get_queryset())
-        schemas = {et.value: et.schema for et in queryset}
+        pre_render = request.query_params.get("pre_render", False)
+
+        try:
+            schemas = {et.value: json.loads(et.schema) for et in queryset if et.schema}
+        except json.JSONDecodeError as e:
+            logger.warning(f"Error decoding schema: {e}")
+            return Response({"detail": "Error decoding schema"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        if pre_render:
+            registry = build_dynamic_schemas_registry(request.build_absolute_uri("/"))
+
+            for value, schema in schemas.items():
+                if "json" not in schema:
+                    continue
+                json_schema = schema["json"]
+                schemas[value]["json"] = dereference_schema(json_schema, registry)
+
         return Response(schemas)
 
-    @action(methods=["get"], detail=True, url_path="schema")
+    @action(
+        methods=["get"],
+        detail=True,
+        url_path="schema",
+        filterset_class=EventTypeSchemaFilter,
+        renderer_classes=(DirectJSONRenderer, DirectBrowsableAPIRenderer),
+    )
     def retrieve_schema(self, request: Request, value: str, format: Optional[str] = None) -> Response:
         """
         Returns the rendered schema for the specified event type.
         """
-        print(f"Retrieve schema for {value}")
-        print(f"Format: {format}")
-        instance = self.get_object()
-        return Response(instance.schema)
+        event_type = self.get_object()
+        pre_render = request.query_params.get("pre_render", False)
+
+        try:
+            schema = json.loads(event_type.schema)
+        except json.JSONDecodeError as e:
+            logger.warning(f"Error decoding schema: {e}, for event type: {event_type.value}")
+            return Response({"detail": "Error decoding schema"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        if pre_render:
+            registry = build_dynamic_schemas_registry(request.build_absolute_uri("/"))
+
+            if "json" not in schema:
+                raise ValueError("Schema not found in event type")
+            json_schema = schema["json"]
+            schema["json"] = dereference_schema(json_schema, registry)
+
+        return Response(schema)
