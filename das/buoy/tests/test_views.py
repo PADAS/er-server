@@ -216,7 +216,7 @@ class TestGearsView:
         now = timezone.now()
         source = gear_subjectsource.source
         additional = generate_devices(2, Point(0, 0))
-        additional["event_type"] = "gear_hauled"
+        additional["event_type"] = "gear_retrieved"
         location_dict = json.loads(additional["devices"][0])["location"]
         point = Point(location_dict["longitude"], location_dict["latitude"])
         data = {
@@ -368,7 +368,7 @@ class TestGearsView:
         now = timezone.now()
         source = gear_subjectsource.source
         additional = generate_devices(2, Point(0, 0))
-        additional["event_type"] = "gear_hauled"
+        additional["event_type"] = "gear_retrieved"
         location_dict = json.loads(additional["devices"][0])["location"]
         point = Point(location_dict["longitude"], location_dict["latitude"])
         data = {
