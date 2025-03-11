@@ -5,7 +5,6 @@ from urllib.parse import urldefrag, urljoin
 
 from referencing import Registry, Resource
 from referencing import exceptions as referencing_exceptions
-from referencing._core import Resolver
 from referencing.jsonschema import DRAFT202012
 from referencing.typing import URI
 
@@ -32,39 +31,31 @@ def _get_anchor_name(base_uri: str, anchor_fragment: str) -> str:
 
 def dereference_schema(schema: Union[Resource, dict], registry: Registry) -> dict:
     """
-    Builds/Renders/Dereferences a schema, using a registry as a reference resolver.
-
-    Registry is a big part of the magic as:
-    - Serves as a cache for resolved schemas
-    - An interface to agnostically retrieve schemas
-    - It knows how to resolve a reference
+    Renders/Dereferences a schema, using a registry as a reference resolver.
 
     The dereferencing process is a bit tricky, it's not possible to remove all references, as:
-    - Some references may be not resolvable (we rely on the ability of the registry to resolve them)
-    - Some references may be circular (we can't resolve them)
-    - Some references are local, why to dereference them?
+    - Some references may be not resolvable
+        - A reference that points to a place that does not exist or to a not existing anchor
+        - At the moment the retriever does not support external references
+        - The aproach is to fail "gracefully" and leave the references that can not be resolved as is
+    - Some references may be circular (we can't resolve them, as soon as we find them we just fallback to the reference)
+    - We may not really want to "de-reference" all? what if we are pointing to a local local fragment?
 
-    So our approach in a nutshell is:
+    So the approach in a nutshell is:
+    - To output a valid and as self-contained as possible schema
     - Partial derreferencing, we will dereference only the references that are resolvable
     - Fragments will be bundled in the root schema, instead of being dereferenced
-    - Fragment "bundling" (local references)
 
     In detail:
     - We traverse the schema
     - When a reference is found, we determine if it's a local reference or not.
-        - If it's a local reference, we just make sure that is resolvable
-            - If it's not resolvable, we throw an error
-            - If it's resolvable, that's it, just for the root schema.
-        - If it's a local reference but not in the root schema, we bundle it in the "$defs" key of the root schema
-            - We try to resolve the referenced schema using the registry
-                - If it's not resolvable, we leave the reference as is
-                - If it's resolvable, now we try the local references in the context of the referenced schema
-                    - If the local reference is not resolvable, we throw an error
-                    - If the local reference is resolvable, we bundle it in the "$defs" key of the root schema
+        - If it's fragment (#/) reference, we just make sure that is resolvable
+            - If it's resolvable, and we are at the root level, we leave it as is
+            - If it's resolvable, and we are not at the root level, we bundle it in the "$defs" key of the root schema
+            - If it's not resolvable, we leave it as is
+        - If it's an anchor reference, we generate a collision free anchor name version
+        - If it's a full uri reference, we retrieve it and dereference it
 
-
-                - If the key already exists in the "$defs" we will not override it, we will just ignore it
-        - If it's
     - We will return the resolved schema, with all the references resolved, and the local references bundled in the "$defs" key
 
       - Here we dont care for how how the reference is retrieved, we just need the resolved schema
@@ -107,12 +98,13 @@ def dereference_schema(schema: Union[Resource, dict], registry: Registry) -> dic
 
         return f"#/$defs/{hash_uri}/{local_uri}"
 
-    def _dereference(value: Any, resolver: Resolver, current_uri: str) -> dict:
+    def _dereference(value: Any, current_uri: str) -> dict:
+        nonlocal resolver  # we need to update the resolver in the parent scope
+
         if isinstance(value, dict):
             # Handle $id to update current_uri for this scope
             if "$id" in value:
                 # check for fragment in the uri and remove it?
-
                 current_uri = value["$id"]
                 if current_uri != root_uri:
                     # we are in a nested schema, we need to bundle the local references in the root schema
@@ -155,7 +147,7 @@ def dereference_schema(schema: Union[Resource, dict], registry: Registry) -> dic
                         # it's a full uri reference, retrieve and dereference it!
                         resolved = resolver.lookup(ref_uri)
                         resolver = resolved.resolver
-                        resolved_value = _dereference(resolved.contents, resolver, current_uri)
+                        resolved_value = _dereference(resolved.contents, current_uri)
                 except referencing_exceptions.Unresolvable as e:
                     # leave the reference as is
                     value["$ref"] = ref_uri
@@ -164,17 +156,17 @@ def dereference_schema(schema: Union[Resource, dict], registry: Registry) -> dic
                 # defines an anchor, let's generate a collision free version
                 value["$anchor"] = _get_anchor_name(current_uri, value["$anchor"])
 
-            value = {k: _dereference(v, resolver, current_uri) for k, v in value.items()}
+            value = {k: _dereference(v, current_uri) for k, v in value.items()}
             if resolved_value:
                 # we have a resolved reference, let's merge it with the current value
                 value = {**resolved_value, **value}
             return value
         elif isinstance(value, list):
-            return [_dereference(v, resolver, current_uri) for v in value]
+            return [_dereference(v, current_uri) for v in value]
         else:
             return value
 
-    full_schema = _dereference(schema.contents, resolver, root_uri)
+    full_schema = _dereference(schema.contents, root_uri)
 
     if bundled_defs:
         if "$defs" not in full_schema:
