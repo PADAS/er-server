@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 from urllib.parse import urlparse
 
 from referencing import Registry, Resource
@@ -6,7 +7,6 @@ from referencing import exceptions as referencing_exceptions
 from referencing.jsonschema import DRAFT202012
 from referencing.typing import URI
 
-from django.test import RequestFactory
 from django.urls import Resolver404, resolve
 from rest_framework.request import Request as DRFRequest
 
@@ -15,7 +15,7 @@ from schemas.view_mixins import DynamicSchemaFromSourceView
 logger = logging.getLogger(__name__)
 
 
-def dynamic_schemas_retriever(uri: str) -> Resource:
+def _dynamic_schemas_retriever(uri: str, request: DRFRequest) -> Resource:
     """
     Retrieve a JSON schema from an internal dynamic schema view by reusing its render_schema method.
 
@@ -33,28 +33,24 @@ def dynamic_schemas_retriever(uri: str) -> Resource:
         # Parse the URI and extract the path (domain agnostic)...
         parsed = urlparse(uri)
         path = parsed.path
-
         match = resolve(path)
     except Resolver404 as e:
         logger.info(f"URI {uri} cannot be resolved to an internal view: {e}")
         raise referencing_exceptions.Unresolvable(ref=uri)
 
-    # Let's verify that it's a DynamicSchemaFromSourceView.
+    # Let's verify that it's a DynamicSchemaFromSourceView
+    # Note: Instead of checking that it's a subclass of DynamicSchemaFromSourceView,
+    # we can check something more friendly like the existence of a render_schema method.
     view_class = getattr(match.func, "view_class", None)
     if not view_class or not issubclass(view_class, DynamicSchemaFromSourceView):
         logger.info(f"Resolved view for URI {uri} is not a DynamicSchemaFromSourceView.")
         raise referencing_exceptions.Unresolvable(ref=uri)
 
-    # Create a dummy GET request for the URI.
-    factory = RequestFactory()
-    http_request = factory.get(uri)
-    drf_request = DRFRequest(http_request)
-
     view_instance = view_class(**match.kwargs)
-    view_instance.request = drf_request
+    view_instance.request = request
 
     try:
-        schema_data = view_instance.render_schema(drf_request)
+        schema_data = view_instance.render_schema(request)
     except Exception as e:
         logger.warning(f"Error rendering schema for URI {uri}: {e}")
         raise referencing_exceptions.Unresolvable(ref=uri)
@@ -63,10 +59,11 @@ def dynamic_schemas_retriever(uri: str) -> Resource:
     return resource
 
 
-def build_dynamic_schemas_registry(base_url: str) -> Registry:
+def build_dynamic_schemas_registry(request: DRFRequest) -> Registry:
     """
     Wrapper function to build a Registry with a dynamic schema retriever for internal views.
     """
+    dynamic_schemas_retriever = partial(_dynamic_schemas_retriever, request=request)
     registry = Registry(retrieve=dynamic_schemas_retriever)
     return registry
 

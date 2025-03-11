@@ -107,10 +107,11 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
             return Response({"detail": "Error decoding schema"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         if pre_render:
-            registry = build_dynamic_schemas_registry(request.build_absolute_uri("/"))
+            registry = build_dynamic_schemas_registry(request)
 
             for value, schema in schemas.items():
                 if "json" not in schema:
+                    logger.warning(f"Schema not found for event type: {value}")
                     continue
                 json_schema = schema["json"]
                 schemas[value]["json"] = dereference_schema(json_schema, registry)
