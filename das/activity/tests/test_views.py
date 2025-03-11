@@ -7,6 +7,7 @@ from itertools import chain
 import pytest
 import pytz
 
+from django.conf import settings
 from django.contrib.gis.geos import MultiPoint, Point, Polygon
 from django.urls import reverse
 from django.utils import timezone
@@ -438,12 +439,20 @@ class TestEventsExportView:
         response = superuser_client.get(url)
         data = self._response_to_dict(response)
 
+        offset_string = self.get_gmt_offset_string(settings.TIME_ZONE)
         for record in data:
-            result = dict(filter(lambda item: item[0].startswith("Reported_At"), record.items()))
-            reported_at = record[list(result.keys())[0]]
+            reported_at = record[f"Reported_At_({offset_string})"]
             date_time = record["date_time_test"]
 
             assert reported_at == date_time
+
+    def get_gmt_offset_string(self, timezone_str):
+        tz = pytz.timezone(timezone_str)
+        now = datetime.now(tz)
+        offset_seconds = now.utcoffset().total_seconds()
+        offset_hours = int(offset_seconds // 3600)
+        offset_minutes = int((offset_seconds % 3600) // 60)
+        return f"GMT{offset_hours:+d}:{offset_minutes:01d}"
 
     def _setup_observations(self, source, observations):
         locations = Point(-103, 20.001155774646055), Point(-103, 20.001798483879462)

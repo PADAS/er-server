@@ -24,6 +24,17 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from kombu import exceptions
+from rest_framework import generics, status
+from rest_framework.exceptions import ParseError, PermissionDenied, ValidationError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.renderers import StaticHTMLRenderer
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from core.permissions import UserCanExportDataPermission
+from core.view_utils import AsyncDeleteObjectMixin
+from das_server import celery
+from das_server.views import CustomSchema
 from observations import kmlutils
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
@@ -84,12 +95,6 @@ from observations.views.utils import (
     get_subjects_with_observations_in_daterange,
     get_track_days,
 )
-from rest_framework import generics, status
-from rest_framework.exceptions import ParseError, PermissionDenied, ValidationError
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.renderers import StaticHTMLRenderer
-from rest_framework.response import Response
-from rest_framework.views import APIView
 from utils import add_base_url
 from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
 from utils.features import features
@@ -419,7 +424,7 @@ class ObservationView(generics.RetrieveUpdateDestroyAPIView):
         return queryset
 
 
-class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
+class SourceView(AsyncDeleteObjectMixin, generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
     lookup_fields = ("id", "manufacturer_id")
     serializer_class = SourceSerializer
 
