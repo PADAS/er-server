@@ -33,6 +33,7 @@ from activity.alerting.rate_limit import (
     publish_user_alert_quota_percentage,
     reset_alerts_counter,
 )
+from activity.alerts import has_alerts_permissionset
 from activity.alerts_views import AlertRuleListView
 from activity.models import (
     NOTIFICATION_METHOD_EMAIL,
@@ -47,12 +48,30 @@ from activity.signals import event_post_save
 from activity.tasks import execute_evaluate_alert_rules
 from choices.models import DynamicChoice
 from core.tests import BaseAPITest
+from factories import PermissionSetFactory
 from observations.models import SEX_FEMALE, Subject, SubjectSubType, SubjectType
 from utils.tenant import Tenant
 
 logger = logging.getLogger(__name__)
 
 user_permissions = ["security_read", "security_create", "security_update", "security_delete"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestAlertPermissions:
+    @pytest.fixture
+    def alerts_permissionset(self):
+        permissions = [
+            Permission.objects.get_by_natural_key("view_alertrule", "activity", "alertrule"),
+        ]
+        permission_set = PermissionSetFactory.create(permissions=permissions)
+        return permission_set
+
+    def test_alerts_enabled_for_any_user_with_view_alerts_permission(self, user_client, alerts_permissionset):
+        user_client.user.permission_sets.add(alerts_permissionset)
+
+        assert has_alerts_permissionset(user_client.user)
 
 
 @patch("redis.StrictRedis", MockRedis)
