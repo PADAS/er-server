@@ -22,6 +22,7 @@ _DB_CONFIG_DIRECT = {
     "PORT": env.str("DB_PORT", "5432"),
     "PASSWORD": env.str("DB_PASSWORD", "das"),
     "DISABLE_SERVER_SIDE_CURSORS": True,
+    "OPTIONS": {"application_name": env.str("APPLICATION_NAME", "api")},
 }
 
 # Connection pooler in transaction mode using reads/writes parsing
@@ -33,6 +34,7 @@ _DB_CONFIG_POOLER = {
     "PORT": env.str("DB_POOLER_PORT", "6432"),
     "PASSWORD": env.str("DB_PASSWORD", "das"),
     "DISABLE_SERVER_SIDE_CURSORS": True,
+    "OPTIONS": {"application_name": env.str("APPLICATION_NAME", "api")},
 }
 
 # Connection pooler in session mode that directs all traffic to the primary instance
@@ -44,6 +46,7 @@ _DB_CONFIG_POOLER_PROXY_PRIMARY = {
     "PORT": env.str("DB_POOLER_PORT", "6432"),
     "PASSWORD": env.str("DB_PASSWORD", "das"),
     "DISABLE_SERVER_SIDE_CURSORS": True,
+    "OPTIONS": {"application_name": env.str("APPLICATION_NAME", "api")},
 }
 
 DATABASES = {
