@@ -1,5 +1,4 @@
 text_field_schema = {
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "Text schema for EventType Builder",
@@ -15,8 +14,6 @@ text_field_schema = {
 }
 
 attachment_field_schema = {
-    "$id": "https://earthranger.com/attachment_field.json",
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "Attachment field schema for EventType Builder",
@@ -32,8 +29,6 @@ attachment_field_schema = {
 
 
 date_time_field_schema = {
-    "$id": "https://earthranger.com/date_time_field.json",
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "properties": {
@@ -49,7 +44,6 @@ date_time_field_schema = {
 }
 
 location_field_schema = {
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "Location field schema for EventType Builder",
@@ -89,7 +83,6 @@ location_field_schema = {
 }
 
 numeric_field_schema = {
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "Numeric field schema for EventType Builder",
@@ -118,8 +111,6 @@ choice_any_of_schema = {
 }
 
 choice_field_schema = {
-    "$id": "https://earthranger.com/choice_field.json",
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "Choice field schema for EventType Builder",
@@ -135,8 +126,6 @@ choice_field_schema = {
 }
 
 choice_list_field_schema = {
-    "$id": "https://earthranger.com/choice_list_field.json",
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "Choice list field schema for EventType Builder",
@@ -216,7 +205,6 @@ collection_field_schema = {
 }
 
 ui_text_schema = {
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "UI Text schema for EventType Builder",
@@ -231,7 +219,6 @@ ui_text_schema = {
 }
 
 ui_attachment_schema = {
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "UI Attachment schema for EventType Builder",
@@ -248,7 +235,6 @@ ui_attachment_schema = {
 }
 
 ui_collection_schema = {
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "UI Collection schema for EventType Builder",
@@ -267,7 +253,6 @@ ui_collection_schema = {
 }
 
 ui_choice_schema = {
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "UI Choice List schema for EventType Builder",
@@ -296,7 +281,7 @@ ui_choice_schema = {
         },
         "inputType": {"type": "string", "enum": ["DROPDOWN", "LIST"]},
         "placeholder": {"type": "string"},
-        "parent": {"type": "string", "pattern": "^section-[A-Za-z0-9]"},
+        "parent": {"type": "string"},
         "type": {"const": "CHOICE_LIST"},
         "additionalProperties": False,
     },
@@ -304,7 +289,6 @@ ui_choice_schema = {
 }
 
 ui_date_time_schema = {
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "UI Date Time schema for EventType Builder",
@@ -317,7 +301,6 @@ ui_date_time_schema = {
 }
 
 ui_location_schema = {
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "UI Location schema for EventType Builder",
@@ -330,7 +313,6 @@ ui_location_schema = {
 }
 
 ui_numeric_schema = {
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "UI Numeric schema for EventType Builder",
@@ -344,7 +326,6 @@ ui_numeric_schema = {
 }
 
 ui_headers_schema = {
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "UI Headers schema for EventType Builder",
@@ -367,7 +348,6 @@ ui_section_columns = {
 }
 
 ui_sections_schema = {
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "UI Sections schema for EventType Builder",
@@ -377,7 +357,7 @@ ui_sections_schema = {
         "label": {"type": "string"},
         "leftColumn": ui_section_columns,
         "rightColumn": ui_section_columns,
-        "parent": {"type": "string", "pattern": "^section-[A-Za-z0-9]"},
+        "parent": {"type": "string"},
         "type": {"const": "SECTIONS"},
         "additionalProperties": False,
     },
@@ -385,7 +365,6 @@ ui_sections_schema = {
 }
 
 ui_schema = {
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "UI schema for EventTypeV2 Builder",
@@ -432,7 +411,6 @@ ui_schema = {
 
 
 json_field_schema = {
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "Json schema for EventTypeV2 Builder",
@@ -464,6 +442,7 @@ json_field_schema = {
 }
 
 main_event_type_schema = {
+    "$id": "https://earthranger.com/event_type_schema.json",
     "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
