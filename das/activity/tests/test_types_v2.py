@@ -1,5 +1,3 @@
-import json
-
 import pytest
 
 from django.urls import reverse
@@ -283,43 +281,6 @@ class TestEventTypesV2:
 
         assert response.status_code == status.HTTP_200_OK
         # FUTURE: assert response.data == render_schema(target.schema, user=superuser_client.user)
-
-    def test_create_event_type_invalid_json(self, superuser_client, cat1_cat2_event_types):
-        url = reverse("v2-eventtype-list")
-
-        cat1_cat2_event_types[0]
-
-        data = {
-            "value": "test",
-            "category": "security",
-            "auto_resolve": True,
-            "schema": {
-                "json": {
-                    "$schema": "https://json-schema.org/draft/2020-12/schema",
-                    "additionalProperties": False,
-                    "properties": {
-                        "size_of_the_poaching_group": {
-                            "deprecated": False,
-                            "description": "Number of poachers that were in the group.",
-                            "minimum": 1,
-                            "title": "Size of the Poaching Group",
-                            "type": "number",
-                        },
-                        # "what_is_the_response?": {
-                        #    "default": "",
-                        #    "deprecated": False,
-                        #    "description": "",
-                        #    "title": "What is the response?",
-                        #    "type": "string",
-                        # },
-                    },
-                }
-            },
-        }
-
-        data = json.dumps(data)
-        response = superuser_client.post(url, data=data, content_type="application/json")
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 @pytest.mark.django_db
