@@ -45,7 +45,8 @@ class JSONSchemaField(serializers.Field):
                 self._validate_parent_references(data)
 
         except ValidationError as e:
-            raise serializers.ValidationError(f"Invalid JSON Schema: {e.message}")
+            json_path = ".".join(str(s) for s in e.path)
+            raise serializers.ValidationError(f"Invalid JSON Schema: {e.message} at {json_path}")
 
         return data
 
@@ -68,16 +69,19 @@ class JSONSchemaField(serializers.Field):
         """
         Validates that every 'section' in 'ui' references a valid key in 'sections'.
         """
-        # Validate fields and headers
-        field_errors = _check_section_exists(data, "fields", "parent")
         header_errors = _check_section_exists(data, "headers", "section")
 
         order_errors = [
-            f"{section} does not exist in 'sections'" not in data.get("ui", {}).get("sections", {})
+            (
+                f"{section} in 'order' does not exist in 'sections'"
+                if section not in data.get("ui", {}).get("sections", {})
+                else ""
+            )
             for section in data.get("ui", {}).get("order", [])
         ]
 
-        errors = field_errors + header_errors + order_errors
+        errors = header_errors + order_errors
+        filtered_errors = [err for err in errors if err]
 
-        if errors:
-            raise ValueError("Validation errors:\n" + "\n".join(errors))
+        if filtered_errors:
+            raise serializers.ValidationError("Validation errors: " + " ".join(filtered_errors))

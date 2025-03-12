@@ -30,32 +30,6 @@ attachment_field_schema = {
     "required": ["deprecated", "title", "type", "format"],
 }
 
-collection_field_schema = {
-    "$id": "https://earthranger.com/collection_field.json",
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
-    "additionalProperties": False,
-    "type": "array",
-    "title": "Collection field schema for EventType Builder",
-    "properties": {
-        "deprecated": {"type": "boolean"},
-        "items": {
-            "type": "object",
-            "properties": {
-                "type": {"type": "string", "const": "object"},
-                "required": {"type": "array"},
-                "properties": {"type": "object"},
-                "additionalProperties": {"type": "boolean", "const": False},
-            },
-            "additionalProperties": False,
-        },
-        "title": {"type": "string"},
-        "type": {"type": "string", "const": "array"},
-        "unevaluatedItems": {"type": "boolean", "const": False},
-        "maxItems": {"type": "integer"},
-        "minItems": {"type": "integer"},
-        "additionalProperties": False,
-    },
-}
 
 date_time_field_schema = {
     "$id": "https://earthranger.com/date_time_field.json",
@@ -91,8 +65,8 @@ location_field_schema = {
                     "type": "object",
                     "properties": {
                         "type": {"type": "string", "const": "number"},
-                        "minimum": {"type": "number", "minimum": -90, "maximum": 90},
-                        "maximum": {"type": "number", "minimum": -90, "maximum": 90},
+                        "minimum": {"type": "number", "const": -90},
+                        "maximum": {"type": "number", "const": 90},
                     },
                     "additionalProperties": False,
                 },
@@ -100,12 +74,13 @@ location_field_schema = {
                     "type": "object",
                     "properties": {
                         "type": {"type": "string", "const": "number"},
-                        "minimum": {"type": "number", "minimum": -180, "maximum": 180},
-                        "maximum": {"type": "number", "minimum": -180, "maximum": 180},
+                        "minimum": {"type": "number", "const": -180},
+                        "maximum": {"type": "number", "const": 180},
                     },
                     "additionalProperties": False,
                 },
             },
+            "required": ["latitude", "longitude"],
             "additionalProperties": False,
         },
         "additionalProperties": False,
@@ -174,7 +149,7 @@ choice_list_field_schema = {
             "type": "object",
             "properties": {
                 "anyOf": choice_any_of_schema,
-                "type": {"type": "string", "const": "array"},
+                "type": {"type": "string"},
             },
             "additionalItems": False,
         },
@@ -184,19 +159,75 @@ choice_list_field_schema = {
     "required": ["deprecated", "description", "title", "type", "items"],
 }
 
+collection_field_schema = {
+    "$id": "https://earthranger.com/collection_field.json",
+    "$schema": "http://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": False,
+    "type": "object",
+    "title": "Collection field schema for EventType Builder",
+    "properties": {
+        "deprecated": {"type": "boolean"},
+        "items": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "additionalProperties": {"type": "boolean", "const": False},
+                "type": {"type": "string", "const": "object"},
+                "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": True},
+                "properties": {
+                    "type": "object",
+                    "patternProperties": {
+                        ".*": {
+                            "anyOf": [
+                                {"$ref": "#/$defs/textField"},
+                                {"$ref": "#/$defs/numericField"},
+                                {"$ref": "#/$defs/attachmentField"},
+                                {"$dynamicRef": "#collectionField"},  # self reference
+                                {"$ref": "#/$defs/dateTimeField"},
+                                {"$ref": "#/$defs/locationField"},
+                                {"$ref": "#/$defs/choiceField"},
+                                {"$ref": "#/$defs/choiceListField"},
+                            ]
+                        }
+                    },
+                },
+            },
+        },
+        "title": {"type": "string"},
+        "type": {"type": "string", "const": "array"},
+        "unevaluatedItems": {"type": "boolean", "const": False},
+        "maxItems": {"type": "integer"},
+        "minItems": {"type": "integer"},
+        "additionalProperties": False,
+    },
+    "$defs": {
+        "textField": text_field_schema,
+        "numericField": numeric_field_schema,
+        "attachmentField": attachment_field_schema,
+        "collectionField": {
+            "$dynamicAnchor": "collectionField",
+            "$ref": "#",  # Reference the root collection field schema
+        },
+        "dateTimeField": date_time_field_schema,
+        "locationField": location_field_schema,
+        "choiceField": choice_field_schema,
+        "choiceListField": choice_list_field_schema,
+    },
+}
+
 ui_text_schema = {
     "$schema": "http://json-schema.org/draft/2020-12/schema",
     "additionalProperties": False,
     "type": "object",
     "title": "UI Text schema for EventType Builder",
     "properties": {
-        "input_type": {"type": "string", "enum": ["SHORT_TEXT", "LONG_TEXT"]},
+        "inputType": {"type": "string", "enum": ["SHORT_TEXT", "LONG_TEXT"]},
         "parent": {"type": "string"},
         "placeholder": {"type": "string"},
         "type": {"const": "TEXT"},
         "additionalProperties": False,
     },
-    "required": ["input_type", "parent", "placeholder", "type"],
+    "required": ["inputType", "parent", "placeholder", "type"],
 }
 
 ui_attachment_schema = {
@@ -205,7 +236,10 @@ ui_attachment_schema = {
     "type": "object",
     "title": "UI Attachment schema for EventType Builder",
     "properties": {
-        "allowableFileTypes": {"type": "string", "enum": ["video", "document", "audio", "image"]},
+        "allowableFileTypes": {
+            "type": "array",
+            "items": {"type": "string", "enum": ["video", "document", "audio", "image"]},
+        },
         "parent": {"type": "string"},
         "type": {"const": "ATTACHMENT"},
         "additionalProperties": False,
@@ -222,6 +256,7 @@ ui_collection_schema = {
         "buttonText": {"type": "string"},
         "columns": {"type": "number", "enum": [1, 2]},
         "itemIdentifier": {"type": "string"},
+        "itemName": {"type": "string"},
         "leftColumn": {"type": "array", "items": {"type": "string"}},
         "rightColumn": {"type": "array", "items": {"type": "string"}},
         "parent": {"type": "string"},
@@ -245,22 +280,23 @@ ui_choice_schema = {
                 "featureCategories": {"type": "array", "items": {"type": "string", "format": "uuid"}},
                 "subjectGroups": {"type": "array", "items": {"type": "string", "format": "uuid"}},
                 "subjectSubtypes": {"type": "array", "items": {"type": "string", "format": "uuid"}},
-                "mDataType": {
+                "myDataType": {
                     "type": "string",
                     "enum": [
                         "SUBJECTS_FROM_SUBJECT_SUBTYPE",
                         "SUBJECTS_FROM_SUBJECT_GROUP",
                         "FEATURES_FROM_FEATURE_GROUP",
                         "EVENT_TYPES_FROM_EVENT_CATEGORY",
+                        "",
                     ],
                 },
-                "type": {"type": "string", "enum": ["EXISTING_CHOICE_LIST", "MY_DATA"]},
+                "type": {"type": "string", "enum": ["EXISTING_CHOICE_LIST", "MY_DATA", "CHOICE_LIST"]},
             },
             "additionalProperties": False,
         },
         "inputType": {"type": "string", "enum": ["DROPDOWN", "LIST"]},
         "placeholder": {"type": "string"},
-        "parent": {"type": "string"},
+        "parent": {"type": "string", "pattern": "^section-[A-Za-z0-9]"},
         "type": {"const": "CHOICE_LIST"},
         "additionalProperties": False,
     },
@@ -299,11 +335,12 @@ ui_numeric_schema = {
     "type": "object",
     "title": "UI Numeric schema for EventType Builder",
     "properties": {
+        "placeholder": {"type": "string"},
         "parent": {"type": "string"},
         "type": {"const": "NUMERIC"},
         "additionalProperties": False,
     },
-    "required": ["parent", "type"],
+    "required": ["parent", "type", "placeholder"],
 }
 
 ui_headers_schema = {
@@ -313,7 +350,7 @@ ui_headers_schema = {
     "title": "UI Headers schema for EventType Builder",
     "properties": {
         "label": {"type": "string"},
-        "section": {"type": "string", "format": "uuid"},
+        "section": {"type": "string"},
         "size": {"type": "string", "enum": ["SMALL", "MEDIUM", "LARGE"]},
         "additionalProperties": False,
     },
@@ -340,11 +377,11 @@ ui_sections_schema = {
         "label": {"type": "string"},
         "leftColumn": ui_section_columns,
         "rightColumn": ui_section_columns,
-        "parent": {"type": "string"},
+        "parent": {"type": "string", "pattern": "^section-[A-Za-z0-9]"},
         "type": {"const": "SECTIONS"},
         "additionalProperties": False,
     },
-    "required": ["columns", "isActive", "label", "leftColumn", "rightColumn", "parent", "type"],
+    "required": ["columns", "isActive", "label", "leftColumn", "rightColumn"],
 }
 
 ui_schema = {
@@ -358,7 +395,7 @@ ui_schema = {
             "additionalProperties": False,
             "patternProperties": {
                 ".*": {
-                    "anyOf": [
+                    "oneOf": [
                         {"$ref": "#/$defs/uiTextSchema"},
                         {"$ref": "#/$defs/uiNumericSchema"},
                         {"$ref": "#/$defs/uiAttachmentSchema"},
@@ -423,6 +460,7 @@ json_field_schema = {
         "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": True},
         "type": {"type": "string", "const": "object"},
     },
+    "required": ["$schema", "properties"],
 }
 
 main_event_type_schema = {
