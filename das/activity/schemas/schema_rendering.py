@@ -55,11 +55,6 @@ def dereference_schema(schema: Union[Resource, dict], registry: Registry) -> dic
             - If it's not resolvable, we leave it as is
         - If it's an anchor reference, we generate a collision free anchor name version
         - If it's a full uri reference, we retrieve it and dereference it
-
-    - We will return the resolved schema, with all the references resolved, and the local references bundled in the "$defs" key
-
-      - Here we dont care for how how the reference is retrieved, we just need the resolved schema
-      - If the reference is "local" it's local to what?
     """
     root_uri = "/"
     traversed_uris = set()
