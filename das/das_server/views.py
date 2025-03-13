@@ -71,6 +71,9 @@ class CustomSchema(AutoSchema):
             }
         return super().map_field(field)
 
+    def get_tags(self, path, method):
+        return [self._view.__module__.split(".")[0].replace("_", " ").title()]
+
 
 class StatusView(generics.RetrieveAPIView):
     """
