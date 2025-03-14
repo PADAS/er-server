@@ -160,7 +160,7 @@
             ],
             //"postDebugTask": "killdebugger",
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler",
                 "GEVENT_SUPPORT": "True",
                 "ROOT_LOGGING_LEVEL": "INFO"
             }
