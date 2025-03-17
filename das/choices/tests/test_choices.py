@@ -49,6 +49,18 @@ def test_get_all_choices(choices_fixture, client, tenant_document_cache_client_m
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_get_all_choices_filtering(choices_fixture, client, five_choices):
+    choices, user = choices_fixture.choices, choices_fixture.user
+
+    client.force_login(user)
+    url = reverse("choices")
+    response = client.get(f"{url}?fields=wildlifesighting_species&model=activity.eventtype")
+    assert response.status_code == 200
+    assert len(choices.all()) == 7
+    assert len(response.data["results"]) == 2
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_single_choice(choices_fixture, client, tenant_document_cache_client_mock):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)

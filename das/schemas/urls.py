@@ -7,4 +7,5 @@ app_name = "schemas"
 urlpatterns = [
     path("users.json", views.UsersDynamicSchemaView.as_view(), name="users"),
     path("subjects.json", views.SubjectsDynamicSchemaView.as_view(), name="subjects"),
+    path("choices.json", views.ChoicesDynamicSchemaView.as_view(), name="choices"),
 ]
