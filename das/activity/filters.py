@@ -65,7 +65,7 @@ class EventTypeSchemaFilter(EventTypeFilter):
 
     pre_render = filters.BooleanFilter(method="filter_pre_render")
 
-    def filter_pre_render(self, qs, value):
+    def filter_pre_render(self, qs, field_name, value):
         return qs
 
 

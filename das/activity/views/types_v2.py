@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import Optional
 
 from django_filters import rest_framework as filters
 
@@ -12,10 +11,11 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
+from activity.exceptions import SchemaRenderingError
 from activity.filters import EventTypeFilter, EventTypeSchemaFilter
 from activity.models import Event, EventType
 from activity.permissions import EventCategoryPermissions
-from activity.schemas.schema_rendering import dereference_schema
+from activity.schemas.schema_rendering import SchemaRenderer
 from activity.schemas.schema_retrieving import build_dynamic_schemas_registry
 from activity.serializers.events_v2 import EventTypeSerializer
 from activity.views.events.utils import AllowedCategoriesMixin
@@ -47,6 +47,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
     filterset_class = EventTypeFilter
     serializer_class = EventTypeSerializer
     lookup_field = "value"
+    # lookup_url_kwarg = "eventtype_value"
     ordering = ("ordernum",)
 
     def get_queryset(self) -> models.QuerySet:
@@ -100,21 +101,33 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         queryset = self.filter_queryset(self.get_queryset())
         pre_render = request.query_params.get("pre_render", False)
 
-        try:
-            schemas = {et.value: json.loads(et.schema) for et in queryset if et.schema}
-        except json.JSONDecodeError as e:
-            logger.warning(f"Error decoding schema: {e}")
-            return Response({"detail": "Error decoding schema"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        schemas = {}
+
+        for et in queryset:
+            if not et.schema:
+                continue  # Skip if no schema exists, who knows what it means.
+
+            try:
+                schemas[et.value] = json.loads(et.schema)
+            except json.JSONDecodeError as e:
+                logger.warning(f"Error decoding schema for event type {et.value}: {e}")
+                schemas[et.value] = {"error": "Invalid JSON schema"}  # Fail gracefully and show an error message
 
         if pre_render:
             registry = build_dynamic_schemas_registry(request)
+            renderer = SchemaRenderer(registry)
 
-            for value, schema in schemas.items():
-                if "json" not in schema:
-                    logger.warning(f"Schema not found for event type: {value}")
-                    continue
-                json_schema = schema["json"]
-                schemas[value]["json"] = dereference_schema(json_schema, registry)
+            for value, data in schemas.items():
+                # Only attempt rendering if it has a 'json' key
+                if "json" in data:
+                    try:
+                        data["json"] = renderer.render(data["json"])
+                    except SchemaRenderingError as e:
+                        logger.warning(f"Error rendering schema for event type {value}: {e}")
+                        schemas[value] = {"error": "Error rendering schema"}
+                elif "error" not in data:
+                    logger.warning(f"Schema for event type {value} does not contain 'json' key")
+                    data["error"] = "Schema does not contain 'json' key"
 
         return Response(schemas)
 
@@ -125,7 +138,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         filterset_class=EventTypeSchemaFilter,
         renderer_classes=(DirectJSONRenderer, DirectBrowsableAPIRenderer),
     )
-    def retrieve_schema(self, request: Request, value: str, format: Optional[str] = None) -> Response:
+    def retrieve_schema(self, request: Request, **kwargs) -> Response:
         """
         Returns the rendered schema for the specified event type.
         """
@@ -136,14 +149,21 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
             schema = json.loads(event_type.schema)
         except json.JSONDecodeError as e:
             logger.warning(f"Error decoding schema: {e}, for event type: {event_type.value}")
-            return Response({"detail": "Error decoding schema"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"detail": "Error decoding schema"}, status=status.HTTP_418_IM_A_TEAPOT)
 
         if pre_render:
-            registry = build_dynamic_schemas_registry(request.build_absolute_uri("/"))
+            registry = build_dynamic_schemas_registry(request)
+            renderer = SchemaRenderer(registry)
 
             if "json" not in schema:
-                raise ValueError("Schema not found in event type")
-            json_schema = schema["json"]
-            schema["json"] = dereference_schema(json_schema, registry)
+                return Response(
+                    {"detail": "Schema does not contain 'json' key"}, status=status.HTTP_412_PRECONDITION_FAILED
+                )
+
+            try:
+                schema["json"] = renderer.render(schema["json"])
+            except SchemaRenderingError as e:
+                logger.warning(f"Error rendering schema: {e}")
+                return Response({"detail": "Error rendering schema"}, status=status.HTTP_418_IM_A_TEAPOT)
 
         return Response(schema)
