@@ -16,7 +16,7 @@ class DynamicSchemaDataMixin:
     """
     A mixin that provides an interface for `DynamicSchemaFromSourceView` to interact with it's  `source_view`,
 
-    Provides methods that can be ovrrided to optimize the queryset, filter data, and avoid unnecessary
+    Provides methods that can be overriden to optimize the queryset, filter data, and avoid unnecessary
     serialization/de-serialization.
     """
 
@@ -285,6 +285,7 @@ class DynamicSchemaFromSourceView(APIView):
         data = self.get_data_from_source_view(request)
         if not isinstance(data, list):
             data = [data]
+
         schema_items = self.get_schema_items(request, data)
 
         if schema_mode == "anyOf":
