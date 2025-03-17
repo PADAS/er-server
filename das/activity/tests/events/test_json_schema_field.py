@@ -5,8 +5,8 @@ import pytest
 
 from rest_framework.serializers import ValidationError
 
-from das.activity.serializers.eventtype_meta_schemas import main_event_type_schema
-from das.activity.serializers.fields.json_schema import JSONSchemaField
+from activity.schemas.eventtype_meta_schemas import main_event_type_schema
+from activity.serializers.fields.json_schema import JSONSchemaField
 
 
 class TestJsonSchemaField:
@@ -20,10 +20,9 @@ class TestJsonSchemaField:
 
     @pytest.mark.parametrize("json_schema_fixture", ["ui_schema_missing_parent_section"], indirect=True)
     def test_invalid_ui_schema_missing_parents(self, json_schema_fixture):
-        field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
+        field_schema = JSONSchemaField(meta_schema=main_event_type_schema, validate_sections=True)
         with pytest.raises(ValidationError) as e:
             field_schema.to_internal_value(json_schema_fixture)
-            # pytest.fail("Validation should have raised an error due to invalid parent references.")
 
         err = str(e.value)
         assert "Validation errors:" in err

@@ -3,7 +3,7 @@ import logging
 from rest_framework import serializers
 
 from activity.models import EventCategory, EventType
-from activity.serializers.eventtype_meta_schemas import main_event_type_schema
+from activity.schemas.eventtype_meta_schemas import main_event_type_schema
 from activity.serializers.fields.json_schema import JSONSchemaField
 
 logger = logging.getLogger(__name__)
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class EventTypeSerializer(serializers.ModelSerializer):
     category = serializers.SlugRelatedField(slug_field="value", queryset=EventCategory.objects.all())
     has_events_assigned = serializers.SerializerMethodField()
-    schema = JSONSchemaField(meta_schema=main_event_type_schema)
+    schema = JSONSchemaField(meta_schema=main_event_type_schema, validate_sections=True)
 
     serializer_url_field = "value"
     url = serializers.HyperlinkedIdentityField(view_name="v2-eventtype-detail", lookup_field="value")

@@ -11,7 +11,7 @@ class JSONSchemaField(serializers.Field):
     Custom field to validate that the input is a valid JSON Schema.
     """
 
-    def __init__(self, meta_schema=None, validate_sections=True, **kwargs):
+    def __init__(self, meta_schema=None, validate_sections=False, **kwargs):
         super().__init__(**kwargs)
         self.meta_schema = meta_schema
         self.validate_sections = validate_sections
