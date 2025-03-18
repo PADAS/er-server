@@ -23,7 +23,10 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
         return cls.subject_analyzers(subject, SubjectProximityAnalyzerConfig)
 
     def _create_proximity_analysis_params(self, analysis_subject):
-        second_group_subjects = self.config.second_subject_group.subjects.all()
+
+        second_group_subjects = self.config.second_subject_group.get_all_subjects(
+            active=True, include_from_subgroups=True
+        )
         if analysis_subject in second_group_subjects:
             second_group_subjects = second_group_subjects.exclude(name=analysis_subject.name)
         return [k for k in second_group_subjects]
@@ -146,7 +149,7 @@ class SubjectProximityAnalysis:
         result = ProximityAnalysisResult()
 
         # Set the start time of the analysis
-        result.analysis_start = dt.datetime.utcnow()
+        result.analysis_start = dt.datetime.now(tz=dt.timezone.utc)
         latest_observation_analysis_subject = cls.get_subject_latest_obs(analysis_subject)
 
         for traj in trajectories:
@@ -195,7 +198,7 @@ class SubjectProximityAnalysis:
                                 result.add_proximity_event(prox_event)
 
         # Set the end time of the analysis
-        result.analysis_end = dt.datetime.utcnow()
+        result.analysis_end = dt.datetime.now(tz=dt.timezone.utc)
 
         return result
 
