@@ -1,6 +1,5 @@
 import logging
 from functools import partial
-from typing import Callable
 from urllib.parse import urlparse
 
 from referencing import Registry, Resource
@@ -33,7 +32,7 @@ def clone_request_with_url(original_request: DRFRequest, path: str, query_params
     return cloned
 
 
-def _dynamic_schemas_retriever(uri: str, request: DRFRequest) -> Resource:
+def dynamic_schemas_retriever(uri: str, request: DRFRequest) -> Resource:
     """
     Retrieve a JSON schema from an internal dynamic schema view by reusing its render_schema method.
 
@@ -67,6 +66,7 @@ def _dynamic_schemas_retriever(uri: str, request: DRFRequest) -> Resource:
 
     try:
         schema_data = view_instance.render_schema(request=clone_request_with_url(request, parsed.path, parsed.query))
+        # TODO: each clone request is mutating the underlying request object, we should fix that
     except Exception as e:
         logger.warning(f"Error rendering schema for URI {uri}: {e}")
         raise referencing_exceptions.Unresolvable(ref=uri)
@@ -79,6 +79,7 @@ def build_dynamic_schemas_registry(request: DRFRequest) -> Registry:
     """
     Wrapper function to build a Registry with a dynamic schema retriever for internal views.
     """
-    dynamic_schemas_retriever: Callable[[str], Resource] = partial(_dynamic_schemas_retriever, request=request)
-    registry = Registry(retrieve=dynamic_schemas_retriever)
-    return registry
+    # Future: we can implement a list of retrievers that can have a `can_handle(uri)` or `can_resolve(uri)` method
+    # to determine which retriever to use for a given URI.
+    uri_only_retriever = partial(dynamic_schemas_retriever, request=request)
+    return Registry(retrieve=uri_only_retriever)
