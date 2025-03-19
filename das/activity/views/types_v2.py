@@ -1,5 +1,7 @@
 import json
 import logging
+from enum import Enum
+from typing import Optional, Tuple
 
 from django_filters import rest_framework as filters
 
@@ -23,6 +25,81 @@ from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer
 from utils.views import EtagListRetrieveModelMixin
 
 logger = logging.getLogger(__name__)
+
+
+class StrEnum(str, Enum):
+    """Enum that can be used as a string."""
+
+
+class RenderStatus(StrEnum):
+    SUCCESS = "success"
+    FAILURE = "failure"
+
+
+class RenderErrors(StrEnum):
+    NO_SCHEMA_DEFINED = "no_schema_defined"
+    INVALID_JSON = "invalid_json"
+    NO_JSON_KEY = "no_json_key"
+    INVALID_SCHEMA = "invalid_schema"
+    SCHEMA_RENDERING_ERROR = "rendering_error"
+
+
+def parse_and_render_schema(event_type: EventType, renderer: Optional[SchemaRenderer]) -> Tuple[bool, dict]:
+    """
+    Attempts to parse the raw event_type.schema as JSON, check if 'json' key is present,
+    and optionally pre-render using the renderer.
+
+    :return: (success, data) where
+            success = True => data is the fully prepared schema
+            success = False => data is an error dict with 'code' and 'message'
+    """
+    if not event_type.schema:
+        return (
+            False,
+            {
+                "code": RenderErrors.NO_SCHEMA_DEFINED,
+                "message": f"EventType '{event_type.value}' has no schema defined.",
+            },
+        )
+
+    try:
+        parsed_schema = json.loads(event_type.schema)
+    except json.JSONDecodeError as e:
+        logger.warning(f"Error decoding JSON for event type {event_type.value}: {str(e)}")
+        return (
+            False,
+            {
+                "code": RenderErrors.INVALID_JSON,
+                "message": f"Invalid JSON for event type '{event_type.value}': {str(e)}",
+            },
+        )
+
+    if "json" not in parsed_schema:
+        return (
+            False,
+            {
+                "code": RenderErrors.NO_JSON_KEY,
+                "message": f"Schema for event type '{event_type.value}' does not contain 'json' key.",
+            },
+        )
+
+    if not renderer:
+        # Return as-is
+        return (True, parsed_schema)
+
+    # Attempt render
+    try:
+        parsed_schema["json"] = renderer.render(parsed_schema["json"])
+        return (True, parsed_schema)
+    except SchemaRenderingError as e:
+        logger.warning(f"Error rendering schema for event type '{event_type.value}': {str(e)}")
+        return (
+            False,
+            {
+                "code": RenderErrors.SCHEMA_RENDERING_ERROR,
+                "message": f"Error rendering schema for event type '{event_type.value}': {str(e)}",
+            },
+        )
 
 
 class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, ModelViewSet):
@@ -95,41 +172,41 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
     )
     def list_schemas(self, request: Request) -> Response:
         """
-        Returns a dictionary of schemas for the EventTypes API.
-        Keyed by value field in event_type.
+        Returns a JSON structure with a list of schemas, using a list-based approach.
+        Each item indicates 'success' or 'failure' and contains an 'error.code' when failing.
         """
         queryset = self.filter_queryset(self.get_queryset())
         pre_render = request.query_params.get("pre_render", False)
-
-        schemas = {}
-
-        for et in queryset:
-            if not et.schema:
-                continue  # Skip if no schema exists, who knows what it means.
-
-            try:
-                schemas[et.value] = json.loads(et.schema)
-            except json.JSONDecodeError as e:
-                logger.warning(f"Error decoding schema for event type {et.value}: {e}")
-                schemas[et.value] = {"error": "Invalid JSON schema"}  # Fail gracefully and show an error message
-
+        renderer = None
         if pre_render:
             registry = build_dynamic_schemas_registry(request)
             renderer = SchemaRenderer(registry)
 
-            for value, data in schemas.items():
-                # Only attempt rendering if it has a 'json' key
-                if "json" in data:
-                    try:
-                        data["json"] = renderer.render(data["json"])
-                    except SchemaRenderingError as e:
-                        logger.warning(f"Error rendering schema for event type {value}: {e}")
-                        schemas[value] = {"error": "Error rendering schema"}
-                elif "error" not in data:
-                    logger.warning(f"Schema for event type {value} does not contain 'json' key")
-                    data["error"] = "Schema does not contain 'json' key"
+        results = []
+        for et in queryset:
+            schema_item = {"value": et.value}
 
-        return Response(schemas)
+            success, data = parse_and_render_schema(et, renderer)
+            if success:
+                schema_item["status"] = RenderStatus.SUCCESS
+                schema_item["schema"] = data
+            else:
+                schema_item["status"] = RenderStatus.FAILURE
+                schema_item["error"] = data
+
+            results.append(schema_item)
+
+        # Format designed for easy implementation of pagination
+        response_data = {
+            "count": len(results),
+            "results": results,
+        }
+        if all(item["status"] == RenderStatus.SUCCESS for item in results):
+            response_status = status.HTTP_200_OK
+        else:
+            response_status = status.HTTP_207_MULTI_STATUS
+
+        return Response(response_data, status=response_status)
 
     @action(
         methods=["get"],
@@ -144,26 +221,13 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         """
         event_type = self.get_object()
         pre_render = request.query_params.get("pre_render", False)
-
-        try:
-            schema = json.loads(event_type.schema)
-        except json.JSONDecodeError as e:
-            logger.warning(f"Error decoding schema: {e}, for event type: {event_type.value}")
-            return Response({"detail": "Error decoding schema"}, status=status.HTTP_418_IM_A_TEAPOT)
-
+        renderer = None
         if pre_render:
             registry = build_dynamic_schemas_registry(request)
             renderer = SchemaRenderer(registry)
 
-            if "json" not in schema:
-                return Response(
-                    {"detail": "Schema does not contain 'json' key"}, status=status.HTTP_412_PRECONDITION_FAILED
-                )
-
-            try:
-                schema["json"] = renderer.render(schema["json"])
-            except SchemaRenderingError as e:
-                logger.warning(f"Error rendering schema: {e}")
-                return Response({"detail": "Error rendering schema"}, status=status.HTTP_418_IM_A_TEAPOT)
-
-        return Response(schema)
+        success, data_or_error = parse_and_render_schema(event_type, renderer)
+        if success:
+            return Response(data_or_error, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": data_or_error}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
