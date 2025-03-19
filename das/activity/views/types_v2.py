@@ -44,7 +44,7 @@ class RenderErrors(StrEnum):
     SCHEMA_RENDERING_ERROR = "rendering_error"
 
 
-def parse_and_render_schema(event_type: EventType, renderer: Optional[SchemaRenderer]) -> Tuple[bool, dict]:
+def parse_and_render_schema(event_type: EventType, schema_renderer: Optional[SchemaRenderer]) -> Tuple[bool, dict]:
     """
     Attempts to parse the raw event_type.schema as JSON, check if 'json' key is present,
     and optionally pre-render using the renderer.
@@ -83,13 +83,13 @@ def parse_and_render_schema(event_type: EventType, renderer: Optional[SchemaRend
             },
         )
 
-    if not renderer:
+    if not schema_renderer:
         # Return as-is
         return (True, parsed_schema)
 
     # Attempt render
     try:
-        parsed_schema["json"] = renderer.render(parsed_schema["json"])
+        parsed_schema["json"] = schema_renderer.render(parsed_schema["json"])
         return (True, parsed_schema)
     except SchemaRenderingError as e:
         logger.warning(f"Error rendering schema for event type '{event_type.value}': {str(e)}")
@@ -163,6 +163,11 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         # Temporary implementation to avoid updating event types.
         return Response({"detail": "Method not supported"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
+    def get_schema_renderer(self, request: Request) -> SchemaRenderer:
+        # This is where the rendering and retrieval sides are being connected.
+        registry = build_dynamic_schemas_registry(request)
+        return SchemaRenderer(registry)
+
     @action(
         methods=["get"],
         detail=False,
@@ -177,16 +182,15 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         """
         queryset = self.filter_queryset(self.get_queryset())
         pre_render = request.query_params.get("pre_render", False)
-        renderer = None
+        schema_renderer = None
         if pre_render:
-            registry = build_dynamic_schemas_registry(request)
-            renderer = SchemaRenderer(registry)
+            schema_renderer = self.get_schema_renderer(request)
 
         results = []
         for et in queryset:
             schema_item = {"value": et.value}
 
-            success, data = parse_and_render_schema(et, renderer)
+            success, data = parse_and_render_schema(et, schema_renderer)
             if success:
                 schema_item["status"] = RenderStatus.SUCCESS
                 schema_item["schema"] = data
@@ -221,12 +225,11 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         """
         event_type = self.get_object()
         pre_render = request.query_params.get("pre_render", False)
-        renderer = None
+        schema_renderer = None
         if pre_render:
-            registry = build_dynamic_schemas_registry(request)
-            renderer = SchemaRenderer(registry)
+            schema_renderer = self.get_schema_renderer(request)
 
-        success, data_or_error = parse_and_render_schema(event_type, renderer)
+        success, data_or_error = parse_and_render_schema(event_type, schema_renderer)
         if success:
             return Response(data_or_error, status=status.HTTP_200_OK)
         else:

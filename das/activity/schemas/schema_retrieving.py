@@ -77,7 +77,7 @@ def dynamic_schemas_retriever(uri: str, request: DRFRequest) -> Resource:
 
 def build_dynamic_schemas_registry(request: DRFRequest) -> Registry:
     """
-    Wrapper function to build a Registry with a dynamic schema retriever for internal views.
+    Connects the request to the dynamic schema retriever, so that it can use the request to resolve dynamic schemas.
     """
     # Future: we can implement a list of retrievers that can have a `can_handle(uri)` or `can_resolve(uri)` method
     # to determine which retriever to use for a given URI.
