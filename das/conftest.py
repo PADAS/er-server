@@ -1,6 +1,7 @@
 import copy
 import json
 from pathlib import Path
+from typing import Optional, Type
 from unittest.mock import MagicMock
 
 import django_multitenant
@@ -16,12 +17,15 @@ from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import Point
 from django.core.management import call_command
+from django.urls import include, path
 from django.utils import timezone
+from django.views import View
 from rest_framework.test import APIClient
 
 from accounts.utils import add_tenant_to_permission_codename
 from buoy.tests import generate_devices
 from core.models import DASTenant
+from das_server.urls import urlpatterns as root_urlpatterns
 from factories import (
     AccessTokenFactory,
     ChoiceFactory,
@@ -304,11 +308,46 @@ def cat1_cat2_event_types():
     cat1 = EventCategoryFactory.create(value="cat1")
     cat2 = EventCategoryFactory.create(value="cat2")
     v2 = EventType.VersionChoices.VERSION_2
-    et1 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=False, version=v2)
-    et2 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=True, version=v2)
-    et3 = EventTypeFactory.create(category=cat2, is_active=True, is_collection=False, version=v2)
-    et4 = EventTypeFactory.create(category=cat1, is_active=False, is_collection=False, version=v2)
-    et5 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=False, version=v2)
+
+    schema = json.dumps(
+        {
+            "json": {
+                "type": "object",
+                "properties": {
+                    "subjects_name": {"type": "string", "title": "enum test"},
+                    "behavior_choice": {"type": "string", "title": "name and value test"},
+                    "behavior": {"type": "array", "title": "array test"},
+                    "sample_attr": {"type": "string", "title": "name and value test"},
+                    "estimated_time_of_occurrence": {
+                        "deprecated": False,
+                        "description": "",
+                        "format": "date-time",
+                        "title": "Estimated time of occurrence",
+                        "type": "string",
+                    },
+                },
+                "additionalProperties": False,
+                "required ": [
+                    "subjects_name",
+                    "behavior_choice",
+                    "behavior",
+                    "sample_attr",
+                    "estimated_time_of_occurrence",
+                ],
+            },
+            "ui": {
+                "fields": {
+                    "estimated_time_of_occurrence": {"type": "DATE_TIME", "parent": "section-y-ya0voZLC9hP-zS86FzC"},
+                }
+            },
+        }
+    )
+
+    et1 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=False, version=v2, schema=schema)
+    et2 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=True, version=v2, schema=schema)
+    et3 = EventTypeFactory.create(category=cat2, is_active=True, is_collection=False, version=v2, schema=schema)
+    et4 = EventTypeFactory.create(category=cat1, is_active=False, is_collection=False, version=v2, schema=schema)
+    et5 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=False, version=v2, schema=schema)
     return [et1, et2, et3, et4, et5]
 
 
@@ -677,3 +716,37 @@ def subject_source_with_observations():
     observation.source = source
     observation.save()
     return subject_source, observation
+
+
+@pytest.fixture
+def add_view_to_urls():
+    """
+    Returns a function that can add views "on the fly" to a temporary URL patterns list under the "tests" namespace.
+    """
+    # Create temporary URL patterns for tests
+    temp_urlpatterns = []
+
+    # Add the temporary patterns to root URLs
+    root_urlpatterns.insert(
+        0,
+        path(
+            "api/v1.0/tests/",
+            include((temp_urlpatterns, "tests")),
+            name="tests",
+        ),
+    )
+
+    def _add_view(
+        view_class: Type[View],
+        route: str = "test-view/",
+        name: str = "test-view",
+        initkwargs: Optional[dict] = None,
+    ):
+        if initkwargs is None:
+            initkwargs = {}
+        temp_urlpatterns.append(path(route, view_class.as_view(**initkwargs), name=name))
+
+    yield _add_view
+
+    # Cleanup: remove the temporary URL patterns
+    root_urlpatterns.pop(0)

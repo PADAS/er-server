@@ -234,3 +234,20 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
             return Response(data_or_error, status=status.HTTP_200_OK)
         else:
             return Response({"error": data_or_error}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    @action(
+        methods=["get"],
+        detail=True,
+        url_path="json-schema",
+        renderer_classes=(DirectJSONRenderer, DirectBrowsableAPIRenderer),
+    )
+    def retrieve_json_schema(self, request: Request, **kwargs) -> Response:
+        """
+        Returns the JSON schema for the specified event type.
+        """
+        event_type = self.get_object()
+        success, data_or_error = parse_and_render_schema(event_type, None)
+        if success:
+            return Response(data_or_error, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": data_or_error}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)

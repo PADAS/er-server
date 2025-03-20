@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from django.urls import reverse
@@ -267,12 +269,11 @@ class TestEventTypesV2:
         response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
+        assert "results" in response.data
+        assert len(response.data["results"]) > 0
         # For every active event type with an active category, its schema should be included
-        for et in cat1_cat2_event_types:
-            if not et.is_active:
-                continue
-            assert et.value in response.data
-            # FUTURE: assert response.data[et.value] == render_schema(et.schema, user=superuser_client.user)
+        active_event_types = {et.value for et in cat1_cat2_event_types if et.is_active}
+        assert active_event_types == {i["value"] for i in response.data["results"]}
 
     def test_get_event_type_schema(self, superuser_client, cat1_cat2_event_types):
         target = cat1_cat2_event_types[0]
@@ -281,6 +282,34 @@ class TestEventTypesV2:
 
         assert response.status_code == status.HTTP_200_OK
         # FUTURE: assert response.data == render_schema(target.schema, user=superuser_client.user)
+
+    def test_get_event_type_schema_with_dynamic_reference(self, superuser_client, cat1_cat2_event_types):
+        """Test rendering a schema that references a dynamic schema endpoint"""
+        # Setup an event type with a schema that references a dynamic schema
+        target = cat1_cat2_event_types[0]
+        subjects_schema_url = reverse("schemas:subjects")
+        target.schema = json.dumps(
+            {
+                "ui": {},
+                "json": {
+                    "title": "Event Type Schema",
+                    "type": "object",
+                    "properties": {"subject": {"$ref": f"{subjects_schema_url}"}},
+                },
+            }
+        )
+        target.save()
+
+        url = reverse("v2-eventtype-retrieve-schema", kwargs={"value": target.value})
+        response = superuser_client.get(url, {"pre_render": "true"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "json" in response.data
+        rendered_schema = response.data["json"]
+        assert "properties" in rendered_schema
+        assert "subject" in rendered_schema["properties"]
+        # The subject property should now be fully resolved with the actual schema
+        assert "$ref" not in rendered_schema["properties"]["subject"]
 
 
 @pytest.mark.django_db
