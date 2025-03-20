@@ -350,6 +350,7 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
     )
     is_collection = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    readonly = models.BooleanField(default=False)
     auto_resolve = models.BooleanField(default=False)
     # Specify integer of hour(s).
     resolve_time = models.PositiveSmallIntegerField(blank=True, null=True)

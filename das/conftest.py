@@ -766,3 +766,12 @@ def add_view_to_urls():
     # Cleanup: Remove our added URL pattern
     del root_urlpatterns[0]
     clear_url_caches()
+
+
+@pytest.fixture
+def json_schema_fixture(request):
+    fixture_name = request.param
+
+    fixture_path = Path(__file__).parent.parent / "fixtures" / f"{fixture_name}.json"
+    with open(fixture_path) as f:
+        return json.load(f)
