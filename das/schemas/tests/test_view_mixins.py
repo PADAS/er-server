@@ -5,54 +5,8 @@ import pytest
 from django.urls import reverse
 from rest_framework.generics import ListAPIView
 
+from schemas.tests.fixtures import TestDynamicSchemaView
 from schemas.view_mixins import DynamicSchemaDataMixin, DynamicSchemaFromSourceView
-
-
-class MockSourceView(ListAPIView, DynamicSchemaDataMixin):
-    """
-    A mock source view to simulate returning data.
-    """
-
-    def get_schema_queryset(self):
-        # Not used for testing purposes
-        raise NotImplementedError
-
-    def get_schema_data(self):
-        return [
-            {
-                "id": "uuid1",
-                "custom_id": "custom_uuid1",
-                "name": "John Doe",
-                "age": 30,
-                "country": "USA",
-                "bio": "A person",
-                "language": "en",
-                "extra_info": "foobar",
-            },
-            {
-                "id": "uuid2",
-                "custom_id": "custom_uuid2",
-                "name": "Brigitte Bardot",
-                "age": 25,
-                "country": "France",
-                "bio": "Actress and singer",
-                "language": "fr",
-            },
-        ]
-
-
-class TestDynamicSchemaView(DynamicSchemaFromSourceView):
-    """
-    Minimal example class that inherits from DynamicSchemaFromSourceView.
-    """
-
-    source_view = MockSourceView
-    schema_title = "TestSchema"
-    schema_description = "Tests data list"
-    default_const_field = "id"
-    default_title_field = "name"
-    default_description_field = "bio"
-    default_x_fields = {"info": "extra_info"}
 
 
 @pytest.mark.django_db
