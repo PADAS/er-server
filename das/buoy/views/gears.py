@@ -80,7 +80,8 @@ class GearsView(generics.ListAPIView):
         )
 
         # Filter queryset by removing subjects where the additional field is the same
-        queryset = queryset.order_by("subject__name", "additional").distinct("subject__name", "additional")
+        queryset = queryset.order_by("subject__name")
+        queryset = queryset.order_by("additional").distinct("additional")
 
         page = self.paginate_queryset(queryset)
         if page is not None:
