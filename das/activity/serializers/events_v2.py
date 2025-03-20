@@ -25,10 +25,7 @@ class EventTypeSerializer(serializers.ModelSerializer):
             "has_events_assigned",
             "icon_id",
         )
-        write_only_fields = (
-            "icon",
-            "schema",
-        )
+        write_only_fields = ("icon", "schema", "version")
         fields = (
             read_only_fields
             + write_only_fields
@@ -44,6 +41,7 @@ class EventTypeSerializer(serializers.ModelSerializer):
                 "geometry_type",
                 "resolve_time",
                 "auto_resolve",
+                "readonly",
             )
         )
 

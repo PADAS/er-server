@@ -1,9 +1,10 @@
 import json
 
 from jsonschema import ValidationError, validate
-from jsonschema.validators import Draft202012Validator
 
 from rest_framework import serializers
+
+VALID_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 
 
 class JSONSchemaField(serializers.Field):
@@ -38,7 +39,7 @@ class JSONSchemaField(serializers.Field):
             raise serializers.ValidationError("The schema must be a JSON object.")
 
         try:
-            Draft202012Validator.check_schema(data)
+            data = self._validate_draft_version(data)
             validate(instance=data, schema=self.meta_schema)
 
             if self.validate_sections:
@@ -50,7 +51,8 @@ class JSONSchemaField(serializers.Field):
 
         return data
 
-    def _validate_parent_references(self, data):
+    @staticmethod
+    def _validate_parent_references(data):
         def _check_section_exists(data, param, parent_key):
             ui = data.get("ui", {})
             sections = ui.get("sections", {})
@@ -85,3 +87,13 @@ class JSONSchemaField(serializers.Field):
 
         if filtered_errors:
             raise serializers.ValidationError("Validation errors: " + " ".join(filtered_errors))
+
+    def _validate_draft_version(self, data):
+        schema_property = data.get("json", {}).get("$schema")
+        if schema_property and schema_property != VALID_DRAFT:
+            raise serializers.ValidationError(f"Invalid JSON Schema: $schema must be {VALID_DRAFT}")
+
+        if not schema_property:
+            data = {"json": {"$schema": VALID_DRAFT, **data.get("json", {})}, **data}
+
+        return data

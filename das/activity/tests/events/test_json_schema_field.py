@@ -60,7 +60,7 @@ class TestJsonSchemaField:
             field_schema.to_internal_value(json_schema_fixture)
 
         assert (
-            "[ErrorDetail(string=\"Invalid JSON Schema: 'https://json-schema.org/draft/2020-12/schema' was expected at json.$schema\", code='invalid')]"
+            "[ErrorDetail(string='Invalid JSON Schema: $schema must be https://json-schema.org/draft/2020-12/schema', code='invalid')]"
             == str(e.value)
         )
 
@@ -85,7 +85,6 @@ class TestJsonSchemaField:
     @pytest.mark.parametrize(
         "input_schema,error_str",
         [
-            ({}, "Invalid JSON Schema: 'json' is a required property at "),
             ({"json": {}}, "Invalid JSON Schema: 'ui' is a required property at "),
             ({"json": {}, "ui": {}}, "Invalid JSON Schema: '$schema' is a required property at json"),
             ({"json": {"$schema": ""}, "ui": {}}, "Invalid JSON Schema: 'properties' is a required property at json"),

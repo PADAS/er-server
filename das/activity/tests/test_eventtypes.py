@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from urllib.parse import urlencode
 
 import pytest
@@ -483,3 +484,83 @@ class TestEventTypeAutoResolve:
             "'resolve_time' must be set if 'auto_resolve' is true." in detail["resolve_time"]
             or "'resolve_time' must be null if 'auto_resolve' is false." in detail["resolve_time"]
         )
+
+
+class TestEventTypesV2:
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_post_eventtype_v2_with_valid_schema(self, superuser_client, basic_event_categories):
+        EventType.objects.filter(version=EventType.VersionChoices.VERSION_2).delete()
+        assert EventType.objects.filter(version=EventType.VersionChoices.VERSION_2).count() == 0
+
+        fixture_path = Path(__file__).parent / "fixtures" / "valid_nested_collection_schema.json"
+        with open(fixture_path) as f:
+            schema = json.load(f)
+
+        EventType.objects.all().delete()
+        data = {
+            "display": "Simple Report",
+            "value": "simple_report",
+            "category": "monitoring",
+            "schema": schema,
+            "readonly": True,
+        }
+        response = superuser_client.post("/api/v2.0/activity/eventtypes/", data=data)
+        assert response.status_code == 201
+
+        new_eventtype = EventType.objects.filter(version=EventType.VersionChoices.VERSION_2).first()
+        assert new_eventtype.readonly is True
+
+        assert response.data["resource_url"] == reverse(
+            "v2-eventtype-retrieve-schema", kwargs={"value": str(new_eventtype.id)}
+        )
+
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_post_eventtype_v2_with_invalid_schema(self, superuser_client, basic_event_categories):
+        EventType.objects.filter(version=EventType.VersionChoices.VERSION_2).delete()
+        assert EventType.objects.filter(version=EventType.VersionChoices.VERSION_2).count() == 0
+
+        EventType.objects.all().delete()
+        data = {
+            "display": "Simple Report",
+            "value": "simple_report",
+            "category": "monitoring",
+            "schema": {"json": {"$schema": "https://json-schema.org/draft/2020-12/schema"}, "ui": {"key": "value"}},
+        }
+        response = superuser_client.post("/api/v2.0/activity/eventtypes/", data=data)
+        assert response.status_code == 400
+        assert response.data["schema"][0] == "Invalid JSON Schema: 'properties' is a required property at json"
+
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_post_eventtype_v2_wrong_schema_draft(self, superuser_client, basic_event_categories):
+        EventType.objects.filter(version=EventType.VersionChoices.VERSION_2).delete()
+        assert EventType.objects.filter(version=EventType.VersionChoices.VERSION_2).count() == 0
+
+        EventType.objects.all().delete()
+        data = {
+            "display": "Simple Report",
+            "value": "simple_report",
+            "category": "monitoring",
+            "schema": {
+                "json": {
+                    "$schema": "https://json-schema.org/draft/-12/schema",
+                    "type": "object",
+                    "properties": {
+                        "json": {
+                            "type": "object",
+                            "properties": {"$schema": {"type": "string"}},
+                            "required": ["$schema"],
+                        },
+                        "ui": {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]},
+                    },
+                    "required": ["json", "ui"],
+                },
+                "ui": {"key": "value"},
+            },
+        }
+
+        response = superuser_client.post("/api/v2.0/activity/eventtypes/", data=data)
+        assert response.status_code == 400
+        assert response.json() == {
+            "schema": ["Invalid JSON Schema: $schema must be https://json-schema.org/draft/2020-12/schema"],
+            "status": {"code": 400, "message": "Bad Request"},
+        }

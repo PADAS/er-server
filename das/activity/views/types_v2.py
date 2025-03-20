@@ -6,6 +6,7 @@ from typing import Optional, Tuple
 from django_filters import rest_framework as filters
 
 from django.db import models
+from django.urls import reverse
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
@@ -156,8 +157,18 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         instance.set_to_inactive()
 
     def create(self, request, *args, **kwargs):
-        # Temporary implementation to avoid creating new event types.
-        return Response({"detail": "Method not supported"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        new_data = request.data
+        new_data["version"] = EventType.VersionChoices.VERSION_2
+
+        # TODO: Implement renderin validation of the schema.
+        res = super().create(request, *args, **kwargs)
+        new_object_url = reverse("v2-eventtype-retrieve-schema", kwargs={"value": res.data["id"]})
+
+        return Response(
+            status=status.HTTP_201_CREATED,
+            data={"resource_url": new_object_url},
+            headers={"Location": new_object_url},
+        )
 
     def update(self, request: Request, *args, **kwargs):
         # Temporary implementation to avoid updating event types.
