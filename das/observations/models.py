@@ -1341,11 +1341,12 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             .select_related("subject_subtype__subject_type", "linked_user")
             .prefetch_related("subjectsources")
         )
+
         if include_inactive is not None:
             is_active = not parse_bool(include_inactive)
-            queryset = queryset.by_is_active(active=is_active).order_by("name")
+            return queryset.by_is_active(active=is_active).order_by("name")
 
-        return queryset
+        return queryset.by_is_active(active=True).order_by("name")
 
 
 class SubjectManager(TenantManagerMixin, models.Manager.from_queryset(SubjectQuerySet)):
