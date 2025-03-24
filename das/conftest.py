@@ -1,5 +1,6 @@
 import copy
 import json
+import uuid
 from pathlib import Path
 from typing import Optional, Type
 from unittest.mock import MagicMock
@@ -25,7 +26,6 @@ from rest_framework.test import APIClient
 from accounts.utils import add_tenant_to_permission_codename
 from buoy.tests import generate_devices
 from core.models import DASTenant
-from das_server.urls import urlpatterns as root_urlpatterns
 from factories import (
     AccessTokenFactory,
     ChoiceFactory,
@@ -189,7 +189,7 @@ def view_subjects_permission_set(view_subject_permissions):
     return PermissionSetFactory.create(permissions=view_subject_permissions)
 
 
-@pytest.fixture()
+@pytest.fixture
 def subject_group_with_perms(request):
     permissions = []
     for permission in request.param:
@@ -575,7 +575,7 @@ def one_tenant():
     return (tenant, tenant_settings)
 
 
-@pytest.fixture()
+@pytest.fixture
 def tenant_two(request, monkeypatch, one_tenant):
     """Return a DASTenant and a matching tenant settings object.
     Additionally the initial data has been loaded into the db for this tenant"""
@@ -718,35 +718,51 @@ def subject_source_with_observations():
     return subject_source, observation
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def add_view_to_urls():
     """
     Returns a function that can add views "on the fly" to a temporary URL patterns list under the "tests" namespace.
-    """
-    # Create temporary URL patterns for tests
-    temp_urlpatterns = []
 
-    # Add the temporary patterns to root URLs
+    This fixture is scoped to function level to ensure proper isolation between tests.
+    """
+    from django.urls import clear_url_caches
+
+    from das_server.urls import urlpatterns as root_urlpatterns
+
+    temp_urlpatterns = []
+    # Create a unique namespace for this test run to avoid conflicts
+    test_id = str(uuid.uuid4()).replace("-", "")[:8]
+    namespace = f"tests_{test_id}"
+
     root_urlpatterns.insert(
         0,
         path(
-            "api/v1.0/tests/",
-            include((temp_urlpatterns, "tests")),
-            name="tests",
+            f"api/v1.0/tests/{test_id}/",
+            include((temp_urlpatterns, namespace)),
+            name=namespace,
         ),
     )
 
+    clear_url_caches()
+
     def _add_view(
         view_class: Type[View],
-        route: str = "test-view/",
-        name: str = "test-view",
+        route: Optional[str] = None,
+        name: Optional[str] = None,
         initkwargs: Optional[dict] = None,
     ):
-        if initkwargs is None:
-            initkwargs = {}
+        initkwargs = {} if initkwargs is None else initkwargs
+        if route is None or name is None:
+            view_id = str(uuid.uuid4()).replace("-", "")[:8]
+            route = f"view_{view_id}/"
+            name = view_id
+
         temp_urlpatterns.append(path(route, view_class.as_view(**initkwargs), name=name))
+        clear_url_caches()
+        return f"{namespace}:{name}"
 
     yield _add_view
 
-    # Cleanup: remove the temporary URL patterns
-    root_urlpatterns.pop(0)
+    # Cleanup: Remove our added URL pattern
+    del root_urlpatterns[0]
+    clear_url_caches()

@@ -58,19 +58,19 @@ def parse_and_render_schema(event_type: EventType, schema_renderer: Optional[Sch
             False,
             {
                 "code": RenderErrors.NO_SCHEMA_DEFINED,
-                "message": f"EventType '{event_type.value}' has no schema defined.",
+                "message": f"EventType {event_type.value} has no schema defined.",
             },
         )
 
     try:
         parsed_schema = json.loads(event_type.schema)
     except json.JSONDecodeError as e:
-        logger.warning(f"Error decoding JSON for event type {event_type.value}: {str(e)}")
+        logger.warning("Error decoding JSON for event type %s: %s", event_type.value, str(e))
         return (
             False,
             {
                 "code": RenderErrors.INVALID_JSON,
-                "message": f"Invalid JSON for event type '{event_type.value}': {str(e)}",
+                "message": f"Invalid JSON for event type {event_type.value}: {str(e)}",
             },
         )
 
@@ -79,7 +79,7 @@ def parse_and_render_schema(event_type: EventType, schema_renderer: Optional[Sch
             False,
             {
                 "code": RenderErrors.NO_JSON_KEY,
-                "message": f"Schema for event type '{event_type.value}' does not contain 'json' key.",
+                "message": f"Schema for event type {event_type.value} does not contain 'json' key.",
             },
         )
 
@@ -92,12 +92,12 @@ def parse_and_render_schema(event_type: EventType, schema_renderer: Optional[Sch
         parsed_schema["json"] = schema_renderer.render(parsed_schema["json"])
         return (True, parsed_schema)
     except SchemaRenderingError as e:
-        logger.warning(f"Error rendering schema for event type '{event_type.value}': {str(e)}")
+        logger.warning("Error rendering schema for event type %s: %s", event_type.value, str(e))
         return (
             False,
             {
                 "code": RenderErrors.SCHEMA_RENDERING_ERROR,
-                "message": f"Error rendering schema for event type '{event_type.value}': {str(e)}",
+                "message": f"Error rendering schema for event type {event_type.value}: {str(e)}",
             },
         )
 
