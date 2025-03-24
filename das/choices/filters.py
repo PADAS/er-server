@@ -11,13 +11,18 @@ class ChoicesFilter(filters.FilterSet):
     model = filters.ChoiceFilter(field_name="model", choices=Choice.MODEL_REF_CHOICES)
     field = filters.CharFilter(field_name="field", lookup_expr="iexact")
 
-    include_inactive = filters.BooleanFilter(method="filter_include_inactive", exclude=True)
+    include_inactive = filters.BooleanFilter(method="filter_include_inactive")
+
+    def filter_queryset(self, queryset):
+        if "include_inactive" not in self.data:
+            return queryset.filter_active_choices()  # Only active default
+        return super().filter_queryset(queryset)
 
     def filter_include_inactive(self, queryset, name, value):
-        if value and not parse_bool(value):
-            return queryset.objects.filter_active_choices()
+        if value and parse_bool(value):
+            return queryset
 
-        return queryset
+        return queryset.filter_active_choices()
 
     class Meta:
         model = Choice
