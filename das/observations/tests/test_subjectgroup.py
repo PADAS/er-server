@@ -228,9 +228,9 @@ class TestSubjectGroupView:
         res = user_client.get(url, {"include_inactive": False})
         assert len(res.json()["data"][0]["subjects"]) == 3
 
-        # assert parameter is not passed and all subjects are returned
-        response = user_client.get(url)
-        assert len(response.json()["data"][0]["subjects"]) == 4
+        # assert inactive subject is not in the response even without param
+        res = user_client.get(url)
+        assert len(res.json()["data"][0]["subjects"]) == 3
 
     def test_subject_serializes_equaly_in_each_group(self, setup, superuser_client, subject_source_with_observations):
         subject = subject_source_with_observations[0].subject
