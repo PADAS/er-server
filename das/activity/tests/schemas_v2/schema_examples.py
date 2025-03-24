@@ -24,9 +24,7 @@ SAMPLE_SCHEMAS = {
             "status": {"$ref": f"{BASE_URL}/status_options.json"},  # Full URI reference
             "name": {"type": "string"},
             "location": {"type": "string"},
-            "suspected_cause_type": {
-                "$ref": "#/$defs/cause_types",  # Local fragment reference
-            },
+            "suspected_cause_type": {"$ref": "#/$defs/cause_types"},  # Local fragment reference
         },
         "required": ["name", "location", "suspected_cause_type"],
         "additionalProperties": False,
@@ -46,11 +44,11 @@ SAMPLE_SCHEMAS = {
             "id": {"type": "string"},
             "status": {"$ref": f"{BASE_URL}/status_options.json"},  # Full URI reference
             "animal_type": {"type": "string", "enum": ["mammal", "bird", "reptile", "amphibian", "fish"]},
-            "health_status": {"type": "string", "$ref": f"{BASE_URL}/health_status_options.json"},  # External reference
+            "health_status": {"type": "string", "$ref": f"{BASE_URL}/health_status_options.json"},  # Full URI reference
             "death_reason": {
-                "type": "string",
-                "$ref": f"{BASE_URL}/dead_reason_options.json",  # External reference
+                "$ref": f"{BASE_URL}/dead_reason_options.json",  # Full URI reference
                 "description": "Required only if health_status is 'dead'",
+                # Overrides the description from the referenced schema
             },
             "location": {"type": "string"},
             "notes": {"type": "string"},
@@ -70,43 +68,62 @@ SAMPLE_SCHEMAS = {
         "title": "Schema with Nested References",
         "type": "object",
         "properties": {
-            "event": {"$ref": f"{BASE_URL}/fire_event.json"},
             "status": {"$ref": f"{BASE_URL}/status_options.json"},
-            "animal_data": {"$ref": f"{BASE_URL}/animal_event.json"},
+            "fire_event": {"$ref": f"{BASE_URL}/fire_event.json"},
+            "animal_event": {"$ref": f"{BASE_URL}/animal_event.json"},
         },
-        "required": ["event", "status"],
+        "required": ["status"],
+        "anyOf": [
+            {"required": ["fire_event"]},
+            {"required": ["animal_event"]},
+        ],
+        "additionalProperties": False,
     },
-    "fragment_reference.json": {
+    "external_fragment_ref.json": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": f"{BASE_URL}/fragment_reference.json",
+        "$id": f"{BASE_URL}/external_fragment_ref.json",
         "title": "Schema with External Fragment Reference",
         "type": "object",
         "properties": {
             "id": {"type": "string"},
             "name": {"type": "string"},
-            "cause_categories": {
-                "$ref": f"{BASE_URL}/fire_event.json#/$defs/cause_types"  # External fragment reference
-            },
-            "status": {"type": "string", "$ref": f"{BASE_URL}/status_options.json"},  # Full URI reference
+            "status": {"$ref": f"{BASE_URL}/status_options.json"},  # Full URI reference
+            "cause_types": {"$ref": f"{BASE_URL}/fire_event.json#/$defs/cause_types"},  # External fragment reference
         },
-        "required": ["name", "cause_categories"],
+        "required": ["name", "status", "cause_types"],
         "additionalProperties": False,
     },
-    "ref_in_defs.json ": {
+    "external_fragment_ref_in_defs.json": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": f"{BASE_URL}/ref_in_defs.json",
+        "$id": f"{BASE_URL}/external_fragment_ref_in_defs.json",
         "title": "Schema with Reference in Definitions",
         "type": "object",
         "properties": {
             "id": {"type": "string"},
             "name": {"type": "string"},
-            "cause_categories": {
-                "$ref": f"{BASE_URL}/fire_event.json#/$defs/cause_types"  # External fragment reference
-            },
-            "status": {"type": "string", "$ref": f"{BASE_URL}/status_options.json"},  # Full URI reference
+            "status": {"$ref": f"{BASE_URL}/status_options.json"},  # Full URI reference
+            "cause_types": {"$ref": "#/$defs/cause_types"},  # Local fragment reference
         },
-        "required": ["name", "cause_categories"],
+        "required": ["name", "status", "cause_types"],
         "additionalProperties": False,
+        "$defs": {
+            "cause_types": {"$ref": f"{BASE_URL}/fire_event.json#/$defs/cause_types"}  # External fragment reference
+        },
+    },
+    "full_uri_ref_in_defs.json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": f"{BASE_URL}/full_uri_ref_in_defs.json",
+        "title": "Schema with Reference in Definitions",
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "name": {"type": "string"},
+            "status": {"$ref": "#/$defs/status_options"},  # Local fragment reference
+            "cause_types": {"$ref": f"{BASE_URL}/fire_event.json#/$defs/cause_types"},  # External fragment reference
+        },
+        "required": ["name", "status", "cause_types"],
+        "additionalProperties": False,
+        "$defs": {"status_options": {"$ref": f"{BASE_URL}/status_options.json"}},  # Full URI reference
     },
     "status_options.json": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -114,22 +131,10 @@ SAMPLE_SCHEMAS = {
         "title": "Possible Event Statuses",
         "type": "string",
         "oneOf": [
-            {
-                "const": "draft",
-                "title": "Draft",
-            },
-            {
-                "const": "active",
-                "title": "Active",
-            },
-            {
-                "const": "inactive",
-                "title": "Inactive",
-            },
-            {
-                "const": "archived",
-                "title": "Archived",
-            },
+            {"const": "draft", "title": "Draft"},
+            {"const": "active", "title": "Active"},
+            {"const": "inactive", "title": "Inactive"},
+            {"const": "archived", "title": "Archived"},
         ],
     },
     "health_status_options.json": {
