@@ -1,8 +1,6 @@
-from referencing import Registry, Resource
+from referencing import Resource
 from referencing import exceptions as referencing_exceptions
 from referencing.jsonschema import DRAFT202012
-
-from activity.tests.schemas_v2.schema_examples import BASE_URL, SAMPLE_SCHEMAS
 
 
 def get_counting_retriever(base_url: str, local_schemas: dict):
@@ -28,8 +26,3 @@ def get_counting_retriever(base_url: str, local_schemas: dict):
         raise referencing_exceptions.Unresolvable(ref=uri)
 
     return counting_retriever, call_counts
-
-
-def get_temporal_registry() -> Registry:
-    retriever, call_counts = get_counting_retriever(BASE_URL, SAMPLE_SCHEMAS)
-    return Registry(retrieve=retriever)

@@ -1,3 +1,5 @@
+from typing import Dict, Tuple
+
 from referencing import Registry
 
 from activity.schemas.schema_rendering import SchemaRenderer
@@ -6,19 +8,23 @@ from .schema_examples import BASE_URL, SAMPLE_SCHEMAS
 from .test_helpers import get_counting_retriever
 
 
+def call_count_schema_renderer() -> Tuple[SchemaRenderer, Dict[str, int]]:
+    retriever, call_counts = get_counting_retriever(BASE_URL, SAMPLE_SCHEMAS)
+    registry = Registry(retrieve=retriever)
+    renderer = SchemaRenderer(registry)
+    return renderer, call_counts
+
+
 def test_no_references():
     """
     If there's no '$ref' in the schema, SchemaRenderer should not modify anything.
     And the retriever shouldn't be called.
     """
-    schema = {"$id": f"{BASE_URL}/no_refs.json", "type": "object", "properties": {"foo": {"type": "string"}}}
-    retriever, call_counts = get_counting_retriever(BASE_URL, SAMPLE_SCHEMAS)
-    registry = Registry(retrieve=retriever)
-    renderer = SchemaRenderer(registry)
+    renderer, call_counts = call_count_schema_renderer()
 
-    output = renderer.render(schema)
-    assert output == schema
-    assert call_counts == {}, "No fetches expected if there's no references ($ref)"
+    output = renderer.render(SAMPLE_SCHEMAS["sample_event_type.json"])
+    assert output == SAMPLE_SCHEMAS["sample_event_type.json"]
+    assert not call_counts, "No fetches expected if there's no references ($ref)"
 
 
 def test_local_fragment_reference():
@@ -30,17 +36,17 @@ def test_local_fragment_reference():
         "$id": f"{BASE_URL}/local_fragment_referencing.json",
         "type": "object",
         "custom_definitions": {"foo": {"type": "string"}},
-        "properties": {"bar": {"$ref": "#/custom_definitions/foo"}},
+        "properties": {
+            "bar": {"$ref": "#/custom_definitions/foo"},
+        },
     }
-    retriever, call_counts = get_counting_retriever(BASE_URL, SAMPLE_SCHEMAS)
-    registry = Registry(retrieve=retriever)
-    renderer = SchemaRenderer(registry)
+    renderer, call_counts = call_count_schema_renderer()
 
     output = renderer.render(schema)
     # It's a root-level reference, should be keeped as defined
     assert output["properties"]["bar"]["$ref"] == "#/custom_definitions/foo"
     # And no external fetches
-    assert call_counts == {}
+    assert not call_counts, "No fetches expected if there's no references ($ref)"
 
 
 def test_full_uri_reference():
@@ -48,9 +54,7 @@ def test_full_uri_reference():
     A full URI reference should be resolved and the fragment bundled.
     The 'fire_event.json' schema has a reference to the 'status_options.json' schema and a local fragment reference.
     """
-    retriever, call_counts = get_counting_retriever(BASE_URL, SAMPLE_SCHEMAS)
-    registry = Registry(retrieve=retriever)
-    renderer = SchemaRenderer(registry)
+    renderer, call_counts = call_count_schema_renderer()
 
     output = renderer.render(SAMPLE_SCHEMAS["fire_event.json"])
 
@@ -67,7 +71,7 @@ def test_full_uri_reference():
         assert key not in status_prop, f"Unexpected key {key} found in status property"
 
     # We should have 1 fetch call (status_options.json)
-    assert len(call_counts.keys()) == 1
+    assert len(call_counts.keys()) == 1, f"Expected 1 fetch call, got {len(call_counts.keys())}"
 
     # Verify fetched URI
     expected_uri = f"{BASE_URL}/status_options.json"
@@ -78,202 +82,200 @@ def test_full_uri_reference():
     assert output["properties"]["suspected_cause_type"]["$ref"] == "#/$defs/cause_types"
 
 
-def test_uris_retrieved_only_once():
-    """
-    A full URI reference should be retrieved only once, if we are rendering multiple schemas, all the references should be fetched only once.
-    """
-    retriever, call_counts = get_counting_retriever(BASE_URL, SAMPLE_SCHEMAS)
-    registry = Registry(retrieve=retriever)
-    renderer = SchemaRenderer(registry)
-
-    renderer.render(SAMPLE_SCHEMAS["fire_event.json"])  # fire_event.json references status_options.json
-    renderer.render(SAMPLE_SCHEMAS["animal_event.json"])  # animal_event.json references status_options.json
-    renderer.render(
-        SAMPLE_SCHEMAS["nested_references.json"]
-    )  # nested_references.json references status_options.json, fire_event.json and animal_event.json
-
-    assert len(call_counts.keys()) == 3
-
-    # Verify fetched URIs
-    expected_uris = [f"{BASE_URL}/status_options.json", f"{BASE_URL}/fire_event.json", f"{BASE_URL}/animal_event.json"]
-    for uri in expected_uris:
-        assert uri in call_counts, f"Expected fetch for {uri} was not made"
-        assert call_counts[uri] == 1, f"Expected exactly one fetch for {uri}"
-
-
 def test_full_uri_reference_overrides():
     """
-    If a full URI reference has at the same level other properties defined, those properties should remain.
+    If a full URI reference has at the same level other properties defined, those properties should override the ones
+    defined in the referenced schema.
     """
+    renderer, call_counts = call_count_schema_renderer()
+
     schema = {
         "$id": f"{BASE_URL}/extra_properties.json",
         "type": "object",
         "properties": {
-            "foo": {"$ref": f"{BASE_URL}/health_status_options.json", "title": "Health Status", "type": "integer"},
+            "foo": {
+                "$ref": f"{BASE_URL}/health_status_options.json",
+                "title": "Health Status",
+                "type": "integer",
+            },
             "bar": {"type": "string"},
         },
     }
-    retriever, call_counts = get_counting_retriever(BASE_URL, SAMPLE_SCHEMAS)
-    registry = Registry(retrieve=retriever)
-    renderer = SchemaRenderer(registry)
-
     output = renderer.render(schema)
-    assert output["properties"]["foo"]["title"] == "Health Status"
+    assert "oneOf" in output["properties"]["foo"], "Expected to see health_status_options expanded after dereferencing"
+    assert len(output["properties"]["foo"]["oneOf"]) == 4
+    assert output["properties"]["foo"]["title"] == "Health Status"  # the value we provided
     assert output["properties"]["foo"]["type"] == "integer"
 
     # Verify that the health_status_options.json was fetched
     assert call_counts == {f"{BASE_URL}/health_status_options.json": 1}
 
 
+def test_full_uri_reference_overrides_in_definitions():
+    """
+    If a full URI reference appears in the definitions, that reference should be expanded/dereferenced the same way
+    as other full URI references.
+
+    The 'full_uri_ref_in_defs.json' schema references the 'status_options.json' schema in the definitions.
+
+    This is an interesting one, it shows the case of a having a reference to a "local resource", but the
+    definition of that resource is another full uri reference to an external resource, and it gets fully expanded,
+    this can be usefull for many scenarios.
+        - Having to mention multiple times a reference, in the same schema but to an external resource,
+          this would allow to generate smaller schemas
+        - Having an external resource that is referenced in multiple schemas like the one described before,
+          this would allow keep all those in sync with the changes in the shared external resource. etc.
+    """
+    renderer, call_counts = call_count_schema_renderer()
+
+    schema = SAMPLE_SCHEMAS["full_uri_ref_in_defs.json"]
+    output = renderer.render(schema)
+
+    # Verify that status_options was fetched and expanded in the definitions
+    assert "oneOf" in output["$defs"]["status_options"]
+    assert len(output["$defs"]["status_options"]["oneOf"]) == 4
+
+    # Verify that only one fetch was made for status_options.json
+    assert len(call_counts.keys()) == 2
+    expected_uris = [f"{BASE_URL}/status_options.json", f"{BASE_URL}/fire_event.json"]
+    for uri in expected_uris:
+        assert uri in call_counts
+        assert call_counts[uri] == 1
+
+    # Verify that the local reference to the definition is preserved
+    assert output["properties"]["status"]["$ref"] == "#/$defs/status_options"
+
+    # Verify that the external fragment reference is bundled properly
+    assert "cause_types" in output["properties"]
+    assert output["properties"]["cause_types"]["$ref"].startswith("#/$defs/")
+
+
 def test_external_fragment_reference():
     """
-    A fragment reference to another schema should be resolved and the fragment bundled.
-    The 'fragment_reference.json' schema references the 'cause_types' fragment from 'fire_event.json'.
+    A fragment reference to an external schema should be resolved and the fragment bundled.
+    The 'external_fragment_ref.json' schema references the 'cause_types' fragment from 'fire_event.json'.
     """
-    fragment_schema = SAMPLE_SCHEMAS["fragment_reference.json"]
-    retriever, call_counts = get_counting_retriever(BASE_URL, SAMPLE_SCHEMAS)
-    registry = Registry(retrieve=retriever)
-    renderer = SchemaRenderer(registry)
+    renderer, _ = call_count_schema_renderer()
+    output = renderer.render(SAMPLE_SCHEMAS["external_fragment_ref.json"])
 
-    output = renderer.render(fragment_schema)
+    assert "$ref" in output["properties"]["cause_types"]
+    bundled_ref = output["properties"]["cause_types"]["$ref"]
+    assert bundled_ref.startswith("#/$defs/"), f"The expected path should begin with `$defs`, got {bundled_ref}"
 
-    # Check that the external fragment reference was properly resolved
-    cause_categories = output["properties"]["cause_categories"]
-    assert "enum" in cause_categories, "Expected to see the enum from fire_event.json's cause_types fragment"
-    assert cause_categories["type"] == "string"
-    assert set(cause_categories["enum"]) == {"fire", "flood", "earthquake", "storm"}
+    def_path = bundled_ref.lstrip("#/").split("/")
+    bundled_def = output
+    for path_part in def_path:
+        assert path_part in bundled_def, "No valid path for bundled reference"
+        bundled_def = bundled_def[path_part]
 
-    # Verify the other reference was also resolved
-    status_prop = output["properties"]["status"]
-    assert "oneOf" in status_prop, "Expected to see inlined status_options after dereferencing"
+    # Verify the bundled definition matches the original from fire_event.json
+    original_cause_types = SAMPLE_SCHEMAS["fire_event.json"]["$defs"]["cause_types"]
+    assert "type" in bundled_def
+    assert bundled_def["type"] == original_cause_types["type"]
+    assert "enum" in bundled_def
+    assert set(bundled_def["enum"]) == set(original_cause_types["enum"])
 
-    # We should have 2 fetch calls (fire_event.json and status_options.json)
-    assert len(call_counts.keys()) == 2
 
-    # Verify specific fetches
-    expected_uris = [f"{BASE_URL}/fire_event.json", f"{BASE_URL}/status_options.json"]
+def test_external_fragment_reference_in_definitions():
+    """
+    A fragment reference to an external schema defined in definitions should be resolved and the fragment bundled.
+    The 'external_fragment_ref_in_defs.json' schema references the 'cause_types' fragment from 'fire_event.json'.
+    """
+    renderer, _ = call_count_schema_renderer()
+    output = renderer.render(SAMPLE_SCHEMAS["external_fragment_ref_in_defs.json"])
 
-    for uri in expected_uris:
-        assert uri in call_counts, f"Expected fetch for {uri} was not made"
-        assert call_counts[uri] == 1, f"Expected exactly one fetch for {uri}"
+    assert "$ref" in output["properties"]["cause_types"]
+    original_ref = output["properties"]["cause_types"]["$ref"]
+    assert original_ref.startswith("#/$defs/"), f"The expected path should begin with `$defs`, got {original_ref}"
+
+    def_path = original_ref.lstrip("#/").split("/")
+    bundled_def = output
+    for path_part in def_path:
+        assert path_part in bundled_def, "No valid path for bundled reference"
+        bundled_def = bundled_def[path_part]
+
+    bundled_ref = bundled_def["$ref"]
+    def_path = bundled_ref.lstrip("#/").split("/")
+    bundled_def = output
+    for path_part in def_path:
+        assert path_part in bundled_def, "No valid path for bundled reference"
+        bundled_def = bundled_def[path_part]
+
+    # Verify the bundled definition matches the original from fire_event.json
+    original_cause_types = SAMPLE_SCHEMAS["fire_event.json"]["$defs"]["cause_types"]
+    assert "type" in bundled_def
+    assert bundled_def["type"] == original_cause_types["type"]
+    assert "enum" in bundled_def
+    assert set(bundled_def["enum"]) == set(original_cause_types["enum"])
 
 
 def test_local_fragment_reference_not_resolvable():
     """
     A local reference inside the same schema (#/definitions/something).
     Check that if it's not resolvable at the root, it's left as is.
+    Just because some versions of renderer where removing the $ref key.
     """
+    renderer, call_counts = call_count_schema_renderer()
+
     schema = {
         "$id": f"{BASE_URL}/local_fragment_referencing.json",
         "type": "object",
         "custom_definitions": {"foo": {"type": "string"}},
         "properties": {"bar": {"$ref": "#/custom_definitions/baz"}},
     }
-    retriever, call_counts = get_counting_retriever(BASE_URL, SAMPLE_SCHEMAS)
-    registry = Registry(retrieve=retriever)
-    renderer = SchemaRenderer(registry)
-
     output = renderer.render(schema)
     # It's a root-level reference, should be keeped as defined
     assert output["properties"]["bar"]["$ref"] == "#/custom_definitions/baz"
     # And no external fetches
-    assert call_counts == {}
+    assert not call_counts
 
 
-def test_external_fragment_reference():
+def test_external_fragment_reference_not_resolvable():
     """
-    Here 'fire_event.json' references 'status_options.json' by full URI.
-    It should be de-referenced, and exactly one fetch call to 'event_types/status_options.json'.
+    A fragment reference from an external schema should be left as is if
+    it's not resolvable.
+
+    Here we can have two cases, one is that the resource is resolvable, but the fragment is not.
+    The other is that the resource is not resolvable.
     """
-    fire_event = SAMPLE_SCHEMAS["fire_event.json"]
-    retriever, call_counts = get_counting_retriever(BASE_URL, SAMPLE_SCHEMAS)
-    registry = Registry(retrieve=retriever)
-    renderer = SchemaRenderer(registry)
+    # Case 1: Resource exists but fragment doesn't
+    schema = {
+        "$id": f"{BASE_URL}/external_fragment_reference.json",
+        "type": "object",
+        "properties": {
+            "cause_types": {"$ref": f"{BASE_URL}/fire_event.json#/$defs/nonexistent"},
+        },
+    }
 
-    output = renderer.render(fire_event)
+    renderer, call_counts = call_count_schema_renderer()
+    output = renderer.render(schema)
 
-    # The "status" property used to have a $ref to status_options.json
-    status_prop = output["properties"]["status"]
-    assert "oneOf" in status_prop, "Expected to see inlined status_options after dereferencing"
+    # Check that the unresolvable reference is left as is
+    assert output["properties"]["cause_types"]["$ref"] == f"{BASE_URL}/fire_event.json#/$defs/nonexistent"
 
-    # 'event_types/status_options.json' is the path portion
-    assert len(call_counts) == 1
-    fetch_uri = f"{BASE_URL}/status_options.json"
-    assert fetch_uri in call_counts
-    assert call_counts.pop(fetch_uri) == 1
-    assert not call_counts, "No other fetches expected"
+    # Verify that the fire_event.json was fetched
+    assert f"{BASE_URL}/fire_event.json" in call_counts
+    assert call_counts[f"{BASE_URL}/fire_event.json"] == 1
 
+    # Case 2: Resource doesn't exist
+    nonexistent_schema_uri = f"{BASE_URL}/nonexistent_schema.json"
+    schema = {
+        "$id": f"{BASE_URL}/external_fragment_reference2.json",
+        "type": "object",
+        "properties": {
+            "some_property": {"$ref": f"{nonexistent_schema_uri}#/$defs/something"},
+        },
+    }
 
-def test_fire_event_references_status_options():
-    """
-    Here 'fire_event.json' references 'status_options.json' by full URI.
-    It should be de-referenced, and exactly one fetch call to 'status_options.json'.
-    """
-    fire_event = SAMPLE_SCHEMAS["fire_event.json"]
-    retriever, call_counts = get_counting_retriever(BASE_URL, SAMPLE_SCHEMAS)
-    registry = Registry(retrieve=retriever)
-    renderer = SchemaRenderer(registry)
+    renderer, call_counts = call_count_schema_renderer()
+    output = renderer.render(schema)
 
-    output = renderer.render(fire_event)
+    # Check that the unresolvable reference is left as is
+    assert output["properties"]["some_property"]["$ref"] == f"{nonexistent_schema_uri}#/$defs/something"
 
-    # The "status" property used to have a $ref to status_options.json
-    status_prop = output["properties"]["status"]
-    assert "oneOf" in status_prop, "Expected to see inlined status_options after dereferencing"
-
-    # 'event_types/status_options.json' is the path portion
-    assert len(call_counts) == 1
-    fetch_uri = f"{BASE_URL}/status_options.json"
-    assert fetch_uri in call_counts
-    assert call_counts.pop(fetch_uri) == 1
-    assert not call_counts, "No other fetches expected"
-
-
-def test_nested_references():
-    """
-    Test a schema with multiple nested references to ensure they're all properly dereferenced.
-    """
-    nested_schema = SAMPLE_SCHEMAS["nested_references.json"]
-    retriever, call_counts = get_counting_retriever(BASE_URL, SAMPLE_SCHEMAS)
-    registry = Registry(retrieve=retriever)
-    renderer = SchemaRenderer(registry)
-
-    output = renderer.render(nested_schema)
-
-    # Check that the nested references were resolved
-    assert "title" in output["properties"]["event"]
-    assert "oneOf" in output["properties"]["status"]
-    assert "properties" in output["properties"]["animal_data"]
-
-    # We should have 4 fetch calls (fire_event, status_options, animal_event, and health_status_options)
-    # dead_reason_options might not be fetched because it's conditionally required
-    assert len(call_counts) >= 4
-
-    # Verify specific fetches
-    expected_uris = [
-        f"{BASE_URL}/fire_event.json",
-        f"{BASE_URL}/status_options.json",
-        f"{BASE_URL}/animal_event.json",
-        f"{BASE_URL}/health_status_options.json",
-    ]
-
-    for uri in expected_uris:
-        assert uri in call_counts, f"Expected fetch for {uri} was not made"
-
-
-def test_fire_event_local_definition():
-    """
-    'fire_event.json' also references '#/$defs/cause_types' inside itself.
-    We expect that to be left as is if resolvable at the root or possibly moved to $defs if it's nested.
-    """
-    fire_event = SAMPLE_SCHEMAS["fire_event.json"]
-    retriever, call_counts = get_counting_retriever(BASE_URL, SAMPLE_SCHEMAS)
-    registry = Registry(retrieve=retriever)
-    renderer = SchemaRenderer(registry)
-
-    output = renderer.render(fire_event)
-    # cause_types was a local definition, should be kept as is
-    cause_ref = output["properties"]["suspected_cause_type"]
-    assert "$ref" in cause_ref
+    # Verify that an attempt was made to fetch the nonexistent schema
+    assert nonexistent_schema_uri in call_counts
+    assert call_counts[nonexistent_schema_uri] == 1
 
 
 def test_unresolvable_reference_left_as_is():
@@ -281,18 +283,165 @@ def test_unresolvable_reference_left_as_is():
     If a schema references something that doesn't exist in local_schemas,
     it remains a $ref unmodified.
     """
-    schema = {"$id": f"{BASE_URL}/unknown_ref.json", "$ref": f"{BASE_URL}/event_types/missing_schema.json"}
-    retriever, call_counts = get_counting_retriever(BASE_URL, SAMPLE_SCHEMAS)
+    renderer, call_counts = call_count_schema_renderer()
+    missing_schema_uri = f"{BASE_URL}/missing_schema.json"
+    schema = {"$id": f"{BASE_URL}/unknown_ref.json", "$ref": missing_schema_uri}
+    output = renderer.render(schema)
+
+    # The code tries to fetch, fails, so it leaves the $ref as was defined
+    assert output["$ref"] == missing_schema_uri
+    # And we do record that one retrieval attempt:
+    assert call_counts[missing_schema_uri] == 1
+
+
+def test_nested_references():
+    """
+    Test a schema with multiple nested references to ensure they're all properly dereferenced.
+    """
+    renderer, call_counts = call_count_schema_renderer()
+    nested_schema = SAMPLE_SCHEMAS["nested_references.json"]
+    output = renderer.render(nested_schema)
+
+    # Check that the nested references were dereferenced
+    assert "oneOf" in output["properties"]["status"]
+    assert "properties" in output["properties"]["fire_event"]
+    assert "properties" in output["properties"]["animal_event"]
+
+    # Check that status has been dereferenced for fire_event and animal_event
+    assert "oneOf" in output["properties"]["fire_event"]["properties"]["status"]
+    assert "oneOf" in output["properties"]["animal_event"]["properties"]["status"]
+
+    # We should have exactly 5 fetch calls
+    assert len(call_counts) == 5
+
+    expected_uris = [
+        f"{BASE_URL}/status_options.json",
+        f"{BASE_URL}/fire_event.json",
+        f"{BASE_URL}/animal_event.json",
+        f"{BASE_URL}/health_status_options.json",
+        f"{BASE_URL}/dead_reason_options.json",
+    ]
+
+    for uri in expected_uris:
+        assert uri in call_counts, f"Expected fetch for {uri} was not made"
+        assert call_counts[uri] == 1
+
+
+def test_local_anchor_references():
+    """
+    Test that anchor references are handled correctly by the SchemaRenderer.
+
+    This test verifies that:
+    1. Root-level anchor references are kept intact (not modified)
+    2. Nested anchor references from external schemas are renamed for collision avoidance
+
+    Note:
+    This test does not verify that the anchor references are resolved correctly,
+    The bundling for the case of anchors is not currently implemented.
+    """
+    # Create a schema with root-level anchors
+    schema_with_anchors = {
+        "$id": f"{BASE_URL}/SchemaWithAnchors.json",
+        "type": "object",
+        "$defs": {
+            "string_type": {"$anchor": "string-type", "type": "string"},
+            "number_type": {"$anchor": "number-type", "type": "number"},
+        },
+        "properties": {
+            "root_string_ref": {"$ref": "#string-type"},  # Root-level anchor reference
+            "root_number_ref": {"$ref": "#number-type"},  # Root-level anchor reference
+        },
+    }
+
+    # Create a schema that references external anchors
+    referencing_schema = {
+        "$id": f"{BASE_URL}/ReferencingSchema.json",
+        "type": "object",
+        "properties": {
+            "nested_string_ref": {"$ref": f"{BASE_URL}/SchemaWithAnchors.json#string-type"},
+            "nested_number_ref": {"$ref": f"{BASE_URL}/SchemaWithAnchors.json#number-type"},
+        },
+    }
+
+    # Map schema names to schema objects for the retriever
+    local = {"SchemaWithAnchors.json": schema_with_anchors, "ReferencingSchema.json": referencing_schema}
+
+    retriever, _ = get_counting_retriever(BASE_URL, local)
     registry = Registry(retrieve=retriever)
     renderer = SchemaRenderer(registry)
 
-    output = renderer.render(schema)
+    # Test root-level anchor references (in the same document)
+    root_output = renderer.render(schema_with_anchors)
 
-    # The code tries to fetch, fails, so it leaves the $ref alone
-    assert output["$ref"] == f"{BASE_URL}/event_types/missing_schema.json"
-    # And we do record that one retrieval attempt:
-    attempted_uri = f"{BASE_URL}/event_types/missing_schema.json"
-    assert call_counts[attempted_uri] == 1
+    # Root anchor references should remain unchanged
+    assert (
+        root_output["properties"]["root_string_ref"]["$ref"] == "#string-type"
+    ), "Root-level anchor reference should not be modified"
+    assert (
+        root_output["properties"]["root_number_ref"]["$ref"] == "#number-type"
+    ), "Root-level anchor reference should not be modified"
+
+    # Test nested anchor references (from another document)
+    nested_output = renderer.render(referencing_schema)
+
+    # Nested anchor references should be renamed to avoid collisions
+    string_ref = nested_output["properties"]["nested_string_ref"]["$ref"]
+    number_ref = nested_output["properties"]["nested_number_ref"]["$ref"]
+
+    # References should be modified to match the SchemaRenderer.get_anchor_name pattern
+    assert string_ref.startswith("#"), "Anchor reference should start with #"
+    assert "-string-type" in string_ref, "Anchor reference should contain the original anchor name"
+    assert string_ref != "#string-type", "Anchor reference should be modified to avoid collisions"
+
+    assert number_ref.startswith("#"), "Anchor reference should start with #"
+    assert "-number-type" in number_ref, "Anchor reference should contain the original anchor name"
+    assert number_ref != "#number-type", "Anchor reference should be modified to avoid collisions"
+
+    # Both references to anchors in the same external schema should have the same hash prefix
+    string_prefix = string_ref.split("-string-type")[0]
+    number_prefix = number_ref.split("-number-type")[0]
+    assert string_prefix == number_prefix, "References to the same schema should share the same hash prefix"
+
+
+def test_uris_retrieved_only_once():
+    """
+    Test that a full URI reference should be retrieved only once.
+    If a schema with an id is provided, it should become part of the `registry` being used to resolve references.
+
+    First fire_event.json:
+    Is passed and rendered, then status_options.json is retrieved and cached along with fire_event.json
+
+    Then animal_event.json:
+    Is passed and rendered, then health_status_options.json and dead_reason_options.json are retrieved and cached.
+    But status_options.json is already cached, so it is not retrieved again.
+
+    Then nested_references.json:
+    Is passed and rendered, at this point all the schemas are already cached. No additional fetches are expected.
+    """
+    renderer, call_counts = call_count_schema_renderer()
+
+    # URIs of the schemas
+    status_options_uri = f"{BASE_URL}/status_options.json"
+    health_status_options_uri = f"{BASE_URL}/health_status_options.json"
+    dead_reason_options_uri = f"{BASE_URL}/dead_reason_options.json"
+
+    # fire_event.json references status_options.json
+    renderer.render(SAMPLE_SCHEMAS["fire_event.json"])
+    assert status_options_uri in call_counts, f"Expected fetch for {status_options_uri} was not made"
+    assert call_counts[status_options_uri] == 1
+
+    # animal_event.json references status_options.json, health_status_options.json and dead_reason_options.json
+    renderer.render(SAMPLE_SCHEMAS["animal_event.json"])
+    assert call_counts[status_options_uri] == 1  # Still 1, already cached
+    assert call_counts[health_status_options_uri] == 1
+    assert call_counts[dead_reason_options_uri] == 1
+
+    # nested_references.json references status_options.json, fire_event.json and animal_event.json
+    renderer.render(SAMPLE_SCHEMAS["nested_references.json"])
+    assert call_counts[status_options_uri] == 1
+    assert call_counts[health_status_options_uri] == 1
+    assert call_counts[dead_reason_options_uri] == 1
+    assert len(call_counts) == 3, f"Expected 3 fetch calls, got {len(call_counts)}"
 
 
 def test_circular_reference():
@@ -301,26 +450,27 @@ def test_circular_reference():
     and see how partial expansion works.
     """
     # We'll add these 2 to the local dictionary
-    A = {"$id": f"{BASE_URL}/A.json", "type": "object", "properties": {"b_ref": {"$ref": f"{BASE_URL}/B.json"}}}
-    B = {"$id": f"{BASE_URL}/B.json", "type": "object", "properties": {"a_ref": {"$ref": f"{BASE_URL}/A.json"}}}
+    schema_a = {"$id": f"{BASE_URL}/A.json", "type": "object", "properties": {"b_ref": {"$ref": f"{BASE_URL}/B.json"}}}
+    schema_b = {"$id": f"{BASE_URL}/B.json", "type": "object", "properties": {"a_ref": {"$ref": f"{BASE_URL}/A.json"}}}
     local = {
-        "A.json": A,
-        "B.json": B,
+        "A.json": schema_a,
+        "B.json": schema_b,
     }
     retriever, call_counts = get_counting_retriever(BASE_URL, local)
     registry = Registry(retrieve=retriever)
     renderer = SchemaRenderer(registry)
 
-    output = renderer.render(A)
+    output = renderer.render(schema_a)
     # Typically you'd see partial expansion of B inside A, but then B points back to A =>
     # it remains a $ref to avoid infinite recursion or references the top-level ID.
     b_prop = output["properties"]["b_ref"]
-    assert "properties" in b_prop, "Likely partially expanded B"
+    assert "properties" in b_prop
     assert b_prop["properties"]["a_ref"]["$ref"] == f"{BASE_URL}/A.json", "Circular fallback"
 
     # Confirm we fetched B once
     full_b_uri = f"{BASE_URL}/B.json"
     assert call_counts[full_b_uri] == 1
+    assert len(call_counts) == 1
 
 
 def test_complex_circular_reference():
@@ -329,21 +479,21 @@ def test_complex_circular_reference():
     Ensures that the renderer correctly handles multi-step circular references.
     """
     # Create schemas with a three-way circular reference
-    A = {"$id": f"{BASE_URL}/A.json", "type": "object", "properties": {"b_ref": {"$ref": f"{BASE_URL}/B.json"}}}
-    B = {"$id": f"{BASE_URL}/B.json", "type": "object", "properties": {"c_ref": {"$ref": f"{BASE_URL}/C.json"}}}
-    C = {"$id": f"{BASE_URL}/C.json", "type": "object", "properties": {"a_ref": {"$ref": f"{BASE_URL}/A.json"}}}
+    schema_a = {"$id": f"{BASE_URL}/A.json", "type": "object", "properties": {"b_ref": {"$ref": f"{BASE_URL}/B.json"}}}
+    schema_b = {"$id": f"{BASE_URL}/B.json", "type": "object", "properties": {"c_ref": {"$ref": f"{BASE_URL}/C.json"}}}
+    schema_c = {"$id": f"{BASE_URL}/C.json", "type": "object", "properties": {"a_ref": {"$ref": f"{BASE_URL}/A.json"}}}
 
     local = {
-        "A.json": A,
-        "B.json": B,
-        "C.json": C,
+        "A.json": schema_a,
+        "B.json": schema_b,
+        "C.json": schema_c,
     }
 
     retriever, call_counts = get_counting_retriever(BASE_URL, local)
     registry = Registry(retrieve=retriever)
     renderer = SchemaRenderer(registry)
 
-    output = renderer.render(A)
+    output = renderer.render(schema_a)
 
     # Verify B was expanded
     b_prop = output["properties"]["b_ref"]
@@ -369,18 +519,18 @@ def test_self_reference():
     This tests proper handling of direct self-references.
     """
     # Create a schema that references itself
-    Self = {
+    self_schema = {
         "$id": f"{BASE_URL}/Self.json",
         "type": "object",
         "properties": {"name": {"type": "string"}, "child": {"$ref": f"{BASE_URL}/Self.json"}},  # Self-reference
     }
 
-    local = {"Self.json": Self}
+    local = {"Self.json": self_schema}
     retriever, call_counts = get_counting_retriever(BASE_URL, local)
     registry = Registry(retrieve=retriever)
     renderer = SchemaRenderer(registry)
 
-    output = renderer.render(Self)
+    output = renderer.render(self_schema)
 
     # Verify the self-reference is maintained
     child_prop = output["properties"]["child"]
@@ -393,57 +543,104 @@ def test_self_reference():
 
 def test_nested_circular_references():
     """
-    Test nested circular references within a complex schema structure.
+    Test how the SchemaRenderer handles nested circular references in a more complex schema structure.
+
+    This test creates a parent-child structure with two circular reference patterns:
+    - Parent schema references two children (ChildA and ChildB)
+    - ChildA references ChildB
+    - ChildB references ChildA
+
+    The test verifies that:
+    1. First-level references (Parent->ChildA, Parent->ChildB) are fully expanded
+    2. Second-level references (ChildA->ChildB, ChildB->ChildA) are also expanded, no circular references yet
+    3. Third-level references that would create circular loops (ChildB->ChildA->ChildB,
+       ChildA->ChildB->ChildA) are preserved as $ref (without expansion)
+
+    Proper management of the stack of schemas being processed is required to avoid infinite recursion or
+    false detection of cycles.
     """
     # Create schemas with nested circular references
-    Parent = {
+    parent = {
         "$id": f"{BASE_URL}/Parent.json",
         "type": "object",
         "properties": {"child_a": {"$ref": f"{BASE_URL}/ChildA.json"}, "child_b": {"$ref": f"{BASE_URL}/ChildB.json"}},
     }
-    ChildA = {
+    child_a = {
         "$id": f"{BASE_URL}/ChildA.json",
         "type": "object",
         "properties": {"name": {"type": "string"}, "child_b_ref": {"$ref": f"{BASE_URL}/ChildB.json"}},
     }
-    ChildB = {
+    child_b = {
         "$id": f"{BASE_URL}/ChildB.json",
         "type": "object",
         "properties": {"name": {"type": "string"}, "child_a_ref": {"$ref": f"{BASE_URL}/ChildA.json"}},
     }
 
-    local = {"Parent.json": Parent, "ChildA.json": ChildA, "ChildB.json": ChildB}
+    local = {
+        "Parent.json": parent,
+        "ChildA.json": child_a,
+        "ChildB.json": child_b,
+    }
 
     retriever, call_counts = get_counting_retriever(BASE_URL, local)
     registry = Registry(retrieve=retriever)
     renderer = SchemaRenderer(registry)
 
-    output = renderer.render(Parent)
+    output = renderer.render(parent)
 
-    # Verify Child A and Child B are expanded at the top level
+    # Get the expanded child schemas
     child_a_prop = output["properties"]["child_a"]
     child_b_prop = output["properties"]["child_b"]
+
+    # 1. Verify top-level expansion
     assert "properties" in child_a_prop, "ChildA should be expanded"
     assert "properties" in child_b_prop, "ChildB should be expanded"
 
-    # Verify the circular references are preserved
-    child_b_ref_in_a = child_a_prop["properties"]["child_b_ref"]
-    child_a_ref_in_b = child_b_prop["properties"]["child_a_ref"]
+    # 2. Verify circular references are expanded one level deep
+    # Check ChildA -> ChildB reference
+    child_b_ref = child_a_prop["properties"]["child_b_ref"]
+    assert "properties" in child_b_ref, "ChildB reference should be expanded"
 
-    assert "$ref" in child_b_ref_in_a or "$id" in child_b_ref_in_a, "Reference to ChildB should be preserved"
-    assert "$ref" in child_a_ref_in_b or "$id" in child_a_ref_in_b, "Reference to ChildA should be preserved"
+    # Check ChildB -> ChildA reference
+    child_a_ref = child_b_prop["properties"]["child_a_ref"]
+    assert "properties" in child_a_ref, "ChildA reference should be expanded"
 
-    # Verify each schema was fetched exactly once
-    assert call_counts[f"{BASE_URL}/ChildA.json"] == 1, "ChildA should be fetched once"
-    assert call_counts[f"{BASE_URL}/ChildB.json"] == 1, "ChildB should be fetched once"
+    # 3. Verify circular references are preserved at the second level
+    # ChildA -> ChildB -> ChildA (should be a $ref)
+    assert "$ref" in child_b_ref["properties"]["child_a_ref"]
+    assert child_b_ref["properties"]["child_a_ref"]["$ref"] == f"{BASE_URL}/ChildA.json"
+
+    # ChildB -> ChildA -> ChildB (should be a $ref)
+    assert "$ref" in child_a_ref["properties"]["child_b_ref"]
+    assert child_a_ref["properties"]["child_b_ref"]["$ref"] == f"{BASE_URL}/ChildB.json"
+
+    # 4. Verify each schema was fetched exactly once
+    assert call_counts[f"{BASE_URL}/ChildA.json"] == 1
+    assert call_counts[f"{BASE_URL}/ChildB.json"] == 1
+    assert len(call_counts) == 2
 
 
 def test_fragment_circular_reference():
     """
-    Test circular references involving schema fragments.
+    Test circular references involving schema fragments across different files.
+
+    This test verifies that:
+    1. Fragments in external resources (FragmentB.json#/$defs/item) are correctly bundled
+       into the root schema's $defs rather than expanded inline
+    2. The original fragment reference is replaced with a local reference to the bundled fragment
+    3. When fragments contain circular references back to the original schema,
+       these references are preserved as $ref to avoid infinite recursion
+
+    The reference pattern is:
+    - FragmentA references FragmentB.json#/$defs/item
+    - FragmentB#/$defs/item references back to FragmentA
+
+    The SchemaRenderer should handle this by:
+    - Bundling the fragment from B into A's $defs
+    - Preserving the circular reference back to A as a $ref
     """
     # Create schemas with fragment references that form a circular reference
-    FragmentA = {
+    fragment_a = {
         "$id": f"{BASE_URL}/FragmentA.json",
         "type": "object",
         "properties": {
@@ -451,29 +648,53 @@ def test_fragment_circular_reference():
             "b_fragment_ref": {"$ref": f"{BASE_URL}/FragmentB.json#/$defs/item"},
         },
     }
-    FragmentB = {
+    fragment_b = {
         "$id": f"{BASE_URL}/FragmentB.json",
         "type": "object",
-        "properties": {"name": {"type": "string"}},
-        "$defs": {"item": {"type": "object", "properties": {"a_ref": {"$ref": f"{BASE_URL}/FragmentA.json"}}}},
+        "properties": {
+            "name": {"type": "string"},
+        },
+        "$defs": {
+            "item": {
+                "type": "object",
+                "properties": {"a_ref": {"$ref": f"{BASE_URL}/FragmentA.json"}},
+            },
+        },
     }
 
-    local = {"FragmentA.json": FragmentA, "FragmentB.json": FragmentB}
+    local = {"FragmentA.json": fragment_a, "FragmentB.json": fragment_b}
 
     retriever, call_counts = get_counting_retriever(BASE_URL, local)
     registry = Registry(retrieve=retriever)
     renderer = SchemaRenderer(registry)
 
-    output = renderer.render(FragmentA)
+    # Render FragmentA (the schema that contains the fragment reference)
+    output = renderer.render(fragment_a)
 
-    # Verify the fragment reference is expanded
+    # Verify that the fragment reference is bundled into the output's $defs
+    assert "$defs" in output, "The rendered schema should include $defs for bundled fragments"
+
+    # Get the hash ID generated for the bundled fragment
+    assert len(output["$defs"]) == 1, "Should have exactly one bundled fragment"
+    hash_id = list(output["$defs"].keys())[0]
+
+    assert "item" in output["$defs"][hash_id], "The bundled fragment should contain the 'item' from FragmentB"
+
+    # Verify the fragment reference is replaced with a local reference
     b_fragment_ref = output["properties"]["b_fragment_ref"]
-    assert "properties" in b_fragment_ref, "Fragment from B should be expanded"
+    assert "$ref" in b_fragment_ref, "Fragment reference should be replaced with a local reference"
+    assert b_fragment_ref["$ref"] == f"#/$defs/{hash_id}/item", "Fragment reference should point to bundled fragment"
 
-    # Verify the circular reference back to A is preserved
-    a_ref = b_fragment_ref["properties"]["a_ref"]
-    assert "$ref" in a_ref, "Reference back to A should be preserved"
+    # Verify the bundled fragment contains the expected content
+    bundled_fragment = output["$defs"][hash_id]["item"]
+    assert "properties" in bundled_fragment, "Bundled fragment should contain properties"
+    assert "a_ref" in bundled_fragment["properties"], "Bundled fragment should contain the a_ref property"
+
+    # Verify the circular reference back to A is preserved as a $ref to avoid infinite recursion
+    a_ref = bundled_fragment["properties"]["a_ref"]
+    assert "$ref" in a_ref, "Reference back to A should be preserved as $ref"
     assert a_ref["$ref"] == f"{BASE_URL}/FragmentA.json", "A reference should point to original A"
 
     # Verify all schemas were fetched exactly once
     assert call_counts[f"{BASE_URL}/FragmentB.json"] == 1, "FragmentB should be fetched once"
+    assert call_counts.get(f"{BASE_URL}/FragmentA.json", 0) == 0, "FragmentA shouldn't be fetched"
