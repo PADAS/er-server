@@ -267,9 +267,9 @@ class DynamicSchemaFromSourceView(APIView):
 
         return f"{base_url}?{query_string}"
 
-    def render_schema(self, request: Request) -> Dict[str, Any]:
+    def generate_dynamic_schema(self, request: Request) -> Dict[str, Any]:
         """
-        Main method to render the schema, it will use the data from the source view to build the schema.
+        Generates a dict with a JSON schema format, using the specified source view.
         """
         query_params = self.get_query_params(request)
         schema_mode = query_params.get("s_mode", self.default_mode)
@@ -296,4 +296,4 @@ class DynamicSchemaFromSourceView(APIView):
         return schema
 
     def get(self, request: Request, *args, **kwargs) -> dict:
-        return Response(self.render_schema(request))
+        return Response(self.generate_dynamic_schema(request))
