@@ -25,54 +25,162 @@ class SchemaRenderer:
     Partial dereferencing of schemas, using a registry as a reference resolver.
 
     The dereferencing process is a bit tricky, it's not possible to remove all references, as:
-    - Some references may be not resolvable or bad formed
+    - Some references may be not resolvable or malformed
     - Some references may be circular
-    - We may not really want to "de-reference" all? what if we are pointing to a local local fragment?
+    - We may not really want to "de-reference" all, local fragments can be useful to reuse a definition
+      in many parts of the same schema, helping also to keep the schema self-contained and not too large.
 
     So the approach in a nutshell is to:
     - Output a valid and as self-contained as possible schema
-    - Expand resolvable references to full URIs where possible.
-    - Bundle resolvable references to fragments in nested schemas into $defs in the root schema
+    - Expand resolvable references to full URIs where possible
+    - Bundle resolvable fragment references into $defs in the root schema
     - Rename anchor references in nested schemas to avoid collisions
-    - Leave unresolvable references as-is.
-
-    In detail:
-    - We traverse the schema
-    - When a reference is found
-        - If it's fragment (#/) reference
-            - If it's local and we are at the root level, we leave it as is
-            - If it's resolvable, and we are not at the root level
-                - We retrieve it and we bundle it in the "$defs" key of the root schema
-            - If it's not resolvable, we leave it as is
-        - If it's an anchor reference, and we are not at the root level
-            -  We generate a collision free anchor name version
-        - If it's a full uri reference:
-            - We try to retrieve it and dereference (expand) it
-            - If it's not resolvable, we leave it as is
-            - If it's a circular reference, we fallback to the reference and leave it as is
+    - Leave unresolvable references as-is
     """
 
     def __init__(self, registry: Registry):
         self.registry = registry
         self.resolver = None
+        self.bundled_defs = None
+        self.active_uris = []
+        self.root_uri = ""
 
     def render(self, schema: Union[Resource, dict]) -> dict:
-        """Unified entry point for rendering the schema"""
+        """Unified entry point for rendering a schema"""
         try:
             return self._render(schema)
         except Exception as e:
             logger.error("Schema rendering failed: %s", str(e), exc_info=True)
             raise SchemaRenderingError(f"Failed to render schema: {e}") from e
 
-    def get_set_bundle_defs(self, base_uri: str, fragment_uri: str, contents: dict) -> str:
+    def _render(self, schema: Union[Resource, dict]) -> dict:
+        """Sets up the resolver and initiates the recursive dereferencing."""
+
+        if isinstance(schema, dict):
+            schema = Resource.from_contents(contents=schema, default_specification=DRAFT202012)
+
+        self.bundled_defs = {}
+        self.resolver = self.get_root_resolver(schema)
+        self.root_uri = schema.id() or ""
+
+        # We'll track "currently visiting" URIs with a stack.
+        self.active_uris = []
+
+        # Start dereferencing from the root
+        self.active_uris.append(self.root_uri)
+        full_schema = self.dereference(schema.contents, self.root_uri)
+        self.active_uris.pop()  # active_uris should be empty now...
+
+        # Add bundled definitions to the root schema
+        if self.bundled_defs:
+            full_schema.setdefault("$defs", {})
+            full_schema["$defs"].update(self.bundled_defs)
+        return full_schema
+
+    def dereference(self, value: Any, current_uri: str) -> Any:
         """
-        Bundles the referenced fragment in the root $defs and returns the new local uri (#/$defs/hash/fragment).
+        Recursively traverses the a schema and processes references.
+        """
+        if isinstance(value, dict):
+            # Copy the dictionary to avoid mutating the original
+            new_dict = {**value}
+
+            # If we're in a nested schema (not the root), remove root-level keys.
+            if current_uri != self.root_uri and "$id" in new_dict:
+                new_dict.pop("$schema", None)
+                new_dict.pop("$id", None)
+                # We will bundle $defs and $definitions from nested schemas into the root schema
+                new_dict.pop("$defs", None)
+                new_dict.pop("$definitions", None)
+
+            # Process references in the dictionary
+            dereferenced_dict = self.process_references(new_dict, current_uri)
+            new_dict = self.process_anchors(new_dict, current_uri)
+
+            for k, v in new_dict.items():
+                if k in ("$ref", "$anchor"):
+                    continue
+                new_dict[k] = self.dereference(v, current_uri)
+
+            # If we have a resolved reference, let's merge it with the current value
+            if dereferenced_dict:
+                new_dict = {**dereferenced_dict, **new_dict}
+            return new_dict
+
+        if isinstance(value, list):
+            return [self.dereference(v, current_uri) for v in value]
+
+        return value
+
+    def process_references(self, node: dict, current_uri: str) -> dict:
+        """
+        Processes `$ref` and `$anchor` in a "schema node".
+        """
+
+        if "$ref" not in node:
+            return {}
+
+        ref_uri = node.pop("$ref")
+        dereferenced_dict = {}
+
+        retrieve_ref_uri = ref_uri
+        if ref_uri.startswith("#"):
+            # it's a local fragment => build the full uri for the resolver to find it
+            retrieve_ref_uri = urljoin(current_uri, ref_uri)
+
+        retrieve_uri, fragment = urldefrag(retrieve_ref_uri)
+        try:
+            if fragment:
+                # it's something like ...#/someFragment
+                if retrieve_uri == self.root_uri:
+                    # local reference at the root level => leave it as is
+                    node["$ref"] = ref_uri
+                elif fragment.startswith("/"):
+                    # local reference in a nested schema => bundle it into $defs
+                    resolved = self.resolve(retrieve_ref_uri)
+                    node["$ref"] = self.bundle_ref(retrieve_uri, fragment, resolved)
+                else:
+                    # anchor reference in a nested schema => rename it (to avoid collisions)
+                    node["$ref"] = self.get_anchor_name(retrieve_uri, fragment)
+            else:
+                # full URI with no fragment => let's try to expand it!
+                if retrieve_uri in self.active_uris:
+                    # circular reference => leave it as is
+                    node["$ref"] = retrieve_uri
+                    logger.info("Circular reference: %s", retrieve_uri)
+                else:
+                    resolved = self.resolve(retrieve_uri)
+                    # ID defined in the schema => Is the base that the schema uses to resolve
+                    # relative references, from the schema's perspective.
+                    next_uri = resolved.get("$id", retrieve_uri)
+                    self.active_uris.append(retrieve_uri)
+                    dereferenced_dict = self.dereference(resolved, next_uri)
+                    self.active_uris.pop()
+
+        except referencing_exceptions.Unresolvable as e:
+            # leave it as $ref if we can't resolve it
+            logger.info("Unresolvable reference %s => %s", ref_uri, str(e))
+            node["$ref"] = ref_uri
+
+        return dereferenced_dict
+
+    def process_anchors(self, node: dict, current_uri: str) -> dict:
+        if "$anchor" in node and current_uri != self.root_uri:
+            # let's generate a collision free version
+            node["$anchor"] = self.get_anchor_name(current_uri, node["$anchor"])
+
+        return node
+
+    def bundle_ref(self, base_uri: str, fragment_uri: str, contents: dict) -> str:
+        """
+        Bundles the referenced fragment into the root schema and returns the new local uri (#/$defs/hash/fragment).
         """
         hash_uri = hash_base_uri(base_uri)
         local_uri = fragment_uri.lstrip("#/")
+
+        # e.g. remove the $defs key
         local_uri_bits = local_uri.split("/")
         if len(local_uri_bits) > 1:
-            # Usually the first part is the $defs key, should be safe to remove it
             local_uri_bits.pop(0)
         local_uri = "-".join(local_uri_bits)
 
@@ -86,127 +194,33 @@ class SchemaRenderer:
     @staticmethod
     def get_anchor_name(base_uri: str, anchor_fragment: str) -> str:
         """
-        Anchors are names for a specific location in a document.
-        While traversing the schemas we might find already used anchor names by other schemas, to avoid collisions we
-        will generate a new anchor name.
-
-        Returns the an updated anchor uri, using the base uri
+        Generates a collision free anchor name.
+        If it's a root level anchor, leaving it as where defined should not be a problem.
+        If it's a nested anchor, we want to avoid collisions and generate a new anchor name.
         """
         hash_uri = hash_base_uri(base_uri)
         return f"#{hash_uri}-{anchor_fragment}"
 
-    def get_resolver_for(self, resource: Resource) -> Resolver:
+    def get_root_resolver(self, resource: Resource) -> Resolver:
+        """
+        At the start of the rendering process of a schema, a new resolver should be created, if the provided schema
+        has an $id, it will be used as the root URI.
+        """
         resource_id = resource.id() or ""
         if resource_id and resource_id not in self.registry:
             resolver = self.registry.resolver_with_root(resource)
             self.registry = resolver._registry
-        resolver = self.registry.resolver(base_uri=resource_id)
+        else:
+            resolver = self.registry.resolver(base_uri=resource_id)
         return resolver
 
-    def _render(self, schema: Union[Resource, dict]) -> dict:
-        if isinstance(schema, dict):
-            schema = Resource.from_contents(contents=schema, default_specification=DRAFT202012)
-
-        self.bundled_defs = {}
-        self.resolver = self.get_resolver_for(schema)
-        root_uri = schema.id() or ""
-        # We'll track "currently visiting" URIs with a stack.
-        active_uris = []
-
-        def dereference(value: Any, current_uri: str) -> Any:
-            if isinstance(value, dict):
-                new_dict = {**value}
-
-                if current_uri != root_uri and "$id" in new_dict:
-                    # we are at the root a nested schema
-                    new_dict.pop("$schema", None)
-                    new_dict.pop("$id", None)
-
-                    # removing these ones here means that "sub-references" inside will not be resolved, just "bundled"
-                    new_dict.pop("$defs", None)
-                    new_dict.pop("$definitions", None)
-
-                # We'll expand everything else inside:
-                resolved_dict = {}
-                if "$ref" in new_dict:
-                    ref_uri = new_dict.pop("$ref")
-                    retrieve_ref_uri = ref_uri
-                    if ref_uri.startswith("#"):
-                        # it's a local fragment => build the full uri for the resolver to find it
-                        retrieve_ref_uri = urljoin(current_uri, ref_uri)
-
-                    retrieve_uri, fragment = urldefrag(retrieve_ref_uri)
-                    try:
-                        if fragment:
-                            # it's something like ...#/someFragment
-                            if retrieve_uri == root_uri:
-                                # local reference at the root level => leave it as is
-                                new_dict["$ref"] = ref_uri
-                            elif fragment.startswith("/"):
-                                # local reference in a nested schema => bundle it into $defs
-                                resolved = self.resolver.lookup(retrieve_ref_uri)
-                                self.resolver = resolved.resolver
-                                new_ref_uri = self.get_set_bundle_defs(retrieve_uri, fragment, resolved.contents)
-                                new_dict["$ref"] = new_ref_uri
-                            else:
-                                # anchor reference in a nested schema => rename it (to avoid collisions)
-                                new_dict["$ref"] = self.get_anchor_name(retrieve_uri, fragment)
-
-                        else:
-                            # full URI with no fragment => let's try to expand it!
-                            if retrieve_uri in active_uris:
-                                # circular reference => leave it as is
-                                new_dict["$ref"] = retrieve_uri
-                                logger.info(f"Circular reference: {retrieve_uri}")
-                                return new_dict
-
-                            resolved = self.resolver.lookup(retrieve_uri)
-                            self.resolver = resolved.resolver
-
-                            # ID defined in the schema => Is the base that the schema uses to resolve
-                            # relative references, from the schema's perspective.
-                            next_uri = resolved.contents.get("$id", retrieve_uri)
-                            active_uris.append(retrieve_uri)
-                            resolved_dict = dereference(resolved.contents, next_uri)
-                            active_uris.pop()
-
-                    except referencing_exceptions.Unresolvable as e:
-                        # leave it as $ref if we can't resolve it
-                        logger.info("Unresolvable reference %s => %s", ref_uri, str(e))
-                        new_dict["$ref"] = ref_uri
-
-                if "$anchor" in new_dict:
-                    # let's generate a collision free version
-                    new_dict["$anchor"] = self.get_anchor_name(current_uri, new_dict["$anchor"])
-
-                for k, v in new_dict.items():
-                    if k in ("$ref", "$anchor"):
-                        continue
-                    new_dict[k] = dereference(v, current_uri)
-
-                # If we have a resolved reference, let's merge it with the current value
-                if resolved_dict:
-                    new_dict = {**resolved_dict, **new_dict}
-
-                return new_dict
-
-            elif isinstance(value, list):
-                return [dereference(v, current_uri) for v in value]
-            else:
-                return value
-
-        # Update registry after dereferencing
-        self.registry = self.resolver._registry
-
-        # Start dereferencing from the root
-        active_uris.append(root_uri)
-        full_schema = dereference(schema.contents, root_uri)
-        active_uris.pop()  # active_uris should be empty now...
-
-        if self.bundled_defs:
-            if "$defs" not in full_schema:
-                full_schema["$defs"] = self.bundled_defs
-            else:
-                full_schema["$defs"].update(self.bundled_defs)
-
-        return full_schema
+    def resolve(self, ref: URI) -> dict:
+        """
+        Looks up a reference using the current resolver.
+        Makes sure we keep updated resolver and registry. Internally, 'referencing' lib evolves versions instead of
+        mutating, so we have to update the resolver and registry manually.
+        """
+        resolved = self.resolver.lookup(ref)
+        self.resolver = resolved.resolver
+        self.registry = resolved.resolver._registry
+        return resolved.contents
