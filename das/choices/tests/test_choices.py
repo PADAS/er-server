@@ -52,12 +52,23 @@ def test_get_all_choices(choices_fixture, client, tenant_document_cache_client_m
 def test_get_all_choices_filtering(choices_fixture, client, five_choices):
     choices, user = choices_fixture.choices, choices_fixture.user
 
+    Choice.objects.filter(id=choices[0].id).update(is_active=False)
+    Choice.objects.filter(id=choices[1].id).update(is_active=False)
+
     client.force_login(user)
     url = reverse("choices")
-    response = client.get(f"{url}?fields=wildlifesighting_species&model=activity.eventtype")
+    response = client.get(f"{url}?fields=wildlifesighting_species&model=activity.eventtype&include_inactive=true")
     assert response.status_code == 200
     assert len(choices.all()) == 7
-    assert len(response.data["results"]) == 2
+    assert len(response.data["results"]) == 2  # assert filtered items return one active and one inactive
+
+    response = client.get(url, {"include_inactive": False})
+    assert response.status_code == 200
+    assert len(response.data["results"]) == 5  # assert only active choices
+
+    response = client.get(url)
+    assert response.status_code == 200
+    assert len(response.data["results"]) == 5  # assert only active choices when include_inactive is not sent
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
