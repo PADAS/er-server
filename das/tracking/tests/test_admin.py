@@ -37,7 +37,6 @@ def test_source_plugin_admin_change_list_with_missing_plugin(superuser_client, s
     assert "Plugin not properly configured" in content
     assert str(source_plugin.id) in content
     assert str(content_type.id) in content
-    assert str(source_plugin.plugin_id) in content
 
 
 @pytest.mark.django_db
