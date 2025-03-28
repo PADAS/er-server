@@ -14,14 +14,14 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from activity.exceptions import SchemaRenderingError
-from activity.filters import EventTypeFilter, EventTypeSchemaFilter
+from activity.filters import EventTypeFilter
 from activity.models import Event, EventType
 from activity.permissions import EventCategoryPermissions
 from activity.schemas.schema_rendering import SchemaRenderer
 from activity.schemas.schema_retrieving import build_dynamic_schemas_registry
 from activity.serializers.events_v2 import EventTypeSerializer
 from activity.views.events.utils import AllowedCategoriesMixin
-from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer
+from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer, parse_bool
 from utils.views import EtagListRetrieveModelMixin
 
 logger = logging.getLogger(__name__)
@@ -124,7 +124,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
     filterset_class = EventTypeFilter
     serializer_class = EventTypeSerializer
     lookup_field = "value"
-    # lookup_url_kwarg = "eventtype_value"
+    lookup_url_kwarg = "eventtype_value"
     ordering = ("ordernum",)
 
     def get_queryset(self) -> models.QuerySet:
@@ -172,7 +172,6 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         methods=["get"],
         detail=False,
         url_path="schemas",
-        filterset_class=EventTypeSchemaFilter,
         renderer_classes=(DirectJSONRenderer, DirectBrowsableAPIRenderer),
     )
     def list_schemas(self, request: Request) -> Response:
@@ -181,8 +180,8 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         Each item indicates 'success' or 'failure' and contains an 'error.code' when failing.
         """
         queryset = self.filter_queryset(self.get_queryset())
-        pre_render = request.query_params.get("pre_render", False)
         schema_renderer = None
+        pre_render = parse_bool(request.query_params.get("pre_render", False))
         if pre_render:
             schema_renderer = self.get_schema_renderer(request)
 
@@ -216,7 +215,6 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         methods=["get"],
         detail=True,
         url_path="schema",
-        filterset_class=EventTypeSchemaFilter,
         renderer_classes=(DirectJSONRenderer, DirectBrowsableAPIRenderer),
     )
     def retrieve_schema(self, request: Request, **kwargs) -> Response:
@@ -224,29 +222,12 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         Returns the rendered schema for the specified event type.
         """
         event_type = self.get_object()
-        pre_render = request.query_params.get("pre_render", False)
         schema_renderer = None
+        pre_render = request.query_params.get("pre_render", False)
         if pre_render:
             schema_renderer = self.get_schema_renderer(request)
 
         success, data_or_error = parse_and_render_schema(event_type, schema_renderer)
-        if success:
-            return Response(data_or_error, status=status.HTTP_200_OK)
-        else:
-            return Response({"error": data_or_error}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
-
-    @action(
-        methods=["get"],
-        detail=True,
-        url_path="json-schema",
-        renderer_classes=(DirectJSONRenderer, DirectBrowsableAPIRenderer),
-    )
-    def retrieve_json_schema(self, request: Request, **kwargs) -> Response:
-        """
-        Returns the JSON schema for the specified event type.
-        """
-        event_type = self.get_object()
-        success, data_or_error = parse_and_render_schema(event_type, None)
         if success:
             return Response(data_or_error, status=status.HTTP_200_OK)
         else:

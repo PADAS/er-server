@@ -12,7 +12,7 @@ class EventTypeSerializer(serializers.ModelSerializer):
     has_events_assigned = serializers.SerializerMethodField()
     schema = serializers.CharField(write_only=True, allow_blank=True)
     serializer_url_field = "value"
-    url = serializers.HyperlinkedIdentityField(view_name="v2-eventtype-detail", lookup_field="value")
+    url = serializers.HyperlinkedIdentityField(view_name="v2-eventtype-detail", lookup_url_kwarg="eventtype_value")
 
     class Meta:
         model = EventType
