@@ -89,7 +89,7 @@ def parse_and_render_schema(event_type: EventType, schema_renderer: Optional[Sch
 
     # Attempt render
     try:
-        parsed_schema["json"] = schema_renderer.render(parsed_schema["json"])
+        parsed_schema["json"] = schema_renderer.dereference_schema(parsed_schema["json"])
         return (True, parsed_schema)
     except SchemaRenderingError as e:
         logger.warning("Error rendering schema for event type %s: %s", event_type.value, str(e))

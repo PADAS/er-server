@@ -22,7 +22,7 @@ def test_no_references():
     """
     renderer, call_counts = call_count_schema_renderer()
 
-    output = renderer.render(SAMPLE_SCHEMAS["sample_event_type.json"])
+    output = renderer.dereference_schema(SAMPLE_SCHEMAS["sample_event_type.json"])
     assert output == SAMPLE_SCHEMAS["sample_event_type.json"]
     assert not call_counts, "No fetches expected if there's no references ($ref)"
 
@@ -42,7 +42,7 @@ def test_local_fragment_reference():
     }
     renderer, call_counts = call_count_schema_renderer()
 
-    output = renderer.render(schema)
+    output = renderer.dereference_schema(schema)
     # It's a root-level reference, should be keeped as defined
     assert output["properties"]["bar"]["$ref"] == "#/custom_definitions/foo"
     # And no external fetches
@@ -56,7 +56,7 @@ def test_full_uri_reference():
     """
     renderer, call_counts = call_count_schema_renderer()
 
-    output = renderer.render(SAMPLE_SCHEMAS["fire_event.json"])
+    output = renderer.dereference_schema(SAMPLE_SCHEMAS["fire_event.json"])
 
     status_prop = output["properties"]["status"]
     expected_keys = ["title", "type", "oneOf"]
@@ -101,7 +101,7 @@ def test_full_uri_reference_overrides():
             "bar": {"type": "string"},
         },
     }
-    output = renderer.render(schema)
+    output = renderer.dereference_schema(schema)
     assert "oneOf" in output["properties"]["foo"], "Expected to see health_status_options expanded after dereferencing"
     assert len(output["properties"]["foo"]["oneOf"]) == 4
     assert output["properties"]["foo"]["title"] == "Health Status"  # the value we provided
@@ -129,7 +129,7 @@ def test_full_uri_reference_overrides_in_definitions():
     renderer, call_counts = call_count_schema_renderer()
 
     schema = SAMPLE_SCHEMAS["full_uri_ref_in_defs.json"]
-    output = renderer.render(schema)
+    output = renderer.dereference_schema(schema)
 
     # Verify that status_options was fetched and expanded in the definitions
     assert "oneOf" in output["$defs"]["status_options"]
@@ -156,7 +156,7 @@ def test_external_fragment_reference():
     The 'external_fragment_ref.json' schema references the 'cause_types' fragment from 'fire_event.json'.
     """
     renderer, _ = call_count_schema_renderer()
-    output = renderer.render(SAMPLE_SCHEMAS["external_fragment_ref.json"])
+    output = renderer.dereference_schema(SAMPLE_SCHEMAS["external_fragment_ref.json"])
 
     assert "$ref" in output["properties"]["cause_types"]
     bundled_ref = output["properties"]["cause_types"]["$ref"]
@@ -182,7 +182,7 @@ def test_external_fragment_reference_in_definitions():
     The 'external_fragment_ref_in_defs.json' schema references the 'cause_types' fragment from 'fire_event.json'.
     """
     renderer, _ = call_count_schema_renderer()
-    output = renderer.render(SAMPLE_SCHEMAS["external_fragment_ref_in_defs.json"])
+    output = renderer.dereference_schema(SAMPLE_SCHEMAS["external_fragment_ref_in_defs.json"])
 
     assert "$ref" in output["properties"]["cause_types"]
     original_ref = output["properties"]["cause_types"]["$ref"]
@@ -223,7 +223,7 @@ def test_local_fragment_reference_not_resolvable():
         "custom_definitions": {"foo": {"type": "string"}},
         "properties": {"bar": {"$ref": "#/custom_definitions/baz"}},
     }
-    output = renderer.render(schema)
+    output = renderer.dereference_schema(schema)
     # It's a root-level reference, should be keeped as defined
     assert output["properties"]["bar"]["$ref"] == "#/custom_definitions/baz"
     # And no external fetches
@@ -248,7 +248,7 @@ def test_external_fragment_reference_not_resolvable():
     }
 
     renderer, call_counts = call_count_schema_renderer()
-    output = renderer.render(schema)
+    output = renderer.dereference_schema(schema)
 
     # Check that the unresolvable reference is left as is
     assert output["properties"]["cause_types"]["$ref"] == f"{BASE_URL}/fire_event.json#/$defs/nonexistent"
@@ -268,7 +268,7 @@ def test_external_fragment_reference_not_resolvable():
     }
 
     renderer, call_counts = call_count_schema_renderer()
-    output = renderer.render(schema)
+    output = renderer.dereference_schema(schema)
 
     # Check that the unresolvable reference is left as is
     assert output["properties"]["some_property"]["$ref"] == f"{nonexistent_schema_uri}#/$defs/something"
@@ -286,7 +286,7 @@ def test_unresolvable_reference_left_as_is():
     renderer, call_counts = call_count_schema_renderer()
     missing_schema_uri = f"{BASE_URL}/missing_schema.json"
     schema = {"$id": f"{BASE_URL}/unknown_ref.json", "$ref": missing_schema_uri}
-    output = renderer.render(schema)
+    output = renderer.dereference_schema(schema)
 
     # The code tries to fetch, fails, so it leaves the $ref as was defined
     assert output["$ref"] == missing_schema_uri
@@ -300,7 +300,7 @@ def test_nested_references():
     """
     renderer, call_counts = call_count_schema_renderer()
     nested_schema = SAMPLE_SCHEMAS["nested_references.json"]
-    output = renderer.render(nested_schema)
+    output = renderer.dereference_schema(nested_schema)
 
     # Check that the nested references were dereferenced
     assert "oneOf" in output["properties"]["status"]
@@ -371,7 +371,7 @@ def test_local_anchor_references():
     renderer = SchemaRenderer(registry)
 
     # Test root-level anchor references (in the same document)
-    root_output = renderer.render(schema_with_anchors)
+    root_output = renderer.dereference_schema(schema_with_anchors)
 
     # Root anchor references should remain unchanged
     assert (
@@ -382,7 +382,7 @@ def test_local_anchor_references():
     ), "Root-level anchor reference should not be modified"
 
     # Test nested anchor references (from another document)
-    nested_output = renderer.render(referencing_schema)
+    nested_output = renderer.dereference_schema(referencing_schema)
 
     # Nested anchor references should be renamed to avoid collisions
     string_ref = nested_output["properties"]["nested_string_ref"]["$ref"]
@@ -426,18 +426,18 @@ def test_uris_retrieved_only_once():
     dead_reason_options_uri = f"{BASE_URL}/dead_reason_options.json"
 
     # fire_event.json references status_options.json
-    renderer.render(SAMPLE_SCHEMAS["fire_event.json"])
+    renderer.dereference_schema(SAMPLE_SCHEMAS["fire_event.json"])
     assert status_options_uri in call_counts, f"Expected fetch for {status_options_uri} was not made"
     assert call_counts[status_options_uri] == 1
 
     # animal_event.json references status_options.json, health_status_options.json and dead_reason_options.json
-    renderer.render(SAMPLE_SCHEMAS["animal_event.json"])
+    renderer.dereference_schema(SAMPLE_SCHEMAS["animal_event.json"])
     assert call_counts[status_options_uri] == 1  # Still 1, already cached
     assert call_counts[health_status_options_uri] == 1
     assert call_counts[dead_reason_options_uri] == 1
 
     # nested_references.json references status_options.json, fire_event.json and animal_event.json
-    renderer.render(SAMPLE_SCHEMAS["nested_references.json"])
+    renderer.dereference_schema(SAMPLE_SCHEMAS["nested_references.json"])
     assert call_counts[status_options_uri] == 1
     assert call_counts[health_status_options_uri] == 1
     assert call_counts[dead_reason_options_uri] == 1
@@ -460,7 +460,7 @@ def test_circular_reference():
     registry = Registry(retrieve=retriever)
     renderer = SchemaRenderer(registry)
 
-    output = renderer.render(schema_a)
+    output = renderer.dereference_schema(schema_a)
     # Typically you'd see partial expansion of B inside A, but then B points back to A =>
     # it remains a $ref to avoid infinite recursion or references the top-level ID.
     b_prop = output["properties"]["b_ref"]
@@ -493,7 +493,7 @@ def test_complex_circular_reference():
     registry = Registry(retrieve=retriever)
     renderer = SchemaRenderer(registry)
 
-    output = renderer.render(schema_a)
+    output = renderer.dereference_schema(schema_a)
 
     # Verify B was expanded
     b_prop = output["properties"]["b_ref"]
@@ -530,7 +530,7 @@ def test_self_reference():
     registry = Registry(retrieve=retriever)
     renderer = SchemaRenderer(registry)
 
-    output = renderer.render(self_schema)
+    output = renderer.dereference_schema(self_schema)
 
     # Verify the self-reference is maintained
     child_prop = output["properties"]["child"]
@@ -586,7 +586,7 @@ def test_nested_circular_references():
     registry = Registry(retrieve=retriever)
     renderer = SchemaRenderer(registry)
 
-    output = renderer.render(parent)
+    output = renderer.dereference_schema(parent)
 
     # Get the expanded child schemas
     child_a_prop = output["properties"]["child_a"]
@@ -669,7 +669,7 @@ def test_fragment_circular_reference():
     renderer = SchemaRenderer(registry)
 
     # Render FragmentA (the schema that contains the fragment reference)
-    output = renderer.render(fragment_a)
+    output = renderer.dereference_schema(fragment_a)
 
     # Verify that the fragment reference is bundled into the output's $defs
     assert "$defs" in output, "The rendered schema should include $defs for bundled fragments"
