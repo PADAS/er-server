@@ -45,47 +45,50 @@ class SchemaRenderer:
         self.active_uris = []
         self.root_uri = ""
 
-    def render(self, schema: Union[Resource, dict]) -> dict:
-        """Unified entry point for rendering a schema"""
-        try:
-            return self._render(schema)
-        except Exception as e:
-            logger.error("Schema rendering failed: %s", str(e), exc_info=True)
-            raise SchemaRenderingError(f"Failed to render schema: {e}") from e
-
-    def _render(self, schema: Union[Resource, dict]) -> dict:
-        """Sets up the resolver and initiates the recursive dereferencing."""
-
+    def dereference_schema(self, schema: Union[Resource, dict], base_uri: str = "") -> dict:
+        """Unified entry point for partial dereferencing of schemas"""
         if isinstance(schema, dict):
             schema = Resource.from_contents(contents=schema, default_specification=DRAFT202012)
 
         self.bundled_defs = {}
         self.resolver = self.get_root_resolver(schema)
-        self.root_uri = schema.id() or ""
-
-        # We'll track "currently visiting" URIs with a stack.
+        self.root_uri = schema.id() or base_uri
         self.active_uris = []
 
-        # Start dereferencing from the root
-        self.active_uris.append(self.root_uri)
-        full_schema = self.dereference(schema.contents, self.root_uri)
-        self.active_uris.pop()  # active_uris should be empty now...
+        try:
+            # Start dereferencing from the root
+            self.active_uris.append(self.root_uri)
+            full_schema = self.dereference(schema.contents, self.root_uri)
+            self.active_uris.pop()  # active_uris should be empty now...
 
-        # Add bundled definitions to the root schema
-        if self.bundled_defs:
-            full_schema.setdefault("$defs", {})
-            full_schema["$defs"].update(self.bundled_defs)
-        return full_schema
+            # Add bundled definitions to the root schema
+            if self.bundled_defs:
+                full_schema.setdefault("$defs", {})
+                full_schema["$defs"].update(self.bundled_defs)
+            return full_schema
+        except Exception as e:
+            logger.error("Schema dereferencing failed: %s", str(e), exc_info=True)
+            raise SchemaRenderingError(f"Failed to dereference schema: {e}") from e
 
     def dereference(self, value: Any, current_uri: str) -> Any:
         """
-        Recursively traverses the a schema and processes references.
+        Recursively processes the given schema value to handle JSON references and anchors.
+
+        This method traverses the schema value, processing any `$ref` and `$anchor` keywords found.
+
+        For dictionary values, it processes the dictionary and its sub-elements recursively.
+        For list values, it processes each element recursively.
+        For other types, it returns the value unchanged.
+
+        :param value: The schema value to process.
+        :param current_uri: The current base URI for resolving relative references.
+        :return: The processed schema value.
         """
         if isinstance(value, dict):
-            # Copy the dictionary to avoid mutating the original
+            # copy the dictionary to avoid mutating the original
             new_dict = {**value}
 
-            # If we're in a nested schema (not the root), remove root-level keys.
+            # if we're in a nested schema (not the root), remove root-level keys.
             if current_uri != self.root_uri and "$id" in new_dict:
                 new_dict.pop("$schema", None)
                 new_dict.pop("$id", None)
@@ -93,16 +96,17 @@ class SchemaRenderer:
                 new_dict.pop("$defs", None)
                 new_dict.pop("$definitions", None)
 
-            # Process references in the dictionary
+            # Process references and anchors
             dereferenced_dict = self.process_references(new_dict, current_uri)
             new_dict = self.process_anchors(new_dict, current_uri)
 
+            # Recursively process sub-elements, skipping $ref and $anchor at this level
             for k, v in new_dict.items():
                 if k in ("$ref", "$anchor"):
                     continue
                 new_dict[k] = self.dereference(v, current_uri)
 
-            # If we have a resolved reference, let's merge it with the current value
+            # if we have a resolved reference, let's merge it with the current value
             if dereferenced_dict:
                 new_dict = {**dereferenced_dict, **new_dict}
             return new_dict
@@ -112,23 +116,26 @@ class SchemaRenderer:
 
         return value
 
-    def process_references(self, node: dict, current_uri: str) -> dict:
+    def process_references(self, node: dict, current_uri: str) -> Union[dict, None]:
         """
-        Processes `$ref` and `$anchor` in a "schema node".
-        """
+        Processes references on the provided node if any.
 
+        :param node: The node to process, it will be modified in-place when it's about updating the reference.
+        :param current_uri: The current URI of the node (used to resolve local references).
+        :return: A dictionary that contains the resolved reference if it's resolvable, None otherwise.
+        """
         if "$ref" not in node:
-            return {}
+            return None
 
         ref_uri = node.pop("$ref")
         dereferenced_dict = {}
 
-        retrieve_ref_uri = ref_uri
+        full_ref_uri = ref_uri
         if ref_uri.startswith("#"):
             # it's a local fragment => build the full uri for the resolver to find it
-            retrieve_ref_uri = urljoin(current_uri, ref_uri)
+            full_ref_uri = urljoin(current_uri, ref_uri)
 
-        retrieve_uri, fragment = urldefrag(retrieve_ref_uri)
+        retrieve_uri, fragment = urldefrag(full_ref_uri)
         try:
             if fragment:
                 # it's something like ...#/someFragment
@@ -137,7 +144,7 @@ class SchemaRenderer:
                     node["$ref"] = ref_uri
                 elif fragment.startswith("/"):
                     # local reference in a nested schema => bundle it into $defs
-                    resolved = self.resolve(retrieve_ref_uri)
+                    resolved = self.resolve(full_ref_uri)
                     node["$ref"] = self.bundle_ref(retrieve_uri, fragment, resolved)
                 else:
                     # anchor reference in a nested schema => rename it (to avoid collisions)
@@ -165,6 +172,7 @@ class SchemaRenderer:
         return dereferenced_dict
 
     def process_anchors(self, node: dict, current_uri: str) -> dict:
+        """Processes anchors on the provided node if any."""
         if "$anchor" in node and current_uri != self.root_uri:
             # let's generate a collision free version
             node["$anchor"] = self.get_anchor_name(current_uri, node["$anchor"])
