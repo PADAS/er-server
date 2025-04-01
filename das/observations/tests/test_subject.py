@@ -30,6 +30,7 @@ from activity.tools.createevents import gen_random_point
 from client_http import HTTPClient
 from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest
+from factories import SubjectFactory
 from observations.admin import GPXAdmin
 from observations.models import (
     SEX_MALE,
@@ -1406,6 +1407,54 @@ class TestSubjectsViewFilter:
 
         assert len(response.data) == 5
         assert str(first_subject.id) in [item.get("id") for item in response.data]
+
+    def test_filter_by_subject_group_id_list(self, superuser_client):
+        two_subjects = SubjectFactory.create_batch(2)
+        last_subject = SubjectFactory.create()
+
+        sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
+        sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
+        sgrp1.subjects.add(two_subjects[0])
+        sgrp2.subjects.add(last_subject)
+
+        sgrp1.save()
+        sgrp2.save()
+
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(url)
+
+        # assert with no filter all subjects are returned
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 3
+
+        # assert only filtered subject by group id is present on response
+        res = superuser_client.get(f"{url}?subject_group_ids={sgrp1.id}")
+        assert len(res.json()["data"]) == 1
+        assert res.json()["data"][0]["id"] == str(two_subjects[0].id)
+
+    def test_filter_by_subject_subtypes_id_list(self, superuser_client):
+        two_subjects = SubjectFactory.create_batch(2)
+        last_subject = SubjectFactory.create()
+
+        sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
+        sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
+        sgrp1.subjects.add(two_subjects[0])
+        sgrp2.subjects.add(last_subject)
+
+        sgrp1.save()
+        sgrp2.save()
+
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(url)
+
+        # assert with no filter all subjects are returned
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 3
+
+        # assert only filtered subject by subtype id is present on response
+        res = superuser_client.get(f"{url}?subject_subtype_ids={last_subject.subject_subtype.id}")
+        assert len(res.json()["data"]) == 1
+        assert res.json()["data"][0]["id"] == str(last_subject.id)
 
 
 def random_date(start_date, end_date):
