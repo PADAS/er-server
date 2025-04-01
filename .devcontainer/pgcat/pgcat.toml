@@ -9,10 +9,9 @@
 # Configured pools
 # ----------------
 #
-# Currently, two pools are configured for different use cases:
+# Currently, one pool is configured:
 #
 # 1. `main`: Query routing of reads/writes + transaction pooling
-# 2. `proxy_primary`: Proxy to the primary db instance + session pooling
 #
 #
 # Deployed configurations
@@ -58,29 +57,5 @@ min_pool_size = 0
 servers = [
   ["postgis", 5432, "primary"],
   ["postgis-replica", 5432, "replica"]
-]
-database = "das"
-
-## pool: `proxy_primary`
-##
-## Description: Pool that just acts as a proxy for the primary DB instance with
-##              session mode.
-##
-[pools.proxy_primary]
-pool_mode = "session"
-default_role = "primary"
-query_parser_enabled = false
-query_parser_read_write_splitting = false
-primary_reads_enabled = true
-
-[pools.proxy_primary.users.0]
-username = "das"
-password = "das"
-pool_size = 100
-min_pool_size = 0
-
-[pools.proxy_primary.shards.0]
-servers = [
-  ["postgis", 5432, "primary"],
 ]
 database = "das"
