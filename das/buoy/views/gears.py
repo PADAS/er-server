@@ -5,7 +5,6 @@ from rest_framework.response import Response
 
 from buoy import serializers
 from buoy.views.helpers import (
-    check_to_include_inactive_buoys,
     check_valid_date_string,
     check_valid_state_string,
     filter_by_bbox,
@@ -60,7 +59,6 @@ class GearsView(generics.ListAPIView):
         queryset = SubjectSource.objects.all().select_related("source").select_related("subject")
 
         # need a stable sort for pagination.
-        queryset = check_to_include_inactive_buoys(self.request, queryset)
         queryset = queryset.order_by("id")
 
         updated_since = query_params.get("updated_since")
@@ -81,11 +79,8 @@ class GearsView(generics.ListAPIView):
         subjects_qs = Subject.objects.filter(subjectsource__in=queryset.filter(additional__event_type="gear_retrieved"))
         subjects_qs.update(is_active=False)
 
-        is_active_valid, is_active = check_valid_state_string(query_params.get("state"))
-        if is_active_valid and is_active:
-            queryset = queryset.filter(subject__is_active=True)
-        elif is_active_valid and not is_active:
-            queryset = queryset.filter(subject__is_active=False)
+        is_active = check_valid_state_string(query_params.get("state"))
+        queryset = queryset.filter(subject__is_active=is_active)
 
         lat = query_params.get("lat")
         lon = query_params.get("lon")
@@ -113,8 +108,7 @@ class GearsView(generics.ListAPIView):
         )
 
         # Filter queryset by removing subjects where the additional field is the same
-        queryset = queryset.order_by("subject__name")
-        queryset = queryset.order_by("additional").distinct("additional")
+        queryset = queryset.order_by("additional__display_id", "subject__name").distinct("additional__display_id")
 
         # Normal ListAPIView.list() code here
         page = self.paginate_queryset(queryset)

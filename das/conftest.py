@@ -430,7 +430,7 @@ def create_user(das_tenant):
 
 @pytest.fixture
 def superuser(create_user):
-    return create_user(is_superuser=True)
+    return create_user(is_superuser=True, is_staff=True)
 
 
 @pytest.fixture
