@@ -146,12 +146,15 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
         # Handle filters for subject ID, group, and source groups
         subject_ids = query_params.get("id")
         subject_group_id = query_params.get("subject_group")
+        subject_group_ids = query_params.get("subject_group_ids")
 
         if subject_ids:
             queryset = queryset.by_id(subject_ids)
         elif subject_group_id:
             subject_groups = SubjectGroup.objects.get_nested_groups(parent_id=subject_group_id)
             queryset = queryset.by_groups(subject_groups=subject_groups)
+        elif subject_group_ids:
+            queryset = queryset.filter(groups__id__in=subject_group_ids.split(","))
         else:
             # Fetch all the Subjects whose access is gained through Source Group
             # permissions.
@@ -231,6 +234,10 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
         if name:
             queryset = queryset.by_name_search(self.request.query_params.get("name"))
+
+        subtype_ids = query_params.get("subject_subtype_ids")
+        if subtype_ids:
+            queryset = queryset.filter(subject_subtype__id__in=subtype_ids.split(","))
 
         if (
             not name

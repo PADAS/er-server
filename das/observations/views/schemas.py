@@ -69,6 +69,18 @@ class SubjectsViewSchema(InactiveSubjectsViewSchema):
                     "description": "Indicate whether to render each subject's recent tracks.",
                 },
                 {"name": "id", "in": "query", "description": "A comma-delimited list of Subject IDs."},
+                {
+                    "name": "subject_group_ids",
+                    "in": "query",
+                    "description": "List of group ids comma-delimited for which Subjects should be listed.",
+                    "schema": {"type": "UUID"},
+                },
+                {
+                    "name": "subject_subtype_ids",
+                    "in": "query",
+                    "description": "List of subtype ids comma-delimited for which Subjects should be listed.",
+                    "schema": {"type": "UUID"},
+                },
             ]
 
             operation["parameters"].extend(query_params)
