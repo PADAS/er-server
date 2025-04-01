@@ -469,3 +469,22 @@ class TestGearsView:
         response = user_client.get(url)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_updating_inactive_subjects(self, buoy_client):
+        user_client, gear_subjectsource = buoy_client
+        # Set the subject to inactive
+        gear_subjectsource.subject.is_active = False
+        gear_subjectsource.subject.save()
+
+        # Call the GET request to the gear list view
+        # and trigger the update of inactive subjects
+        url = reverse(self.base_url) + "?lat=0&lon=0"
+        response = user_client.get(url)
+
+        # Since the last observation has a gear_deployed event,
+        # the subject should be marked as active
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 1
+        # Check if the subject is still inactive
+        gear_subjectsource.refresh_from_db()
+        assert gear_subjectsource.subject.is_active is True

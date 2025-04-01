@@ -5,7 +5,6 @@ from rest_framework.response import Response
 
 from buoy import serializers
 from buoy.views.helpers import (
-    check_to_include_inactive_buoys,
     check_valid_date_string,
     check_valid_state_string,
     filter_by_bbox,
