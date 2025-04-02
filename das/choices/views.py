@@ -4,6 +4,7 @@ from django.db import IntegrityError
 from django.db.models import Q
 from django.http import Http404
 from rest_framework import generics
+from rest_framework.filters import OrderingFilter
 from rest_framework.views import APIView
 
 from choices.filters import ChoicesFilter
@@ -41,15 +42,16 @@ class ChoicesViewSchema(CustomSchema):
 
 
 class ChoicesView(generics.ListCreateAPIView, DynamicSchemaDataMixin):
-    pagination_class = StandardResultsSetPagination
     permission_classes = (ChoiceModelPermissions,)
-    serializer_class = ChoiceSerializer
-    schema = ChoicesViewSchema()
+    filter_backends = [OrderingFilter, filters.DjangoFilterBackend]
     filterset_class = ChoicesFilter
-    filter_backends = [filters.DjangoFilterBackend]
+    pagination_class = StandardResultsSetPagination
+    serializer_class = ChoiceSerializer
+    ordering = ("ordernum", "display")
+    schema = ChoicesViewSchema()
 
     def get_queryset(self):
-        return Choice.objects.all().order_by("ordernum", "display")
+        return Choice.objects.all()
 
     def post(self, request, *args, **kwargs):
         try:
