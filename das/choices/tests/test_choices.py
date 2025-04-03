@@ -20,14 +20,33 @@ class ChoiceDetails(NamedTuple):
 
 
 @pytest.fixture
-def choices_fixture(db, django_user_model):
+@pytest.mark.usefixtures("db")
+def choices_fixture(django_user_model):
     Choice.objects.all().delete()
 
-    Choice.objects.create(
-        model="activity.eventtype", field="wildlifesighting_species", value="elephant", display="Elephant"
-    )
+    choices_data = [
+        {
+            "model": "activity.eventtype",
+            "field": "wildlifesighting_species",
+            "value": "elephant",
+            "display": "Elephant",
+        },
+        {"model": "activity.eventtype", "field": "wildlifesighting_species", "value": "rhino", "display": "Rhino"},
+        {
+            "model": "activity.eventtype",
+            "field": "wildlifesighting_reporter_type",
+            "value": "ranger",
+            "display": "Park Ranger",
+        },
+        {
+            "model": "activity.eventtype",
+            "field": "wildlifesighting_condition_status",
+            "value": "healthy",
+            "display": "Healthy",
+        },
+    ]
 
-    Choice.objects.create(model="activity.eventtype", field="wildlifesighting_species", value="rhino", display="Rhino")
+    Choice.objects.bulk_create([Choice(**data) for data in choices_data])
 
     user_const = dict(last_name="last", first_name="first")
     user = django_user_model.objects.create_user(
@@ -38,18 +57,18 @@ def choices_fixture(db, django_user_model):
 
 
 @pytest.mark.usefixtures("tenant_settings")
-def test_get_all_choices(choices_fixture, client):
-    choices, user = choices_fixture.choices, choices_fixture.user
+def test_get_all_choices(client, choices_fixture, five_choices):
+    _, user = choices_fixture.choices, choices_fixture.user
 
     client.force_login(user)
     url = reverse("choices")
     response = client.get(url)
     assert response.status_code == 200
-    assert len(response.data["results"]) == 2
+    assert len(response.data["results"]) == 9
 
 
 @pytest.mark.usefixtures("tenant_settings")
-def test_get_all_choices_filtering(choices_fixture, client, five_choices):
+def test_get_all_choices_filtering(client, choices_fixture, five_choices):
     choices, user = choices_fixture.choices, choices_fixture.user
 
     Choice.objects.filter(id=choices[0].id).update(is_active=False)
@@ -60,26 +79,26 @@ def test_get_all_choices_filtering(choices_fixture, client, five_choices):
     response = client.get(
         url,
         {
-            "fields": "wildlifesighting_species",
+            "field": "wildlifesighting_species",
             "model": "activity.eventtype",
             "include_inactive": True,
         },
     )
     assert response.status_code == 200
-    assert len(choices.all()) == 7
+    assert len(choices.all()) == 9
     assert len(response.data["results"]) == 2  # assert filtered items return one active and one inactive
 
     response = client.get(url, {"include_inactive": False})
     assert response.status_code == 200
-    assert len(response.data["results"]) == 5  # assert only active choices added vi five_choices
+    assert len(response.data["results"]) == 7  # assert only active choices added vi five_choices
 
     response = client.get(url)
     assert response.status_code == 200
-    assert len(response.data["results"]) == 5  # assert only active choices when include_inactive is not sent
+    assert len(response.data["results"]) == 7  # assert only active choices when include_inactive is not sent
 
 
 @pytest.mark.usefixtures("tenant_settings")
-def test_filter_by_field(choices_fixture, client, five_choices):
+def test_filter_by_field(client, choices_fixture, five_choices):
     _, user = choices_fixture.choices, choices_fixture.user
     client.force_login(user)
 
@@ -90,18 +109,18 @@ def test_filter_by_field(choices_fixture, client, five_choices):
 
 
 @pytest.mark.usefixtures("tenant_settings")
-def test_filter_by_model(choices_fixture, client, five_choices):
+def test_filter_by_model(client, choices_fixture, five_choices):
     _, user = choices_fixture.choices, choices_fixture.user
 
     client.force_login(user)
     url = reverse("choices")
     response = client.get(url, {"model": "activity.eventtype"})
     assert response.status_code == 200
-    assert len(response.data["results"]) == 2  # assert filtered items return choices added by choices_fixture
+    assert len(response.data["results"]) == 4  # assert filtered items return choices added by choices_fixture
 
 
 @pytest.mark.usefixtures("tenant_settings")
-def test_filter_by_model_and_field(choices_fixture, client, five_choices):
+def test_filter_by_model_and_field(client, choices_fixture, five_choices):
     _, user = choices_fixture.choices, choices_fixture.user
 
     client.force_login(user)
@@ -112,7 +131,7 @@ def test_filter_by_model_and_field(choices_fixture, client, five_choices):
 
 
 @pytest.mark.usefixtures("tenant_settings")
-def test_single_choice(choices_fixture, client):
+def test_single_choice(client, choices_fixture):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
 
@@ -124,7 +143,7 @@ def test_single_choice(choices_fixture, client):
 
 
 @pytest.mark.usefixtures("tenant_settings")
-def test_add_choice(choices_fixture, client):
+def test_add_choice(client, choices_fixture):
     _, user = choices_fixture.choices, choices_fixture.user
 
     client.force_login(user)
@@ -139,11 +158,11 @@ def test_add_choice(choices_fixture, client):
     response = client.post(url, data=data)
     qcount = Choice.objects.all().count()
     assert response.status_code == 201
-    assert qcount == 3
+    assert qcount == 5
 
 
 @pytest.mark.usefixtures("tenant_settings")
-def test_update_choice(choices_fixture, client):
+def test_update_choice(client, choices_fixture):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
 
@@ -155,7 +174,7 @@ def test_update_choice(choices_fixture, client):
 
 
 @pytest.mark.usefixtures("tenant_settings")
-def test_softdelete_choice(choices_fixture, client):
+def test_softdelete_choice(client, choices_fixture):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
 
@@ -178,7 +197,7 @@ class TestChoicesViews:
         api_path = f"choices/{choice.pk}/"
         assert is_url_resolved(api_path=api_path, view=ChoiceView)
 
-    def test_read_inactive_choice(self, choices_fixture, client):
+    def test_read_inactive_choice(self, client, choices_fixture):
         choices, user = choices_fixture.choices, choices_fixture.user
         inactive_choice = choices.filter(value="rhino").update(is_active=False)
 
