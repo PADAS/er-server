@@ -37,8 +37,8 @@ def choices_fixture(db, django_user_model):
     return ChoiceDetails(choices=Choice.objects.all(), user=user)
 
 
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_get_all_choices(choices_fixture, client, tenant_document_cache_client_mock):
+@pytest.mark.usefixtures("tenant_settings")
+def test_get_all_choices(choices_fixture, client):
     choices, user = choices_fixture.choices, choices_fixture.user
 
     client.force_login(user)
@@ -48,7 +48,7 @@ def test_get_all_choices(choices_fixture, client, tenant_document_cache_client_m
     assert len(response.data["results"]) == 2
 
 
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.usefixtures("tenant_settings")
 def test_get_all_choices_filtering(choices_fixture, client, five_choices):
     choices, user = choices_fixture.choices, choices_fixture.user
 
@@ -57,22 +57,62 @@ def test_get_all_choices_filtering(choices_fixture, client, five_choices):
 
     client.force_login(user)
     url = reverse("choices")
-    response = client.get(f"{url}?fields=wildlifesighting_species&model=activity.eventtype&include_inactive=true")
+    response = client.get(
+        url,
+        {
+            "fields": "wildlifesighting_species",
+            "model": "activity.eventtype",
+            "include_inactive": True,
+        },
+    )
     assert response.status_code == 200
     assert len(choices.all()) == 7
     assert len(response.data["results"]) == 2  # assert filtered items return one active and one inactive
 
     response = client.get(url, {"include_inactive": False})
     assert response.status_code == 200
-    assert len(response.data["results"]) == 5  # assert only active choices
+    assert len(response.data["results"]) == 5  # assert only active choices added vi five_choices
 
     response = client.get(url)
     assert response.status_code == 200
     assert len(response.data["results"]) == 5  # assert only active choices when include_inactive is not sent
 
 
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_single_choice(choices_fixture, client, tenant_document_cache_client_mock):
+@pytest.mark.usefixtures("tenant_settings")
+def test_filter_by_field(choices_fixture, client, five_choices):
+    _, user = choices_fixture.choices, choices_fixture.user
+    client.force_login(user)
+
+    url = reverse("choices")
+    response = client.get(url, {"field": "wildlifesighting_species"})
+    assert response.status_code == 200
+    assert len(response.data["results"]) == 2  # assert filtered items return choices added by choices_fixture
+
+
+@pytest.mark.usefixtures("tenant_settings")
+def test_filter_by_model(choices_fixture, client, five_choices):
+    _, user = choices_fixture.choices, choices_fixture.user
+
+    client.force_login(user)
+    url = reverse("choices")
+    response = client.get(url, {"model": "activity.eventtype"})
+    assert response.status_code == 200
+    assert len(response.data["results"]) == 2  # assert filtered items return choices added by choices_fixture
+
+
+@pytest.mark.usefixtures("tenant_settings")
+def test_filter_by_model_and_field(choices_fixture, client, five_choices):
+    _, user = choices_fixture.choices, choices_fixture.user
+
+    client.force_login(user)
+    url = reverse("choices")
+    response = client.get(url, {"model": "activity.eventtype", "field": "wildlifesighting_species"})
+    assert response.status_code == 200
+    assert len(response.data["results"]) == 2  # assert filtered items return choices added by choices_fixture
+
+
+@pytest.mark.usefixtures("tenant_settings")
+def test_single_choice(choices_fixture, client):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
 
@@ -83,9 +123,9 @@ def test_single_choice(choices_fixture, client, tenant_document_cache_client_moc
     assert response.data.get("id") == choice_id
 
 
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_add_choice(choices_fixture, client, tenant_document_cache_client_mock):
-    choices, user = choices_fixture.choices, choices_fixture.user
+@pytest.mark.usefixtures("tenant_settings")
+def test_add_choice(choices_fixture, client):
+    _, user = choices_fixture.choices, choices_fixture.user
 
     client.force_login(user)
     url = reverse("choices")
@@ -102,8 +142,8 @@ def test_add_choice(choices_fixture, client, tenant_document_cache_client_mock):
     assert qcount == 3
 
 
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_update_choice(choices_fixture, client, tenant_document_cache_client_mock):
+@pytest.mark.usefixtures("tenant_settings")
+def test_update_choice(choices_fixture, client):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
 
@@ -114,8 +154,8 @@ def test_update_choice(choices_fixture, client, tenant_document_cache_client_moc
     assert response.status_code == 200
 
 
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_softdelete_choice(choices_fixture, client, tenant_document_cache_client_mock):
+@pytest.mark.usefixtures("tenant_settings")
+def test_softdelete_choice(choices_fixture, client):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
 
@@ -132,13 +172,13 @@ def test_softdelete_choice(choices_fixture, client, tenant_document_cache_client
 
 
 @pytest.mark.django_db()
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.usefixtures("tenant_settings")
 class TestChoicesViews:
     def test_url_resolving(self, choice):
         api_path = f"choices/{choice.pk}/"
         assert is_url_resolved(api_path=api_path, view=ChoiceView)
 
-    def test_read_inactive_choice(self, choices_fixture, client, tenant_document_cache_client_mock):
+    def test_read_inactive_choice(self, choices_fixture, client):
         choices, user = choices_fixture.choices, choices_fixture.user
         inactive_choice = choices.filter(value="rhino").update(is_active=False)
 
