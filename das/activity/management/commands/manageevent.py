@@ -261,6 +261,9 @@ class Command(TenantCommandMixin, BaseCommand):
                     )
                 except JSONDecodeError as ex:
                     logger.warning("Issue rendering schema for event type %s: %s", event_type.value, ex)
+                except Exception:
+                    logger.exception("Error processing event type: %s", event_type.value)
+                    raise
 
             records.append(record)
         return records

@@ -1,10 +1,9 @@
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytz
 import yaml
 from django_multitenant.utils import set_current_tenant
 
@@ -218,7 +217,6 @@ class TestProximityAnalyzer(TestCase):
 
         # Iterate through the observations adding another point to the
         # trajectory on each loop
-        from observations.models import Observation
 
         analyzer.analyze(observations=Observation.objects.filter(source=source))
 
@@ -261,7 +259,7 @@ class TestProximityAnalyzer(TestCase):
         sg2.subjects.add(subject_hari)
         sg2.save()
 
-        recorded_at = pytz.utc.localize(datetime.now())
+        recorded_at = datetime.now(tz=timezone.utc)
 
         coordinates = [
             [[-122.22081899642944, 47.409590070615295], [-122.22041130065918, 47.41009832201713]],
@@ -437,3 +435,74 @@ class TestFeatureProximityAnalyzerQuietPeriod:
         assert f"Pausing analyzer with id={feature_proximity_analyzer_config.id}" in caplog.text
         assert f"The analyzer {feature_proximity_analyzer_config.id} is quiet for a while" in caplog.text
         assert Event.objects.all().count() == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestProximityAnalyzerConfig:
+    def test_subjects_from_nested_subject_groups_are_included(
+        self, subject_group_tree, subject_group_empty, five_subjects
+    ):
+        dist_meters_threshold = 500
+        subject = five_subjects[0]
+        subject_second = five_subjects[1]
+
+        subject_group_empty.subjects.add(subject)
+        subject_group_tree.children.first().subjects.add(subject_second)
+
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id=subject.subject_subtype.value, speed_KmHr=8.0)
+        if subject_second.subject_subtype != subject.subject_subtype:
+            SubjectTrackSegmentFilter.objects.create(
+                subject_subtype_id=subject_second.subject_subtype.value, speed_KmHr=8.0
+            )
+
+        # Create mock observations for both subjects
+        source = Source.objects.create(manufacturer_id="TEST001")
+        source2 = Source.objects.create(manufacturer_id="TEST002")
+        SubjectSource.objects.create(subject=subject, source=source)
+        SubjectSource.objects.create(subject=subject_second, source=source2)
+
+        # Create test observations that are within proximity
+        recorded_at = timezone.now()
+
+        # Base coordinates
+        base_lat = 9.878768920898438
+        base_lon = 3.5069101510333525
+
+        # Create 5 observations for each source, slightly offset but within 500m
+        offsets = [
+            (0, 0),  # base point
+            (0.001, 0.001),  # ~156m diagonal
+            (-0.001, 0.001),  # ~156m diagonal
+            (0.002, -0.001),  # ~335m diagonal
+            (-0.002, 0.002),  # ~400m diagonal
+        ]
+
+        for offset_lon, offset_lat in offsets:
+            # Create observation for first source
+            models.Observation.objects.create(
+                recorded_at=recorded_at, location=Point(base_lon + offset_lon, base_lat + offset_lat), source=source
+            )
+            # Create observation for second source
+            models.Observation.objects.create(
+                recorded_at=recorded_at, location=Point(base_lon + offset_lon, base_lat + offset_lat), source=source2
+            )
+            # Increment time by 1 minute for next observation
+            recorded_at = recorded_at + timedelta(minutes=1)
+
+        config = SubjectProximityAnalyzerConfig.objects.create(
+            subject_group=subject_group_empty,
+            second_subject_group=subject_group_tree,
+            threshold_dist_meters=dist_meters_threshold,
+            proximity_time=2,  # this in hours
+        )
+
+        # Create and run the analyzer
+        analyzer = SubjectProximityAnalyzer(config=config, subject=subject)
+        analyzer.analyze(observations=Observation.objects.filter(source=source))
+
+        results = SubjectAnalyzerResult.objects.filter(subject=subject)
+        assert results.count() > 0
+        for result in results:
+            logger.info(f"Proximity Result: {result}")
+            assert result.values.get("proximity_dist_meters") < dist_meters_threshold
