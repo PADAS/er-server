@@ -11,7 +11,8 @@ notify_medium_priority_event = getattr(settings, "NOTIFY_MEDIUM_PRIORITY_EVENT",
 notify_low_priority_event = getattr(settings, "NOTIFY_LOW_PRIORITY_EVENT", None)
 
 
-ALERT_RULES_PERMISSIONSET_ID = "8a7e0e95-74f5-4012-aaa4-5fd7158a2cdb"
+DEFAULT_ALERT_RULES_PERMISSIONSET_ID = "8a7e0e95-74f5-4012-aaa4-5fd7158a2cdb"
+MIN_ALERT_PERMISSION_REQUIRED = "activity.view_alertrule"
 
 
 def create_alerts_permissionset(tenant=None):
@@ -32,14 +33,14 @@ def create_alerts_permissionset(tenant=None):
 
         defaults = {"name": "Alert Rule Permissions"}
         permission_set, _ = PermissionSet.objects.get_or_create(
-            id=ALERT_RULES_PERMISSIONSET_ID,
+            id=DEFAULT_ALERT_RULES_PERMISSIONSET_ID,
             defaults=defaults,
             das_tenant=tenant,
         )
     except IntegrityError:
         defaults = {"name": "Alert Rule Permissionss"}
         permission_set, _ = PermissionSet.objects.get_or_create(
-            id=ALERT_RULES_PERMISSIONSET_ID,
+            id=DEFAULT_ALERT_RULES_PERMISSIONSET_ID,
             defaults=defaults,
             das_tenant=tenant,
         )
@@ -57,7 +58,7 @@ def has_alerts_permissionset(user):
     """
     if user.is_anonymous:
         return False
-    return user.is_superuser or user.permission_sets.filter(id=ALERT_RULES_PERMISSIONSET_ID).exists()
+    return user.is_superuser or user.has_perm(MIN_ALERT_PERMISSION_REQUIRED)
 
 
 def has_patrol_view_permission(user):

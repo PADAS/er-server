@@ -47,7 +47,7 @@ class GroupPermissionsFilter(BaseFilterBackend):
             result = self.first_descendant_with_permission(user, self.perms, group, is_visible, include_hidden)
             if result:
                 root_ids = root_ids.union(result)
-        return queryset.model.objects.filter(id__in=list(root_ids))
+        return queryset.filter(id__in=list(root_ids))
 
     def first_descendant_with_permission(self, user, perms, group, view_visible, include_hidden):
         ids = set()

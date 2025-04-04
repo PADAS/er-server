@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from analyzers import gfw_inbound
 from observations import servicesutils
 from observations.models import (
+    LatestObservationSource,
     Observation,
     Source,
     Subject,
@@ -190,6 +191,21 @@ class GenericSensorHandler:
             subject=subject_info,
             **source_info,
         )
+
+        if subject_subtype == "ropeless_buoy_device":
+            subject = src.assigned_subject
+            subject_is_active = additional.get("subject_is_active")
+            latest_observation = LatestObservationSource.objects.filter(source=src).first()
+            recorded_at = an_observation.get("recorded_at")
+
+            if (
+                subject
+                and subject_is_active is not None
+                and (not latest_observation or recorded_at > latest_observation.recorded_at)
+            ):
+                subject.is_active = subject_is_active
+                subject.save(update_fields=["is_active"])
+
         recorded_at = an_observation.get("recorded_at")
         event_action = an_observation.get("additional", {}).get("event_action", cls.DEFAULT_EVENT_ACTION)
         observation = {

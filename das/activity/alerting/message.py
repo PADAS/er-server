@@ -153,17 +153,17 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
 
     elif notification_method.method.lower() == NOTIFICATION_METHOD_WHATSAPP:
         logger.debug(f"Sending whatsapp alert {event_id} to {notification_method.value}")
-        whatsapp_body = render_to_string("eventalert.whatsapp", report_context)
+        whatsapp_content = render_to_whatsapp_content(report_context)
 
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"Sending sms body: {whatsapp_body}")
+            logger.debug(f"Sending whatsapp content: {whatsapp_content}")
 
         to_number = (
             "+" + notification_method.value
             if not notification_method.value.startswith("+")
             else notification_method.value
         )
-        send_whatsapp(body=whatsapp_body, to=to_number)
+        send_whatsapp(to=to_number, content_variables=whatsapp_content)
         logger.info(f"Sent alert {event_id} to {notification_method.value}")
 
         EventNotification.objects.create(
@@ -394,6 +394,20 @@ def render_event_alert_context(
     }
 
     return report_context
+
+
+def render_to_whatsapp_content(report_context):
+    location = report_context["event"]["location"]
+    event = report_context["event"]
+    alert = report_context["alert"]
+    return {
+        "1": f'{event["serial_number"]["value"]}: {event["title"]["value"]}',
+        "2": event["priority"]["value"],
+        "3": event["state"]["value"],
+        "4": timezone.localtime(alert["time"]["value"]).strftime("%A %b %d, %Y %H:%M (%Z)"),
+        "5": location["value"] if not location.get("longitude") else f'{location["value"]} {location["href"]}',
+        "6": report_context["site_url"],
+    }
 
 
 def get_event_url(tenant_settings, event):

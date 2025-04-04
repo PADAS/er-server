@@ -1,16 +1,20 @@
+from django_filters import rest_framework as filters
+
 from django.db import IntegrityError
 from django.db.models import Q
 from django.http import Http404
 from rest_framework import generics
+from rest_framework.filters import OrderingFilter
 from rest_framework.views import APIView
 
+from choices.filters import ChoicesFilter
 from choices.models import Choice
 from choices.permissions import ChoiceModelPermissions
 from choices.serializers import ChoiceIconZipSerializer, ChoiceSerializer
 from das_server.views import CustomSchema
+from schemas.view_mixins import DynamicSchemaDataMixin
 from utils.drf import StandardResultsSetPagination, return_409_response
 from utils.helpers import FileCompression
-from utils.json import parse_bool
 
 
 class ChoiceZipIcon(APIView):
@@ -37,24 +41,17 @@ class ChoicesViewSchema(CustomSchema):
         return operation
 
 
-class ChoicesView(generics.ListCreateAPIView):
-    pagination_class = StandardResultsSetPagination
+class ChoicesView(generics.ListCreateAPIView, DynamicSchemaDataMixin):
     permission_classes = (ChoiceModelPermissions,)
+    filter_backends = [OrderingFilter, filters.DjangoFilterBackend]
+    filterset_class = ChoicesFilter
+    pagination_class = StandardResultsSetPagination
     serializer_class = ChoiceSerializer
+    ordering = ("ordernum", "display")
     schema = ChoicesViewSchema()
 
     def get_queryset(self):
-        qparam = self.request.query_params
-
-        if parse_bool(qparam.get("include_inactive")):
-            queryset = Choice.objects.all()
-        else:
-            queryset = Choice.objects.filter_active_choices()
-
-        queryset = queryset.filter(model=qparam.get("model")) if qparam.get("model") else queryset
-        queryset = queryset.filter(field=qparam.get("field")) if qparam.get("field") else queryset
-
-        return queryset.order_by("ordernum", "display")
+        return Choice.objects.all()
 
     def post(self, request, *args, **kwargs):
         try:

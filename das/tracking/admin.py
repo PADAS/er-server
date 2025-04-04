@@ -3,8 +3,6 @@ import logging
 import sys
 from functools import partial
 
-from core.admin import BaseModelAdminMixin
-
 import django
 from django.apps import apps
 from django.contrib import messages
@@ -17,6 +15,7 @@ from django.utils.translation import gettext_lazy as _
 
 import observations.models
 import tracking.models as models
+from core.admin import BaseModelAdminMixin
 from observations.admin import ModelFormSet
 from tracking.forms import SourcePluginForm
 
@@ -101,7 +100,11 @@ class SourcePluginAdmin(BaseModelAdminMixin):
     _source_manufacturer_id.short_description = _("Source Manufacturer ID")
 
     def _plugin_name(self, o):
-        return o.plugin.name
+        if o.plugin and hasattr(o.plugin, "name"):
+            return o.plugin.name
+        plugin_id = str(o.plugin_id) if o.plugin_id is not None else "None"
+        plugin_type_id = str(o.plugin_type_id) if o.plugin_type_id is not None else "None"
+        return f"Error: Plugin not properly configured (plugin_id: {plugin_id}, plugin_type_id: {plugin_type_id})"
 
     _plugin_name.short_description = _("Plugin Configuration")
 
@@ -274,7 +277,7 @@ class SourceProviderConfigurationAdmin(BaseModelAdminMixin):
     def changelist_view(self, request, extra_context=None):
         url_path = request.get_full_path()
         try:
-            response = super(SourceProviderConfigurationAdmin, self).changelist_view(request, extra_context)
+            response = super().changelist_view(request, extra_context)
             return response
         except IntegrityError:
             msg = _("Warning: A default configuration has already been set.")
@@ -295,4 +298,4 @@ class SourceProviderConfigurationAdmin(BaseModelAdminMixin):
                 fields=self.list_editable,
                 **defaults,
             )
-        return super(SourceProviderConfigurationAdmin, self).get_changelist_formset(request, **kwargs)
+        return super().get_changelist_formset(request, **kwargs)

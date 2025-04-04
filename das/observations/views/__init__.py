@@ -29,6 +29,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.permissions import UserCanExportDataPermission
+from core.view_utils import AsyncDeleteObjectMixin
 from das_server import celery
 from das_server.views import CustomSchema
 from observations import kmlutils
@@ -420,7 +421,7 @@ class ObservationView(generics.RetrieveUpdateDestroyAPIView):
         return queryset
 
 
-class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
+class SourceView(AsyncDeleteObjectMixin, generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
     lookup_fields = ("id", "manufacturer_id")
     serializer_class = SourceSerializer
 

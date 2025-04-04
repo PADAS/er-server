@@ -32,13 +32,14 @@ spec:
           items:
             - key: telegraf_conf
               path: telegraf.conf
+      terminationGracePeriodSeconds: 100 # Gunicorn timeout (60) + graceful-timeout (40) buffer.
       containers:
       - image:  "${SERVER_VERSION}"
         name: das-api
         resources:
           requests:
-            cpu: "200m"
-            memory: "373Mi"
+            cpu: "400m"
+            memory: "1Gi"
         ports:
           - containerPort: 8000
         readinessProbe:
@@ -48,10 +49,10 @@ spec:
               value: '${FQDN}'
             path: '/api/v1.0/status'
             port: 8000
-          initialDelaySeconds: 15
-          timeoutSeconds: 10
-          periodSeconds: 5
-          failureThreshold: 3
+          initialDelaySeconds: 20
+          timeoutSeconds: 30
+          periodSeconds: 10
+          failureThreshold: 5
           successThreshold: 1
         livenessProbe:
           httpGet:
@@ -60,10 +61,10 @@ spec:
               value: '${FQDN}'
             path: '/api/v1.0/status?db_connections=true'
             port: 8000
-          initialDelaySeconds: 10
-          timeoutSeconds: 10
-          periodSeconds: 20
-          failureThreshold: 3
+          initialDelaySeconds: 20
+          timeoutSeconds: 30
+          periodSeconds: 10
+          failureThreshold: 5
           successThreshold: 1
         startupProbe:
           httpGet:

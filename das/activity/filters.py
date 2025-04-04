@@ -18,26 +18,10 @@ from utils.categories import (
     get_categories_and_geo_categories,
     make_eventcategory_permission_codename,
 )
+from utils.drf_filters import RestrictToTrueByDefaultFilter
 from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
-
-
-class ActiveByDefaultBooleanFilter(filters.BooleanFilter):
-    """
-    Custom BooleanFilter which defaults to returning only `is_active=True` records.
-    """
-
-    def filter(self, qs, value):
-        # If `value` is None, it means the parameter is missing,
-        # so default to only active records.
-        if value is None:
-            return qs.filter(is_active=True)
-
-        # If a value *is* provided, treat it as a boolean:
-        # True  -> return all records
-        # False -> return only active
-        return qs if value else qs.filter(is_active=True)
 
 
 class EventTypeFilter(filters.FilterSet):
@@ -49,7 +33,7 @@ class EventTypeFilter(filters.FilterSet):
     updated_since = filters.DateTimeFilter(field_name="updated_at", lookup_expr="gte")
     is_collection = filters.BooleanFilter(field_name="is_collection")
     category = filters.CharFilter(field_name="category__value", lookup_expr="exact")
-    include_inactive = ActiveByDefaultBooleanFilter()
+    include_inactive = RestrictToTrueByDefaultFilter(field_name="is_active")
 
     class Meta:
         model = EventType
