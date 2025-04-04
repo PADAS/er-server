@@ -20,6 +20,7 @@ from accounts.utils import permission_get_by_natural_key
 from activity.alerting.message import (
     coerce_state_value,
     render_event_alert_context,
+    render_to_whatsapp_content,
     send_event_alert,
 )
 from activity.alerting.rate_limit import (
@@ -217,6 +218,24 @@ class TestAlerts(BaseAPITest):
             self.alert_rule, event, self.notification_method, event_updated_fields={}, event_details_updated_fields={}
         )
         self.assertTrue("lnglat" in report_context.get("site_url"))
+
+    def test_whatsapp_render_contains_alert_url_and_location(self):
+        event = Event.objects.create(title="test event", event_type=self.event_type, created_by_user=self.owner)
+        EventDetails.objects.create(event=event, data={"event_details": {"sex": "Female"}})
+        report_context = render_event_alert_context(
+            self.alert_rule, event, self.notification_method, event_updated_fields={}, event_details_updated_fields={}
+        )
+        whatsapp_content = render_to_whatsapp_content(report_context)
+        assert whatsapp_content["6"].endswith(f"/events/{event.id}")
+        assert "lnglat" not in whatsapp_content["6"]
+
+        event.location = Point(-103.313486, 20.420935)
+        event.save()
+        report_context = render_event_alert_context(
+            self.alert_rule, event, self.notification_method, event_updated_fields={}, event_details_updated_fields={}
+        )
+        whatsapp_content = render_to_whatsapp_content(report_context)
+        assert "lnglat" in whatsapp_content["6"]
 
     def test_only_sending_notifications_when_the_condition_value_changes(self):
         with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
