@@ -91,17 +91,35 @@ class GenericSensorHandlerTest(BaseAPITest):
             "devices": [
                 {
                     "label": "a",
-                    "location": {
-                        "latitude": "-24.43071",
-                        "longitude": "31.19239"
-                    },
+                    "location": {"latitude": "-24.43071", "longitude": "31.19239"},
                     "device_id": "test_device_id",
-                    "last_updated": "2024-10-16 11:08:17-08:00"
+                    "last_updated": "2024-10-16 11:08:17-08:00",
                 }
             ],
             "display_id": "test_display_id",
             "radio_state": "online-gps",
-            "event_type": "gear_deployed"
+            "event_type": "gear_deployed",
+        },
+    }
+    ropeless_buoy_observation_2 = {
+        "subject_name": "test_subject_2",
+        "subject_subtype": "ropeless_buoy_device",
+        "manufacturer_id": "test_mfg_id",
+        "recorded_at": "2020-03-07T16:28:38+00:00",
+        "location": {"lon": "31.19239", "lat": "-24.43071"},
+        "additional": {
+            "subject_is_active": True,
+            "devices": [
+                {
+                    "label": "a",
+                    "location": {"latitude": "-24.43071", "longitude": "31.19239"},
+                    "device_id": "test_device_id",
+                    "last_updated": "2024-10-16 11:08:17-08:00",
+                }
+            ],
+            "display_id": "test_display_id",
+            "radio_state": "online-gps",
+            "event_type": "gear_deployed",
         },
     }
 
@@ -430,6 +448,33 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(1, Observation.objects.filter(source=new_source).count())
         self.assertIsNotNone(SubjectSubType.objects.get(value=self.ropeless_buoy_observation["subject_subtype"]))
+
+    def test_ropeless_buoy_device_subtype_update_subject_is_active(self):
+        # Creating the subject with is_active = True
+        payload = copy.deepcopy(self.ropeless_buoy_observation_2)
+        self._post_data(json.dumps(payload))
+        subject = Subject.objects.get(name=payload["subject_name"])
+
+        # Assert that the subject is created with is_active = True
+        self.assertEqual(subject.is_active, True)
+
+        # Updating the subject with is_active = False using a newer observation
+        payload["additional"]["subject_is_active"] = False
+        payload["additional"]["event_type"] = "gear_retrieved"
+        payload["recorded_at"] = "2024-10-16T11:08:17-08:00"
+        self._post_data(json.dumps(payload))
+        subject.refresh_from_db()
+
+        self.assertEqual(subject.is_active, False)
+
+        # Sending an observation with previous recorded_at and asserting that the subject is still inactive
+        payload["additional"]["subject_is_active"] = True
+        payload["additional"]["event_type"] = "gear_deployed"
+        payload["recorded_at"] = "2024-10-16T11:08:17-08:00"
+        self._post_data(json.dumps(payload))
+        subject.refresh_from_db()
+
+        self.assertEqual(subject.is_active, False)
 
     @mock.patch("utils.tenant.thread._get_local_thread")
     def test_request_with_varying_provider_key_lengths(self, get_main_thread):
