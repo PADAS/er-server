@@ -1,4 +1,5 @@
 from accounts.views import UsersView
+from choices.views import ChoicesView
 from observations.views import SubjectsView
 from schemas.view_mixins import DynamicSchemaFromSourceView
 
@@ -18,3 +19,14 @@ class SubjectsDynamicSchemaView(DynamicSchemaFromSourceView):
     schema_title = "Subjects"
     schema_description = "Subjects list"
     default_title_field = "name"
+
+
+class ChoicesDynamicSchemaView(DynamicSchemaFromSourceView):
+    source_view = ChoicesView
+    schema_title = "Choices"
+    schema_description = "All choices schema list"
+    default_title_field = "display"
+    default_description_field = "model"
+    default_x_fields = {"field": "field", "ordernum": "ordernum", "icon": "icon", "value": "value"}
+    default_const_field = "id"
+    default_const_value = "id"
