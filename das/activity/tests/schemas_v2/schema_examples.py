@@ -1,5 +1,6 @@
 BASE_URL = "https://example.com/schemas/event_types"
 
+# Hypothetical schemas to test the rendering, without being actual event-type schemas
 SAMPLE_SCHEMAS = {
     "sample_event_type.json": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
