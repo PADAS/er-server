@@ -387,6 +387,18 @@ class Source(TenantModelMixin, TimestampedModel):
 
         return subject_source.subject if subject_source else None
 
+    @cached_property
+    def assigned_subject(self):
+        """Get the subject associated with this source regardless of active status"""
+        subject_source = (
+            SubjectSource.objects.select_related("subject")
+            .filter(source_id=self.pk, assigned_range__contains=datetime.now(tz=timezone.utc))
+            .order_by("-assigned_range")
+            .first()
+        )
+
+        return subject_source.subject if subject_source else None
+
 
 EMPTY_POINT = Point(0, 0)
 
