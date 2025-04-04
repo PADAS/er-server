@@ -38,7 +38,7 @@ spec:
         name: das-api
         resources:
           requests:
-            cpu: "300m"
+            cpu: "400m"
             memory: "1Gi"
         ports:
           - containerPort: 8000
@@ -49,10 +49,10 @@ spec:
               value: '${FQDN}'
             path: '/api/v1.0/status'
             port: 8000
-          initialDelaySeconds: 15
-          timeoutSeconds: 10
-          periodSeconds: 15
-          failureThreshold: 3
+          initialDelaySeconds: 20
+          timeoutSeconds: 30
+          periodSeconds: 10
+          failureThreshold: 5
           successThreshold: 1
         livenessProbe:
           httpGet:
@@ -61,10 +61,10 @@ spec:
               value: '${FQDN}'
             path: '/api/v1.0/status?db_connections=true'
             port: 8000
-          initialDelaySeconds: 30
-          timeoutSeconds: 10
-          periodSeconds: 20
-          failureThreshold: 3
+          initialDelaySeconds: 20
+          timeoutSeconds: 30
+          periodSeconds: 10
+          failureThreshold: 5
           successThreshold: 1
         startupProbe:
           httpGet:
