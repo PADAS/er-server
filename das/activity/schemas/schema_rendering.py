@@ -187,10 +187,10 @@ class SchemaRenderer:
         local_uri = fragment_uri.lstrip("#/")
 
         # e.g. remove the $defs key
-        local_uri_bits = local_uri.split("/")
-        if len(local_uri_bits) > 1:
-            local_uri_bits.pop(0)
-        local_uri = "-".join(local_uri_bits)
+        local_uri_parts = local_uri.split("/")
+        if len(local_uri_parts) > 1:
+            local_uri_parts.pop(0)
+        local_uri = "-".join(local_uri_parts)
 
         if hash_uri not in self.bundled_defs:
             self.bundled_defs[hash_uri] = {}

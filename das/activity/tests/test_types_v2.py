@@ -264,6 +264,19 @@ class TestEventTypesV2:
         assert et_serializer.get_has_events_assigned(et_with_events) is True
         assert warning_msg in caplog.text
 
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestEventTypesV2Schemas:
+    """
+    Tests for the EventTypesViewSet schemas.
+
+    Tests:
+
+    - Test that the list of event type schemas is returned successfully
+    - Test that the schema of an event type is returned successfully
+    """
+
     def test_get_event_type_schemas(self, superuser_client, cat1_cat2_event_types):
         url = reverse("v2-eventtype-list-schemas")
         response = superuser_client.get(url)
@@ -275,13 +288,30 @@ class TestEventTypesV2:
         active_event_types = {et.value for et in cat1_cat2_event_types if et.is_active}
         assert active_event_types == {i["value"] for i in response.data["results"]}
 
+    def test_gracefully_fail_when_no_schema(self, superuser_client, cat1_cat2_event_types):
+        url = reverse("v2-eventtype-list-schemas")
+        target = cat1_cat2_event_types[0]
+        target.schema = ""
+        target.save()
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_207_MULTI_STATUS
+
+        target.schema = json.dumps({"ui": {}})
+        target.save()
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_207_MULTI_STATUS
+
+        target.schema = json.dumps({"json": {}, "ui": {}})
+        target.save()
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+
     def test_get_event_type_schema(self, superuser_client, cat1_cat2_event_types):
         target = cat1_cat2_event_types[0]
         url = reverse("v2-eventtype-retrieve-schema", kwargs={"eventtype_value": target.value})
         response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
-        # FUTURE: assert response.data == render_schema(target.schema, user=superuser_client.user)
 
     def test_get_event_type_schema_with_dynamic_reference(self, superuser_client, cat1_cat2_event_types):
         """Test rendering a schema that references a dynamic schema endpoint"""
@@ -301,15 +331,33 @@ class TestEventTypesV2:
         target.save()
 
         url = reverse("v2-eventtype-retrieve-schema", kwargs={"eventtype_value": target.value})
-        response = superuser_client.get(url, {"pre_render": "true"})
-
+        # Test with pre_render=True
+        response = superuser_client.get(url, {"pre_render": True})
         assert response.status_code == status.HTTP_200_OK
         assert "json" in response.data
         rendered_schema = response.data["json"]
         assert "properties" in rendered_schema
         assert "subject" in rendered_schema["properties"]
-        # The subject property should now be fully resolved with the actual schema
         assert "$ref" not in rendered_schema["properties"]["subject"]
+        assert "oneOf" in rendered_schema["properties"]["subject"]
+
+        # Test with pre_render=False
+        response = superuser_client.get(url, {"pre_render": False})
+        assert response.status_code == status.HTTP_200_OK
+        assert "json" in response.data
+        rendered_schema = response.data["json"]
+        assert "properties" in rendered_schema
+        assert "$ref" in rendered_schema["properties"]["subject"]
+        assert "oneOf" not in rendered_schema["properties"]["subject"]
+
+        # Test with pre_render=None (default)
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert "json" in response.data
+        rendered_schema = response.data["json"]
+        assert "properties" in rendered_schema
+        assert "$ref" in rendered_schema["properties"]["subject"]
+        assert "oneOf" not in rendered_schema["properties"]["subject"]
 
 
 @pytest.mark.django_db

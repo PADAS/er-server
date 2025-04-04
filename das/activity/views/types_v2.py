@@ -47,7 +47,7 @@ class RenderErrors(StrEnum):
 def parse_and_render_schema(event_type: EventType, schema_renderer: Optional[SchemaRenderer]) -> Tuple[bool, dict]:
     """
     Attempts to parse the raw event_type.schema as JSON, check if 'json' key is present,
-    and optionally pre-render using the renderer.
+    and de-reference using schema_renderer if provided.
 
     :return: (success, data) where
             success = True => data is the fully prepared schema
@@ -181,8 +181,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         """
         queryset = self.filter_queryset(self.get_queryset())
         schema_renderer = None
-        pre_render = parse_bool(request.query_params.get("pre_render", False))
-        if pre_render:
+        if parse_bool(request.query_params.get("pre_render", False)):
             schema_renderer = self.get_schema_renderer(request)
 
         results = []
@@ -223,12 +222,10 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         """
         event_type = self.get_object()
         schema_renderer = None
-        pre_render = request.query_params.get("pre_render", False)
-        if pre_render:
+        if parse_bool(request.query_params.get("pre_render", False)):
             schema_renderer = self.get_schema_renderer(request)
 
-        success, data_or_error = parse_and_render_schema(event_type, schema_renderer)
+        success, data = parse_and_render_schema(event_type, schema_renderer)
         if success:
-            return Response(data_or_error, status=status.HTTP_200_OK)
-        else:
-            return Response({"error": data_or_error}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+            return Response(data, status=status.HTTP_200_OK)
+        return Response({"error": data}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
