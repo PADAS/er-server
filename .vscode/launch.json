@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Python: Debug Tests",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "purpose": ["debug-test"],
@@ -15,7 +15,7 @@
         },
         {
             "name": "PyTest",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "stopOnEntry": false,
             "justMyCode": false,
@@ -34,7 +34,7 @@
         },
         {
             "name": "PyTest --createdb",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "stopOnEntry": false,
             "module": "pytest",
@@ -56,7 +56,7 @@
         },
         {
             "name": "Django:Run",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/das/manage.py",
             "console": "internalConsole",
@@ -74,7 +74,7 @@
         },
         {
             "name": "Django:Gunicorn",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "/usr/local/bin/gunicorn",
             "console": "internalConsole",
@@ -103,7 +103,7 @@
         },
         {
             "name": "Django:GunicornRT",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "/usr/local/bin/gunicorn",
             "console": "internalConsole",
@@ -136,7 +136,7 @@
         },
         {
             "name": "ER Workers",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "/usr/local/bin/celery",
             "console": "internalConsole",
@@ -160,14 +160,14 @@
             ],
             //"postDebugTask": "killdebugger",
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler",
                 "GEVENT_SUPPORT": "True",
                 "ROOT_LOGGING_LEVEL": "INFO"
             }
         },
         {
             "name": "Django:MQL",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/das/manage.py",
             "console": "internalConsole",
@@ -183,7 +183,7 @@
         },
         {
             "name": "Django:RunRT",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/das/async_manage.py",
             "console": "internalConsole",
@@ -203,7 +203,7 @@
         },
         {
             "name": "Django manage tenant command",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "justMyCode": false,
             "program": "${workspaceFolder}/das/manage.py",
@@ -222,7 +222,7 @@
         },
         {
             "name": "Django manage command",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "justMyCode": false,
             "program": "${workspaceFolder}/das/manage.py",
@@ -239,7 +239,7 @@
         },
         {
             "name": "Django migrate db",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "justMyCode": false,
             "program": "${workspaceFolder}/das/manage.py",
@@ -257,7 +257,7 @@
         },
         {
             "name": "Django initial data",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "justMyCode": false,
             "program": "${workspaceFolder}/das/manage.py",
@@ -283,7 +283,7 @@
         },
         {
             "name": "New tenant initial data",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "justMyCode": false,
             "program": "${workspaceFolder}/das/manage.py",
@@ -303,7 +303,7 @@
         },
         {
             "name": "Django dumpdata",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "justMyCode": false,
             "program": "${workspaceFolder}/das/manage.py",

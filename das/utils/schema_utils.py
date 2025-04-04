@@ -564,7 +564,7 @@ def get_all_fields_and_definitions(schema):
         rendered = get_rendered_all(schema)
         return rendered["schema"]["properties"], rendered.get("definition", {})
     except Exception as ex:
-        logger.error("Error rendering schema with empty data", ex)
+        logger.error("Error rendering schema with empty data %s", ex)
         return {}, {}
 
 

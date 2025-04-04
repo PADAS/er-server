@@ -1,6 +1,8 @@
 import copy
 import json
+import uuid
 from pathlib import Path
+from typing import Optional, Type
 from unittest.mock import MagicMock
 
 import django_multitenant
@@ -16,7 +18,9 @@ from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import Point
 from django.core.management import call_command
+from django.urls import include, path
 from django.utils import timezone
+from django.views import View
 from rest_framework.test import APIClient
 
 from accounts.utils import add_tenant_to_permission_codename
@@ -185,7 +189,7 @@ def view_subjects_permission_set(view_subject_permissions):
     return PermissionSetFactory.create(permissions=view_subject_permissions)
 
 
-@pytest.fixture()
+@pytest.fixture
 def subject_group_with_perms(request):
     permissions = []
     for permission in request.param:
@@ -304,11 +308,46 @@ def cat1_cat2_event_types():
     cat1 = EventCategoryFactory.create(value="cat1")
     cat2 = EventCategoryFactory.create(value="cat2")
     v2 = EventType.VersionChoices.VERSION_2
-    et1 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=False, version=v2)
-    et2 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=True, version=v2)
-    et3 = EventTypeFactory.create(category=cat2, is_active=True, is_collection=False, version=v2)
-    et4 = EventTypeFactory.create(category=cat1, is_active=False, is_collection=False, version=v2)
-    et5 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=False, version=v2)
+
+    schema = json.dumps(
+        {
+            "json": {
+                "type": "object",
+                "properties": {
+                    "subjects_name": {"type": "string", "title": "enum test"},
+                    "behavior_choice": {"type": "string", "title": "name and value test"},
+                    "behavior": {"type": "array", "title": "array test"},
+                    "sample_attr": {"type": "string", "title": "name and value test"},
+                    "estimated_time_of_occurrence": {
+                        "deprecated": False,
+                        "description": "",
+                        "format": "date-time",
+                        "title": "Estimated time of occurrence",
+                        "type": "string",
+                    },
+                },
+                "additionalProperties": False,
+                "required ": [
+                    "subjects_name",
+                    "behavior_choice",
+                    "behavior",
+                    "sample_attr",
+                    "estimated_time_of_occurrence",
+                ],
+            },
+            "ui": {
+                "fields": {
+                    "estimated_time_of_occurrence": {"type": "DATE_TIME", "parent": "section-y-ya0voZLC9hP-zS86FzC"},
+                }
+            },
+        }
+    )
+
+    et1 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=False, version=v2, schema=schema)
+    et2 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=True, version=v2, schema=schema)
+    et3 = EventTypeFactory.create(category=cat2, is_active=True, is_collection=False, version=v2, schema=schema)
+    et4 = EventTypeFactory.create(category=cat1, is_active=False, is_collection=False, version=v2, schema=schema)
+    et5 = EventTypeFactory.create(category=cat1, is_active=True, is_collection=False, version=v2, schema=schema)
     return [et1, et2, et3, et4, et5]
 
 
@@ -430,7 +469,7 @@ def create_user(das_tenant):
 
 @pytest.fixture
 def superuser(create_user):
-    return create_user(is_superuser=True)
+    return create_user(is_superuser=True, is_staff=True)
 
 
 @pytest.fixture
@@ -536,7 +575,7 @@ def one_tenant():
     return (tenant, tenant_settings)
 
 
-@pytest.fixture()
+@pytest.fixture
 def tenant_two(request, monkeypatch, one_tenant):
     """Return a DASTenant and a matching tenant settings object.
     Additionally the initial data has been loaded into the db for this tenant"""
@@ -677,3 +716,53 @@ def subject_source_with_observations():
     observation.source = source
     observation.save()
     return subject_source, observation
+
+
+@pytest.fixture(scope="function")
+def add_view_to_urls():
+    """
+    Returns a function that can add views "on the fly" to a temporary URL patterns list under the "tests" namespace.
+
+    This fixture is scoped to function level to ensure proper isolation between tests.
+    """
+    from django.urls import clear_url_caches
+
+    from das_server.urls import urlpatterns as root_urlpatterns
+
+    temp_urlpatterns = []
+    # Create a unique namespace for this test run to avoid conflicts
+    test_id = str(uuid.uuid4()).replace("-", "")[:8]
+    namespace = f"tests_{test_id}"
+
+    root_urlpatterns.insert(
+        0,
+        path(
+            f"api/v1.0/tests/{test_id}/",
+            include((temp_urlpatterns, namespace)),
+            name=namespace,
+        ),
+    )
+
+    clear_url_caches()
+
+    def _add_view(
+        view_class: Type[View],
+        route: Optional[str] = None,
+        name: Optional[str] = None,
+        initkwargs: Optional[dict] = None,
+    ):
+        initkwargs = {} if initkwargs is None else initkwargs
+        if route is None or name is None:
+            view_id = str(uuid.uuid4()).replace("-", "")[:8]
+            route = f"view_{view_id}/"
+            name = view_id
+
+        temp_urlpatterns.append(path(route, view_class.as_view(**initkwargs), name=name))
+        clear_url_caches()
+        return f"{namespace}:{name}"
+
+    yield _add_view
+
+    # Cleanup: Remove our added URL pattern
+    del root_urlpatterns[0]
+    clear_url_caches()
