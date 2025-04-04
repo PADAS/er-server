@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from django.urls import reverse
@@ -186,7 +188,7 @@ class TestEventTypesV2:
 
     def test_get_event_type_detail(self, superuser_client, cat1_cat2_event_types):
         target = cat1_cat2_event_types[0]
-        url = reverse("v2-eventtype-detail", kwargs={"value": target.value})
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
         response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
@@ -198,7 +200,7 @@ class TestEventTypesV2:
             assert field in response.data
 
     def test_event_type_detail_not_found(self, superuser_client):
-        url = reverse("v2-eventtype-detail", kwargs={"value": "nonexistent"})
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": "nonexistent"})
         response = superuser_client.get(url)
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -206,21 +208,21 @@ class TestEventTypesV2:
         self, superuser_client, cat1_cat2_event_types, five_event_types
     ):
         v1_et = five_event_types[0]
-        url = reverse("v2-eventtype-detail", kwargs={"value": v1_et.value})
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": v1_et.value})
         response = superuser_client.get(url)
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_get_event_type_detail_inactive(self, superuser_client, cat1_cat2_event_types):
         target = cat1_cat2_event_types[1]
         target.set_to_inactive()
-        url = reverse("v2-eventtype-detail", kwargs={"value": target.value})
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
         response = superuser_client.get(url)
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_get_event_type_detail_inactive_include_inactive_param(self, superuser_client, cat1_cat2_event_types):
         target = cat1_cat2_event_types[1]
         target.set_to_inactive()
-        url = reverse("v2-eventtype-detail", kwargs={"value": target.value})
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
         response = superuser_client.get(url, {"include_inactive": "true"})
         assert response.status_code == status.HTTP_200_OK
         assert response.data["id"] == str(target.id)
@@ -240,7 +242,7 @@ class TestEventTypesV2:
         caplog.clear()
         caplog.set_level("WARNING")
 
-        url = reverse("v2-eventtype-detail", kwargs={"value": et_with_events.value})
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": et_with_events.value})
         response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
@@ -249,7 +251,7 @@ class TestEventTypesV2:
 
         # Test endpoint response for an event type without associated events.
         caplog.clear()
-        url = reverse("v2-eventtype-detail", kwargs={"value": et_no_events.value})
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": et_no_events.value})
         response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
@@ -262,25 +264,100 @@ class TestEventTypesV2:
         assert et_serializer.get_has_events_assigned(et_with_events) is True
         assert warning_msg in caplog.text
 
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestEventTypesV2Schemas:
+    """
+    Tests for the EventTypesViewSet schemas.
+
+    Tests:
+
+    - Test that the list of event type schemas is returned successfully
+    - Test that the schema of an event type is returned successfully
+    """
+
     def test_get_event_type_schemas(self, superuser_client, cat1_cat2_event_types):
         url = reverse("v2-eventtype-list-schemas")
         response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
+        assert "results" in response.data
+        assert len(response.data["results"]) > 0
         # For every active event type with an active category, its schema should be included
-        for et in cat1_cat2_event_types:
-            if not et.is_active:
-                continue
-            assert et.value in response.data
-            # FUTURE: assert response.data[et.value] == render_schema(et.schema, user=superuser_client.user)
+        active_event_types = {et.value for et in cat1_cat2_event_types if et.is_active}
+        assert active_event_types == {i["value"] for i in response.data["results"]}
+
+    def test_gracefully_fail_when_no_schema(self, superuser_client, cat1_cat2_event_types):
+        url = reverse("v2-eventtype-list-schemas")
+        target = cat1_cat2_event_types[0]
+        target.schema = ""
+        target.save()
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_207_MULTI_STATUS
+
+        target.schema = json.dumps({"ui": {}})
+        target.save()
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_207_MULTI_STATUS
+
+        target.schema = json.dumps({"json": {}, "ui": {}})
+        target.save()
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
 
     def test_get_event_type_schema(self, superuser_client, cat1_cat2_event_types):
         target = cat1_cat2_event_types[0]
-        url = reverse("v2-eventtype-retrieve-schema", kwargs={"value": target.value})
+        url = reverse("v2-eventtype-retrieve-schema", kwargs={"eventtype_value": target.value})
         response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
-        # FUTURE: assert response.data == render_schema(target.schema, user=superuser_client.user)
+
+    def test_get_event_type_schema_with_dynamic_reference(self, superuser_client, cat1_cat2_event_types):
+        """Test rendering a schema that references a dynamic schema endpoint"""
+        # Setup an event type with a schema that references a dynamic schema
+        target = cat1_cat2_event_types[0]
+        subjects_schema_url = reverse("schemas:subjects")
+        target.schema = json.dumps(
+            {
+                "ui": {},
+                "json": {
+                    "title": "Event Type Schema",
+                    "type": "object",
+                    "properties": {"subject": {"$ref": f"{subjects_schema_url}"}},
+                },
+            }
+        )
+        target.save()
+
+        url = reverse("v2-eventtype-retrieve-schema", kwargs={"eventtype_value": target.value})
+        # Test with pre_render=True
+        response = superuser_client.get(url, {"pre_render": True})
+        assert response.status_code == status.HTTP_200_OK
+        assert "json" in response.data
+        rendered_schema = response.data["json"]
+        assert "properties" in rendered_schema
+        assert "subject" in rendered_schema["properties"]
+        assert "$ref" not in rendered_schema["properties"]["subject"]
+        assert "oneOf" in rendered_schema["properties"]["subject"]
+
+        # Test with pre_render=False
+        response = superuser_client.get(url, {"pre_render": False})
+        assert response.status_code == status.HTTP_200_OK
+        assert "json" in response.data
+        rendered_schema = response.data["json"]
+        assert "properties" in rendered_schema
+        assert "$ref" in rendered_schema["properties"]["subject"]
+        assert "oneOf" not in rendered_schema["properties"]["subject"]
+
+        # Test with pre_render=None (default)
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert "json" in response.data
+        rendered_schema = response.data["json"]
+        assert "properties" in rendered_schema
+        assert "$ref" in rendered_schema["properties"]["subject"]
+        assert "oneOf" not in rendered_schema["properties"]["subject"]
 
 
 @pytest.mark.django_db
@@ -357,7 +434,7 @@ class TestEventTypesV2ConditionalResponses:
 
     def test_event_type_detail_etag_header_is_updated(self, superuser_client, cat1_cat2_event_types):
         target = cat1_cat2_event_types[0]
-        url = reverse("v2-eventtype-detail", kwargs={"value": target.value})
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
         response1 = superuser_client.get(url)
         etag1 = response1.get("ETag")
         assert etag1 is not None
@@ -380,7 +457,7 @@ class TestEventTypesV2ConditionalResponses:
         the response should be 304 Not Modified.
         """
         target = cat1_cat2_event_types[0]
-        url = reverse("v2-eventtype-detail", kwargs={"value": target.value})
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
         response = superuser_client.get(url)
         etag = response.get("ETag")
         assert etag is not None
