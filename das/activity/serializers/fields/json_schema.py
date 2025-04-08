@@ -38,8 +38,12 @@ class JSONSchemaField(serializers.Field):
         elif not isinstance(data, dict):
             raise serializers.ValidationError("The schema must be a JSON object.")
 
+        json_schema = data.get("json", {})
+        if "$schema" not in json_schema or not json_schema.get("$schema"):
+            json_schema["$schema"] = VALID_DRAFT
+
         try:
-            data = self._validate_draft_version(data)
+            self._validate_draft_version(data)
             validate(instance=data, schema=self.meta_schema)
 
             if self.validate_sections:
@@ -53,7 +57,11 @@ class JSONSchemaField(serializers.Field):
 
     @staticmethod
     def _validate_parent_references(data):
-        def _check_section_exists(data, param, parent_key):
+        """
+        Validates that every 'section' in 'ui' references a valid key in 'sections'.
+        """
+
+        def check_section_exists(data, param, parent_key):
             ui = data.get("ui", {})
             sections = ui.get("sections", {})
             items = ui.get(param, {})
@@ -68,10 +76,7 @@ class JSONSchemaField(serializers.Field):
 
             return errors
 
-        """
-        Validates that every 'section' in 'ui' references a valid key in 'sections'.
-        """
-        header_errors = _check_section_exists(data, "headers", "section")
+        header_errors = check_section_exists(data, "headers", "section")
 
         order_errors = [
             (
@@ -88,12 +93,12 @@ class JSONSchemaField(serializers.Field):
         if filtered_errors:
             raise serializers.ValidationError("Validation errors: " + " ".join(filtered_errors))
 
-    def _validate_draft_version(self, data):
-        schema_property = data.get("json", {}).get("$schema")
-        if schema_property and schema_property != VALID_DRAFT:
+    @staticmethod
+    def _validate_draft_version(data):
+        """
+        Validates that the schema is a valid JSON Schema and that the '$schema' property is set to the correct draft.
+        """
+        json_schema = data.get("json", {})
+        schema_property = json_schema.get("$schema")
+        if schema_property != VALID_DRAFT:
             raise serializers.ValidationError(f"Invalid JSON Schema: $schema must be {VALID_DRAFT}")
-
-        if not schema_property:
-            data = {"json": {"$schema": VALID_DRAFT, **data.get("json", {})}, **data}
-
-        return data

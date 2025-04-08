@@ -104,21 +104,6 @@ def parse_and_render_schema(event_type: EventType, schema_renderer: Optional[Sch
 
 
 class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, ModelViewSet):
-    """
-    V2 Event Types API. Supports dynamic `schema` generation, which means rendering of references ($ref) in the schemas.
-    Features:
-        - eTag generation for list and detail views.
-        - FUTURE: Cache control for schema rendering.
-        - FUTURE: Validation of schemas.
-        - Supports filtering with the same query parameters as the other existing EventTypesView.
-
-    Notes:
-        - My approach will be:
-            - to adopt as much as possible from the existing codebase but implementing what is possible
-            with django-filter (DjangoFilterBackend)
-            - identify and implement the same exising tests but for the new implementation.
-            - implement the missing features in the new implementation.
-    """
 
     permission_classes = (EventCategoryPermissions,)
     filter_backends = [OrderingFilter, filters.DjangoFilterBackend]
@@ -157,12 +142,8 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         instance.set_to_inactive()
 
     def create(self, request, *args, **kwargs):
-        new_data = request.data
-        new_data["version"] = EventType.VersionChoices.VERSION_2
-
-        # TODO: Implement renderin validation of the schema.
         res = super().create(request, *args, **kwargs)
-        new_object_url = reverse("v2-eventtype-retrieve-schema", kwargs={"value": res.data["id"]})
+        new_object_url = reverse("v2-eventtype-retrieve-schema", kwargs={"eventtype_value": res.data["value"]})
 
         return Response(
             status=status.HTTP_201_CREATED,
@@ -178,6 +159,12 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         # This is where the rendering and retrieval sides are being connected.
         registry = build_dynamic_schemas_registry(request)
         return SchemaRenderer(registry)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        include_schema = parse_bool(self.request.query_params.get("include_schema", "false"))
+        context["include_schema"] = include_schema
+        return context
 
     @action(
         methods=["get"],
@@ -221,6 +208,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
 
         return Response(response_data, status=response_status)
 
+    # pylint: disable=unused-argument
     @action(
         methods=["get"],
         detail=True,
