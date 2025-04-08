@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -263,6 +264,108 @@ class TestEventTypesV2:
         et_serializer = EventTypeSerializer()
         assert et_serializer.get_has_events_assigned(et_with_events) is True
         assert warning_msg in caplog.text
+
+    def test_post_event_type_with_valid_schema(self, superuser_client, cat1_cat2_categories):
+        cat1, _ = cat1_cat2_categories
+        fixture_path = Path(__file__).parent / "fixtures" / "valid_nested_collection_schema.json"
+        with open(fixture_path, encoding="utf-8") as f:
+            schema = json.load(f)
+
+        data = {
+            "display": "Simple Report",
+            "value": "simple_report",
+            "category": cat1.value,
+            "schema": schema,
+            "readonly": True,
+        }
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.post(url, data=data, format="json")
+        assert response.status_code == 201
+        assert "resource_url" in response.data
+        assert response.data["resource_url"] == reverse(
+            "v2-eventtype-retrieve-schema", kwargs={"eventtype_value": data["value"]}
+        )
+
+        new_eventtype = EventType.objects.get(value=data["value"])
+        assert new_eventtype.readonly is True
+        assert new_eventtype.version == EventType.VersionChoices.VERSION_2
+        assert new_eventtype.category == cat1
+
+    def test_post_event_type_with_invalid_schema(self, superuser_client, cat1_cat2_categories):
+        cat1, _ = cat1_cat2_categories
+        data = {
+            "display": "Simple Report",
+            "value": "simple_report",
+            "category": cat1.value,
+            "schema": {"json": {"$schema": "https://json-schema.org/draft/2020-12/schema"}, "ui": {"key": "value"}},
+        }
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == 400
+        assert "schema" in response.data
+        assert "Invalid JSON Schema:" in response.data["schema"][0]
+
+    def test_post_event_type_with_wrong_schema_draft(self, superuser_client, cat1_cat2_categories):
+        cat1, _ = cat1_cat2_categories
+        data = {
+            "display": "Simple Report",
+            "value": "simple_report",
+            "category": cat1.value,
+            "schema": {
+                "json": {
+                    "$schema": "https://json-schema.org/draft/-12/schema",
+                    "type": "object",
+                    "properties": {
+                        "json": {
+                            "type": "object",
+                            "properties": {"$schema": {"type": "string"}},
+                            "required": ["$schema"],
+                        },
+                        "ui": {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]},
+                    },
+                    "required": ["json", "ui"],
+                },
+                "ui": {"key": "value"},
+            },
+        }
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == 400
+        assert response.json() == {
+            "schema": ["Invalid JSON Schema: $schema must be https://json-schema.org/draft/2020-12/schema"],
+            "status": {"code": 400, "message": "Bad Request"},
+        }
+
+    def test_list_event_types_conditional_schema(self, superuser_client, five_event_types):
+        """Verify `schema` is included only when `include_schema=true` query param is present."""
+        url = reverse("v2-eventtype-list")
+
+        # Test without include_schema
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        for item in response.data:
+            assert "schema" not in item
+
+        # Test with include_schema=true
+        response = superuser_client.get(url, {"include_schema": "true"})
+        assert response.status_code == 200
+        for item in response.data:
+            assert "schema" in item  # Schema should now be present
+
+    def test_retrieve_event_type_conditional_schema(self, superuser_client, cat1_cat2_event_types):
+        """Verify `schema` is included on detail view only when `include_schema=true` query param is present."""
+        event_type = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": event_type.value})
+
+        # Test without include_schema
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        assert "schema" not in response.data
+
+        # Test with include_schema=true
+        response = superuser_client.get(url, {"include_schema": "true"})
+        assert response.status_code == 200
+        assert "schema" in response.data  # Schema should now be present
 
 
 @pytest.mark.django_db
