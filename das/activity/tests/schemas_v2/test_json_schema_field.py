@@ -59,10 +59,7 @@ class TestJsonSchemaField:
         with pytest.raises(ValidationError) as e:
             field_schema.to_internal_value(json_schema_fixture)
 
-        assert (
-            "[ErrorDetail(string='Invalid JSON Schema: $schema must be https://json-schema.org/draft/2020-12/schema', code='invalid')]"
-            == str(e.value)
-        )
+        assert "Invalid JSON Schema: $schema must be https://json-schema.org/draft/2020-12/schema" in str(e.value)
 
     @pytest.mark.parametrize("json_schema_fixture", ["invalid_schema_required_props_not_present"], indirect=True)
     def test_invalid_required_property_json(self, json_schema_fixture):
@@ -86,18 +83,18 @@ class TestJsonSchemaField:
         "input_schema,error_str",
         [
             ({"json": {}}, "Invalid JSON Schema: 'ui' is a required property at "),
-            ({"json": {}, "ui": {}}, "Invalid JSON Schema: '$schema' is a required property at json"),
+            ({"json": {"properties": {}}, "ui": {}}, "Invalid JSON Schema: '$schema' is a required property at json"),
             ({"json": {"$schema": ""}, "ui": {}}, "Invalid JSON Schema: 'properties' is a required property at json"),
             (
-                {"json": {"$schema": "", "properties": {}}, "ui": {}},
+                {"json": {"$schema": "", "properties": {}}, "ui": {"headers": {}, "order": [], "sections": {}}},
                 "Invalid JSON Schema: 'fields' is a required property at ui",
             ),
             (
-                {"json": {"$schema": "", "properties": {}}, "ui": {"fields": {}}},
+                {"json": {"$schema": "", "properties": {}}, "ui": {"fields": {}, "order": [], "sections": {}}},
                 "Invalid JSON Schema: 'headers' is a required property at ui",
             ),
             (
-                {"json": {"$schema": "", "properties": {}}, "ui": {"fields": {}, "headers": {}}},
+                {"json": {"$schema": "", "properties": {}}, "ui": {"fields": {}, "headers": {}, "sections": {}}},
                 "Invalid JSON Schema: 'order' is a required property at ui",
             ),
             (
