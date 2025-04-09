@@ -1,6 +1,7 @@
 import json
 
-from jsonschema import ValidationError, validate
+from jsonschema import ValidationError
+from jsonschema.validators import Draft202012Validator
 
 from rest_framework import serializers
 
@@ -9,7 +10,8 @@ VALID_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 
 class JSONSchemaField(serializers.Field):
     """
-    Custom field to validate that the input is a valid JSON Schema.
+    Custom field to validate that the input is a valid JSON Schema, using always
+    the Draft202012Validator.
     """
 
     def __init__(self, meta_schema=None, validate_sections=False, **kwargs):
@@ -23,7 +25,6 @@ class JSONSchemaField(serializers.Field):
     def to_internal_value(self, data):
         if isinstance(data, bytes):
             try:
-                # Decode bytes to string and parse as JSON
                 data = data.decode("utf-8")
                 data = json.loads(data)
             except (UnicodeDecodeError, json.JSONDecodeError) as e:
@@ -38,13 +39,16 @@ class JSONSchemaField(serializers.Field):
         elif not isinstance(data, dict):
             raise serializers.ValidationError("The schema must be a JSON object.")
 
+        # If no $schema is present, add it
         json_schema = data.get("json", {})
         if "$schema" not in json_schema or not json_schema.get("$schema"):
             json_schema["$schema"] = VALID_DRAFT
 
         try:
+            # Validate draft version
             self._validate_draft_version(data)
-            validate(instance=data, schema=self.meta_schema)
+            # Validate against meta schema
+            Draft202012Validator(self.meta_schema).validate(data)
 
             if self.validate_sections:
                 self._validate_parent_references(data)
@@ -93,12 +97,10 @@ class JSONSchemaField(serializers.Field):
         if filtered_errors:
             raise serializers.ValidationError("Validation errors: " + " ".join(filtered_errors))
 
-    @staticmethod
-    def _validate_draft_version(data):
-        """
-        Validates that the schema is a valid JSON Schema and that the '$schema' property is set to the correct draft.
-        """
-        json_schema = data.get("json", {})
-        schema_property = json_schema.get("$schema")
-        if schema_property != VALID_DRAFT:
-            raise serializers.ValidationError(f"Invalid JSON Schema: $schema must be {VALID_DRAFT}")
+    def _validate_draft_version(self, data):
+        # Only validate draft if 'json' key exists, otherwise let the main validator handle the missing key.
+        if "json" in data:
+            json_schema = data.get("json", {})
+            schema_uri = json_schema.get("$schema")
+            if schema_uri != VALID_DRAFT:
+                raise serializers.ValidationError(f"$schema must be {VALID_DRAFT}")
