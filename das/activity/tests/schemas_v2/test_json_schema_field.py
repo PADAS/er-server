@@ -6,7 +6,7 @@ import pytest
 from rest_framework.serializers import ValidationError
 
 from activity.schemas.eventtype_meta_schemas import main_event_type_schema
-from activity.serializers.fields.json_schema import JSONSchemaField
+from activity.serializers.fields.json_schema import VALID_DRAFT, JSONSchemaField
 
 
 class TestJsonSchemaField:
@@ -31,12 +31,19 @@ class TestJsonSchemaField:
 
     @pytest.mark.parametrize(
         "json_schema_fixture",
-        ["valid_nested_collection_schema", "valid_event_type_v2_schema"],
+        [
+            "valid_nested_collection_schema",
+            "valid_event_type_v2_schema",
+            "valid_numeric_field_schema",
+            "valid_choice_field_schema",
+            "valid_boolean_field_schema",
+            "valid_datetime_field_schema",
+            "valid_text_field_schema",
+        ],
         indirect=True,
     )
     def test_valid_event_type_schemas(self, json_schema_fixture):
         field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
-
         assert field_schema.to_internal_value(json_schema_fixture)
 
     def test_invalid_json_types(self):
@@ -59,7 +66,7 @@ class TestJsonSchemaField:
         with pytest.raises(ValidationError) as e:
             field_schema.to_internal_value(json_schema_fixture)
 
-        assert "Invalid JSON Schema: $schema must be https://json-schema.org/draft/2020-12/schema" in str(e.value)
+        assert f"$schema must be {VALID_DRAFT}" in str(e.value)
 
     @pytest.mark.parametrize("json_schema_fixture", ["invalid_schema_required_props_not_present"], indirect=True)
     def test_invalid_required_property_json(self, json_schema_fixture):
@@ -71,34 +78,38 @@ class TestJsonSchemaField:
             e.value
         )
 
-    @pytest.mark.parametrize("json_schema_fixture", ["invalid_text_field_schema"], indirect=True)
-    def test_invalid_text_field_json(self, json_schema_fixture):
-        field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
-        with pytest.raises(ValidationError) as e:
-            field_schema.to_internal_value(json_schema_fixture)
-
-        assert "is not valid under any of the given schemas" in str(e.value)
-
     @pytest.mark.parametrize(
         "input_schema,error_str",
         [
-            ({"json": {}}, "Invalid JSON Schema: 'ui' is a required property at "),
-            ({"json": {"properties": {}}, "ui": {}}, "Invalid JSON Schema: '$schema' is a required property at json"),
-            ({"json": {"$schema": ""}, "ui": {}}, "Invalid JSON Schema: 'properties' is a required property at json"),
             (
-                {"json": {"$schema": "", "properties": {}}, "ui": {"headers": {}, "order": [], "sections": {}}},
+                # Missing 'json' at root
+                {"ui": {"fields": {}, "headers": {}, "order": [], "sections": {}}},
+                "Invalid JSON Schema: 'json' is a required property at ",
+            ),
+            (
+                # Missing 'ui' at root
+                {"json": {"$schema": f"{VALID_DRAFT}", "properties": {}}},
+                "Invalid JSON Schema: 'ui' is a required property at ",
+            ),
+            (
+                # Missing 'properties' under 'json'
+                {"json": {}, "ui": {"fields": {}, "headers": {}, "order": [], "sections": {}}},
+                "Invalid JSON Schema: 'properties' is a required property at json",
+            ),
+            (
+                {"json": {"properties": {}}, "ui": {"headers": {}, "order": [], "sections": {}}},
                 "Invalid JSON Schema: 'fields' is a required property at ui",
             ),
             (
-                {"json": {"$schema": "", "properties": {}}, "ui": {"fields": {}, "order": [], "sections": {}}},
+                {"json": {"properties": {}}, "ui": {"fields": {}, "order": [], "sections": {}}},
                 "Invalid JSON Schema: 'headers' is a required property at ui",
             ),
             (
-                {"json": {"$schema": "", "properties": {}}, "ui": {"fields": {}, "headers": {}, "sections": {}}},
+                {"json": {"properties": {}}, "ui": {"fields": {}, "headers": {}, "sections": {}}},
                 "Invalid JSON Schema: 'order' is a required property at ui",
             ),
             (
-                {"json": {"$schema": "", "properties": {}}, "ui": {"fields": {}, "headers": {}, "order": []}},
+                {"json": {"properties": {}}, "ui": {"fields": {}, "headers": {}, "order": []}},
                 "Invalid JSON Schema: 'sections' is a required property at ui",
             ),
         ],
@@ -109,3 +120,181 @@ class TestJsonSchemaField:
             field_schema.to_internal_value(input_schema)
 
         assert error_str in str(e.value)
+
+    # --- Tests for Specific Field Schema Validations (Using Fixtures) --- #
+    @pytest.mark.parametrize(
+        "json_schema_fixture, error_str_part1, error_str_part2",
+        [
+            (
+                "invalid_numeric_default_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.testNum",
+            ),
+            (
+                "invalid_numeric_type_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.testNum",
+            ),
+            (
+                "invalid_choice_default_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.testChoice",
+            ),
+            (
+                "invalid_boolean_default_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.testBool",
+            ),
+            (
+                "invalid_boolean_type_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.testBool",
+            ),
+            (
+                "invalid_datetime_default_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.testDateTime",
+            ),
+            (
+                "invalid_datetime_format_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.testDateTime",
+            ),
+            (
+                "invalid_datetime_type_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.testDateTime",
+            ),
+            (
+                "invalid_text_field_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.first_field",
+            ),
+        ],
+        indirect=["json_schema_fixture"],
+    )
+    def test_invalid_field_json(self, json_schema_fixture, error_str_part1, error_str_part2):
+        """Tests validation failures for various field definitions using fixture files."""
+        field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as e:
+            field_schema.to_internal_value(json_schema_fixture)
+
+        error_message = str(e.value)
+        assert error_str_part1 in error_message
+        assert error_str_part2 in error_message
+
+    # --- Helpers for Section Validation Tests --- #
+
+    def _create_default_section(self, label):
+        """Creates a minimally valid section structure."""
+        return {"label": label, "columns": 1, "isActive": True, "leftColumn": [], "rightColumn": []}
+
+    def _create_default_header(self, label, section):
+        """Creates a minimally valid header structure."""
+        return {"label": label, "section": section, "size": "MEDIUM"}
+
+    def _get_base_schema_for_section_tests(self):
+        """Helper to create a MINIMALLY valid base schema for section validation tests."""
+        return {
+            "json": {"$schema": VALID_DRAFT, "properties": {}},  # Minimal valid 'json' object structure
+            "ui": {
+                "sections": {},  # Tests will populate this
+                "headers": {},  # Tests will populate this
+                "fields": {},  # Minimal valid 'ui.fields'
+                "order": [],  # Tests will populate this
+            },
+        }
+
+    # --- Tests for _validate_parent_references --- #
+
+    def test_valid_section_references(self):
+        """Tests that a schema with valid section references passes when validate_sections=True."""
+        schema = self._get_base_schema_for_section_tests()
+        # Populate UI elements for this test using helpers
+        schema["ui"]["sections"] = {
+            "section-a": self._create_default_section("Section A"),
+            "section-b": self._create_default_section("Section B"),
+        }
+        schema["ui"]["headers"] = {"header-1": self._create_default_header("Header 1", "section-a")}
+        schema["ui"]["order"] = ["section-a", "section-b"]
+
+        field_schema = JSONSchemaField(meta_schema=main_event_type_schema, validate_sections=True)
+        # If this raises ValidationError, the test will fail automatically
+        field_schema.to_internal_value(schema)
+
+    def test_invalid_header_section_reference(self):
+        """Tests that validation fails if a header references a non-existent section."""
+        schema = self._get_base_schema_for_section_tests()
+        # Populate UI elements for this test using helpers
+        schema["ui"]["sections"] = {"section-a": self._create_default_section("Section A")}
+        schema["ui"]["headers"] = {
+            # Create header with invalid section reference
+            "header-1": self._create_default_header("Header 1", "non_existent_section")
+        }
+        # schema["ui"]["order"] remains empty [] from base
+
+        field_schema = JSONSchemaField(meta_schema=main_event_type_schema, validate_sections=True)
+        with pytest.raises(ValidationError) as e:
+            field_schema.to_internal_value(schema)
+        expected_error = (
+            "'header-1' has an invalid 'parent' or 'section': 'non_existent_section' does not exist in 'sections'."
+        )
+        assert "Validation errors:" in str(e.value)
+        assert expected_error in str(e.value)
+
+    def test_invalid_order_section_reference(self):
+        """Tests that validation fails if an order item references a non-existent section."""
+        schema = self._get_base_schema_for_section_tests()
+        # Populate UI elements for this test using helpers
+        schema["ui"]["sections"] = {"section-a": self._create_default_section("Section A")}
+        # schema["ui"]["headers"] remains empty {} from base
+        schema["ui"]["order"] = ["section-a", "non_existent_section"]
+
+        field_schema = JSONSchemaField(meta_schema=main_event_type_schema, validate_sections=True)
+        with pytest.raises(ValidationError) as e:
+            field_schema.to_internal_value(schema)
+        expected_error = "non_existent_section in 'order' does not exist in 'sections'"
+        assert "Validation errors:" in str(e.value)
+        assert expected_error in str(e.value)
+
+    def test_multiple_invalid_section_references(self):
+        """Tests that multiple section reference errors are reported together."""
+        schema = self._get_base_schema_for_section_tests()
+        # Populate UI elements for this test using helpers
+        schema["ui"]["sections"] = {"section-a": self._create_default_section("Section A")}
+        schema["ui"]["headers"] = {
+            # Create header with invalid section reference
+            "header-1": self._create_default_header("Header 1", "non_existent_section1")
+        }
+        schema["ui"]["order"] = ["section-a", "non_existent_section2"]
+
+        field_schema = JSONSchemaField(meta_schema=main_event_type_schema, validate_sections=True)
+        with pytest.raises(ValidationError) as e:
+            field_schema.to_internal_value(schema)
+
+        expected_error1 = (
+            "'header-1' has an invalid 'parent' or 'section': 'non_existent_section1' does not exist in 'sections'."
+        )
+        expected_error2 = "non_existent_section2 in 'order' does not exist in 'sections'"
+        error_str = str(e.value)
+        assert "Validation errors:" in error_str
+        assert expected_error1 in error_str
+        assert expected_error2 in error_str
+
+    def test_section_validation_disabled(self):
+        """Tests that invalid section references pass when validate_sections=False."""
+        schema = self._get_base_schema_for_section_tests()
+        # Populate UI elements with errors that would fail if validate_sections=True, using helpers
+        schema["ui"]["sections"] = {"section-a": self._create_default_section("Section A")}
+        schema["ui"]["headers"] = {"header-1": self._create_default_header("Header 1", "non_existent_section1")}
+        schema["ui"]["order"] = ["section-a", "non_existent_section2"]
+
+        # Initialize with validate_sections=False (default)
+        field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
+        try:
+            # This should now pass both the main schema and the (disabled) section validation.
+            field_schema.to_internal_value(schema)
+        except ValidationError as e:
+            # No validation error should occur at all when section validation is off
+            # and the base schema is otherwise valid.
+            pytest.fail(f"Validation failed unexpectedly even when section validation was disabled: {e}")

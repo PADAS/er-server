@@ -332,7 +332,7 @@ class TestEventTypesV2:
         response = superuser_client.post(url, data=data)
         assert response.status_code == 400
         assert response.json() == {
-            "schema": ["Invalid JSON Schema: $schema must be https://json-schema.org/draft/2020-12/schema"],
+            "schema": ["$schema must be https://json-schema.org/draft/2020-12/schema"],
             "status": {"code": 400, "message": "Bad Request"},
         }
 

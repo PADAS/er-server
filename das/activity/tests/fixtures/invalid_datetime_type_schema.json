@@ -1,0 +1,18 @@
+{
+    "json": {
+        "properties": {
+            "testDateTime": {
+                "type": "number",
+                "format": "date-time",
+                "title": "Test DateTime Incorrect Type",
+                "default": "2024-01-01T12:00:00Z"
+            }
+        }
+    },
+    "ui": {
+        "sections": {},
+        "headers": {},
+        "fields": {},
+        "order": []
+    }
+}

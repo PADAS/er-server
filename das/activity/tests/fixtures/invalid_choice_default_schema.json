@@ -1,0 +1,35 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testChoice": {
+                "type": "string",
+                "title": "Test Choice",
+                "description": "Choice field with invalid default property.",
+                "deprecated": false,
+                "anyOf": [
+                    {
+                        "const": "option-a",
+                        "title": "Option A"
+                    },
+                    {
+                        "const": "option-b",
+                        "title": "Option B"
+                    }
+                ],
+                "default": "option-c"
+            }
+        },
+        "required": [
+            "testChoice"
+        ]
+    },
+    "ui": {
+        "sections": {},
+        "headers": {},
+        "fields": {},
+        "order": []
+    }
+}

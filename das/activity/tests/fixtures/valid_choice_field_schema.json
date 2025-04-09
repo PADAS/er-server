@@ -1,0 +1,30 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testChoice": {
+                "title": "Valid Choice Field",
+                "type": "string",
+                "description": "A valid choice field.",
+                "deprecated": false,
+                "anyOf": [
+                    {
+                        "$ref": "http://example.com/choiceA"
+                    },
+                    {
+                        "$ref": "http://example.com/choiceB"
+                    }
+                ]
+            }
+        },
+        "required": ["testChoice"]
+    },
+    "ui": {
+        "fields": {},
+        "headers": {},
+        "order": [],
+        "sections": {}
+    }
+}
