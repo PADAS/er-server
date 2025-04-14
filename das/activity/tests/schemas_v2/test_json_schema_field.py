@@ -170,6 +170,16 @@ class TestJsonSchemaField:
                 "is not valid under any of the given schemas",
                 "at json.properties.first_field",
             ),
+            (
+                "invalid_location_type_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.testLocation",
+            ),
+            (
+                "invalid_location_missing_properties_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.testLocation",
+            ),
         ],
         indirect=["json_schema_fixture"],
     )

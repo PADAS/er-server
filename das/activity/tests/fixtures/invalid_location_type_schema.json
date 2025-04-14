@@ -1,0 +1,36 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testLocation": {
+                "title": "Invalid Location Field Type",
+                "description": "Location field with invalid top-level type.",
+                "deprecated": false,
+                "type": "string",
+                "properties": {
+                    "latitude": {
+                        "type": "number",
+                        "minimum": -90,
+                        "maximum": 90
+                    },
+                    "longitude": {
+                        "type": "number",
+                        "minimum": -180,
+                        "maximum": 180
+                    }
+                },
+                "required": ["latitude", "longitude"],
+                "additionalProperties": false
+            }
+        },
+        "required": ["testLocation"]
+    },
+    "ui": {
+        "fields": {},
+        "headers": {},
+        "order": [],
+        "sections": {}
+    }
+}
