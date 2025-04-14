@@ -57,7 +57,7 @@ class JSONSchemaField(serializers.Field):
             json_path = ".".join(str(s) for s in e.path)
             raise serializers.ValidationError(f"Invalid JSON Schema: {e.message} at {json_path}")
 
-        return data
+        return json.dumps(data, indent=2)
 
     @staticmethod
     def _validate_parent_references(data):
