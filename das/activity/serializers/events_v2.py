@@ -9,8 +9,18 @@ from activity.serializers.fields.json_schema import JSONSchemaField
 logger = logging.getLogger(__name__)
 
 
+class EventCategoryValueField(serializers.SlugRelatedField):
+    """SlugRelatedField for EventCategory using 'value' as the slug."""
+
+    def __init__(self, **kwargs):
+        super().__init__(slug_field="value", **kwargs)
+
+    def get_queryset(self):
+        return EventCategory.objects.all_sort()
+
+
 class EventTypeSerializer(serializers.ModelSerializer):
-    category = serializers.SlugRelatedField(slug_field="value", queryset=EventCategory.objects.all())
+    category = EventCategoryValueField()
     has_events_assigned = serializers.SerializerMethodField()
     schema = JSONSchemaField(meta_schema=main_event_type_schema, validate_sections=True)
     version = serializers.HiddenField(default=EventType.VersionChoices.VERSION_2)
