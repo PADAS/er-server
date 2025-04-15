@@ -476,6 +476,38 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         self.assertEqual(subject.is_active, False)
 
+    def test_ropeless_buoy_device_subtype_update_subject_additional(self):
+        payload = copy.deepcopy(self.ropeless_buoy_observation_2)
+        self._post_data(json.dumps(payload))
+        subject = Subject.objects.get(name=payload["subject_name"])
+
+        self.assertEqual(subject.additional, payload["additional"])
+
+        # Updating the observation payload with different additional data
+        payload["additional"]["subject_is_active"] = False
+        payload["additional"]["event_type"] = "gear_retrieved"
+        payload["recorded_at"] = "2024-10-16T11:08:17-08:00"
+        self._post_data(json.dumps(payload))
+        subject.refresh_from_db()
+
+        self.assertEqual(subject.additional, payload["additional"])
+
+    def test_ropeless_buoy_device_subtype_update_subject_last_updated(self):
+        payload = copy.deepcopy(self.ropeless_buoy_observation_2)
+        self._post_data(json.dumps(payload))
+        subject = Subject.objects.get(name=payload["subject_name"])
+
+        last_updated = subject.updated_at
+
+        # Updating the observation payload with different additional data
+        payload["additional"]["subject_is_active"] = False
+        payload["additional"]["event_type"] = "gear_retrieved"
+        payload["recorded_at"] = "2024-10-16T11:08:17-08:00"
+        self._post_data(json.dumps(payload))
+        subject.refresh_from_db()
+
+        self.assertNotEqual(subject.updated_at, last_updated)
+
     @mock.patch("utils.tenant.thread._get_local_thread")
     def test_request_with_varying_provider_key_lengths(self, get_main_thread):
         get_main_thread.return_value = self.thread
