@@ -1,6 +1,6 @@
 import logging
 
-from celery import Task
+from celery import Task, group, shared_task, signature
 from celery_once import QueueOnce
 
 from django.db.utils import OperationalError
@@ -12,6 +12,9 @@ from utils.tenant.managers import TenantContextManager
 from utils.tenant.providers import get_current_cluster_domains
 
 logger = logging.getLogger(__name__)
+
+
+TENANT_TASK_NAME = "by_single_tenant_task"
 
 
 class TenantTaskMixin:
@@ -54,17 +57,26 @@ class TenantQueueOnceTask(TenantTaskMixin, QueueOnce):
 
 class OverAllTenantTask(QueueOnce):
     def __call__(self, *args, **kwargs):
-        for tenant_domain in get_current_cluster_domains():
-            try:
-                with TenantContextManager(tenant_domain):
-                    logger.info("Running: %s for Tenant domain: %s", self.name, tenant_domain)
-                    self.run(*args, **kwargs)
-            except DASTenant.DoesNotExist:
-                logger.warning(
-                    "Tenant with domain %s found in current cluster domain list does not exist in this server's tenant db",
-                    tenant_domain,
-                )
-            except TenantNotFoundException:
-                logger.warning(
-                    "Tenant with domain %s found in current cluster domain list does not exist in TMS", tenant_domain
-                )
+        tenants = get_current_cluster_domains()
+        if not tenants:
+            logger.warning("No tenants found in cluster!")
+            return
+
+        tasks = [
+            signature(TENANT_TASK_NAME, args=(tenant_domain,) + args, kwargs=kwargs, immutable=True)
+            for tenant_domain in tenants
+        ]
+
+        group(tasks).apply_async()
+
+
+@shared_task(bind=True, name=TENANT_TASK_NAME)
+def run_by_single_tenant(self, tenant_domain, *args, **kwargs):
+    try:
+        with TenantContextManager(tenant_domain):
+            logger.info("Running: %s for Tenant domain: %s", self.name, tenant_domain)
+            return self.run(*args, **kwargs)
+    except DASTenant.DoesNotExist:
+        logger.warning("Tenant with domain %s missing in local DB", tenant_domain)
+    except TenantNotFoundException:
+        logger.warning("Tenant with domain %s missing in TMS", tenant_domain)
