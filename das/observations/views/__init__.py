@@ -1410,7 +1410,7 @@ class MessagesView(generics.ListCreateAPIView):
         sql, params = messages.query.sql_with_params()
         messages = Message.objects.raw(
             f"""
-            select * from ({sql}) msgs where  rn_sender<= {number_recent_msg} or rn_receiver <= {number_recent_msg}
+            select * from ({sql}) msgs where rn_sender<= %s or rn_receiver <= %s
             """,
             params=[*params, number_recent_msg, number_recent_msg],
         )
@@ -1456,24 +1456,20 @@ class MessagesView(generics.ListCreateAPIView):
 
     def post(self, request, *args, **kwargs):
         data = request.data
+
         if data.get("bulk_read"):
             # Handle bulk reading of messages
             ids, read = data.get("ids"), data.get("read", True)
             ids = [ids] if isinstance(ids, str) else ids
 
-            user_messages = get_user_messages(self.request.user)
-            user_msg_ids = [str(k.id) for k in user_messages]
-            valid_update_ids = [k for k in ids if k in user_msg_ids]
+            queryset = get_user_messages(request.user)
+            ids = list(set(ids).intersection({str(k.id) for k in queryset}))
 
-            msgs = user_messages.filter(id__in=valid_update_ids)
-            for m in msgs:
-                m.read = read
-                m.save()
+            msgs = queryset.filter(id__in=ids)
+            msgs.update(read=read, updated_at=timezone.now())
 
             read_state = "read" if read else "unread"
-            return Response(
-                f"{len(valid_update_ids)} messages successfully updated to {read_state}", status=status.HTTP_200_OK
-            )
+            return Response(f"{len(ids)} messages successfully updated to {read_state}", status=status.HTTP_200_OK)
 
         return self.create(request, *args, **kwargs)
 
@@ -1515,11 +1511,10 @@ class MessagesView(generics.ListCreateAPIView):
                 ser_data = self.save_message(request, data)
         else:
             # Handle Outbox messages
+            subject_id = qparams.get("subject_id").strip()
+            source_id = qparams.get("source_id").strip()
 
-            subject_id = qparams.get("subject_id")
-            source_id = qparams.get("source_id")
-
-            if not subject_id and not source_id:
+            if not (subject_id and source_id):
                 return Response(
                     {"Error": "Source_id and subject_id params needed for an outbox message"},
                     status=status.HTTP_400_BAD_REQUEST,
