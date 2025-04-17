@@ -1,45 +1,16 @@
 import logging
-import os
-from typing import Tuple
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-from celery import signature
 
 from django.db.utils import OperationalError
-from django.test import TestCase
 
+from core.models.core import DASTenant
 from das_server import celery
-from utils.tenant.celery import (
-    TENANT_TASK_NAME,
-    OverAllTenantTask,
-    TenantTask,
-    run_by_single_tenant,
-)
+from utils.tenant.celery import TENANT_TASK_NAME, OverAllTenantTask, TenantTask
+from utils.tenant.exceptions import TenantNotFoundException
 
 logger = logging.getLogger(__name__)
-
-
-def get_module_and_task_names(task_path: Tuple) -> Tuple[str, str]:
-    return task_path[1]["task"].rsplit(".", 1)
-
-
-def get_args(task: Tuple):
-    args = ()
-
-    if "args" in task[1]:
-        args = task[1]["args"]
-
-    return args
-
-
-def get_kwargs(task: Tuple):
-    kwargs = {}
-
-    if "kwargs" in task[1]:
-        kwargs = task[1]["kwargs"]
-
-    return kwargs
 
 
 @celery.app.task(base=TenantTask)
@@ -50,23 +21,16 @@ def fake_tenant_test_task(*args, **kwargs):
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestTenantCeleryTasks:
+    @patch("utils.tenant.celery.TenantContextManager")
+    def test_direct_tenant_execution(self, mock_tenant_context):
+        """Test direct execution with tenant_domain parameter"""
+        task = OverAllTenantTask()
+        task.run = MagicMock()
 
-    @pytest.mark.parametrize("domain", [[b"zoo.com", b"tenant1.example.com", b"tenant2.example.com"]])
-    @patch("utils.tenant.celery.group")
-    @patch("das.utils.tenant.celery.signature")
-    def test_tenant_schedule_celery_task(
-        self, mock_signature, mock_group, tenant_document_cache_client_mock, tenant, domain, caplog, monkeypatch
-    ):
-        caplog.set_level(logging.INFO)
-        tenant_document_cache_client_mock.get_set_by_key.return_value = domain
-        monkeypatch.setattr("observations.tasks.poll_news_gcs_bucket", MagicMock(return_value=tenant))
-        monkeypatch.setitem(os.environ, "CLUSTER_NAME", "R2D2")
-        monkeypatch.setitem(os.environ, "CLUSTER_NAMESPACE", "SPACE")
+        task(tenant_domain="test.com")
 
-        for tenant in domain:
-            run_by_single_tenant.apply(args={}, kwargs={"tenant_domain": tenant.decode("utf-8")}, task=TENANT_TASK_NAME)
-
-            assert f"Running: {TENANT_TASK_NAME} for Tenant domain: {tenant.decode('utf-8')}" in caplog.text
+        mock_tenant_context.assert_called_with("test.com")
+        task.run.assert_called_once()
 
     @patch("core.models.DASTenant.objects.get")
     def test_tenent_mixin_operational_error_exception(self, mock_das_tenant_db_operation):
@@ -79,26 +43,54 @@ class TestTenantCeleryTasks:
             assert isinstance(kwargs.get("exc"), OperationalError)
 
 
-class TestOverAllTenantTask(TestCase):
+class TestOverAllTenantTask:
     @patch("utils.tenant.celery.get_current_cluster_domains")
-    @patch("utils.tenant.celery.group")
-    @patch("das.utils.tenant.celery.signature")
-    def test_each_tenant_spawns_a_single_task(self, mock_signature, mock_group, mock_get_current_cluster_domains):
+    @patch("utils.tenant.celery.signature")
+    def test_spawns_task_per_tenant(self, mock_signature, mock_get_current_cluster_domains):
         mock_tenants = ["tenant1.example.com", "tenant2.example.com", "tenant3.example.com"]
         mock_get_current_cluster_domains.return_value = mock_tenants
 
-        mock_group_instance = MagicMock()
-        mock_group.return_value = mock_group_instance
+        mock_sigs = [MagicMock() for _ in mock_tenants]
+        mock_signature.side_effect = mock_sigs
+
+        task = OverAllTenantTask()
+        task.name = "fake_task_name"
+        task()
+
+        expected_calls = [
+            call(
+                TENANT_TASK_NAME,
+                args=("fake_task_name", ()),
+                kwargs={"task_kwargs": {"tenant_domain": tenant}},
+                immutable=True,
+            )
+            for tenant in mock_tenants
+        ]
+        mock_signature.assert_has_calls(expected_calls)
+
+        for mock_sig in mock_sigs:
+            mock_sig.apply_async.assert_called_once()
+
+    @patch("utils.tenant.celery.get_current_cluster_domains")
+    def test_no_tenants_warning(self, mock_get_current_cluster_domains, caplog):
+        caplog.set_level(logging.WARNING)
+        mock_get_current_cluster_domains.return_value = []
 
         task = OverAllTenantTask()
         task()
 
-        tasks_signatures = [
-            signature(TENANT_TASK_NAME, args=(tenant_domain,), kwargs={}, immutable=True)
-            for tenant_domain in mock_tenants
-        ]
+        assert "No tenants found in cluster!" in caplog.text
 
-        expected_signature_calls = [call(tasks_signatures)]
-        mock_group.assert_has_calls(expected_signature_calls)
+    @patch("utils.tenant.celery.TenantContextManager")
+    def test_tenant_not_found_handling(self, mock_tenant_context, caplog):
+        mock_tenant_context.side_effect = DASTenant.DoesNotExist()
+        task = OverAllTenantTask()
+        task(tenant_domain="missing.com")
 
-        mock_group_instance.apply_async.assert_called_once()
+        assert "Tenant with domain missing.com missing in local DB" in caplog.text
+
+        mock_tenant_context.side_effect = TenantNotFoundException()
+        task = OverAllTenantTask()
+        task(tenant_domain="missing.com")
+
+        assert "Tenant with domain missing.com missing in TMS" in caplog.text
