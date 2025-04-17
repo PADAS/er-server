@@ -208,7 +208,7 @@ class GenericSensorHandler:
                 updated_fields.extend(["is_active"])
 
             if additional:
-                subject.additional = an_observation.get("additional", {})
+                subject.additional = additional
                 updated_fields.append("additional")
 
             if updated_fields:
