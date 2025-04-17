@@ -195,7 +195,7 @@ app.conf.beat_schedule = {
     },
     "poll_news_gcs_bucket": {
         "task": "observations.tasks.poll_news_gcs_bucket",
-        "schedule": timedelta(seconds=15),
+        "schedule": timedelta(minutes=15),
     },
     "periodically_maintain_patrol_state": {
         "task": "activity.tasks.periodically_maintain_patrol_state",
