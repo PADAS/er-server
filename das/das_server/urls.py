@@ -40,7 +40,6 @@ urlpatterns = [
     path("api/v1.0/sensors/", include("sensors.urls")),
     path("api/v1.0/activity/", include("activity.urls")),
     path("api/v1.0/analyzers/", include("analyzers.urls")),
-    path("api/v1.0/dynamic-schemas/", include("schemas.urls", namespace="dynamic-schemas")),
     path("api/v1.0/", include("rt_api.urls")),
     path("api/v1.0/api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     path("api/v1.0/api-schema/", schema_view, name="openapi-schema"),
@@ -56,6 +55,7 @@ urlpatterns = [
     path("api/v1.0/", include("choices.urls")),
     path("api/v1.0/", include("buoy.urls")),
     path("api/v1.0/core/", include("core.urls")),
+    path("api/v2.0/dynamic-schemas/", include("schemas.urls", namespace="dynamic-schemas")),
     path("api/v2.0/activity/", include("activity.urls_v2")),
 ]
 
