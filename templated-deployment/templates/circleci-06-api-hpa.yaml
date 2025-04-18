@@ -4,7 +4,7 @@ metadata:
   name: api
   namespace: "${KUBERNETES_NAMESPACE}"
 spec:
-  maxReplicas: 8
+  maxReplicas: 16
   minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
