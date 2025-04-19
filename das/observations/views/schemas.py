@@ -51,7 +51,12 @@ class SubjectsViewSchema(InactiveSubjectsViewSchema):
                 {
                     "name": "updated_since",
                     "in": "query",
-                    "description": "Return Subject that have been updated since the given timestamp.",
+                    "description": "Return Subjects that have been updated since the given timestamp.",
+                },
+                {
+                    "name": "position_updated_since",
+                    "in": "query",
+                    "description": "Return Subjects that have had their position updated since the given timestamp.",
                 },
                 {
                     "name": "render_last_location",

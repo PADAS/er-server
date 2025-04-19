@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework_condition import etag
 
 from django.db.models import F, QuerySet, Window
@@ -48,6 +50,8 @@ from utils.drf import (
 )
 from utils.json import ExtendedGEOJSONRenderer, parse_bool
 from utils.tenant.thread import get_tenant_settings
+
+logger = logging.getLogger(__name__)
 
 
 class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDataMixin):
@@ -112,6 +116,10 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
         # Apply request query filters that have been compatible with any of the
         # criteria above.
+        position_updated_since = query_params.get("position_updated_since")
+        position_updated_since = dateparse(position_updated_since) if position_updated_since else None
+        if position_updated_since:
+            logger.info("position_updated_since: %s", position_updated_since)
         updated_since = query_params.get("updated_since")
         updated_until = query_params.get("updated_until")
         bbox = query_params.get("bbox")
