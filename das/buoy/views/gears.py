@@ -74,9 +74,14 @@ class GearsView(generics.ListAPIView):
         queryset.update(additional=Subquery(latest_observation.values("observation__additional")[:1]))
 
         # Tech Debt tracked by ticket RF-755: Workaround from RF-816
-        subjects_qs = Subject.objects.filter(subjectsource__in=queryset.filter(additional__event_type="gear_deployed"))
+        subjects_qs = Subject.objects.filter(
+            subjectsource__in=queryset.filter(additional__event_type="gear_deployed")
+        ).filter(is_active=False)
         subjects_qs.update(is_active=True)
-        subjects_qs = Subject.objects.filter(subjectsource__in=queryset.filter(additional__event_type="gear_retrieved"))
+
+        subjects_qs = Subject.objects.filter(
+            subjectsource__in=queryset.filter(additional__event_type="gear_retrieved")
+        ).filter(is_active=True)
         subjects_qs.update(is_active=False)
 
         is_active = check_valid_state_string(query_params.get("state"))
