@@ -122,6 +122,11 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             logger.info("position_updated_since: %s", position_updated_since)
         updated_since = query_params.get("updated_since")
         updated_until = query_params.get("updated_until")
+        if position_updated_since and (updated_since or updated_until):
+            raise BadRequestAPIException(
+                detail="Cannot use both position_updated_since and updated_since/updated_until"
+            )
+
         bbox = query_params.get("bbox")
         name = query_params.get("name", None)
 
@@ -182,6 +187,9 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
         is_updated_until_valid, updated_until = check_valid_date_string(updated_until, "updated_until")
 
         queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
+        if position_updated_since:
+            queryset = queryset.by_position_updated_since(position_updated_since)
+
         if is_updated_since_valid and is_updated_until_valid:
             queryset = queryset.by_updated_since_until(updated_since, updated_until)
         elif is_updated_since_valid:
@@ -209,7 +217,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
                     bbox_values,
                     last_days=last_days,
                     include_stationary_subjects=show_stationary_subjects,
-                    updated_since=updated_since,
+                    updated_since=position_updated_since or updated_since,
                     updated_until=updated_until,
                 )
             else:
@@ -217,7 +225,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
                     bbox_values,
                     last_days=get_track_days(),
                     include_stationary_subjects=show_stationary_subjects,
-                    updated_since=updated_since,
+                    updated_since=position_updated_since or updated_since,
                     updated_until=updated_until,
                 )
 
