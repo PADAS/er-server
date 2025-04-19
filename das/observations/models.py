@@ -1192,6 +1192,11 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         elif updated_until:
             return updated_until_filter
 
+    def by_position_updated_since(self, position_updated_since):
+        position_updated_since_filter = Q(status_recorded_at__gte=position_updated_since)
+
+        return self.filter(position_updated_since_filter)
+
     def by_updated_since(self, updated_since):
         updated_since_filter = self._query_string_for_filter(updated_since=updated_since)
 
