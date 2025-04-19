@@ -1262,6 +1262,62 @@ class TestSubjectsViewFilter:
         assert len(response.data) == total
 
     @pytest.mark.parametrize(
+        "status_subjects_position, total",
+        [
+            (
+                [
+                    [-103.66424560546874, 20.619288994719977],
+                    [-103.61755371093749, 20.551151842360383],
+                    [-103.61000061035156, 20.699600246050323],
+                    [-103.4857177734375, 20.609648794045192],
+                    [-103.47885131835938, 20.732997212795915],
+                ],
+                5,
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "subject_group_with_perms",
+        [
+            [
+                "view_subjectgroup,observations,subjectgroup",
+                "view_subject,observations,subject",
+            ]
+        ],
+        indirect=True,
+    )
+    def test_by_position_updated_since(
+        self,
+        view_subjects_permission_set,
+        five_subject_sources,
+        status_subjects_position,
+        total,
+        subject_group_with_perms,
+    ):
+        position_updated_since = datetime.now(tz=pytz.UTC)
+        recorded_at = position_updated_since - timedelta(seconds=1)
+        for position, source in zip(status_subjects_position, Source.objects.all()):
+            Observation.objects.create(
+                recorded_at=recorded_at,
+                source=source,
+                location=Point(position),
+            )
+            recorded_at = recorded_at + timedelta(seconds=1)
+        subject_group_with_perms.subjects.add(*Subject.objects.all())
+
+        client = HTTPClient()
+        client.app_user.permission_sets.add(view_subjects_permission_set)
+        client.app_user.permission_sets.add(subject_group_with_perms.permission_sets.last())
+        request = client.factory.get(
+            client.api_base + "/subjects/",
+            {"use_lkl": "true", "position_updated_since": position_updated_since.isoformat()},
+        )
+        client.force_authenticate(request, client.app_user)
+        response = SubjectsView.as_view()(request)
+
+        assert len(response.data) == total - 1
+
+    @pytest.mark.parametrize(
         "subject_group_with_perms",
         [
             [
