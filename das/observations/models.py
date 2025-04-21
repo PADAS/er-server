@@ -1152,6 +1152,9 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
 
         return self.none()
 
+    def annotate_transforms(self):
+        return self.annotate(source_transforms=F("subjectsource__source__provider__transforms"))
+
     def annotate_with_subjectstatus(self, delay_hours=0, mou_expiry_date=None):
         # Define FilteredRelation with conditional logic
         filter_condition = Q(subjectstatus__delay_hours=delay_hours)
