@@ -390,7 +390,7 @@ ui_schema = {
             "type": "object",
             "additionalProperties": False,
             "patternProperties": {
-                "^header-[A-Za-z0-9]": {"$ref": "#/$defs/uiHeadersSchema"},
+                "^header-.*": {"$ref": "#/$defs/uiHeadersSchema"},
             },
         },
         "order": {
@@ -402,7 +402,7 @@ ui_schema = {
             "type": "object",
             "additionalProperties": False,
             "patternProperties": {
-                "^section-[A-Za-z0-9]": {"$ref": "#/$defs/uiSectionsSchema"},
+                "^section-.*": {"$ref": "#/$defs/uiSectionsSchema"},
             },
         },
     },
