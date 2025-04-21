@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import random
 import urllib.parse
@@ -57,6 +58,7 @@ from utils.tenant import Tenant
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests")
 faker = Faker()
+logger = logging.getLogger(__name__)
 
 
 class SubjectTestCase(BaseAPITest):
@@ -1242,6 +1244,7 @@ class TestSubjectsViewFilter:
         status_subjects_position,
         total,
         subject_group_with_perms,
+        django_assert_num_queries,
     ):
         bbox = "-103.71599063163262,20.51126608854284,-103.36639645879019,20.780283984574012"
         for position, source in zip(status_subjects_position, Source.objects.all()):
@@ -1257,7 +1260,10 @@ class TestSubjectsViewFilter:
         client.app_user.permission_sets.add(subject_group_with_perms.permission_sets.last())
         request = client.factory.get(client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true")
         client.force_authenticate(request, client.app_user)
-        response = SubjectsView.as_view()(request)
+        with django_assert_num_queries(18) as captured:
+            response = SubjectsView.as_view()(request)
+
+        logger.debug(f"Queries: {captured}")
 
         assert len(response.data) == total
 
