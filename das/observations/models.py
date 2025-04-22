@@ -47,8 +47,10 @@ from django.db.models import (
     FilteredRelation,
     Index,
     Max,
+    OuterRef,
     Q,
     QuerySet,
+    Subquery,
     Value,
     When,
 )
@@ -1152,8 +1154,26 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
 
         return self.none()
 
-    def annotate_transforms(self):
-        return self.annotate(source_transforms=F("subjectsource__source__provider__transforms"))
+    def annotate_with_subjectsource_transforms(self):
+        """
+        Annotates the queryset with the location and transforms from the most current subjectsource.
+        Uses a subquery to get the latest subjectsource record for each subject.
+
+        Returns:
+            QuerySet: Annotated with subjectsource_location and source_transforms
+        """
+
+        # Get the latest subjectsource for each subject
+        latest_subjectsource = (
+            SubjectSource.objects.filter(subject=OuterRef("pk"))
+            .order_by("-assigned_range")
+            .values("location", "source__provider__transforms")[:1]
+        )
+
+        return self.annotate(
+            subjectsource_location=Subquery(latest_subjectsource.values("location")),
+            source_transforms=Subquery(latest_subjectsource.values("source__provider__transforms")),
+        )
 
     def annotate_with_subjectstatus(self, delay_hours=0, mou_expiry_date=None):
         # Define FilteredRelation with conditional logic
@@ -1865,7 +1885,7 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
 
     def update_current(self, subject):
         for subject_source in SubjectSource.objects.filter(
-            subject=subject, assigned_range__contains=datetime.now(tz=pytz.utc)
+            subject=subject, assigned_range__contains=datetime.now(tz=timezone.utc)
         ):
             self.update_current_from_source(
                 subject_source.source,

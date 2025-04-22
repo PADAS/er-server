@@ -313,8 +313,8 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
                             rep["last_position_date"] = latest_observation.recorded_at
 
                             location = latest_observation.location
-                            if is_stationary_subject and (latest_location := instance.subjectsources.last().location):
-                                location = latest_location
+                            if is_stationary_subject and instance.subjectsource_location:
+                                location = instance.subjectsource_location
 
                             rep["last_position"] = make_feature(
                                 request,
@@ -354,8 +354,8 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
                         ),
                         "radio_state": statusvalues.radio_state,
                     }
-                    if is_stationary_subject and (latest_location := instance.subjectsources.last().location):
-                        location = latest_location
+                    if is_stationary_subject and instance.subjectsource_location:
+                        location = instance.subjectsource_location
 
                     if tracks_available:
                         rep["last_position_date"] = recorded_at
@@ -416,7 +416,7 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         return models.Subject.objects.create_subject(**validated_data)
 
     def _is_stationary_subject(self, instance):
-        if instance.subject_subtype.subject_type.value == STATIONARY_SUBJECT_VALUE and instance.subjectsources.last():
+        if instance.subject_subtype.subject_type.value == STATIONARY_SUBJECT_VALUE and instance.subjectsource_location:
             return True
         return False
 
