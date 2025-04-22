@@ -139,11 +139,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         queryset = queryset.values("updated_at", "category__updated_at")
         return super().get_list_etag(request, queryset)
 
-    def perform_destroy(self, instance: models.Model):
-        # Looks safe to implement this one.
-        instance.set_to_inactive()
-
-    def create(self, request, *args, **kwargs):
+    def create(self, request: Request, *args, **kwargs) -> Response:
         res = super().create(request, *args, **kwargs)
         new_object_url = reverse("v2-eventtype-retrieve-schema", kwargs={"eventtype_value": res.data["value"]})
 
@@ -162,7 +158,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         registry = build_dynamic_schemas_registry(request)
         return SchemaRenderer(registry)
 
-    def get_serializer_context(self):
+    def get_serializer_context(self) -> dict:
         context = super().get_serializer_context()
         include_schema = parse_bool(self.request.query_params.get("include_schema", "false"))
         context["include_schema"] = include_schema
@@ -230,3 +226,20 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         if success:
             return Response(data, status=status.HTTP_200_OK)
         return Response({"error": data}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    def destroy(self, request: Request, *args, **kwargs) -> Response:
+        instance = self.get_object()
+        has_events = instance.event_set.exists()
+        has_alerts = instance.alert_rules.exists()
+
+        if has_events or has_alerts:
+            reasons = []
+            if has_events:
+                reasons.append("it is associated with existing Events")
+            if has_alerts:
+                reasons.append("it is associated with existing Alert Rules")
+            error_message = f"Cannot delete Event Type '{instance.display}' because {', and '.join(reasons)}."
+            return Response({"detail": error_message}, status=status.HTTP_409_CONFLICT)
+
+        # If no dependencies, proceed with standard deletion which returns 204
+        return super().destroy(request, *args, **kwargs)
