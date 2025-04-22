@@ -5,6 +5,7 @@ from rest_framework_condition import etag
 from django.db.models import F, QuerySet, Window
 from django.db.models.functions import FirstValue
 from django.db.utils import IntegrityError
+from django.forms import ValidationError
 from rest_framework import status
 from rest_framework.generics import (
     ListAPIView,
@@ -16,6 +17,7 @@ from rest_framework.generics import (
 from rest_framework.response import Response
 
 from activity.permissions import StandardObjectPermissions
+from das.utils.schema_utils import is_uuid
 from observations.filters import create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import SourceGroup, Subject, SubjectGroup, SubjectSource
@@ -146,15 +148,22 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
         # Handle filters for subject ID, group, and source groups
         subject_ids = query_params.get("id")
         subject_group_id = query_params.get("subject_group")
-        subject_group_ids = query_params.get("subject_group_ids")
+        subject_group_param_splited = subject_group_id.split(",") if subject_group_id else []
 
         if subject_ids:
             queryset = queryset.by_id(subject_ids)
-        elif subject_group_id:
+        elif subject_group_id and len(subject_group_param_splited) == 1:
+            if not is_uuid(subject_group_id):
+                raise ValidationError("Invalid subject_group id at 'subject_group'")
+
             subject_groups = SubjectGroup.objects.get_nested_groups(parent_id=subject_group_id)
             queryset = queryset.by_groups(subject_groups=subject_groups)
-        elif subject_group_ids:
-            queryset = queryset.filter(groups__id__in=subject_group_ids.split(","))
+
+        elif subject_group_id and len(subject_group_param_splited) > 1:
+            if not all(is_uuid(item.strip()) for item in subject_group_param_splited):
+                raise ValidationError("Invalid subject_group id at 'subject_group'")
+
+            queryset = queryset.filter(groups__id__in=subject_group_id.split(","))
         else:
             # Fetch all the Subjects whose access is gained through Source Group
             # permissions.
@@ -235,9 +244,12 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
         if name:
             queryset = queryset.by_name_search(self.request.query_params.get("name"))
 
-        subtype_ids = query_params.get("subject_subtype_ids")
-        if subtype_ids:
-            queryset = queryset.filter(subject_subtype__id__in=subtype_ids.split(","))
+        if subtype_ids := query_params.get("subject_subtype_ids"):
+            subtype_ids_list = subtype_ids.split(",")
+            if not all(is_uuid(item.strip()) for item in subtype_ids_list):
+                raise ValidationError("Invalid subject_type id at 'subject_subtype_ids'")
+
+            queryset = queryset.filter(subject_subtype__id__in=subtype_ids_list)
 
         if (
             not name

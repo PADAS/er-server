@@ -1428,7 +1428,7 @@ class TestSubjectsViewFilter:
         assert len(res.json()["data"]) == 3
 
         # assert only filtered subject by group id is present on response
-        res = superuser_client.get(f"{url}?subject_group_ids={sgrp1.id}")
+        res = superuser_client.get(f"{url}?subject_group={sgrp1.id},{uuid.uuid4()}")
         assert len(res.json()["data"]) == 1
         assert res.json()["data"][0]["id"] == str(two_subjects[0].id)
 
@@ -1455,6 +1455,25 @@ class TestSubjectsViewFilter:
         res = superuser_client.get(f"{url}?subject_subtype_ids={last_subject.subject_subtype.id}")
         assert len(res.json()["data"]) == 1
         assert res.json()["data"][0]["id"] == str(last_subject.id)
+
+    def test_filter_by_malformed_subject_subtypes_id_list(self, superuser_client):
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(f"{url}?subject_subtype_ids=invalid_id")
+
+        assert res.status_code == 400
+        assert res.json()["status"]["detail"] == "[\"Invalid subject_type id at 'subject_subtype_ids'\"]"
+
+    def test_filter_by_subject_group_id_list_with_invalid_id(self, superuser_client):
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(f"{url}?subject_group={uuid.uuid4()},not-a-uuid")
+        assert res.status_code == 400
+        assert res.json()["status"]["detail"] == "[\"Invalid subject_group id at 'subject_group'\"]"
+
+    def test_filter_by_subject_group_invalid_uuid(self, superuser_client):
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(f"{url}?subject_group=invalid-uuid")
+        assert res.status_code == 400
+        assert res.json()["status"]["detail"] == "[\"Invalid subject_group id at 'subject_group'\"]"
 
 
 def random_date(start_date, end_date):
