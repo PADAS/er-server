@@ -48,6 +48,9 @@ app.conf.task_queues = (
 
 
 app.conf.task_routes = {
+    "observations.tasks.handle_outbox_message": {
+        "queue": "realtime_p1",
+    },
     "activity.tasks.send_alert_to_notificationmethod": {
         "queue": "realtime_p1",
     },
