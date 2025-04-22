@@ -353,6 +353,38 @@ class TestEventTypesV2:
         }
         assert response.json() == expected_response
 
+    def test_delete_event_type_success_after_cleaning_dependencies(
+        self, superuser_client, superuser, cat1_cat2_event_types
+    ):
+        """
+        Test deleting an EventType successfully after its dependencies (Event, AlertRule) have been removed via API.
+        """
+        target = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+        count_before = EventType.objects.count()
+
+        # Create an Event
+        event = Event.objects.create(event_type=target, created_by_user=superuser, title="Test Event 2")
+        # Create an AlertRule
+        alert_rule = AlertRule.objects.create(owner=superuser, title="Test Alert Rule 2")
+        alert_rule.event_types.add(target)
+
+        # Clean up dependencies through API
+        event_url = reverse("event-view", kwargs={"id": event.id})
+        delete_event_response = superuser_client.delete(event_url)
+        assert delete_event_response.status_code == status.HTTP_200_OK
+
+        alert_rule_url = reverse("alert-view", kwargs={"id": alert_rule.id})
+        delete_alert_rule_response = superuser_client.delete(alert_rule_url)
+        assert delete_alert_rule_response.status_code == status.HTTP_200_OK
+
+        # Delete EventType
+        response = superuser_client.delete(url)
+
+        assert EventType.objects.count() == count_before - 1, "EventType count should decrease by 1"
+        assert not EventType.objects.filter(pk=target.pk).exists(), "The specific EventType should no longer exist"
+        assert response.status_code == status.HTTP_200_OK
+
     def test_delete_event_type_fail_with_event(self, superuser_client, cat1_cat2_event_types, superuser):
         """
         Test deleting an EventType associated with an Event fails.

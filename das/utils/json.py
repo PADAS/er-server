@@ -108,7 +108,6 @@ class ExtendedJSONRenderer(JSONRenderer):
     JSON renderer that wraps the response with a data and status block.
     """
 
-    # Note: Implemented due to FE requirements, not strong reasons, we can aim to remove this in the future.
     encoder_class = ExtendedJSONEncoder
 
     def render(self, data, accepted_media_type=None, renderer_context=None):
@@ -116,12 +115,12 @@ class ExtendedJSONRenderer(JSONRenderer):
         if renderer_context:
             response = renderer_context.get("response")
 
-        if response:
-            needs_wrapping = data is None or ("swaggerVersion" not in data and "status" not in data)
-            if needs_wrapping:
-                data = {"data": data, "status": {"code": response.status_code, "message": response.status_text}}
-                if response.status_code == HTTPStatus.NO_CONTENT:
-                    response.status_code = HTTPStatus.OK
+        if response and (data is None or ("swaggerVersion" not in data and "status" not in data)):
+            # Wrap the response with a data and status block
+            # Note: Implemented due to FE requirements, not strong reasons, we can aim to remove this in the future.
+            data = {"data": data, "status": {"code": response.status_code, "message": response.status_text}}
+            if response.status_code == HTTPStatus.NO_CONTENT:
+                response.status_code = HTTPStatus.OK
 
         return super().render(data, accepted_media_type=accepted_media_type, renderer_context=renderer_context)
 
@@ -165,10 +164,10 @@ class ExtendedBrowsableAPIRenderer(BrowsableAPIRenderer):
         if renderer_context:
             response = renderer_context.get("response")
 
-        if response:
-            needs_wrapping = data is None or ("swaggerVersion" not in data and "status" not in data)
-            if needs_wrapping:
-                data = {"data": data, "status": {"code": response.status_code, "message": response.status_text}}
+        if response and (data is None or ("swaggerVersion" not in data and "status" not in data)):
+            # Wrap the response with a data and status block
+            # Note: Implemented due to FE requirements, not strong reasons, we can aim to remove this in the future.
+            data = {"data": data, "status": {"code": response.status_code, "message": response.status_text}}
 
         return super().render(data, accepted_media_type=accepted_media_type, renderer_context=renderer_context)
 
