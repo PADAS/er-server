@@ -189,7 +189,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
         queryset = queryset.annotate_with_subjectstatus(
             delay_hours=min_age_days * 24, mou_expiry_date=mou_date
-        ).annotate_transforms()
+        ).annotate_with_subjectsource_transforms()
         if position_updated_since:
             queryset = queryset.by_position_updated_since(position_updated_since)
 
@@ -246,7 +246,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
                 check_to_include_inactive_subjects(self.request, self.queryset_linked_user)
                 .select_related("subject_subtype", "subject_subtype__subject_type", "common_name")
                 .annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
-                .annotate_transforms()
+                .annotate_with_subjectsource_transforms()
             )
 
         queryset = queryset.order_by("id")
@@ -321,7 +321,7 @@ class SubjectView(RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
         mou_date = dateparse(mou_date) if mou_date else None
         queryset = queryset.annotate_with_subjectstatus(
             delay_hours=min_age_days * 24, mou_expiry_date=mou_date
-        ).annotate_transforms()
+        ).annotate_with_subjectsource_transforms()
         self._get_two_way_sources(queryset)
         return queryset
 
