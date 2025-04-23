@@ -17,7 +17,6 @@ from rest_framework.generics import (
 from rest_framework.response import Response
 
 from activity.permissions import StandardObjectPermissions
-from das.utils.schema_utils import is_uuid
 from observations.filters import create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import SourceGroup, Subject, SubjectGroup, SubjectSource
@@ -51,6 +50,7 @@ from utils.drf import (
     return_409_response,
 )
 from utils.json import ExtendedGEOJSONRenderer, parse_bool
+from utils.schema_utils import is_uuid
 from utils.tenant.thread import get_tenant_settings
 
 logger = logging.getLogger(__name__)
