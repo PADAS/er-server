@@ -79,18 +79,18 @@ def test_get_all_choices_filtering(client, choices_fixture, five_choices):
     response = client.get(
         url,
         {
-            "field": "wildlifesighting_species",
+            "field": "wildlifesighting_species,wildlifesighting_reporter_type",
             "model": "activity.eventtype",
             "include_inactive": True,
         },
     )
     assert response.status_code == 200
     assert len(choices.all()) == 9
-    assert len(response.data["results"]) == 2  # assert filtered items return one active and one inactive
+    assert len(response.data["results"]) == 3  # assert only filtered items are returned
 
     response = client.get(url, {"include_inactive": False})
     assert response.status_code == 200
-    assert len(response.data["results"]) == 7  # assert only active choices added vi five_choices
+    assert len(response.data["results"]) == 7  # assert only active choices are returned
 
     response = client.get(url)
     assert response.status_code == 200
