@@ -82,7 +82,7 @@ class SubjectsViewSchema(InactiveSubjectsViewSchema):
                 },
                 {"name": "id", "in": "query", "description": "A comma-delimited list of Subject IDs."},
                 {
-                    "name": "subject_subtype_ids",
+                    "name": "subject_subtypes",
                     "in": "query",
                     "description": "List of subtype ids comma-delimited for which Subjects should be listed.",
                     "schema": {"type": "UUID"},

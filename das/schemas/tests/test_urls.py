@@ -98,7 +98,7 @@ def test_dynamic_subjects_filtered_by_subtypes(superuser_client):
     sgrp2.save()
 
     url = reverse("schemas:subjects")
-    response = superuser_client.get(f"{url}?subject_subtype_ids={last_subject.subject_subtype.id}")
+    response = superuser_client.get(f"{url}?subject_subtypes={last_subject.subject_subtype.id}")
 
     assert response.status_code == 200
     for item in response.json()["oneOf"]:
