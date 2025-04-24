@@ -36,9 +36,15 @@ class TestJsonSchemaField:
             "valid_event_type_v2_schema",
             "valid_numeric_field_schema",
             "valid_choice_field_schema",
+            "valid_multiple_choice_field_schema",
             "valid_boolean_field_schema",
             "valid_datetime_field_schema",
+            "valid_date_field_schema",
+            "valid_time_field_schema",
             "valid_text_field_schema",
+            "valid_location_field_schema",
+            # "valid_rendered_choice_field_schema",
+            # "valid_rendered_multiple_choice_field_schema",
         ],
         indirect=True,
     )
@@ -140,6 +146,11 @@ class TestJsonSchemaField:
                 "is not valid under any of the given schemas",
                 "at json.properties.testChoice",
             ),
+            # (
+            #     "invalid_choice_url_format_schema",
+            #     "is not valid under any of the given schemas",
+            #     "at json.properties.testChoice",
+            # ),
             (
                 "invalid_boolean_default_schema",
                 "is not valid under any of the given schemas",
