@@ -244,10 +244,10 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
         if name:
             queryset = queryset.by_name_search(self.request.query_params.get("name"))
 
-        if subtype_ids := query_params.get("subject_subtype_ids"):
+        if subtype_ids := query_params.get("subject_subtypes"):
             subtype_ids_list = subtype_ids.split(",")
             if not all(is_uuid(item.strip()) for item in subtype_ids_list):
-                raise ValidationError("Invalid subject_type id at 'subject_subtype_ids'")
+                raise ValidationError("Invalid subject_type id at 'subject_subtypes'")
 
             queryset = queryset.filter(subject_subtype__id__in=subtype_ids_list)
 
