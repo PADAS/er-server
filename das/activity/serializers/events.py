@@ -127,6 +127,21 @@ def auto_add_report_to_patrols(application, event):
                     segment.events.add(event)
 
 
+class SimplifiedEventTypeSerializer(ModelSerializer):
+    class Meta:
+        model = EventType
+        read_only_fields = ("id",)
+        fields = (
+            "display",
+            "geometry_type",
+            "icon",
+            "id",
+            "is_active",
+            "ordernum",
+            "value",
+        )
+
+
 class EventCategorySerializer(ModelSerializer):
     class Meta:
         model = EventCategory
@@ -163,7 +178,7 @@ class EventCategorySerializer(ModelSerializer):
 
 
 class EventCategoryRelatedField(RelatedField):
-    def to_representation(self, value):
+    def to_representation(self, value) -> dict:
         rep = EventCategorySerializer().to_representation(value)
         user = getattr(self.context.get("request", None), "user", None)
         if user is not None:
@@ -194,23 +209,9 @@ class EventCategoryRelatedField(RelatedField):
         return OrderedDict([(self.to_representation(item).get("value"), self.display_value(item)) for item in queryset])
 
 
-class SimplifiedEventTypeSerializer(ModelSerializer):
-    class Meta:
-        model = EventType
-        read_only_fields = ("id",)
-        fields = (
-            "display",
-            "geometry_type",
-            "icon",
-            "id",
-            "is_active",
-            "ordernum",
-            "value",
-        )
-
-
 class EventTypeSerializer(ModelSerializer):
     category = EventCategoryRelatedField()
+    has_events_assigned = SerializerMethodField()
 
     class Meta:
         model = EventType
@@ -260,6 +261,17 @@ class EventTypeSerializer(ModelSerializer):
                 raise ValidationError(exc)
         return schema
 
+    def get_has_events_assigned(self, obj) -> bool:
+        """
+        Returns whether the event type is being used in any event.
+        Implementation is based on the `in_use` annotation in the queryset.
+        Prevents from performing a separate query to check if the event type is in use.
+        """
+        if hasattr(obj, "in_use"):
+            return obj.in_use
+        logger.warning("Missing `in_use` annotation in EventType queryset for EventType %s", obj.value)
+        return obj.event_set.exists()
+
     def to_internal_value(self, data):
         if data.get("icon_id"):
             data["icon"] = data["icon_id"]
@@ -267,30 +279,21 @@ class EventTypeSerializer(ModelSerializer):
         return super().to_internal_value(data)
 
     @staticmethod
-    def is_schema_readonly(schema):
+    def is_schema_readonly(obj) -> bool:
         try:
-            rendered = get_schema_renderer_method()(schema)
-        except Exception:
-            pass
+            rendered_schema = get_schema_renderer_method(empty=True)(obj.schema)
+        except Exception as exc:
+            logger.error("Failed to render schema for event type %s: %s", obj.value, exc)
         else:
-            _schema = rendered.get("schema", {})
-            return True if parse_bool(_schema.get("readonly")) else False
+            _schema = rendered_schema.get("schema", {})
+            return parse_bool(_schema.get("readonly"))
+        return False
 
     def to_representation(self, obj):
-        rep = super().to_representation(
-            obj,
-        )
-        rep["url"] = utils.add_base_url(
-            self.request,
-            reverse(
-                "eventtype",
-                args=[
-                    obj.id,
-                ],
-            ),
-        )
+        rep = super().to_representation(obj)
+        rep["url"] = utils.add_base_url(self.request, reverse("eventtype", args=[obj.id]))
 
-        if self.is_schema_readonly(obj.schema):
+        if self.is_schema_readonly(obj):
             rep["readonly"] = True
         return rep
 

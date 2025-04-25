@@ -31,6 +31,7 @@ from activity.models import (
     EventRelationship,
     EventType,
     Patrol,
+    PatrolConfiguration,
     PatrolNote,
     PatrolSegment,
     PatrolType,
@@ -626,6 +627,48 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(len(response.data.get("notes")), 1)
         self.assertEqual(len(response.data["updates"]), 2)
         self.assertEqual(response.data["patrol_segments"][0]["updates"][0].get("type"), "update_segment")
+
+    def test_update_deleted_patrol_returns_404_when_user_has_change_permission(self):
+        patrol_update_data = dict(
+            title="New updated title",
+            notes=[{"text": "New first note"}, {"text": "New second Note"}],
+            patrol_segments=[{"patrol_type": "dog_patrol"}],
+        )
+        patrol = Patrol.objects.get(id=self.sample_patrol_id)
+        self.assertEqual(len(patrol.notes.all()), 0)
+        self.assertEqual(len(patrol.patrol_segments.all()), 0)
+
+        url = reverse("patrol", kwargs={"id": self.sample_patrol_id})
+        # delete the patrol
+        patrol.delete()
+        patrol = None
+
+        request = self.factory.patch(url, data=patrol_update_data)
+        self.force_authenticate(request, self.ops_room_user)
+        response = views.PatrolView.as_view()(request, id=self.sample_patrol_id)
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_update_deleted_patrol_returns_403_when_user_does_not_have_change_permission(self):
+        patrol_update_data = dict(
+            title="New updated title",
+            notes=[{"text": "New first note"}, {"text": "New second Note"}],
+            patrol_segments=[{"patrol_type": "dog_patrol"}],
+        )
+        patrol = Patrol.objects.get(id=self.sample_patrol_id)
+        self.assertEqual(len(patrol.notes.all()), 0)
+        self.assertEqual(len(patrol.patrol_segments.all()), 0)
+
+        url = reverse("patrol", kwargs={"id": self.sample_patrol_id})
+        # delete the patrol
+        patrol.delete()
+        patrol = None
+
+        request = self.factory.patch(url, data=patrol_update_data)
+        self.force_authenticate(request, self.radio_room_user)
+        response = views.PatrolView.as_view()(request, id=self.sample_patrol_id)
+
+        self.assertEqual(response.status_code, 403)
 
     def test_update_patrol(self):
         patrol_update_data = dict(
@@ -1696,6 +1739,22 @@ def test_patrol_admin_page(django_assert_max_num_queries, client, tenant_documen
 
 
 @pytest.mark.usefixtures("tenant_settings")
+def test_patrolconfiguration_admin_history_page(
+    django_assert_max_num_queries, client, tenant_document_cache_client_mock, tenant_response
+):
+    user_const = dict(last_name="last", first_name="first")
+    user = User.objects.create_user(
+        "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
+    )
+
+    client.force_login(user)
+    pc = PatrolConfiguration.objects.first()
+    url = reverse("admin:activity_patrolconfiguration_history", kwargs={"object_id": pc.id})
+    with django_assert_max_num_queries(10):
+        client.get(url)
+
+
+@pytest.mark.usefixtures("tenant_settings")
 def test_patrols(django_assert_max_num_queries, client, tenant_document_cache_client_mock, tenant_response):
     user_const = dict(last_name="last", first_name="first")
     user = User.objects.create_user(
@@ -1771,6 +1830,7 @@ def test_patrols_materialized_view(django_assert_max_num_queries, client):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestPatrolFilter:
     def test_filter_in_serial_number(self, five_patrols):
         self._arrange_patrol_serial_number_sql()

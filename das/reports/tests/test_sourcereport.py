@@ -7,6 +7,7 @@ import pytz
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
+from django.core import mail
 from django.core.management import call_command
 from django.test import TestCase
 
@@ -24,6 +25,8 @@ from reports.distribution import (
     get_users_for_permission,
 )
 from reports.subjectsourcereport import generate_user_reports
+from reports.tasks import subjectsource_report_for_tenant
+from utils.tenant import get_tenant_settings
 
 User = get_user_model()
 
@@ -185,3 +188,12 @@ class TestSubjectSourceReport(TestCase):
             "The list of reported users is not equal to the expected list."
             " Expected list: {}, Actual list: {}".format(expecting_usernames, username_accumulator),
         )
+
+    def test_source_report_rendering_and_sending(self):
+        tenant_settings = get_tenant_settings()
+        usernames = (self.u1.username,)
+        subjectsource_report_for_tenant(usernames=usernames, domain=tenant_settings.domain)
+
+        email = mail.outbox[0]
+
+        assert tenant_settings.domain in email.subject

@@ -1,37 +1,31 @@
-import json
+from django.db.models import F, Func, OuterRef, Subquery, Value
+from django.shortcuts import get_object_or_404
 from rest_framework import generics
+from rest_framework.response import Response
 
 from buoy import serializers
 from buoy.views.helpers import (
-    check_valid_state_string,
     check_valid_date_string,
+    check_valid_state_string,
+    filter_by_bbox,
 )
 from buoy.views.schemas import GearsViewSchema
-from django.db.models import OuterRef, Subquery
-from buoy.views.helpers import check_to_include_inactive_buoys, filter_by_bbox
-from django.shortcuts import get_object_or_404
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import Subject, SubjectSource, SubjectSource, LatestObservationSource
+from observations.models import LatestObservationSource, Subject, SubjectSource
 from observations.permissions import StandardObjectPermissions
-from observations.utils import (
-    VIEW_SUBJECT_PERMS,
-    dateparse,
-    get_minimum_allowed_age,
-)
-from utils.drf import (
-    ForbiddenAPIException,
-    StandardResultsSetPagination,
-)
+from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
+from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
 from utils.gis import check_valid_lat_lon
 
 
 class GearsView(generics.ListAPIView):
     __doc__ = """
     Returns all gears.
-    
+
     Required query-parameters:
     lat, lon: float
-    
+    (Unless the user is edgetech, blueoceangear, or admin)
+
     Optional query-parameters:
     state, where state is either "deployed" or "hauled".
         example: state=deployed
@@ -50,6 +44,13 @@ class GearsView(generics.ListAPIView):
     schema = GearsViewSchema()
 
     def get_queryset(self):
+        return SubjectSource.objects.none()
+
+    def list(self, request, *args, **kwargs):
+        # NOTE:
+        # Code extracted from `get_queryset` method and placed here to preserve operations performed on the
+        # original method, requires further analisys from buoy team, for checking business logic.
+
         query_params = self.request.query_params
         # TODO: Look into using allowed users - need to add subjects to SG in unit tests
         # allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
@@ -66,10 +67,27 @@ class GearsView(generics.ListAPIView):
             latest_observation_additional=Subquery(latest_observations.values("additional")[:1])
         )
 
-        # Keep an eye on performance of the query and potentially add new indexes to improve performance 
-        queryset = queryset.order_by('additional').distinct('additional')
+        # Keep an eye on performance of the query and potentially add new indexes to improve performance
+        # Remove subject_name so we can distinct on the additional field to remove duplicate gearsets from the qs
+        queryset.update(
+            additional=Func(
+                F("additional"),
+                Value("{subject_name}"),  # Path to the key inside the JSON
+                Value("1"),  # New value for subject_name
+                function="jsonb_set",
+            )
+        )
 
-        return queryset
+        # Filter queryset by removing subjects where the additional field is the same
+        queryset = queryset.order_by("additional__display_id", "subject__name").distinct("additional__display_id")
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):

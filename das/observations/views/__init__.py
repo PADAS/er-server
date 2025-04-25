@@ -24,6 +24,17 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from kombu import exceptions
+from rest_framework import generics, status
+from rest_framework.exceptions import ParseError, PermissionDenied, ValidationError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.renderers import StaticHTMLRenderer
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from core.permissions import UserCanExportDataPermission
+from core.view_utils import AsyncDeleteObjectMixin
+from das_server import celery
+from das_server.views import CustomSchema
 from observations import kmlutils
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
@@ -84,12 +95,6 @@ from observations.views.utils import (
     get_subjects_with_observations_in_daterange,
     get_track_days,
 )
-from rest_framework import generics, status
-from rest_framework.exceptions import ParseError, PermissionDenied, ValidationError
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.renderers import StaticHTMLRenderer
-from rest_framework.response import Response
-from rest_framework.views import APIView
 from utils import add_base_url
 from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
 from utils.features import features
@@ -419,7 +424,7 @@ class ObservationView(generics.RetrieveUpdateDestroyAPIView):
         return queryset
 
 
-class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
+class SourceView(AsyncDeleteObjectMixin, generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
     lookup_fields = ("id", "manufacturer_id")
     serializer_class = SourceSerializer
 
@@ -1353,6 +1358,14 @@ class GPXTaskStatusView(APIView):
         return Response(data, status=status.HTTP_200_OK)
 
 
+def get_user_messages(user):
+    # Get messages a user has access to
+    user_subjects = Subject.objects.filter(is_active=True).by_user_subjects(user)
+    user_subject_ids = [subj.id for subj in user_subjects]
+    messages = Message.objects.filter(Q(sender_id__in=user_subject_ids) | Q(receiver_id__in=user_subject_ids))
+    return messages
+
+
 class MessagesSchema(CustomSchema):
     def get_operation(self, *args, **kwargs):
         operation = super().get_operation(*args, **kwargs)
@@ -1399,17 +1412,16 @@ class MessagesView(generics.ListCreateAPIView):
         )
         sql, params = messages.query.sql_with_params()
         messages = Message.objects.raw(
-            """
-            select * from ({}) msgs where  rn_sender<= %s or rn_receiver <= %s """.format(
-                sql
-            ),
+            f"""
+            select * from ({sql}) msgs where rn_sender<= %s or rn_receiver <= %s
+            """,
             params=[*params, number_recent_msg, number_recent_msg],
         )
         return messages
 
     def get_queryset(self):
         query_params = self.request.query_params
-        messages = get_user_messages(self.request.user)
+        queryset = get_user_messages(self.request.user)
 
         if since := query_params.get("since", None):
             since = dateparse(since)
@@ -1420,16 +1432,16 @@ class MessagesView(generics.ListCreateAPIView):
         subject_id = query_params.get("subject_id")
         source_id = query_params.get("source_id")
         read = query_params.get("read")
-        # define with this query-param number of recent_message.
         number_recent_msg = query_params.get("recent_message")
+
         if subject_id:
             # Accepting a list i.e : ?subject_id=id1, id2, id2
             subject_ids = [x.strip(" ") for x in subject_id.split(",")]
-            messages = messages.by_subject_ids(subject_ids)
+            queryset = queryset.by_subject_ids(subject_ids)
         if source_id:
-            messages = messages.by_source_id(source_id)
+            queryset = queryset.by_source_id(source_id)
         if read is not None:
-            messages = messages.by_read(parse_bool(read))
+            queryset = queryset.by_read(parse_bool(read))
 
         if number_recent_msg and (since or until):
             raise ValidationError("recent_message query param cannot be used with since or until query params")
@@ -1438,33 +1450,29 @@ class MessagesView(generics.ListCreateAPIView):
             # Default to last 30 days until UI is updated to handle pagination
             since = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=30)
 
-        messages = messages.by_date_range(since, until).select_related("device")
+        queryset = queryset.by_date_range(since, until).select_related("device")
 
         if number_recent_msg and number_recent_msg.isdigit():
-            return self._get_recent_messages(messages=messages, number_recent_msg=number_recent_msg)
+            return self._get_recent_messages(messages=queryset, number_recent_msg=number_recent_msg)
 
-        return messages
+        return queryset
 
     def post(self, request, *args, **kwargs):
         data = request.data
+
         if data.get("bulk_read"):
             # Handle bulk reading of messages
             ids, read = data.get("ids"), data.get("read", True)
             ids = [ids] if isinstance(ids, str) else ids
 
-            user_messages = get_user_messages(self.request.user)
-            user_msg_ids = [str(k.id) for k in user_messages]
-            valid_update_ids = [k for k in ids if k in user_msg_ids]
+            queryset = get_user_messages(request.user)
+            ids = list(set(ids).intersection({str(k.id) for k in queryset}))
 
-            msgs = user_messages.filter(id__in=valid_update_ids)
-            for m in msgs:
-                m.read = read
-                m.save()
+            msgs = queryset.filter(id__in=ids)
+            msgs.update(read=read, updated_at=timezone.now())
 
             read_state = "read" if read else "unread"
-            return Response(
-                f"{len(valid_update_ids)} messages successfully updated to {read_state}", status=status.HTTP_200_OK
-            )
+            return Response(f"{len(ids)} messages successfully updated to {read_state}", status=status.HTTP_200_OK)
 
         return self.create(request, *args, **kwargs)
 
@@ -1506,11 +1514,10 @@ class MessagesView(generics.ListCreateAPIView):
                 ser_data = self.save_message(request, data)
         else:
             # Handle Outbox messages
+            subject_id = qparams.get("subject_id").strip()
+            source_id = qparams.get("source_id").strip()
 
-            subject_id = qparams.get("subject_id")
-            source_id = qparams.get("source_id")
-
-            if not subject_id and not source_id:
+            if not (subject_id and source_id):
                 return Response(
                     {"Error": "Source_id and subject_id params needed for an outbox message"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -1538,14 +1545,6 @@ class MessageView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return get_user_messages(self.request.user)
-
-
-def get_user_messages(user):
-    # Get messages a user has access to
-    user_subjects = Subject.objects.by_user_subjects(user)
-    user_subject_ids = [subj.id for subj in user_subjects]
-    messages = Message.objects.filter(Q(sender_id__in=user_subject_ids) | Q(receiver_id__in=user_subject_ids))
-    return messages
 
 
 class AnnouncementsView(generics.ListCreateAPIView):

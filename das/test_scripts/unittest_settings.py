@@ -9,6 +9,9 @@ PATROL_ENABLED = True
 MEDIA_ROOT = "/tmp/"
 DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
 
+# django testrunner already uses this backend
+EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
 
 SERVER_FQDN = "zoo.com"
 

@@ -1,16 +1,15 @@
-import pytest
 import json
+
+import pytest
 from dateutil import parser as date_parser
 
-from django.utils import timezone
 from django.contrib.gis.geos import Point
+from django.utils import timezone
 
 from das.buoy.serializers import GearsSerializer
-from observations.models import (
-    Observation,
-)
-from utils.tenant.dataclass import FeatureFlags
 from das.buoy.tests import generate_devices
+from observations.models import Observation
+from utils.tenant.dataclass import FeatureFlags
 
 
 @pytest.mark.django_db
@@ -34,7 +33,7 @@ class TestGearSerializer:
             "source": source,
             "additional": additional,
         }
-       
+
         observation = Observation.objects.create(**data)
         observation.save()
 
@@ -70,7 +69,7 @@ class TestGearSerializer:
             "source": source,
             "additional": additional,
         }
-       
+
         observation = Observation.objects.create(**data)
         observation.save()
 

@@ -114,6 +114,8 @@ DATABASES = {
         "HOST": env.str("DB_HOST", "postgis"),
         "PORT": env.str("DB_PORT", "5432"),
         "PASSWORD": env.str("DB_PASSWORD", "password"),
+        "DISABLE_SERVER_SIDE_CURSORS": True,
+        "OPTIONS": {"application_name": env.str("APPLICATION_NAME", "api")},
     },
 }
 
@@ -177,12 +179,6 @@ if DEV:
 GFW_CLUSTER_RADIUS = env.int("GFW_CLUSTER_RADIUS", 5)
 GFW_BACKFILL_INTERVAL_DAYS = env.int("GFW_BACKFILL_INTERVAL_DAYS", 10)
 
-TWILIO_ACCOUNT_SID = env.str("TWILIO_ACCOUNT_SID", None)
-TWILIO_AUTH_TOKEN = env.str("TWILIO_AUTH_TOKEN", None)
-WHATSAPP_FROM_NUMBER = env.str("WHATSAPP_FROM_NUMBER", None)
-SENDSMS_TWILIO_FROM_NUMBER = env.str("SENDSMS_TWILIO_FROM_NUMBER", None)
-if SENDSMS_TWILIO_FROM_NUMBER:
-    SENDSMS_BACKEND = "utils.smsbackend.TwilioSmsBackend"
 
 TABLEAU_ENABLED = env.bool("TABLEAU_ENABLED", False)
 TABLEAU_API_USERNAME = env.str("TABLEAU_API_USERNAME", None)

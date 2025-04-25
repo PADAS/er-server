@@ -1,12 +1,16 @@
 import logging
 
-from rest_framework import serializers
-
 from drf_extra_fields.geo_fields import PointField
 
+from rest_framework import serializers
+
 from observations import models
-from observations.models import Observation, LatestObservationSource
-from observations.serializers import SubjectRelatedField, SubjectSubTypeRelatedField, CommonNameRelatedField
+from observations.models import LatestObservationSource
+from observations.serializers import (
+    CommonNameRelatedField,
+    SubjectRelatedField,
+    SubjectSubTypeRelatedField,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +34,8 @@ class GearSerializer(serializers.Serializer):
     created_at = serializers.DateTimeField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
     is_active = serializers.BooleanField(required=False)
-    additional_fields = ("additional")
+    additional_fields = "additional"
+
     class Meta:
         model = models.Subject
         read_only_fields = (
@@ -56,7 +61,7 @@ class GearSerializer(serializers.Serializer):
             except models.Subject.DoesNotExist:
                 raise serializers.ValidationError(f"Subject: {data} does not exist.")
         return super().to_internal_value(data)
-    
+
     def to_representation(self, instance):
         rep = super(GearSerializer, self).to_representation(instance)
 
@@ -81,19 +86,17 @@ class GearsSerializer(serializers.Serializer):
 
     class Meta:
         model = models.SubjectSource
-        fields = (
-            "id", 
-            "assigned_range", 
-            "source", "subject", 
-            "additional", 
-            "location"
-        ) 
+        fields = ("id", "assigned_range", "source", "subject", "additional", "location")
 
     def get_type(self, latest_observation):
         return GEAR_TYPE_TRAWL if len(latest_observation.additional[DEVICES_KEY]) > 1 else GEAR_TYPE_SINGLE
 
     def get_display_id(self, subject, latest_observation):
-        return subject["name"] if DISPLAY_ID_KEY not in latest_observation.additional else latest_observation.additional[DISPLAY_ID_KEY]
+        return (
+            subject["name"]
+            if DISPLAY_ID_KEY not in latest_observation.additional
+            else latest_observation.additional[DISPLAY_ID_KEY]
+        )
 
     def to_internal_value(self, data):
         if ID_KEY in data and self.read_only:
@@ -105,7 +108,6 @@ class GearsSerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         rep = super(GearsSerializer, self).to_representation(instance)
-
         latest_observation = LatestObservationSource.objects.filter(source_id=instance.source_id).first().observation
         subject = rep["subject"]
 
@@ -117,7 +119,7 @@ class GearsSerializer(serializers.Serializer):
         if latest_observation.additional:
             gear_rep[DISPLAY_ID_KEY] = self.get_display_id(subject, latest_observation)
             if DEVICES_KEY in latest_observation.additional:
-                gear_rep["type"] = self.get_type(latest_observation) 
+                gear_rep["type"] = self.get_type(latest_observation)
                 gear_rep[DEVICES_KEY] = latest_observation.additional[DEVICES_KEY]
         else:
             gear_rep[DISPLAY_ID_KEY] = subject["name"]

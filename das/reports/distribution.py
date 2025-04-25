@@ -1,4 +1,6 @@
 import logging
+from random import uniform
+from smtplib import SMTPServerDisconnected
 
 import django.contrib.auth
 from django.contrib.contenttypes.models import ContentType
@@ -7,6 +9,7 @@ from django.utils.translation import gettext_lazy as _
 
 import accounts
 from accounts.models import User
+from utils.decorator import retry_on_exception
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +20,7 @@ OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME = "receive_lag_notification"
 SILENT_SOURCE_NOTIFY_PERMISSION_CODENAME = "receive_silent_source_notification"
 
 
+@retry_on_exception(SMTPServerDisconnected, max_retries=10, delay=uniform(3, 10))
 def send_report(subject="", to_email=None, text_content="", from_email=None, html_content=None):
     """Send a message with optional HTML content."""
     # Allow caller to provide a single address or a list.
