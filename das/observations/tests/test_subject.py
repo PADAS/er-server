@@ -8,14 +8,12 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import dateutil.parser as dateparser
-import django.contrib.auth
 import pytest
 import pytz
-from accounts.models import PermissionSet
-from activity.tools.createevents import gen_random_point
-from client_http import HTTPClient
-from conftest import TENANT_RESPONSE
-from core.tests import BaseAPITest
+from faker import Faker
+from pytz import UTC
+
+import django.contrib.auth
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
@@ -26,7 +24,13 @@ from django.db import transaction
 from django.http import QueryDict
 from django.test import RequestFactory, override_settings
 from django.urls import reverse
-from faker import Faker
+
+from accounts.models import PermissionSet
+from activity.tools.createevents import gen_random_point
+from client_http import HTTPClient
+from conftest import TENANT_RESPONSE
+from core.tests import BaseAPITest
+from factories import SubjectFactory
 from observations.admin import GPXAdmin
 from observations.models import (
     SEX_MALE,
@@ -49,7 +53,6 @@ from observations.views import (
     SubjectsView,
     SubjectView,
 )
-from pytz import UTC
 from utils.tenant import Tenant
 
 User = django.contrib.auth.get_user_model()
@@ -1036,6 +1039,57 @@ class TestSubjectsView:
         assert response_without_linked_subject.status_code == 200
         assert len(response_without_linked_subject.data) == 0
 
+    @pytest.mark.parametrize(
+        "permission_set_with_permissions",
+        [
+            [
+                ["Can view subject", "observations", "subject", "view_subject"],
+                [
+                    "Access to updated observations as they become available, includes view_last_position.",
+                    "observations",
+                    "subject",
+                    "view_real_time1",
+                ],
+                ["Permission to subscribe to an alert on this Subject.", "observations", "subject", "subscribe_alerts"],
+            ]
+        ],
+        indirect=True,
+    )
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_response_not_include_user_linked_subject_when_subject_inactive(
+        self, permission_set_with_permissions, subject_source, source_group, user_client, five_subjects
+    ):
+        source = subject_source.source
+
+        permission_set_with_permissions.name = "View Subjects"
+        permission_set_with_permissions.save()
+        source_group.sources.add(source)
+        source_group.permission_sets.add(permission_set_with_permissions)
+        user = user_client.user
+        user.permission_sets.add(permission_set_with_permissions)
+
+        horton = five_subjects[0]
+        horton.linked_user = user
+        horton.is_active = False
+        horton.save()
+
+        url = reverse("subjects-list-view")
+
+        response = user_client.get(url)
+
+        assert response.status_code == 200
+        assert len(response.data) == 1
+        assert response.data[0]["is_active"] is True
+
+        # double check subject is returned if is_active is set to True
+        horton.is_active = True
+        horton.save()
+
+        res = user_client.get(url)
+        assert len(res.data) == 2
+        for subject in res.data:
+            assert subject["is_active"] is True
+
     def test_subjectgroup_with_default_subjectstatus_has_no_tracks_available(self, subject_source, subject_group_empty):
         subject = subject_source.subject
         subject.name = faker.name()
@@ -1209,6 +1263,62 @@ class TestSubjectsViewFilter:
         assert len(response.data) == total
 
     @pytest.mark.parametrize(
+        "status_subjects_position, total",
+        [
+            (
+                [
+                    [-103.66424560546874, 20.619288994719977],
+                    [-103.61755371093749, 20.551151842360383],
+                    [-103.61000061035156, 20.699600246050323],
+                    [-103.4857177734375, 20.609648794045192],
+                    [-103.47885131835938, 20.732997212795915],
+                ],
+                5,
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "subject_group_with_perms",
+        [
+            [
+                "view_subjectgroup,observations,subjectgroup",
+                "view_subject,observations,subject",
+            ]
+        ],
+        indirect=True,
+    )
+    def test_by_position_updated_since(
+        self,
+        view_subjects_permission_set,
+        five_subject_sources,
+        status_subjects_position,
+        total,
+        subject_group_with_perms,
+    ):
+        position_updated_since = datetime.now(tz=pytz.UTC)
+        recorded_at = position_updated_since - timedelta(seconds=1)
+        for position, source in zip(status_subjects_position, Source.objects.all()):
+            Observation.objects.create(
+                recorded_at=recorded_at,
+                source=source,
+                location=Point(position),
+            )
+            recorded_at = recorded_at + timedelta(seconds=1)
+        subject_group_with_perms.subjects.add(*Subject.objects.all())
+
+        client = HTTPClient()
+        client.app_user.permission_sets.add(view_subjects_permission_set)
+        client.app_user.permission_sets.add(subject_group_with_perms.permission_sets.last())
+        request = client.factory.get(
+            client.api_base + "/subjects/",
+            {"use_lkl": "true", "position_updated_since": position_updated_since.isoformat()},
+        )
+        client.force_authenticate(request, client.app_user)
+        response = SubjectsView.as_view()(request)
+
+        assert len(response.data) == total - 1
+
+    @pytest.mark.parametrize(
         "subject_group_with_perms",
         [
             [
@@ -1297,6 +1407,73 @@ class TestSubjectsViewFilter:
 
         assert len(response.data) == 5
         assert str(first_subject.id) in [item.get("id") for item in response.data]
+
+    def test_filter_by_subject_group_id_list(self, superuser_client):
+        two_subjects = SubjectFactory.create_batch(2)
+        last_subject = SubjectFactory.create()
+
+        sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
+        sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
+        sgrp1.subjects.add(two_subjects[0])
+        sgrp2.subjects.add(last_subject)
+
+        sgrp1.save()
+        sgrp2.save()
+
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(url)
+
+        # assert with no filter all subjects are returned
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 3
+
+        # assert only filtered subject by group id is present on response
+        res = superuser_client.get(f"{url}?subject_group={sgrp1.id},{uuid.uuid4()}")
+        assert len(res.json()["data"]) == 1
+        assert res.json()["data"][0]["id"] == str(two_subjects[0].id)
+
+    def test_filter_by_subject_subtypes_id_list(self, superuser_client):
+        two_subjects = SubjectFactory.create_batch(2)
+        last_subject = SubjectFactory.create()
+
+        sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
+        sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
+        sgrp1.subjects.add(two_subjects[0])
+        sgrp2.subjects.add(last_subject)
+
+        sgrp1.save()
+        sgrp2.save()
+
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(url)
+
+        # assert with no filter all subjects are returned
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 3
+
+        # assert only filtered subject by subtype id is present on response
+        res = superuser_client.get(f"{url}?subject_subtypes={last_subject.subject_subtype.id}")
+        assert len(res.json()["data"]) == 1
+        assert res.json()["data"][0]["id"] == str(last_subject.id)
+
+    def test_filter_by_malformed_subject_subtypes_id_list(self, superuser_client):
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(f"{url}?subject_subtypes=invalid_id")
+
+        assert res.status_code == 400
+        assert res.json()["status"]["detail"] == "[\"Invalid subject_type id at 'subject_subtypes'\"]"
+
+    def test_filter_by_subject_group_id_list_with_invalid_id(self, superuser_client):
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(f"{url}?subject_group={uuid.uuid4()},not-a-uuid")
+        assert res.status_code == 400
+        assert res.json()["status"]["detail"] == "[\"Invalid subject_group id at 'subject_group'\"]"
+
+    def test_filter_by_subject_group_invalid_uuid(self, superuser_client):
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(f"{url}?subject_group=invalid-uuid")
+        assert res.status_code == 400
+        assert res.json()["status"]["detail"] == "[\"Invalid subject_group id at 'subject_group'\"]"
 
 
 def random_date(start_date, end_date):

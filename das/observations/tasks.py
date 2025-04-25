@@ -17,7 +17,7 @@ from django.utils.translation import gettext as _
 import utils.db.task_helpers as utils_db_task_helpers
 from das_server import celery, pubsub
 from observations.materialized_views import patrols_view
-from observations.message_adapters import _handle_outbox_message
+from observations.message_adapters import SendError, _handle_outbox_message
 from observations.models import (
     Announcement,
     GPXTrackFile,
@@ -259,9 +259,13 @@ def refresh_patrols_view():
     patrols_view.refresh_view()
 
 
-@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
-def handle_outbox_message(message_id, user_email, **kwargs):
-    _handle_outbox_message(message_id, user_email)
+@celery.app.task(base=TenantQueueOnceTask, bind=True, once={"graceful": True}, max_retries=10)
+def handle_outbox_message(self, message_id, user_email, **kwargs):
+    try:
+        _handle_outbox_message(message_id, user_email)
+    except SendError as exc:
+        logger.error("SendError in task handle_outbox_message %s", exc)
+        self.retry(exc=exc, retry_backoff=True)
 
 
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
@@ -293,24 +297,29 @@ def poll_news_gcs_bucket():
     logger.debug(f"Announcements data from gcs {announcement}")
 
     for post in announcement["topic_list"]["topics"]:
-        # ignore announcement that is already in db:
+        # skip any posts missing the 'cooked' property
+        if "cooked" not in post:
+            continue
 
-        if not Announcement.objects.filter(additional__id=post["id"]).exists():
-            announcement_at = dateparse(post["created_at"])
-            Announcement.objects.create(
-                title=post["title"],
-                description=post["cooked"],
-                additional=dict(
-                    slug=post["slug"],
-                    id=post["id"],
-                    fancy_title=post["fancy_title"],
-                    created_at=post["created_at"],
-                    category_id=post["category_id"],
-                    last_poster_username=post["last_poster_username"],
-                ),
-                announcement_at=announcement_at,
-                link=f"https://community.earthranger.com/t/{post['id']}",
-            )
+        # ignore announcements if they are already in the DB:
+        if Announcement.objects.filter(additional__id=post["id"]).exists():
+            continue
+
+        announcement_at = dateparse(post["created_at"])
+        Announcement.objects.create(
+            title=post["title"],
+            description=post["cooked"],
+            additional=dict(
+                slug=post["slug"],
+                id=post["id"],
+                fancy_title=post["fancy_title"],
+                created_at=post["created_at"],
+                category_id=post["category_id"],
+                last_poster_username=post["last_poster_username"],
+            ),
+            announcement_at=announcement_at,
+            link=f"https://community.earthranger.com/t/{post['id']}",
+        )
 
 
 @celery.app.task(

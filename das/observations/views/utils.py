@@ -1,11 +1,17 @@
 import datetime
+from dataclasses import dataclass
+from typing import Dict, List
+from uuid import UUID
 
 import pytz
+
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Q
+
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Observation, Subject, SubjectGroup
-from observations.utils import VIEW_SUBJECTGROUP_PERMS
-from utils.drf import ForbiddenAPIException
+from observations.utils import VIEW_SUBJECTGROUP_PERMS, get_cyclic_subjectgroup
+from utils.drf import CycleDetectedException, ForbiddenAPIException
 from utils.etags import get_hash_from_queryset
 from utils.json import parse_bool
 from utils.tenant.thread import get_tenant_settings
@@ -72,11 +78,73 @@ class SubjectGroupGetQuerySet(TwoWaySubjectSourceMixin):
         self._get_two_way_sources(queryset)
         return queryset
 
+    def get_all_queryset(self):
+        if get_cyclic_subjectgroup(check_any_cycle=True):
+            raise CycleDetectedException("Cyclic SubjectGroup found")
 
-def subject_groups_etag(request, *args, **kwargs):
-    queryset = SubjectGroupGetQuerySet().get_queryset(request)
-    queryset = queryset.prefetch_related("children", "subjects").values(*get_subject_group_etag_fields())
-    return get_hash_from_queryset(queryset, request)
+        return SubjectGroup.objects.prefetch_related("children").annotate(subject_ids=ArrayAgg("subjects__id"))
+
+
+@dataclass
+class TypedGroup:
+    id: str
+    name: str
+    subgroups: List
+    subjects: List
+
+
+def build_groups_hierarchy_with_all_subjects(
+    all_groups_query, user, include_inactive, mou_date, include_subgroups
+) -> List[TypedGroup]:
+    def _fetch_all_subjects_map(user, mou_date, distinct_subject_ids) -> Dict[UUID, Subject]:
+        queryset = Subject.objects.by_ids_user_and_mou_expiry_date(
+            id_list=distinct_subject_ids, user=user, include_inactive=include_inactive, mou_expiry_date=mou_date
+        )
+
+        return {subject.id: subject for subject in queryset}
+
+    def _build_all_subjects_ids_set(all_groups_query) -> set:
+        subject_ids_set = set()
+
+        for subject_group in all_groups_query:
+            if ids := subject_group.get("subject_ids"):
+                subject_ids_set.update(ids)
+
+        return subject_ids_set
+
+    def _build_groups_lookup(all_groups_flat_query, all_subjects_map) -> Dict[UUID, TypedGroup]:
+        return {
+            group.get("id"): TypedGroup(
+                id=group.get("id"),
+                name=group.get("name"),
+                subgroups=[],
+                subjects=[all_subjects_map.get(subject_id) for subject_id in group.get("subject_ids") if subject_id],
+            )
+            for group in all_groups_flat_query
+        }
+
+    def _rebuild_groups_hierarchy(groups_lookup, all_groups_flat_query) -> List[TypedGroup]:
+        group_is_child = set()
+
+        for group in all_groups_flat_query:
+            parent_id = group.get("id")
+            child_id = group.get("children")
+            if child_id and child_id in groups_lookup:
+                groups_lookup[parent_id].subgroups.append(groups_lookup[child_id])
+                group_is_child.add(child_id)
+
+        return [group for group in groups_lookup.values() if group.id not in group_is_child]
+
+    all_groups_flat_query = all_groups_query.values("id", "name", "subject_ids", "children", "is_visible")
+    all_subject_ids = _build_all_subjects_ids_set(all_groups_flat_query)
+
+    all_subjects_map = _fetch_all_subjects_map(user, mou_date, all_subject_ids)
+    groups_lookup = _build_groups_lookup(all_groups_flat_query, all_subjects_map)
+
+    if not include_subgroups:
+        return [group for group in groups_lookup.values()], set(all_subjects_map.keys())
+
+    return _rebuild_groups_hierarchy(groups_lookup, all_groups_flat_query), set(all_subjects_map.keys())
 
 
 def subject_group_etag(request, *args, **kwargs):
@@ -84,4 +152,11 @@ def subject_group_etag(request, *args, **kwargs):
     queryset = SubjectGroup.objects.get_non_cyclic_subjectgroups(single_sg=True)
     TwoWaySubjectSourceMixin()._get_two_way_sources(queryset)
     queryset = queryset.values(*fields).filter(pk=kwargs["id"])
+    return get_hash_from_queryset(queryset=queryset, request=request)
+
+
+def all_group_subjects_etag(request, *args, **kwargs):
+    fields = get_subject_group_etag_fields()
+    queryset = SubjectGroupGetQuerySet().get_all_queryset()
+    queryset = queryset.values(*fields)
     return get_hash_from_queryset(queryset=queryset, request=request)

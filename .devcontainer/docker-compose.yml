@@ -1,5 +1,6 @@
 services:
   ## ----------------------------- DB -----------------------------
+  ### Primary instance
   postgis:
     container_name: postgis
     image: kartoza/postgis:14-3.3
@@ -7,6 +8,10 @@ services:
       - POSTGRES_USER=das
       - POSTGRES_DB=das
       - POSTGRES_PASSWORD=das
+      - REPLICATION=true
+      - REPLICATION_USER=replicator
+      - REPLICATION_PASS=replicator
+      - WAL_LEVEL=replica
     ports:
       - "5432:5432"
     expose:
@@ -19,6 +24,47 @@ services:
       retries: 5
     volumes:
       - das_db_volume:/var/lib/postgresql/data
+
+  ### Read Replica
+  postgis-replica:
+    container_name: postgis-replica
+    image: kartoza/postgis:14-3.3
+    environment:
+      - POSTGRES_USER=das
+      - POSTGRES_DB=das
+      - POSTGRES_PASSWORD=das
+      - REPLICATION=true
+      - REPLICATE_FROM=postgis
+      - REPLICATION_USER=replicator
+      - REPLICATION_PASS=replicator
+      - DESTROY_DATABASE_ON_RESTART='True'
+    ports:
+      - "5433:5432"
+    restart: on-failure
+    depends_on:
+      - postgis
+    healthcheck:
+      test: ["CMD-SHELL", "exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ### Connection Pooler: PgCat
+  pgcat:
+    container_name: pgcat
+    image: ghcr.io/postgresml/pgcat:4a7a6a8e7a78354b889002a4db118a8e2f2d6d79
+    depends_on:
+      postgis:
+        condition: service_healthy
+      postgis-replica:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "6432:6432"
+      - "9930:9930"
+    volumes:
+      - "./pgcat/pgcat.toml:/etc/pgcat/pgcat.toml"
+
   ## ----------------------------- Redis -----------------------------
   redis:
     container_name: redis
@@ -33,6 +79,7 @@ services:
       interval: 2s
       timeout: 3s
       retries: 5
+
 ## ----------------------------- Volumes -----------------------------
 volumes:
   das_db_volume:

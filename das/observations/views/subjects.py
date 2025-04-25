@@ -1,8 +1,11 @@
+import logging
+
 from rest_framework_condition import etag
 
 from django.db.models import F, QuerySet, Window
 from django.db.models.functions import FirstValue
 from django.db.utils import IntegrityError
+from django.forms import ValidationError
 from rest_framework import status
 from rest_framework.generics import (
     ListAPIView,
@@ -22,6 +25,7 @@ from observations.serializers import (
     SubjectSerializer,
     create_sg_serializer,
 )
+from observations.serializers.all_groups import AllGroupsSerializer
 from observations.utils import (
     VIEW_SUBJECT_PERMS,
     check_to_include_inactive_subjects,
@@ -32,9 +36,10 @@ from observations.utils import (
 from observations.views.schemas import SubjectGroupsViewSchema, SubjectsViewSchema
 from observations.views.utils import (
     SubjectGroupGetQuerySet,
+    all_group_subjects_etag,
+    build_groups_hierarchy_with_all_subjects,
     get_track_days,
     subject_group_etag,
-    subject_groups_etag,
 )
 from schemas.view_mixins import DynamicSchemaDataMixin
 from utils.drf import (
@@ -45,7 +50,10 @@ from utils.drf import (
     return_409_response,
 )
 from utils.json import ExtendedGEOJSONRenderer, parse_bool
+from utils.schema_utils import is_uuid
 from utils.tenant.thread import get_tenant_settings
+
+logger = logging.getLogger(__name__)
 
 
 class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDataMixin):
@@ -110,8 +118,17 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
         # Apply request query filters that have been compatible with any of the
         # criteria above.
+        position_updated_since = query_params.get("position_updated_since")
+        position_updated_since = dateparse(position_updated_since) if position_updated_since else None
+        if position_updated_since:
+            logger.info("position_updated_since: %s", position_updated_since)
         updated_since = query_params.get("updated_since")
         updated_until = query_params.get("updated_until")
+        if position_updated_since and (updated_since or updated_until):
+            raise BadRequestAPIException(
+                detail="Cannot use both position_updated_since and updated_since/updated_until"
+            )
+
         bbox = query_params.get("bbox")
         name = query_params.get("name", None)
 
@@ -131,12 +148,22 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
         # Handle filters for subject ID, group, and source groups
         subject_ids = query_params.get("id")
         subject_group_id = query_params.get("subject_group")
+        subject_group_param_splited = subject_group_id.split(",") if subject_group_id else []
 
         if subject_ids:
             queryset = queryset.by_id(subject_ids)
-        elif subject_group_id:
+        elif subject_group_id and len(subject_group_param_splited) == 1:
+            if not is_uuid(subject_group_id):
+                raise ValidationError("Invalid subject_group id at 'subject_group'")
+
             subject_groups = SubjectGroup.objects.get_nested_groups(parent_id=subject_group_id)
             queryset = queryset.by_groups(subject_groups=subject_groups)
+
+        elif subject_group_id and len(subject_group_param_splited) > 1:
+            if not all(is_uuid(item.strip()) for item in subject_group_param_splited):
+                raise ValidationError("Invalid subject_group id at 'subject_group'")
+
+            queryset = queryset.filter(groups__id__in=subject_group_id.split(","))
         else:
             # Fetch all the Subjects whose access is gained through Source Group
             # permissions.
@@ -172,6 +199,9 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
         is_updated_until_valid, updated_until = check_valid_date_string(updated_until, "updated_until")
 
         queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
+        if position_updated_since:
+            queryset = queryset.by_position_updated_since(position_updated_since)
+
         if is_updated_since_valid and is_updated_until_valid:
             queryset = queryset.by_updated_since_until(updated_since, updated_until)
         elif is_updated_since_valid:
@@ -199,7 +229,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
                     bbox_values,
                     last_days=last_days,
                     include_stationary_subjects=show_stationary_subjects,
-                    updated_since=updated_since,
+                    updated_since=position_updated_since or updated_since,
                     updated_until=updated_until,
                 )
             else:
@@ -207,12 +237,19 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
                     bbox_values,
                     last_days=get_track_days(),
                     include_stationary_subjects=show_stationary_subjects,
-                    updated_since=updated_since,
+                    updated_since=position_updated_since or updated_since,
                     updated_until=updated_until,
                 )
 
         if name:
             queryset = queryset.by_name_search(self.request.query_params.get("name"))
+
+        if subtype_ids := query_params.get("subject_subtypes"):
+            subtype_ids_list = subtype_ids.split(",")
+            if not all(is_uuid(item.strip()) for item in subtype_ids_list):
+                raise ValidationError("Invalid subject_type id at 'subject_subtypes'")
+
+            queryset = queryset.filter(subject_subtype__id__in=subtype_ids_list)
 
         if (
             not name
@@ -222,9 +259,9 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             and not queryset.filter(id=self.queryset_linked_user.first().id).exists()
         ):
             queryset = queryset.union(
-                self.queryset_linked_user.select_related(
-                    "subject_subtype", "subject_subtype__subject_type", "common_name"
-                ).annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
+                check_to_include_inactive_subjects(self.request, self.queryset_linked_user)
+                .select_related("subject_subtype", "subject_subtype__subject_type", "common_name")
+                .annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
             )
 
         queryset = queryset.order_by("id")
@@ -325,30 +362,44 @@ class SubjectGroupsView(ListAPIView, TwoWaySubjectSourceMixin):
     Returns all subjectgroups in the system.
     """
 
-    serializer_class = create_sg_serializer("subjectgs", SubjectGroup, SubjectSerializer)
+    serializer_class = AllGroupsSerializer
     permission_classes = (StandardObjectPermissions,)
     filter_backends = (create_gp_filter_class("subjectgf", ("observations.view_subjectgroup",), SubjectGroup),)
     schema = SubjectGroupsViewSchema()
 
-    @etag(subject_groups_etag)
-    def get(self, request, *args, **kwargs):
-        return self.list(request, *args, **kwargs)
+    @etag(all_group_subjects_etag)
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        qparams = request.query_params
+        include_subgroups = not parse_bool(qparams.get("flat"))
+
+        user = getattr(request, "user", None)
+        include_inactive = qparams.get("include_inactive")
+        mou_date = user.additional.get("expiry", None)
+        mou_date = dateparse(mou_date) if mou_date else None
+
+        mounted_hierarchy, related_sujects_ids = build_groups_hierarchy_with_all_subjects(
+            queryset, user, include_inactive, mou_date, include_subgroups
+        )
+        self._get_two_way_sources_by_subject_ids(related_sujects_ids)
+        serializer = AllGroupsSerializer(mounted_hierarchy, context=self.get_serializer_context(), many=True)
+
+        return Response(serializer.data)
 
     def get_queryset(self):
-        queryset = SubjectGroupGetQuerySet().get_queryset(self.request)
-        return queryset
+        queryset = SubjectGroupGetQuerySet().get_all_queryset()
 
-    def get_serializer_class(self):
-        qparams = self.request.query_params
-        include_subgroups = not parse_bool(qparams.get("flat"))
-        return create_sg_serializer("subjectgs", SubjectGroup, SubjectSerializer, include_subgroups)
+        if group_name := self.request.query_params.get("group_name"):
+            queryset = queryset.by_name_search(group_name)
+
+        return queryset
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context["render_last_location"] = True
         context["request"] = self.request
         context["two_way_subject_sources"] = self.two_way_subject_sources
-
         return context
 
 

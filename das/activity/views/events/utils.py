@@ -1,4 +1,6 @@
-from activity.models import EventCategory, EventType
+from django.db import models
+
+from activity.models import Event, EventCategory, EventType
 from utils.categories import (
     ACTIONS,
     GEO_ACTIONS,
@@ -7,40 +9,7 @@ from utils.categories import (
 from utils.json import parse_bool
 
 
-class EventTypeQuerysetMixin:
-    def get_queryset(self):
-        user = self.request.user
-        query_params = self.request.query_params
-        category = query_params.get("category")
-        include_inactive = parse_bool(query_params.get("include_inactive"))
-        is_collection = query_params.get("is_collection")
-        updated_since = query_params.get("updated_since", None)
-        queryset = EventType.objects.all_sort().select_related("category")
-
-        if updated_since:
-            queryset = queryset.filter(updated_at__gte=updated_since)
-
-        if include_inactive:
-            queryset = queryset.filter(category__is_active=True)
-        else:
-            queryset = queryset.filter(category__is_active=True, is_active=True)
-
-        if category:
-            # TODO: Check if user has permission to view this category
-            queryset = queryset.by_category(category)
-        else:
-            allowed_categories = self._get_allowed_categories_by_user(user)
-
-            if allowed_categories:
-                queryset = queryset.by_category(allowed_categories)
-            elif not is_collection:
-                return queryset.none()
-
-        if is_collection:
-            queryset = queryset.by_is_collection(parse_bool(is_collection))
-
-        return queryset
-
+class AllowedCategoriesMixin:
     def _get_allowed_categories_by_user(self, user):
         event_categories = EventCategory.get_category_keys()
         allowed_categories = [
@@ -63,3 +32,44 @@ class EventTypeQuerysetMixin:
         ]
 
         return action_permissions + geoaction_permissions
+
+
+class EventTypeQuerysetMixin(AllowedCategoriesMixin):
+    def get_queryset(self):
+        user = self.request.user
+        query_params = self.request.query_params
+        category = query_params.get("category")
+        include_inactive = parse_bool(query_params.get("include_inactive"))
+        is_collection = query_params.get("is_collection")
+        updated_since = query_params.get("updated_since", None)
+        queryset = (
+            EventType.objects.all_sort()
+            .filter(version=EventType.VersionChoices.VERSION_1)
+            .select_related("category")
+            .annotate(in_use=models.Exists(Event.objects.filter(event_type=models.OuterRef("id"))))
+        )
+
+        if updated_since:
+            queryset = queryset.filter(updated_at__gte=updated_since)
+
+        if include_inactive:
+            queryset = queryset.filter(category__is_active=True)
+        else:
+            queryset = queryset.filter(category__is_active=True, is_active=True)
+
+        allowed_categories = self._get_allowed_categories_by_user(user)
+
+        if category:
+            if category not in allowed_categories:
+                return queryset.none()
+            queryset = queryset.by_category(category)
+        else:
+            if allowed_categories:
+                queryset = queryset.by_category(allowed_categories)
+            elif not is_collection:
+                return queryset.none()
+
+        if is_collection:
+            queryset = queryset.by_is_collection(parse_bool(is_collection))
+
+        return queryset

@@ -3174,10 +3174,13 @@ class TestEventFilterQueryset:
 
     def test_by_text_filter_method_for_serial_number(self, five_events_with_details):
         event = Event.objects.last()
+        event.serial_number = 23451
+        event.save()
 
         events = Event.objects.by_text_filter(f"{event.serial_number}")
-
         assert events.count() == 1
+        e0 = events.first()
+        assert e0.serial_number == event.serial_number
 
     @pytest.mark.parametrize("term", ["2", "24", "248"])
     def test_by_text_filter_method_using_numbers_for_ids_in_event_details_data(self, five_events_with_details, term):

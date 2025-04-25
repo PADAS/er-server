@@ -2,34 +2,36 @@ import json
 import random
 from datetime import datetime, timezone
 
-from django.utils import timezone
 from factory import fuzzy
-from factories import GearFactory
-from django.contrib.gis.geos import Point
 from geopy.distance import distance
+
+from django.contrib.gis.geos import Point
+
+from factories import GearFactory
 from observations.models import Observation
-    
 
 TEST_LOCATION = Point(0, 0)
 
+
 def get_custom_location_gear_subjectsource(location: Point = TEST_LOCATION):
-        gear_subjectsource = GearFactory.create()
-        gear_subjectsource.save()
+    gear_subjectsource = GearFactory.create()
+    gear_subjectsource.save()
 
-        source = gear_subjectsource.source
-        now = timezone.now()
-        additional = generate_devices(2, location)
-        data = {
-            "recorded_at": now,
-            "location": location,
-            "source": source,
-            "additional": additional,
-        }
-       
-        observation = Observation.objects.create(**data)
-        observation.save()
+    source = gear_subjectsource.source
+    now = str(datetime.now(tz=timezone.utc))
+    additional = generate_devices(2, location)
+    data = {
+        "recorded_at": now,
+        "location": location,
+        "source": source,
+        "additional": additional,
+    }
 
-        return gear_subjectsource
+    observation = Observation.objects.create(**data)
+    observation.save()
+
+    return gear_subjectsource
+
 
 def generate_devices(quantity: int, starting_point: Point = TEST_LOCATION):
     def generate_point_nearby(original_point, miles):
@@ -47,6 +49,6 @@ def generate_devices(quantity: int, starting_point: Point = TEST_LOCATION):
 
     original_point = starting_point if starting_point else Point(random.uniform(-90, 90), random.uniform(-180, 180))
     return {
-      "devices": [generate_device(original_point) for _ in range(quantity)],
-      "display_id": fuzzy.FuzzyText(length=12).evaluate(1, 1, None).__str__(),
+        "devices": [generate_device(original_point) for _ in range(quantity)],
+        "display_id": fuzzy.FuzzyText(length=12).evaluate(1, 1, None).__str__(),
     }

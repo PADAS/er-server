@@ -2,6 +2,7 @@ import json
 import logging
 
 import dateutil.parser as dateparser
+from django_filters import rest_framework as filters
 
 from django.db.models import Q
 from django.db.models.query import QuerySet
@@ -10,16 +11,38 @@ from rest_framework.filters import BaseFilterBackend
 from rest_framework.request import Request
 from rest_framework.views import APIView
 
-from activity.models import EventCategory
+from activity.models import EventCategory, EventType
 from activity.views.exceptions import BadRequestAPIException
 from observations.models import Subject
 from utils.categories import (
     get_categories_and_geo_categories,
     make_eventcategory_permission_codename,
 )
+from utils.drf_filters import RestrictToTrueByDefaultFilter
 from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
+
+
+class EventTypeFilter(filters.FilterSet):
+    """
+    FilterSet for EventType objects, avoiding the use of custom filters implemented in
+    the manager of EventTypes
+    """
+
+    updated_since = filters.DateTimeFilter(field_name="updated_at", lookup_expr="gte")
+    is_collection = filters.BooleanFilter(field_name="is_collection")
+    category = filters.CharFilter(field_name="category__value", lookup_expr="exact")
+    include_inactive = RestrictToTrueByDefaultFilter(field_name="is_active")
+
+    class Meta:
+        model = EventType
+        fields = [
+            "updated_since",
+            "is_collection",
+            "category",
+            "include_inactive",
+        ]
 
 
 class EventSubjectsFilter(BaseFilterBackend):

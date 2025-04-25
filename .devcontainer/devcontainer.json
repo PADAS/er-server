@@ -95,6 +95,7 @@
 	"remoteUser": "vscode",
 	"runArgs": [
 		"--add-host=postgis:host-gateway",
-		"--add-host=redis:host-gateway"
+		"--add-host=redis:host-gateway",
+		"--add-host=pgcat:host-gateway"
 	]
 }

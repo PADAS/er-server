@@ -61,7 +61,8 @@ tf_workspace_select: ## terraform workspace select | workspace="WORKSPACE"
 .PHONY: tf_workspace_new
 tf_workspace_new: workspace ?=
 tf_workspace_new: ## terraform workspace new | workspace="WORKSPACE"
-	@ echo "" && echo "This command is no longer supported. New sites should be deployed to the MT platform" && echo "" && exit 1
+	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_workspace workspace_subcommand=new workspace_name=$(workspace)
+	## @ echo "" && echo "This command is no longer supported. New sites should be deployed to the MT platform" && echo "" && exit 1
 
 .PHONY: tf_plan
 tf_plan: plan_options ?=
@@ -83,6 +84,11 @@ tf_destroy: ## terraform destroy | [destroy_dir="PATH"]
 tf_output: output_name ?=
 tf_output: ## terraform output | [output_name="NAME"]
 	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_output output_name="$(output_name)"
+
+.PHONY: tf_show
+tf_show: ## terraform show
+	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_show
+
 
 .PHONY: tf_version
 tf_version: ## show terraform version

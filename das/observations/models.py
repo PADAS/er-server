@@ -80,7 +80,7 @@ from observations.utils import (
 from tracking.pubsub_registry import notify_subjectstatus_update
 from utils.decorator import use_shared_resource
 from utils.interfaces import SharedResourceHandler
-from utils.json import zeroout_microseconds
+from utils.json import parse_bool, zeroout_microseconds
 from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager, get_next_int_val
 from utils.tenant.thread import get_tenant_settings
@@ -381,6 +381,18 @@ class Source(TenantModelMixin, TimestampedModel):
         subject_source = (
             SubjectSource.objects.select_related("subject")
             .filter(source_id=self.pk, assigned_range__contains=datetime.now(tz=timezone.utc), subject__is_active=True)
+            .order_by("-assigned_range")
+            .first()
+        )
+
+        return subject_source.subject if subject_source else None
+
+    @cached_property
+    def assigned_subject(self):
+        """Get the subject associated with this source regardless of active status"""
+        subject_source = (
+            SubjectSource.objects.select_related("subject")
+            .filter(source_id=self.pk, assigned_range__contains=datetime.now(tz=timezone.utc))
             .order_by("-assigned_range")
             .first()
         )
@@ -1180,6 +1192,11 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         elif updated_until:
             return updated_until_filter
 
+    def by_position_updated_since(self, position_updated_since):
+        position_updated_since_filter = Q(status_recorded_at__gte=position_updated_since)
+
+        return self.filter(position_updated_since_filter)
+
     def by_updated_since(self, updated_since):
         updated_since_filter = self._query_string_for_filter(updated_since=updated_since)
 
@@ -1331,6 +1348,22 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             return user.linked_subject
         except ObjectDoesNotExist:
             return None
+
+    def by_ids_user_and_mou_expiry_date(self, id_list: list, user=None, include_inactive=None, mou_expiry_date=None):
+        min_age_days = get_minimum_allowed_age(user) or 0 if user else 0
+
+        queryset = (
+            self.filter(id__in=id_list)
+            .annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_expiry_date)
+            .select_related("subject_subtype__subject_type", "linked_user")
+            .prefetch_related("subjectsources")
+        )
+
+        if include_inactive is not None:
+            is_active = not parse_bool(include_inactive)
+            return queryset.by_is_active(active=is_active).order_by("name")
+
+        return queryset.by_is_active(active=True).order_by("name")
 
 
 class SubjectManager(TenantManagerMixin, models.Manager.from_queryset(SubjectQuerySet)):
