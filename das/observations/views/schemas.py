@@ -34,13 +34,25 @@ class SubjectsViewSchema(InactiveSubjectsViewSchema):
                 {
                     "name": "subject_group",
                     "in": "query",
-                    "description": "Indicate a subject group for which Subjects should be listed.",
-                },
-                {
-                    "name": "subject_group",
-                    "in": "query",
-                    "description": "Indicate a subject group for which Subjects should be listed.",
-                    "schema": {"type": "UUID"},
+                    "description": """
+                        This can be a comma-delimited list of subject group IDs or a single subject group ID.
+                        The API will return all subjects that are members of any of the specified groups.
+                        If the subject group ID is a UUID only, it will be treated as a subject group ID.
+                    """,
+                    "schema": {
+                        "oneOf": [
+                            {"type": "string", "format": "uuid", "description": "Single subject group UUID"},
+                            {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(,[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})*$",
+                                "description": "Comma-separated list of UUIDs",
+                            },
+                        ],
+                        "examples": [
+                            "123e4567-e89b-12d3-a456-426614174000",
+                            "123e4567-e89b-12d3-a456-426614174000,987e6543-e21b-54d3-a654-426614174999",
+                        ],
+                    },
                 },
                 {
                     "name": "name",
@@ -69,6 +81,12 @@ class SubjectsViewSchema(InactiveSubjectsViewSchema):
                     "description": "Indicate whether to render each subject's recent tracks.",
                 },
                 {"name": "id", "in": "query", "description": "A comma-delimited list of Subject IDs."},
+                {
+                    "name": "subject_subtypes",
+                    "in": "query",
+                    "description": "List of subtype ids comma-delimited for which Subjects should be listed.",
+                    "schema": {"type": "UUID"},
+                },
             ]
 
             operation["parameters"].extend(query_params)
