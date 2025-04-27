@@ -109,7 +109,7 @@ choice_field_schema = {
     "type": "object",
     "title": "Choice field schema for EventType Builder",
     "properties": {
-        "type": {"type": "string", "const": "string"},
+        "type": {"type": "string"},
         "title": {"type": "string"},
         "description": {"type": "string"},
         "deprecated": {"type": "boolean"},
@@ -148,7 +148,7 @@ rendered_choice_item_schema = {
     "type": "object",
     "title": "Rendered Choice Item Schema",
     "properties": {
-        "const": {"type": "string"},  # Not necesarily, it can be a number also
+        "const": {"type": ["string", "number", "boolean"]},
         "title": {"type": "string"},
         "description": {"type": "string"},
         # Allow any other properties, typically starting with x-
@@ -160,7 +160,7 @@ rendered_choice_item_schema = {
 rendered_choice_reference_schema_in_anyOf = {
     "type": "object",
     "properties": {
-        "type": {"type": "string", "const": "string"},
+        "type": {"type": "string"},
         "title": {"type": "string"},
         "description": {"type": "string"},
         "oneOf": {"type": "array", "items": rendered_choice_item_schema},
@@ -173,22 +173,23 @@ rendered_choice_field_schema = {
     "type": "object",
     "title": "Rendered Choice Field Meta-Schema",
     "properties": {
-        "type": {"type": "string", "const": "array"},
+        "type": {"type": ["string", "number", "boolean"]},
         "title": {"type": "string"},
         "description": {"type": "string"},
         "deprecated": {"type": "boolean"},
+        "default": {"type": "string"},
         "anyOf": {
             "type": "array",
             "items": rendered_choice_reference_schema_in_anyOf,
             "minItems": 1,
         },
     },
-    "required": ["anyOf"],
+    "required": ["type", "title", "description", "deprecated", "anyOf"],
     "additionalProperties": False,
 }
 
 
-rendered_multiple_choice_field_schema = {
+rendered_choice_list_field_schema = {
     "title": "Rendered Multiple Choice Field Meta-Schema",
     "type": "object",
     "properties": {
@@ -196,20 +197,19 @@ rendered_multiple_choice_field_schema = {
         "title": {"type": "string"},
         "description": {"type": "string"},
         "deprecated": {"type": "boolean"},
-        "default": {"type": "array", "items": {"type": "string"}},  # Defaults must be subset of const values
+        "uniqueItems": {"type": "boolean"},
+        "default": {"type": "array", "items": {"type": "string"}},
         "items": {
             "type": "object",
             "properties": {
-                "anyOf": {
-                    "type": "array",
-                    "items": rendered_choice_item_schema,
-                }
+                "type": {"type": "string"},
+                "anyOf": {"type": "array", "items": rendered_choice_reference_schema_in_anyOf, "minItems": 1},
             },
             "required": ["anyOf"],
+            "additionalProperties": False,
         },
-        "uniqueItems": {"type": "boolean"},
     },
-    "required": ["type", "title", "items"],
+    "required": ["type", "title", "description", "deprecated", "items"],
     "additionalProperties": False,
 }
 
@@ -242,6 +242,8 @@ collection_field_schema = {
                                 {"$ref": "#/$defs/locationField"},
                                 {"$ref": "#/$defs/choiceField"},
                                 {"$ref": "#/$defs/choiceListField"},
+                                {"$ref": "#/$defs/renderedChoiceField"},
+                                {"$ref": "#/$defs/renderedChoiceListField"},
                             ]
                         }
                     },
@@ -268,7 +270,7 @@ collection_field_schema = {
         "choiceField": choice_field_schema,
         "choiceListField": choice_list_field_schema,
         "renderedChoiceField": rendered_choice_field_schema,
-        "renderedMultipleChoiceField": rendered_multiple_choice_field_schema,
+        "renderedChoiceListField": rendered_choice_list_field_schema,
     },
 }
 
@@ -500,7 +502,7 @@ json_field_schema = {
                         {"$ref": "#/$defs/choiceField"},
                         {"$ref": "#/$defs/choiceListField"},
                         {"$ref": "#/$defs/renderedChoiceField"},
-                        {"$ref": "#/$defs/renderedMultipleChoiceField"},
+                        {"$ref": "#/$defs/renderedChoiceListField"},
                     ]
                 }
             },
@@ -533,7 +535,7 @@ main_event_type_schema = {
         "choiceField": choice_field_schema,
         "choiceListField": choice_list_field_schema,
         "renderedChoiceField": rendered_choice_field_schema,
-        "renderedMultipleChoiceField": rendered_multiple_choice_field_schema,
+        "renderedChoiceListField": rendered_choice_list_field_schema,
         "uiTextSchema": ui_text_schema,
         "uiAttachmentSchema": ui_attachment_schema,
         "uiCollectionSchema": ui_collection_schema,
