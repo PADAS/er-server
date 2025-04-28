@@ -51,6 +51,13 @@ class AdditionalTestCase(BaseAPITest):
         ]
         self.assertFalse(any(obs in coordinates for obs in observations))
 
+        # assert inactive subject in sourcegroup is not returned
+        self.henry.is_active = False
+        self.henry.save()
+        response = views.SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        assert not any(str(self.henry.id) == subject.get("id") for subject in response.data)
+
     def test_multiple_source_observations_for_single_subject(self):
         request = self.factory.get(self.api_base + "/subjects/")
         self.force_authenticate(request, self.gps_user)

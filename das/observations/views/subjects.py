@@ -163,6 +163,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
                 .select_related("subject_subtype", "subject_subtype__subject_type", "common_name")
                 .distinct("id")
             )
+            subjects_via_source_groups = check_to_include_inactive_subjects(self.request, subjects_via_source_groups)
             queryset |= subjects_via_source_groups
 
             if not user.is_superuser:
