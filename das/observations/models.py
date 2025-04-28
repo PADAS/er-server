@@ -1163,8 +1163,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         Returns:
             QuerySet: Annotated with latest_subjectsource_location and latest_subjectsource_transforms
         """
-
-        # Get the latest subjectsource for each subject
+        # Get the latest subjectsource for each subject with both location and transforms
         latest_subjectsource = (
             SubjectSource.objects.filter(subject=OuterRef("pk"))
             .order_by("-assigned_range")
@@ -1174,7 +1173,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         return self.annotate(
             latest_subjectsource_location=Subquery(latest_subjectsource.values("location")),
             latest_subjectsource_transforms=Subquery(latest_subjectsource.values("source__provider__transforms")),
-            latest_subjectsource_exists=Exists(SubjectSource.objects.filter(subject=OuterRef("pk"))),
+            latest_subjectsource_exists=Exists(latest_subjectsource),
         )
 
     def annotate_with_subjectstatus(self, delay_hours=0, mou_expiry_date=None):
@@ -1306,14 +1305,11 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
     ):
         geometry = Polygon.from_bbox(bbox)
 
-        subject_source_exists = SubjectSource.objects.filter(location__within=geometry).exists()
-        _filter = Q(subjectstatus__location__within=geometry)
-
-        if subject_source_exists:
-            _filter = _filter | Q(subjectsource__location__within=geometry)
+        # Combine the location checks into a single query using Q objects
+        location_filter = Q(subjectstatus__location__within=geometry) | Q(subjectsource__location__within=geometry)
 
         queryset = self.filter(
-            _filter,
+            location_filter,
             subjectstatus__delay_hours=0,
             subjectstatus__subject__is_active=True,
         )
