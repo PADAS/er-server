@@ -3,6 +3,8 @@ import pytest
 from django.urls import reverse
 
 from choices.models import Choice
+from factories import SubjectFactory
+from observations.models import SubjectGroup
 
 app_name = "tests"
 urlpatterns = []
@@ -80,3 +82,57 @@ def test_choices_value_as_title(superuser_client):
     assert response.status_code == 200
     for item in data["oneOf"]:
         assert item["title"] == item["x-value"]
+
+
+@pytest.mark.django_db
+def test_dynamic_subjects_filtered_by_subtypes(superuser_client):
+    two_subjects = SubjectFactory.create_batch(2)
+    last_subject = SubjectFactory.create()
+
+    sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
+    sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
+    sgrp1.subjects.add(two_subjects[0])
+    sgrp2.subjects.add(last_subject)
+
+    sgrp1.save()
+    sgrp2.save()
+
+    url = reverse("schemas:subjects")
+    response = superuser_client.get(f"{url}?subject_subtypes={last_subject.subject_subtype.id}")
+
+    assert response.status_code == 200
+    for item in response.json()["oneOf"]:
+        # assert attached first subject filtered by first group
+        assert item["const"] == str(last_subject.id)
+        assert item["title"] == str(last_subject.name)
+        assert item["x-subtype"] == last_subject.subject_subtype
+        # assert other created subjects aren't present
+        assert item["const"] not in [str(two_subjects[0].id), str(two_subjects[1].id)]
+        assert item["title"] not in [str(two_subjects[0].name), str(two_subjects[1].name)]
+
+
+@pytest.mark.django_db
+def test_dynamic_subjects_filtered_by_group_ids(superuser_client):
+    two_subjects = SubjectFactory.create_batch(2)
+    last_subject = SubjectFactory.create()
+
+    sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
+    sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
+    sgrp1.subjects.add(two_subjects[0])
+    sgrp2.subjects.add(last_subject)
+
+    sgrp1.save()
+    sgrp2.save()
+
+    url = reverse("schemas:subjects")
+    response = superuser_client.get(f"{url}?subject_group_ids={sgrp1.id}")
+
+    assert response.status_code == 200
+    for item in response.json()["oneOf"]:
+        # assert attached first subject filtered by first group
+        assert item["const"] == str(two_subjects[0].id)
+        assert item["title"] == two_subjects[0].name
+        assert item["x-subtype"] == last_subject.subject_subtype
+        # assert other created subjects aren't present
+        assert item["const"] not in [str(two_subjects[1].id), str(last_subject.id)]
+        assert item["title"] not in [str(two_subjects[1].name), str(last_subject.name)]
