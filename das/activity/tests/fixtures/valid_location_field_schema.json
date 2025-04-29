@@ -1,0 +1,36 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testLocation": {
+                "title": "Valid Location Field",
+                "description": "A valid location field.",
+                "deprecated": false,
+                "type": "object",
+                "properties": {
+                    "latitude": {
+                        "type": "number",
+                        "minimum": -90,
+                        "maximum": 90
+                    },
+                    "longitude": {
+                        "type": "number",
+                        "minimum": -180,
+                        "maximum": 180
+                    }
+                }
+            }
+        },
+        "required": [
+            "testLocation"
+        ]
+    },
+    "ui": {
+        "fields": {},
+        "headers": {},
+        "order": [],
+        "sections": {}
+    }
+}

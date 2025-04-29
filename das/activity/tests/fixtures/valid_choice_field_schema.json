@@ -14,12 +14,29 @@
                         "$ref": "http://example.com/choiceA"
                     },
                     {
-                        "$ref": "http://example.com/choiceB"
+                        "$ref": "/choiceB/path/to/choice-reference.json"
+                    },
+                    {
+                        "$ref": "/choiceC/path/to/choice-reference.json?param=value&param2=value2"
+                    },
+                    {
+                        "$ref": "#/choiceD/fragment/path"
+                    },
+                    {
+                        "$ref": "#ChoiceE_anchor_fragment"
+                    },
+                    {
+                        "$ref": "http://example.com/choiceF/?param=value&param2=value2#anchor_fragment"
+                    },
+                    {
+                        "$ref": "http://example.com/choiceG/#/path/fragment"
                     }
                 ]
             }
         },
-        "required": ["testChoice"]
+        "required": [
+            "testChoice"
+        ]
     },
     "ui": {
         "fields": {},

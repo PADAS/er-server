@@ -24,9 +24,9 @@ class EventTypeSerializer(serializers.ModelSerializer):
     has_events_assigned = serializers.SerializerMethodField()
     schema = JSONSchemaField(meta_schema=main_event_type_schema, validate_sections=True)
     version = serializers.HiddenField(default=EventType.VersionChoices.VERSION_2)
-
-    serializer_url_field = "value"
-    url = serializers.HyperlinkedIdentityField(view_name="v2-eventtype-detail", lookup_url_kwarg="eventtype_value")
+    url = serializers.HyperlinkedIdentityField(
+        view_name="v2-eventtype-detail", lookup_field="value", lookup_url_kwarg="eventtype_value"
+    )
 
     class Meta:
         model = EventType
