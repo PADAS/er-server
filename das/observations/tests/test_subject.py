@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import random
 import urllib.parse
@@ -30,6 +31,7 @@ from activity.tools.createevents import gen_random_point
 from client_http import HTTPClient
 from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest
+from factories import SubjectFactory
 from observations.admin import GPXAdmin
 from observations.models import (
     SEX_MALE,
@@ -57,6 +59,7 @@ from utils.tenant import Tenant
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests")
 faker = Faker()
+logger = logging.getLogger(__name__)
 
 
 class SubjectTestCase(BaseAPITest):
@@ -1242,6 +1245,7 @@ class TestSubjectsViewFilter:
         status_subjects_position,
         total,
         subject_group_with_perms,
+        django_assert_num_queries,
     ):
         bbox = "-103.71599063163262,20.51126608854284,-103.36639645879019,20.780283984574012"
         for position, source in zip(status_subjects_position, Source.objects.all()):
@@ -1257,7 +1261,10 @@ class TestSubjectsViewFilter:
         client.app_user.permission_sets.add(subject_group_with_perms.permission_sets.last())
         request = client.factory.get(client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true")
         client.force_authenticate(request, client.app_user)
-        response = SubjectsView.as_view()(request)
+        with django_assert_num_queries(17) as captured:
+            response = SubjectsView.as_view()(request)
+
+        logger.debug(f"Queries: {captured}")
 
         assert len(response.data) == total
 
@@ -1406,6 +1413,73 @@ class TestSubjectsViewFilter:
 
         assert len(response.data) == 5
         assert str(first_subject.id) in [item.get("id") for item in response.data]
+
+    def test_filter_by_subject_group_id_list(self, superuser_client):
+        two_subjects = SubjectFactory.create_batch(2)
+        last_subject = SubjectFactory.create()
+
+        sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
+        sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
+        sgrp1.subjects.add(two_subjects[0])
+        sgrp2.subjects.add(last_subject)
+
+        sgrp1.save()
+        sgrp2.save()
+
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(url)
+
+        # assert with no filter all subjects are returned
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 3
+
+        # assert only filtered subject by group id is present on response
+        res = superuser_client.get(f"{url}?subject_group={sgrp1.id},{uuid.uuid4()}")
+        assert len(res.json()["data"]) == 1
+        assert res.json()["data"][0]["id"] == str(two_subjects[0].id)
+
+    def test_filter_by_subject_subtypes_id_list(self, superuser_client):
+        two_subjects = SubjectFactory.create_batch(2)
+        last_subject = SubjectFactory.create()
+
+        sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
+        sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
+        sgrp1.subjects.add(two_subjects[0])
+        sgrp2.subjects.add(last_subject)
+
+        sgrp1.save()
+        sgrp2.save()
+
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(url)
+
+        # assert with no filter all subjects are returned
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 3
+
+        # assert only filtered subject by subtype id is present on response
+        res = superuser_client.get(f"{url}?subject_subtypes={last_subject.subject_subtype.id}")
+        assert len(res.json()["data"]) == 1
+        assert res.json()["data"][0]["id"] == str(last_subject.id)
+
+    def test_filter_by_malformed_subject_subtypes_id_list(self, superuser_client):
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(f"{url}?subject_subtypes=invalid_id")
+
+        assert res.status_code == 400
+        assert res.json()["status"]["detail"] == "[\"Invalid subject_type id at 'subject_subtypes'\"]"
+
+    def test_filter_by_subject_group_id_list_with_invalid_id(self, superuser_client):
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(f"{url}?subject_group={uuid.uuid4()},not-a-uuid")
+        assert res.status_code == 400
+        assert res.json()["status"]["detail"] == "[\"Invalid subject_group id at 'subject_group'\"]"
+
+    def test_filter_by_subject_group_invalid_uuid(self, superuser_client):
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(f"{url}?subject_group=invalid-uuid")
+        assert res.status_code == 400
+        assert res.json()["status"]["detail"] == "[\"Invalid subject_group id at 'subject_group'\"]"
 
 
 def random_date(start_date, end_date):
