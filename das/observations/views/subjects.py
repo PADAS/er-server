@@ -95,9 +95,9 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
     def check_permissions(self, request):
         if request.user.is_anonymous:
             self.permission_denied(request)
-        self.queryset_linked_user = (
-            self.queryset_linked_user or Subject.objects.filter(linked_user=request.user).distinct()
-        )
+        self.queryset_linked_user = self.queryset_linked_user or Subject.objects.filter(
+            linked_user=request.user
+        ).distinct("id")
 
         if not self.queryset_linked_user.exists():
             for permission in self.get_permissions():
@@ -143,7 +143,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
         queryset = Subject.objects.all()
         queryset = queryset.select_related("subject_subtype", "subject_subtype__subject_type", "common_name")
         queryset = check_to_include_inactive_subjects(self.request, queryset)
-        queryset = queryset.by_user_subjects(user).distinct()
+        queryset = queryset.by_user_subjects_not_distinct(user).distinct("id")
 
         # Handle filters for subject ID, group, and source groups
         subject_ids = query_params.get("id")
@@ -172,8 +172,10 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             subjects_via_source_groups = (
                 Subject.objects.filter(subjectsource__source__groups__in=source_groups)
                 .select_related("subjectsource__source")
-                .distinct()
+                .select_related("subject_subtype", "subject_subtype__subject_type", "common_name")
+                .distinct("id")
             )
+            subjects_via_source_groups = check_to_include_inactive_subjects(self.request, subjects_via_source_groups)
             queryset |= subjects_via_source_groups
 
             if not user.is_superuser:
@@ -193,12 +195,14 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
                 self.subject_linked_sources = {ss["subject_id"]: ss for ss in subject_linked_sources}
 
-            self._get_two_way_sources(queryset)
+        self._get_two_way_sources(queryset)
 
         is_updated_since_valid, updated_since = check_valid_date_string(updated_since, "updated_since")
         is_updated_until_valid, updated_until = check_valid_date_string(updated_until, "updated_until")
 
-        queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
+        queryset = queryset.annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24, mou_expiry_date=mou_date
+        ).annotate_with_subjectsource_transforms()
         if position_updated_since:
             queryset = queryset.by_position_updated_since(position_updated_since)
 
@@ -242,7 +246,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
                 )
 
         if name:
-            queryset = queryset.by_name_search(self.request.query_params.get("name"))
+            queryset = queryset.by_name_search(name)
 
         if subtype_ids := query_params.get("subject_subtypes"):
             subtype_ids_list = subtype_ids.split(",")
@@ -262,6 +266,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
                 check_to_include_inactive_subjects(self.request, self.queryset_linked_user)
                 .select_related("subject_subtype", "subject_subtype__subject_type", "common_name")
                 .annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
+                .annotate_with_subjectsource_transforms()
             )
 
         queryset = queryset.order_by("id")
@@ -334,7 +339,9 @@ class SubjectView(RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
         queryset = Subject.objects.filter(id=subject_id)
         mou_date = self.request.user.additional.get("expiry", None)
         mou_date = dateparse(mou_date) if mou_date else None
-        queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
+        queryset = queryset.annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24, mou_expiry_date=mou_date
+        ).annotate_with_subjectsource_transforms()
         self._get_two_way_sources(queryset)
         return queryset
 
