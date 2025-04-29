@@ -42,13 +42,16 @@ from django.db import connections, transaction
 from django.db.models import (
     BooleanField,
     Case,
+    Exists,
     ExpressionWrapper,
     F,
     FilteredRelation,
     Index,
     Max,
+    OuterRef,
     Q,
     QuerySet,
+    Subquery,
     Value,
     When,
 )
@@ -1152,6 +1155,27 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
 
         return self.none()
 
+    def annotate_with_subjectsource_transforms(self):
+        """
+        Annotates the queryset with the location and transforms from the most current subjectsource.
+        Uses a subquery to get the latest subjectsource record for each subject.
+
+        Returns:
+            QuerySet: Annotated with latest_subjectsource_location and latest_subjectsource_transforms
+        """
+        # Get the latest subjectsource for each subject with both location and transforms
+        latest_subjectsource = (
+            SubjectSource.objects.filter(subject=OuterRef("pk"))
+            .order_by("-assigned_range")
+            .values("location", "source__provider__transforms")[:1]
+        )
+
+        return self.annotate(
+            latest_subjectsource_location=Subquery(latest_subjectsource.values("location")),
+            latest_subjectsource_transforms=Subquery(latest_subjectsource.values("source__provider__transforms")),
+            latest_subjectsource_exists=Exists(latest_subjectsource),
+        )
+
     def annotate_with_subjectstatus(self, delay_hours=0, mou_expiry_date=None):
         # Define FilteredRelation with conditional logic
         filter_condition = Q(subjectstatus__delay_hours=delay_hours)
@@ -1281,14 +1305,11 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
     ):
         geometry = Polygon.from_bbox(bbox)
 
-        subject_source_exists = SubjectSource.objects.filter(location__within=geometry).exists()
-        _filter = Q(subjectstatus__location__within=geometry)
-
-        if subject_source_exists:
-            _filter = _filter | Q(subjectsource__location__within=geometry)
+        # Combine the location checks into a single query using Q objects
+        location_filter = Q(subjectstatus__location__within=geometry) | Q(subjectsource__location__within=geometry)
 
         queryset = self.filter(
-            _filter,
+            location_filter,
             subjectstatus__delay_hours=0,
             subjectstatus__subject__is_active=True,
         )
@@ -1862,7 +1883,7 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
 
     def update_current(self, subject):
         for subject_source in SubjectSource.objects.filter(
-            subject=subject, assigned_range__contains=datetime.now(tz=pytz.utc)
+            subject=subject, assigned_range__contains=datetime.now(tz=timezone.utc)
         ):
             self.update_current_from_source(
                 subject_source.source,
