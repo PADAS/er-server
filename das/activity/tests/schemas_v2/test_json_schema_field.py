@@ -93,29 +93,49 @@ class TestJsonSchemaField:
                 "Invalid JSON Schema: 'json' is a required property at ",
             ),
             (
+                # Missing $schema at json
+                {"json": {}},
+                "$schema must be https://json-schema.org/draft/2020-12/schema",
+            ),
+            (
                 # Missing 'ui' at root
                 {"json": {"$schema": f"{VALID_DRAFT}", "properties": {}}},
                 "Invalid JSON Schema: 'ui' is a required property at ",
             ),
             (
                 # Missing 'properties' under 'json'
-                {"json": {}, "ui": {"fields": {}, "headers": {}, "order": [], "sections": {}}},
+                {
+                    "json": {"$schema": f"{VALID_DRAFT}"},
+                    "ui": {"fields": {}, "headers": {}, "order": [], "sections": {}},
+                },
                 "Invalid JSON Schema: 'properties' is a required property at json",
             ),
             (
-                {"json": {"properties": {}}, "ui": {"headers": {}, "order": [], "sections": {}}},
+                {
+                    "json": {"$schema": f"{VALID_DRAFT}", "properties": {}},
+                    "ui": {"headers": {}, "order": [], "sections": {}},
+                },
                 "Invalid JSON Schema: 'fields' is a required property at ui",
             ),
             (
-                {"json": {"properties": {}}, "ui": {"fields": {}, "order": [], "sections": {}}},
+                {
+                    "json": {"$schema": f"{VALID_DRAFT}", "properties": {}},
+                    "ui": {"fields": {}, "order": [], "sections": {}},
+                },
                 "Invalid JSON Schema: 'headers' is a required property at ui",
             ),
             (
-                {"json": {"properties": {}}, "ui": {"fields": {}, "headers": {}, "sections": {}}},
+                {
+                    "json": {"$schema": f"{VALID_DRAFT}", "properties": {}},
+                    "ui": {"fields": {}, "headers": {}, "sections": {}},
+                },
                 "Invalid JSON Schema: 'order' is a required property at ui",
             ),
             (
-                {"json": {"properties": {}}, "ui": {"fields": {}, "headers": {}, "order": []}},
+                {
+                    "json": {"$schema": f"{VALID_DRAFT}", "properties": {}},
+                    "ui": {"fields": {}, "headers": {}, "order": []},
+                },
                 "Invalid JSON Schema: 'sections' is a required property at ui",
             ),
         ],

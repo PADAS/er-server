@@ -39,11 +39,6 @@ class JSONSchemaField(serializers.Field):
         elif not isinstance(data, dict):
             raise serializers.ValidationError("The schema must be a JSON object.")
 
-        # If no $schema is present, add it
-        json_schema = data.get("json", {})
-        if "$schema" not in json_schema or not json_schema.get("$schema"):
-            json_schema["$schema"] = VALID_DRAFT
-
         try:
             # Validate draft version
             self._validate_draft_version(data)
