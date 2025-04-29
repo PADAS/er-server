@@ -1432,7 +1432,7 @@ class TestSubjectsViewFilter:
         assert len(res.json()["data"]) == 1
         assert res.json()["data"][0]["id"] == str(two_subjects[0].id)
 
-    def test_filter_by_subject_subtypes_id_list(self, superuser_client):
+    def test_filter_by_subject_subtypes(self, superuser_client):
         two_subjects = SubjectFactory.create_batch(2)
         last_subject = SubjectFactory.create()
 
@@ -1452,16 +1452,17 @@ class TestSubjectsViewFilter:
         assert len(res.json()["data"]) == 3
 
         # assert only filtered subject by subtype id is present on response
-        res = superuser_client.get(f"{url}?subject_subtypes={last_subject.subject_subtype.id}")
+        res = superuser_client.get(f"{url}?subject_subtypes={last_subject.subject_subtype.value}")
         assert len(res.json()["data"]) == 1
         assert res.json()["data"][0]["id"] == str(last_subject.id)
 
-    def test_filter_by_malformed_subject_subtypes_id_list(self, superuser_client):
+    def test_filter_by_inexistent_subject_subtypes_empty_result(self, superuser_client):
         url = reverse("subjects-list-view")
         res = superuser_client.get(f"{url}?subject_subtypes=invalid_id")
 
-        assert res.status_code == 400
-        assert res.json()["status"]["detail"] == "[\"Invalid subject_type id at 'subject_subtypes'\"]"
+        assert res.status_code == 200
+        assert res.json()["status"]["code"] == 200
+        assert res.json()["status"]["message"] == "OK"
 
     def test_filter_by_subject_group_id_list_with_invalid_id(self, superuser_client):
         url = reverse("subjects-list-view")
