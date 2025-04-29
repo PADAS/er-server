@@ -416,9 +416,8 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         return models.Subject.objects.create_subject(**validated_data)
 
     def _is_stationary_subject(self, instance):
-        if (
-            instance.subject_subtype.subject_type.value == STATIONARY_SUBJECT_VALUE
-            and instance.latest_subjectsource_exists
+        if instance.subject_subtype.subject_type.value == STATIONARY_SUBJECT_VALUE and getattr(
+            instance, "latest_subjectsource_exists", False
         ):
             return True
         return False
