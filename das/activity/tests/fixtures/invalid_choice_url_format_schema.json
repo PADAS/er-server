@@ -1,0 +1,32 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testChoice": {
+                "title": "Invalid Choice Field",
+                "type": "string",
+                "description": "An invalid choice field because the URL format is incorrect.",
+                "deprecated": false,
+                "anyOf": [
+                    {
+                        "$ref": "you know she's a little bit dangerous"
+                    },
+                    {
+                        "$ref": "ooh-just-a-little-bit-dangerous"
+                    }
+                ]
+            }
+        },
+        "required": [
+            "testChoice"
+        ]
+    },
+    "ui": {
+        "fields": {},
+        "headers": {},
+        "order": [],
+        "sections": {}
+    }
+}

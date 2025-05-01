@@ -1,0 +1,19 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+            "testDateTime": {
+                "type": "string",
+                "format": "date-time",
+                "title": "Test DateTime",
+                "default": "not-a-valid-datetime"
+            }
+        }
+    },
+    "ui": {
+        "sections": {},
+        "headers": {},
+        "fields": {},
+        "order": []
+    }
+}

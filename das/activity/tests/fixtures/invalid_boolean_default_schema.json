@@ -1,0 +1,35 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testBool": {
+                "type": "string",
+                "title": "Test Boolean",
+                "description": "Boolean (choice) field with invalid default property.",
+                "deprecated": false,
+                "anyOf": [
+                    {
+                        "const": true,
+                        "title": "Yes"
+                    },
+                    {
+                        "const": false,
+                        "title": "No"
+                    }
+                ],
+                "default": "true"
+            }
+        },
+        "required": [
+            "testBool"
+        ]
+    },
+    "ui": {
+        "sections": {},
+        "headers": {},
+        "fields": {},
+        "order": []
+    }
+}
