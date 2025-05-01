@@ -1,0 +1,24 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testDateTime": {
+                "title": "Valid DateTime Field",
+                "type": "string",
+                "format": "date-time",
+                "description": "A valid datetime field.",
+                "deprecated": false,
+                "default": "2023-10-26T10:00:00Z"
+            }
+        },
+        "required": ["testDateTime"]
+    },
+    "ui": {
+        "fields": {},
+        "headers": {},
+        "order": [],
+        "sections": {}
+    }
+}

@@ -190,10 +190,9 @@ class EventCategoryRelatedField(RelatedField):
             data = data if isinstance(data, str) else data.value
             try:
                 event_category = EventCategory.objects.get_by_value(data)
-            except EventCategory.DoesNotExist:
-                raise ValidationError(f"event_category: {data} does not exist.")
-            else:
-                return event_category
+            except EventCategory.DoesNotExist as exc:
+                raise ValidationError(f"event_category: {data} does not exist.") from exc
+            return event_category
 
     def get_queryset(self):
         return EventCategory.objects.all_sort()
@@ -249,16 +248,16 @@ class EventTypeSerializer(ModelSerializer):
         try:
             rendered_schema = get_schema_renderer_method()(schema)
         except NameError as exc:
-            raise ValidationError(exc)
+            raise ValidationError(exc) from exc
         except ValueError as exc:
-            raise ValidationError(exc)
+            raise ValidationError(exc) from exc
         except Exception as exc:
-            raise ValidationError(exc)
+            raise ValidationError(exc) from exc
         else:
             try:
                 validate_rendered_schema_is_wellformed(rendered_schema)
             except SchemaValidationError as exc:
-                raise ValidationError(exc)
+                raise ValidationError(exc) from exc
         return schema
 
     def get_has_events_assigned(self, obj) -> bool:

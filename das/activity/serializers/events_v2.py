@@ -9,13 +9,24 @@ from activity.serializers.fields.json_schema import JSONSchemaField
 logger = logging.getLogger(__name__)
 
 
+class EventCategoryValueField(serializers.SlugRelatedField):
+    """SlugRelatedField for EventCategory using 'value' as the slug."""
+
+    def __init__(self, **kwargs):
+        super().__init__(slug_field="value", **kwargs)
+
+    def get_queryset(self):
+        return EventCategory.objects.all_sort()
+
+
 class EventTypeSerializer(serializers.ModelSerializer):
-    category = serializers.SlugRelatedField(slug_field="value", queryset=EventCategory.objects.all())
+    category = EventCategoryValueField()
     has_events_assigned = serializers.SerializerMethodField()
     schema = JSONSchemaField(meta_schema=main_event_type_schema, validate_sections=True)
-
-    serializer_url_field = "value"
-    url = serializers.HyperlinkedIdentityField(view_name="v2-eventtype-detail", lookup_url_kwarg="eventtype_value")
+    version = serializers.HiddenField(default=EventType.VersionChoices.VERSION_2)
+    url = serializers.HyperlinkedIdentityField(
+        view_name="v2-eventtype-detail", lookup_field="value", lookup_url_kwarg="eventtype_value"
+    )
 
     class Meta:
         model = EventType
@@ -25,10 +36,7 @@ class EventTypeSerializer(serializers.ModelSerializer):
             "has_events_assigned",
             "icon_id",
         )
-        write_only_fields = (
-            "icon",
-            "schema",
-        )
+        write_only_fields = ("icon", "schema")
         fields = (
             read_only_fields
             + write_only_fields
@@ -44,6 +52,8 @@ class EventTypeSerializer(serializers.ModelSerializer):
                 "geometry_type",
                 "resolve_time",
                 "auto_resolve",
+                "readonly",
+                "version",
             )
         )
 
@@ -57,3 +67,12 @@ class EventTypeSerializer(serializers.ModelSerializer):
             return obj.in_use
         logger.warning("Missing `in_use` annotation in EventType queryset for EventType %s", obj.value)
         return obj.event_set.exists()
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        include_schema = self.context.get("include_schema", False)
+
+        if not include_schema:
+            representation.pop("schema", None)
+
+        return representation

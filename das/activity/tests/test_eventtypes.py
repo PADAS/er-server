@@ -252,14 +252,14 @@ class TestEventTypeAPI:
         response_event_type_1 = superuser_client.get(url)
 
         assert response_event_type_1.status_code == status.HTTP_200_OK
-        assert response_event_type_1.data["has_events_assigned"] == True
+        assert response_event_type_1.data["has_events_assigned"] is True
 
         url = reverse("eventtype", kwargs={"eventtype_id": event_type_2.id})
 
         response_event_type_2 = superuser_client.get(url)
 
         assert response_event_type_2.status_code == status.HTTP_200_OK
-        assert response_event_type_2.data["has_events_assigned"] == False
+        assert response_event_type_2.data["has_events_assigned"] is False
 
 
 @pytest.mark.django_db
@@ -354,7 +354,7 @@ class TestEventTypesAPI:
 
         assert response.status_code == status.HTTP_200_OK
         for event_type in response.data:
-            assert event_type["has_events_assigned"] == False
+            assert event_type["has_events_assigned"] is False
 
         for event_type in EventType.objects.all():
             Event.objects.create(event_type=event_type)
@@ -363,7 +363,7 @@ class TestEventTypesAPI:
 
         assert response.status_code == status.HTTP_200_OK
         for event_type in response.data:
-            assert event_type["has_events_assigned"] == True
+            assert event_type["has_events_assigned"] is True
 
     def test_event_type_database_hits(self, superuser_client, five_event_types):
         """Test that the number of database hits is less than 10."""
