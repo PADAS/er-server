@@ -100,7 +100,7 @@ MIDDLEWARE = (
     "utils.middleware.RequestLoggingMiddleware",
     "utils.middleware.EULARedirectMiddleware",
     "utils.middleware.GeographicMiddleware",
-    "utils.authentication.AdminEFBTokenAuthentication",
+    "utils.middleware.ManageAdminEFBTokenMiddleware",
 )
 
 ROOT_URLCONF = "das_server.urls"

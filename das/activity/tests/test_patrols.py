@@ -1734,7 +1734,7 @@ def test_patrol_admin_page(django_assert_max_num_queries, client, tenant_documen
 
     client.force_login(user)
     url = reverse("admin:activity_patrol_changelist")
-    with django_assert_max_num_queries(26):
+    with django_assert_max_num_queries(25):
         client.get(url)
 
 
