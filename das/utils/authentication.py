@@ -23,6 +23,7 @@ AccessToken = get_access_token_model()
 
 
 EFB_APPLICATION_ID = "EFB_APPLICATION_ID"
+EFB_ACCESS_TOKEN_NAME = "efb_access_token"
 
 
 class SuperUserSessionAuthentication(SessionAuthentication):
@@ -77,46 +78,82 @@ class SkylinePostAuthentication(SessionAuthentication):
 
 class AdminEFBTokenAuthentication(MiddlewareMixin):
     def process_response(self, request, response):
-        if (
-            "/admin" in request.path
+        if self._can_create_efb_token(request, response):
+            self._create_efb_token(request, response)
+
+        if "/admin/logout" in request.path:
+            self._invalidte_efb_token(request, response)
+
+        return response
+
+    def _can_create_efb_token(self, request, response):
+        return (
+            "/admin/login" in request.path
             and request.user.is_authenticated
             and request.user.is_staff
             and not response.has_header("Set-Cookie")
-        ):
-            # Check if the user has is logged in within scope of this request
-            if "_auth_user_id" in request.session and request.session["_auth_user_id"] == str(request.user.pk):
-                try:
-                    efb_app, _ = DASApplication.objects.get_or_create(
-                        client_id=EFB_APPLICATION_ID,
-                        defaults={
-                            "client_type": "Confidential",
-                            "authorization_grant_type": "password",
-                            "client_secret": "",
-                            "name": "Event Form Builder Das App",
-                            "skip_authorization": True,
-                        },
-                    )
+            and "_auth_user_id" in request.session
+            and request.session["_auth_user_id"] == str(request.user.pk)
+            and not DASAccessToken.objects.filter(
+                application__client_id=EFB_APPLICATION_ID,
+                user=request.user,
+                expires__gt=timezone.now(),
+            ).exists()
+        )
 
-                    oauth2_settings = getattr(settings, "OAUTH2_PROVIDER", {})
-                    expire_in_secs = oauth2_settings.get("ACCESS_TOKEN_EXPIRE_SECONDS")
-                    expires = timezone.now() + timedelta(seconds=expire_in_secs)
+    def _invalidte_efb_token(self, request, response):
+        user = request.user
 
-                    access_token = DASAccessToken.objects.create(
-                        user=request.user,
-                        token=generate_token(),
-                        application=efb_app,
-                        expires=expires,
-                        scope="read write",
-                        das_tenant=request.user.das_tenant,
-                    )
-                    logger.info(
-                        "Middleware: Created access token for user %s at %s",
-                        request.user.username,
-                        EFB_APPLICATION_ID,
-                    )
+        if EFB_ACCESS_TOKEN_NAME not in request.COOKIES:
+            if user.is_authenticated:
+                DASAccessToken.objects.filter(application__client_id=EFB_APPLICATION_ID, user=user).delete()
+            return
 
-                    response.set_cookie("efb_access_token", access_token.token)
+        try:
+            DASAccessToken.objects.filter(
+                application__client_id=EFB_APPLICATION_ID, token=request.COOKIES.get(EFB_ACCESS_TOKEN_NAME)
+            ).delete()
 
-                except Exception as e:
-                    logger.error(f"Middleware: Error creating token: {e}")
-        return response
+            response.delete_cookie(EFB_ACCESS_TOKEN_NAME)
+            del request.COOKIES[EFB_ACCESS_TOKEN_NAME]
+
+            logger.info(f"Invalidated access token {EFB_ACCESS_TOKEN_NAME} for user {user.username}")
+
+        except Exception as e:
+            logger.warning(f"Error: {e} invalidating {EFB_ACCESS_TOKEN_NAME} {e}")
+
+    def _create_efb_token(self, request, response):
+        try:
+            efb_app, _ = DASApplication.objects.get_or_create(
+                client_id=EFB_APPLICATION_ID,
+                defaults={
+                    "client_type": "Confidential",
+                    "authorization_grant_type": "password",
+                    "client_secret": "",
+                    "name": "Event Form Builder Das App",
+                    "skip_authorization": True,
+                },
+            )
+
+            oauth2_settings = getattr(settings, "OAUTH2_PROVIDER", {})
+            expire_in_secs = oauth2_settings.get("ACCESS_TOKEN_EXPIRE_SECONDS")
+            expires = timezone.now() + timedelta(seconds=expire_in_secs)
+
+            access_token = DASAccessToken.objects.create(
+                user=request.user,
+                token=generate_token(),
+                application=efb_app,
+                expires=expires,
+                scope="read write",
+                das_tenant=request.user.das_tenant,
+            )
+            logger.info(
+                "Middleware: Created access token for user %s at %s",
+                request.user.username,
+                EFB_ACCESS_TOKEN_NAME,
+            )
+
+            response.set_cookie("efb_access_token", access_token.token)
+
+        except Exception as e:
+            logger.error(f"Middleware: Error creating token: {e}")
