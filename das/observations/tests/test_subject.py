@@ -1261,7 +1261,7 @@ class TestSubjectsViewFilter:
         client.app_user.permission_sets.add(subject_group_with_perms.permission_sets.last())
         request = client.factory.get(client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true")
         client.force_authenticate(request, client.app_user)
-        with django_assert_num_queries(17) as captured:
+        with django_assert_num_queries(18) as captured:
             response = SubjectsView.as_view()(request)
 
         logger.debug(f"Queries: {captured}")
