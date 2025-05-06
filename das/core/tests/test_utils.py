@@ -3,8 +3,7 @@ import pytest
 from django.conf import settings
 from django.test import TestCase
 
-import core.utils
-from core.utils import is_uuid
+from core.utils import get_site_name, is_uuid
 
 
 class TestUtils(TestCase):
@@ -13,7 +12,7 @@ class TestUtils(TestCase):
         site_name = "mysite"
         for site in site_urls:
             settings.UI_SITE_URL = site
-            self.assertEqual(site_name, core.utils.get_site_name())
+            self.assertEqual(site_name, get_site_name())
 
 
 @pytest.mark.django_db
