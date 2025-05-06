@@ -98,9 +98,10 @@ class EventDetailsSerializer(ModelSerializer):
             return data
 
         event_type = self.get_event_type(instance)
+        if event_type.version == EventType.VersionChoices.VERSION_2:
+            return data
 
         schema = event_type.schema
-
         if not schema:
             return super().to_internal_value(data)
 
@@ -181,6 +182,9 @@ class EventDetailsSerializer(ModelSerializer):
         if not self.context.get("include_updates", True):
             return []
 
+        if event_type.version == EventType.VersionChoices.VERSION_2:
+            return []
+
         schema = event_type.schema
         rendered_schema = get_schema_renderer_method()(schema)
         last_details = None
@@ -219,13 +223,13 @@ class EventDetailsSerializer(ModelSerializer):
             update_action = get_action(revision)
             if update_action:
                 updates.append(
-                    dict(
-                        message=update_action,
-                        time=revision.revision_at.isoformat(),
-                        text=revision.data.get("text", ""),
-                        user=UserDisplaySerializer().to_representation(revision.user),
-                        type=get_update_type(revision),
-                    )
+                    {
+                        "message": update_action,
+                        "time": revision.revision_at.isoformat(),
+                        "text": revision.data.get("text", ""),
+                        "user": UserDisplaySerializer().to_representation(revision.user),
+                        "type": get_update_type(revision),
+                    }
                 )
         return updates
 
