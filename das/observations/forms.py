@@ -516,11 +516,15 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
         messaging_config = cleaned_data.get("messaging_config")
 
         if two_way_messaging and messaging_config:
-            if not messaging_config.get("adapter_type") or not messaging_config.get("url"):
+            if (
+                not messaging_config.get("adapter_type")
+                or not messaging_config.get("url")
+                or not messaging_config.get("apikey")
+            ):
                 raise forms.ValidationError(
                     {
                         "messaging_config": forms.ValidationError(
-                            _("When two-way messaging is enabled, both adapter_type and url must be provided."),
+                            _("When two-way messaging is enabled, adapter_type, url and apikey must be provided."),
                             code="invalid",
                         )
                     }

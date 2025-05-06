@@ -74,6 +74,19 @@ class TestSourceProviderForm:
         assert not form.is_valid()
         assert "messaging_config" in form.errors
 
+    def test_two_way_messaging_with_missing_apikey(self, provider, base_form_data):
+        """Test that form fails validation when two_way_messaging is True but apikey is missing"""
+        form_data = {
+            **base_form_data,
+            "two_way_messaging": True,
+            "messaging_config_0": "test_adapter",  # adapter_type
+            "messaging_config_1": "http://test.com",  # missing url
+            "messaging_config_2": "",  # apikey
+        }
+        form = SourceProviderForm(data=form_data, instance=provider)
+        assert not form.is_valid()
+        assert "messaging_config" in form.errors
+
     def test_two_way_messaging_with_missing_both_fields(self, provider, base_form_data):
         """Test that form fails validation when two_way_messaging is True but both adapter_type and url are missing"""
         form_data = {
