@@ -193,7 +193,8 @@ class TestEventViewCreation:
         response = client.post(self.event_url, event_data)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "event_type" in response.data[0][0], "Event type must be provided."
+        assert "event_type" in response.data[0], "Event type must be provided."
+        assert "Event type must be provided." in response.content.decode("utf-8")
 
     def test_add_event_with_external_event_type(self, create_client_for_user):
         eventprovider = EventProvider.objects.create(display="Smart CSD Provider", owner=self.eventsource_user_no1)
@@ -265,6 +266,31 @@ class TestEventViewCreation:
         assert event.sort_at == sort_at
         assert eselist[0].eventsource.external_event_type == external_event_type
         assert eselist[0].event.title == event_title
+
+    def test_add_event_for_v2_event_type(self, superuser_client, cat1_fire_v2_event_type):
+        event_data = {
+            "event_details": {"status": "2de8fe71-4942-40db-85e4-faef2ee3cefb"},
+            "event_type": "fire_v2",
+            "icon_id": "fire_rep",
+            "is_collection": False,
+            "location": None,
+            "priority": 300,
+            "reported_by": None,
+            "state": "active",
+            "time": "2025-05-02T22:03:27.440Z",
+        }
+        events_url = reverse("events")
+        response = superuser_client.post(events_url, event_data)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["event_type"] == "fire_v2"
+        assert response.data["event_category"] == "cat1"
+        assert response.data["event_details"]["status"] == "2de8fe71-4942-40db-85e4-faef2ee3cefb"
+
+        event = Event.objects.get(id=response.data["id"])
+        assert event.event_type == cat1_fire_v2_event_type
+        assert event.event_details.count() == 1
+        assert event.event_details.first().data == {"event_details": {"status": "2de8fe71-4942-40db-85e4-faef2ee3cefb"}}
 
     def test_add_event_with_external_event_type_and_no_permissions(self, create_client_for_user):
         eventprovider = EventProvider.objects.create(display="Smart CSD Provider", owner=self.eventsource_user_no1)
