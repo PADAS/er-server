@@ -1058,7 +1058,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                 logger.exception("Failed rendering event pre-fetched files  {}".format(ex))
         else:
             if rep["event_details"] is not None:
-                details_updates = rep["event_details"].pop("updates")
+                details_updates = rep["event_details"].pop("updates", [])
 
         # Be sure to prefetch this, should not query the database for each
         # event, event_source_ref, event_source, eventprovider...

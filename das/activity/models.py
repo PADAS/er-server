@@ -389,7 +389,7 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
         ]
 
     def __str__(self):
-        return self.display
+        return str(self.value + " " + self.display)
 
     def clean(self, *args, **kwargs):
         if not self.auto_resolve and self.resolve_time:
@@ -1324,10 +1324,12 @@ class EventDetails(TenantModelMixin, RevisionMixin, TimestampedModel):
         Event, on_delete=models.CASCADE, related_name="event_details", related_query_name="event_details"
     )
     data = models.JSONField()
-    revision = Revision()
+
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
-    objects = EventDetailsManager()
     tenant_id = "das_tenant_id"
+
+    revision = Revision()
+    objects = EventDetailsManager()
 
     class Meta:
         base_manager_name = "objects"
