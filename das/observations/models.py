@@ -1158,15 +1158,15 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
     def annotate_with_subjectsource_transforms(self):
         """
         Annotates the queryset with the location and transforms from the most current subjectsource.
-        Uses a subquery to get the latest subjectsource record for each subject.
+        Uses a subquery to efficiently get the latest subjectsource record for each subject.
 
         Returns:
             QuerySet: Annotated with latest_subjectsource_location and latest_subjectsource_transforms
         """
-        # Get the latest subjectsource for each subject with both location and transforms
+        # Get the latest subjectsource for each subject using a subquery
         latest_subjectsource = (
             SubjectSource.objects.filter(subject=OuterRef("pk"))
-            .order_by("-assigned_range")
+            .order_by(F("assigned_range").desc())
             .values("location", "source__provider__transforms")[:1]
         )
 
