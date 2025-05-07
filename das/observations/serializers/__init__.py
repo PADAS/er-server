@@ -313,8 +313,8 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
                             rep["last_position_date"] = latest_observation.recorded_at
 
                             location = latest_observation.location
-                            if is_stationary_subject and instance.latest_subjectsource_location:
-                                location = instance.latest_subjectsource_location
+                            if is_stationary_subject and (latest_location := instance.subjectsources.last().location):
+                                location = latest_location
 
                             rep["last_position"] = make_feature(
                                 request,
@@ -354,8 +354,8 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
                         ),
                         "radio_state": statusvalues.radio_state,
                     }
-                    if is_stationary_subject and instance.latest_subjectsource_location:
-                        location = instance.latest_subjectsource_location
+                    if is_stationary_subject and (latest_location := instance.subjectsources.last().location):
+                        location = latest_location
 
                     if tracks_available:
                         rep["last_position_date"] = recorded_at
@@ -416,9 +416,7 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         return models.Subject.objects.create_subject(**validated_data)
 
     def _is_stationary_subject(self, instance):
-        if instance.subject_subtype.subject_type.value == STATIONARY_SUBJECT_VALUE and getattr(
-            instance, "latest_subjectsource_exists", False
-        ):
+        if instance.subject_subtype.subject_type.value == STATIONARY_SUBJECT_VALUE and instance.subjectsources.last():
             return True
         return False
 
@@ -438,9 +436,15 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         return device_status_properties
 
     def _get_default_measure(self, subject):
-        if not hasattr(subject, "latest_subjectsource_transforms"):
-            raise ValueError("Subject does not have latest_subjectsource_transforms annotation")
-        if transforms := getattr(subject, "latest_subjectsource_transforms", None):
+        # TODO: add the transorms field as an annotation to the subject as "source_transforms"
+        transforms = None
+        if hasattr(subject, "source_transforms"):
+            transforms = getattr(subject, "source_transforms", None)
+        else:
+            last_subject_source = subject.subjectsources.last()
+            if last_subject_source:
+                transforms = last_subject_source.source.provider.transforms
+        if transforms:
             for transform in transforms:
                 if transform.get("default"):
                     return transform.get("label")
