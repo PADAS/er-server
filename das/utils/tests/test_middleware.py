@@ -178,7 +178,7 @@ class TestManageAdminEFBTokenMiddleware:
         assert res.status_code == 200
         assert len(res.data) == 5
 
-    def test_no_duplicate_token_creation(self):
+    def test_no_duplicate_token_creation_cookie_created_with_valid_token(self):
         DASAccessToken.objects.create(
             user=self.superuser,
             application=self.efb_app,
@@ -193,7 +193,7 @@ class TestManageAdminEFBTokenMiddleware:
         tokens = DASAccessToken.objects.filter(user=self.superuser, application__client_id=EFB_APPLICATION_ID)
         assert tokens.count() == 1
         assert tokens.first().token == "existing_token"
-        assert EFB_ACCESS_TOKEN_NAME not in response.cookies
+        assert EFB_ACCESS_TOKEN_NAME in response.cookies  # This means existing valid token is re-setted on response
 
     def test_token_invalidation_with_cookie(self):
         test_token = "test_token_123"
