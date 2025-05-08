@@ -249,7 +249,7 @@ class TestEventTypesV2:
         assert response.status_code == 201
         assert "resource_url" in response.data
         assert response.data["resource_url"] == reverse(
-            "v2-eventtype-retrieve-schema", kwargs={"eventtype_value": data["value"]}
+            "v2-eventtype-detail", kwargs={"eventtype_value": data["value"]}
         )
 
         new_eventtype = EventType.objects.get(value=data["value"])
