@@ -140,13 +140,15 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         return super().get_list_etag(request, queryset)
 
     def create(self, request: Request, *args, **kwargs) -> Response:
-        res = super().create(request, *args, **kwargs)
-        new_object_url = reverse("v2-eventtype-retrieve-schema", kwargs={"eventtype_value": res.data["value"]})
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        event_type = serializer.save()
+        reverse_url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": event_type.value})
 
         return Response(
             status=status.HTTP_201_CREATED,
-            data={"resource_url": new_object_url},
-            headers={"Location": new_object_url},
+            data={"resource_url": reverse_url},
+            headers={"Location": reverse_url},
         )
 
     def update(self, request: Request, *args, **kwargs):
