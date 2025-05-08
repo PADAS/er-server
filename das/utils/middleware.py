@@ -46,6 +46,7 @@ ACTIVITY_EVENTS_PATH_REGEX = (
 )
 EFB_APPLICATION_ID = "EFB_APPLICATION_ID"
 EFB_ACCESS_TOKEN_NAME = "efb_access_token"
+EFB_COOKIE_NAME = "efb_access_token"
 
 
 class RequestLoggingMiddleware(object):
@@ -305,7 +306,15 @@ def is_check_eula_path(path):
 class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
     def process_response(self, request, response):
         if self._can_create_efb_token(request, response):
-            self._create_efb_token(request, response)
+            if token := DASAccessToken.objects.filter(
+                application__client_id=EFB_APPLICATION_ID,
+                user=request.user,
+                expires__gt=timezone.now(),
+            ).first():
+                response.set_cookie(EFB_COOKIE_NAME, token.token, samesite="Lax", secure=True)
+
+            else:
+                self._create_efb_token(request, response)
 
         if "/admin/logout" in request.path:
             self._invalidate_efb_token(request, response)
@@ -320,11 +329,6 @@ class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
             and not response.has_header("Set-Cookie")
             and "_auth_user_id" in request.session
             and request.session["_auth_user_id"] == str(request.user.pk)
-            and not DASAccessToken.objects.filter(
-                application__client_id=EFB_APPLICATION_ID,
-                user=request.user,
-                expires__gt=timezone.now(),
-            ).exists()
         )
 
     def _invalidate_efb_token(self, request, response):
@@ -379,7 +383,7 @@ class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
                 EFB_ACCESS_TOKEN_NAME,
             )
 
-            response.set_cookie("efb_access_token", access_token.token)
+            response.set_cookie(EFB_COOKIE_NAME, access_token.token, samesite="Lax", secure=True)
 
         except Exception as e:
             logger.error(f"Middleware: Error creating token: {e}")
