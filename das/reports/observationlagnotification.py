@@ -3,6 +3,7 @@ import logging
 
 import pytz
 
+from django.db import transaction
 from django.db.models import Avg, Count, F
 from django.utils.dateparse import parse_duration
 
@@ -292,10 +293,11 @@ class SourcesReport:
         }
         serializer = EventSerializer(data=data)
         if serializer.is_valid():
-            event = serializer.save()
-            if subject:
-                event.related_subjects.add(subject)
-            SourceEvent.objects.create(source=source, event=event)
+            with transaction.atomic():
+                event = serializer.save()
+                if subject:
+                    event.related_subjects.add(subject)
+                SourceEvent.objects.create(source=source, event=event)
         else:
             logger.warning(f"Impossible create a source report {serializer.errors}")
 
@@ -319,8 +321,9 @@ class SourcesReport:
         }
         serializer = EventSerializer(data=data)
         if serializer.is_valid():
-            event = serializer.save()
-            SourceProviderEvent.objects.create(source_provider=source_provider, event=event)
+            with transaction.atomic():
+                event = serializer.save()
+                SourceProviderEvent.objects.create(source_provider=source_provider, event=event)
         else:
             logger.warning(f"Impossible create a source provider report {serializer.errors}")
 

@@ -192,6 +192,14 @@ class EventView(RetrieveUpdateDestroyAPIView):
             self.check_object_permissions(self.request, obj)
         return super().get(request, *args, **kwargs)
 
+    def update(self, request, *args, **kwargs):
+        with transaction.atomic():
+            return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        with transaction.atomic():
+            return super().partial_update(request, *args, **kwargs)
+
     def get_serializer_context(self):
         query_params = self.request.query_params if self.request and hasattr(self.request, "query_params") else {}
 
