@@ -15,6 +15,7 @@ from activity.models import PRI_URGENT, SC_RESOLVED, Event, EventCategory, Event
 from activity.tests import schema_examples
 from activity.views import EventTypesView, EventTypeView
 from client_http import HTTPClient
+from core.utils import DirectoryIconFinder
 from factories import EventTypeFactory
 from utils.rank import RankedTool
 
@@ -518,6 +519,9 @@ class TestIconsListView:
 
 @patch("core.utils.staticfiles_storage.listdir", side_effect=Exception("Filesystem error"))
 def test_list_icons_view_error_handling(mock_storage, superuser_client):
+    DirectoryIconFinder._instance = None
+    DirectoryIconFinder._cache.clear()
+
     url = reverse("eventtypes-list-icons")
     response = superuser_client.get(url)
 
