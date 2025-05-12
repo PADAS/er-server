@@ -1,0 +1,19 @@
+name: Trigger Buoy Tests
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'das/buoy/**'
+
+jobs:
+  trigger-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Buoy API Tests Workflow via Repository Dispatch
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.PLAYWRIGHT_REPO_ACCESS_TOKEN }}
+          repository: PADAS/er-web-automation-playwright
+          event-type: run-buoy-api-tests
