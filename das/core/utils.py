@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import re
@@ -12,15 +13,16 @@ import jsonschema
 import pytz
 
 from django.apps.registry import Apps
-from django.core.exceptions import SuspiciousFileOperation
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.core.exceptions import ValidationError
+from django.core.cache import caches
+from django.core.exceptions import SuspiciousFileOperation, ValidationError
 from django.db import connection
 from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 from django.http.request import HttpRequest
 from django.utils import timezone
 from django.utils.dateparse import parse_duration
+from django.utils.functional import cached_property
 
 from core.models import DASTenant
 from utils.constants import regex
@@ -63,6 +65,47 @@ class StaticImageFinder(object):
 
 
 static_image_finder = StaticImageFinder()
+
+
+class DirectoryIconFinder:
+    """Singleton class to find icons in a directory whith cached results on instance and class level."""
+
+    _instance = None
+    _cache = caches["default"]
+
+    def __new__(cls, dir_name="sprite-src", timeout=3600 * 24):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.dir_name = dir_name
+            cls._instance.timeout = timeout
+        return cls._instance
+
+    @cached_property
+    def _file_metadata(self):
+        try:
+            _, filenames = staticfiles_storage.listdir(self.dir_name)
+            return tuple(
+                (f, staticfiles_storage.get_modified_time(f"{self.dir_name}/{f}"))
+                for f in sorted(filenames)
+                if f.split(".")[-1].lower() in ("svg", "png", "jpg")
+            )
+        except ValueError:
+            return tuple()
+
+        except Exception as e:
+            logger.error(f"Error listing files in {self.dir_name}: {e}")
+            raise e
+
+    @classmethod
+    def get_etag(cls, request=None, *args, **kwargs):
+        instance = cls()
+        cache_key = f"icons-etag-{cls._instance.dir_name}"
+        etag = instance._cache.get(cache_key)
+
+        if etag is None:
+            etag = hashlib.md5(str(instance._file_metadata).encode()).hexdigest()
+            cls._cache.set(cache_key, etag, timeout=cls._instance.timeout)
+        return etag
 
 
 class Schedule:

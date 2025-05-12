@@ -1,5 +1,6 @@
 import json
 import os
+from unittest.mock import patch
 from urllib.parse import urlencode
 
 import pytest
@@ -483,3 +484,43 @@ class TestEventTypeAutoResolve:
             "'resolve_time' must be set if 'auto_resolve' is true." in detail["resolve_time"]
             or "'resolve_time' must be null if 'auto_resolve' is false." in detail["resolve_time"]
         )
+
+
+@pytest.mark.django_db
+class TestIconsListView:
+    @patch("core.utils.staticfiles_storage")
+    def test_list_response(self, mock_storage, superuser_client):
+        mock_storage.listdir.return_value = ([], ["icon1.svg", "icon2.png"])
+        mock_storage.get_modified_time.return_value = 1234567890
+
+        url = reverse("eventtypes-list-icons")
+
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        assert response.data == {"icon_ids": ["icon1.svg", "icon2.png"], "resources_path": "/static/sprite-src/"}
+        assert response["ETag"] in response.headers.values()
+        assert "ETag" in response.headers
+
+    @patch("core.utils.staticfiles_storage")
+    def test_304_not_modified(self, mock_storage, superuser_client):
+        mock_storage.listdir.return_value = ([], ["icon1.svg"])
+        mock_storage.get_modified_time.return_value = 1234567890
+
+        url = reverse("eventtypes-list-icons")
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        etag = response["ETag"]
+
+        res = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+        assert res.status_code == 304
+        assert response["ETag"] == res["ETag"]
+
+
+@patch("core.utils.staticfiles_storage.listdir", side_effect=Exception("Filesystem error"))
+def test_list_icons_view_error_handling(mock_storage, superuser_client):
+    url = reverse("eventtypes-list-icons")
+    response = superuser_client.get(url)
+
+    assert response.status_code == 500
+    assert response.json()["status"]["detail"] == "Filesystem error"
+    assert "icon_ids" not in response.data

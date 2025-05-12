@@ -1320,3 +1320,11 @@ class EventClassFactorSerializer(ModelSerializer):
         )
 
         return rep
+
+
+class IconSerializer(Serializer):
+    icon_ids = ListField(child=CharField(), help_text="List of available icon filenames")
+    resources_path = CharField(help_text="Base path where icons are stored")
+
+    class Meta:
+        fields = ["icon_ids", "resources_path"]
