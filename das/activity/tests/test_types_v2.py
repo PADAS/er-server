@@ -168,6 +168,19 @@ class TestEventTypesV2:
         for field in self.expected_fields:
             assert field in response.data
 
+    def test_get_event_type_detail_by_uuid(self, superuser_client, cat1_cat2_event_types):
+        target = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": str(target.id)})
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == str(target.id)
+        assert response.data["value"] == target.value
+        assert response.has_header("ETag")
+
+        for field in self.expected_fields:
+            assert field in response.data
+
     def test_event_type_detail_not_found(self, superuser_client):
         url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": "nonexistent"})
         response = superuser_client.get(url)
@@ -249,7 +262,7 @@ class TestEventTypesV2:
         assert response.status_code == 201
         assert "resource_url" in response.data
         assert response.data["resource_url"] == reverse(
-            "v2-eventtype-retrieve-schema", kwargs={"eventtype_value": data["value"]}
+            "v2-eventtype-detail", kwargs={"eventtype_value": data["value"]}
         )
 
         new_eventtype = EventType.objects.get(value=data["value"])

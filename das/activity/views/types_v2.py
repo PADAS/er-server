@@ -23,6 +23,7 @@ from activity.schemas.schema_retrieving import build_dynamic_schemas_registry
 from activity.serializers.events_v2 import EventTypeSerializer
 from activity.views.events.utils import AllowedCategoriesMixin
 from activity.views.schemas import EventTypeViewSchema
+from core.utils import is_uuid
 from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer, parse_bool
 from utils.views import EtagListRetrieveModelMixin
 
@@ -140,14 +141,25 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         return super().get_list_etag(request, queryset)
 
     def create(self, request: Request, *args, **kwargs) -> Response:
-        res = super().create(request, *args, **kwargs)
-        new_object_url = reverse("v2-eventtype-retrieve-schema", kwargs={"eventtype_value": res.data["value"]})
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        event_type = serializer.save()
+        reverse_url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": event_type.value})
 
         return Response(
             status=status.HTTP_201_CREATED,
-            data={"resource_url": new_object_url},
-            headers={"Location": new_object_url},
+            data={"resource_url": reverse_url},
+            headers={"Location": reverse_url},
         )
+
+    def get_object(self):
+        # Temporary implementation to allow to retrieve by uuid.
+        if is_uuid(self.kwargs.get("eventtype_value")):
+            self.lookup_field = "id"
+            obj = super().get_object()
+            self.lookup_field = "value"
+            return obj
+        return super().get_object()
 
     def update(self, request: Request, *args, **kwargs):
         # Temporary implementation to avoid updating event types.
