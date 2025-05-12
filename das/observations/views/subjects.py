@@ -150,7 +150,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             chunk_queryset = chunk_queryset.annotate_with_subjectstatus(
                 delay_hours=min_age_days * 24, mou_expiry_date=mou_date
             ).annotate_with_subjectsource_transforms()
-            queryset = queryset.union(chunk_queryset)
+            queryset = queryset.union(chunk_queryset.order_by("id"))
 
         self._get_two_way_sources(queryset)
         self.queryset = queryset
