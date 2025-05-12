@@ -11,9 +11,12 @@ jobs:
   trigger-tests:
     runs-on: ubuntu-latest
     steps:
+      - name: Generate Preview URL
+        run: echo "PREVIEW_URL=https://feature-${{ github.head_ref }}.buoy.dev.pamdas.org" >> $GITHUB_ENV
       - name: Call Buoy API Tests Workflow via Repository Dispatch
         uses: peter-evans/repository-dispatch@v2
         with:
           token: ${{ secrets.PLAYWRIGHT_REPO_ACCESS_TOKEN }}
           repository: PADAS/er-web-automation-playwright
           event-type: run-buoy-api-tests
+          client-payload: '{"preview_url": "https://feature-${{ github.head_ref }}.buoy.dev.pamdas.org"}'
