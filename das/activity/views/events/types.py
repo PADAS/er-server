@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from rest_framework_condition import etag
@@ -27,6 +28,8 @@ from utils.json import parse_bool
 from utils.rank import RankedTool
 
 from .utils import EventTypeQuerysetMixin
+
+logger = logging.getLogger(__name__)
 
 
 class EventTypeView(RetrieveUpdateDestroyAPIView):
@@ -93,6 +96,7 @@ class IconsListView(ListAPIView):
                 {"icon_ids": [f for f, _ in finder._file_metadata], "resources_path": f"/static/{finder.dir_name}/"}
             )
         except Exception as e:
+            logger.error(f"Error listing icons: {e}")
             return Response(
                 {
                     "status": {
