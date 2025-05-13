@@ -82,12 +82,15 @@ class DirectoryIconFinder:
 
     @cached_property
     def _file_metadata(self):
+        usercontent_conf = getattr(settings, "USERCONTENT_SETTINGS", {})
+        allowed_extentions = usercontent_conf.get("imagefile_extensions", ("jpg", "jpeg", "png", "gif", "tif", "tiff"))
+
         try:
             _, filenames = staticfiles_storage.listdir(self.dir_name)
             return tuple(
                 (f, staticfiles_storage.get_modified_time(f"{self.dir_name}/{f}"))
                 for f in sorted(filenames)
-                if f.split(".")[-1].lower() in ("svg", "png", "jpg")
+                if f.split(".")[-1].lower() in allowed_extentions
             )
         except ValueError:
             return tuple()
