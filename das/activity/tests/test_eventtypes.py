@@ -491,20 +491,20 @@ class TestEventTypeAutoResolve:
 class TestIconsListView:
     @patch("core.utils.staticfiles_storage")
     def test_list_response(self, mock_storage, superuser_client):
-        mock_storage.listdir.return_value = ([], ["icon1.svg", "icon2.png"])
+        mock_storage.listdir.return_value = ([], ["icon1.jpeg", "icon2.png"])
         mock_storage.get_modified_time.return_value = 1234567890
 
         url = reverse("eventtypes-list-icons")
 
         response = superuser_client.get(url)
         assert response.status_code == 200
-        assert response.data == {"icon_ids": ["icon1.svg", "icon2.png"], "resources_path": "/static/sprite-src/"}
+        assert response.data == {"icon_ids": ["icon1.jpeg", "icon2.png"], "resources_path": "/static/sprite-src/"}
         assert response["ETag"] in response.headers.values()
         assert "ETag" in response.headers
 
     @patch("core.utils.staticfiles_storage")
     def test_304_not_modified(self, mock_storage, superuser_client):
-        mock_storage.listdir.return_value = ([], ["icon1.svg"])
+        mock_storage.listdir.return_value = ([], ["icon1.jpeg"])
         mock_storage.get_modified_time.return_value = 1234567890
 
         url = reverse("eventtypes-list-icons")
