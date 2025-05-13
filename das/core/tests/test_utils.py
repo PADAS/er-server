@@ -48,7 +48,7 @@ class TestDirectoryIconFinder:
 
     @patch("core.utils.staticfiles_storage")
     def test_file_metadata_caching(self, mock_storage):
-        mock_storage.listdir.return_value = ([], ["test.svg", "ignore.txt"])
+        mock_storage.listdir.return_value = ([], ["test.png", "ignore.txt"])
         mock_storage.get_modified_time.return_value = 1234567890
 
         finder = DirectoryIconFinder()
@@ -56,15 +56,15 @@ class TestDirectoryIconFinder:
         result1 = finder._file_metadata
         result2 = finder._file_metadata
 
-        assert result1 == result2 == (("test.svg", 1234567890),)
+        assert result1 == result2 == (("test.png", 1234567890),)
         mock_storage.listdir.assert_called_once_with("sprite-src")
 
     @patch("core.utils.staticfiles_storage")
     def test_etag_generation(self, mock_storage):
-        mock_storage.listdir.return_value = ([], ["icon1.svg", "icon2.png"])
+        mock_storage.listdir.return_value = ([], ["icon1.jpeg", "icon2.png"])
         mock_storage.get_modified_time.return_value = 1234567890
 
-        expected_data = (("icon1.svg", 1234567890), ("icon2.png", 1234567890))
+        expected_data = (("icon1.jpeg", 1234567890), ("icon2.png", 1234567890))
         expected_hash = hashlib.md5(str(expected_data).encode()).hexdigest()
 
         etag = DirectoryIconFinder.get_etag()
@@ -72,7 +72,7 @@ class TestDirectoryIconFinder:
 
     @patch("core.utils.staticfiles_storage")
     def test_etag_caching(self, mock_storage):
-        mock_storage.listdir.return_value = ([], ["test.svg"])
+        mock_storage.listdir.return_value = ([], ["test.png"])
         mock_storage.get_modified_time.return_value = 1234567890
 
         etag1 = DirectoryIconFinder.get_etag()  # create cache
