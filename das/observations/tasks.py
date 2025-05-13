@@ -1,9 +1,8 @@
 import json
 import logging
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-import pytz
 import xmltodict
 from celery_once import QueueOnce
 from google.api_core import exceptions
@@ -59,6 +58,7 @@ def maintain_observation_data():
         days_data_retain = ssprovider.additional.get("days_data_retain")
         if not days_data_retain:
             continue
+
         try:
             days_data_retain = int(days_data_retain)
         except ValueError:
@@ -67,15 +67,29 @@ def maintain_observation_data():
             )
             continue
 
-        minimum_date = pytz.utc.localize(datetime.utcnow()) - timedelta(days=days_data_retain)
+        maintain_observation_data_for_source_provider.apply_async(args=(ssprovider.unique_id, days_data_retain))
 
-        # Observation records older than minimum date
-        observation_queryset = Observation.objects.filter(
-            source__provider__id=ssprovider.unique_id, recorded_at__lte=minimum_date
-        )
 
-        if observation_queryset.exists():
-            observation_queryset.delete()
+@celery.app.task(
+    base=TenantQueueOnceTask,
+    bind=True,
+    once={
+        "graceful": True,
+    },
+)
+def maintain_observation_data_for_source_provider(self, source_provider_id, days_data_retain):
+    minimum_date = datetime.now(timezone.utc) - timedelta(days=days_data_retain)
+    minimum_observation_partition_lower_bound = datetime.now(timezone.utc) - timedelta(days=365)
+    logger.info(f"Deleting observation records older than {minimum_date} for source_provider_id: {source_provider_id}")
+
+    # Observation records older than minimum date
+    observation_queryset = Observation.objects.filter(
+        source__provider__id=source_provider_id,
+        recorded_at__lte=minimum_date,
+        recorded_at__gte=minimum_observation_partition_lower_bound,
+    )
+
+    observation_queryset.delete()
 
 
 def parse_xml_to_dict(xml):
