@@ -123,9 +123,10 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
         # Phase 1: Get filtered subject IDs with minimal joins
         base_queryset = Subject.objects.all()
+
         filtered_queryset = base_queryset.annotate_with_subjectstatus(
             delay_hours=min_age_days * 24, mou_expiry_date=mou_date
-        )
+        ).annotate_with_subjectsource()
 
         filtered_queryset = self.filter_on_subject_and_source_groups(filtered_queryset, user, query_params)
 
@@ -134,7 +135,8 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
         filtered_queryset = check_to_include_inactive_subjects(self.request, filtered_queryset)
 
         # Get the IDs of filtered subjects
-        filtered_ids = filtered_queryset.distinct("id").order_by("id").values_list("id", flat=True)
+        filtered_queryset = filtered_queryset.distinct("id").order_by("id")
+        filtered_ids = filtered_queryset.values_list("id", flat=True)
 
         # Phase 2: Get full data for filtered subjects in chunks to avoid large IN clauses
         CHUNK_SIZE = 1000  # Adjust this based on your database's performance characteristics

@@ -1176,6 +1176,12 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             latest_subjectsource_exists=Exists(latest_subjectsource),
         )
 
+    def annotate_with_subjectsource(self):
+        return self.annotate(
+            s2=FilteredRelation("subjectsource", condition=Q(subjectsource__isnull=False)),
+            subjectsource_location=F("s2__location"),
+        )
+
     def annotate_with_subjectstatus(self, delay_hours=0, mou_expiry_date=None):
         # Define FilteredRelation with conditional logic
         filter_condition = Q(subjectstatus__delay_hours=delay_hours)
@@ -1303,28 +1309,34 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         updated_since=None,
         updated_until=None,
     ):
+        """
+        Filter by bbox, last_days.
+        Conditionally include subjects that have the latest positions within the bbox but outside the time frame
+        indicated by last_days.
+        This function assumes the annotate_with_subjectstatus and annotate_with_subjectsource are already applied to the queryset.
+
+        :param updated_until:
+        :param updated_since:
+        :param bbox:
+        :param last_days:
+        :param include_stationary_subjects:
+        :return: queryset of Subjects.
+        """
         geometry = Polygon.from_bbox(bbox)
 
-        # Combine the location checks into a single query using Q objects
-        location_filter = Q(subjectstatus__location__within=geometry) | Q(subjectsource__location__within=geometry)
-
-        queryset = self.filter(
-            location_filter,
-            subjectstatus__delay_hours=0,
-            subjectstatus__subject__is_active=True,
-        )
+        queryset = self.filter(Q(status_location__within=geometry) | Q(subjectsource_location__within=geometry))
 
         if updated_since and updated_until:
-            queryset = queryset.filter(subjectstatus__recorded_at__range=(updated_since, updated_until))
+            queryset = queryset.filter(status_recorded_at__range=(updated_since, updated_until))
         elif updated_since:
-            queryset = queryset.filter(subjectstatus__recorded_at__gte=updated_since)
+            queryset = queryset.filter(status_recorded_at__gte=updated_since)
         elif updated_until:
-            queryset = queryset.filter(subjectstatus__recorded_at__lte=updated_until)
+            queryset = queryset.filter(status_recorded_at__lte=updated_until)
         elif last_days:
             now = datetime.now(tz=pytz.UTC)
             since = now - last_days
             until = now + timedelta(minutes=10)
-            queryset = queryset.filter(subjectstatus__recorded_at__range=(since, until))
+            queryset = queryset.filter(status_recorded_at__range=(since, until))
 
         if not include_stationary_subjects:
             result = queryset.exclude(subject_subtype__subject_type__value=STATIONARY_SUBJECT_VALUE)
