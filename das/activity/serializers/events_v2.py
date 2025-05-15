@@ -44,31 +44,35 @@ class EventTypeSerializer(serializers.ModelSerializer):
                 "value",
                 "display",
                 "ordernum",
-                "is_collection",
                 "category",
-                "is_active",
+                "geometry_type",
                 "default_priority",
                 "default_state",
-                "geometry_type",
                 "resolve_time",
                 "auto_resolve",
                 "readonly",
+                "is_collection",
+                "is_active",
                 "version",
             )
         )
 
-    def get_has_events_assigned(self, obj) -> bool:
+    def get_has_events_assigned(self, instance: EventType) -> bool:
         """
         Returns whether the event type is being used in any event.
         Implementation is based on the `in_use` annotation in the queryset.
         Avoids the to perform a separate query to check if the event type is in use.
         """
-        if hasattr(obj, "in_use"):
-            return obj.in_use
-        logger.warning("Missing `in_use` annotation in EventType queryset for EventType %s", obj.value)
-        return obj.event_set.exists()
+        if hasattr(instance, "in_use"):
+            return instance.in_use
+        logger.warning("Missing `in_use` annotation in EventType queryset for EventType %s", instance.value)
+        return instance.event_set.exists()
 
-    def to_representation(self, instance):
+    def to_representation(self, instance: EventType) -> dict:
+        """
+        Override to add / remove schema field based on `include_schema`,
+        gathered from the request query params in the view.
+        """
         representation = super().to_representation(instance)
         include_schema = self.context.get("include_schema", False)
 
