@@ -8,12 +8,14 @@ from utils.middleware import EFB_APPLICATION_ID
 def create_efb_application(apps, schema_editor):
     DASApplication = apps.get_model("core", "DASApplication")
 
-    DASApplication.objects.create(
-        name="Event Form Builder Das App",
-        client_type="Confidential",
-        authorization_grant_type="password",
+    DASApplication.objects.get_or_create(
         client_id=EFB_APPLICATION_ID,
-        client_secret="",
+        defaults={
+            "client_type": "Confidential",
+            "authorization_grant_type": "password",
+            "client_secret": "",
+            "name": "Event Form Builder Das App",
+        },
     )
 
 
@@ -21,6 +23,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("core", "0028_remove_prefixex_tenant_hash_from_export_data_permissions"),
+        ("core", "0006_add_das_tenant_model"),
     ]
 
     operations = [
