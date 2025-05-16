@@ -1,8 +1,13 @@
+from django_multitenant.fields import TenantForeignKey
 from drf_extra_fields.geo_fields import PointField
 
 from django.contrib.gis.geos import GEOSGeometry
 from rest_framework import serializers
 from rest_framework.fields import empty
+
+
+class CompoundTenantForeignKey(TenantForeignKey):
+    pass
 
 
 class AlternateSpellingChoiceField(serializers.ChoiceField):
