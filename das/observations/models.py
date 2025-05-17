@@ -47,8 +47,10 @@ from django.db.models import (
     FilteredRelation,
     Index,
     Max,
+    OuterRef,
     Q,
     QuerySet,
+    Subquery,
     Value,
     When,
 )
@@ -1153,7 +1155,11 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         return self.none()
 
     def annotate_with_subjectsource_transforms(self):
-        return self.annotate(source_transforms=F("subjectsource__source__provider__transforms"))
+        latest_subjectsource = SubjectSource.objects.filter(subject=OuterRef("pk")).order_by("-assigned_range")
+
+        return self.annotate(
+            source_transforms=Subquery(latest_subjectsource.values("source__provider__transforms")[:1])
+        )
 
     def annotate_with_subjectsource(self):
         return self.annotate(
