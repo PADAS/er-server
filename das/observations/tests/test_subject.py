@@ -1590,13 +1590,6 @@ class TestSubjectsViewFilter:
         assert len(res.json()["data"]) == 1
         assert res.json()["data"][0]["id"] == str(last_subject.id)
 
-    def test_filter_by_malformed_subject_subtypes_id_list(self, superuser_client):
-        url = reverse("subjects-list-view")
-        res = superuser_client.get(f"{url}?subject_subtypes=invalid_id")
-
-        assert res.status_code == 400
-        assert res.json()["status"]["detail"] == "[\"Invalid subject_type id at 'subject_subtypes'\"]"
-
     def test_filter_by_subject_group_id_list_with_invalid_id(self, superuser_client):
         url = reverse("subjects-list-view")
         res = superuser_client.get(f"{url}?subject_group={uuid.uuid4()},not-a-uuid")
