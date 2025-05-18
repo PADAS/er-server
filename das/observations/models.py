@@ -506,6 +506,65 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
         return queryset
 
+    def get_subject_observations_partitioned(
+        self, subject, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
+    ):
+        """An optimized version of get_subject_observations that uses partitioning to avoid full table scans.
+        It does not support annotations beyond this point.
+        """
+        # First get all valid subject source assignments for the time range
+        time_range = DateTimeTZRange(
+            lower=since or datetime.min.replace(tzinfo=pytz.UTC), upper=until or datetime.max.replace(tzinfo=pytz.UTC)
+        )
+
+        subject_sources = SubjectSource.objects.filter(
+            subject=subject, assigned_range__overlap=time_range
+        ).select_related("source")
+
+        if not subject_sources.exists():
+            return self.none()
+
+        # Build a list of source IDs and their valid time ranges
+        source_ranges = []
+        for ss in subject_sources:
+            source_ranges.append({"source_id": ss.source_id, "range": ss.assigned_range})
+
+        # Build a query that efficiently uses the partitioning
+        queryset = self.none()
+        for sr in source_ranges:
+            # For each source, get observations within its assigned range
+            source_qs = self.filter(
+                source_id=sr["source_id"], recorded_at__gte=sr["range"].lower, recorded_at__lte=sr["range"].upper
+            )
+
+            # Apply time range filters if specified
+            if since:
+                source_qs = source_qs.filter(recorded_at__gte=since)
+            if until:
+                source_qs = source_qs.filter(recorded_at__lte=until)
+
+            # Apply exclusion flags
+            source_qs = source_qs.by_exclusion_flags(
+                filter_flag, include_empty_location=isinstance(subject, Subject) and subject.is_stationary_subject
+            )
+
+            # Combine with previous results
+            queryset = queryset.union(source_qs)
+
+        # Apply ordering and limit after combining results
+        if order_by:
+            queryset = queryset.order_by(order_by)
+        else:
+            queryset = queryset.order_by("-recorded_at")
+
+        if limit and limit > 0:
+            queryset = queryset[:limit]
+
+        if values:
+            queryset = queryset.values(*values)
+
+        return queryset
+
     def get_subject_observations(
         self, subject, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
     ):
@@ -1575,7 +1634,7 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
                 until = datetime.now(tz=pytz.UTC)
             since = until - timedelta(hours=last_hours)
 
-        return Observation.objects.get_subject_observations(self, since=since, until=until)
+        return Observation.objects.get_subject_observations_partitioned(self, since=since, until=until)
 
     def default_trajectory_filter(self):
         # Get trajectory filter based on subject. Might not exist.
