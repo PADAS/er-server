@@ -22,10 +22,26 @@ from utils.tenant.celery import TenantQueueOnceTask
 logger = logging.getLogger(__name__)
 
 
-def provider_lag_check(provider_key, period_start, recorded_at_window_start, recorded_at_window_end):
+def calculate_lag_for_provider(
+    provider_key: str,
+    period_start: datetime.datetime,
+    recorded_at_window_start: datetime.datetime,
+    recorded_at_window_end: datetime.datetime,
+) -> dict | None:
+    """
+    Calculate the average lag time for a provider over a given time period.
 
-    # grouped by source provider lets find the average lag time in the last duration along with number of entries
-    provider = (
+    Args:
+        provider_key (str): The key of the provider to calculate the lag for.
+        period_start (datetime.datetime): The start of the time period to calculate the lag for.
+        recorded_at_window_start (datetime.datetime): The start of the recorded_at window to calculate the lag for.
+        recorded_at_window_end (datetime.datetime): The end of the recorded_at window to calculate the lag for.
+
+    Returns:
+        dict: provider summary dict with annotated avg_lag and data_points. None if no observations are found for the provider.
+    """
+
+    provider_summary = (
         Observation.objects.filter(
             created_at__gt=period_start,
             recorded_at__range=(recorded_at_window_start, recorded_at_window_end),
@@ -38,7 +54,7 @@ def provider_lag_check(provider_key, period_start, recorded_at_window_start, rec
         .order_by()
         # the blank order_by above clears the default order_by for Observation model which removes unwanted group by
     )
-    return provider.first()
+    return provider_summary.first()
 
 
 def get_lagging_providers():
@@ -57,18 +73,18 @@ def get_lagging_providers():
 
         logger.info(f"Provider {provider.display_name} has lag alert config", extra=provider_lag_config)
 
-        lag_check_result = provider_lag_check(
+        lag_calculation_result = calculate_lag_for_provider(
             provider.provider_key, period_start, recorded_at_window_start, recorded_at_window_end
         )
-        if not lag_check_result:
+        if not lag_calculation_result:
             continue
 
         # build data object to pass to threshold check
         provider_lag_check_data = {
             "provider_key": provider.provider_key,
             "provider_name": provider.display_name,
-            "avg_lag": lag_check_result.get("avg_lag"),
-            "num_data_points": lag_check_result.get("data_points"),
+            "avg_lag": lag_calculation_result.get("avg_lag"),
+            "num_data_points": lag_calculation_result.get("data_points"),
             "period_start": period_start,
             "period_end": period_end,
         }
