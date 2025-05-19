@@ -22,54 +22,75 @@ from utils.tenant.celery import TenantQueueOnceTask
 logger = logging.getLogger(__name__)
 
 
-def get_lagging_providers():
-    lagging_providers = []
-    # TODO do we want to be able to configure this value?
-    configured_report_duration = "00:30:00"
-    period_end = datetime.datetime.now(pytz.utc)
-    period_start = period_end - parse_duration(configured_report_duration)
+def provider_lag_check(provider_key, period_start, recorded_at_window_start, recorded_at_window_end):
+
     # grouped by source provider lets find the average lag time in the last duration along with number of entries
-    providers = (
-        Observation.objects.filter(created_at__gt=period_start)
+    provider = (
+        Observation.objects.filter(
+            created_at__gt=period_start,
+            recorded_at__range=(recorded_at_window_start, recorded_at_window_end),
+            source__provider__provider_key=provider_key,
+        )
         .values(
             provider_key=F("source__provider__provider_key"), provider_display_name=F("source__provider__display_name")
         )
         .annotate(avg_lag=Avg(F("created_at") - F("recorded_at")), data_points=Count("created_at"))
         .order_by()
+        # the blank order_by above clears the default order_by for Observation model which removes unwanted group by
     )
-    # the blank order_by above clears the default order_by for Observation model which removes unwanted group by
-    for provider in providers:
+    return provider.first()
+
+
+def get_lagging_providers():
+    # TODO do we want to be able to configure this value?
+    configured_report_duration = "00:30:00"
+    period_end = datetime.datetime.now(pytz.utc)
+    period_start = period_end - parse_duration(configured_report_duration)
+
+    # only look at observations recorded in the last 30 days, to focus the db query on recent data
+    recorded_at_window_end = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
+    recorded_at_window_start = recorded_at_window_end - datetime.timedelta(days=31)
+
+    for provider in SourceProvider.objects.all():
+        if not (provider_lag_config := get_provider_lag_alert_config(provider)):
+            continue
+
+        logger.info(f"Provider {provider.display_name} has lag alert config", extra=provider_lag_config)
+
+        lag_check_result = provider_lag_check(
+            provider.provider_key, period_start, recorded_at_window_start, recorded_at_window_end
+        )
+        if not lag_check_result:
+            continue
+
         # build data object to pass to threshold check
         provider_lag_check_data = {
-            "provider_key": provider.get("provider_key"),
-            "provider_name": provider.get("provider_display_name"),
-            "avg_lag": provider.get("avg_lag"),
-            "num_data_points": provider.get("data_points"),
+            "provider_key": provider.provider_key,
+            "provider_name": provider.display_name,
+            "avg_lag": lag_check_result.get("avg_lag"),
+            "num_data_points": lag_check_result.get("data_points"),
             "period_start": period_start,
             "period_end": period_end,
         }
-        # get config for this provider
-        provider_lag_config = get_provider_lag_alert_config(provider_lag_check_data.get("provider_key"))
-        # now we have config lets check if it exceeded threshold
+
         if check_source_provider_lag_exceeded(provider_lag_check_data, provider_lag_config):
-            lagging_providers.append((provider_lag_check_data, provider_lag_config))
-
-    return lagging_providers
+            yield (provider_lag_check_data, provider_lag_config)
 
 
-# return the config for this provider's lag alert report
-def get_provider_lag_alert_config(provider_key):
-    # hard coded for now, but could come from file, etc.
-    tenant_settings = get_tenant_settings()
-    provider = SourceProvider.objects.get(provider_key=provider_key)
+def get_provider_lag_alert_config(provider):
     threshold = provider.additional.get("lag_notification_threshold", None)
-    configured_lag_threshold = {
-        "lag_notification_threshold": threshold,
-        "site_name": get_ui_site_name(tenant_settings),
-        "site_url": get_ui_site_url(tenant_settings),
-    }
+    if not isinstance(threshold, str) or not threshold.strip():
+        return None
 
-    return configured_lag_threshold
+    if threshold := parse_duration(threshold):
+        tenant_settings = get_tenant_settings()
+        configured_lag_threshold = {
+            "lag_notification_threshold": threshold,
+            "site_name": get_ui_site_name(tenant_settings),
+            "site_url": get_ui_site_url(tenant_settings),
+        }
+        return configured_lag_threshold
+    return None
 
 
 # check and return bool if the lag time provided in data exceeds configured threshold
