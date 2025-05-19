@@ -506,12 +506,27 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
         return queryset
 
+    def get_subject_newly_created_observations(self, subject, created_after):
+        """Get newly created observations for a subject.
+        We limit the time range for finding observations based on the recorded_at index to 5 days to avoid full table scans.
+        By default, the returned observations are ordered by descending recorded_at.
+        """
+        until = datetime.now(timezone.utc)
+        since = until - timedelta(days=5)
+        if created_after < since:
+            since = created_after
+
+        return self.get_subject_observations_partitioned(subject, since=since, until=until, created_after=created_after)
+
     def get_subject_observations_partitioned(
-        self, subject, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
+        self, subject, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None, created_after=None
     ):
         """An optimized version of get_subject_observations that uses partitioning to avoid full table scans.
         It does not support annotations beyond this point.
         """
+        if created_after and not (since and until):
+            raise ValueError("If using created_after, since and until must be provided and set to a limited time range")
+
         # First get all valid subject source assignments for the time range
         time_range = DateTimeTZRange(
             lower=since or datetime.min.replace(tzinfo=pytz.UTC), upper=until or datetime.max.replace(tzinfo=pytz.UTC)
@@ -542,6 +557,8 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                 source_qs = source_qs.filter(recorded_at__gte=since)
             if until:
                 source_qs = source_qs.filter(recorded_at__lte=until)
+            if created_after:
+                source_qs = source_qs.filter(created_at__gte=created_after)
 
             # Apply exclusion flags
             source_qs = source_qs.by_exclusion_flags(
@@ -593,7 +610,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
     def get_subject_observations_values(
         self, subject, since=None, until=None, limit=None, values=("recorded_at", "location"), filter_flag=0
     ):
-        return self.get_subject_observations(
+        return self.get_subject_observations_partitioned(
             subject, since=since, until=until, limit=limit, values=values, filter_flag=filter_flag
         )
 
@@ -1971,7 +1988,9 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
         key, delay_days = self.delayed_windows[0]
         delay_hours = delay_days * 24
         until = datetime.now(tz=pytz.utc) - timedelta(hours=delay_hours)
-        observation = Observation.objects.get_subject_observations(subject=subject, until=until, limit=1).first()
+        observation = Observation.objects.get_subject_observations_partitioned(
+            subject=subject, until=until, limit=1
+        ).first()
 
         # March through the view windows.
         for key, delay_days in self.delayed_windows:
@@ -1987,7 +2006,7 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
                 update_subject_status_from_observation(observation, delay_hours=delay_hours)
             else:
                 # Refresh the 'latest observation' for the given window.
-                observation = Observation.objects.get_subject_observations(
+                observation = Observation.objects.get_subject_observations_partitioned(
                     subject=subject, until=until, limit=1
                 ).first()
                 if observation:

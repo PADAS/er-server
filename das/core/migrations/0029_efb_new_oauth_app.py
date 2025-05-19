@@ -2,8 +2,7 @@
 
 import logging
 
-import oauth2_provider.settings as oauth2_settings
-
+from django.apps import apps
 from django.db import migrations
 
 from core.models import DASTenant
@@ -14,9 +13,9 @@ from utils.tenant.managers import TenantContextManager, UnsetDASTenantContextMan
 logger = logging.getLogger(__name__)
 
 
-def create_efb_application(apps, schema_editor):
+def create_efb_application(ignored, schema_editor):
     db_alias = schema_editor.connection.alias
-    Application = apps.get_model(oauth2_settings.APPLICATION_MODEL)
+    Application = apps.get_model("core", "DASApplication")
 
     defaults = dict(
         client_type="Confidential",
@@ -33,7 +32,9 @@ def create_efb_application(apps, schema_editor):
         domain = tenant.domain
         try:
             with TenantContextManager(domain):
-                Application.objects.using(db_alias).get_or_create(client_id=EFB_APPLICATION_ID, defaults=defaults)
+                Application.objects.using(db_alias).get_or_create(
+                    client_id=EFB_APPLICATION_ID, das_tenant=tenant, defaults=defaults
+                )
         except (DASTenant.DoesNotExist, TenantNotFoundException):
             logger.warning(
                 "DASTenant with domain %s does not exist in TMS, when creating efb application for that domain",
