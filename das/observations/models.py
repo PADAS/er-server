@@ -521,8 +521,22 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
     def get_subject_observations_partitioned(
         self, subject, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None, created_after=None
     ):
-        """An optimized version of get_subject_observations that uses partitioning to avoid full table scans.
+        """
+        An optimized version of get_subject_observations that uses partitioning to avoid full table scans.
         It does not support annotations beyond this point.
+
+        Args:
+            subject (Subject): The subject for which observations are being queried.
+            since (datetime, optional): The start of the time range for observations. Defaults to None.
+            until (datetime, optional): The end of the time range for observations. Defaults to None.
+            limit (int, optional): The maximum number of observations to return. Defaults to None.
+            values (list of str, optional): Specific fields to include in the result. Defaults to None.
+            filter_flag (int, optional): Flags to filter observations. Defaults to 0.
+            order_by (str, optional): Field by which to order the results. Defaults to None.
+            created_after (datetime, optional): Filter on the created_at time of the observations. Must provide since and until if using this. Defaults to None.
+
+        Returns:
+            QuerySet: A Django QuerySet containing the filtered and partitioned observations.
         """
         if created_after and not (since and until):
             raise ValueError("If using created_after, since and until must be provided and set to a limited time range")
@@ -542,14 +556,16 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         # Build a list of source IDs and their valid time ranges
         source_ranges = []
         for ss in subject_sources:
-            source_ranges.append({"source_id": ss.source_id, "range": ss.assigned_range})
+            source_ranges.append({"source_id": ss.source_id, "time_range": ss.assigned_range})
 
         # Build a query that efficiently uses the partitioning
         queryset = self.none()
         for sr in source_ranges:
             # For each source, get observations within its assigned range
             source_qs = self.filter(
-                source_id=sr["source_id"], recorded_at__gte=sr["range"].lower, recorded_at__lte=sr["range"].upper
+                source_id=sr["source_id"],
+                recorded_at__gte=sr["time_range"].lower,
+                recorded_at__lte=sr["time_range"].upper,
             )
 
             # Apply time range filters if specified
