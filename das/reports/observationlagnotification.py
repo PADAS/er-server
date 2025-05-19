@@ -1,5 +1,6 @@
 import datetime
 import logging
+from typing import Union
 
 import pytz
 
@@ -27,7 +28,7 @@ def calculate_lag_for_provider(
     period_start: datetime.datetime,
     recorded_at_window_start: datetime.datetime,
     recorded_at_window_end: datetime.datetime,
-) -> dict | None:
+) -> Union[dict, None]:
     """
     Calculate the average lag time for a provider over a given time period.
 
