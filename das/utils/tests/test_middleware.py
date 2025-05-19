@@ -137,12 +137,7 @@ class TestManageAdminEFBTokenMiddleware:
         self.factory = RequestFactory()
         self.client = superuser_client
         self.superuser = superuser
-        self.efb_app = DASApplication.objects.create(
-            client_id=EFB_APPLICATION_ID,
-            client_type="Confidential",
-            authorization_grant_type="password",
-            name="Test EFB App",
-        )
+        self.efb_app = DASApplication.objects.get(client_id=EFB_APPLICATION_ID)
 
     def _create_admin_request(self, path="/admin/login"):  # Proper supports request session
         request = self.factory.get(path)
