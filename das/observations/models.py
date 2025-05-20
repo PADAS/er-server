@@ -577,18 +577,13 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                 source_qs = source_qs.filter(created_at__gte=created_after)
 
             # Apply exclusion flags
-            source_qs = source_qs.by_exclusion_flags(
-                filter_flag, include_empty_location=isinstance(subject, Subject) and subject.is_stationary_subject
-            )
+            source_qs = source_qs.by_exclusion_flags(filter_flag, include_empty_location=subject.is_stationary_subject)
 
             # Combine with previous results
             queryset = queryset.union(source_qs)
 
         # Apply ordering and limit after combining results
-        if order_by:
-            queryset = queryset.order_by(order_by)
-        else:
-            queryset = queryset.order_by("-recorded_at")
+        queryset = queryset.order_by(order_by or "-recorded_at")
 
         if limit and limit > 0:
             queryset = queryset[:limit]
