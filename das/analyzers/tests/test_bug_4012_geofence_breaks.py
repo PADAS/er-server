@@ -32,7 +32,7 @@ from .geofence_test_data import *
 logger = logging.getLogger(__name__)
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestBug4012(TestCase):
     """
     This is a special test case that validates a fix for a missed geofence breaks in a production site.
