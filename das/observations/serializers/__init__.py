@@ -536,7 +536,7 @@ def get_observation_location(subject, mou_date):
         [Observation]: the observation
     """
 
-    observation = models.Observation.objects.get_subject_observations(
+    observation = models.Observation.objects.get_subject_observations_partitioned(
         subject, until=mou_date, order_by="-recorded_at"
     ).first()
 
