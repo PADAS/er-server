@@ -22,6 +22,7 @@ class EventCategoryValueField(serializers.SlugRelatedField):
 class EventTypeSerializer(serializers.ModelSerializer):
     category = EventCategoryValueField()
     has_events_assigned = serializers.SerializerMethodField()
+    icon_id = serializers.SerializerMethodField()
     schema = JSONSchemaField(meta_schema=main_event_type_schema, validate_sections=True)
     version = serializers.HiddenField(default=EventType.VersionChoices.VERSION_2)
     url = serializers.HyperlinkedIdentityField(
@@ -36,39 +37,43 @@ class EventTypeSerializer(serializers.ModelSerializer):
             "has_events_assigned",
             "icon_id",
         )
-        write_only_fields = ("icon", "schema")
-        fields = (
-            read_only_fields
-            + write_only_fields
-            + (
-                "value",
-                "display",
-                "ordernum",
-                "is_collection",
-                "category",
-                "is_active",
-                "default_priority",
-                "default_state",
-                "geometry_type",
-                "resolve_time",
-                "auto_resolve",
-                "readonly",
-                "version",
-            )
+        fields = read_only_fields + (
+            "value",
+            "display",
+            "ordernum",
+            "category",
+            "geometry_type",
+            "default_priority",
+            "default_state",
+            "resolve_time",
+            "auto_resolve",
+            "readonly",
+            "is_collection",
+            "schema",
+            "is_active",
+            "icon",
+            "version",
         )
 
-    def get_has_events_assigned(self, obj) -> bool:
+    def get_has_events_assigned(self, instance: EventType) -> bool:
         """
         Returns whether the event type is being used in any event.
-        Implementation is based on the `in_use` annotation in the queryset.
-        Avoids the to perform a separate query to check if the event type is in use.
+        This method avoids the need to perform a separate query by checking for the `in_use` annotation.
         """
-        if hasattr(obj, "in_use"):
-            return obj.in_use
-        logger.warning("Missing `in_use` annotation in EventType queryset for EventType %s", obj.value)
-        return obj.event_set.exists()
+        if hasattr(instance, "in_use"):
+            return instance.in_use
+        logger.warning("Missing `in_use` annotation in EventType queryset for EventType %s", instance.value)
+        return instance.event_set.exists()
 
-    def to_representation(self, instance):
+    def get_icon_id(self, instance: EventType) -> str:
+        """Get the icon_id from the EventType instance."""
+        return instance.icon_id
+
+    def to_representation(self, instance: EventType) -> dict:
+        """
+        Override to add / remove schema field based on `include_schema`,
+        gathered from the request query params in the view.
+        """
         representation = super().to_representation(instance)
         include_schema = self.context.get("include_schema", False)
 
