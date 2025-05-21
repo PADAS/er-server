@@ -243,6 +243,7 @@ djangorestframework==3.12.4
     #   django-extra-fields
     #   djangorestframework-gis
     #   drf-extensions
+    #   drf-spectacular
 djangorestframework-gis==1.1
     # via -r requirements.in
 dnspython==1.16.0
