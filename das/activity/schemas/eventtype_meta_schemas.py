@@ -1,5 +1,4 @@
 text_field_schema = {
-    "additionalProperties": False,
     "type": "object",
     "title": "Text schema for EventType Builder",
     "properties": {
@@ -8,13 +7,12 @@ text_field_schema = {
         "description": {"type": "string"},
         "title": {"type": "string"},
         "type": {"const": "string"},
-        "additionalProperties": False,
     },
+    "additionalProperties": False,
     "required": ["deprecated", "description", "title", "type"],
 }
 
 attachment_field_schema = {
-    "additionalProperties": False,
     "type": "object",
     "title": "Attachment field schema for EventType Builder",
     "properties": {
@@ -22,15 +20,15 @@ attachment_field_schema = {
         "format": {"const": "uri"},
         "title": {"type": "string"},
         "type": {"const": "string"},
-        "additionalProperties": False,
     },
     "required": ["deprecated", "title", "type", "format"],
+    "additionalProperties": False,
 }
 
 
 date_time_field_schema = {
-    "additionalProperties": False,
     "type": "object",
+    "title": "Date Time field schema for EventType Builder",
     "properties": {
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
@@ -38,13 +36,12 @@ date_time_field_schema = {
         "default": {"type": "string"},
         "title": {"type": "string"},
         "type": {"type": "string", "const": "string"},
-        "additionalProperties": False,
     },
     "required": ["deprecated", "format"],
+    "additionalProperties": False,
 }
 
 location_field_schema = {
-    "additionalProperties": False,
     "type": "object",
     "title": "Location field schema for EventType Builder",
     "properties": {
@@ -77,13 +74,12 @@ location_field_schema = {
             "required": ["latitude", "longitude"],
             "additionalProperties": False,
         },
-        "additionalProperties": False,
     },
     "required": ["deprecated", "description", "title", "type", "properties"],
+    "additionalProperties": False,
 }
 
 numeric_field_schema = {
-    "additionalProperties": False,
     "type": "object",
     "title": "Numeric field schema for EventType Builder",
     "properties": {
@@ -94,59 +90,129 @@ numeric_field_schema = {
         "type": {"type": "string", "const": "number"},
         "maximum": {"type": "number"},
         "minimum": {"type": "number"},
-        "additionalProperties": False,
     },
     "required": ["deprecated", "description", "title", "type"],
+    "additionalProperties": False,
 }
 
-choice_any_of_schema = {
+reference_choice_object_schema_in_anyOf = {
     "type": "array",
     "items": {
         "type": "object",
         "properties": {"$ref": {"type": "string", "format": "uri"}},
         "required": ["$ref"],
-        "additionalProperties": False,
     },
     "minItems": 1,
 }
 
 choice_field_schema = {
-    "additionalProperties": False,
     "type": "object",
     "title": "Choice field schema for EventType Builder",
     "properties": {
-        "deprecated": {"type": "boolean"},
-        "description": {"type": "string"},
+        "type": {"type": "string"},
         "title": {"type": "string"},
-        "type": {"const": "string"},
-        "anyOf": choice_any_of_schema,
-        "additionalProperties": False,
+        "description": {"type": "string"},
+        "deprecated": {"type": "boolean"},
+        "anyOf": reference_choice_object_schema_in_anyOf,
     },
     "required": ["deprecated", "description", "title", "type", "anyOf"],
+    "additionalProperties": False,
 }
 
 choice_list_field_schema = {
-    "additionalProperties": False,
     "type": "object",
     "title": "Choice list field schema for EventType Builder",
     "properties": {
-        "deprecated": {"type": "boolean"},
-        "description": {"type": "string"},
-        "title": {"type": "string"},
         "type": {"type": "string", "const": "array"},
+        "title": {"type": "string"},
+        "description": {"type": "string"},
+        "deprecated": {"type": "boolean"},
         "items": {
             "type": "object",
             "properties": {
-                "anyOf": choice_any_of_schema,
+                "anyOf": reference_choice_object_schema_in_anyOf,
                 "type": {"type": "string"},
             },
             "additionalItems": False,
         },
-        "additionalProperties": False,
-        "uniqueItems": True,
+        "uniqueItems": {"type": "boolean"},
     },
     "required": ["deprecated", "description", "title", "type", "items"],
+    "additionalProperties": False,
 }
+
+
+# Base definition for a choice object *after* rendering/reference resolution
+# Allows required const/title, optional description, and any other custom properties (like x-icon)
+rendered_choice_item_schema = {
+    "type": "object",
+    "title": "Rendered Choice Item Schema",
+    "properties": {
+        "const": {"type": ["string", "number", "boolean"]},
+        "title": {"type": "string"},
+        "description": {"type": "string"},
+        # Allow any other properties, typically starting with x-
+    },
+    "required": ["const", "title"],
+    "additionalProperties": True,  # Allow x-* and other potential fields
+}
+
+rendered_choice_reference_schema_in_anyOf = {
+    "type": "object",
+    "properties": {
+        "type": {"type": "string"},
+        "title": {"type": "string"},
+        "description": {"type": "string"},
+        "oneOf": {"type": "array", "items": rendered_choice_item_schema},
+    },
+    "required": ["type", "title", "oneOf"],
+}
+
+# Meta-schema for a choice field *after* rendering
+rendered_choice_field_schema = {
+    "type": "object",
+    "title": "Rendered Choice Field Meta-Schema",
+    "properties": {
+        "type": {"type": ["string", "number", "boolean"]},
+        "title": {"type": "string"},
+        "description": {"type": "string"},
+        "deprecated": {"type": "boolean"},
+        "default": {"type": "string"},
+        "anyOf": {
+            "type": "array",
+            "items": rendered_choice_reference_schema_in_anyOf,
+            "minItems": 1,
+        },
+    },
+    "required": ["type", "title", "description", "deprecated", "anyOf"],
+    "additionalProperties": False,
+}
+
+
+rendered_choice_list_field_schema = {
+    "title": "Rendered Multiple Choice Field Meta-Schema",
+    "type": "object",
+    "properties": {
+        "type": {"type": "string", "const": "array"},
+        "title": {"type": "string"},
+        "description": {"type": "string"},
+        "deprecated": {"type": "boolean"},
+        "uniqueItems": {"type": "boolean"},
+        "default": {"type": "array", "items": {"type": "string"}},
+        "items": {
+            "type": "object",
+            "properties": {
+                "type": {"type": "string"},
+                "anyOf": {"type": "array", "items": rendered_choice_reference_schema_in_anyOf, "minItems": 1},
+            },
+            "required": ["anyOf"],
+            "additionalProperties": False,
+        },
+    },
+    "required": ["type", "title", "description", "deprecated", "items"],
+    "additionalProperties": False,
+}
+
 
 collection_field_schema = {
     "$id": "https://earthranger.com/collection_field.json",
@@ -176,6 +242,8 @@ collection_field_schema = {
                                 {"$ref": "#/$defs/locationField"},
                                 {"$ref": "#/$defs/choiceField"},
                                 {"$ref": "#/$defs/choiceListField"},
+                                {"$ref": "#/$defs/renderedChoiceField"},
+                                {"$ref": "#/$defs/renderedChoiceListField"},
                             ]
                         }
                     },
@@ -201,6 +269,8 @@ collection_field_schema = {
         "locationField": location_field_schema,
         "choiceField": choice_field_schema,
         "choiceListField": choice_list_field_schema,
+        "renderedChoiceField": rendered_choice_field_schema,
+        "renderedChoiceListField": rendered_choice_list_field_schema,
     },
 }
 
@@ -390,7 +460,7 @@ ui_schema = {
             "type": "object",
             "additionalProperties": False,
             "patternProperties": {
-                "^header-[A-Za-z0-9]": {"$ref": "#/$defs/uiHeadersSchema"},
+                "^header-.*": {"$ref": "#/$defs/uiHeadersSchema"},
             },
         },
         "order": {
@@ -402,7 +472,7 @@ ui_schema = {
             "type": "object",
             "additionalProperties": False,
             "patternProperties": {
-                "^section-[A-Za-z0-9]": {"$ref": "#/$defs/uiSectionsSchema"},
+                "^section-.*": {"$ref": "#/$defs/uiSectionsSchema"},
             },
         },
     },
@@ -431,6 +501,8 @@ json_field_schema = {
                         {"$ref": "#/$defs/locationField"},
                         {"$ref": "#/$defs/choiceField"},
                         {"$ref": "#/$defs/choiceListField"},
+                        {"$ref": "#/$defs/renderedChoiceField"},
+                        {"$ref": "#/$defs/renderedChoiceListField"},
                     ]
                 }
             },
@@ -440,6 +512,7 @@ json_field_schema = {
     },
     "required": ["$schema", "properties"],
 }
+
 
 main_event_type_schema = {
     "$id": "https://earthranger.com/event_type_schema.json",
@@ -461,6 +534,8 @@ main_event_type_schema = {
         "locationField": location_field_schema,
         "choiceField": choice_field_schema,
         "choiceListField": choice_list_field_schema,
+        "renderedChoiceField": rendered_choice_field_schema,
+        "renderedChoiceListField": rendered_choice_list_field_schema,
         "uiTextSchema": ui_text_schema,
         "uiAttachmentSchema": ui_attachment_schema,
         "uiCollectionSchema": ui_collection_schema,

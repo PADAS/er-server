@@ -84,8 +84,8 @@ class SubjectsViewSchema(InactiveSubjectsViewSchema):
                 {
                     "name": "subject_subtypes",
                     "in": "query",
-                    "description": "List of subtype ids comma-delimited for which Subjects should be listed.",
-                    "schema": {"type": "UUID"},
+                    "description": "List of subtype values comma-delimited for which Subjects should be listed.",
+                    "schema": {"type": "string"},
                 },
             ]
             operation["parameters"] = operation.get("parameters", [])

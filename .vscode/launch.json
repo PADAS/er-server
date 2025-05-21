@@ -326,7 +326,24 @@
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
                 "IS_OAUTH2_PROVIDER_MIGRATION": "True"
             }
-        }
+        },
+        {
+            "name": "Django make migrations",
+            "type": "python",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "${workspaceFolder}/das/manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "makemigrations",
+                "${input:django_migrate_app_options}",
+            ],
+            "django": true,
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
+            }
+        },
     ],
     "inputs": [
         {
@@ -352,5 +369,20 @@
             "description": "tenant domain name",
             "default": "localhost"
         },
+        {
+            "id": "django_migrate_app_options",
+            "type": "pickString",
+            "description": "Select a DjangoApp to migrate",
+            "options": [
+                "activity",
+                "accounts",
+                "analyzers",
+                "choices",
+                "buoy",
+                "core",
+                "observations"
+            ],
+            "default": "activity"
+        }
     ]
 }

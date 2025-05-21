@@ -1,0 +1,25 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testTime": {
+                "title": "Valid Time Field",
+                "type": "string",
+                "format": "time",
+                "description": "A valid time field.",
+                "deprecated": false
+            }
+        },
+        "required": [
+            "testTime"
+        ]
+    },
+    "ui": {
+        "fields": {},
+        "headers": {},
+        "order": [],
+        "sections": {}
+    }
+}

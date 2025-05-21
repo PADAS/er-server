@@ -12,7 +12,7 @@ from activity.schemas.schema_retrieving import (
     build_dynamic_schemas_registry,
     retrieve_dynamic_schema,
 )
-from schemas.tests.fixtures import TestDynamicSchemaView
+from schemas.tests.fixtures import MockDynamicSchemaView
 from schemas.view_mixins import DynamicSchemaFromSourceView
 
 
@@ -27,7 +27,7 @@ class TestDynamicSchemaRetriever:
 
     def test_successful_schema_retrieval(self, add_view_to_urls, api_request):
         # Setup - add the test view to URLs
-        url_name = add_view_to_urls(TestDynamicSchemaView)
+        url_name = add_view_to_urls(MockDynamicSchemaView)
         url = reverse(url_name)
 
         result = retrieve_dynamic_schema(url, api_request)
@@ -77,7 +77,7 @@ class TestDynamicSchemaRetriever:
 
     def test_uri_with_query_params(self, add_view_to_urls, api_request):
         # Setup - The improved fixture returns the namespaced URL name
-        url_name = add_view_to_urls(TestDynamicSchemaView, route="test-schema/", name="test-schema")
+        url_name = add_view_to_urls(MockDynamicSchemaView, route="test-schema/", name="test-schema")
         base_url = reverse(url_name)
         url_with_params = f"{base_url}?s_const=custom_id"
 

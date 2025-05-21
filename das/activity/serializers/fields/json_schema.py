@@ -1,14 +1,17 @@
 import json
 
-from jsonschema import ValidationError, validate
+from jsonschema import ValidationError
 from jsonschema.validators import Draft202012Validator
 
 from rest_framework import serializers
 
+VALID_DRAFT = "https://json-schema.org/draft/2020-12/schema"
+
 
 class JSONSchemaField(serializers.Field):
     """
-    Custom field to validate that the input is a valid JSON Schema.
+    Custom field to validate that the input is a valid JSON Schema, using always
+    the Draft202012Validator.
     """
 
     def __init__(self, meta_schema=None, validate_sections=False, **kwargs):
@@ -22,7 +25,6 @@ class JSONSchemaField(serializers.Field):
     def to_internal_value(self, data):
         if isinstance(data, bytes):
             try:
-                # Decode bytes to string and parse as JSON
                 data = data.decode("utf-8")
                 data = json.loads(data)
             except (UnicodeDecodeError, json.JSONDecodeError) as e:
@@ -38,8 +40,10 @@ class JSONSchemaField(serializers.Field):
             raise serializers.ValidationError("The schema must be a JSON object.")
 
         try:
-            Draft202012Validator.check_schema(data)
-            validate(instance=data, schema=self.meta_schema)
+            # Validate draft version
+            self._validate_draft_version(data)
+            # Validate against meta schema
+            Draft202012Validator(self.meta_schema).validate(data)
 
             if self.validate_sections:
                 self._validate_parent_references(data)
@@ -48,10 +52,15 @@ class JSONSchemaField(serializers.Field):
             json_path = ".".join(str(s) for s in e.path)
             raise serializers.ValidationError(f"Invalid JSON Schema: {e.message} at {json_path}")
 
-        return data
+        return json.dumps(data, indent=2)
 
-    def _validate_parent_references(self, data):
-        def _check_section_exists(data, param, parent_key):
+    @staticmethod
+    def _validate_parent_references(data):
+        """
+        Validates that every 'section' in 'ui' references a valid key in 'sections'.
+        """
+
+        def check_section_exists(data, param, parent_key):
             ui = data.get("ui", {})
             sections = ui.get("sections", {})
             items = ui.get(param, {})
@@ -66,10 +75,7 @@ class JSONSchemaField(serializers.Field):
 
             return errors
 
-        """
-        Validates that every 'section' in 'ui' references a valid key in 'sections'.
-        """
-        header_errors = _check_section_exists(data, "headers", "section")
+        header_errors = check_section_exists(data, "headers", "section")
 
         order_errors = [
             (
@@ -85,3 +91,11 @@ class JSONSchemaField(serializers.Field):
 
         if filtered_errors:
             raise serializers.ValidationError("Validation errors: " + " ".join(filtered_errors))
+
+    def _validate_draft_version(self, data):
+        # Only validate draft if 'json' key exists, otherwise let the main validator handle the missing key.
+        if "json" in data:
+            json_schema = data.get("json", {})
+            schema_uri = json_schema.get("$schema")
+            if schema_uri != VALID_DRAFT:
+                raise serializers.ValidationError(f"$schema must be {VALID_DRAFT}")

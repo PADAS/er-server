@@ -376,15 +376,33 @@ class EventTypeViewSchema(CustomSchema):
     def get_operation(self, *args, **kwargs):
         operation = super().get_operation(*args, **kwargs)
         if self.method == "GET":
-            query_params = [
-                {"name": "include_inactive", "in": "query", "description": "include inactive eventtypes"},
-                {"name": "include_schema", "in": "query", "description": "include eventtype schema in the payload"},
+            parameters = operation.get("parameters", [])
+            parameters.append(
                 {
-                    "name": "updated_since",
+                    "name": "include_schema",
                     "in": "query",
-                    "description": "Only include event types that have changed since this date, expressed as an ISO date/time. Example: 2024-08-01 12:00:00Z",
-                },
-            ]
-            operation["parameters"] = operation.get("parameters", [])
-            operation["parameters"].extend(query_params)
+                    "description": "include eventtype schema in the payload",
+                    "schema": {"type": "boolean", "default": False},
+                }
+            )
+
+            path = getattr(self, "path", None)
+
+            if path and "v2" not in path:
+                parameters.append(
+                    {
+                        "name": "include_inactive",
+                        "in": "query",
+                        "description": "Include inactive event types in the list.",
+                    }
+                )
+                parameters.append(
+                    {
+                        "name": "updated_since",
+                        "in": "query",
+                        "description": "Only include event types that have changed since this date, expressed as an ISO date/time. Example: 2024-08-01 12:00:00Z",
+                    }
+                )
+
+            operation["parameters"] = parameters
         return operation

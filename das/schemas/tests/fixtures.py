@@ -33,7 +33,7 @@ class MockSourceView(ListAPIView, DynamicSchemaDataMixin):
         ]
 
 
-class TestDynamicSchemaView(DynamicSchemaFromSourceView):
+class MockDynamicSchemaView(DynamicSchemaFromSourceView):
     """Base test view class for dynamic schema testing."""
 
     source_view = MockSourceView

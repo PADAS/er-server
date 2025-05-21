@@ -19,7 +19,6 @@ class SubjectsDynamicSchemaView(DynamicSchemaFromSourceView):
     schema_title = "Subjects"
     schema_description = "Subjects list"
     default_title_field = "name"
-    default_x_fields = {"subtype": "subject_subtype"}
 
 
 class ChoicesDynamicSchemaView(DynamicSchemaFromSourceView):
@@ -28,6 +27,4 @@ class ChoicesDynamicSchemaView(DynamicSchemaFromSourceView):
     schema_description = "All choices schema list"
     default_title_field = "display"
     default_description_field = "model"
-    default_x_fields = {"field": "field", "ordernum": "ordernum", "icon": "icon", "value": "value"}
     default_const_field = "id"
-    default_const_value = "id"
