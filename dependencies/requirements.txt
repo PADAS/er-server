@@ -132,12 +132,6 @@ comm==0.1.4
     #   ipywidgets
 contourpy==1.1.1
     # via matplotlib
-coreapi==2.3.3
-    # via
-    #   django-rest-swagger
-    #   openapi-codec
-coreschema==0.0.4
-    # via coreapi
 cryptography==41.0.1
     # via
     #   -r requirements.in
@@ -189,6 +183,8 @@ django==3.2.25
     #   django-treebeard
     #   django-versatileimagefield
     #   djangorestframework
+    #   drf-spectacular
+    #   drf-spectacular-sidecar
 django-bitfield==2.2.0
     # via -r requirements.in
 django-cors-headers==3.14.0
@@ -229,8 +225,6 @@ django-redis==5.2.0
     # via -r requirements.in
 django-rest-framework-condition==0.1.1
     # via -r requirements.in
-django-rest-swagger==2.2.0
-    # via -r requirements.in
 django-sendsms==0.5
     # via -r requirements.in
 django-ses==3.5.0
@@ -247,9 +241,9 @@ djangorestframework==3.12.4
     # via
     #   -r requirements.in
     #   django-extra-fields
-    #   django-rest-swagger
     #   djangorestframework-gis
     #   drf-extensions
+    #   drf-spectacular
 djangorestframework-gis==1.1
     # via -r requirements.in
 dnspython==1.16.0
@@ -259,6 +253,10 @@ docxcompose==1.4.0
 docxtpl==0.16.7
     # via -r requirements.in
 drf-extensions==0.7.1
+    # via -r requirements.in
+drf-spectacular==0.28.0
+    # via -r requirements.in
+drf-spectacular-sidecar==2024.12.1
     # via -r requirements.in
 earthengine-api==0.1.371
     # via pymet
@@ -419,6 +417,8 @@ importlib-resources==6.1.0
     #   jsonschema-specifications
     #   keyring
     #   matplotlib
+inflection==0.5.1
+    # via drf-spectacular
 ipykernel==6.25.2
     # via
     #   nbclassic
@@ -434,8 +434,6 @@ ipython-genutils==0.2.0
     #   notebook
 ipywidgets==8.1.1
     # via arcgis
-itypes==1.2.0
-    # via coreapi
 jaraco-classes==3.3.0
     # via keyring
 jedi==0.19.1
@@ -447,7 +445,6 @@ jeepney==0.8.0
 jinja2==3.1.4
     # via
     #   -r requirements.in
-    #   coreschema
     #   docxtpl
     #   jupyter-server
     #   jupyterlab
@@ -468,6 +465,7 @@ json5==0.9.14
 jsonschema==4.23.0
     # via
     #   -r requirements.in
+    #   drf-spectacular
     #   jupyterlab-server
     #   nbformat
 jsonschema-specifications==2023.12.1
@@ -601,8 +599,6 @@ oauthlib==3.2.2
     #   -r requirements.in
     #   django-oauth-toolkit
     #   requests-oauthlib
-openapi-codec==1.3.2
-    # via django-rest-swagger
 openpyxl==3.1.2
     # via -r requirements.in
 opentelemetry-api==1.25.0
@@ -825,7 +821,9 @@ pytz==2023.3
     #   django-ses
     #   pandas
 pyyaml==6.0
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   drf-spectacular
 pyzmq==24.0.1
     # via
     #   ipykernel
@@ -853,7 +851,6 @@ requests==2.31.0
     # via
     #   -r requirements.in
     #   arcgis
-    #   coreapi
     #   datadog
     #   django-oauth-toolkit
     #   earthengine-api
@@ -905,7 +902,6 @@ simple-websocket==0.10.1
 simplejson==3.19.1
     # via
     #   -r requirements.in
-    #   django-rest-swagger
     #   rasterstats
 simplekml==1.3.6
     # via -r requirements.in
@@ -975,6 +971,7 @@ twilio==9.5.1
 typing-extensions==4.8.0
     # via
     #   asgiref
+    #   drf-spectacular
     #   ipython
     #   kombu
     #   opentelemetry-resourcedetector-gcp
@@ -989,7 +986,7 @@ tzdata==2023.3
     #   pandas
 uritemplate==4.1.1
     # via
-    #   coreapi
+    #   drf-spectacular
     #   google-api-python-client
 urllib3==1.25.11
     # via
