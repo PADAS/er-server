@@ -506,6 +506,93 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
         return queryset
 
+    def get_subject_newly_created_observations(self, subject, created_after):
+        """Get newly created observations for a subject.
+        We limit the time range for finding observations based on the recorded_at index to 5 days to avoid full table scans.
+        By default, the returned observations are ordered by descending recorded_at.
+        """
+        until = datetime.now(timezone.utc)
+        since = until - timedelta(days=5)
+        if created_after < since:
+            since = created_after
+
+        return self.get_subject_observations_partitioned(subject, since=since, until=until, created_after=created_after)
+
+    def get_subject_observations_partitioned(
+        self, subject, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None, created_after=None
+    ):
+        """
+        An optimized version of get_subject_observations that uses partitioning to avoid full table scans.
+        It does not support annotations beyond this point.
+
+        Args:
+            subject (Subject): The subject for which observations are being queried.
+            since (datetime, optional): The start of the time range for observations. Defaults to None.
+            until (datetime, optional): The end of the time range for observations. Defaults to None.
+            limit (int, optional): The maximum number of observations to return. Defaults to None.
+            values (list of str, optional): Specific fields to include in the result. Defaults to None.
+            filter_flag (int, optional): Flags to filter observations. Defaults to 0.
+            order_by (str, optional): Field by which to order the results. Defaults to None.
+            created_after (datetime, optional): Filter on the created_at time of the observations. Must provide since and until if using this. Defaults to None.
+
+        Returns:
+            QuerySet: A Django QuerySet containing the filtered and partitioned observations.
+        """
+        if created_after and not (since and until):
+            raise ValueError("If using created_after, since and until must be provided and set to a limited time range")
+
+        # First get all valid subject source assignments for the time range
+        time_range = DateTimeTZRange(
+            lower=since or datetime.min.replace(tzinfo=pytz.UTC), upper=until or datetime.max.replace(tzinfo=pytz.UTC)
+        )
+
+        subject_sources = SubjectSource.objects.filter(
+            subject=subject, assigned_range__overlap=time_range
+        ).select_related("source")
+
+        if not subject_sources.exists():
+            return self.none()
+
+        # Build a list of source IDs and their valid time ranges
+        source_ranges = []
+        for ss in subject_sources:
+            source_ranges.append({"source_id": ss.source_id, "time_range": ss.assigned_range})
+
+        # Build a query that efficiently uses the partitioning
+        queryset = self.none()
+        for sr in source_ranges:
+            # For each source, get observations within its assigned range
+            source_qs = self.filter(
+                source_id=sr["source_id"],
+                recorded_at__gte=sr["time_range"].lower,
+                recorded_at__lte=sr["time_range"].upper,
+            )
+
+            # Apply time range filters if specified
+            if since:
+                source_qs = source_qs.filter(recorded_at__gte=since)
+            if until:
+                source_qs = source_qs.filter(recorded_at__lte=until)
+            if created_after:
+                source_qs = source_qs.filter(created_at__gte=created_after)
+
+            # Apply exclusion flags
+            source_qs = source_qs.by_exclusion_flags(filter_flag, include_empty_location=subject.is_stationary_subject)
+
+            # Combine with previous results
+            queryset = queryset.union(source_qs)
+
+        # Apply ordering and limit after combining results
+        queryset = queryset.order_by(order_by or "-recorded_at")
+
+        if limit and limit > 0:
+            queryset = queryset[:limit]
+
+        if values:
+            queryset = queryset.values(*values)
+
+        return queryset
+
     def get_subject_observations(
         self, subject, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
     ):
@@ -534,7 +621,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
     def get_subject_observations_values(
         self, subject, since=None, until=None, limit=None, values=("recorded_at", "location"), filter_flag=0
     ):
-        return self.get_subject_observations(
+        return self.get_subject_observations_partitioned(
             subject, since=since, until=until, limit=limit, values=values, filter_flag=filter_flag
         )
 
@@ -1575,7 +1662,7 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
                 until = datetime.now(tz=pytz.UTC)
             since = until - timedelta(hours=last_hours)
 
-        return Observation.objects.get_subject_observations(self, since=since, until=until)
+        return Observation.objects.get_subject_observations_partitioned(self, since=since, until=until)
 
     def default_trajectory_filter(self):
         # Get trajectory filter based on subject. Might not exist.
@@ -1912,7 +1999,9 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
         key, delay_days = self.delayed_windows[0]
         delay_hours = delay_days * 24
         until = datetime.now(tz=pytz.utc) - timedelta(hours=delay_hours)
-        observation = Observation.objects.get_subject_observations(subject=subject, until=until, limit=1).first()
+        observation = Observation.objects.get_subject_observations_partitioned(
+            subject=subject, until=until, limit=1
+        ).first()
 
         # March through the view windows.
         for key, delay_days in self.delayed_windows:
@@ -1928,7 +2017,7 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
                 update_subject_status_from_observation(observation, delay_hours=delay_hours)
             else:
                 # Refresh the 'latest observation' for the given window.
-                observation = Observation.objects.get_subject_observations(
+                observation = Observation.objects.get_subject_observations_partitioned(
                     subject=subject, until=until, limit=1
                 ).first()
                 if observation:
