@@ -6,6 +6,7 @@ from typing import Optional, Tuple
 from django_filters import rest_framework as filters
 
 from django.db import models
+from django.urls import reverse
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
@@ -21,6 +22,8 @@ from activity.schemas.schema_rendering import SchemaRenderer
 from activity.schemas.schema_retrieving import build_dynamic_schemas_registry
 from activity.serializers.events_v2 import EventTypeSerializer
 from activity.views.events.utils import AllowedCategoriesMixin
+from activity.views.schemas import EventTypeViewSchema
+from core.utils import is_uuid
 from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer, parse_bool
 from utils.views import EtagListRetrieveModelMixin
 
@@ -103,22 +106,8 @@ def parse_and_render_schema(event_type: EventType, schema_renderer: Optional[Sch
 
 
 class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, ModelViewSet):
-    """
-    V2 Event Types API. Supports dynamic `schema` generation, which means rendering of references ($ref) in the schemas.
-    Features:
-        - eTag generation for list and detail views.
-        - FUTURE: Cache control for schema rendering.
-        - FUTURE: Validation of schemas.
-        - Supports filtering with the same query parameters as the other existing EventTypesView.
 
-    Notes:
-        - My approach will be:
-            - to adopt as much as possible from the existing codebase but implementing what is possible
-            with django-filter (DjangoFilterBackend)
-            - identify and implement the same exising tests but for the new implementation.
-            - implement the missing features in the new implementation.
-    """
-
+    schema = EventTypeViewSchema()
     permission_classes = (EventCategoryPermissions,)
     filter_backends = [OrderingFilter, filters.DjangoFilterBackend]
     filterset_class = EventTypeFilter
@@ -147,21 +136,67 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         )
         return queryset
 
+    def get_object(self) -> EventType:
+        # Temporary implementation to allow to retrieve by uuid.
+        if is_uuid(self.kwargs.get("eventtype_value")):
+            self.lookup_field = "id"
+            obj = super().get_object()
+            self.lookup_field = "value"
+            return obj
+        return super().get_object()
+
+    def get_serializer_context(self) -> dict:
+        """
+        Sets `include_schema` as context for serializer.
+        """
+        context = super().get_serializer_context()
+        context.update({"include_schema": parse_bool(self.request.query_params.get("include_schema", False))})
+        return context
+
     def get_list_etag(self, request: Request, queryset: models.QuerySet) -> str:
         queryset = queryset.values("updated_at", "category__updated_at")
         return super().get_list_etag(request, queryset)
 
-    def perform_destroy(self, instance: models.Model):
-        # Looks safe to implement this one.
-        instance.set_to_inactive()
+    def create(self, request: Request, *args, **kwargs) -> Response:
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        event_type = serializer.save()
+        reverse_url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": event_type.value})
 
-    def create(self, request, *args, **kwargs):
-        # Temporary implementation to avoid creating new event types.
-        return Response({"detail": "Method not supported"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response(
+            status=status.HTTP_201_CREATED,
+            data={"resource_url": reverse_url},
+            headers={"Location": reverse_url},
+        )
 
-    def update(self, request: Request, *args, **kwargs):
-        # Temporary implementation to avoid updating event types.
-        return Response({"detail": "Method not supported"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    def update(self, request: Request, *args, **kwargs) -> Response:
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(status=status.HTTP_200_OK)
+
+    def destroy(self, request: Request, *args, **kwargs) -> Response:
+        instance = self.get_object()
+        if hasattr(instance, "in_use"):
+            has_events = instance.in_use
+        else:
+            has_events = instance.event_set.exists()
+        has_alerts = instance.alert_rules.exists()
+
+        if has_events or has_alerts:
+            reasons = []
+            if has_events:
+                reasons.append("it is associated with existing Events")
+            if has_alerts:
+                reasons.append("it is associated with existing Alert Rules")
+            error_message = f"Cannot delete Event Type '{instance.display}' because {', and '.join(reasons)}."
+            return Response({"detail": error_message}, status=status.HTTP_409_CONFLICT)
+
+        # If no dependencies, proceed with standard deletion which returns 204
+        return super().destroy(request, *args, **kwargs)
 
     def get_schema_renderer(self, request: Request) -> SchemaRenderer:
         # This is where the rendering and retrieval sides are being connected.
@@ -210,6 +245,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
 
         return Response(response_data, status=response_status)
 
+    # pylint: disable=unused-argument
     @action(
         methods=["get"],
         detail=True,

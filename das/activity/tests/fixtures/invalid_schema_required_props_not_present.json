@@ -14,9 +14,9 @@
                 "who_initiated_contact",
                 "ranger_casualties",
                 "opposition_casualties"
-            ],
-            "type": "object"
-        }
+            ]
+        },
+        "type": "object"
     },
     "ui": {
         "fields": {

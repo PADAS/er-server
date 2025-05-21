@@ -104,17 +104,25 @@ class ExtendedGEOJSONRenderer(JSONRenderer):
 
 
 class ExtendedJSONRenderer(JSONRenderer):
+    """
+    JSON renderer that wraps the response with a data and status block.
+    """
+
     encoder_class = ExtendedJSONEncoder
 
-    def render(self, data, *args, **kwargs):
-        response = args[1]["response"]
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        response = None
+        if renderer_context:
+            response = renderer_context.get("response")
 
-        # Some responses will have data=None (Ex. 204 No Content)
-        if not data or ("swaggerVersion" not in data and "status" not in data):
+        if response and (data is None or ("swaggerVersion" not in data and "status" not in data)):
+            # Wrap the response with a data and status block
+            # Note: Implemented due to FE requirements, not strong reasons, we can aim to remove this in the future.
             data = {"data": data, "status": {"code": response.status_code, "message": response.status_text}}
             if response.status_code == HTTPStatus.NO_CONTENT:
                 response.status_code = HTTPStatus.OK
-        return super().render(data, *args, **kwargs)
+
+        return super().render(data, accepted_media_type=accepted_media_type, renderer_context=renderer_context)
 
 
 class DirectJSONRenderer(JSONRenderer):
@@ -123,9 +131,6 @@ class DirectJSONRenderer(JSONRenderer):
     """
 
     encoder_class = ExtendedJSONEncoder
-
-    def render(self, data, accepted_media_type=None, renderer_context=None):
-        return super().render(data, accepted_media_type, renderer_context)
 
 
 class JSONTextParser(BaseParser):
@@ -154,24 +159,29 @@ class ExtendedBrowsableAPIRenderer(BrowsableAPIRenderer):
     def get_default_renderer(self, view):
         return ExtendedJSONRenderer()
 
-    def render(self, data, *args, **kwargs):
-        response = args[1]["response"]
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        response = None
+        if renderer_context:
+            response = renderer_context.get("response")
 
-        # Some responses will have data=None (Ex. 204 No Content)
-        if not data or "status" not in data:
+        if response and (data is None or ("swaggerVersion" not in data and "status" not in data)):
+            # Wrap the response with a data and status block
+            # Note: Implemented due to FE requirements, not strong reasons, we can aim to remove this in the future.
             data = {"data": data, "status": {"code": response.status_code, "message": response.status_text}}
-        return super().render(data, *args, **kwargs)
+
+        return super().render(data, accepted_media_type=accepted_media_type, renderer_context=renderer_context)
 
     def render_form_for_serializer(self, serializer):
         return super().render_form_for_serializer(serializer)
 
 
 class DirectBrowsableAPIRenderer(BrowsableAPIRenderer):
+    """
+    HTML renderer used to show friendly self-documenting API interface.
+    """
+
     def get_default_renderer(self, view):
         return DirectJSONRenderer()
-
-    def render(self, data, *args, **kwargs):
-        return super().render(data, *args, **kwargs)
 
 
 def dumps(obj, **kwargs):

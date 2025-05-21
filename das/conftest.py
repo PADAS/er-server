@@ -68,8 +68,8 @@ from utils.tenant.managers import TenantContextManager
 Application = get_application_model()
 User = apps.get_model(app_label="accounts", model_name="User")
 
-with open(Path(__file__).parent / "core/fixtures/tenant-response.json") as tenant_response:
-    TENANT_RESPONSE = json.load(tenant_response)
+with open(Path(__file__).parent / "core/fixtures/tenant-response.json") as tenant_response_body:
+    TENANT_RESPONSE = json.load(tenant_response_body)
 
 
 class APIClientWithUser(APIClient):
@@ -286,6 +286,54 @@ def five_gears():
 
 
 @pytest.fixture
+def events_with_category(request):
+    return [
+        EventFactory.create(title=f"Title {category}", event_type__category__value=category)
+        for category in request.param
+    ]
+
+
+@pytest.fixture
+def get_geo_permission_set(request):
+    das_tenant = get_current_tenant()
+    permission_codenames = [
+        add_tenant_to_permission_codename(tenant_id=das_tenant.id, codename=codename) for codename in request.param
+    ]
+    permissions = Permission.objects.filter(codename__in=permission_codenames)
+    return PermissionSetFactory.create(name="Test Geo Permissions - View", permissions=permissions)
+
+
+@pytest.fixture
+def basic_event_categories():
+    categories = ["analyzer_event", "logistics", "monitoring", "security"]
+    for category in categories:
+        EventCategoryFactory.create(value=category)
+
+
+@pytest.fixture
+def cat1_cat2_categories():
+    cat1 = EventCategoryFactory.create(value="cat1")
+    cat2 = EventCategoryFactory.create(value="cat2")
+    return cat1, cat2
+
+
+@pytest.fixture
+def five_event_categories():
+    categories_codename = [
+        {"value": "analyzer_event", "display": "Analyzer Event"},
+        {"value": "security", "display": "Security"},
+        {"value": "monitoring", "display": "Monitoring"},
+        {"value": "logistics", "display": "Logistics"},
+        {"value": "test", "display": "Test"},
+    ]
+
+    categories = []
+    for values in categories_codename:
+        categories.append(EventCategoryFactory.create(**values))
+    return categories
+
+
+@pytest.fixture
 def event_type():
     return EventTypeFactory.create()
 
@@ -296,7 +344,7 @@ def five_event_types():
 
 
 @pytest.fixture
-def cat1_cat2_event_types():
+def cat1_cat2_event_types(cat1_cat2_categories):
     """
     Creates a controlled batch of V2 EventTypes:
       - Two event types in category "cat1" (active)
@@ -304,10 +352,9 @@ def cat1_cat2_event_types():
       - One inactive event type in category "cat1"
       - One event type in category "cat1" with is_collection=True
     """
-    EventType = apps.get_model(app_label="activity", model_name="EventType")
-    cat1 = EventCategoryFactory.create(value="cat1")
-    cat2 = EventCategoryFactory.create(value="cat2")
-    v2 = EventType.VersionChoices.VERSION_2
+    event_type_class = apps.get_model(app_label="activity", model_name="EventType")
+    v2 = event_type_class.VersionChoices.VERSION_2
+    cat1, cat2 = cat1_cat2_categories
 
     schema = json.dumps(
         {
@@ -407,47 +454,6 @@ def five_patrol_segment_patrol_type_uuid():
 @pytest.fixture
 def source_provider():
     return ProviderFactory.create()
-
-
-@pytest.fixture
-def events_with_category(request):
-    return [
-        EventFactory.create(title=f"Title {category}", event_type__category__value=category)
-        for category in request.param
-    ]
-
-
-@pytest.fixture
-def get_geo_permission_set(request):
-    das_tenant = get_current_tenant()
-    permission_codenames = [
-        add_tenant_to_permission_codename(tenant_id=das_tenant.id, codename=codename) for codename in request.param
-    ]
-    permissions = Permission.objects.filter(codename__in=permission_codenames)
-    return PermissionSetFactory.create(name="Test Geo Permissions - View", permissions=permissions)
-
-
-@pytest.fixture
-def basic_event_categories():
-    categories = ["analyzer_event", "logistics", "monitoring", "security"]
-    for category in categories:
-        EventCategoryFactory.create(value=category)
-
-
-@pytest.fixture
-def five_event_categories():
-    categories_codename = [
-        {"value": "analyzer_event", "display": "Analyzer Event"},
-        {"value": "security", "display": "Security"},
-        {"value": "monitoring", "display": "Monitoring"},
-        {"value": "logistics", "display": "Logistics"},
-        {"value": "test", "display": "Test"},
-    ]
-
-    categories = []
-    for values in categories_codename:
-        categories.append(EventCategoryFactory.create(**values))
-    return categories
 
 
 @pytest.fixture
@@ -766,3 +772,12 @@ def add_view_to_urls():
     # Cleanup: Remove our added URL pattern
     del root_urlpatterns[0]
     clear_url_caches()
+
+
+@pytest.fixture
+def json_schema_fixture(request):
+    fixture_name = request.param
+
+    fixture_path = Path(__file__).parent.parent / "fixtures" / f"{fixture_name}.json"
+    with open(fixture_path) as f:
+        return json.load(f)

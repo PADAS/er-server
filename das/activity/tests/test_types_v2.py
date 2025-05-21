@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -6,7 +7,8 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 
-from activity.models import Event, EventType
+from activity.constants import PRI_IMPORTANT, PRI_URGENT
+from activity.models import AlertRule, Event, EventType
 from activity.serializers.events_v2 import EventTypeSerializer
 
 
@@ -17,38 +19,6 @@ class TestEventTypesV2:
     Tests for the EventTypesViewSet - V2 Event Types API.
 
     Some of these tests are relying on the `inital_data.json` fixture.
-
-    Tests:
-
-    - Test that the list of event types is returned successfully
-    - Test that the list of event types does not include inactive event types
-    - Test that the list of event types includes inactive event types when the include_inactive parameter is set
-    - Test that the list of event types can be filtered by category
-    - Test that the list of event types can be filtered by is_collection
-    - Test that the list of event types can be filtered by updated_since
-    - Test that the detail of an event type is returned successfully
-    - Test "has_events_assigned" field in event type detail
-    - Test that the list of event type schemas is returned successfully
-    - Test that the schema of an event type is returned successfully
-
-    Future tests:
-    - schemas:
-        - schema is rendered correctly (valid)
-        - schema references are resolved
-        - schema references are resolved with the correct user data
-        - schema references that cannot be resolved are logged and ignored
-        - schema is cached
-        - schema cache is invalidated when the event type is updated
-        - schema cache is invalidated when any of the event type's related objects are updated
-        - schema cache is invalidated when related references are updated
-        - schema cache is invalidated when the user's permissions change for the event type
-        - schema cache is invalidated when the user's permissions change for the event category
-
-
-    - permissions:
-        - test_event_types_list_does_not_include_not_allowed_categories
-        - test_event_type_detail_does_not_include_not_allowed_categories
-        - test_etag_changes_when_allowed_categories_changes
 
     """
 
@@ -137,13 +107,13 @@ class TestEventTypesV2:
         # Filter by category "cat1"
         response = superuser_client.get(url, {"category": "cat1"})
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) > 0
+        assert len(response.data) == 3
         for et in response.data:
             assert et["category"] == "cat1"
         # Filter by category "cat2"
         response = superuser_client.get(url, {"category": "cat2"})
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) > 0
+        assert len(response.data) == 1
         for et in response.data:
             assert et["category"] == "cat2"
 
@@ -152,13 +122,13 @@ class TestEventTypesV2:
         # Filter where is_collection is true
         response = superuser_client.get(url, {"is_collection": "true"})
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) > 0
+        assert len(response.data) == 1
         for et in response.data:
             assert et["is_collection"] is True
         # Filter where is_collection is false
         response = superuser_client.get(url, {"is_collection": "false"})
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) > 0
+        assert len(response.data) == 3
         for et in response.data:
             assert et["is_collection"] is False
 
@@ -199,14 +169,25 @@ class TestEventTypesV2:
         for field in self.expected_fields:
             assert field in response.data
 
+    def test_get_event_type_detail_by_uuid(self, superuser_client, cat1_cat2_event_types):
+        target = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": str(target.id)})
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == str(target.id)
+        assert response.data["value"] == target.value
+        assert response.has_header("ETag")
+
+        for field in self.expected_fields:
+            assert field in response.data
+
     def test_event_type_detail_not_found(self, superuser_client):
         url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": "nonexistent"})
         response = superuser_client.get(url)
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_get_v1_event_type_detail_returns_not_found(
-        self, superuser_client, cat1_cat2_event_types, five_event_types
-    ):
+    def test_get_v1_event_type_detail_returns_not_found(self, superuser_client, five_event_types):
         v1_et = five_event_types[0]
         url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": v1_et.value})
         response = superuser_client.get(url)
@@ -263,6 +244,415 @@ class TestEventTypesV2:
         et_serializer = EventTypeSerializer()
         assert et_serializer.get_has_events_assigned(et_with_events) is True
         assert warning_msg in caplog.text
+
+    def test_post_event_type_with_valid_schema(self, superuser_client, cat1_cat2_categories):
+        cat1, _ = cat1_cat2_categories
+        fixture_path = Path(__file__).parent / "fixtures" / "valid_nested_collection_schema.json"
+        with open(fixture_path, encoding="utf-8") as f:
+            schema = json.load(f)
+
+        data = {
+            "display": "Simple Report",
+            "value": "simple_report",
+            "category": cat1.value,
+            "schema": schema,
+            "readonly": True,
+        }
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_201_CREATED
+        assert "resource_url" in response.data
+        assert response.data["resource_url"] == reverse(
+            "v2-eventtype-detail", kwargs={"eventtype_value": data["value"]}
+        )
+
+        new_eventtype = EventType.objects.get(value=data["value"])
+        assert new_eventtype.readonly is True
+        assert new_eventtype.version == EventType.VersionChoices.VERSION_2
+        assert new_eventtype.category == cat1
+
+    def test_post_event_type_with_invalid_schema(self, superuser_client, cat1_cat2_categories):
+        cat1, _ = cat1_cat2_categories
+        data = {
+            "display": "Simple Report",
+            "value": "simple_report",
+            "category": cat1.value,
+            "schema": {"json": {"$schema": "https://json-schema.org/draft/2020-12/schema"}, "ui": {"key": "value"}},
+        }
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "schema" in response.data
+        assert "Invalid JSON Schema:" in response.data["schema"][0]
+
+    def test_post_event_type_with_wrong_schema_draft(self, superuser_client, cat1_cat2_categories):
+        cat1, _ = cat1_cat2_categories
+        data = {
+            "display": "Simple Report",
+            "value": "simple_report",
+            "category": cat1.value,
+            "schema": {
+                "json": {
+                    "$schema": "https://json-schema.org/draft/-12/schema",
+                    "type": "object",
+                    "properties": {
+                        "json": {
+                            "type": "object",
+                            "properties": {"$schema": {"type": "string"}},
+                            "required": ["$schema"],
+                        },
+                        "ui": {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]},
+                    },
+                    "required": ["json", "ui"],
+                },
+                "ui": {"key": "value"},
+            },
+        }
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json() == {
+            "schema": ["$schema must be https://json-schema.org/draft/2020-12/schema"],
+            "status": {"code": 400, "message": "Bad Request"},
+        }
+
+    def test_list_event_types_conditional_schema(self, superuser_client, five_event_types):
+        """Verify `schema` is included only when `include_schema=true` query param is present."""
+        url = reverse("v2-eventtype-list")
+
+        # Test without include_schema
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        for item in response.data:
+            assert "schema" not in item
+
+        # Test with include_schema=true
+        response = superuser_client.get(url, {"include_schema": "true"})
+        assert response.status_code == status.HTTP_200_OK
+        for item in response.data:
+            assert "schema" in item  # Schema should now be present
+
+    def test_retrieve_event_type_conditional_schema(self, superuser_client, cat1_cat2_event_types):
+        """Verify `schema` is included on detail view only when `include_schema=true` query param is present."""
+        event_type = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": event_type.value})
+
+        # Test without include_schema
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert "schema" not in response.data
+
+        # Test with include_schema=true
+        response = superuser_client.get(url, {"include_schema": "true"})
+        assert response.status_code == status.HTTP_200_OK
+        assert "schema" in response.data  # Schema should now be present
+
+    def test_put_event_type_success(self, superuser_client, cat1_fire_v2_event_type, cat1_cat2_categories):
+        target_et = cat1_fire_v2_event_type  # fixture with known valid schema
+        original_updated_at = target_et.updated_at
+
+        # Fetch current data via GET to ensure proper serialization and context for PUT payload
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target_et.value})
+        response_get = superuser_client.get(url, {"include_schema": "true"})
+        assert response_get.status_code == status.HTTP_200_OK
+        put_payload = response_get.data.copy()
+
+        # Remove read-only fields and fields not meant to be part of the core update payload
+        excluded_fields = ["id", "url", "has_events_assigned", "icon_id"]
+        for fld in excluded_fields:
+            del put_payload[fld]
+
+        # Make some changes
+        new_display = "Updated Display Name via PUT"
+        new_priority = PRI_IMPORTANT
+        new_icon_slug = "fire-amber.svg"  # Use a known valid icon slug
+        new_category_value = cat1_cat2_categories[1].value  # cat2 value
+
+        put_payload["display"] = new_display
+        put_payload["default_priority"] = new_priority
+        put_payload["is_active"] = False
+        put_payload["icon"] = new_icon_slug
+        put_payload["category"] = new_category_value
+
+        response = superuser_client.put(url, data=put_payload)
+
+        assert response.status_code == status.HTTP_200_OK, response.content
+
+        # Check updated fields
+        target_et.refresh_from_db()
+
+        assert target_et.display == new_display
+        assert target_et.default_priority == new_priority
+        assert target_et.is_active is False
+        assert target_et.icon == new_icon_slug
+        assert target_et.category.value == new_category_value
+        assert target_et.updated_at > original_updated_at
+
+        # Check response data with include_inactive because the event type is inactive now
+        response_get = superuser_client.get(url, {"include_inactive": "true"})
+        assert response_get.status_code == status.HTTP_200_OK
+        response_data = response_get.data
+
+        # Build expected response dictionary with all fields
+        expected_response = {
+            "id": str(target_et.id),
+            "value": target_et.value,
+            "display": new_display,
+            "ordernum": target_et.ordernum,
+            "category": new_category_value,
+            "geometry_type": target_et.geometry_type,
+            "default_priority": new_priority,
+            "default_state": target_et.default_state,
+            "resolve_time": target_et.resolve_time,
+            "auto_resolve": target_et.auto_resolve,
+            "readonly": target_et.readonly,
+            "is_collection": target_et.is_collection,
+            "is_active": False,
+            "has_events_assigned": False,  # No events assigned since we just updated it
+            "icon": new_icon_slug,
+            "icon_id": new_icon_slug,
+            "url": f"http://testserver/api/v2.0/activity/eventtypes/{target_et.value}/",
+        }
+
+        # Verify the response matches our expected dictionary
+        assert response_data == expected_response
+
+        # Verify the icon was actually updated in the database
+        target_et.refresh_from_db()
+        assert target_et.icon == new_icon_slug
+
+    def test_patch_event_type_success(self, superuser_client, cat1_fire_v2_event_type):
+        target_et = cat1_fire_v2_event_type
+        original_icon_id = target_et.icon_id
+        original_schema = target_et.schema
+        original_updated_at = target_et.updated_at
+
+        patch_payload = {
+            "display": "Patched Display Name",
+            "is_collection": not target_et.is_collection,  # Will become False
+            "default_priority": PRI_URGENT,
+        }
+
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target_et.value})
+        response = superuser_client.patch(url, data=patch_payload)
+
+        assert response.status_code == status.HTTP_200_OK
+
+        target_et.refresh_from_db()
+
+        assert target_et.display == patch_payload["display"]
+        assert target_et.is_collection == patch_payload["is_collection"]
+        assert target_et.default_priority == patch_payload["default_priority"]
+        assert target_et.updated_at > original_updated_at
+
+        # Ensure other fields not in the payload are unchanged
+        assert target_et.icon_id == original_icon_id
+        assert target_et.schema == original_schema
+
+        # Check response data
+        response_get = superuser_client.get(url)
+        assert response_get.status_code == status.HTTP_200_OK
+        response_data = response_get.data
+        assert response_data["display"] == patch_payload["display"]
+        assert response_data["is_collection"] == patch_payload["is_collection"]
+        assert response_data["default_priority"] == patch_payload["default_priority"]
+        assert response_data["id"] == str(target_et.id)
+
+    def test_patch_event_type_readonly_fields(self, superuser_client, cat1_fire_v2_event_type):
+        """Test trying to update readonly fields (version, das_tenant)"""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        # Try to update version
+        response = superuser_client.patch(url, data={"version": "1"})
+        assert response.status_code == status.HTTP_200_OK
+        cat1_fire_v2_event_type.refresh_from_db()
+        assert cat1_fire_v2_event_type.version == "2"  # should remain unchanged
+
+        # Try to update das_tenant
+        response = superuser_client.patch(url, data={"das_tenant": "new_tenant"})
+        assert response.status_code == status.HTTP_200_OK
+        cat1_fire_v2_event_type.refresh_from_db()
+        assert cat1_fire_v2_event_type.das_tenant_id is not None
+
+    def test_patch_event_type_toggle_active(self, superuser_client, cat1_fire_v2_event_type):
+        """Test toggling is_active state"""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        # First make it inactive
+        response = superuser_client.patch(url, data={"is_active": False})
+        assert response.status_code == status.HTTP_200_OK
+
+        cat1_fire_v2_event_type.refresh_from_db()
+        assert cat1_fire_v2_event_type.is_active is False
+
+        # Check that it is not found when not including inactive
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        # Then make it active again
+        response = superuser_client.patch(url + "?include_inactive=true", data={"is_active": True})
+        assert response.status_code == status.HTTP_200_OK
+        cat1_fire_v2_event_type.refresh_from_db()
+        assert cat1_fire_v2_event_type.is_active is True
+
+        # Check that it is found now
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["is_active"] is True
+
+    def test_patch_event_type_invalid_value_format(self, superuser_client, cat1_fire_v2_event_type):
+        """Test updating with invalid value format (must match regex)"""
+        invalid_value = "invalid!value"  # contains invalid character !
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        response = superuser_client.patch(url, data={"value": invalid_value})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "value" in response.data
+        assert "invalid character" in str(response.data["value"][0])
+
+    def test_patch_event_type_long_display(self, superuser_client, cat1_fire_v2_event_type):
+        """Test updating with very long display name"""
+        long_display = "hello" * 256  # exceeds max length of 255
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        response = superuser_client.patch(url, data={"display": long_display})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "display" in response.data
+        assert "Ensure this field has no more than 255 characters" in str(response.data["display"][0])
+
+    def test_patch_event_type_invalid_state(self, superuser_client, cat1_fire_v2_event_type):
+        """Test updating with invalid state value"""
+        invalid_state = "invalid_state"
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        response = superuser_client.patch(url, data={"default_state": invalid_state})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "default_state" in response.data
+        assert "is not a valid choice" in str(response.data["default_state"][0])
+
+    def test_patch_event_type_invalid_priority(self, superuser_client, cat1_fire_v2_event_type):
+        """Test updating with invalid priority value"""
+        invalid_priority = 999  # not in PRIORITY_CHOICES
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        response = superuser_client.patch(url, data={"default_priority": invalid_priority})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "default_priority" in response.data
+        assert "is not a valid choice" in str(response.data["default_priority"][0])
+
+    def test_delete_event_type_success(self, superuser_client, cat1_cat2_event_types):
+        """
+        Test deleting an EventType with no associated Events or Alerts.
+        """
+        target = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+        count_before = EventType.objects.count()
+
+        response = superuser_client.delete(url)
+
+        assert EventType.objects.count() == count_before - 1, "EventType count should decrease by 1"
+        assert not EventType.objects.filter(pk=target.pk).exists(), "The specific EventType should no longer exist"
+        # Assert 200 OK due to ExtendedJSONRenderer modifying 204 responses
+        assert response.status_code == status.HTTP_200_OK
+        expected_response = {
+            "data": None,
+            "status": {"code": status.HTTP_204_NO_CONTENT, "message": "No Content"},  # inconsistent with status code
+        }
+        assert response.json() == expected_response
+
+    def test_delete_event_type_success_after_cleaning_dependencies(
+        self, superuser_client, superuser, cat1_cat2_event_types
+    ):
+        """
+        Test deleting an EventType successfully after its dependencies (Event, AlertRule) have been removed via API.
+        """
+        target = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+        count_before = EventType.objects.count()
+
+        # Create an Event
+        event = Event.objects.create(event_type=target, created_by_user=superuser, title="Test Event 2")
+        # Create an AlertRule
+        alert_rule = AlertRule.objects.create(owner=superuser, title="Test Alert Rule 2")
+        alert_rule.event_types.add(target)
+
+        # Clean up dependencies through API
+        event_url = reverse("event-view", kwargs={"id": event.id})
+        delete_event_response = superuser_client.delete(event_url)
+        assert delete_event_response.status_code == status.HTTP_200_OK
+
+        alert_rule_url = reverse("alert-view", kwargs={"id": alert_rule.id})
+        delete_alert_rule_response = superuser_client.delete(alert_rule_url)
+        assert delete_alert_rule_response.status_code == status.HTTP_200_OK
+
+        # Delete EventType
+        response = superuser_client.delete(url)
+
+        assert EventType.objects.count() == count_before - 1, "EventType count should decrease by 1"
+        assert not EventType.objects.filter(pk=target.pk).exists(), "The specific EventType should no longer exist"
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_delete_event_type_fail_with_event(self, superuser_client, cat1_cat2_event_types, superuser):
+        """
+        Test deleting an EventType associated with an Event fails.
+        """
+        target = cat1_cat2_event_types[0]
+        # Create an Event linked to this EventType
+        Event.objects.create(event_type=target, created_by_user=superuser, title="Test Event")
+
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+        count_before = EventType.objects.count()
+
+        response = superuser_client.delete(url)
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert EventType.objects.count() == count_before
+        assert EventType.objects.filter(id=target.id).exists()
+        assert "associated with existing Events" in response.data["detail"]
+        assert "Alert Rules" not in response.data["detail"]  # Ensure only event reason is given
+
+    def test_delete_event_type_fail_with_alert_rule(self, superuser_client, cat1_cat2_event_types, superuser):
+        """
+        Test deleting an EventType associated with an AlertRule fails.
+        """
+        target = cat1_cat2_event_types[1]
+        # Create an AlertRule linked to this EventType
+        alert_rule = AlertRule.objects.create(owner=superuser, title="Test Alert Rule")
+        alert_rule.event_types.add(target)
+
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+        count_before = EventType.objects.count()
+
+        response = superuser_client.delete(url)
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert EventType.objects.count() == count_before
+        assert EventType.objects.filter(id=target.id).exists()
+        assert "associated with existing Alert Rules" in response.data["detail"]
+        assert "Events" not in response.data["detail"]  # Ensure only alert reason is given
+
+    def test_delete_event_type_fail_with_event_and_alert_rule(self, superuser_client, cat1_cat2_event_types, superuser):
+        """
+        Test deleting an EventType associated with both an Event and an AlertRule fails.
+        """
+        target = cat1_cat2_event_types[2]
+        # Create an Event
+        Event.objects.create(event_type=target, created_by_user=superuser, title="Test Event 2")
+        # Create an AlertRule
+        alert_rule = AlertRule.objects.create(owner=superuser, title="Test Alert Rule 2")
+        alert_rule.event_types.add(target)
+
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+        count_before = EventType.objects.count()
+
+        response = superuser_client.delete(url)
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert EventType.objects.count() == count_before
+        assert EventType.objects.filter(id=target.id).exists()
+        # Check both reasons are in the message
+        assert "associated with existing Events" in response.data["detail"]
+        assert "associated with existing Alert Rules" in response.data["detail"]
 
 
 @pytest.mark.django_db

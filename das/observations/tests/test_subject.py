@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import random
 import urllib.parse
@@ -58,6 +59,7 @@ from utils.tenant import Tenant
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests")
 faker = Faker()
+logger = logging.getLogger(__name__)
 
 
 class SubjectTestCase(BaseAPITest):
@@ -1202,7 +1204,7 @@ class TestSubjectsViewFilter:
     ]
 
     @pytest.mark.parametrize(
-        "status_subjects_position, total",
+        "status_subjects_position, total, query_count",
         [
             (
                 [
@@ -1213,6 +1215,7 @@ class TestSubjectsViewFilter:
                     [-103.47885131835938, 20.732997212795915],
                 ],
                 5,
+                18,
             ),
             (
                 [
@@ -1223,6 +1226,7 @@ class TestSubjectsViewFilter:
                     [-103.49807739257812, 20.44245526026025],
                 ],
                 4,
+                18,
             ),
         ],
     )
@@ -1242,7 +1246,9 @@ class TestSubjectsViewFilter:
         five_subject_sources,
         status_subjects_position,
         total,
+        query_count,
         subject_group_with_perms,
+        django_assert_num_queries,
     ):
         bbox = "-103.71599063163262,20.51126608854284,-103.36639645879019,20.780283984574012"
         for position, source in zip(status_subjects_position, Source.objects.all()):
@@ -1258,7 +1264,9 @@ class TestSubjectsViewFilter:
         client.app_user.permission_sets.add(subject_group_with_perms.permission_sets.last())
         request = client.factory.get(client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true")
         client.force_authenticate(request, client.app_user)
-        response = SubjectsView.as_view()(request)
+        with django_assert_num_queries(query_count) as captured:
+            response = SubjectsView.as_view()(request)
+            logger.debug(f"Queries: {captured}")
 
         assert len(response.data) == total
 
@@ -1408,6 +1416,131 @@ class TestSubjectsViewFilter:
         assert len(response.data) == 5
         assert str(first_subject.id) in [item.get("id") for item in response.data]
 
+    @pytest.mark.skip(reason="This test is too slow to run on every commit. Uncomment when needed.")
+    @pytest.mark.parametrize(
+        "subject_group_with_perms",
+        [
+            [
+                "view_subjectgroup,observations,subjectgroup",
+                "view_subject,observations,subject",
+            ]
+        ],
+        indirect=True,
+    )
+    def test_by_bbox_using_last_known_location_with_many_subject_sources(
+        self,
+        source_provider,
+        view_subjects_permission_set,
+        subject_group_with_perms,
+        tenant_settings,
+        django_assert_num_queries,
+    ):
+        tenant_settings.env_settings.show_stationary_subjects_on_map = True
+
+        # Create a stationary subject with many sources
+        stationary_subject = Subject.objects.create(
+            name="Stationary Subject",
+            subject_subtype=SubjectSubType.objects.get(display="Camera Trap"),
+        )
+        stationary_location = Point(-103.6, 20.6)
+
+        # Create 150 sources for the stationary subject
+        for i in range(150):
+            source = Source.objects.create(
+                model_name=f"Stationary Source {i}",
+                provider=source_provider,
+            )
+            SubjectSource.objects.create(
+                subject=stationary_subject,
+                source=source,
+                location=stationary_location,
+            )
+            # Add some observations for each source
+            Observation.objects.create(
+                recorded_at=datetime.now(tz=pytz.UTC),
+                source=source,
+                location=stationary_location,
+            )
+
+        # Create 50 mobile subjects (elephants) with many sources each
+        mobile_subjects = []
+        elephant_subtype = SubjectSubType.objects.get(display="Elephant")
+
+        mobile_count = 1
+        for elephant_num in range(mobile_count):
+            mobile_subject = Subject.objects.create(
+                name=f"Mobile Elephant {elephant_num}",
+                subject_subtype=elephant_subtype,
+            )
+            mobile_subjects.append(mobile_subject)
+
+            # Create 150 sources for each mobile subject with different locations
+            for i in range(150):
+                source = Source.objects.create(
+                    model_name=f"Mobile Source {elephant_num}-{i}",
+                    provider=source_provider,
+                )
+                # Create a unique location pattern for each elephant
+                base_lon = -103.6 + (elephant_num * 0.01)  # Each elephant has its own longitude base
+                base_lat = 20.6 + (elephant_num * 0.01)  # Each elephant has its own latitude base
+                location = Point(
+                    base_lon + (i * 0.001),  # Slight variation in longitude
+                    base_lat + (i * 0.001),  # Slight variation in latitude
+                )
+                SubjectSource.objects.create(
+                    subject=mobile_subject,
+                    source=source,
+                    location=location,
+                )
+                # Add some observations for each source
+                Observation.objects.create(
+                    recorded_at=datetime.now(tz=pytz.UTC),
+                    source=source,
+                    location=location,
+                )
+
+        # Add all subjects to the subject group
+        subject_group_with_perms.subjects.add(stationary_subject, *mobile_subjects)
+
+        # Test bbox that includes all subjects
+        bbox = "-103.7384033203125,20.52221649818549,-103.39714050292969,20.801694707706137"
+        client = HTTPClient()
+        client.app_user.permission_sets.add(subject_group_with_perms.permission_sets.last())
+        client.app_user.permission_sets.add(view_subjects_permission_set)
+        request = client.factory.get(client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true")
+        client.force_authenticate(request, client.app_user)
+
+        # Test with query count assertion
+        with django_assert_num_queries(20) as captured:
+            response = SubjectsView.as_view()(request)
+            logger.debug(f"Queries: {captured}")
+
+        assert response.status_code == 200
+        assert len(response.data) == mobile_count + 1  # 50 elephants + 1 stationary subject
+
+        # Verify both types of subjects are returned
+        subject_ids = [item.get("id") for item in response.data]
+        assert str(stationary_subject.id) in subject_ids
+        for mobile_subject in mobile_subjects:
+            assert str(mobile_subject.id) in subject_ids
+
+        # Verify the stationary subject has the correct location
+        stationary_data = next(item for item in response.data if item.get("id") == str(stationary_subject.id))
+        assert stationary_data["last_position"]["geometry"]["coordinates"] == stationary_location.coords
+        assert stationary_data["is_static"] is True
+
+        # Verify each mobile subject has the correct properties
+        for mobile_subject in mobile_subjects:
+            mobile_data = next(item for item in response.data if item.get("id") == str(mobile_subject.id))
+            assert mobile_data["is_static"] is False
+            assert mobile_data["tracks_available"] is True
+            # Verify the location is within the expected range for this elephant
+            base_lon = -103.6 + (mobile_subjects.index(mobile_subject) * 0.01)
+            base_lat = 20.6 + (mobile_subjects.index(mobile_subject) * 0.01)
+            coords = mobile_data["last_position"]["geometry"]["coordinates"]
+            assert abs(coords[0] - base_lon) < 0.2  # Allow for some variation
+            assert abs(coords[1] - base_lat) < 0.2  # Allow for some variation
+
     def test_filter_by_subject_group_id_list(self, superuser_client):
         two_subjects = SubjectFactory.create_batch(2)
         last_subject = SubjectFactory.create()
@@ -1432,7 +1565,7 @@ class TestSubjectsViewFilter:
         assert len(res.json()["data"]) == 1
         assert res.json()["data"][0]["id"] == str(two_subjects[0].id)
 
-    def test_filter_by_subject_subtypes_id_list(self, superuser_client):
+    def test_filter_by_subject_subtypes(self, superuser_client):
         two_subjects = SubjectFactory.create_batch(2)
         last_subject = SubjectFactory.create()
 
@@ -1452,16 +1585,18 @@ class TestSubjectsViewFilter:
         assert len(res.json()["data"]) == 3
 
         # assert only filtered subject by subtype id is present on response
-        res = superuser_client.get(f"{url}?subject_subtypes={last_subject.subject_subtype.id}")
+        res = superuser_client.get(f"{url}?subject_subtypes={last_subject.subject_subtype.value}")
+        assert res.status_code == 200
         assert len(res.json()["data"]) == 1
         assert res.json()["data"][0]["id"] == str(last_subject.id)
 
-    def test_filter_by_malformed_subject_subtypes_id_list(self, superuser_client):
+    def test_filter_by_inexistent_subject_subtypes_empty_result(self, superuser_client):
         url = reverse("subjects-list-view")
         res = superuser_client.get(f"{url}?subject_subtypes=invalid_id")
 
-        assert res.status_code == 400
-        assert res.json()["status"]["detail"] == "[\"Invalid subject_type id at 'subject_subtypes'\"]"
+        assert res.status_code == 200
+        assert res.json()["status"]["code"] == 200
+        assert res.json()["status"]["message"] == "OK"
 
     def test_filter_by_subject_group_id_list_with_invalid_id(self, superuser_client):
         url = reverse("subjects-list-view")

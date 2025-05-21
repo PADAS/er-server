@@ -1,0 +1,23 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testNum": {
+                "title": "Valid Numeric Field",
+                "type": "number",
+                "description": "A valid numeric field.",
+                "deprecated": false,
+                "default": 123
+            }
+        },
+        "required": ["testNum"]
+    },
+    "ui": {
+        "fields": {},
+        "headers": {},
+        "order": [],
+        "sections": {}
+    }
+}

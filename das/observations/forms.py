@@ -135,7 +135,6 @@ def two_way_choices(source_provider_enable=False):
 
 
 class SourceForm(JSONFieldFormMixin, forms.ModelForm):
-
     """
     This provides extra form fields for the attributes we expect to have stored
     in Source.additional.
@@ -512,7 +511,36 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
                 }
             )
 
+        # Validate messaging_config when two_way_messaging is True
+        two_way_messaging = cleaned_data.get("two_way_messaging")
+        messaging_config = cleaned_data.get("messaging_config")
+
+        if two_way_messaging and messaging_config:
+            self._validate_messaging_config(messaging_config)
+
         return cleaned_data
+
+    def _validate_messaging_config(self, messaging_config):
+        """Validate that messaging configuration has all required fields when two-way messaging is enabled.
+
+        Args:
+            messaging_config (dict): The messaging configuration to validate
+
+        Raises:
+            forms.ValidationError: If any required fields are missing
+        """
+        required_fields = ["adapter_type", "url", "apikey"]
+        missing_fields = [field for field in required_fields if not messaging_config.get(field)]
+
+        if missing_fields:
+            raise forms.ValidationError(
+                {
+                    "messaging_config": forms.ValidationError(
+                        _("When two-way messaging is enabled, adapter_type, url and apikey must be provided."),
+                        code="invalid",
+                    )
+                }
+            )
 
     def clean_transforms(self):
         cleaned_data = super().clean()
