@@ -246,7 +246,6 @@ django==3.2.25
     #   django-debug-toolbar
     #   django-docs
     #   django-extensions
-    #   django-extra-fields
     #   django-fast-update
     #   django-filter
     #   django-js-asset
@@ -263,6 +262,7 @@ django==3.2.25
     #   django-treebeard
     #   django-versatileimagefield
     #   djangorestframework
+    #   drf-extra-fields
     #   drf-spectacular
     #   drf-spectacular-sidecar
 django-bitfield==2.2.0
@@ -276,8 +276,6 @@ django-docs==0.3.3
 django-environ==0.10.0
     # via -r requirements.txt
 django-extensions==3.2.3
-    # via -r requirements.txt
-django-extra-fields==3.0.2
     # via -r requirements.txt
 django-fakeredis==0.1.2
     # via -r requirements-dev.in
@@ -328,9 +326,8 @@ django-versatileimagefield==3.0
 djangorestframework==3.12.4
     # via
     #   -r requirements.txt
-    #   django-extra-fields
     #   djangorestframework-gis
-    #   drf-extensions
+    #   drf-extra-fields
     #   drf-spectacular
 djangorestframework-gis==1.1
     # via -r requirements.txt
@@ -344,7 +341,7 @@ docxcompose==1.4.0
     #   docxtpl
 docxtpl==0.16.7
     # via -r requirements.txt
-drf-extensions==0.7.1
+drf-extra-fields==3.7.0
     # via -r requirements.txt
 drf-spectacular==0.28.0
     # via -r requirements.txt
@@ -394,6 +391,10 @@ fastkml @ git+https://github.com/PADAS/fastkml.git@7922b3f38c4cef4a513a599e899bf
     # via -r requirements.txt
 filelock==3.12.4
     # via virtualenv
+filetype==1.2.0
+    # via
+    #   -r requirements.txt
+    #   drf-extra-fields
 fiona==1.9.4.post1
     # via
     #   -r requirements.txt
