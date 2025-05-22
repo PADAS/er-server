@@ -32,16 +32,6 @@ from core.models import (
 logger = logging.getLogger("django.contrib.gis")
 
 
-class BaseModelAdminMixin(admin.ModelAdmin):
-    def get_form(self, request, obj=None, **kwargs):
-        # exclude das_tenant from all admin forms
-        if "widgets" in kwargs:
-            kwargs["widgets"]["das_tenant"] = HiddenInput()
-        else:
-            kwargs["widgets"] = dict(das_tenant=HiddenInput())
-        return super().get_form(request, obj, **kwargs)
-
-
 class ModelAdminHistoryViewHideSharedAdminUserRevisionsMixin(admin.ModelAdmin):
     """
     Mixin that overrides the history_view method of the ModelAdmin class to
@@ -55,19 +45,12 @@ class ModelAdminHistoryViewHideSharedAdminUserRevisionsMixin(admin.ModelAdmin):
         """
         # Fetch users that are part of the tenant
         users_in_tenant = User.objects.filter(das_tenant_id=tenant_id)
-        # Hardcoded default admin user id from the fixture file
-        # initial_admin.yaml
-        user_id_admin_user_default = "3880239a-ffcd-47a8-9035-0ce3c9d90bdd"
-        return (
-            LogEntry.objects.filter(
-                object_id=object_id,
-                content_type=get_content_type_for_model(self.model),
-                # Filter user ids that are part of the current tenant
-                user_id__in=users_in_tenant,
-            )
-            .exclude(user_id=user_id_admin_user_default)
-            .order_by("-action_time")
-        )
+        return LogEntry.objects.filter(
+            object_id=object_id,
+            content_type=get_content_type_for_model(self.model),
+            # Filter user ids that are part of the current tenant
+            user_id__in=users_in_tenant,
+        ).order_by("-action_time")
 
     def history_view(self, request, object_id, extra_context=None):
         """
@@ -86,6 +69,16 @@ class ModelAdminHistoryViewHideSharedAdminUserRevisionsMixin(admin.ModelAdmin):
             object_id=object_id,
             extra_context=extra_context,
         )
+
+
+class BaseModelAdminMixin(ModelAdminHistoryViewHideSharedAdminUserRevisionsMixin, admin.ModelAdmin):
+    def get_form(self, request, obj=None, **kwargs):
+        # exclude das_tenant from all admin forms
+        if "widgets" in kwargs:
+            kwargs["widgets"]["das_tenant"] = HiddenInput()
+        else:
+            kwargs["widgets"] = dict(das_tenant=HiddenInput())
+        return super().get_form(request, obj, **kwargs)
 
 
 class ModelAdminDisplayingManyToManyFieldMixin(admin.ModelAdmin):
