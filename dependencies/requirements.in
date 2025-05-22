@@ -36,7 +36,6 @@ django-debug-toolbar==4.3.0
 django-docs==0.3.3
 django-environ==0.10.0
 django-extensions==3.2.3
-django-extra-fields==3.0.2
 # django-fast-update are some utilities for bulk_update performance
 django-fast-update==0.2.3
 django-filter==23.5
@@ -61,6 +60,7 @@ django-versatileimagefield==3.0
 djangorestframework-gis==1.1
 djangorestframework==3.12.4
 drf-extensions==0.7.1
+drf-extra-fields==3.7.0
 eventlet==0.30.2
 geojson==2.4.1
 geopandas==0.13.2
