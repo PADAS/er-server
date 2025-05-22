@@ -1,12 +1,13 @@
 from dateutil.parser import parse as parse_date
-from drf_extra_fields.fields import DateTimeTZRange, RangeField
+from drf_extra_fields.fields import DateTimeRangeField as DRFDateTimeRangeField
 
 from django.core.exceptions import ValidationError
-from rest_framework.fields import DateTimeField
 from rest_framework.utils import html
 
 
-class _RangeField(RangeField):
+class DateTimeRangeField(DRFDateTimeRangeField):
+    # FUTURE: Remove this class and try to stick to lower and upper keys instead of start_time and end_time
+
     def to_internal_value(self, data):
         if html.is_html_input(data):
             data = html.parse_html_dict(data)
@@ -30,8 +31,3 @@ class _RangeField(RangeField):
         lower = self.child.to_representation(value.lower) if value.lower is not None else None
         upper = self.child.to_representation(value.upper) if value.upper is not None else None
         return {"start_time": lower, "end_time": upper}
-
-
-class DateTimeRangeField(_RangeField):
-    child = DateTimeField(allow_null=True)
-    range_type = DateTimeTZRange
