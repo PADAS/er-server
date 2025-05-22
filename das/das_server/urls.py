@@ -30,14 +30,9 @@ from django.urls import path, re_path
 from das_server import views
 from das_server.admin import dasadmin_site
 
-# from rest_framework.renderers import JSONOpenAPIRenderer
-# from rest_framework.schemas import get_schema_view
-
-
 admin.autodiscover()
 admin.site.enable_nav_sidebar = False
 
-# schema_view = get_schema_view(title="EarthRanger API Documentation", renderer_classes=[JSONOpenAPIRenderer])
 
 urlpatterns = [
     re_path("api/v1.0/status/?$", views.StatusView.as_view(), name="api-status"),
@@ -49,11 +44,17 @@ urlpatterns = [
     path("api/v1.0/analyzers/", include("analyzers.urls")),
     path("api/v1.0/", include("rt_api.urls")),
     path("api/v1.0/api-auth/", include("rest_framework.urls", namespace="rest_framework")),
-    # path("api/v1.0/api-schema/", schema_view, name="openapi-schema"),
-    path("api/schema/", SpectacularAPIView.as_view(), name="openapi-schema"),
-    path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="openapi-schema"), name="swagger-ui"),
-    path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="openapi-schema"), name="redoc"),
-    path("api/v1.0/docs/interactive/", views.SwaggerTemplate.as_view()),
+    path("api/v1.0/api-schema/", SpectacularAPIView.as_view(), name="openapi-schema"),
+    path(
+        "api/v1.0/docs/interactive/",
+        SpectacularSwaggerView.as_view(url_name="openapi-schema"),
+        name="openapi-swagger-ui",
+    ),
+    path(
+        "api/v1.0/docs/interactive-redoc/",
+        SpectacularRedocView.as_view(url_name="openapi-schema"),
+        name="openapi-redoc",
+    ),
     path("api/v1.0/docs/", include("docs.urls")),
     path("admin/", admin.site.urls),
     path("dasadmin/", dasadmin_site.urls),
