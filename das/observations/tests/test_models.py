@@ -321,6 +321,28 @@ class TestObservationTriggers:
         assert sources.first().last_observation == observations[0].id
         assert sources.first().last_observation_recorded_at == now
 
+    def test_exclude_latest_observation_for_source(self, subject_source):
+        source = subject_source.source
+        now = datetime.now(tz=UTC)
+        for item in range(1, 5):
+            Observation.objects.create(
+                source=source,
+                location=Point(0, 0),
+                recorded_at=now - timedelta(minutes=5 * item),
+            )
+
+        observations = list(Observation.objects.all().order_by("-recorded_at"))
+        observation = observations[0]
+        observation.exclude_from_latest_observation = Observation.EXCLUDED_MANUALLY
+        observation.save()
+
+        sources = (
+            Source.objects.filter(id__in=[source.id])
+            .annotate(last_observation=F("last_observation_source__observation"))
+            .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
+        )
+        assert sources.first().last_observation == observations[1].id
+
     def test_delete_not_latest_observation(self, subject_source):
         source = subject_source.source
 
