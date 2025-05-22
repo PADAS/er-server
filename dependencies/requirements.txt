@@ -182,6 +182,7 @@ django==3.2.25
     #   django-treebeard
     #   django-versatileimagefield
     #   djangorestframework
+    #   drf-extensions
     #   drf-extra-fields
     #   drf-spectacular
     #   drf-spectacular-sidecar
@@ -239,6 +240,7 @@ djangorestframework==3.12.4
     # via
     #   -r requirements.in
     #   djangorestframework-gis
+    #   drf-extensions
     #   drf-extra-fields
     #   drf-spectacular
 djangorestframework-gis==1.1
@@ -248,6 +250,8 @@ dnspython==1.16.0
 docxcompose==1.4.0
     # via docxtpl
 docxtpl==0.16.7
+    # via -r requirements.in
+drf-extensions==0.8.0
     # via -r requirements.in
 drf-extra-fields==3.7.0
     # via -r requirements.in
@@ -672,9 +676,10 @@ opentelemetry-util-http==0.46b0
     #   opentelemetry-instrumentation-django
     #   opentelemetry-instrumentation-requests
     #   opentelemetry-instrumentation-wsgi
-packaging==22.0
+packaging==25.0
     # via
     #   -r requirements.in
+    #   drf-extensions
     #   geopandas
     #   ipykernel
     #   jupyter-server
