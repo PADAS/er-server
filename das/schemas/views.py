@@ -27,9 +27,9 @@ class ChoicesDynamicSchemaView(DynamicSchemaFromSourceView):
     source_view = ChoicesView
     schema_title = "Choices"
     schema_description = "All choices schema list"
-    default_title_field = "display"
-    default_description_field = "model"
     default_const_field = "id"
+    default_title_field = "value"
+    default_description_field = "display"
 
 
 class SpatialFeaturesDynamicSchemaView(DynamicSchemaFromSourceView):
@@ -45,5 +45,6 @@ class EventTypesDynamicSchemaView(DynamicSchemaFromSourceView):
     source_view = EventTypesViewSet
     schema_title = "Event Types"
     schema_description = "All event types list"
-    default_title_field = "display"
-    default_description_field = "value"
+    default_const_field = "id"
+    default_title_field = "value"
+    default_description_field = "display"
