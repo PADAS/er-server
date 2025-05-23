@@ -1,30 +1,24 @@
 from django_filters import rest_framework as filters
+from django_filters.widgets import CSVWidget
 
 from choices.models import Choice
 from utils.drf_filters import RestrictToTrueByDefaultFilter
 
-
-class CommaSeparatedMultipleChoiceFilter(filters.BaseInFilter, filters.CharFilter):
-    def filter(self, qs, value):
-        if not value:
-            return qs
-
-        if isinstance(value, str):
-            values = [v.strip() for v in value.split(",")]
-        elif isinstance(value, list):
-            values = [v.strip() for v in value]
-
-        return qs.filter(**{f"{self.field_name}__in": values})
+# NOTE:
+# QueryArrayWidget instead of CSVWidget would allow us to support multiple formats of array input
+# (e.g. ?field=1&field=2 or ?field=1,2)
+# but it has a bug in version 23.5 so we use CSVWidget for now, django 4.2 is required to upgrade django-filter
 
 
 class ChoicesFilter(filters.FilterSet):
-    model = CommaSeparatedMultipleChoiceFilter(
-        field_name="model", label="This can be a list of models comma separated, or a single model"
+    model = filters.ChoiceFilter(
+        field_name="model",
+        choices=Choice.MODEL_REF_CHOICES,
     )
-    field = CommaSeparatedMultipleChoiceFilter(
+    field = filters.AllValuesMultipleFilter(
         field_name="field",
-        lookup_expr="iexact",
-        label="This can be a list of fields comma separated, or a single field",
+        choices=[(c, c) for c in Choice.objects.values_list("field", flat=True).distinct()],
+        widget=CSVWidget(),
     )
     include_inactive = RestrictToTrueByDefaultFilter(
         field_name="is_active", label="Include inactive choices when 'true'"
