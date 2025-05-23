@@ -3,6 +3,7 @@ import logging
 
 import dateutil.parser as dateparser
 from django_filters import rest_framework as filters
+from django_filters.widgets import CSVWidget
 
 from django.db.models import Q
 from django.db.models.query import QuerySet
@@ -32,8 +33,15 @@ class EventTypeFilter(filters.FilterSet):
 
     updated_since = filters.DateTimeFilter(field_name="updated_at", lookup_expr="gte")
     is_collection = filters.BooleanFilter(field_name="is_collection")
-    category = filters.CharFilter(field_name="category__value", lookup_expr="exact")
-    include_inactive = RestrictToTrueByDefaultFilter(field_name="is_active")
+    category = filters.AllValuesMultipleFilter(
+        field_name="category__value",
+        choices=EventCategory.get_category_choices(),
+        widget=CSVWidget(),
+    )
+    include_inactive = RestrictToTrueByDefaultFilter(
+        field_name="is_active",
+        label="Include inactive event types when 'true'",
+    )
 
     class Meta:
         model = EventType
