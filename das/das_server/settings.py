@@ -288,16 +288,17 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
 SPECTACULAR_SETTINGS = {
     "TITLE": "EarthRanger API Documentation",
     "DESCRIPTION": (
-        "Welcome to the EarthRanger API! </br>"
+        "Welcome to the <b>EarthRanger API</b>! </br>"
         "You're a conservationist, ranger, or technologist? </br>"
-        "Explore our endpoints to discover how EarthRanger can help protected areas and "
-        "conservation organizations safeguard wildlife and their habitats."
+        "Explore our endpoints to discover how EarthRanger can help you protect wildlife and their habitats."
     ),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "SWAGGER_UI_DIST": "SIDECAR",  # shorthand to use the sidecar instead
     "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
     "REDOC_DIST": "SIDECAR",
+    "COMPONENT_SPLIT_REQUEST": True,
+    "GENERIC_ADDITIONAL_PROPERTIES": "bool",
 }
 
 SWAGGER_SETTINGS = {
