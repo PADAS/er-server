@@ -1,4 +1,5 @@
-import rest_framework.serializers as serializers
+from rest_framework import serializers
+
 from choices.models import Choice
 
 
@@ -9,13 +10,14 @@ class ChoiceField(serializers.ChoiceField):
             return {}
         return self.grouped_choices
 
+
 class ChoiceIconZipSerializer(serializers.Serializer):
     icon = serializers.CharField(max_length=100, allow_null=True)
 
 
 class ChoiceSerializer(serializers.Serializer):
     id = serializers.UUIDField(read_only=True)
-    model = serializers.ChoiceField(choices=Choice.MODEL_REF_CHOICES, default=Choice.Field_Reports)
+    model = serializers.ChoiceField(choices=Choice.MODEL_REF_CHOICES, default=Choice.EVENT_MODEL)
     field = serializers.CharField()
     value = serializers.CharField(allow_blank=True, required=False)
     display = serializers.CharField(allow_blank=True, required=False)

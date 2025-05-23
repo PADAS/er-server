@@ -31,9 +31,10 @@ class ChoicesView(generics.ListCreateAPIView, DynamicSchemaDataMixin):
     permission_classes = (ChoiceModelPermissions,)
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
     filterset_class = ChoicesFilter
-    pagination_class = StandardResultsSetPagination
     serializer_class = ChoiceSerializer
-    ordering = ("ordernum", "display")
+    pagination_class = StandardResultsSetPagination
+    ordering_fields = ("ordernum", "value", "display")
+    ordering = ("ordernum", "value")
 
     def get_queryset(self):
         return Choice.objects.all()
