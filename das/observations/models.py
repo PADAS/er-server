@@ -42,7 +42,6 @@ from django.db import connections, transaction
 from django.db.models import (
     BooleanField,
     Case,
-    Exists,
     ExpressionWrapper,
     F,
     FilteredRelation,
@@ -1243,24 +1242,16 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         return self.none()
 
     def annotate_with_subjectsource_transforms(self):
-        """
-        Annotates the queryset with the location and transforms from the most current subjectsource.
-        Uses a subquery to get the latest subjectsource record for each subject.
-
-        Returns:
-            QuerySet: Annotated with latest_subjectsource_location and latest_subjectsource_transforms
-        """
-        # Get the latest subjectsource for each subject with both location and transforms
-        latest_subjectsource = (
-            SubjectSource.objects.filter(subject=OuterRef("pk"))
-            .order_by("-assigned_range")
-            .values("location", "source__provider__transforms")[:1]
-        )
+        latest_subjectsource = SubjectSource.objects.filter(subject=OuterRef("pk")).order_by("-assigned_range")
 
         return self.annotate(
-            latest_subjectsource_location=Subquery(latest_subjectsource.values("location")),
-            latest_subjectsource_transforms=Subquery(latest_subjectsource.values("source__provider__transforms")),
-            latest_subjectsource_exists=Exists(latest_subjectsource),
+            source_transforms=Subquery(latest_subjectsource.values("source__provider__transforms")[:1])
+        )
+
+    def annotate_with_subjectsource(self):
+        return self.annotate(
+            s2=FilteredRelation("subjectsource", condition=Q(subjectsource__isnull=False)),
+            subjectsource_location=F("s2__location"),
         )
 
     def annotate_with_subjectsource(self):
