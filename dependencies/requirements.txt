@@ -59,6 +59,7 @@ backcall==0.2.0
 backports-zoneinfo[tzdata]==0.2.1
     # via
     #   celery
+    #   djangorestframework
     #   kombu
 beautifulsoup4==4.12.2
     # via nbconvert
@@ -236,7 +237,7 @@ django-treebeard==4.7
     # via -r requirements.in
 django-versatileimagefield==3.0
     # via -r requirements.in
-djangorestframework==3.12.4
+djangorestframework==3.15.1
     # via
     #   -r requirements.in
     #   djangorestframework-gis

@@ -92,6 +92,7 @@ backports-zoneinfo[tzdata]==0.2.1
     # via
     #   -r requirements.txt
     #   celery
+    #   djangorestframework
     #   kombu
 beautifulsoup4==4.12.2
     # via
@@ -324,7 +325,7 @@ django-treebeard==4.7
     # via -r requirements.txt
 django-versatileimagefield==3.0
     # via -r requirements.txt
-djangorestframework==3.12.4
+djangorestframework==3.15.1
     # via
     #   -r requirements.txt
     #   djangorestframework-gis

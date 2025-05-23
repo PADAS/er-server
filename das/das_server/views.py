@@ -1,6 +1,5 @@
 import copy
 
-# from rest_framework.serializers import ChoiceField
 from drf_spectacular.openapi import AutoSchema
 from oauth2_provider.models import get_access_token_model, get_application_model
 

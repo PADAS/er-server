@@ -27,7 +27,6 @@ from rest_framework.serializers import (
     ListField,
     ManyRelatedField,
     MultipleChoiceField,
-    NullBooleanField,
     PrimaryKeyRelatedField,
     RegexField,
     RelatedField,
@@ -62,7 +61,6 @@ class EventJSONSchema(BaseMetadata):
         {
             Field: "object",
             BooleanField: "boolean",
-            NullBooleanField: "boolean",
             CharField: "string",
             URLField: "string",
             EmailField: "string",
@@ -75,7 +73,6 @@ class EventJSONSchema(BaseMetadata):
             DateTimeField: "string",
             TimeField: "string",
             FileField: "string",
-            ChoiceField: "enum",
             MultipleChoiceField: "string",
             ListField: "array",
             DictField: "object",
