@@ -1,16 +1,16 @@
-import logging
+from django_filters import rest_framework as filters
 
 from rest_framework import generics
+from rest_framework.filters import OrderingFilter
 
-from mapping.filters import SpatialFeatureFilter
+from mapping.filters import SpatialFeatureFilterSet
 from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
 from mapping.serializers import (
     SpatialFeatureGroupStaticSerializer,
     SpatialFeatureListSerializer,
     SpatialFeatureSerializer,
 )
-
-logger = logging.getLogger(__name__)
+from schemas.view_mixins import DynamicSchemaDataMixin
 
 
 class SpatialFeatureGroupView(generics.RetrieveAPIView):
@@ -22,10 +22,13 @@ class SpatialFeatureGroupView(generics.RetrieveAPIView):
         return SpatialFeatureGroupStatic.objects.all()
 
 
-class SpatialFeatureListView(generics.ListAPIView):
+class SpatialFeatureListView(generics.ListAPIView, DynamicSchemaDataMixin):
 
     serializer_class = SpatialFeatureListSerializer
-    filter_backends = (SpatialFeatureFilter,)
+    filter_backends = [OrderingFilter, filters.DjangoFilterBackend]
+    filterset_class = SpatialFeatureFilterSet
+    ordering_fields = ("name", "feature_type__name")
+    ordering = ("name",)
 
     def get_queryset(self):
         return SpatialFeature.objects.select_related("feature_type__display_category").all()
