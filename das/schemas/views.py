@@ -1,5 +1,7 @@
 from accounts.views import UsersView
+from activity.views.types_v2 import EventTypesViewSet
 from choices.views import ChoicesView
+from mapping.spatialviews import SpatialFeatureListView
 from observations.views import SubjectsView
 from schemas.view_mixins import DynamicSchemaFromSourceView
 
@@ -28,3 +30,20 @@ class ChoicesDynamicSchemaView(DynamicSchemaFromSourceView):
     default_title_field = "display"
     default_description_field = "model"
     default_const_field = "id"
+
+
+class SpatialFeaturesDynamicSchemaView(DynamicSchemaFromSourceView):
+    source_view = SpatialFeatureListView
+    schema_title = "Spatial Features"
+    schema_description = "All spatial features list"
+    default_title_field = "properties.name"
+    default_description_field = "properties.feature_type_name"
+    data_path = "features"
+
+
+class EventTypesDynamicSchemaView(DynamicSchemaFromSourceView):
+    source_view = EventTypesViewSet
+    schema_title = "Event Types"
+    schema_description = "All event types list"
+    default_title_field = "display"
+    default_description_field = "value"
