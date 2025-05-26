@@ -3099,14 +3099,14 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         [
             Choice.objects.create(
-                model=Choice.Field_Reports, field="behavior", value=f"ac{i}", ordernum=i, display=f"AC{i}"
+                model=Choice.EVENT_MODEL, field="behavior", value=f"ac{i}", ordernum=i, display=f"AC{i}"
             )
             for i in range(0, 2)
         ]
 
         [
             Choice.objects.create(
-                model=Choice.Field_Reports,
+                model=Choice.EVENT_MODEL,
                 field="behavior",
                 value=f"di{i}",
                 display=f"DI{i}",
@@ -3283,13 +3283,13 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         [
             Choice.objects.create(
-                model=Choice.Field_Reports, field="wildlifesightingrep_species", value=c, display=c.title()
+                model=Choice.EVENT_MODEL, field="wildlifesightingrep_species", value=c, display=c.title()
             )
             for c in ["asiatic lion", "asiatic cheetah", "siberian tiger"]
         ]
 
         [
-            Choice.objects.create(model=Choice.Field_Reports, field="yesno", value=i, display=i.title())
+            Choice.objects.create(model=Choice.EVENT_MODEL, field="yesno", value=i, display=i.title())
             for i in ["oh yeah!", "yes", "no"]
         ]
 
