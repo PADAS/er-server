@@ -35,7 +35,7 @@ class EventTypeFilter(filters.FilterSet):
     is_collection = filters.BooleanFilter(field_name="is_collection")
     category = filters.AllValuesMultipleFilter(
         field_name="category__value",
-        choices=EventCategory.get_category_choices(),
+        choices=EventCategory.get_category_choices,
         widget=CSVWidget(),
     )
     include_inactive = RestrictToTrueByDefaultFilter(

@@ -11,18 +11,9 @@ from utils.drf_filters import RestrictToTrueByDefaultFilter
 
 
 class ChoicesFilter(filters.FilterSet):
-    model = filters.ChoiceFilter(
-        field_name="model",
-        choices=Choice.MODEL_REF_CHOICES,
-    )
-    field = filters.AllValuesMultipleFilter(
-        field_name="field",
-        choices=[(c, c) for c in Choice.objects.values_list("field", flat=True).distinct()],
-        widget=CSVWidget(),
-    )
-    include_inactive = RestrictToTrueByDefaultFilter(
-        field_name="is_active", label="Include inactive choices when 'true'"
-    )
+    model = filters.ChoiceFilter(field_name="model", choices=Choice.MODEL_REF_CHOICES)
+    field = filters.AllValuesMultipleFilter(field_name="field", widget=CSVWidget())
+    include_inactive = RestrictToTrueByDefaultFilter(field_name="is_active")
 
     class Meta:
         model = Choice
