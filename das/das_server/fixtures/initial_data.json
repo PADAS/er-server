@@ -453,6 +453,23 @@
     }
   },
   {
+    "model": "oauth2_provider.application",
+    "fields": {
+      "client_id": "EFB_APPLICATION_ID",
+      "user": null,
+      "redirect_uris": "",
+      "post_logout_redirect_uris": "",
+      "client_type": "Confidential",
+      "authorization_grant_type": "password",
+      "client_secret": "pbkdf2_sha256$260000$YxrwLVnbHT9KR4dzBpKH3H$n73cALnO5Ihv34CrY6YAfHvO7o8MoKfxD13TetkEoy4=",
+      "name": "Event Form Builder Admin App",
+      "skip_authorization": true,
+      "created": "2025-05-16T21:14:27.145Z",
+      "updated": "2025-05-16T21:14:27.145Z",
+      "algorithm": ""
+    }
+  },
+  {
     "model": "observations.sourcegroup",
     "pk": "654e592c-fc5a-436d-98dd-fd1b36436a85",
     "fields": {

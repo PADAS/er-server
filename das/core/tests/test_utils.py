@@ -48,7 +48,7 @@ class TestDirectoryIconFinder:
 
     @patch("core.utils.staticfiles_storage")
     def test_file_metadata_caching(self, mock_storage):
-        mock_storage.listdir.return_value = ([], ["test.png", "ignore.txt"])
+        mock_storage.listdir.return_value = ([], ["test.png", "ignore.txt", "test2.svg"])
         mock_storage.get_modified_time.return_value = 1234567890
 
         finder = DirectoryIconFinder()
@@ -56,7 +56,7 @@ class TestDirectoryIconFinder:
         result1 = finder._file_metadata
         result2 = finder._file_metadata
 
-        assert result1 == result2 == (("test.png", 1234567890),)
+        assert result1 == result2 == (("test.png", 1234567890), ("test2.svg", 1234567890))
         mock_storage.listdir.assert_called_once_with("sprite-src")
 
     @patch("core.utils.staticfiles_storage")

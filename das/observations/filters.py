@@ -103,7 +103,7 @@ class ObservationsFilter(BaseFilterBackend):
             if not request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
                 raise PermissionDenied
 
-            queryset = queryset.get_subject_observations(
+            queryset = queryset.get_subject_observations_partitioned(
                 subject, since=recorded_since, until=recorded_until, filter_flag=filter_flag
             )
         elif source_id:
