@@ -35,10 +35,8 @@ class FlattenObservationsView(ListAPIView):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
 
-        queryset = Observation.objects.get_subject_observations(subject)
-        queryset = queryset.by_created_after(created_after)
-
-        return queryset.order_by("-recorded_at")
+        queryset = Observation.objects.get_subject_newly_created_observations(subject, created_after)
+        return queryset
 
 
 class ObservationsViewSchema(CustomSchema):

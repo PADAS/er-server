@@ -83,7 +83,9 @@ class DirectoryIconFinder:
     @cached_property
     def _file_metadata(self):
         usercontent_conf = getattr(settings, "USERCONTENT_SETTINGS", {})
-        allowed_extentions = usercontent_conf.get("imagefile_extensions", ("jpg", "jpeg", "png", "gif", "tif", "tiff"))
+        allowed_extentions = usercontent_conf.get(
+            "imagefile_extensions", ("jpg", "jpeg", "png", "gif", "tif", "tiff")
+        ) + ("svg",)
 
         try:
             _, filenames = staticfiles_storage.listdir(self.dir_name)

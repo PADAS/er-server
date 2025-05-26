@@ -160,18 +160,34 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
             headers={"Location": reverse_url},
         )
 
-    def get_object(self):
-        # Temporary implementation to allow to retrieve by uuid.
-        if is_uuid(self.kwargs.get("eventtype_value")):
-            self.lookup_field = "id"
-            obj = super().get_object()
-            self.lookup_field = "value"
-            return obj
-        return super().get_object()
+    def update(self, request: Request, *args, **kwargs) -> Response:
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
 
-    def update(self, request: Request, *args, **kwargs):
-        # Temporary implementation to avoid updating event types.
-        return Response({"detail": "Method not supported"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response(status=status.HTTP_200_OK)
+
+    def destroy(self, request: Request, *args, **kwargs) -> Response:
+        instance = self.get_object()
+        if hasattr(instance, "in_use"):
+            has_events = instance.in_use
+        else:
+            has_events = instance.event_set.exists()
+        has_alerts = instance.alert_rules.exists()
+
+        if has_events or has_alerts:
+            reasons = []
+            if has_events:
+                reasons.append("it is associated with existing Events")
+            if has_alerts:
+                reasons.append("it is associated with existing Alert Rules")
+            error_message = f"Cannot delete Event Type '{instance.display}' because {', and '.join(reasons)}."
+            return Response({"detail": error_message}, status=status.HTTP_409_CONFLICT)
+
+        # If no dependencies, proceed with standard deletion which returns 204
+        return super().destroy(request, *args, **kwargs)
 
     def get_schema_renderer(self, request: Request) -> SchemaRenderer:
         # This is where the rendering and retrieval sides are being connected.
@@ -247,20 +263,3 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         if success:
             return Response(data, status=status.HTTP_200_OK)
         return Response({"error": data}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
-
-    def destroy(self, request: Request, *args, **kwargs) -> Response:
-        instance = self.get_object()
-        has_events = instance.event_set.exists()
-        has_alerts = instance.alert_rules.exists()
-
-        if has_events or has_alerts:
-            reasons = []
-            if has_events:
-                reasons.append("it is associated with existing Events")
-            if has_alerts:
-                reasons.append("it is associated with existing Alert Rules")
-            error_message = f"Cannot delete Event Type '{instance.display}' because {', and '.join(reasons)}."
-            return Response({"detail": error_message}, status=status.HTTP_409_CONFLICT)
-
-        # If no dependencies, proceed with standard deletion which returns 204
-        return super().destroy(request, *args, **kwargs)
