@@ -327,6 +327,35 @@ class TestSpatialFeatureListView:
         assert "Feature One" in names
         assert "Feature Two" in names
 
+    def test_filter_by_multiple_feature_types(
+        self, user_client, feature1, feature2, feature3, feature_type1, feature_type2
+    ):
+        url = reverse("mapping:spatialfeature-list")
+        response = user_client.get(url, {"feature_type": str(feature_type1.id) + "," + str(feature_type2.id)})
+        assert response.status_code == 200
+        data = response.json()
+        features = data["data"]["features"]
+
+        # All features belong to feature_type1 or feature_type2
+        assert len(features) == 3
+        names = [f["properties"]["name"] for f in features]
+        assert "Feature One" in names
+        assert "Feature Two" in names
+        assert "Feature Three" in names
+
+    def test_filter_by_invalid_feature_type(self, user_client, feature3):
+        url = reverse("mapping:spatialfeature-list")
+        response = user_client.get(url, {"feature_type": "invalid_uuid"})
+        assert response.status_code == 400
+        assert "is not a valid UUID" in response.content.decode("utf-8")
+        assert "feature_type" in response.json()
+
+        # Feature 3 is not a feature type
+        response = user_client.get(url, {"feature_type": str(feature3.id)})
+        assert response.status_code == 400
+        assert "Select a valid choice." in response.content.decode("utf-8")
+        assert "feature_type" in response.json()
+
     def test_filter_by_feature_set(self, user_client, feature1, feature2, feature3, category2):
         url = reverse("mapping:spatialfeature-list")
         response = user_client.get(url, {"feature_set": str(category2.id)})
@@ -338,11 +367,29 @@ class TestSpatialFeatureListView:
         assert len(features) == 1
         assert features[0]["properties"]["name"] == "Feature Three"
 
-    def test_filter_by_feature_set_and_feature_type_error(self, user_client, category1, feature_type1):
+    def test_filter_by_multiple_feature_sets(self, user_client, feature1, feature2, feature3, category1, category2):
         url = reverse("mapping:spatialfeature-list")
-        response = user_client.get(url, {"feature_set": str(category1.id), "feature_type": str(feature_type1.id)})
-        assert response.status_code == 400
+        response = user_client.get(url, {"feature_set": str(category1.id) + "," + str(category2.id)})
+        assert response.status_code == 200
         data = response.json()
-        assert "status" in data
-        assert "detail" in data["status"]
-        assert "You can't filter by both feature_set and feature_type" in data["status"]["detail"]
+        features = data["data"]["features"]
+
+        # All features belong to category1 or category2
+        assert len(features) == 3
+        names = [f["properties"]["name"] for f in features]
+        assert "Feature One" in names
+        assert "Feature Two" in names
+        assert "Feature Three" in names
+
+    def test_filter_by_invalid_feature_set(self, user_client, feature3):
+        url = reverse("mapping:spatialfeature-list")
+        response = user_client.get(url, {"feature_set": "invalid_uuid"})
+        assert response.status_code == 400
+        assert "is not a valid UUID" in response.content.decode("utf-8")
+        assert "feature_set" in response.json()
+
+        # Feature 3 is not a feature set
+        response = user_client.get(url, {"feature_set": str(feature3.id)})
+        assert response.status_code == 400
+        assert "Select a valid choice." in response.content.decode("utf-8")
+        assert "feature_set" in response.json()
