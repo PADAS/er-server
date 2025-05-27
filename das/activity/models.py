@@ -246,10 +246,6 @@ class EventCategory(TenantModelMixin, TimestampedModel, RankModelMixin):
     def get_category_keys(cls):
         return [category.value for category in cls.get_active_categories()]
 
-    @classmethod
-    def get_category_choices(cls):
-        return [(category.value, category.display) for category in cls.get_active_categories()]
-
     def natural_key(self):
         return (self.value,)
 
