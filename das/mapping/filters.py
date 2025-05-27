@@ -7,14 +7,13 @@ from mapping.models import DisplayCategory, SpatialFeature, SpatialFeatureType
 class SpatialFeatureFilterSet(filters.FilterSet):
 
     feature_type = filters.ModelMultipleChoiceFilter(
-        queryset=SpatialFeatureType.objects.all(),
+        queryset=lambda request: SpatialFeatureType.objects.all(),
         widget=CSVWidget(),
         label="Feature Type",
     )
     feature_set = filters.ModelMultipleChoiceFilter(
-        field_name="feature_type__display_category__id",
-        to_field_name="id",
-        queryset=DisplayCategory.objects.all(),
+        field_name="feature_type__display_category",
+        queryset=lambda request: DisplayCategory.objects.all(),
         widget=CSVWidget(),
         label="Feature Set (Display Category)",
     )
