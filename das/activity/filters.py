@@ -33,9 +33,10 @@ class EventTypeFilter(filters.FilterSet):
 
     updated_since = filters.DateTimeFilter(field_name="updated_at", lookup_expr="gte")
     is_collection = filters.BooleanFilter(field_name="is_collection")
-    category = filters.AllValuesMultipleFilter(
-        field_name="category__value",
-        choices=EventCategory.get_category_choices,
+    category = filters.ModelMultipleChoiceFilter(
+        field_name="category",
+        to_field_name="value",
+        queryset=lambda request: EventCategory.objects.all(),
         widget=CSVWidget(),
     )
     include_inactive = RestrictToTrueByDefaultFilter(

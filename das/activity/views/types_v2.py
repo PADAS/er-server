@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from activity.exceptions import SchemaRenderingError
-from activity.filters import EventTypeFilter
+from activity.filters import EventTypeFilterSet
 from activity.models import Event, EventType
 from activity.permissions import EventCategoryPermissions
 from activity.schemas.schema_rendering import SchemaRenderer
@@ -111,7 +111,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
     schema = EventTypeViewSchema()
     permission_classes = (EventCategoryPermissions,)
     filter_backends = [OrderingFilter, filters.DjangoFilterBackend]
-    filterset_class = EventTypeFilter
+    filterset_class = EventTypeFilterSet
     serializer_class = EventTypeSerializer
     lookup_field = "value"
     lookup_url_kwarg = "eventtype_value"
