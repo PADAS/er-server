@@ -10,7 +10,7 @@ from utils.drf_filters import RestrictToTrueByDefaultFilter
 # but it has a bug in version 23.5 so we use CSVWidget for now, django 4.2 is required to upgrade django-filter
 
 
-class ChoicesFilter(filters.FilterSet):
+class ChoicesFilterSet(filters.FilterSet):
     model = filters.ChoiceFilter(field_name="model", choices=Choice.MODEL_REF_CHOICES)
     field = filters.AllValuesMultipleFilter(field_name="field", widget=CSVWidget())
     include_inactive = RestrictToTrueByDefaultFilter(field_name="is_active")
