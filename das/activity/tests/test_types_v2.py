@@ -117,6 +117,21 @@ class TestEventTypesV2:
         for et in response.data:
             assert et["category"] == "cat2"
 
+    def test_filter_event_types_by_multiple_categories(self, superuser_client, cat1_cat2_event_types):
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.get(url, {"category": "cat1,cat2"})
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 4
+        for et in response.data:
+            assert et["category"] in ["cat1", "cat2"]
+
+    def test_filter_event_types_by_invalid_category(self, superuser_client, cat1_cat2_event_types):
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.get(url, {"category": "invalid_category"})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "category" in response.data
+        assert "is not one of the available choices." in response.content.decode("utf-8")
+
     def test_filter_event_types_by_is_collection(self, superuser_client, cat1_cat2_event_types):
         url = reverse("v2-eventtype-list")
         # Filter where is_collection is true
