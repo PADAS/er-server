@@ -2131,7 +2131,7 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
                 # If the subjectsource is expired, do nothing, leave it to daily maintenance to update the subjectstatus
                 return
             if created and (not subjectstatus or observation.recorded_at > subjectstatus.recorded_at):
-                update_subjectstatus_from_observation(subjectsource.subject, observation, force=True)
+                update_subjectstatus_from_observation(subjectsource.subject, observation)
             if not created and (latest_observation := Observation.objects.get_latest_for_subjectsource(subjectsource)):
                 update_subjectstatus_from_observation(subjectsource.subject, latest_observation, force=True)
 
