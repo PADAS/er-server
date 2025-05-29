@@ -2,6 +2,7 @@ name: Trigger Buoy Tests
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
     paths:
       - 'das/buoy/**'
 
