@@ -713,9 +713,7 @@ def source_group():
 @pytest.fixture
 def subject_source_with_observations():
     subject_source = SubjectSourceFactory()
-    observation = ObservationFactory()
-    observation.source = subject_source.source
-    observation.save()
+    observation = ObservationFactory(source=subject_source.source)
     SubjectStatus.objects.maintain_subject_status(subject_source.subject.id)
     return subject_source, observation
 
