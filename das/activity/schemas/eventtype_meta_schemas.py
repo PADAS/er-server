@@ -342,6 +342,7 @@ ui_choice_schema = {
                         "SUBJECTS_FROM_SUBJECT_GROUP",
                         "FEATURES_FROM_FEATURE_GROUP",
                         "EVENT_TYPES_FROM_EVENT_CATEGORY",
+                        "USERS",
                         "",
                     ],
                 },
