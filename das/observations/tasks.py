@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def maintain_subjectstatus_all():
-    for subject_id in Subject.objects.filter(is_active=True).value_list("id", flat=True):
+    for subject_id in Subject.objects.filter(is_active=True).values_list("id", flat=True):
         maintain_subjectstatus_for_subject.apply_async(args=(str(subject_id),))
 
 

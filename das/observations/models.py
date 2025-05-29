@@ -709,7 +709,7 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
         return (
             self.filter(
                 source=subjectsource.source,
-                recorded_at__range=(subjectsource.assigned_range.upper, subjectsource.assigned_range.lower),
+                recorded_at__range=(subjectsource.assigned_range.lower, subjectsource.assigned_range.upper),
             )
             .order_by("-recorded_at")[:1]
             .first()
