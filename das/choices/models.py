@@ -102,24 +102,24 @@ class ChoiceManager(TenantManagerMixin, models.Manager.from_queryset(ChoiceQuery
 
 
 class Choice(SoftDeleteModel):
-    Field_Reports = "activity.event"
-    User = "accounts.user.User"
-    Maps = "mapping.TileLayer"
-    Region = "observations.region"
-    Sources = "observations.Source"
-    Field_Report_Type = "activity.eventtype"
+    EVENT_MODEL = "activity.event"
+    EVENT_TYPE_MODEL = "activity.eventtype"
+    USER_MODEL = "accounts.user.User"
+    MAPS_MODEL = "mapping.TileLayer"
+    OBSERVATION_REGION_MODEL = "observations.region"
+    OBSERVATION_SOURCE_MODEL = "observations.Source"
 
     MODEL_REF_CHOICES = [
-        (Field_Reports, "Field Reports"),
-        (Field_Report_Type, "Field Report Type"),
-        (Maps, "Maps"),
-        (Region, "Region"),
-        (Sources, "Sources"),
-        (User, "User"),
+        (EVENT_MODEL, "Event"),
+        (EVENT_TYPE_MODEL, "Event Type"),
+        (USER_MODEL, "User"),
+        (MAPS_MODEL, "Maps"),
+        (OBSERVATION_REGION_MODEL, "Region"),
+        (OBSERVATION_SOURCE_MODEL, "Sources"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    model = models.CharField(max_length=50, choices=MODEL_REF_CHOICES, default=Field_Reports)
+    model = models.CharField(max_length=50, choices=MODEL_REF_CHOICES, default=EVENT_MODEL)
     field = models.CharField(max_length=40)
     value = models.CharField(max_length=100, blank=True)
     display = models.CharField(max_length=100, blank=True)
