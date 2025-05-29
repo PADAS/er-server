@@ -12,6 +12,7 @@ from django.test import TestCase
 
 from accounts.models import PermissionSet, User
 from observations.models import (
+    LatestObservationSource,
     Observation,
     Source,
     Subject,
@@ -162,7 +163,7 @@ class TestObservationManager:
     EMPTY_OBSERVATION_POINTS = [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)]
 
     @pytest.mark.parametrize("include_empty_location", [False, True])
-    def test_get_last_source_observation_with_bunch_of_observations(self, subject_source, include_empty_location):
+    def test_get_latest_observation_source_with_bunch_of_observations(self, subject_source, include_empty_location):
         source = subject_source.source
         now = datetime.now(tz=pytz.utc)
         latest_observation_id = None
@@ -175,13 +176,17 @@ class TestObservationManager:
             if count == 1:
                 latest_observation_id = observation.id
 
-        observation = Observation.objects.get_last_source_observation(
+        observation = Observation.objects.get_latest_observation_source(
             source, include_empty_location=include_empty_location
         )
 
         assert latest_observation_id == observation.id
 
-    def test_get_last_source_observation_with_all_empty_observations_include_empty_observations(self, subject_source):
+        if include_empty_location:
+            observation = LatestObservationSource.objects.get(source=source).observation
+            assert latest_observation_id == observation.id
+
+    def test_get_latest_observation_source_with_all_empty_observations_include_empty_observations(self, subject_source):
         source = subject_source.source
         now = datetime.now(tz=pytz.utc)
         latest_observation_id = None
@@ -194,11 +199,13 @@ class TestObservationManager:
             if count == 1:
                 latest_observation_id = observation.id
 
-        observation = Observation.objects.get_last_source_observation(source, include_empty_location=True)
-
+        observation = Observation.objects.get_latest_observation_source(source, include_empty_location=True)
         assert latest_observation_id == observation.id
 
-    def test_get_last_source_observation_with_all_empty_observations_not_include_empty_observations(
+        observation = LatestObservationSource.objects.get(source=source).observation
+        assert latest_observation_id == observation.id
+
+    def test_get_latest_observation_source_with_all_empty_observations_not_include_empty_observations(
         self, subject_source
     ):
         source = subject_source.source
@@ -210,9 +217,34 @@ class TestObservationManager:
                 source=source,
             )
 
-        observation = Observation.objects.get_last_source_observation(source, include_empty_location=False)
-
+        observation = Observation.objects.get_latest_observation_source(source, include_empty_location=False)
         assert observation is None
+
+    def test_get_latest_observation_source_with_latest_flagged_as_excluded(self, subject_source):
+        source = subject_source.source
+        now = datetime.now(tz=pytz.utc)
+        latest_observation = Observation.objects.create(
+            recorded_at=now - timedelta(minutes=5), location=Point(self.OBSERVATION_POINTS[0]), source=source
+        )
+        flagged_observation = Observation.objects.create(
+            recorded_at=now, location=Point(self.OBSERVATION_POINTS[0]), source=source
+        )
+
+        observation = Observation.objects.get_latest_observation_source(source, include_empty_location=True)
+        assert observation is not None
+        assert observation.id == flagged_observation.id
+
+        observation = LatestObservationSource.objects.get(source=source).observation
+        assert observation.id == flagged_observation.id
+
+        flagged_observation.exclusion_flags = Observation.EXCLUDED_MANUALLY
+        flagged_observation.save()
+        flagged_observation.refresh_from_db()
+
+        observation = Observation.objects.get_latest_observation_source(source, include_empty_location=True)
+        assert observation.id == latest_observation.id
+        observation = LatestObservationSource.objects.get(source=source).observation
+        assert observation.id == latest_observation.id
 
 
 @pytest.mark.django_db
@@ -333,15 +365,11 @@ class TestObservationTriggers:
 
         observations = list(Observation.objects.all().order_by("-recorded_at"))
         observation = observations[0]
-        observation.exclude_from_latest_observation = Observation.EXCLUDED_MANUALLY
+        observation.exclusion_flags = Observation.EXCLUDED_MANUALLY
         observation.save()
 
-        sources = (
-            Source.objects.filter(id__in=[source.id])
-            .annotate(last_observation=F("last_observation_source__observation"))
-            .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
-        )
-        assert sources.first().last_observation == observations[1].id
+        last_observation = LatestObservationSource.objects.get_latest_for_source(source, include_empty_location=True)
+        assert last_observation.id == observations[1].id
 
     def test_delete_not_latest_observation(self, subject_source):
         source = subject_source.source

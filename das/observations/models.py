@@ -12,6 +12,8 @@ GIS
 * default geodjango spatial reference system is WGS84 (SRID 4326)
 """
 
+from __future__ import annotations
+
 import logging
 import random
 import re
@@ -77,7 +79,6 @@ from observations.utils import (
     ensure_timezone_aware,
     get_cyclic_subjectgroup,
     get_minimum_allowed_age,
-    is_subject_stationary_subject,
 )
 from tracking.pubsub_registry import notify_subjectstatus_update
 from utils.decorator import use_shared_resource
@@ -478,15 +479,38 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
     def get_source_observations(
         self,
-        source,
-        since=None,
-        until=None,
-        limit=None,
+        source: Source,
+        since: datetime = None,
+        until: datetime = None,
+        limit: int = None,
         values=None,
-        filter_flag=0,
-        order_by=None,
-        include_empty_location=True,
-    ):
+        filter_flag: int = 0,
+        order_by: str = None,
+        include_empty_location: bool = True,
+    ) -> QuerySet:
+        """Filter Observation on source, plus some standard filters.
+        If since and until are not included, defaults are used to keep from inadvertantly creating
+        a very expensive query across partitioned tables.
+
+        Args:
+            source (Source): _description_
+            since (datetime, optional): matching observation records by recorded_at GTE this datetime. Defaults to yesterday.
+            until (datetime, optional): matching observation records by recorded_at LTE this datetime. Defaults to now().
+            limit (int, optional): limit to int records. Defaults to None.
+            values (array[str], optional): return only these values. Defaults to None.
+            filter_flag (int, optional): exclusion flags, see Observation.exclusion_flags. Defaults to 0.
+            order_by (str, optional): order by field. Defaults to None.
+            include_empty_location (bool, optional): filter out 0,0 locations if set to False. Defaults to True.
+
+        Returns:
+            QuerySet: the now filtered queryset
+        """
+        if not until:
+            until = datetime.now(timezone.utc)
+
+        if not since:
+            since = until - timedelta(days=1)
+
         queryset = self.filter(source=source)
         queryset = queryset.by_since_until(since, until)
         queryset = queryset.by_exclusion_flags(filter_flag)
@@ -523,6 +547,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         """
         An optimized version of get_subject_observations that uses partitioning to avoid full table scans.
         It does not support annotations beyond this point.
+        Internally, it filters out empty locations unless the subject.is_stationary_subject is True.
 
         Args:
             subject (Subject): The subject for which observations are being queried.
@@ -531,7 +556,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             limit (int, optional): The maximum number of observations to return. Defaults to None.
             values (list of str, optional): Specific fields to include in the result. Defaults to None.
             filter_flag (int, optional): Flags to filter observations. Defaults to 0.
-            order_by (str, optional): Field by which to order the results. Defaults to None.
+            order_by (str, optional): Field by which to order the results. Defaults to "-recorded_at".
             created_after (datetime, optional): Filter on the created_at time of the observations. Must provide since and until if using this. Defaults to None.
 
         Returns:
@@ -680,21 +705,48 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
         r = Observation.objects.filter(source=source).aggregate(Max("recorded_at"))
         return r.get("recorded_at__max")
 
-    def get_last_source_observation(self, source, include_empty_location: bool = False, delay_hours: int = 0):
+    def get_latest_for_subjectsource(self, subjectsource):
+        return (
+            self.filter(
+                source=subjectsource.source,
+                recorded_at__range=(subjectsource.assigned_range.upper, subjectsource.assigned_range.lower),
+            )
+            .order_by("-recorded_at")[:1]
+            .first()
+        )
+
+    def get_latest_observation_source(
+        self, source, include_empty_location: bool = False, delay_hours: int = 0, filter_flag=0
+    ):
         try:
             queryset = Observation.objects.filter(source=source)
-
+            queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=include_empty_location)
             if delay_hours:
-                end_time = pytz.utc.localize(datetime.utcnow()) - timedelta(hours=delay_hours)
+                end_time = pytz.utc.localize(datetime.now(tz=timezone.utc)) - timedelta(hours=delay_hours)
                 queryset = queryset.filter(recorded_at__lt=end_time)
-
-            if not include_empty_location:
-                queryset = queryset.exclude(location=EMPTY_POINT)
 
             return queryset.latest("recorded_at")
 
         except Observation.DoesNotExist:
             pass
+
+    def get_latest_for_source(self, source: Source, include_empty_location: bool = False) -> Union[Observation, None]:
+        """Get the latest observation for a source. Try in the LatestObservationSource cache first,
+        then directly in Observation.
+
+        Args:
+            source (Source): source filter
+            include_empty_location (bool): include observations with empty location
+
+        Returns:
+            Observation | None: the Observation instance or None if no observations exist.
+        """
+        latest_observation = LatestObservationSource.objects.get_latest_for_source(source, include_empty_location)
+        if not latest_observation or (
+            not include_empty_location and latest_observation.observation.location == EMPTY_POINT
+        ):
+            return Observation.objects.get_latest_observation_source(source, include_empty_location)
+        return latest_observation.observation
 
 
 class Observation(TenantModelMixin, models.Model):
@@ -856,9 +908,20 @@ class SubjectSourceManager(TenantManagerMixin, models.Manager.from_queryset(Subj
         return subject_source, created
 
     def get_for_source_at_time(self, source, at_time):
-        subject_sources = SubjectSource.objects.filter(source=source, assigned_range__contains=at_time)
-        if subject_sources:
-            return subject_sources[0]
+        return (
+            self.filter(source=source, assigned_range__contains=at_time)
+            .select_related("subject", "source", "source__provider")
+            .order_by("-assigned_range")[:1]
+            .first()
+        )
+
+    def get_latest_for_subject(self, subject):
+        return (
+            self.filter(subject=subject)
+            .select_related("subject", "source", "source__provider")
+            .order_by("-assigned_range")[:1]
+            .first()
+        )
 
 
 class AssignedRangeBounds(NamedTuple):
@@ -897,6 +960,10 @@ class SubjectSource(TenantModelMixin, models.Model):
     def __str__(self):
         ind = " (expired)" if datetime.now(tz=pytz.utc) not in self.assigned_range else ""
         return f"{self.subject.name} <-> {self.source.manufacturer_id}{ind}"
+
+    @property
+    def is_expired(self):
+        return datetime.now(tz=timezone.utc) not in self.assigned_range
 
     @property
     def safe_assigned_range(self):
@@ -1948,48 +2015,64 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
         "additional": {"device_status_properties": None},
     }
 
-    # Delayed windows include all but 'current'.
-    delayed_windows = list((item for item in VIEW_END_WINDOWS if item[1] > 0))
+    delayed_windows = list((item for item in VIEW_END_WINDOWS))
 
-    @staticmethod
-    def update_current_from_source(source, include_empty_location: bool = False):
-        observation = Observation.objects.get_last_source_observation(source, include_empty_location)
-        if not observation:
-            return
-
-        update_subject_status_from_observation(observation)
-
-    @staticmethod
-    def update_current_from_deleted_observation(deleted_observation):
+    def update_subject_status(
+        self,
+        subject: Subject,
+        location: Point,
+        recorded_at: datetime,
+        last_voice_call_start_at: datetime = None,
+        location_requested_at: datetime = None,
+        radio_state: str = None,
+        radio_state_at: datetime = None,
+        reported_subject_name: str = None,
+        transformed_additional_data: dict = None,
+        delay_hours: int = 0,
+        force: bool = False,
+    ):
         """
-        Only update SubjectStatus if the *deleted* observation was apparently the latest for the source.
-
-        :param deleted_observation: Observation instance that was deleted.
+        Update the SubjectStatus for a given subject. This also has the side effect of renaming the subject
+        if the reported_subject_name is different from the subject.name.
+        delay_hours is the delay hours for the SubjectStatus record to update.
         """
-        latest_observation = Observation.objects.get_last_source_observation(deleted_observation.source)
+        status_updates = build_updates(
+            recorded_at=recorded_at,
+            location=location,
+            radio_state=radio_state,
+            radio_state_at=radio_state_at,
+            last_voice_call_start_at=last_voice_call_start_at,
+            location_requested_at=location_requested_at,
+            force=force,
+        )
 
-        if latest_observation and latest_observation.recorded_at < deleted_observation.recorded_at:
-            update_subject_status_from_observation(latest_observation, force=True)
+        if reported_subject_name:
+            status_updates["additional"] = {"subject_name": reported_subject_name}
 
-    def update_current(self, subject):
-        for subject_source in SubjectSource.objects.filter(
-            subject=subject, assigned_range__contains=datetime.now(tz=timezone.utc)
-        ):
-            self.update_current_from_source(
-                subject_source.source,
-                include_empty_location=is_subject_stationary_subject(subject),
-            )
+        if transformed_additional_data is not None:
+            status_updates.setdefault("additional", {})["device_status_properties"] = transformed_additional_data
 
-    def update_delayed_status(self, subject):
-        """
-        For a given subject, update its SubjectStatus Records.
-        :param subject:
-        :return:
+        SubjectStatus.objects.filter(
+            subject=subject,
+            delay_hours=delay_hours,
+        ).update(**status_updates)
+
+        if reported_subject_name and delay_hours == 0:
+            if subject.name != reported_subject_name:
+                subject.name = reported_subject_name
+                subject.save()
+
+    def update_from_subject(self, subject: Subject):
+        """We saw change and now we are ensuring the SubjectStatus
+        record for this subject is up to date.
+
+        Args:
+            subject (Subject): the subject we ensure has the most recent observation set in the SubjectStatus record
         """
         # Initialize the loop with the most recent 'delayed' observation.
-        key, delay_days = self.delayed_windows[0]
-        delay_hours = delay_days * 24
-        until = datetime.now(tz=pytz.utc) - timedelta(hours=delay_hours)
+
+        until = datetime.now(tz=timezone.utc)
+
         observation = Observation.objects.get_subject_observations_partitioned(
             subject=subject, until=until, limit=1
         ).first()
@@ -2005,16 +2088,22 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
             if observation.recorded_at <= until:
                 # Update using the current observation until it's no longer
                 # valid.
-                update_subject_status_from_observation(observation, delay_hours=delay_hours)
+                update_subjectstatus_from_observation(subject, observation, delay_hours=delay_hours, force=True)
             else:
                 # Refresh the 'latest observation' for the given window.
                 observation = Observation.objects.get_subject_observations_partitioned(
                     subject=subject, until=until, limit=1
                 ).first()
                 if observation:
-                    update_subject_status_from_observation(observation, delay_hours=delay_hours)
+                    update_subjectstatus_from_observation(subject, observation, delay_hours=delay_hours, force=True)
 
-    def ensure_for_subject(self, subject):
+    def ensure_for_subject(self, subject, force=False):
+        """
+        Ensure that a SubjectStatus record exists for the given subject.
+        If force is True, then we will create new records even if one already exists.
+        """
+        if force:
+            SubjectStatus.objects.filter(subject=subject).delete()
         for delay_hours in VIEW_END_WINDOWS:
             SubjectStatus.objects.get_or_create(
                 subject=subject, delay_hours=delay_hours[1] * 24, defaults=SubjectStatusManager.DEFAULT_STATUS_VALUES
@@ -2026,16 +2115,39 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
         )
         return value
 
-    def maintain_subject_status(self, subject_id):
+    def update_from_observation(self, observation, created=False):
+        """
+        As needed, update the SubjectStatus from a new or updated observation.
+        We don't know if this observation is necessarily the latest for the source in which case it can be ignored.
+        """
+
+        source = observation.source
+        if subjectsource := SubjectSource.objects.get_for_source_at_time(source, observation.recorded_at):
+            subjectstatus = SubjectStatus.objects.get_current_status(subjectsource.subject)
+            if not created and (not subjectstatus or observation.recorded_at != subjectstatus.recorded_at):
+                # If the observation was modified and not the current subjectstatus observation, do nothing
+                return
+            if subjectsource.is_expired:
+                # If the subjectsource is expired, do nothing, leave it to daily maintenance to update the subjectstatus
+                return
+            if created and (not subjectstatus or observation.recorded_at > subjectstatus.recorded_at):
+                update_subjectstatus_from_observation(subjectsource.subject, observation, force=True)
+            if not created and (latest_observation := Observation.objects.get_latest_for_subjectsource(subjectsource)):
+                update_subjectstatus_from_observation(subjectsource.subject, latest_observation, force=True)
+
+    def maintain_subject_status(self, subject_id: str):
         try:
             subject = Subject.objects.get(id=subject_id)
         except Subject.DoesNotExist:
-            logger.warning("Cannot find Subject with id: %s", subject_id)
+            logger.warning("Cannot find Subject with id: %s, no SubjectStatus maintenance performed", subject_id)
         else:
             logger.info("SubjectStatus maintenance for Subject: %s, id: %s", subject.name, subject_id)
-            self.ensure_for_subject(subject)
-            self.update_current(subject)
-            self.update_delayed_status(subject)
+
+            observation = Observation.objects.get_subject_observations_partitioned(
+                subject=subject, until=datetime.now(tz=timezone.utc), limit=1
+            ).first()
+            self.ensure_for_subject(subject, force=not observation)
+            self.update_from_subject(subject)
 
 
 def build_updates(
@@ -2171,7 +2283,11 @@ def transform_additional_data(additional, transform_format):
     return device_attributes
 
 
-def update_subject_status_from_observation(observation, delay_hours=0, force=False):
+def update_subjectstatus_from_observation(subject, observation, delay_hours=0, force=False):
+    """
+    Update the SubjectStatus from an Observation. This is the observation we want to
+    apply to the SubjectStatus record for this subject.
+    """
     additional = observation.additional
     transformed_data = None
 
@@ -2205,8 +2321,8 @@ def update_subject_status_from_observation(observation, delay_hours=0, force=Fal
     else:
         reported_subject_name, radio_state, radio_state_at = None, None, None
 
-    update_subject_status(
-        source=source,
+    SubjectStatus.objects.update_subject_status(
+        subject=subject,
         location=location,
         recorded_at=recorded_at,
         last_voice_call_start_at=last_voice_call_start_at,
@@ -2231,7 +2347,7 @@ def update_subject_status_from_post(source, recorded_at, location, additional):
     """
     Intention is to update latest SubjectStatus record under the case where a redundant GPS fix has been posted.
     """
-
+    # TODO: This function needs updating to look more like update_subjectstatus_from_observation
     radio_state = additional.get("radio_state", SubjectStatus.UNKNOWN)
 
     try:
@@ -2737,6 +2853,22 @@ class AnnouncementUser(TenantModelMixin, UUIDModel):
         return (self.announcement, self.user)
 
 
+class LatestObservationSourceManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
+    def get_latest_for_source(self, source: Source, include_empty_location: bool = False) -> Union[Observation, None]:
+        """Get the latest observation for a source.
+        Args:
+            source (Source): source filter
+
+        Returns:
+            Observation | None: the Observation instance or None if no observations exist.
+        """
+        latest_observation = self.filter(source=source).select_related("observation").order_by("-recorded_at").first()
+        if latest_observation and (include_empty_location or latest_observation.observation.location != EMPTY_POINT):
+            return latest_observation.observation
+
+
 class LatestObservationSource(TenantModelMixin, models.Model):
     """Manage/keep the latest observation of each source.
     The CRUD operations are managed by database triggers."""
@@ -2755,7 +2887,7 @@ class LatestObservationSource(TenantModelMixin, models.Model):
 
     tenant_id = "das_tenant_id"
 
-    objects = CommonTenantManager()
+    objects = LatestObservationSourceManager()
 
     class Meta:
         base_manager_name = "objects"

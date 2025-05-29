@@ -35,8 +35,8 @@ logger = logging.getLogger(__name__)
 
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def maintain_subjectstatus_all():
-    for subject in Subject.objects.filter(is_active=True).values("id"):
-        maintain_subjectstatus_for_subject.apply_async(args=(str(subject["id"]),))
+    for subject_id in Subject.objects.filter(is_active=True).value_list("id", flat=True):
+        maintain_subjectstatus_for_subject.apply_async(args=(str(subject_id),))
 
 
 @celery.app.task(
@@ -46,6 +46,9 @@ def maintain_subjectstatus_all():
     },
 )
 def maintain_subjectstatus_for_subject(subject_id, notify=False, **kwargs):
+    """
+    Maintenance task to ensure the subjectstatus is up to date for a subject.
+    """
     SubjectStatus.objects.maintain_subject_status(subject_id)
 
     if notify:
@@ -54,6 +57,10 @@ def maintain_subjectstatus_for_subject(subject_id, notify=False, **kwargs):
 
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def maintain_observation_data():
+    """Maintain observation data for all SourceProviders if they have the
+    days_data_retain setting. For each matching SourceProvider a task maintain_observation_data_for_source_provider
+    is queued.
+    """
     for ssprovider in SourceProvider.objects.annotate(unique_id=F("id")):
         days_data_retain = ssprovider.additional.get("days_data_retain")
         if not days_data_retain:
@@ -70,6 +77,9 @@ def maintain_observation_data():
         maintain_observation_data_for_source_provider.apply_async(args=(ssprovider.unique_id, days_data_retain))
 
 
+DAYS_BACK_TO_SEARCH_OBSERVATION_PARTITIONS = 365
+
+
 @celery.app.task(
     base=TenantQueueOnceTask,
     bind=True,
@@ -78,18 +88,27 @@ def maintain_observation_data():
     },
 )
 def maintain_observation_data_for_source_provider(self, source_provider_id, days_data_retain):
-    minimum_date = datetime.now(timezone.utc) - timedelta(days=days_data_retain)
-    minimum_observation_partition_lower_bound = datetime.now(timezone.utc) - timedelta(days=365)
-    logger.info(f"Deleting observation records older than {minimum_date} for source_provider_id: {source_provider_id}")
-
-    # Observation records older than minimum date
-    observation_queryset = Observation.objects.filter(
-        source__provider__id=source_provider_id,
-        recorded_at__lte=minimum_date,
-        recorded_at__gte=minimum_observation_partition_lower_bound,
+    """
+    Delete observation records older than days_data_retain for a source_provider.
+    Only go back DAYS_BACK_TO_SEARCH_OBSERVATION_PARTITIONS days to not search all Observation table partitions
+    """
+    current_datetime = datetime.now(timezone.utc)
+    minimum_date = current_datetime - timedelta(days=days_data_retain)
+    minimum_observation_partition_lower_bound = current_datetime - timedelta(
+        days=DAYS_BACK_TO_SEARCH_OBSERVATION_PARTITIONS
     )
 
-    observation_queryset.delete()
+    logger.info(f"Deleting observation records older than {minimum_date} for source_provider_id: {source_provider_id}")
+
+    for source_id in Source.objects.filter(provider_id=source_provider_id).values_list("id", flat=True):
+        # Observation records older than minimum date
+        observation_queryset = Observation.objects.filter(
+            source_id=source_id,
+            recorded_at__lte=minimum_date,
+            recorded_at__gte=minimum_observation_partition_lower_bound,
+        )
+
+        observation_queryset.delete()
 
 
 def parse_xml_to_dict(xml):

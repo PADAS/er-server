@@ -169,7 +169,7 @@ class ObservationTestCase(BaseAPITest):
         source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
 
         # Generate some random data for the observation.
-        observation_time = UTC.localize(datetime.now())
+        observation_time = datetime.now(tz=timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 
@@ -249,10 +249,11 @@ class ObservationTestCase(BaseAPITest):
         self.assertTrue(obs is not None)
         obs.delete()
 
-        subject_status = SubjectStatus.objects.filter(
-            subject_id=subject_id, delay_hours=0, recorded_at=observation_time2
-        )
-        self.assertTrue(subject_status.first() is None)
+        # the signal handler is async, so call it directly
+        SubjectStatus.objects.maintain_subject_status(subject_id)
+
+        subject_status = SubjectStatus.objects.filter(subject_id=subject_id, delay_hours=0)
+        assert subject_status.first().recorded_at == observation_time
 
     def test_exclude_latest_observation_updates_subject_status(self):
         f"""
@@ -273,21 +274,14 @@ class ObservationTestCase(BaseAPITest):
         last1.exclusion_flags = Observation.EXCLUDED_MANUALLY
         last1.save()
 
-        # After delete, check consistency.
-        next_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
+        # the signal handler is async, so call it directly
+        SubjectStatus.objects.maintain_subject_status(subject_id)
 
-        latest_observation = (
-            Observation.objects.filter(
-                source__subjectsource__subject_id=subject_id,
-                source__subjectsource__assigned_range__contains=F("recorded_at"),
-            )
-            .order_by("-recorded_at")
-            .first()
-        )
+        # After exclusion, check consistency.
+        next_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
 
         self.assertEqual(last2.recorded_at, next_subjectstatus.recorded_at)
         self.assertEqual(last2.location, next_subjectstatus.location)
-        assert latest_observation.id == last2.id
 
     def test_delete_latest_observation(self):
         f"""
@@ -310,6 +304,9 @@ class ObservationTestCase(BaseAPITest):
 
         # DELETE the latest observations
         last1.delete()
+
+        # the signal handler is async, so call it directly
+        SubjectStatus.objects.maintain_subject_status(subject_id)
 
         # After delete, check consistency.
         next_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
@@ -358,6 +355,8 @@ class ObservationTestCase(BaseAPITest):
             source__subjectsource__assigned_range__contains=F("recorded_at"),
         ).delete()
 
+        SubjectStatus.objects.maintain_subject_status(subject_id)
+
         # After delete, check consistency.
         next_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
 
@@ -397,6 +396,9 @@ class ObservationTestCase(BaseAPITest):
         subject_id = "d35cb4fe-c15f-404f-bc86-b479f01b6a01"
         source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
 
+        # Delete the subjectsource
+        SubjectSource.objects.filter(subject_id=subject_id).delete()
+
         # Create a subjectsource that is expired
         subjectsource = SubjectSource.objects.create(
             subject_id=subject_id,
@@ -408,7 +410,7 @@ class ObservationTestCase(BaseAPITest):
 
         # Create an observation for the expired subjectsource
         observation = Observation.objects.create(
-            source=source_id,
+            source_id=source_id,
             recorded_at=datetime(2019, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
             location=Point(x=float(random.randint(2800, 4000)) / 100, y=float(random.randint(3000, 3000)) / 100),
             additional={"radio_state": "online"},

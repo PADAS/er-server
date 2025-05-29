@@ -439,6 +439,8 @@ def is_subject_stationary_subject(subject):
 
 
 def is_observation_stationary_subject(observation):
+    # TODO: this could be wrong, because we didn't check to see if the observation.recorded_at is in the
+    # SubjectSource.assigned_range
     subject_source = observation.source.subjectsource_set.last()
     if subject_source:
         return is_subject_stationary_subject(subject_source.subject)

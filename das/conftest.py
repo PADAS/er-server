@@ -60,7 +60,7 @@ from factories import (
     TwoWayMessageSubjectFactory,
     UserFactory,
 )
-from observations.models import Observation
+from observations.models import Observation, SubjectStatus
 from utils.features import features
 from utils.tenant import Tenant
 from utils.tenant.managers import TenantContextManager
@@ -721,6 +721,7 @@ def subject_source_with_observations():
     observation.subject_source = subject_source
     observation.source = source
     observation.save()
+    SubjectStatus.objects.maintain_subject_status(subject_source.subject.id)
     return subject_source, observation
 
 
