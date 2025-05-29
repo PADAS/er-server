@@ -1,9 +1,8 @@
 name: Trigger Buoy Tests
 
 on:
-  push:
-    branches:
-      - develop
+  pull_request:
+    types: [opened, synchronize, reopened]
     paths:
       - 'das/buoy/**'
 
