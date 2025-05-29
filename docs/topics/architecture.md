@@ -14,7 +14,7 @@ When a new Observation is added to the database, the following process occurs:
 3. Verify that the identified SubjectSource is the active record for the Subject during that time period
 4. Confirm this Observation is the most recent one by:
    - Searching the Observation table for this Source within the assigned_range. We want the most recent in the assigned_range for this Source
-   - If the Observation's Source is currently assigned to the subject, we can optimize this search by getting the Observation from the LatestObserationSource table.
+   - If the Observation's Source is currently assigned to the subject, we can optimize this search by getting the Observation from the LatestObservationSource table.
 5. Update the Subject's SubjectStatus record with the new Observation data
 
 #### Daily Maintenance
