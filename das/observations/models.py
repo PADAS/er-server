@@ -722,7 +722,7 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
             queryset = Observation.objects.filter(source=source)
             queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=include_empty_location)
             if delay_hours:
-                end_time = pytz.utc.localize(datetime.now(tz=timezone.utc)) - timedelta(hours=delay_hours)
+                end_time = datetime.now(tz=timezone.utc) - timedelta(hours=delay_hours)
                 queryset = queryset.filter(recorded_at__lt=end_time)
 
             return queryset.latest("recorded_at")
