@@ -1630,7 +1630,11 @@ class NotificationMethod(TenantModelMixin, TimestampedModel):
         return None
 
     def plusify_value(self):
-        # If the number doesn't start with +, try adding it
+        """
+        If the number doesn't start with +, add a +.
+        Also strip leading and trailing whitespace.
+        """
+
         value = self.value.strip()
         if not value.startswith("+"):
             value = "+" + value
@@ -1643,10 +1647,8 @@ class NotificationMethod(TenantModelMixin, TimestampedModel):
             try:
                 value = self.plusify_value()
 
-                # Parse the phone number
                 phone_number = phonenumbers.parse(value)
 
-                # Check if it's a valid number
                 if not phonenumbers.is_valid_number(phone_number):
                     raise ValidationError({"value": _("Invalid phone number format.")})
 

@@ -134,12 +134,7 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Sending sms body: {sms_body}")
 
-        if not (to_number := notification_method.phone_number):
-            logger.error(
-                "Phone number is missing or invalid %s, notification id %s",
-                notification_method.value,
-                notification_method.id,
-            )
+        if not (to_number := get_valid_phone_number(notification_method)):
             return
 
         sendsms.api.send_sms(
@@ -166,12 +161,7 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Sending whatsapp content: {whatsapp_content}")
 
-        if not (to_number := notification_method.phone_number):
-            logger.error(
-                "Phone number is missing or invalid %s, notification id %s",
-                notification_method.value,
-                notification_method.id,
-            )
+        if not (to_number := get_valid_phone_number(notification_method)):
             return
 
         send_whatsapp(to=to_number, content_variables=whatsapp_content)
@@ -190,6 +180,17 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
             f"Unsupported NotifcationMethod ({notification_method.method})"
             f" when processing event:{event_id} for notification: {notification_method.id}"
         )
+
+
+def get_valid_phone_number(notification_method):
+    if not (phone_number := notification_method.phone_number):
+        logger.error(
+            "Phone number is missing or invalid %s, notification id %s",
+            notification_method.value,
+            notification_method.id,
+        )
+        return None
+    return phone_number
 
 
 def get_revised_event_fields(event_revision):
