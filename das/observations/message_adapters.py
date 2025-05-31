@@ -110,7 +110,7 @@ class SmartIntegrateMessageAdapter(BaseMessageAdapter):
             "text": message_text,
         }
 
-        qparams = {"apikey", message_config.get("apikey")}
+        qparams = dict(apikey=message_config.get("apikey"))
         try:
             response = requests.post(url=message_config.get("url"), params=qparams, json=payload)
         except requests.exceptions.RequestException as exc:
