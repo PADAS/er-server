@@ -4,7 +4,7 @@ import os
 import random
 import urllib.parse
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -710,6 +710,15 @@ class SubjectTestCase(BaseAPITest):
         expected_since = t2.isoformat()
         returned_since = since.replace(microsecond=0, second=0).isoformat()
         self.assertEqual(returned_since, expected_since)
+
+    def test_calculate_track_range_fn_tomorrow(self):
+        t1 = datetime.now(tz=timezone.utc) + timedelta(days=1)
+        t1_until = t1 + timedelta(days=5)
+        since, until, limit = calculate_track_range(user=self.user, since=t1, until=t1_until, limit=None)
+
+        assert since < until
+        assert since == t1
+        assert until == t1_until
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     @patch("utils.tenant.thread._get_local_thread")
