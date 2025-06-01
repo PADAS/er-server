@@ -45,6 +45,8 @@ class RevisionManager(TenantManagerMixin, models.Manager):
         f = {"object_id": self.instance.pk}
         queryset = super(RevisionManager, self).get_queryset().filter(**f)
         queryset = queryset.select_related("das_tenant", "user")
+        # the most reasonble default order by with an index is on sequence
+        queryset = queryset.order_by("sequence")
         return queryset
 
     def all_user(self):
