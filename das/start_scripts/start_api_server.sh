@@ -75,4 +75,4 @@ gunicorn das_server.wsgi --name das \
     --log-level info \
     --access-logfile - \
     --error-logfile - \
-    --capture-output
+    --capture-output 2>&1
