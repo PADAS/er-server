@@ -17,7 +17,7 @@
                 "type": "string",
                 "anyOf": [
                     {
-                        "$ref": "http://localhost:3000/schemas/existing/contactrep_patrolactivity.json"
+                        "$ref": "https://zoo.com/schemas/existing/contactrep_patrolactivity.json"
                     }
                 ]
             },
@@ -28,7 +28,7 @@
                 "type": "string",
                 "anyOf": [
                     {
-                        "$ref": "http://localhost:3000/schemas/existing/contactrep_whoinitiatedcontact.json"
+                        "$ref": "https://zoo.com/schemas/existing/contactrep_whoinitiatedcontact.json"
                     }
                 ]
             },
