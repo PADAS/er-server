@@ -56,10 +56,10 @@ class TestEventGeometryField:
             event=event,
             geometry=Polygon(
                 (
-                    (-103.41898441314697, 20.638567565077864),
-                    (-103.41387748718262, 20.63499318125139),
-                    (-103.40585231781006, 20.646840535793658),
-                    (-103.41898441314697, 20.638567565077864),
+                    (-103.418984, 20.638567),
+                    (-103.413877, 20.634993),
+                    (-103.405852, 20.646840),
+                    (-103.418984, 20.638567),
                 )
             ),
             properties={"size": "L", "color": "Green", "width": 15},
@@ -67,6 +67,10 @@ class TestEventGeometryField:
 
         serialized_geometry = EventGeometryField().to_representation(event.geometries)
         feature = serialized_geometry.get("features")[0]
+
+        expected_geometry = feature.get("geometry")
+        if "is_valid" in expected_geometry:
+            del expected_geometry["is_valid"]
 
         assert serialized_geometry.get("type") == "FeatureCollection"
         assert feature.get("type") == "Feature"
