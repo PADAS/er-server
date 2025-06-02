@@ -260,9 +260,16 @@ class TestEventTypesV2:
         assert et_serializer.get_has_events_assigned(et_with_events) is True
         assert warning_msg in caplog.text
 
-    def test_post_event_type_with_valid_schema(self, superuser_client, cat1_cat2_categories):
+    @pytest.mark.parametrize(
+        "json_schema_fixture",
+        [
+            "valid_nested_collection_schema.json",
+            "valid_user_choices_schema.json",
+        ],
+    )
+    def test_post_event_type_with_valid_schema(self, superuser_client, cat1_cat2_categories, json_schema_fixture):
         cat1, _ = cat1_cat2_categories
-        fixture_path = Path(__file__).parent / "fixtures" / "valid_nested_collection_schema.json"
+        fixture_path = Path(__file__).parent / "fixtures" / json_schema_fixture
         with open(fixture_path, encoding="utf-8") as f:
             schema = json.load(f)
 
