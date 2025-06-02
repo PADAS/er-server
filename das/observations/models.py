@@ -570,41 +570,47 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             lower=since or datetime.min.replace(tzinfo=pytz.UTC), upper=until or datetime.max.replace(tzinfo=pytz.UTC)
         )
 
-        subject_sources = SubjectSource.objects.filter(
-            subject=subject, assigned_range__overlap=time_range
-        ).select_related("source")
-
-        if not subject_sources.exists():
-            return self.none()
-
-        # Build a list of source IDs and their valid time ranges
-        source_ranges = []
-        for ss in subject_sources:
-            source_ranges.append({"source_id": ss.source_id, "time_range": ss.assigned_range})
-
-        # Build a query that efficiently uses the partitioning
+        batch_size = 200
         queryset = self.none()
-        for sr in source_ranges:
-            # For each source, get observations within its assigned range
-            source_qs = self.filter(
-                source_id=sr["source_id"],
-                recorded_at__gte=sr["time_range"].lower,
-                recorded_at__lte=sr["time_range"].upper,
-            )
 
-            # Apply time range filters if specified
-            if since:
-                source_qs = source_qs.filter(recorded_at__gte=since)
-            if until:
-                source_qs = source_qs.filter(recorded_at__lte=until)
-            if created_after:
-                source_qs = source_qs.filter(created_at__gte=created_after)
+        # Get all source assignments that overlap with our time range
+        source_assignments = SubjectSource.objects.filter(subject=subject, assigned_range__overlap=time_range).values(
+            "source_id", "assigned_range"
+        )
 
-            # Apply exclusion flags
-            source_qs = source_qs.by_exclusion_flags(filter_flag, include_empty_location=subject.is_stationary_subject)
+        # Process assignments in batches to avoid recursion issues
+        for i in range(0, len(source_assignments), batch_size):
+            batch_assignments = source_assignments[i : i + batch_size]
+
+            # Build a query for this batch
+            batch_qs = self.none()
+
+            for assignment in batch_assignments:
+                # For each source, get observations within its assigned range
+                source_qs = self.filter(
+                    source_id=assignment["source_id"],
+                    recorded_at__gte=assignment["assigned_range"].lower,
+                    recorded_at__lte=assignment["assigned_range"].upper,
+                )
+
+                # Apply additional time range filters if specified
+                if since:
+                    source_qs = source_qs.filter(recorded_at__gte=since)
+                if until:
+                    source_qs = source_qs.filter(recorded_at__lte=until)
+                if created_after:
+                    source_qs = source_qs.filter(created_at__gte=created_after)
+
+                # Apply exclusion flags
+                source_qs = source_qs.by_exclusion_flags(
+                    filter_flag, include_empty_location=subject.is_stationary_subject
+                )
+
+                # Add to batch query
+                batch_qs = batch_qs.union(source_qs)
 
             # Combine with previous results
-            queryset = queryset.union(source_qs)
+            queryset = queryset.union(batch_qs)
 
         # Apply ordering and limit after combining results
         queryset = queryset.order_by(order_by or "-recorded_at")
