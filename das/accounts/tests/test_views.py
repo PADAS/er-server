@@ -39,14 +39,20 @@ class TestUsersListView:
         response = superuser_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == active_users_count
+        response_head = superuser_client.head(url)
+        assert response_head.status_code == status.HTTP_200_OK
 
         response = superuser_client.get(url, {"include_inactive": "false"})
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == active_users_count
+        response_head = superuser_client.head(url, {"include_inactive": "false"})
+        assert response_head.status_code == status.HTTP_200_OK
 
         response = superuser_client.get(url, {"include_inactive": "true"})
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == active_users_count + inactive_users_count
+        response_head = superuser_client.head(url, {"include_inactive": "true"})
+        assert response_head.status_code == status.HTTP_200_OK
 
 
 @pytest.mark.django_db
@@ -96,9 +102,13 @@ class TestUserView:
 
         response = superuser_client.get(url)
         assert response.status_code == status.HTTP_404_NOT_FOUND
+        response_head = superuser_client.head(url)
+        assert response_head.status_code == status.HTTP_404_NOT_FOUND
 
         response = superuser_client.get(url, {"include_inactive": "true"})
         assert response.status_code == status.HTTP_200_OK
+        response_head = superuser_client.head(url, {"include_inactive": "true"})
+        assert response_head.status_code == status.HTTP_200_OK
 
     def test_get_user_with_profile_should_resolved(self, superuser_client, user) -> None:
         superuser = superuser_client.user
