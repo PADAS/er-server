@@ -8,12 +8,6 @@ from activity.models import (
     NOTIFICATION_METHOD_WHATSAPP,
     NotificationMethod,
 )
-from das.factories import UserFactory
-
-
-@pytest.fixture
-def user():
-    return UserFactory.create()
 
 
 @pytest.mark.django_db
