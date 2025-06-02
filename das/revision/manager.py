@@ -26,11 +26,18 @@ from utils.text import humanize_field_name
 
 logger = logging.getLogger(__name__)
 
-relation_deleted = django.dispatch.Signal(providing_args=["relation", "instance", "related_query_name"])
+# the old providing_args=["relation", "instance", "related_query_name"], is not used by Django. Here for documentation purposes.
+relation_deleted = django.dispatch.Signal()
+
 User = get_user_model()
 
 
 class RevisionManager(TenantManagerMixin, models.Manager):
+    """
+    RevisionManager is a manager for the Revision model.
+    It is used to get the revisions for a given instance.
+    """
+
     use_in_migrations = True
 
     def __init__(self, model, instance=None):
