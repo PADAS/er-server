@@ -1620,7 +1620,8 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(len(response.data), 1)
+        # number of keys returned, id and serial_number
+        self.assertEqual(len(response.data), 2)
 
     def test_radio_room_operator_permissions(self):
         results = self.do_all_operations_on_all_event_types(self.radio_room_user)
