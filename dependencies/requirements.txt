@@ -726,6 +726,8 @@ partd==1.4.1
     # via dask
 pexpect==4.8.0
     # via ipython
+phonenumberslite==9.0.6
+    # via -r requirements.in
 pickleshare==0.7.5
     # via ipython
 piexif==1.1.3
