@@ -497,7 +497,7 @@ class TestEventTypesV2:
         assert cat1_fire_v2_event_type.das_tenant_id is not None
 
     def test_patch_event_type_toggle_active(self, superuser_client, cat1_fire_v2_event_type):
-        """Test toggling is_active state"""
+        """Test that patching inactive EventType is supported"""
         url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
 
         # First make it inactive
@@ -512,7 +512,7 @@ class TestEventTypesV2:
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
         # Then make it active again
-        response = superuser_client.patch(url + "?include_inactive=true", data={"is_active": True})
+        response = superuser_client.patch(url, data={"is_active": True})
         assert response.status_code == status.HTTP_200_OK
         cat1_fire_v2_event_type.refresh_from_db()
         assert cat1_fire_v2_event_type.is_active is True
@@ -581,6 +581,18 @@ class TestEventTypesV2:
             "status": {"code": status.HTTP_204_NO_CONTENT, "message": "No Content"},  # inconsistent with status code
         }
         assert response.json() == expected_response
+
+    def test_delete_inactive_event_type(self, superuser_client, cat1_cat2_event_types):
+        target = cat1_cat2_event_types[1]
+        target.set_to_inactive()
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        response = superuser_client.delete(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert not EventType.objects.filter(pk=target.pk).exists()
 
     def test_delete_event_type_success_after_cleaning_dependencies(
         self, superuser_client, superuser, cat1_cat2_event_types
