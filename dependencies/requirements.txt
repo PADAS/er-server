@@ -265,7 +265,7 @@ drf-extra-fields==3.7.0
     # via -r requirements.in
 drf-spectacular==0.28.0
     # via -r requirements.in
-drf-spectacular-sidecar==2024.12.1
+drf-spectacular-sidecar==2025.6.1
     # via -r requirements.in
 earthengine-api==0.1.371
     # via pymet
@@ -705,6 +705,7 @@ packaging==25.0
     # via
     #   -r requirements.in
     #   dask
+    #   drf-extensions
     #   geopandas
     #   ipykernel
     #   jupyter-server
@@ -859,6 +860,7 @@ pyyaml==6.0
     # via
     #   -r requirements.in
     #   dask
+    #   drf-spectacular
 pyzmq==24.0.1
     # via
     #   ipykernel
