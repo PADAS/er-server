@@ -287,11 +287,7 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "EarthRanger API Documentation",
-    "DESCRIPTION": (
-        "Welcome to the <b>EarthRanger API</b>! </br>"
-        "You're a conservationist, ranger, or technologist? </br>"
-        "Explore our endpoints to discover how EarthRanger can help you protect wildlife and their habitats."
-    ),
+    "DESCRIPTION": ("Welcome to the <b>EarthRanger API</b>! </br>"),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "SWAGGER_UI_DIST": "SIDECAR",  # shorthand to use the sidecar instead
