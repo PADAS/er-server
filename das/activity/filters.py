@@ -3,6 +3,7 @@ import logging
 
 import dateutil.parser as dateparser
 from django_filters import rest_framework as filters
+from django_filters.widgets import CSVWidget
 
 from django.db.models import Q
 from django.db.models.query import QuerySet
@@ -24,7 +25,7 @@ from utils.json import parse_bool
 logger = logging.getLogger(__name__)
 
 
-class EventTypeFilter(filters.FilterSet):
+class EventTypeFilterSet(filters.FilterSet):
     """
     FilterSet for EventType objects, avoiding the use of custom filters implemented in
     the manager of EventTypes
@@ -32,8 +33,16 @@ class EventTypeFilter(filters.FilterSet):
 
     updated_since = filters.DateTimeFilter(field_name="updated_at", lookup_expr="gte")
     is_collection = filters.BooleanFilter(field_name="is_collection")
-    category = filters.CharFilter(field_name="category__value", lookup_expr="exact")
-    include_inactive = RestrictToTrueByDefaultFilter(field_name="is_active")
+    category = filters.ModelMultipleChoiceFilter(
+        field_name="category__value",
+        to_field_name="value",
+        queryset=lambda request: EventCategory.objects.all(),
+        widget=CSVWidget(),
+    )
+    include_inactive = RestrictToTrueByDefaultFilter(
+        field_name="is_active",
+        label="Include inactive event types when 'true'",
+    )
 
     class Meta:
         model = EventType

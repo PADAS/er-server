@@ -134,19 +134,22 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Sending sms body: {sms_body}")
 
+        if not (to_number := get_valid_phone_number(notification_method)):
+            return
+
         sendsms.api.send_sms(
             body=sms_body,
             from_phone="",
             to=[
-                notification_method.value,
+                to_number,
             ],
         )
-        logger.info(f"Sent sms alert {event_id} to {notification_method.value}")
+        logger.info(f"Sent sms alert {event_id} to {to_number}")
 
         EventNotification.objects.create(
             event=event,
             method=notification_method.method,
-            value=notification_method.value,
+            value=to_number,
             owner=notification_method.owner,
         )
         increment_alert_counter(notification_method.owner, NOTIFICATION_METHOD_SMS)
@@ -158,18 +161,16 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Sending whatsapp content: {whatsapp_content}")
 
-        to_number = (
-            "+" + notification_method.value
-            if not notification_method.value.startswith("+")
-            else notification_method.value
-        )
+        if not (to_number := get_valid_phone_number(notification_method)):
+            return
+
         send_whatsapp(to=to_number, content_variables=whatsapp_content)
-        logger.info(f"Sent alert {event_id} to {notification_method.value}")
+        logger.info(f"Sent alert {event_id} to {to_number}")
 
         EventNotification.objects.create(
             event=event,
             method=notification_method.method,
-            value=notification_method.value,
+            value=to_number,
             owner=notification_method.owner,
         )
         increment_alert_counter(notification_method.owner, NOTIFICATION_METHOD_WHATSAPP)
@@ -179,6 +180,17 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
             f"Unsupported NotifcationMethod ({notification_method.method})"
             f" when processing event:{event_id} for notification: {notification_method.id}"
         )
+
+
+def get_valid_phone_number(notification_method):
+    if not (phone_number := notification_method.phone_number):
+        logger.error(
+            "Phone number is missing or invalid %s, notification id %s",
+            notification_method.value,
+            notification_method.id,
+        )
+        return None
+    return phone_number
 
 
 def get_revised_event_fields(event_revision):

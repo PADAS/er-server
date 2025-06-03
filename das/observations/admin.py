@@ -60,7 +60,6 @@ from core.admin import (
     CustomM2MChecks,
     HierarchyModelAdmin,
     InlineExtraDynamicMixin,
-    ModelAdminHistoryViewHideSharedAdminUserRevisionsMixin,
     SaveCoordinatesToCookieMixin,
 )
 from core.common import TIMEZONE_USED
@@ -1550,10 +1549,7 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
 
 
 @admin.register(models.SourceGroup)
-class SourceGroupAdmin(
-    ModelAdminHistoryViewHideSharedAdminUserRevisionsMixin,
-    HierarchyModelAdmin,
-):
+class SourceGroupAdmin(HierarchyModelAdmin):
     search_fields = ("name",)
     ordering = ("name",)
     checks_class = CustomM2MChecks
