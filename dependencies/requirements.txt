@@ -265,7 +265,7 @@ drf-extra-fields==3.7.0
     # via -r requirements.in
 drf-spectacular==0.28.0
     # via -r requirements.in
-drf-spectacular-sidecar==2024.12.1
+drf-spectacular-sidecar==2025.6.1
     # via -r requirements.in
 earthengine-api==0.1.371
     # via pymet
@@ -704,8 +704,8 @@ opentelemetry-util-http==0.46b0
 packaging==25.0
     # via
     #   -r requirements.in
-    #   drf-extensions
     #   dask
+    #   drf-extensions
     #   geopandas
     #   ipykernel
     #   jupyter-server
@@ -859,8 +859,8 @@ pytz==2023.3
 pyyaml==6.0
     # via
     #   -r requirements.in
-    #   drf-spectacular
     #   dask
+    #   drf-spectacular
 pyzmq==24.0.1
     # via
     #   ipykernel

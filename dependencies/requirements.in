@@ -53,7 +53,7 @@ djangorestframework==3.15.1
 drf-extensions==0.8.0
 drf-extra-fields==3.7.0
 drf-spectacular==0.28.0
-drf-spectacular-sidecar==2024.12.1
+drf-spectacular-sidecar==2025.6.1
 django-rest-framework-condition==0.1.1
 eventlet==0.30.2
 geojson==3.2.0
