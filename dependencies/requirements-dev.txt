@@ -33,9 +33,9 @@ anyio==3.7.1
     # via
     #   -r requirements.txt
     #   jupyter-server
-arcgis==1.8.0
+arcgis==2.1.0.5
     # via -r requirements.txt
-arcgis2geojson==2.0.0
+arcgis2geojson==3.0.3
     # via -r requirements.txt
 argon2-cffi==23.1.0
     # via
@@ -128,6 +128,7 @@ business-rules==1.1.1
 cachetools==5.3.1
     # via
     #   -r requirements.txt
+    #   arcgis
     #   google-auth
 celery==5.3.0
     # via
@@ -140,6 +141,7 @@ certifi==2023.7.22
     #   -r requirements.txt
     #   fiona
     #   pyproj
+    #   python-certifi-win32
     #   rasterio
     #   requests
 cffi==1.16.0
@@ -163,7 +165,9 @@ click==8.1.7
     #   click-plugins
     #   click-repl
     #   cligj
+    #   dask
     #   fiona
+    #   geomet
     #   pip-tools
     #   rasterio
     #   rasterstats
@@ -187,11 +191,14 @@ cligj==0.7.2
     #   fiona
     #   rasterio
     #   rasterstats
+cloudpickle==3.1.1
+    # via
+    #   -r requirements.txt
+    #   dask
 comm==0.1.4
     # via
     #   -r requirements.txt
     #   ipykernel
-    #   ipywidgets
 contourpy==1.1.1
     # via
     #   -r requirements.txt
@@ -203,9 +210,8 @@ coverage[toml]==7.5.3
 cryptography==41.0.1
     # via
     #   -r requirements.txt
+    #   arcgis
     #   jwcrypto
-    #   pyspnego
-    #   requests-ntlm
     #   secretstorage
 cycler==0.12.0
     # via
@@ -213,6 +219,10 @@ cycler==0.12.0
     #   matplotlib
 cython==0.29.35
     # via -r requirements.txt
+dask==2023.5.0
+    # via
+    #   -r requirements.txt
+    #   arcgis
 dataclasses-json==0.5.8
     # via -r requirements.txt
 datadog==0.36.0
@@ -225,6 +235,7 @@ decorator==5.1.1
     # via
     #   -r requirements.txt
     #   datadog
+    #   gssapi
     #   ipython
 defusedxml==0.7.1
     # via
@@ -323,7 +334,7 @@ django-tagulous==1.3.3
     # via -r requirements.txt
 django-treebeard==4.7
     # via -r requirements.txt
-django-versatileimagefield==3.0
+django-versatileimagefield==3.1
     # via -r requirements.txt
 djangorestframework==3.15.1
     # via
@@ -359,7 +370,6 @@ earthengine-api==0.1.371
 entrypoints==0.4
     # via
     #   -r requirements.txt
-    #   jupyter-client
     #   jupyterlab-server
     #   nbconvert
 et-xmlfile==1.1.0
@@ -417,6 +427,10 @@ frozenlist==1.4.0
     #   -r requirements.txt
     #   aiohttp
     #   aiosignal
+fsspec==2025.3.0
+    # via
+    #   -r requirements.txt
+    #   dask
 gdal==3.4.3
     # via
     #   -r requirements.txt
@@ -426,10 +440,14 @@ geographiclib==2.0
     #   -r requirements.txt
     #   geopy
     #   pymet
-geojson==2.4.1
+geojson==3.2.0
     # via
     #   -r requirements.txt
     #   pymet
+geomet==1.1.0
+    # via
+    #   -r requirements.txt
+    #   arcgis
 geopandas==0.13.2
     # via
     #   -r requirements.txt
@@ -545,6 +563,11 @@ grpcio-status==1.59.0
     #   -r requirements.txt
     #   google-api-core
     #   google-cloud-pubsub
+gssapi==1.9.0
+    # via
+    #   -r requirements.txt
+    #   arcgis
+    #   requests-gssapi
 gunicorn==20.1.0
     # via -r requirements.txt
 h11==0.14.0
@@ -572,9 +595,11 @@ importlib-metadata==6.8.0
     # via
     #   -r requirements.txt
     #   build
+    #   dask
     #   fiona
     #   keyring
     #   opentelemetry-api
+    #   setuptools-scm
 importlib-resources==6.1.0
     # via
     #   -r requirements.txt
@@ -592,6 +617,7 @@ iniconfig==2.0.0
 ipykernel==6.25.2
     # via
     #   -r requirements.txt
+    #   ipywidgets
     #   nbclassic
     #   notebook
 ipython==8.12.3
@@ -603,9 +629,10 @@ ipython==8.12.3
 ipython-genutils==0.2.0
     # via
     #   -r requirements.txt
+    #   ipywidgets
     #   nbclassic
     #   notebook
-ipywidgets==8.1.1
+ipywidgets==7.7.1
     # via
     #   -r requirements.txt
     #   arcgis
@@ -661,9 +688,10 @@ jsonschema-specifications==2023.12.1
     # via
     #   -r requirements.txt
     #   jsonschema
-jupyter-client==7.4.9
+jupyter-client==6.1.12
     # via
     #   -r requirements.txt
+    #   arcgis
     #   ipykernel
     #   jupyter-server
     #   nbclassic
@@ -725,9 +753,14 @@ lerc==4.0.1
     # via
     #   -r requirements.txt
     #   arcgis
+locket==1.0.0
+    # via
+    #   -r requirements.txt
+    #   partd
 lxml==4.9.2
     # via
     #   -r requirements.txt
+    #   arcgis
     #   docxcompose
     #   docxtpl
     #   python-docx
@@ -814,7 +847,6 @@ nest-asyncio==1.5.8
     # via
     #   -r requirements.txt
     #   ipykernel
-    #   jupyter-client
     #   nbclassic
     #   nbclient
     #   notebook
@@ -823,7 +855,9 @@ nodeenv==1.8.0
 notebook==6.5.6
     # via
     #   -r requirements.txt
+    #   arcgis
     #   jupyterlab
+    #   widgetsnbextension
 notebook-shim==0.2.3
     # via
     #   -r requirements.txt
@@ -936,7 +970,7 @@ packaging==25.0
     # via
     #   -r requirements.txt
     #   build
-    #   drf-extensions
+    #   dask
     #   geopandas
     #   ipykernel
     #   jupyter-server
@@ -946,7 +980,8 @@ packaging==25.0
     #   matplotlib
     #   pytest
     #   pytest-factoryboy
-pandas==2.0.3
+    #   setuptools-scm
+pandas==1.5.3
     # via
     #   -r requirements.txt
     #   arcgis
@@ -960,6 +995,10 @@ parso==0.8.3
     # via
     #   -r requirements.txt
     #   jedi
+partd==1.4.1
+    # via
+    #   -r requirements.txt
+    #   dask
 pathspec==0.11.2
     # via black
 pep8==1.7.1
@@ -968,6 +1007,8 @@ pexpect==4.8.0
     # via
     #   -r requirements.txt
     #   ipython
+phonenumberslite==9.0.6
+    # via -r requirements.txt
 pickleshare==0.7.5
     # via
     #   -r requirements.txt
@@ -977,6 +1018,7 @@ piexif==1.1.3
 pillow==9.5.0
     # via
     #   -r requirements.txt
+    #   arcgis
     #   django-versatileimagefield
     #   matplotlib
 pip-tools==7.4.1
@@ -1125,10 +1167,6 @@ pyshp==2.3.1
     # via
     #   -r requirements.txt
     #   arcgis
-pyspnego==0.10.1
-    # via
-    #   -r requirements.txt
-    #   requests-ntlm
 pytest==6.2.5
     # via
     #   -r requirements-dev.in
@@ -1153,6 +1191,10 @@ pytest-pythonpath==0.7.4
     # via -r requirements-dev.in
 pytest-xdist==3.5.0
     # via -r requirements-dev.in
+python-certifi-win32==1.6.1
+    # via
+    #   -r requirements.txt
+    #   arcgis
 python-dateutil==2.8.2
     # via
     #   -r requirements.txt
@@ -1192,7 +1234,7 @@ pytz==2023.3
 pyyaml==6.0
     # via
     #   -r requirements.txt
-    #   drf-spectacular
+    #   dask
     #   pre-commit
 pyzmq==24.0.1
     # via
@@ -1235,17 +1277,17 @@ requests==2.31.0
     #   google-cloud-storage
     #   jupyterlab-server
     #   opentelemetry-resourcedetector-gcp
+    #   requests-gssapi
     #   requests-mock
-    #   requests-ntlm
     #   requests-oauthlib
     #   requests-toolbelt
     #   twilio
-requests-mock==1.11.0
-    # via -r requirements-dev.in
-requests-ntlm==1.2.0
+requests-gssapi==1.3.0
     # via
     #   -r requirements.txt
     #   arcgis
+requests-mock==1.11.0
+    # via -r requirements-dev.in
 requests-oauthlib==1.3.1
     # via
     #   -r requirements.txt
@@ -1289,6 +1331,10 @@ send2trash==1.8.2
     #   jupyter-server
     #   nbclassic
     #   notebook
+setuptools-scm==8.3.1
+    # via
+    #   -r requirements.txt
+    #   python-certifi-win32
 shapely==2.0.1
     # via
     #   -r requirements.txt
@@ -1374,8 +1420,14 @@ tomli==2.0.1
     #   pip-tools
     #   pylint
     #   pyproject-hooks
+    #   setuptools-scm
 tomlkit==0.12.1
     # via pylint
+toolz==1.0.0
+    # via
+    #   -r requirements.txt
+    #   dask
+    #   partd
 tornado==6.3.3
     # via
     #   -r requirements.txt
@@ -1419,6 +1471,7 @@ typing-extensions==4.8.0
     #   pylint
     #   pytest-factoryboy
     #   rich
+    #   setuptools-scm
     #   typing-inspect
 typing-inspect==0.9.0
     # via
@@ -1429,15 +1482,19 @@ tzdata==2023.3
     #   -r requirements.txt
     #   backports-zoneinfo
     #   celery
-    #   pandas
+ujson==5.10.0
+    # via
+    #   -r requirements.txt
+    #   arcgis
 uritemplate==4.1.1
     # via
     #   -r requirements.txt
     #   drf-spectacular
     #   google-api-python-client
-urllib3==1.25.11
+urllib3==1.26.20
     # via
     #   -r requirements.txt
+    #   arcgis
     #   botocore
     #   requests
 vine==5.0.0
@@ -1464,7 +1521,7 @@ wheel==0.41.2
     # via pip-tools
 whitenoise==5.3.0
     # via -r requirements.txt
-widgetsnbextension==4.0.9
+widgetsnbextension==3.6.10
     # via
     #   -r requirements.txt
     #   arcgis
@@ -1477,6 +1534,7 @@ wrapt==1.15.0
     #   opentelemetry-instrumentation
     #   opentelemetry-instrumentation-dbapi
     #   opentelemetry-instrumentation-redis
+    #   python-certifi-win32
 wsproto==1.2.0
     # via
     #   -r requirements.txt

@@ -7,7 +7,7 @@ from rest_framework import generics
 from rest_framework.filters import OrderingFilter
 from rest_framework.views import APIView
 
-from choices.filters import ChoicesFilter
+from choices.filters import ChoicesFilterSet
 from choices.models import Choice
 from choices.permissions import ChoiceModelPermissions
 from choices.serializers import ChoiceIconZipSerializer, ChoiceSerializer
@@ -45,10 +45,11 @@ class ChoicesView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     permission_classes = (ChoiceModelPermissions,)
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
-    filterset_class = ChoicesFilter
-    pagination_class = StandardResultsSetPagination
+    filterset_class = ChoicesFilterSet
     serializer_class = ChoiceSerializer
-    ordering = ("ordernum", "display")
+    pagination_class = StandardResultsSetPagination
+    ordering_fields = ("ordernum", "value", "display")
+    ordering = ("ordernum", "value")
 
     def get_queryset(self):
         return Choice.objects.all()

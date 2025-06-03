@@ -310,7 +310,7 @@ class EventTypeSchemaView(ListCreateAPIView):
             for choice_property in field_schema:
                 inactive_choices = []
                 objs = Choice.objects.get_choices(
-                    model=Choice.Field_Reports, field=choice_property.field_name
+                    model=Choice.EVENT_MODEL, field=choice_property.field_name
                 ).filter_inactive_choices()
                 for o in objs:
                     inactive_choices.append(o.value)
@@ -319,7 +319,7 @@ class EventTypeSchemaView(ListCreateAPIView):
 
             for value in schema_utils.get_values_titlemap(eventtype.schema):
                 inactive_choices = []
-                objs = Choice.objects.get_choices(model=Choice.Field_Reports, field=value).filter_inactive_choices()
+                objs = Choice.objects.get_choices(model=Choice.EVENT_MODEL, field=value).filter_inactive_choices()
                 for o in objs:
                     inactive_choices.append(o.value)
                 if inactive_choices:

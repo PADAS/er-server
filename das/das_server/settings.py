@@ -327,6 +327,12 @@ OAUTH2_PROVIDER = {
     "EXPIRE_OVERRIDES": {"er_mobile_tracker": 3600 * 24 * 30},
 }
 
+# Django System Checks
+SILENCED_SYSTEM_CHECKS = ["auth.W004", "fields.W342"]
+
+# Django autofield, but we prefer to use UUIDs
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
 # RT API settings
 ASYNC_MODE = "eventlet"
 

@@ -403,9 +403,9 @@ class TestEventViewCreation:
     def test_consistency_checkbox_value(self, create_client_for_user):
         Choice.objects.all().delete()
         Choice.objects.create(
-            model=Choice.Field_Reports, field="wildlifesightingrep_species", value="buffalo", display="Buffalo"
+            model=Choice.EVENT_MODEL, field="wildlifesightingrep_species", value="buffalo", display="Buffalo"
         )
-        Choice.objects.create(model=Choice.Field_Reports, field="yesno", value="yes", display="Yes")
+        Choice.objects.create(model=Choice.EVENT_MODEL, field="yesno", value="yes", display="Yes")
 
         schema = schema_examples.WILDLIFE_SCHEMA_CHECKBOX
         event_type = self.sample_event.event_type
