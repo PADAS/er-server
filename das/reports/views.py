@@ -28,14 +28,14 @@ class ReportDateParameters(serializers.Serializer):
 
 
 class SituationReportViewSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
             query_params = [
                 {"name": "since", "in": "query", "description": "Include events since this timestamp"},
                 {"name": "before", "in": "query", "description": "Include events older than this timestamp"},
             ]
-
+            operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)
         return operation
 
