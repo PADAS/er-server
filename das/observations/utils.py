@@ -78,11 +78,11 @@ def calculate_track_range(user, since, until, limit):
     """
     Find the min and max boundaries for track data based on user permissions
 
-    :param user:
-    :param since:
-    :param until:
-    :param limit:
-    :return: Max number of observations in the track
+    :param user: The user requesting the track data
+    :param since: The requested start time for the track
+    :param until: The requested end time for the track
+    :param limit: Maximum number of observations to return
+    :return: Tuple of (begin, until, limit) where begin and until are datetime objects
     """
     oldest_age_allowed = -1
     newest_age_allowed = 999
@@ -101,49 +101,44 @@ def calculate_track_range(user, since, until, limit):
     if oldest_age_allowed < 0 or newest_age_allowed > oldest_age_allowed:
         raise PermissionDenied
 
-    requested_oldest_age = since
-    requested_newest_age = until
+    now = datetime.now(tz=pytz.utc)
 
-    now = pytz.utc.localize(datetime.utcnow())
+    # Calculate the oldest allowed timestamp based on permissions
+    oldest_allowed = now - timedelta(days=oldest_age_allowed)
+    newest_allowed = now - timedelta(days=newest_age_allowed)
 
-    if requested_oldest_age is None:
-        oldest_age = min(get_tenant_settings().env_settings.show_track_days, oldest_age_allowed)
+    # Set begin time based on since parameter or default to oldest allowed
+    if since:
+        # For real-time users (newest_age_allowed = 0), allow future dates
+        if newest_age_allowed == 0 and since > now:
+            begin = since
+        else:
+            begin = max(since, oldest_allowed)
     else:
-        requested_oldest_age = (now - requested_oldest_age).days
-        oldest_age = min(requested_oldest_age, oldest_age_allowed)
+        begin = max(oldest_allowed, now - timedelta(days=get_tenant_settings().env_settings.show_track_days))
 
-    if requested_newest_age is None:
-        newest_age = newest_age_allowed
+    # Set until time based on until parameter or default to newest allowed
+    if until:
+        # For real-time users (newest_age_allowed = 0), allow future dates
+        if newest_age_allowed == 0 and until > now:
+            end = until
+        else:
+            end = min(until, newest_allowed)
     else:
-        requested_newest_age = (now - requested_newest_age).days
-        newest_age = max(requested_newest_age, newest_age_allowed)
+        end = newest_allowed
 
+    # Handle MOU expiry date if present
     if mou_expiry_date is not None:
-        now = pytz.utc.localize(datetime.utcnow())
         mou_expiry_date = dateutil.parser.parse(mou_expiry_date)
         if not mou_expiry_date.tzinfo:
             mou_expiry_date = pytz.utc.localize(mou_expiry_date)
-        mou_expiry_age = now - mou_expiry_date
+        end = min(end, mou_expiry_date)
 
-        newest_age = max(mou_expiry_age.days, newest_age)
-        # if oldest_age < newest_age:
-        #     raise PermissionDenied()
+    # If end is not after begin, return an empty time range
+    if end <= begin:
+        end = begin
 
-    if since:
-        age_secs = (now - since).seconds
-        if oldest_age == 0 and since.date() == now.date():
-            begin = now - timedelta(seconds=age_secs)
-        else:
-            begin = now - timedelta(days=oldest_age, seconds=age_secs)
-    else:
-        begin = now - timedelta(days=oldest_age)
-
-    if newest_age > 0:
-        until = now - timedelta(days=newest_age)
-    else:
-        until = now + timedelta(minutes=20)
-
-    return begin, until, limit
+    return begin, end, limit
 
 
 def calculate_subject_view_window(user, maximum_history_days=60):

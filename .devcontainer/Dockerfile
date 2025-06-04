@@ -68,6 +68,7 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     wget \
     gnupg \
     locales locales-all \
+    libkrb5-dev \
     && apt-get autoremove
 
 RUN echo ogrinfo --version

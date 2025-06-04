@@ -1596,7 +1596,8 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(len(response.data), 1)
+        # number of keys returned, id and serial_number
+        self.assertEqual(len(response.data), 2)
 
     def test_radio_room_operator_permissions(self):
         results = self.do_all_operations_on_all_event_types(self.radio_room_user)
@@ -2890,14 +2891,14 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         [
             Choice.objects.create(
-                model=Choice.Field_Reports, field="behavior", value=f"ac{i}", ordernum=i, display=f"AC{i}"
+                model=Choice.EVENT_MODEL, field="behavior", value=f"ac{i}", ordernum=i, display=f"AC{i}"
             )
             for i in range(0, 2)
         ]
 
         [
             Choice.objects.create(
-                model=Choice.Field_Reports,
+                model=Choice.EVENT_MODEL,
                 field="behavior",
                 value=f"di{i}",
                 display=f"DI{i}",
@@ -3074,13 +3075,13 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         [
             Choice.objects.create(
-                model=Choice.Field_Reports, field="wildlifesightingrep_species", value=c, display=c.title()
+                model=Choice.EVENT_MODEL, field="wildlifesightingrep_species", value=c, display=c.title()
             )
             for c in ["asiatic lion", "asiatic cheetah", "siberian tiger"]
         ]
 
         [
-            Choice.objects.create(model=Choice.Field_Reports, field="yesno", value=i, display=i.title())
+            Choice.objects.create(model=Choice.EVENT_MODEL, field="yesno", value=i, display=i.title())
             for i in ["oh yeah!", "yes", "no"]
         ]
 
