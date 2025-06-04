@@ -717,13 +717,13 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
                 source=subjectsource.source,
                 recorded_at__range=(subjectsource.assigned_range.lower, subjectsource.assigned_range.upper),
             )
-            .order_by("-recorded_at")[:1]
+            .order_by("-recorded_at")
             .first()
         )
 
     def get_latest_observation_source(
         self, source, include_empty_location: bool = False, delay_hours: int = 0, filter_flag=0
-    ):
+    ) -> Union[Observation, None]:
         try:
             queryset = Observation.objects.filter(source=source)
             queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=include_empty_location)
@@ -916,14 +916,6 @@ class SubjectSourceManager(TenantManagerMixin, models.Manager.from_queryset(Subj
     def get_for_source_at_time(self, source, at_time):
         return (
             self.filter(source=source, assigned_range__contains=at_time)
-            .select_related("subject", "source", "source__provider")
-            .order_by("-assigned_range")[:1]
-            .first()
-        )
-
-    def get_latest_for_subject(self, subject):
-        return (
-            self.filter(subject=subject)
             .select_related("subject", "source", "source__provider")
             .order_by("-assigned_range")[:1]
             .first()
