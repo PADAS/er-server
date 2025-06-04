@@ -1,0 +1,33 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+            "first_field": {
+                "default": "value",
+                "title": "What is the response?",
+                "type": "string"
+            }
+        },
+        "required": [
+            "first_field"
+        ],
+        "type": "object"
+    },
+    "ui": {
+        "fields": {},
+        "headers": {},
+        "order": [
+            "section-s0m38ZMo7h5p4cE2BC8U6"
+        ],
+        "sections": {
+            "section-s0m38ZMo7h5p4cE2BC8U6": {
+                "columns": 1,
+                "isActive": true,
+                "label": "Details",
+                "leftColumn": [],
+                "rightColumn": []
+            }
+        }
+    }
+}

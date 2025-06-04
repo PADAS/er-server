@@ -96,6 +96,21 @@ class ScheduleTestCases(BaseAPITest):
         sample_date = dateparser.parse("Monday")
         self.assertTrue(sample_date in OneWeekSchedule(valid_document_1))
 
+    def test_schedule_timezone_only_validation(self):
+        valid_document_1 = {
+            "timezone": "UTC",
+        }
+
+        try:
+            assumed_valid = False
+            jsonschema.validate(valid_document_1, OneWeekSchedule.json_schema)
+            assumed_valid = True
+        finally:
+            self.assertTrue(assumed_valid, msg="Incorrectly assumed a schema is valid.")
+
+        sample_date = timezone.localtime()
+        self.assertTrue(sample_date in OneWeekSchedule(valid_document_1))
+
     def test_schedule_with_invalid_timezone(self):
         valid_document_1 = {
             "schedule_type": "week",

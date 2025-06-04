@@ -100,6 +100,7 @@ MIDDLEWARE = (
     "utils.middleware.RequestLoggingMiddleware",
     "utils.middleware.EULARedirectMiddleware",
     "utils.middleware.GeographicMiddleware",
+    "utils.middleware.ManageAdminEFBTokenMiddleware",
 )
 
 ROOT_URLCONF = "das_server.urls"
@@ -308,6 +309,12 @@ OAUTH2_PROVIDER = {
     "EXPIRE_OVERRIDES": {"er_mobile_tracker": 3600 * 24 * 30},
 }
 
+# Django System Checks
+SILENCED_SYSTEM_CHECKS = ["auth.W004", "fields.W342"]
+
+# Django autofield, but we prefer to use UUIDs
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
 # RT API settings
 ASYNC_MODE = "eventlet"
 
@@ -401,9 +408,15 @@ SENDSMS_AFRICAS_TALKING_API_KEY = ""
 
 # use these when you don't want to send SMS from kenya or when you want to
 # use WhatsApp
-TWILIO_ACCOUNT_SID = ""
-TWILIO_AUTH_TOKEN = ""
-WHATSAPP_FROM_NUMBER = ""
+TWILIO_ACCOUNT_SID = env.str("TWILIO_ACCOUNT_SID", None)
+TWILIO_AUTH_TOKEN = env.str("TWILIO_AUTH_TOKEN", None)
+
+SENDSMS_TWILIO_FROM_NUMBER = env.str("SENDSMS_TWILIO_FROM_NUMBER", None)
+if SENDSMS_TWILIO_FROM_NUMBER:
+    SENDSMS_BACKEND = "utils.smsbackend.TwilioSmsBackend"
+
+WHATSAPP_FROM_NUMBER = env.str("WHATSAPP_FROM_NUMBER", "")
+WHATSAPP_CONTENT_SID = env.str("WHATSAPP_CONTENT_SID", "HXa1127daab260594b0eafbd85dac34b16")
 
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
     "default": [

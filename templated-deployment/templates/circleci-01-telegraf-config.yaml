@@ -19,6 +19,9 @@ data:
           precision = ""
           hostname = ""
           omit_hostname = false
+          logfile = ""  # Disable log file output
+          quiet = false  # Keep normal logging level
+          logtarget = "stdout"  # Redirect logs to stdout
 
         [[inputs.statsd]]
           protocol = "udp"
@@ -48,4 +51,3 @@ data:
           rotation_max_size = "1MB"
           rotation_max_archives = 2
           data_format = "influx"
-

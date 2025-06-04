@@ -16,7 +16,7 @@ class DynamicSchemaDataMixin:
     """
     A mixin that provides an interface for `DynamicSchemaFromSourceView` to interact with it's  `source_view`,
 
-    Provides methods that can be ovrrided to optimize the queryset, filter data, and avoid unnecessary
+    Provides methods that can be overriden to optimize the queryset, filter data, and avoid unnecessary
     serialization/de-serialization.
     """
 
@@ -267,9 +267,9 @@ class DynamicSchemaFromSourceView(APIView):
 
         return f"{base_url}?{query_string}"
 
-    def render_schema(self, request: Request) -> Dict[str, Any]:
+    def generate_dynamic_schema(self, request: Request) -> Dict[str, Any]:
         """
-        Main method to render the schema, it will use the data from the source view to build the schema.
+        Generates a dict with a JSON schema format, using the specified source view.
         """
         query_params = self.get_query_params(request)
         schema_mode = query_params.get("s_mode", self.default_mode)
@@ -285,6 +285,7 @@ class DynamicSchemaFromSourceView(APIView):
         data = self.get_data_from_source_view(request)
         if not isinstance(data, list):
             data = [data]
+
         schema_items = self.get_schema_items(request, data)
 
         if schema_mode == "anyOf":
@@ -296,4 +297,4 @@ class DynamicSchemaFromSourceView(APIView):
         return schema
 
     def get(self, request: Request, *args, **kwargs) -> dict:
-        return Response(self.render_schema(request))
+        return Response(self.generate_dynamic_schema(request))

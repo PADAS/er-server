@@ -18,7 +18,7 @@ def get_custom_location_gear_subjectsource(location: Point = TEST_LOCATION):
     gear_subjectsource.save()
 
     source = gear_subjectsource.source
-    now = timezone.now()
+    now = str(datetime.now(tz=timezone.utc))
     additional = generate_devices(2, location)
     data = {
         "recorded_at": now,

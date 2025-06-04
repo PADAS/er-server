@@ -14,12 +14,10 @@ from buoy import views
 from client_http import HTTPClient
 from das.buoy.tests import generate_devices, get_custom_location_gear_subjectsource
 from observations.models import Observation, SubjectGroup, SubjectSource
-from utils.tenant.dataclass import FeatureFlags
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-@pytest.mark.skipif(FeatureFlags.buoy_api_enabled is False, reason="Buoy API feature flag is off")
 class TestGearView:
     base_url = "gear-view"
 
@@ -81,7 +79,6 @@ class TestGearView:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-@pytest.mark.skipif(FeatureFlags.buoy_api_enabled is False, reason="Buoy API feature flag is off")
 class TestGearsView:
     base_url = "gear-list-view"
 
@@ -208,6 +205,57 @@ class TestGearsView:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["results"]) == 2
 
+    def test_gear_subjects_view_with_deterministic_ordering_trawl(self, buoy_client):
+        user_client, gear_subjectsource = buoy_client
+        user_client, gear_subjectsource = buoy_client
+
+        # Arrange - additional on observations for gear_subjectsources must match
+        additional = (
+            Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject)
+            .latest("recorded_at")
+            .additional
+        )
+        gear_subjectsource2 = SubjectSource.objects.get(pk=gear_subjectsource.pk)
+        gear_subjectsource2.pk = None
+        source = gear_subjectsource2.source
+        now = timezone.now()
+        location_dict = json.loads(additional["devices"][0])["location"]
+        point = Point(location_dict["longitude"], location_dict["latitude"])
+        data = {
+            "recorded_at": now,
+            "location": point,
+            "source": source,
+            "additional": additional,
+        }
+        observation = Observation.objects.create(**data)
+        observation.save()
+        gear_subjectsource2.save()
+
+        gear_subjectsource.subject.name = "A"
+        gear_subjectsource.subject.save()
+        gear_subjectsource2.subject.name = "B"
+        gear_subjectsource2.subject.save()
+
+        url = reverse(self.base_url) + "?lat=0&lon=0"
+        response = user_client.get(url)
+
+        latest_obs_additional1 = (
+            Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject)
+            .latest("recorded_at")
+            .additional
+        )
+        latest_obs_additional2 = (
+            Observation.objects.filter(source__subjectsource__subject=gear_subjectsource2.subject)
+            .latest("recorded_at")
+            .additional
+        )
+
+        assert gear_subjectsource.subject.name < gear_subjectsource2.subject.name
+        assert latest_obs_additional1["devices"] == latest_obs_additional2["devices"]
+        assert response.data["results"][0]["id"] == str(gear_subjectsource2.subject.id)
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 1
+
     def test_gear_subjects_view_is_active_updated(self, buoy_client):
         user_client, gear_subjectsource = buoy_client
 
@@ -314,7 +362,7 @@ class TestGearsView:
         gear_subjectsource2 = SubjectSource.objects.get(pk=gear_subjectsource.pk)
         gear_subjectsource2.pk = None
         source = gear_subjectsource2.source
-        dt = datetime(2019, 1, 31)
+        dt = datetime(2019, 1, 31).replace(tzinfo=timezone.utc)
         additional = generate_devices(2, Point(0, 0))
         location_dict = json.loads(additional["devices"][0])["location"]
         point = Point(location_dict["longitude"], location_dict["latitude"])
@@ -421,3 +469,22 @@ class TestGearsView:
         response = user_client.get(url)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_updating_inactive_subjects(self, buoy_client):
+        user_client, gear_subjectsource = buoy_client
+        # Set the subject to inactive
+        gear_subjectsource.subject.is_active = False
+        gear_subjectsource.subject.save()
+
+        # Call the GET request to the gear list view
+        # and trigger the update of inactive subjects
+        url = reverse(self.base_url) + "?lat=0&lon=0"
+        response = user_client.get(url)
+
+        # Since the last observation has a gear_deployed event,
+        # the subject should be marked as active
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 1
+        # Check if the subject is still inactive
+        gear_subjectsource.refresh_from_db()
+        assert gear_subjectsource.subject.is_active is True

@@ -5,54 +5,8 @@ import pytest
 from django.urls import reverse
 from rest_framework.generics import ListAPIView
 
-from schemas.view_mixins import DynamicSchemaDataMixin, DynamicSchemaFromSourceView
-
-
-class MockSourceView(ListAPIView, DynamicSchemaDataMixin):
-    """
-    A mock source view to simulate returning data.
-    """
-
-    def get_schema_queryset(self):
-        # Not used for testing purposes
-        raise NotImplementedError
-
-    def get_schema_data(self):
-        return [
-            {
-                "id": "uuid1",
-                "custom_id": "custom_uuid1",
-                "name": "John Doe",
-                "age": 30,
-                "country": "USA",
-                "bio": "A person",
-                "language": "en",
-                "extra_info": "foobar",
-            },
-            {
-                "id": "uuid2",
-                "custom_id": "custom_uuid2",
-                "name": "Brigitte Bardot",
-                "age": 25,
-                "country": "France",
-                "bio": "Actress and singer",
-                "language": "fr",
-            },
-        ]
-
-
-class TestDynamicSchemaView(DynamicSchemaFromSourceView):
-    """
-    Minimal example class that inherits from DynamicSchemaFromSourceView.
-    """
-
-    source_view = MockSourceView
-    schema_title = "TestSchema"
-    schema_description = "Tests data list"
-    default_const_field = "id"
-    default_title_field = "name"
-    default_description_field = "bio"
-    default_x_fields = {"info": "extra_info"}
+from schemas.tests.fixtures import MockDynamicSchemaView
+from schemas.view_mixins import DynamicSchemaDataMixin
 
 
 @pytest.mark.django_db
@@ -63,8 +17,8 @@ class TestDynamicSchemaFromSourceView:
         When no override query params are passed,
         default_const_field and default_title_field should be used.
         """
-        add_view_to_urls(TestDynamicSchemaView, route="test-schema", name="test-schema")
-        url = reverse("tests:test-schema")
+        url_name = add_view_to_urls(MockDynamicSchemaView)
+        url = reverse(url_name)
         response = superuser_client.get(url)
 
         assert response.status_code == 200
@@ -89,8 +43,8 @@ class TestDynamicSchemaFromSourceView:
         """
         Test passing s_const, s_title, s_description, and s_x to override defaults.
         """
-        add_view_to_urls(TestDynamicSchemaView, route="test-schema", name="test-schema")
-        url = reverse("tests:test-schema")
+        url_name = add_view_to_urls(MockDynamicSchemaView)
+        url = reverse(url_name)
         query_params = {
             "s_const": "custom_id",
             "s_title": "age",
@@ -124,16 +78,15 @@ class TestDynamicSchemaFromSourceView:
         Test a custom getter method that modifies the bio field.
         """
 
-        class CustomTestDynamicSchemaView(TestDynamicSchemaView):
+        class CustomDynamicSchemaView(MockDynamicSchemaView):
+            """Just adds a custom getter method in the format get_<field_name>_from_item"""
+
             def get_better_bio_from_item(self, item: dict) -> str:
                 return f"{item.get('bio')}, {item.get('age')} years old"
 
-        add_view_to_urls(CustomTestDynamicSchemaView, route="test-schema", name="test-schema")
-        url = reverse("tests:test-schema")
-        query_params = {
-            "s_description": "better_bio",
-        }
-        response = superuser_client.get(url, query_params)
+        url_name = add_view_to_urls(CustomDynamicSchemaView, route="custom-schema", name="custom-schema")
+        url = reverse(url_name)
+        response = superuser_client.get(url, {"s_description": "better_bio"})
 
         assert response.status_code == 200
 
@@ -148,12 +101,12 @@ class TestDynamicSchemaFromSourceView:
         Test that a custom getter method takes precedence over the default description field.
         """
 
-        class CustomTestDynamicSchemaView(TestDynamicSchemaView):
+        class CustomDynamicSchemaView(MockDynamicSchemaView):
             def get_bio_from_item(self, item: dict) -> str:
                 return f"{item.get('bio')}, {item.get('age')} years old"
 
-        add_view_to_urls(CustomTestDynamicSchemaView, route="test-schema", name="test-schema")
-        url = reverse("tests:test-schema")
+        url_name = add_view_to_urls(CustomDynamicSchemaView, route="test-schema", name="test-schema")
+        url = reverse(url_name)
         response = superuser_client.get(url)
 
         assert response.status_code == 200
@@ -207,7 +160,7 @@ class NestedMockSourceView(ListAPIView, DynamicSchemaDataMixin):
         }
 
 
-class NestedTestDynamicSchemaView(DynamicSchemaFromSourceView):
+class NestedDynamicSchemaView(MockDynamicSchemaView):
     source_view = NestedMockSourceView
 
     # We specify which part of the returned data is the *actual* list of items.
@@ -232,8 +185,8 @@ class TestDynamicSchemaFromNestedSourceView:
         2. Fields with dots (profile.id, profile.name, details.bio, details.language) are correctly resolved.
         """
 
-        add_view_to_urls(NestedTestDynamicSchemaView, route="test-schema", name="test-schema")
-        url = reverse("tests:test-schema")
+        url_name = add_view_to_urls(NestedDynamicSchemaView, route="nested-schema", name="nested-schema")
+        url = reverse(url_name)
         response = superuser_client.get(url)
 
         assert response.status_code == 200, response.content

@@ -1,5 +1,6 @@
 import json
 import os
+from unittest.mock import patch
 from urllib.parse import urlencode
 
 import pytest
@@ -14,6 +15,7 @@ from activity.models import PRI_URGENT, SC_RESOLVED, Event, EventCategory, Event
 from activity.tests import schema_examples
 from activity.views import EventTypesView, EventTypeView
 from client_http import HTTPClient
+from core.utils import DirectoryIconFinder
 from factories import EventTypeFactory
 from utils.rank import RankedTool
 
@@ -252,14 +254,14 @@ class TestEventTypeAPI:
         response_event_type_1 = superuser_client.get(url)
 
         assert response_event_type_1.status_code == status.HTTP_200_OK
-        assert response_event_type_1.data["has_events_assigned"] == True
+        assert response_event_type_1.data["has_events_assigned"] is True
 
         url = reverse("eventtype", kwargs={"eventtype_id": event_type_2.id})
 
         response_event_type_2 = superuser_client.get(url)
 
         assert response_event_type_2.status_code == status.HTTP_200_OK
-        assert response_event_type_2.data["has_events_assigned"] == False
+        assert response_event_type_2.data["has_events_assigned"] is False
 
 
 @pytest.mark.django_db
@@ -354,7 +356,7 @@ class TestEventTypesAPI:
 
         assert response.status_code == status.HTTP_200_OK
         for event_type in response.data:
-            assert event_type["has_events_assigned"] == False
+            assert event_type["has_events_assigned"] is False
 
         for event_type in EventType.objects.all():
             Event.objects.create(event_type=event_type)
@@ -363,7 +365,7 @@ class TestEventTypesAPI:
 
         assert response.status_code == status.HTTP_200_OK
         for event_type in response.data:
-            assert event_type["has_events_assigned"] == True
+            assert event_type["has_events_assigned"] is True
 
     def test_event_type_database_hits(self, superuser_client, five_event_types):
         """Test that the number of database hits is less than 10."""
@@ -483,3 +485,46 @@ class TestEventTypeAutoResolve:
             "'resolve_time' must be set if 'auto_resolve' is true." in detail["resolve_time"]
             or "'resolve_time' must be null if 'auto_resolve' is false." in detail["resolve_time"]
         )
+
+
+@pytest.mark.django_db
+class TestIconsListView:
+    @patch("core.utils.staticfiles_storage")
+    def test_list_response(self, mock_storage, superuser_client):
+        mock_storage.listdir.return_value = ([], ["icon1.jpeg", "icon2.png"])
+        mock_storage.get_modified_time.return_value = 1234567890
+
+        url = reverse("eventtypes-list-icons")
+
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        assert response.data == {"icon_ids": ["icon1.jpeg", "icon2.png"], "resources_path": "/static/sprite-src/"}
+        assert response["ETag"] in response.headers.values()
+        assert "ETag" in response.headers
+
+    @patch("core.utils.staticfiles_storage")
+    def test_304_not_modified(self, mock_storage, superuser_client):
+        mock_storage.listdir.return_value = ([], ["icon1.jpeg"])
+        mock_storage.get_modified_time.return_value = 1234567890
+
+        url = reverse("eventtypes-list-icons")
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        etag = response["ETag"]
+
+        res = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+        assert res.status_code == 304
+        assert response["ETag"] == res["ETag"]
+
+
+@patch("core.utils.staticfiles_storage.listdir", side_effect=Exception("Filesystem error"))
+def test_list_icons_view_error_handling(mock_storage, superuser_client):
+    DirectoryIconFinder._instance = None
+    DirectoryIconFinder._cache.clear()
+
+    url = reverse("eventtypes-list-icons")
+    response = superuser_client.get(url)
+
+    assert response.status_code == 500
+    assert response.json()["status"]["detail"] == "Filesystem error"
+    assert "icon_ids" not in response.data

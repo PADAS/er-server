@@ -3,6 +3,7 @@ import datetime
 import logging
 
 import pytz
+from django_filters import rest_framework as filters
 from rest_framework_condition import etag
 
 from django.contrib.auth import get_user_model
@@ -13,7 +14,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.filters import UserObjectPermissionsFilter
+from accounts.filters import UserFilterSet, UserObjectPermissionsFilter
 from accounts.models import User
 from accounts.models.eula import EULA, UserAgreement
 from accounts.permissions import EulaPermission, UserObjectPermissions
@@ -30,7 +31,8 @@ logger = logging.getLogger(__name__)
 class UsersView(generics.ListAPIView, DynamicSchemaDataMixin):
     serializer_class = UserSerializer
     permission_classes = (UserObjectPermissions,)
-    filter_backends = (UserObjectPermissionsFilter,)
+    filter_backends = (UserObjectPermissionsFilter, filters.DjangoFilterBackend)
+    filterset_class = UserFilterSet
 
     def get_queryset(self):
         return get_user_model().objects.all()
@@ -40,7 +42,8 @@ class UserView(generics.RetrieveAPIView):
     lookup_field = "id"
     serializer_class = UserSerializer
     permission_classes = (UserObjectPermissions,)
-    filter_backends = (UserObjectPermissionsFilter,)
+    filter_backends = (UserObjectPermissionsFilter, filters.DjangoFilterBackend)
+    filterset_class = UserFilterSet
 
     def get_queryset(self):
         return get_user_model().objects.all()

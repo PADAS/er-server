@@ -69,7 +69,7 @@ def get_event_details(event):
 
 @memoize
 def get_choices(field):
-    return {c.value: c.display for c in Choice.objects.get_choices(model=Choice.Field_Reports, field=field)}
+    return {c.value: c.display for c in Choice.objects.get_choices(model=Choice.EVENT_MODEL, field=field)}
 
 
 @memoize

@@ -1,0 +1,24 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testBool": {
+                "type": "boolean",
+                "title": "Test Boolean Incorrect Type",
+                "description": "Boolean field with invalid type.",
+                "deprecated": false
+            }
+        },
+        "required": [
+            "testBool"
+        ]
+    },
+    "ui": {
+        "sections": {},
+        "headers": {},
+        "fields": {},
+        "order": []
+    }
+}

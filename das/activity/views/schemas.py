@@ -306,7 +306,7 @@ class EventTypeSchemaView(ListCreateAPIView):
             for choice_property in field_schema:
                 inactive_choices = []
                 objs = Choice.objects.get_choices(
-                    model=Choice.Field_Reports, field=choice_property.field_name
+                    model=Choice.EVENT_MODEL, field=choice_property.field_name
                 ).filter_inactive_choices()
                 for o in objs:
                     inactive_choices.append(o.value)
@@ -315,7 +315,7 @@ class EventTypeSchemaView(ListCreateAPIView):
 
             for value in schema_utils.get_values_titlemap(eventtype.schema):
                 inactive_choices = []
-                objs = Choice.objects.get_choices(model=Choice.Field_Reports, field=value).filter_inactive_choices()
+                objs = Choice.objects.get_choices(model=Choice.EVENT_MODEL, field=value).filter_inactive_choices()
                 for o in objs:
                     inactive_choices.append(o.value)
                 if inactive_choices:
@@ -373,13 +373,29 @@ class EventTypeViewSchema(CustomSchema):
         operation = super().get_operation(path, method)
         if method == "GET":
             query_params = [
-                {"name": "include_inactive", "in": "query", "description": "include inactive eventtypes"},
-                {"name": "include_schema", "in": "query", "description": "include eventtype schema in the payload"},
                 {
-                    "name": "updated_since",
+                    "name": "include_schema",
                     "in": "query",
-                    "description": "Only include event types that have changed since this date, expressed as an ISO date/time. Example: 2024-08-01 12:00:00Z",
-                },
+                    "description": "include eventtype schema in the payload",
+                    "schema": {"type": "boolean", "default": False},
+                }
             ]
+
+            if "v2" not in path:
+                query_params.append(
+                    {
+                        "name": "include_inactive",
+                        "in": "query",
+                        "description": "Include inactive event types in the list.",
+                    }
+                )
+                query_params.append(
+                    {
+                        "name": "updated_since",
+                        "in": "query",
+                        "description": "Only include event types that have changed since this date, expressed as an ISO date/time. Example: 2024-08-01 12:00:00Z",
+                    }
+                )
+
             operation["parameters"].extend(query_params)
         return operation
