@@ -1,6 +1,7 @@
 import logging
 
-from celery import Task
+import celery
+from celery import Task, shared_task, signature
 from celery_once import QueueOnce
 
 from django.db.utils import OperationalError
@@ -12,6 +13,9 @@ from utils.tenant.managers import TenantContextManager
 from utils.tenant.providers import get_current_cluster_domains
 
 logger = logging.getLogger(__name__)
+
+
+TENANT_TASK_NAME = "by_single_tenant_task"
 
 
 class TenantTaskMixin:
@@ -54,17 +58,34 @@ class TenantQueueOnceTask(TenantTaskMixin, QueueOnce):
 
 class OverAllTenantTask(QueueOnce):
     def __call__(self, *args, **kwargs):
-        for tenant_domain in get_current_cluster_domains():
+        if "tenant_domain" in kwargs:
+            tenant_domain = kwargs.pop("tenant_domain")
             try:
                 with TenantContextManager(tenant_domain):
                     logger.info("Running: %s for Tenant domain: %s", self.name, tenant_domain)
-                    self.run(*args, **kwargs)
+                    return self.run(*args, **kwargs)
             except DASTenant.DoesNotExist:
-                logger.warning(
-                    "Tenant with domain %s found in current cluster domain list does not exist in this server's tenant db",
-                    tenant_domain,
-                )
+                logger.warning("Tenant with domain %s missing in local DB", tenant_domain)
             except TenantNotFoundException:
-                logger.warning(
-                    "Tenant with domain %s found in current cluster domain list does not exist in TMS", tenant_domain
-                )
+                logger.warning("Tenant with domain %s missing in TMS", tenant_domain)
+            return
+
+        tenants = get_current_cluster_domains()
+        if not tenants:
+            logger.warning("No tenants found in cluster!")
+            return
+
+        for tenant_domain in tenants:
+            task_kwargs = {**kwargs, "tenant_domain": tenant_domain}
+
+            # Use helper task that's designed to accept tenant_domain
+            signature(
+                TENANT_TASK_NAME, args=(self.name, args), kwargs={"task_kwargs": task_kwargs}, immutable=True
+            ).apply_async()
+
+
+@shared_task(bind=True, name=TENANT_TASK_NAME)
+def by_single_tenant_task(self, task_name, args, task_kwargs):
+    """Helper task that executes the original task with tenant context"""
+    task = celery.current_app.tasks[task_name]
+    return task(*args, **task_kwargs)

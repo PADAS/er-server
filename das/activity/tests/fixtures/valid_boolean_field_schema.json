@@ -1,0 +1,30 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testBool": {
+                "title": "Valid Boolean Field",
+                "type": "string",
+                "description": "A valid boolean field (as choice).",
+                "deprecated": false,
+                "anyOf": [
+                    {
+                        "$ref": "http://example.com/true"
+                    },
+                    {
+                        "$ref": "http://example.com/false"
+                    }
+                ]
+            }
+        },
+        "required": ["testBool"]
+    },
+    "ui": {
+        "fields": {},
+        "headers": {},
+        "order": [],
+        "sections": {}
+    }
+}

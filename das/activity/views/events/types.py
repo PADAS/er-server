@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from rest_framework_condition import etag
@@ -6,6 +7,7 @@ from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.generics import (
     GenericAPIView,
+    ListAPIView,
     ListCreateAPIView,
     RetrieveUpdateDestroyAPIView,
 )
@@ -14,16 +16,20 @@ from rest_framework.response import Response
 from activity.models import EventCategory, EventType
 from activity.permissions import EventCategoryPermissions
 from activity.serializers import EventTypeRankSerializer, EventTypeSerializer
+from activity.serializers.events import IconSerializer
 from activity.views.response_headers import (
     build_event_type_etag_header,
     build_event_types_etag_header,
 )
 from activity.views.schemas import EventTypeViewSchema
+from core.utils import DirectoryIconFinder
 from utils.drf import return_409_response
 from utils.json import parse_bool
 from utils.rank import RankedTool
 
 from .utils import EventTypeQuerysetMixin
+
+logger = logging.getLogger(__name__)
 
 
 class EventTypeView(RetrieveUpdateDestroyAPIView):
@@ -77,6 +83,30 @@ class EventTypesView(EventTypeQuerysetMixin, ListCreateAPIView):
 
         context["include_schema"] = parse_bool(qparams.get("include_schema", False))
         return context
+
+
+class IconsListView(ListAPIView):
+    serializer_class = IconSerializer
+
+    @etag(DirectoryIconFinder.get_etag)
+    def list(self, request):
+        try:
+            finder = DirectoryIconFinder()
+            return Response(
+                {"icon_ids": [f for f, _ in finder._file_metadata], "resources_path": f"/static/{finder.dir_name}/"}
+            )
+        except Exception as e:
+            logger.error(f"Error listing icons: {e}")
+            return Response(
+                {
+                    "status": {
+                        "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        "message": str(e),
+                        "detail": "Filesystem error",
+                    }
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class EventTypeRankView(GenericAPIView):

@@ -313,8 +313,8 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
                             rep["last_position_date"] = latest_observation.recorded_at
 
                             location = latest_observation.location
-                            if is_stationary_subject and instance.subjectsources.last().location:
-                                location = instance.subjectsources.last().location
+                            if is_stationary_subject and (latest_location := instance.subjectsources.last().location):
+                                location = latest_location
 
                             rep["last_position"] = make_feature(
                                 request,
@@ -354,8 +354,8 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
                         ),
                         "radio_state": statusvalues.radio_state,
                     }
-                    if is_stationary_subject and instance.subjectsources.last().location:
-                        location = instance.subjectsources.last().location
+                    if is_stationary_subject and (latest_location := instance.subjectsources.last().location):
+                        location = latest_location
 
                     if tracks_available:
                         rep["last_position_date"] = recorded_at
@@ -436,13 +436,18 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         return device_status_properties
 
     def _get_default_measure(self, subject):
-        last_subject_source = subject.subjectsources.last()
-        if last_subject_source:
-            transforms = last_subject_source.source.provider.transforms
-            if transforms:
-                for transform in transforms:
-                    if transform.get("default"):
-                        return transform.get("label")
+        # TODO: add the transorms field as an annotation to the subject as "source_transforms"
+        transforms = None
+        if hasattr(subject, "source_transforms"):
+            transforms = getattr(subject, "source_transforms", None)
+        else:
+            last_subject_source = subject.subjectsources.last()
+            if last_subject_source:
+                transforms = last_subject_source.source.provider.transforms
+        if transforms:
+            for transform in transforms:
+                if transform.get("default"):
+                    return transform.get("label")
         return ""
 
 
@@ -535,7 +540,7 @@ def get_observation_location(subject, mou_date):
         [Observation]: the observation
     """
 
-    observation = models.Observation.objects.get_subject_observations(
+    observation = models.Observation.objects.get_subject_observations_partitioned(
         subject, until=mou_date, order_by="-recorded_at"
     ).first()
 

@@ -20,14 +20,33 @@ class ChoiceDetails(NamedTuple):
 
 
 @pytest.fixture
-def choices_fixture(db, django_user_model):
+@pytest.mark.usefixtures("db")
+def choices_fixture(django_user_model):
     Choice.objects.all().delete()
 
-    Choice.objects.create(
-        model="activity.eventtype", field="wildlifesighting_species", value="elephant", display="Elephant"
-    )
+    choices_data = [
+        {
+            "model": "activity.eventtype",
+            "field": "wildlifesighting_species",
+            "value": "elephant",
+            "display": "Elephant",
+        },
+        {"model": "activity.eventtype", "field": "wildlifesighting_species", "value": "rhino", "display": "Rhino"},
+        {
+            "model": "activity.eventtype",
+            "field": "wildlifesighting_reporter_type",
+            "value": "ranger",
+            "display": "Park Ranger",
+        },
+        {
+            "model": "activity.eventtype",
+            "field": "wildlifesighting_condition_status",
+            "value": "healthy",
+            "display": "Healthy",
+        },
+    ]
 
-    Choice.objects.create(model="activity.eventtype", field="wildlifesighting_species", value="rhino", display="Rhino")
+    Choice.objects.bulk_create([Choice(**data) for data in choices_data])
 
     user_const = dict(last_name="last", first_name="first")
     user = django_user_model.objects.create_user(
@@ -37,19 +56,117 @@ def choices_fixture(db, django_user_model):
     return ChoiceDetails(choices=Choice.objects.all(), user=user)
 
 
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_get_all_choices(choices_fixture, client, tenant_document_cache_client_mock):
-    choices, user = choices_fixture.choices, choices_fixture.user
+@pytest.mark.usefixtures("tenant_settings")
+def test_get_all_choices(client, choices_fixture, five_choices):
+    _, user = choices_fixture.choices, choices_fixture.user
 
     client.force_login(user)
     url = reverse("choices")
     response = client.get(url)
     assert response.status_code == 200
-    assert len(response.data["results"]) == 2
+    assert len(response.data["results"]) == 9
 
 
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_single_choice(choices_fixture, client, tenant_document_cache_client_mock):
+@pytest.mark.usefixtures("tenant_settings")
+def test_get_all_choices_filtering(client, choices_fixture, five_choices):
+    choices, user = choices_fixture.choices, choices_fixture.user
+
+    Choice.objects.filter(id=choices[0].id).update(is_active=False)
+    Choice.objects.filter(id=choices[1].id).update(is_active=False)
+
+    client.force_login(user)
+    url = reverse("choices")
+    response = client.get(
+        url,
+        {
+            "field": "wildlifesighting_species,wildlifesighting_reporter_type",
+            "model": "activity.eventtype",
+            "include_inactive": True,
+        },
+    )
+    assert response.status_code == 200
+    assert len(choices.all()) == 9
+    assert len(response.data["results"]) == 3  # assert only filtered items are returned
+
+    response = client.get(url, {"include_inactive": False})
+    assert response.status_code == 200
+    assert len(response.data["results"]) == 7  # assert only active choices are returned
+
+    response = client.get(url)
+    assert response.status_code == 200
+    assert len(response.data["results"]) == 7  # assert only active choices when include_inactive is not sent
+
+
+@pytest.mark.usefixtures("tenant_settings")
+def test_filter_by_field(client, choices_fixture, five_choices):
+    _, user = choices_fixture.choices, choices_fixture.user
+    client.force_login(user)
+
+    url = reverse("choices")
+    response = client.get(url, {"field": "wildlifesighting_species"})
+    assert response.status_code == 200
+    assert len(response.data["results"]) == 2  # assert filtered items return choices added by choices_fixture
+
+
+@pytest.mark.usefixtures("tenant_settings")
+def test_filter_by_multiple_fields(client, choices_fixture, five_choices):
+    _, user = choices_fixture.choices, choices_fixture.user
+    client.force_login(user)
+
+    url = reverse("choices")
+    response = client.get(url, {"field": "wildlifesighting_species,wildlifesighting_reporter_type"})
+    assert response.status_code == 200
+    assert len(response.data["results"]) == 3  # assert filtered items return choices added by choices_fixture
+
+
+@pytest.mark.usefixtures("tenant_settings")
+def test_filter_by_invalid_field(client, choices_fixture, five_choices):
+    _, user = choices_fixture.choices, choices_fixture.user
+    client.force_login(user)
+
+    url = reverse("choices")
+    response = client.get(url, {"field": "invalid_field"})
+    assert response.status_code == 400
+    assert "field" in response.data
+    assert "is not one of the available choices." in response.content.decode("utf-8")
+
+
+@pytest.mark.usefixtures("tenant_settings")
+def test_filter_by_model(client, choices_fixture, five_choices):
+    _, user = choices_fixture.choices, choices_fixture.user
+
+    client.force_login(user)
+    url = reverse("choices")
+    response = client.get(url, {"model": "activity.eventtype"})
+    assert response.status_code == 200
+    assert len(response.data["results"]) == 4  # assert filtered items return choices added by choices_fixture
+
+
+@pytest.mark.usefixtures("tenant_settings")
+def test_filter_by_invalid_model(client, choices_fixture, five_choices):
+    _, user = choices_fixture.choices, choices_fixture.user
+
+    client.force_login(user)
+    url = reverse("choices")
+    response = client.get(url, {"model": "invalid_model"})
+    assert response.status_code == 400
+    assert "model" in response.data
+    assert "is not one of the available choices." in response.content.decode("utf-8")
+
+
+@pytest.mark.usefixtures("tenant_settings")
+def test_filter_by_model_and_field(client, choices_fixture, five_choices):
+    _, user = choices_fixture.choices, choices_fixture.user
+
+    client.force_login(user)
+    url = reverse("choices")
+    response = client.get(url, {"model": "activity.eventtype", "field": "wildlifesighting_species"})
+    assert response.status_code == 200
+    assert len(response.data["results"]) == 2  # assert filtered items return choices added by choices_fixture
+
+
+@pytest.mark.usefixtures("tenant_settings")
+def test_single_choice(client, choices_fixture):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
 
@@ -60,9 +177,9 @@ def test_single_choice(choices_fixture, client, tenant_document_cache_client_moc
     assert response.data.get("id") == choice_id
 
 
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_add_choice(choices_fixture, client, tenant_document_cache_client_mock):
-    choices, user = choices_fixture.choices, choices_fixture.user
+@pytest.mark.usefixtures("tenant_settings")
+def test_add_choice(client, choices_fixture):
+    _, user = choices_fixture.choices, choices_fixture.user
 
     client.force_login(user)
     url = reverse("choices")
@@ -76,11 +193,11 @@ def test_add_choice(choices_fixture, client, tenant_document_cache_client_mock):
     response = client.post(url, data=data)
     qcount = Choice.objects.all().count()
     assert response.status_code == 201
-    assert qcount == 3
+    assert qcount == 5
 
 
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_update_choice(choices_fixture, client, tenant_document_cache_client_mock):
+@pytest.mark.usefixtures("tenant_settings")
+def test_update_choice(client, choices_fixture):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
 
@@ -91,8 +208,8 @@ def test_update_choice(choices_fixture, client, tenant_document_cache_client_moc
     assert response.status_code == 200
 
 
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_softdelete_choice(choices_fixture, client, tenant_document_cache_client_mock):
+@pytest.mark.usefixtures("tenant_settings")
+def test_softdelete_choice(client, choices_fixture):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
 
@@ -109,13 +226,13 @@ def test_softdelete_choice(choices_fixture, client, tenant_document_cache_client
 
 
 @pytest.mark.django_db()
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.usefixtures("tenant_settings")
 class TestChoicesViews:
     def test_url_resolving(self, choice):
         api_path = f"choices/{choice.pk}/"
         assert is_url_resolved(api_path=api_path, view=ChoiceView)
 
-    def test_read_inactive_choice(self, choices_fixture, client, tenant_document_cache_client_mock):
+    def test_read_inactive_choice(self, client, choices_fixture):
         choices, user = choices_fixture.choices, choices_fixture.user
         inactive_choice = choices.filter(value="rhino").update(is_active=False)
 

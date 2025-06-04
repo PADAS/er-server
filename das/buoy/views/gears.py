@@ -5,7 +5,6 @@ from rest_framework.response import Response
 
 from buoy import serializers
 from buoy.views.helpers import (
-    check_to_include_inactive_buoys,
     check_valid_date_string,
     check_valid_state_string,
     filter_by_bbox,
@@ -80,7 +79,7 @@ class GearsView(generics.ListAPIView):
         )
 
         # Filter queryset by removing subjects where the additional field is the same
-        queryset = queryset.order_by("subject__name", "additional").distinct("subject__name", "additional")
+        queryset = queryset.order_by("additional__display_id", "subject__name").distinct("additional__display_id")
 
         page = self.paginate_queryset(queryset)
         if page is not None:

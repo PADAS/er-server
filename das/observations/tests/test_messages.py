@@ -46,9 +46,8 @@ class MessagesTestCase(BaseAPITest):
 
     @mock.patch("observations.tasks.handle_outbox_message.apply_async")
     def test_send_outbox_message(self, mock_send):
-        message_data = dict(text="Status?")
-        url = reverse("messages-view")
-        url += "?{}".format(urlencode({"subject_id": self.test_subject.id, "source_id": self.test_subject.source.id}))
+        message_data = {"text": "Status?"}
+        url = f"{reverse('messages-view')}?{urlencode({'subject_id': self.test_subject.id, 'source_id': self.test_subject.source.id})}"
 
         request = self.factory.post(url, data=message_data)
         self.force_authenticate(request, self.admin_user)
@@ -57,7 +56,7 @@ class MessagesTestCase(BaseAPITest):
         assert response.status_code == 201
 
     def test_send_inbox_message(self):
-        message_data = dict(text="Status?", message_type="inbox")
+        message_data = {"text": "Status?", "message_type": "inbox"}
         url = reverse("messages-view")
 
         request = self.factory.post(url, data=message_data)
@@ -66,8 +65,7 @@ class MessagesTestCase(BaseAPITest):
         assert response.status_code == 400
         assert response.data == {"Error": "Manufacturer Id param has to be provided for an inbox message"}
 
-        url += "?{}".format(urlencode({"manufacturer_id": "subject-status-1"}))
-
+        url += f"?{urlencode({'manufacturer_id': 'subject-status-1'})}"
         request = self.factory.post(url, data=message_data)
         self.force_authenticate(request, self.admin_user)
         response = MessagesView.as_view()(request)
@@ -95,7 +93,7 @@ class MessagesTestCase(BaseAPITest):
         )
 
         # Post a message to the subject using url given in the payload
-        message_data = dict(text="Left the outpost?")
+        message_data = {"text": "Left the outpost?"}
         url = messaging.get("url")
 
         request = self.factory.post(url, data=message_data)
@@ -107,9 +105,7 @@ class MessagesTestCase(BaseAPITest):
     @mock.patch("observations.tasks.handle_outbox_message.apply_async")
     def test_message_permission(self, mock_send):
         with mock.patch("django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block", lambda x: False):
-            subject = Subject.objects.create(
-                name="radio-001",
-            )
+            subject = Subject.objects.create(name="radio-001")
             subject_group = SubjectGroup.objects.create(name="Radios")
             subject_group.subjects.set([subject])
             transaction.get_connection().run_and_clear_commit_hooks()
@@ -121,10 +117,9 @@ class MessagesTestCase(BaseAPITest):
             SubjectSource.objects.create(subject=subject, source=source)
 
             # send outbox message.
-            url = reverse("messages-view")
-            url += "?{}".format(urlencode({"subject_id": subject.id, "source_id": subject.source.id}))
+            url = f"{reverse('messages-view')}?{urlencode({'subject_id': subject.id, 'source_id': subject.source.id})}"
 
-            request = self.factory.post(url, data=dict(text="Hey, there!"))
+            request = self.factory.post(url, data={"text": "Hey, there!"})
             self.force_authenticate(request, self.admin_user)
             response = MessagesView.as_view()(request)
             self.assertTrue(mock_send.called)
@@ -139,7 +134,7 @@ class MessagesTestCase(BaseAPITest):
             assert "view" in response.data["permissions"]["message"]
 
             # return 403 (Forbidden) for user with no message permission.
-            request = self.factory.post(url, data=dict(text="Hey, I dont have permission to send message."))
+            request = self.factory.post(url, data={"text": "Hey, I dont have permission to send message."})
             self.force_authenticate(request, self.app_user)
             response = MessagesView.as_view()(request)
             assert response.status_code == 403
@@ -153,12 +148,7 @@ class MessagesTestCase(BaseAPITest):
         self.assertTrue(mock_send.called)
 
     def get_subject(self, subject_id):
-        url = reverse(
-            "subject-view",
-            args=[
-                subject_id,
-            ],
-        )
+        url = reverse("subject-view", args=[subject_id])
         request = self.factory.get(url)
         self.force_authenticate(request, self.admin_user)
         response = SubjectView.as_view()(request, id=str(subject_id))
@@ -169,7 +159,7 @@ class MessagesTestCase(BaseAPITest):
         provider = models.SourceProvider.objects.create(provider_key="#01-provider")
         source = models.Source.objects.create(manufacturer_id="#01-manufacurer_id", provider=provider)
 
-        subject_source = models.SubjectSource.objects.create(
+        models.SubjectSource.objects.create(
             subject=subject, source=source, assigned_range=DateTimeTZRange(lower=models.DEFAULT_ASSIGNED_RANGE[0])
         )
 
@@ -227,13 +217,13 @@ class MessagesTestCase(BaseAPITest):
 
     def test_fetchmost_recent_message(self):
         urlpath = reverse("messages-view")
-        url = urlpath + "?{}".format(urlencode({"manufacturer_id": "subject-status-1"}))
-        request = self.factory.post(url, data=dict(text="Sending inbox message", message_type="inbox"))
+        url = f"{urlpath}?{urlencode({'manufacturer_id': 'subject-status-1'})}"
+        request = self.factory.post(url, data={"text": "Sending inbox message", "message_type": "inbox"})
         self.force_authenticate(request, self.admin_user)
         response = MessagesView.as_view()(request)
         assert response.status_code == 201
 
-        request = self.factory.post(url, data=dict(text="Sending second message", message_type="inbox"))
+        request = self.factory.post(url, data={"text": "Sending second message", "message_type": "inbox"})
         self.force_authenticate(request, self.admin_user)
         MessagesView.as_view()(request)
 
@@ -244,7 +234,7 @@ class MessagesTestCase(BaseAPITest):
         assert response.data.get("count") == 2
 
         # get most-recent message.
-        url = urlpath + "?{}".format(urlencode({"recent_message": 1}))
+        url = f"{urlpath}?{urlencode({'recent_message': 1})}"
         request = self.factory.get(url)
         self.force_authenticate(request, self.admin_user)
         response = MessagesView.as_view()(request)
@@ -292,10 +282,8 @@ class MessagesTestCase(BaseAPITest):
         assert models.Message.objects.get(id=msg.id).status == "sent"
 
     def test_verify_device_inlcuded_in_message_payload(self):
-        message_data = dict(text="new message coming in...", message_type="inbox")
-        url = reverse("messages-view")
-
-        url += "?{}".format(urlencode({"manufacturer_id": "subject-status-1"}))
+        message_data = {"text": "new message coming in...", "message_type": "inbox"}
+        url = f"{reverse('messages-view')}?{urlencode({'manufacturer_id': 'subject-status-1'})}"
 
         request = self.factory.post(url, data=message_data)
         self.force_authenticate(request, self.admin_user)
@@ -317,10 +305,10 @@ class TestMessagesView:
         }
         models.Message.objects.create(**message)
 
+        params = {"since": "2021-01-01T00:00:00Z", "until": "2021-01-01T23:59:59Z"}
         url = reverse("messages-view")
-        url += "?{}".format(urlencode({"since": "2021-01-01T00:00:00Z", "until": "2021-01-01T23:59:59Z"}))
 
-        response = superuser_client.get(url)
+        response = superuser_client.get(url, params)
         assert response.status_code == 200
         assert response.data.get("count") == 0
 
@@ -339,6 +327,95 @@ class TestMessagesView:
 
         last_30_days = datetime.now(tz=timezone.utc) - timedelta(days=30)
         url = reverse("messages-view")
+        response = superuser_client.get(url, {"since": last_30_days.isoformat()})
+        assert response.status_code == 200
+        assert response.data.get("count") == 1
+
+    def test_get_messages_from_inactive_subject(self, two_way_msg_subject, superuser_client):
+        message = {
+            "sender_id": superuser_client.user.id,
+            "receiver_id": two_way_msg_subject.id,
+            "device_id": two_way_msg_subject.source.id,
+            "text": "Habari yako!",
+            "message_type": "outbox",
+            "message_time": datetime.now(tz=timezone.utc),
+        }
+        models.Message.objects.create(**message)
+        url = reverse("messages-view")
         response = superuser_client.get(url)
         assert response.status_code == 200
         assert response.data.get("count") == 1
+
+        two_way_msg_subject.is_active = False
+        two_way_msg_subject.save()
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        assert response.data.get("count") == 0
+
+    def test_bulk_update_read_status(self, two_way_msg_subject, superuser_client):
+        message_payload = {
+            "sender_id": superuser_client.user.id,
+            "receiver_id": two_way_msg_subject.id,
+            "device_id": two_way_msg_subject.source.id,
+            "text": "Habari yako!",
+            "message_type": "outbox",
+            "message_time": datetime.now(tz=timezone.utc),
+        }
+        models.Message.objects.create(**message_payload)
+        message_payload.update(
+            {
+                "text": "Nina habari njema!",
+                "message_type": "outbox",
+                "message_time": datetime.now(tz=timezone.utc),
+            }
+        )
+        models.Message.objects.create(**message_payload)
+        url = reverse("messages-view")
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        assert response.data.get("count") == 2
+
+        messages = response.data.get("results")
+        for msg in messages:
+            assert msg.get("read") is False
+
+        data = {"bulk_read": True, "ids": [msg.get("id") for msg in messages], "read": True}
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == 200
+        assert "2 messages successfully updated to read" in response.content.decode()
+
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        assert response.data.get("count") == 2
+        messages = response.data.get("results")
+        for msg in messages:
+            assert msg.get("read") is True
+
+    def test_bulk_update_read_status_inactive_subject(self, two_way_msg_subject, superuser_client):
+        message_payload = {
+            "sender_id": superuser_client.user.id,
+            "receiver_id": two_way_msg_subject.id,
+            "device_id": two_way_msg_subject.source.id,
+            "text": "Habari yako!",
+            "message_type": "outbox",
+            "message_time": datetime.now(tz=timezone.utc),
+        }
+        models.Message.objects.create(**message_payload)
+        url = reverse("messages-view")
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        assert response.data.get("count") == 1
+        message_output = response.data.get("results")[0]
+        assert message_output.get("read") is False
+
+        two_way_msg_subject.is_active = False
+        two_way_msg_subject.save()
+
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        assert response.data.get("count") == 0
+
+        data = {"bulk_read": True, "ids": [message_output.get("id")], "read": True}
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == 200
+        assert "0 messages successfully updated to read" in response.content.decode()

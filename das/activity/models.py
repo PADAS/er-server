@@ -7,6 +7,7 @@ from enum import Enum
 from itertools import chain
 from operator import attrgetter, itemgetter
 
+import phonenumbers
 import pytz
 from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
@@ -350,6 +351,7 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
     )
     is_collection = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    readonly = models.BooleanField(default=False)
     auto_resolve = models.BooleanField(default=False)
     # Specify integer of hour(s).
     resolve_time = models.PositiveSmallIntegerField(blank=True, null=True)
@@ -388,7 +390,7 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
         ]
 
     def __str__(self):
-        return self.display
+        return str(self.value + " " + self.display)
 
     def clean(self, *args, **kwargs):
         if not self.auto_resolve and self.resolve_time:
@@ -1327,10 +1329,12 @@ class EventDetails(TenantModelMixin, RevisionMixin, TimestampedModel):
         Event, on_delete=models.CASCADE, related_name="event_details", related_query_name="event_details"
     )
     data = models.JSONField()
-    revision = Revision()
+
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
-    objects = EventDetailsManager()
     tenant_id = "das_tenant_id"
+
+    revision = Revision()
+    objects = EventDetailsManager()
 
     class Meta:
         base_manager_name = "objects"
@@ -1609,6 +1613,53 @@ class NotificationMethod(TenantModelMixin, TimestampedModel):
 
     def __str__(self):
         return f"{self.owner.username}, {self.method}, {self.value}"
+
+    @property
+    def phone_number(self):
+        """Returns the formatted phone number if the method is SMS or WhatsApp, otherwise returns None.
+
+        This property will attempt to parse and format the value field as a phone number,
+        but won't raise validation errors if the number is invalid.
+        """
+        if self.method not in [NOTIFICATION_METHOD_SMS, NOTIFICATION_METHOD_WHATSAPP]:
+            return None
+
+        try:
+            value = self.plusify_value()
+            phone_number = phonenumbers.parse(value)
+            if phonenumbers.is_valid_number(phone_number):
+                return phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.E164)
+        except phonenumbers.NumberParseException:
+            pass
+        return None
+
+    def plusify_value(self):
+        """
+        If the number doesn't start with +, add a +.
+        Also strip leading and trailing whitespace.
+        """
+
+        value = self.value.strip()
+        if not value.startswith("+"):
+            value = "+" + value
+        return value
+
+    def clean(self):
+        super().clean()
+
+        if self.method in [NOTIFICATION_METHOD_SMS, NOTIFICATION_METHOD_WHATSAPP]:
+            try:
+                value = self.plusify_value()
+
+                phone_number = phonenumbers.parse(value)
+
+                if not phonenumbers.is_valid_number(phone_number):
+                    raise ValidationError({"value": _("Invalid phone number format.")})
+
+                # Format the number in E.164 format (e.g., +14155552671)
+                self.value = phonenumbers.format_number(phone_number, phonenumbers.PhoneNumberFormat.E164)
+            except phonenumbers.NumberParseException as pex:
+                raise ValidationError({"value": _(f"Invalid phone number format: {pex}")})
 
 
 class AlertRuleNotificationMethod(TenantThroughModel):

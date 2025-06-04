@@ -1,0 +1,22 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testLocation": {
+                "title": "Invalid Location Field - Missing Properties",
+                "description": "Location field missing the nested 'properties' definition.",
+                "deprecated": false,
+                "type": "object"
+            }
+        },
+        "required": ["testLocation"]
+    },
+    "ui": {
+        "fields": {},
+        "headers": {},
+        "order": [],
+        "sections": {}
+    }
+}

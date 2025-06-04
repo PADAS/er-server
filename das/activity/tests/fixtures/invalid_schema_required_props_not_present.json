@@ -1,0 +1,86 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+            "what_is_the_response?": {
+                "default": "",
+                "deprecated": false,
+                "description": "",
+                "title": "What is the response?",
+                "type": "string"
+            },
+            "required": [
+                "who_initiated_contact",
+                "ranger_casualties",
+                "opposition_casualties"
+            ]
+        },
+        "type": "object"
+    },
+    "ui": {
+        "fields": {
+            "size_of_the_poaching_group": {
+                "placeholder": "3",
+                "type": "NUMERIC",
+                "parent": "section-s0m38ZMo7h5p4cE2BC8U6"
+            },
+            "what_happened?_patrol_activity": {
+                "choices": {
+                    "eventTypeCategories": [],
+                    "existingChoiceList": [
+                        "contactrep_patrolactivity"
+                    ],
+                    "featureCategories": [],
+                    "myDataType": "",
+                    "subjectGroups": [],
+                    "subjectSubtypes": [],
+                    "type": "EXISTING_CHOICE_LIST"
+                },
+                "inputType": "DROPDOWN",
+                "placeholder": "",
+                "type": "CHOICE_LIST",
+                "parent": "section-s0m38ZMo7h5p4cE2BC8U6"
+            }
+        },
+        "headers": {
+            "header-ezpK4FUQJauJwvPBSGIXD": {
+                "label": "Seized items",
+                "section": "section-NXLCr0ept_BuZOyqY0XBn",
+                "size": "MEDIUM"
+            }
+        },
+        "order": [
+            "section-s0m38ZMo7h5p4cE2BC8U6",
+            "section-NXLCr0ept_BuZOyqY0XBn",
+            "section-pjbt197FRLEoTwjLXbFFZ"
+        ],
+        "sections": {
+            "section-s0m38ZMo7h5p4cE2BC8U6": {
+                "columns": 2,
+                "isActive": true,
+                "label": "Details",
+                "leftColumn": [
+                    {
+                        "type": "field",
+                        "name": "size_of_the_poaching_group"
+                    },
+                    {
+                        "type": "field",
+                        "name": "what_happened?_patrol_activity"
+                    }
+                ],
+                "rightColumn": [
+                    {
+                        "type": "field",
+                        "name": "who_initiated_contact"
+                    },
+                    {
+                        "type": "field",
+                        "name": "what_is_the_response?"
+                    }
+                ]
+            }
+        }
+    }
+}

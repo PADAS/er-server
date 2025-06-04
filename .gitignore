@@ -101,6 +101,7 @@ terraform.tfstate
 ## Directory-based project format:
 .idea/
 
+.scannerwork/
 # if you remove the above rule, at least ignore the following:
 
 # User-specific stuff:

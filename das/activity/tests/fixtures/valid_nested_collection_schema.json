@@ -1,0 +1,125 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+            "colection_1": {
+                "deprecated": false,
+                "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                        "how_many": {
+                            "deprecated": false,
+                            "description": "",
+                            "title": "how many",
+                            "type": "number"
+                        },
+                        "sub_list": {
+                            "deprecated": false,
+                            "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                    "loc": {
+                                        "deprecated": false,
+                                        "description": "",
+                                        "properties": {
+                                            "latitude": {
+                                                "maximum": 90,
+                                                "minimum": -90,
+                                                "type": "number"
+                                            },
+                                            "longitude": {
+                                                "maximum": 180,
+                                                "minimum": -180,
+                                                "type": "number"
+                                            }
+                                        },
+                                        "title": "loc",
+                                        "type": "object"
+                                    }
+                                },
+                                "required": [],
+                                "type": "object"
+                            },
+                            "title": "sub list",
+                            "type": "array",
+                            "unevaluatedItems": false
+                        }
+                    },
+                    "required": [],
+                    "type": "object"
+                },
+                "title": " colection 1",
+                "type": "array",
+                "unevaluatedItems": false
+            }
+        },
+        "required": [],
+        "type": "object"
+    },
+    "ui": {
+        "fields": {
+            "colection_1": {
+                "buttonText": "",
+                "columns": 2,
+                "itemIdentifier": "",
+                "itemName": "lista",
+                "leftColumn": [
+                    "how_many"
+                ],
+                "rightColumn": [
+                    "sub_list"
+                ],
+                "type": "COLLECTION",
+                "parent": "section-lG7ABSChuTwN_S9jPe3o6"
+            },
+            "how_many": {
+                "placeholder": "",
+                "type": "NUMERIC",
+                "parent": "colection_1"
+            },
+            "sub_list": {
+                "buttonText": "",
+                "columns": 1,
+                "itemIdentifier": "",
+                "itemName": "sub_collection",
+                "leftColumn": [
+                    "loc"
+                ],
+                "rightColumn": [],
+                "type": "COLLECTION",
+                "parent": "colection_1"
+            },
+            "loc": {
+                "type": "LOCATION",
+                "parent": "sub_list"
+            }
+        },
+        "headers": {},
+        "order": [
+            "section-lG7ABSChuTwN_S9jPe3o6",
+            "section-Qa1DeI43prvrA6Bi2GtQE"
+        ],
+        "sections": {
+            "section-Qa1DeI43prvrA6Bi2GtQE": {
+                "columns": 1,
+                "isActive": true,
+                "label": "",
+                "leftColumn": [],
+                "rightColumn": []
+            },
+            "section-lG7ABSChuTwN_S9jPe3o6": {
+                "columns": 1,
+                "isActive": true,
+                "label": "",
+                "leftColumn": [
+                    {
+                        "name": "colection_1",
+                        "type": "field"
+                    }
+                ],
+                "rightColumn": []
+            }
+        }
+    }
+}

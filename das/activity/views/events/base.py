@@ -192,6 +192,14 @@ class EventView(RetrieveUpdateDestroyAPIView):
             self.check_object_permissions(self.request, obj)
         return super().get(request, *args, **kwargs)
 
+    def update(self, request, *args, **kwargs):
+        with transaction.atomic():
+            return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        with transaction.atomic():
+            return super().partial_update(request, *args, **kwargs)
+
     def get_serializer_context(self):
         query_params = self.request.query_params if self.request and hasattr(self.request, "query_params") else {}
 
@@ -587,18 +595,15 @@ class EventsView(ListCreateAPIView):
             new_record = self.add_segment_to_record(patrol_segment, new_record)
 
         with transaction.atomic():
-            errors = []
             serializer = self.get_serializer(data=new_record, many=True)
-            if serializer.is_valid():
-                serializer.save()
-                data = serializer.data
-                data = data if len(new_record) > 1 else data[0]
-                return Response(data, status=status.HTTP_201_CREATED)
-            else:
-                errors.append(serializer.errors)
-                for error in errors:
-                    logger.exception("Invalid Event type(s) provided {}".format(error))
-                    return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+            if not serializer.is_valid():
+                logger.exception("Invalid Event type(s) provided %s", serializer.errors)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            serializer.save()
+            data = serializer.data
+            data = data if len(new_record) > 1 else data[0]
+            return Response(data, status=status.HTTP_201_CREATED)
 
     def get_serializer_class(self) -> Type[Serializer]:
         if self.kwargs.get("patrol_segment") and self.request.method == "GET":

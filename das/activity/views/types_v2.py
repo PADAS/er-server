@@ -1,8 +1,12 @@
-from typing import Optional
+import json
+import logging
+from enum import Enum
+from typing import Optional, Tuple
 
 from django_filters import rest_framework as filters
 
 from django.db import models
+from django.urls import reverse
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
@@ -10,39 +14,110 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from activity.filters import EventTypeFilter
+from activity.exceptions import SchemaRenderingError
+from activity.filters import EventTypeFilterSet
 from activity.models import Event, EventType
 from activity.permissions import EventCategoryPermissions
+from activity.schemas.schema_rendering import SchemaRenderer
+from activity.schemas.schema_retrieving import build_dynamic_schemas_registry
 from activity.serializers.events_v2 import EventTypeSerializer
 from activity.views.events.utils import AllowedCategoriesMixin
+from activity.views.schemas import EventTypeViewSchema
+from core.utils import is_uuid
+from schemas.view_mixins import DynamicSchemaDataMixin
+from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer, parse_bool
 from utils.views import EtagListRetrieveModelMixin
 
+logger = logging.getLogger(__name__)
 
-class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, ModelViewSet):
+
+class StrEnum(str, Enum):
+    """Enum that can be used as a string."""
+
+
+class RenderStatus(StrEnum):
+    SUCCESS = "success"
+    FAILURE = "failure"
+
+
+class RenderErrors(StrEnum):
+    NO_SCHEMA_DEFINED = "no_schema_defined"
+    INVALID_JSON = "invalid_json"
+    NO_JSON_KEY = "no_json_key"
+    INVALID_SCHEMA = "invalid_schema"
+    SCHEMA_RENDERING_ERROR = "rendering_error"
+
+
+def parse_and_render_schema(event_type: EventType, schema_renderer: Optional[SchemaRenderer]) -> Tuple[bool, dict]:
     """
-    V2 Event Types API. Supports dynamic `schema` generation, which means rendering of references ($ref) in the schemas.
-    Features:
-        - eTag generation for list and detail views.
-        - FUTURE: Cache control for schema rendering.
-        - FUTURE: Validation of schemas.
-        - Supports filtering with the same query parameters as the other existing EventTypesView.
+    Attempts to parse the raw event_type.schema as JSON, check if 'json' key is present,
+    and de-reference using schema_renderer if provided.
 
-    Notes:
-        - My approach will be:
-            - to adopt as much as possible from the existing codebase but implementing what is possible
-            with django-filter (DjangoFilterBackend)
-            - identify and implement the same exising tests but for the new implementation.
-            - implement the missing features in the new implementation.
+    :return: (success, data) where
+            success = True => data is the fully prepared schema
+            success = False => data is an error dict with 'code' and 'message'
     """
+    if not event_type.schema:
+        return (
+            False,
+            {
+                "code": RenderErrors.NO_SCHEMA_DEFINED,
+                "message": f"EventType {event_type.value} has no schema defined.",
+            },
+        )
 
+    try:
+        parsed_schema = json.loads(event_type.schema)
+    except json.JSONDecodeError as e:
+        logger.warning("Error decoding JSON for event type %s: %s", event_type.value, str(e))
+        return (
+            False,
+            {
+                "code": RenderErrors.INVALID_JSON,
+                "message": f"Invalid JSON for event type {event_type.value}: {str(e)}",
+            },
+        )
+
+    if "json" not in parsed_schema:
+        return (
+            False,
+            {
+                "code": RenderErrors.NO_JSON_KEY,
+                "message": f"Schema for event type {event_type.value} does not contain 'json' key.",
+            },
+        )
+
+    if not schema_renderer:
+        # Return as-is
+        return (True, parsed_schema)
+
+    # Attempt render
+    try:
+        parsed_schema["json"] = schema_renderer.dereference_schema(parsed_schema["json"])
+        return (True, parsed_schema)
+    except SchemaRenderingError as e:
+        logger.warning("Error rendering schema for event type %s: %s", event_type.value, str(e))
+        return (
+            False,
+            {
+                "code": RenderErrors.SCHEMA_RENDERING_ERROR,
+                "message": f"Error rendering schema for event type {event_type.value}: {str(e)}",
+            },
+        )
+
+
+class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, DynamicSchemaDataMixin, ModelViewSet):
+
+    schema = EventTypeViewSchema()
     permission_classes = (EventCategoryPermissions,)
     filter_backends = [OrderingFilter, filters.DjangoFilterBackend]
-    filterset_class = EventTypeFilter
+    filterset_class = EventTypeFilterSet
     serializer_class = EventTypeSerializer
     lookup_field = "value"
+    lookup_url_kwarg = "eventtype_value"
     ordering = ("ordernum",)
 
-    def get_queryset(self) -> models.QuerySet:
+    def get_base_queryset(self) -> models.QuerySet:
         user = self.request.user
         allowed_categories = self._get_allowed_categories_by_user(user)
 
@@ -51,7 +126,6 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
 
         queryset = (
             EventType.objects.filter(
-                version=EventType.VersionChoices.VERSION_2,
                 category__is_active=True,  # Always filter out inactive categories.
                 category__value__in=allowed_categories,
             )
@@ -62,41 +136,130 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Mode
         )
         return queryset
 
+    def get_queryset(self) -> models.QuerySet:
+        """Normal queryset for viewset"""
+        return self.get_base_queryset().filter(version=EventType.VersionChoices.VERSION_2)
+
+    def get_schema_queryset(self) -> models.QuerySet:
+        """Queryset used for our dynamic schemas"""
+        return self.get_base_queryset()
+
     def get_list_etag(self, request: Request, queryset: models.QuerySet) -> str:
         queryset = queryset.values("updated_at", "category__updated_at")
         return super().get_list_etag(request, queryset)
 
-    def perform_destroy(self, instance: models.Model):
-        # Looks safe to implement this one.
-        instance.set_to_inactive()
+    def create(self, request: Request, *args, **kwargs) -> Response:
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        event_type = serializer.save()
+        reverse_url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": event_type.value})
 
-    def create(self, request, *args, **kwargs):
-        # Temporary implementation to avoid creating new event types.
-        return Response({"detail": "Method not supported"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response(
+            status=status.HTTP_201_CREATED,
+            data={"resource_url": reverse_url},
+            headers={"Location": reverse_url},
+        )
 
-    def update(self, request: Request, *args, **kwargs):
-        # Temporary implementation to avoid updating event types.
-        return Response({"detail": "Method not supported"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    def update(self, request: Request, *args, **kwargs) -> Response:
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
 
-    @action(methods=["get"], detail=False, url_path="schemas")
+        return Response(status=status.HTTP_200_OK)
+
+    def destroy(self, request: Request, *args, **kwargs) -> Response:
+        instance = self.get_object()
+        if hasattr(instance, "in_use"):
+            has_events = instance.in_use
+        else:
+            has_events = instance.event_set.exists()
+        has_alerts = instance.alert_rules.exists()
+
+        if has_events or has_alerts:
+            reasons = []
+            if has_events:
+                reasons.append("it is associated with existing Events")
+            if has_alerts:
+                reasons.append("it is associated with existing Alert Rules")
+            error_message = f"Cannot delete Event Type '{instance.display}' because {', and '.join(reasons)}."
+            return Response({"detail": error_message}, status=status.HTTP_409_CONFLICT)
+
+        # If no dependencies, proceed with standard deletion which returns 204
+        return super().destroy(request, *args, **kwargs)
+
+    def get_schema_renderer(self, request: Request) -> SchemaRenderer:
+        # This is where the rendering and retrieval sides are being connected.
+        registry = build_dynamic_schemas_registry(request)
+        return SchemaRenderer(registry)
+
+    def get_serializer_context(self) -> dict:
+        """Add include_schema to serializer context"""
+        context = super().get_serializer_context()
+        include_schema = parse_bool(self.request.query_params.get("include_schema", "false"))
+        context["include_schema"] = include_schema
+        return context
+
+    @action(
+        methods=["get"],
+        detail=False,
+        url_path="schemas",
+        renderer_classes=(DirectJSONRenderer, DirectBrowsableAPIRenderer),
+    )
     def list_schemas(self, request: Request) -> Response:
         """
-        Returns a dictionary of schemas for the EventTypes API.
-        Keyed by value field in event_type.
+        Returns a JSON structure with a list of schemas, using a list-based approach.
+        Each item indicates 'success' or 'failure' and contains an 'error.code' when failing.
         """
-        # Note:
-        # Temporary implementation to get all the schemas just to show the idea of having a
-        # separate endpoint for schemas.
         queryset = self.filter_queryset(self.get_queryset())
-        schemas = {et.value: et.schema for et in queryset}
-        return Response(schemas)
+        schema_renderer = None
+        if parse_bool(request.query_params.get("pre_render", False)):
+            schema_renderer = self.get_schema_renderer(request)
 
-    @action(methods=["get"], detail=True, url_path="schema")
-    def retrieve_schema(self, request: Request, value: str, format: Optional[str] = None) -> Response:
+        results = []
+        for et in queryset:
+            schema_item = {"value": et.value}
+
+            success, data = parse_and_render_schema(et, schema_renderer)
+            if success:
+                schema_item["status"] = RenderStatus.SUCCESS
+                schema_item["schema"] = data
+            else:
+                schema_item["status"] = RenderStatus.FAILURE
+                schema_item["error"] = data
+
+            results.append(schema_item)
+
+        # Format designed for easy implementation of pagination
+        response_data = {
+            "count": len(results),
+            "results": results,
+        }
+        if all(item["status"] == RenderStatus.SUCCESS for item in results):
+            response_status = status.HTTP_200_OK
+        else:
+            response_status = status.HTTP_207_MULTI_STATUS
+
+        return Response(response_data, status=response_status)
+
+    # pylint: disable=unused-argument
+    @action(
+        methods=["get"],
+        detail=True,
+        url_path="schema",
+        renderer_classes=(DirectJSONRenderer, DirectBrowsableAPIRenderer),
+    )
+    def retrieve_schema(self, request: Request, **kwargs) -> Response:
         """
         Returns the rendered schema for the specified event type.
         """
-        print(f"Retrieve schema for {value}")
-        print(f"Format: {format}")
-        instance = self.get_object()
-        return Response(instance.schema)
+        event_type = self.get_object()
+        schema_renderer = None
+        if parse_bool(request.query_params.get("pre_render", False)):
+            schema_renderer = self.get_schema_renderer(request)
+
+        success, data = parse_and_render_schema(event_type, schema_renderer)
+        if success:
+            return Response(data, status=status.HTTP_200_OK)
+        return Response({"error": data}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
