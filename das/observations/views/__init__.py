@@ -1062,6 +1062,7 @@ class TrackingDataCsvView(APIView):
                 subject.subjectsource_id, lower, upper, max_records, filter_flag=filter_flag, order_by="recorded_at"
             )
         else:
+            # we can't update this to use get_subject_observations_partitioned because of the annotations being applied
             qs = Observation.objects.get_subject_observations(
                 subject, lower, upper, max_records, filter_flag=filter_flag, order_by="recorded_at"
             )

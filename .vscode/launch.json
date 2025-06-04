@@ -63,7 +63,8 @@
             "cwd": "${workspaceFolder}/das",
             "env": {
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler",
-                "ROOT_LOGGING_LEVEL": "INFO"
+                "ROOT_LOGGING_LEVEL": "INFO",
+                "PYTHONWARNINGS": "default"
             },
             "args": [
                 "runserver",

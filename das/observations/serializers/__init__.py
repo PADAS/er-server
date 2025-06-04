@@ -416,9 +416,7 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         return models.Subject.objects.create_subject(**validated_data)
 
     def _is_stationary_subject(self, instance):
-        if instance.subject_subtype.subject_type.value == STATIONARY_SUBJECT_VALUE and getattr(
-            instance, "latest_subjectsource_exists", False
-        ):
+        if instance.subject_subtype.subject_type.value == STATIONARY_SUBJECT_VALUE and instance.subjectsources.last():
             return True
         return False
 
@@ -438,9 +436,15 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         return device_status_properties
 
     def _get_default_measure(self, subject):
-        if not hasattr(subject, "latest_subjectsource_transforms"):
-            raise ValueError("Subject does not have latest_subjectsource_transforms annotation")
-        if transforms := getattr(subject, "latest_subjectsource_transforms", None):
+        # TODO: add the transorms field as an annotation to the subject as "source_transforms"
+        transforms = None
+        if hasattr(subject, "source_transforms"):
+            transforms = getattr(subject, "source_transforms", None)
+        else:
+            last_subject_source = subject.subjectsources.last()
+            if last_subject_source:
+                transforms = last_subject_source.source.provider.transforms
+        if transforms:
             for transform in transforms:
                 if transform.get("default"):
                     return transform.get("label")
@@ -536,7 +540,7 @@ def get_observation_location(subject, mou_date):
         [Observation]: the observation
     """
 
-    observation = models.Observation.objects.get_subject_observations(
+    observation = models.Observation.objects.get_subject_observations_partitioned(
         subject, until=mou_date, order_by="-recorded_at"
     ).first()
 

@@ -10,7 +10,8 @@ from utils.tenant.celery import TenantQueueOnceTask
 
 logger = logging.getLogger(__name__)
 
-imagefile_rendered = Signal(providing_args=["usercontent_id"])
+# the old providing_args=["usercontent_id"], is not used by Django. Here for documentation purposes.
+imagefile_rendered = Signal()
 
 
 @celery.app.task(base=TenantQueueOnceTask, bind=True)

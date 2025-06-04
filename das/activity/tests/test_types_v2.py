@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 
+from activity.constants import PRI_IMPORTANT, PRI_URGENT
 from activity.models import AlertRule, Event, EventType
 from activity.serializers.events_v2 import EventTypeSerializer
 
@@ -115,6 +116,21 @@ class TestEventTypesV2:
         assert len(response.data) == 1
         for et in response.data:
             assert et["category"] == "cat2"
+
+    def test_filter_event_types_by_multiple_categories(self, superuser_client, cat1_cat2_event_types):
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.get(url, {"category": "cat1,cat2"})
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 4
+        for et in response.data:
+            assert et["category"] in ["cat1", "cat2"]
+
+    def test_filter_event_types_by_invalid_category(self, superuser_client, cat1_cat2_event_types):
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.get(url, {"category": "invalid_category"})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "category" in response.data
+        assert "is not one of the available choices." in response.content.decode("utf-8")
 
     def test_filter_event_types_by_is_collection(self, superuser_client, cat1_cat2_event_types):
         url = reverse("v2-eventtype-list")
@@ -244,9 +260,16 @@ class TestEventTypesV2:
         assert et_serializer.get_has_events_assigned(et_with_events) is True
         assert warning_msg in caplog.text
 
-    def test_post_event_type_with_valid_schema(self, superuser_client, cat1_cat2_categories):
+    @pytest.mark.parametrize(
+        "json_schema_fixture",
+        [
+            "valid_nested_collection_schema.json",
+            "valid_user_choices_schema.json",
+        ],
+    )
+    def test_post_event_type_with_valid_schema(self, superuser_client, cat1_cat2_categories, json_schema_fixture):
         cat1, _ = cat1_cat2_categories
-        fixture_path = Path(__file__).parent / "fixtures" / "valid_nested_collection_schema.json"
+        fixture_path = Path(__file__).parent / "fixtures" / json_schema_fixture
         with open(fixture_path, encoding="utf-8") as f:
             schema = json.load(f)
 
@@ -258,8 +281,8 @@ class TestEventTypesV2:
             "readonly": True,
         }
         url = reverse("v2-eventtype-list")
-        response = superuser_client.post(url, data=data, format="json")
-        assert response.status_code == 201
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_201_CREATED
         assert "resource_url" in response.data
         assert response.data["resource_url"] == reverse(
             "v2-eventtype-detail", kwargs={"eventtype_value": data["value"]}
@@ -280,7 +303,7 @@ class TestEventTypesV2:
         }
         url = reverse("v2-eventtype-list")
         response = superuser_client.post(url, data=data)
-        assert response.status_code == 400
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "schema" in response.data
         assert "Invalid JSON Schema:" in response.data["schema"][0]
 
@@ -309,7 +332,7 @@ class TestEventTypesV2:
         }
         url = reverse("v2-eventtype-list")
         response = superuser_client.post(url, data=data)
-        assert response.status_code == 400
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.json() == {
             "schema": ["$schema must be https://json-schema.org/draft/2020-12/schema"],
             "status": {"code": 400, "message": "Bad Request"},
@@ -321,13 +344,13 @@ class TestEventTypesV2:
 
         # Test without include_schema
         response = superuser_client.get(url)
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         for item in response.data:
             assert "schema" not in item
 
         # Test with include_schema=true
         response = superuser_client.get(url, {"include_schema": "true"})
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         for item in response.data:
             assert "schema" in item  # Schema should now be present
 
@@ -338,13 +361,206 @@ class TestEventTypesV2:
 
         # Test without include_schema
         response = superuser_client.get(url)
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         assert "schema" not in response.data
 
         # Test with include_schema=true
         response = superuser_client.get(url, {"include_schema": "true"})
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         assert "schema" in response.data  # Schema should now be present
+
+    def test_put_event_type_success(self, superuser_client, cat1_fire_v2_event_type, cat1_cat2_categories):
+        target_et = cat1_fire_v2_event_type  # fixture with known valid schema
+        original_updated_at = target_et.updated_at
+
+        # Fetch current data via GET to ensure proper serialization and context for PUT payload
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target_et.value})
+        response_get = superuser_client.get(url, {"include_schema": "true"})
+        assert response_get.status_code == status.HTTP_200_OK
+        put_payload = response_get.data.copy()
+
+        # Remove read-only fields and fields not meant to be part of the core update payload
+        excluded_fields = ["id", "url", "has_events_assigned", "icon_id"]
+        for fld in excluded_fields:
+            del put_payload[fld]
+
+        # Make some changes
+        new_display = "Updated Display Name via PUT"
+        new_priority = PRI_IMPORTANT
+        new_icon_slug = "fire-amber.svg"  # Use a known valid icon slug
+        new_category_value = cat1_cat2_categories[1].value  # cat2 value
+
+        put_payload["display"] = new_display
+        put_payload["default_priority"] = new_priority
+        put_payload["is_active"] = False
+        put_payload["icon"] = new_icon_slug
+        put_payload["category"] = new_category_value
+
+        response = superuser_client.put(url, data=put_payload)
+
+        assert response.status_code == status.HTTP_200_OK, response.content
+
+        # Check updated fields
+        target_et.refresh_from_db()
+
+        assert target_et.display == new_display
+        assert target_et.default_priority == new_priority
+        assert target_et.is_active is False
+        assert target_et.icon == new_icon_slug
+        assert target_et.category.value == new_category_value
+        assert target_et.updated_at > original_updated_at
+
+        # Check response data with include_inactive because the event type is inactive now
+        response_get = superuser_client.get(url, {"include_inactive": "true"})
+        assert response_get.status_code == status.HTTP_200_OK
+        response_data = response_get.data
+
+        # Build expected response dictionary with all fields
+        expected_response = {
+            "id": str(target_et.id),
+            "value": target_et.value,
+            "display": new_display,
+            "ordernum": target_et.ordernum,
+            "category": new_category_value,
+            "geometry_type": target_et.geometry_type,
+            "default_priority": new_priority,
+            "default_state": target_et.default_state,
+            "resolve_time": target_et.resolve_time,
+            "auto_resolve": target_et.auto_resolve,
+            "readonly": target_et.readonly,
+            "is_collection": target_et.is_collection,
+            "is_active": False,
+            "has_events_assigned": False,  # No events assigned since we just updated it
+            "icon": new_icon_slug,
+            "icon_id": new_icon_slug,
+            "url": f"http://testserver/api/v2.0/activity/eventtypes/{target_et.value}/",
+        }
+
+        # Verify the response matches our expected dictionary
+        assert response_data == expected_response
+
+        # Verify the icon was actually updated in the database
+        target_et.refresh_from_db()
+        assert target_et.icon == new_icon_slug
+
+    def test_patch_event_type_success(self, superuser_client, cat1_fire_v2_event_type):
+        target_et = cat1_fire_v2_event_type
+        original_icon_id = target_et.icon_id
+        original_schema = target_et.schema
+        original_updated_at = target_et.updated_at
+
+        patch_payload = {
+            "display": "Patched Display Name",
+            "is_collection": not target_et.is_collection,  # Will become False
+            "default_priority": PRI_URGENT,
+        }
+
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target_et.value})
+        response = superuser_client.patch(url, data=patch_payload)
+
+        assert response.status_code == status.HTTP_200_OK
+
+        target_et.refresh_from_db()
+
+        assert target_et.display == patch_payload["display"]
+        assert target_et.is_collection == patch_payload["is_collection"]
+        assert target_et.default_priority == patch_payload["default_priority"]
+        assert target_et.updated_at > original_updated_at
+
+        # Ensure other fields not in the payload are unchanged
+        assert target_et.icon_id == original_icon_id
+        assert target_et.schema == original_schema
+
+        # Check response data
+        response_get = superuser_client.get(url)
+        assert response_get.status_code == status.HTTP_200_OK
+        response_data = response_get.data
+        assert response_data["display"] == patch_payload["display"]
+        assert response_data["is_collection"] == patch_payload["is_collection"]
+        assert response_data["default_priority"] == patch_payload["default_priority"]
+        assert response_data["id"] == str(target_et.id)
+
+    def test_patch_event_type_readonly_fields(self, superuser_client, cat1_fire_v2_event_type):
+        """Test trying to update readonly fields (version, das_tenant)"""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        # Try to update version
+        response = superuser_client.patch(url, data={"version": "1"})
+        assert response.status_code == status.HTTP_200_OK
+        cat1_fire_v2_event_type.refresh_from_db()
+        assert cat1_fire_v2_event_type.version == "2"  # should remain unchanged
+
+        # Try to update das_tenant
+        response = superuser_client.patch(url, data={"das_tenant": "new_tenant"})
+        assert response.status_code == status.HTTP_200_OK
+        cat1_fire_v2_event_type.refresh_from_db()
+        assert cat1_fire_v2_event_type.das_tenant_id is not None
+
+    def test_patch_event_type_toggle_active(self, superuser_client, cat1_fire_v2_event_type):
+        """Test that patching inactive EventType is supported"""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        # First make it inactive
+        response = superuser_client.patch(url, data={"is_active": False})
+        assert response.status_code == status.HTTP_200_OK
+
+        cat1_fire_v2_event_type.refresh_from_db()
+        assert cat1_fire_v2_event_type.is_active is False
+
+        # Check that it is not found when not including inactive
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        # Then make it active again
+        response = superuser_client.patch(url, data={"is_active": True})
+        assert response.status_code == status.HTTP_200_OK
+        cat1_fire_v2_event_type.refresh_from_db()
+        assert cat1_fire_v2_event_type.is_active is True
+
+        # Check that it is found now
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["is_active"] is True
+
+    def test_patch_event_type_invalid_value_format(self, superuser_client, cat1_fire_v2_event_type):
+        """Test updating with invalid value format (must match regex)"""
+        invalid_value = "invalid!value"  # contains invalid character !
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        response = superuser_client.patch(url, data={"value": invalid_value})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "value" in response.data
+        assert "invalid character" in str(response.data["value"][0])
+
+    def test_patch_event_type_long_display(self, superuser_client, cat1_fire_v2_event_type):
+        """Test updating with very long display name"""
+        long_display = "hello" * 256  # exceeds max length of 255
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        response = superuser_client.patch(url, data={"display": long_display})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "display" in response.data
+        assert "Ensure this field has no more than 255 characters" in str(response.data["display"][0])
+
+    def test_patch_event_type_invalid_state(self, superuser_client, cat1_fire_v2_event_type):
+        """Test updating with invalid state value"""
+        invalid_state = "invalid_state"
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        response = superuser_client.patch(url, data={"default_state": invalid_state})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "default_state" in response.data
+        assert "is not a valid choice" in str(response.data["default_state"][0])
+
+    def test_patch_event_type_invalid_priority(self, superuser_client, cat1_fire_v2_event_type):
+        """Test updating with invalid priority value"""
+        invalid_priority = 999  # not in PRIORITY_CHOICES
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        response = superuser_client.patch(url, data={"default_priority": invalid_priority})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "default_priority" in response.data
+        assert "is not a valid choice" in str(response.data["default_priority"][0])
 
     def test_delete_event_type_success(self, superuser_client, cat1_cat2_event_types):
         """
@@ -365,6 +581,18 @@ class TestEventTypesV2:
             "status": {"code": status.HTTP_204_NO_CONTENT, "message": "No Content"},  # inconsistent with status code
         }
         assert response.json() == expected_response
+
+    def test_delete_inactive_event_type(self, superuser_client, cat1_cat2_event_types):
+        target = cat1_cat2_event_types[1]
+        target.set_to_inactive()
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        response = superuser_client.delete(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert not EventType.objects.filter(pk=target.pk).exists()
 
     def test_delete_event_type_success_after_cleaning_dependencies(
         self, superuser_client, superuser, cat1_cat2_event_types

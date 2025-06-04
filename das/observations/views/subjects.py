@@ -89,7 +89,6 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
         ],
     }
     queryset_linked_user = None
-    queryset = None
     query_params = None
 
     def check_permissions(self, request):
