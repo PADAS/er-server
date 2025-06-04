@@ -655,7 +655,7 @@ class SourceProviderSerializer(serializers.Serializer):
         return instance
 
 
-class SubjectTrackSerializer(serializers.BaseSerializer):
+class SubjectTrackSerializer(serializers.Serializer):
     def to_representation(self, subject):
         image_url = subject.image_url
         user = self.context["request"].user
@@ -685,7 +685,7 @@ class SubjectTrackSerializer(serializers.BaseSerializer):
         return rep
 
 
-class SubjectStatusSerializer(serializers.BaseSerializer):
+class SubjectStatusSerializer(serializers.Serializer):
     def to_representation(self, subject_status):
         coordinates = Point(x=subject_status.location.x, y=subject_status.location.y, srid=4326)
 

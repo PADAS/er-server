@@ -44,12 +44,6 @@ from core.serializers import BaseSerializer, PointValidator, TimestampMixin
 from revision.manager import ACTION_ADDED, ACTION_RELATION_DELETED, ACTION_UPDATED
 from usercontent.serializers import UserContentSerializer
 
-priority_choices_serializer = choicefield_serializer(PRIORITY_CHOICES, default=PRI_NONE)
-state_choices_serializer = choicefield_serializer(
-    PATROL_STATE_CHOICES, default=PC_OPEN, alternate_spellings=PATROL_STATE_ALTERNATE_SPELLINGS
-)
-
-
 from .alert import AlertRuleSerializer
 from .events import (
     EventRelationshipSerializer,
@@ -62,6 +56,11 @@ from .fields import (
     EventRelationshipTypeRelatedField,
     LeaderRelatedField,
     PatrolTypeRelatedField,
+)
+
+priority_choices_serializer = choicefield_serializer(PRIORITY_CHOICES, default=PRI_NONE)
+state_choices_serializer = choicefield_serializer(
+    PATROL_STATE_CHOICES, default=PC_OPEN, alternate_spellings=PATROL_STATE_ALTERNATE_SPELLINGS
 )
 
 

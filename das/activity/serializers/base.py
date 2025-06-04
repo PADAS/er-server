@@ -112,7 +112,7 @@ class FileSerializerMixin:
 
         # Prune some unnecessary attributes.
         for att in ("usercontent", self.parent_name, "usercontent_id", "usercontent_type"):
-            rep.pop(att, default=None)
+            rep.pop(att, None)
 
         return rep
 
