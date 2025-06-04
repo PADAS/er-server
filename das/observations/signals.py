@@ -28,6 +28,7 @@ from observations.models import (
     SubjectStatus,
 )
 from observations.servicesutils import SOURCE_PROVIDER_2WAY_MSG_KEY
+from observations.tasks import maintain_subjectstatus_for_subject
 from observations.utils import is_observation_stationary_subject
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 
@@ -75,7 +76,7 @@ def ensure_subject_status_exists(sender, **kwargs):
 @receiver(post_save, sender=SubjectSource)
 def maintain_subjectstatus(sender, instance, created, **kwargs):
     # This function is triggered when source is updated for subject.
-    SubjectStatus.objects.maintain_subject_status(instance.subject_id)
+    transaction.on_commit(lambda: maintain_subjectstatus_for_subject.apply_async(args=[instance.subject_id]))
 
 
 def create_proxy_permissions(**kwargs):
