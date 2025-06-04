@@ -4,7 +4,7 @@
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.4.3
 LABEL org.opencontainers.image.description maintainer="EarthRanger Developers developers@earthranger.com"
 
-RUN apt-get update; apt-get install -y pip git libmagic-dev postgresql-client libpq-dev; \
+RUN apt-get update; apt-get install -y pip git libmagic-dev postgresql-client libpq-dev libkrb5-dev; \
   apt-get clean autoclean; \
   apt-get autoremove --yes;\
   rm -rf /var/lib/{apt,dpkg,cache,log}

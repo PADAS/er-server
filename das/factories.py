@@ -432,7 +432,7 @@ class ChoiceFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Choice
 
-    model = Choice.User
+    model = Choice.USER_MODEL
     field = fuzzy.FuzzyText(length=10)
     value = factory.Sequence(lambda n: f"value_{n}")
     display = factory.Sequence(lambda n: f"display_{n}")

@@ -10,8 +10,8 @@ from django import forms
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import AdminDateWidget, FilteredSelectMultiple
 from django.contrib.auth import get_user_model
-from django.contrib.postgres.forms import JSONField
 from django.core.exceptions import ValidationError
+from django.forms import JSONField
 from django.utils.dateparse import parse_duration
 from django.utils.translation import gettext_lazy as _
 

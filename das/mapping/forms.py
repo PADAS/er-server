@@ -3,7 +3,7 @@ from math import isclose
 from django import forms
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.gis.geos import Point
-from django.contrib.postgres.forms import JSONField
+from django.forms import JSONField
 from django.utils.translation import gettext_lazy as _
 
 from choices.models import Choice

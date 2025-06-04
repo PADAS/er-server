@@ -565,7 +565,6 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         if created_after and not (since and until):
             raise ValueError("If using created_after, since and until must be provided and set to a limited time range")
 
-        # First get all valid subject source assignments for the time range
         time_range = DateTimeTZRange(
             lower=since or datetime.min.replace(tzinfo=pytz.UTC), upper=until or datetime.max.replace(tzinfo=pytz.UTC)
         )
