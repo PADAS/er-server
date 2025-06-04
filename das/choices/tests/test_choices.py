@@ -109,6 +109,29 @@ def test_filter_by_field(client, choices_fixture, five_choices):
 
 
 @pytest.mark.usefixtures("tenant_settings")
+def test_filter_by_multiple_fields(client, choices_fixture, five_choices):
+    _, user = choices_fixture.choices, choices_fixture.user
+    client.force_login(user)
+
+    url = reverse("choices")
+    response = client.get(url, {"field": "wildlifesighting_species,wildlifesighting_reporter_type"})
+    assert response.status_code == 200
+    assert len(response.data["results"]) == 3  # assert filtered items return choices added by choices_fixture
+
+
+@pytest.mark.usefixtures("tenant_settings")
+def test_filter_by_invalid_field(client, choices_fixture, five_choices):
+    _, user = choices_fixture.choices, choices_fixture.user
+    client.force_login(user)
+
+    url = reverse("choices")
+    response = client.get(url, {"field": "invalid_field"})
+    assert response.status_code == 400
+    assert "field" in response.data
+    assert "is not one of the available choices." in response.content.decode("utf-8")
+
+
+@pytest.mark.usefixtures("tenant_settings")
 def test_filter_by_model(client, choices_fixture, five_choices):
     _, user = choices_fixture.choices, choices_fixture.user
 
@@ -117,6 +140,18 @@ def test_filter_by_model(client, choices_fixture, five_choices):
     response = client.get(url, {"model": "activity.eventtype"})
     assert response.status_code == 200
     assert len(response.data["results"]) == 4  # assert filtered items return choices added by choices_fixture
+
+
+@pytest.mark.usefixtures("tenant_settings")
+def test_filter_by_invalid_model(client, choices_fixture, five_choices):
+    _, user = choices_fixture.choices, choices_fixture.user
+
+    client.force_login(user)
+    url = reverse("choices")
+    response = client.get(url, {"model": "invalid_model"})
+    assert response.status_code == 400
+    assert "model" in response.data
+    assert "is not one of the available choices." in response.content.decode("utf-8")
 
 
 @pytest.mark.usefixtures("tenant_settings")

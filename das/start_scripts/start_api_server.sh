@@ -72,4 +72,7 @@ gunicorn das_server.wsgi --name das \
     --limit-request-line 8190 \
     --worker-tmp-dir /dev/shm \
     -c das_server/gunicorn.conf.py \
-    --log-file -
+    --log-level info \
+    --access-logfile - \
+    --error-logfile - \
+    --capture-output 2>&1

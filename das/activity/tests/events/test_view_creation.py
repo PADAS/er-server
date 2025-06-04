@@ -403,9 +403,9 @@ class TestEventViewCreation:
     def test_consistency_checkbox_value(self, create_client_for_user):
         Choice.objects.all().delete()
         Choice.objects.create(
-            model=Choice.Field_Reports, field="wildlifesightingrep_species", value="buffalo", display="Buffalo"
+            model=Choice.EVENT_MODEL, field="wildlifesightingrep_species", value="buffalo", display="Buffalo"
         )
-        Choice.objects.create(model=Choice.Field_Reports, field="yesno", value="yes", display="Yes")
+        Choice.objects.create(model=Choice.EVENT_MODEL, field="yesno", value="yes", display="Yes")
 
         schema = schema_examples.WILDLIFE_SCHEMA_CHECKBOX
         event_type = self.sample_event.event_type
@@ -438,6 +438,10 @@ class TestEventViewCreation:
         assert expected_result == actual_result.data
 
     def test_create_event_with_only_create_permission(self, create_client_for_user):
+        """
+        This test is to ensure that the event creation endpoint returns the id and serial_number of the event.
+        As requested by ER mobile team
+        """
         permission_set = PermissionSet.objects.create(name="Only create Events")
         permission = Permission.objects.get_by_natural_key(
             codename="analyzer_event_create", app_label="activity", model="event"
@@ -451,4 +455,5 @@ class TestEventViewCreation:
 
         assert response.status_code == 201
         assert "id" in response.data
-        assert len(response.data.keys()) == 1
+        assert "serial_number" in response.data
+        assert len(response.data.keys()) == 2

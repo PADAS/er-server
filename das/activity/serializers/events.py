@@ -1014,8 +1014,9 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             permission_name = f"activity.{category_name}_read"
             geo_permission_name = make_eventcategory_permission_codename(category_name, "view", True, "activity")
 
+            # For create-only users, include event ID and serial number in the response
             if not (request.user.has_perm(permission_name) or request.user.has_perm(geo_permission_name)):
-                return {"id": str(event.id)}
+                return {"id": str(event.id), "serial_number": event.serial_number}
 
         self.fields.pop("eventsource", None)
         set_prefetched = hasattr(event, "event_details_set")
