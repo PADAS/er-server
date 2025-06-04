@@ -569,7 +569,6 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
         "name",
         "subject_subtype__display",
         "common_name__display",
-        "subjectsource__source__manufacturer_id",
     )
 
     fieldsets = (
