@@ -60,7 +60,7 @@ from factories import (
     TwoWayMessageSubjectFactory,
     UserFactory,
 )
-from observations.models import Observation
+from observations.models import Observation, SubjectStatus
 from utils.features import features
 from utils.tenant import Tenant
 from utils.tenant.managers import TenantContextManager
@@ -713,14 +713,8 @@ def source_group():
 @pytest.fixture
 def subject_source_with_observations():
     subject_source = SubjectSourceFactory()
-    subject_source.subject = SubjectFactory()
-    source = SourceFactory()
-    subject_source.source = source
-    subject_source.save()
-    observation = ObservationFactory()
-    observation.subject_source = subject_source
-    observation.source = source
-    observation.save()
+    observation = ObservationFactory(source=subject_source.source)
+    SubjectStatus.objects.maintain_subject_status(subject_source.subject.id)
     return subject_source, observation
 
 

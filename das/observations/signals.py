@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta, timezone
 
 from django_multitenant.utils import get_current_tenant
 
@@ -18,7 +19,6 @@ from accounts.models import PermissionSet
 from das_server import pubsub
 from observations.models import (
     Announcement,
-    LatestObservationSource,
     Message,
     Observation,
     SourceProvider,
@@ -29,7 +29,6 @@ from observations.models import (
 )
 from observations.servicesutils import SOURCE_PROVIDER_2WAY_MSG_KEY
 from observations.tasks import maintain_subjectstatus_for_subject
-from observations.utils import is_observation_stationary_subject
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 
 logger = logging.getLogger(__name__)
@@ -40,16 +39,24 @@ def observation_post_save(sender, instance, created, **kwargs):
     # disable the handler during fixture loading
     if kwargs["raw"]:
         return
+    last_week = datetime.now(tz=timezone.utc) - timedelta(days=7)
 
-    SubjectStatus.objects.update_current_from_source(
-        instance.source, include_empty_location=is_observation_stationary_subject(instance)
-    )
+    # If the observation is new and was recorded in the last day, update the subjectstatus.
+    # Otherwise, queue a task to update the subjectstatus.
+    if created and instance.recorded_at > last_week:
+        SubjectStatus.objects.update_from_observation(observation=instance, created=created)
+    elif subjectsource := SubjectSource.objects.get_for_source_at_time(instance.source, instance.recorded_at):
+        transaction.on_commit(
+            lambda: maintain_subjectstatus_for_subject.apply_async(args=[str(subjectsource.subject.id)])
+        )
 
 
 @receiver(post_delete, sender=Observation)
 def observation_post_delete(sender, instance, **kwargs):
-    SubjectStatus.objects.update_current_from_deleted_observation(instance)
-    ensure_keep_latest_observation_source(instance)
+    if subjectsource := SubjectSource.objects.get_for_source_at_time(instance.source, instance.recorded_at):
+        transaction.on_commit(
+            lambda: maintain_subjectstatus_for_subject.apply_async(args=[str(subjectsource.subject.id)])
+        )
 
 
 @receiver(post_save, sender=SubjectStatus)
@@ -178,14 +185,3 @@ def news_post_save(sender, instance, created, **kwargs):
         logger.info("saved announcement {}, created={}".format(instance.pk, str(created)))
         action = "das.announcement.new"
         transaction.on_commit(lambda: pubsub.publish({"announcement_id": str(instance.pk)}, action))
-
-
-def ensure_keep_latest_observation_source(observation):
-    if (
-        not LatestObservationSource.objects.filter(source=observation.source).exists()
-        and observation.source.observation_set.count()
-    ):
-        latest_observation = observation.source.observation_set.order_by("-recorded_at")[0]
-        LatestObservationSource.objects.get_or_create(
-            source=observation.source, observation=latest_observation, recorded_at=latest_observation.recorded_at
-        )

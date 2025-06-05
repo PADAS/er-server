@@ -433,13 +433,6 @@ def is_subject_stationary_subject(subject):
     return subject.subject_subtype.subject_type.value == "stationary-object"
 
 
-def is_observation_stationary_subject(observation):
-    subject_source = observation.source.subjectsource_set.last()
-    if subject_source:
-        return is_subject_stationary_subject(subject_source.subject)
-    return False
-
-
 def check_valid_date_string(date_str: Optional[str], parameter_name: str) -> Tuple[bool, Optional[datetime]]:
     if not date_str:
         return False, None
