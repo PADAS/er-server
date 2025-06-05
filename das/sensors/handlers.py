@@ -301,7 +301,7 @@ class ErTrackHandler(GenericSensorHandler):
         if response := cls.save_and_notify_tracks_listeners(obs_to_persist, errors, obs_cache):
             return response
 
-        return Response({}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        return Response({}, status=status.HTTP_201_CREATED)
 
     @classmethod
     def ensure_source(cls, observation, user, subject_info, **kwargs):
