@@ -54,7 +54,7 @@ class TestActivityModelsValuesPerTenant:
 
         assert f"activity_{model_name.lower()}_unique_value_across_tenants" in str(
             error
-        ) or "Event type with this Das tenant and Value already exists." in str(error)
+        ) or "Event Type with this Das tenant and Value already exists." in str(error)
 
 
 @pytest.mark.django_db
