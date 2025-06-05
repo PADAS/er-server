@@ -232,7 +232,7 @@ class EventCategory(TenantModelMixin, TimestampedModel, RankModelMixin):
         default_manager_name = "objects"
 
     def __str__(self):
-        return self.display
+        return str(self.display or self.value)
 
     @classmethod
     def get_active_categories(cls):
@@ -366,6 +366,8 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
     objects = EventTypeManager()
 
     class Meta:
+        verbose_name = _("Event Type")
+        verbose_name_plural = _("Event Types")
         base_manager_name = "objects"
         default_manager_name = "objects"
         constraints = [
@@ -389,8 +391,8 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
             Index(fields=["das_tenant", "ordernum"], name="%(class)s_ordernum_idx"),
         ]
 
-    def __str__(self):
-        return str(self.value + " " + self.display)
+    def __str__(self) -> str:
+        return str(self.display or self.value)
 
     def clean(self, *args, **kwargs):
         if not self.auto_resolve and self.resolve_time:
@@ -810,6 +812,8 @@ class EventFile(TenantModelMixin, TimestampedModel, RevisionMixin):
     objects = CommonTenantManager()
 
     class Meta:
+        verbose_name = _("Event File")
+        verbose_name_plural = _("Event Files")
         ordering = ["ordernum", "-updated_at"]
         base_manager_name = "objects"
         default_manager_name = "objects"
@@ -925,6 +929,8 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
     PRIORITY_LABELS_MAP = dict((x, y) for (x, y) in PRIORITY_CHOICES)
 
     class Meta:
+        verbose_name = _("Event")
+        verbose_name_plural = _("Events")
         # Django at the end of each migration in post_migrate signal ensures that these permissions
         # have been created for all models. This is a problem for our special case of Tenant Permissions
         # in that after each migration, the permissions here were being re-generated and assigned to the global
@@ -1262,6 +1268,8 @@ class EventAttachment(TenantModelMixin, RevisionMixin, models.Model):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        verbose_name = _("Event Attachment")
+        verbose_name_plural = _("Event Attachments")
         base_manager_name = "objects"
         default_manager_name = "objects"
 
@@ -1293,6 +1301,8 @@ class EventNote(TenantModelMixin, RevisionMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        verbose_name = _("Event Note")
+        verbose_name_plural = _("Event Notes")
         base_manager_name = "objects"
         default_manager_name = "objects"
 
@@ -1468,6 +1478,8 @@ class EventProvider(TenantModelMixin, TimestampedModel):
     objects = CommonTenantManager()
 
     class Meta:
+        verbose_name = _("Event Provider")
+        verbose_name_plural = _("Event Providers")
         base_manager_name = "objects"
         default_manager_name = "objects"
 
@@ -1509,6 +1521,8 @@ class EventSource(TenantModelMixin, TimestampedModel):
         return self.is_active and self.event_type is not None
 
     class Meta:
+        verbose_name = _("Event Source")
+        verbose_name_plural = _("Event Sources")
         permissions = (("create_event_for_eventsource", "Permission to add an event for an event source"),)
         constraints = [
             UniqueConstraint(
@@ -1608,6 +1622,8 @@ class NotificationMethod(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        verbose_name = _("Notification Method")
+        verbose_name_plural = _("Notification Methods")
         base_manager_name = "objects"
         default_manager_name = "objects"
 
@@ -1708,6 +1724,8 @@ class AlertRule(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        verbose_name = _("Alert Rule")
+        verbose_name_plural = _("Alert Rules")
         base_manager_name = "objects"
         default_manager_name = "objects"
 
@@ -1744,6 +1762,8 @@ class EventNotification(TenantModelMixin, UUIDModel, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        verbose_name = _("Event Notification")
+        verbose_name_plural = _("Event Notifications")
         indexes = [models.Index(fields=["das_tenant", "event"])]
         base_manager_name = "objects"
         default_manager_name = "objects"
@@ -1811,6 +1831,7 @@ class Person(Subject):
     class Meta:
         proxy = True
         verbose_name = _("Person")
+        verbose_name_plural = _("People")
 
 
 class MembershipType(TenantModelMixin, models.Model):
@@ -2195,6 +2216,8 @@ class PatrolType(TenantModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     class Meta:
+        verbose_name = _("Patrol Type")
+        verbose_name_plural = _("Patrol Types")
         constraints = [
             UniqueConstraint(
                 fields=["das_tenant", "value"],
@@ -2371,6 +2394,10 @@ class PatrolConfiguration(TenantSingletonModel):
         SubjectGroup, related_name="groups", blank=True, through="activity.PatrolConfigurationSubjectGroup"
     )
     objects = CommonTenantManager()
+
+    class Meta:
+        verbose_name = _("Patrol Configuration")
+        verbose_name_plural = _("Patrol Configurations")
 
     @property
     def effective_subject_groups(self):
