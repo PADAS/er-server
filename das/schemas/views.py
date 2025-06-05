@@ -13,7 +13,8 @@ class UsersDynamicSchemaView(DynamicSchemaFromSourceView):
     default_title_field = "display_name"
 
     def get_display_name_from_item(self, item: dict) -> str:
-        return f"{item.get('first_name')} {item.get('last_name')}"
+        display_name = f"{item.get('first_name')} {item.get('last_name')}".strip()
+        return display_name or item.get("username") or item.get("email")
 
 
 class SubjectsDynamicSchemaView(DynamicSchemaFromSourceView):
