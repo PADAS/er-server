@@ -232,7 +232,7 @@ class EventCategory(TenantModelMixin, TimestampedModel, RankModelMixin):
         default_manager_name = "objects"
 
     def __str__(self):
-        return str(self.display or self.value)
+        return self.display or self.value
 
     @classmethod
     def get_active_categories(cls):
@@ -391,8 +391,8 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
             Index(fields=["das_tenant", "ordernum"], name="%(class)s_ordernum_idx"),
         ]
 
-    def __str__(self) -> str:
-        return str(self.display or self.value)
+    def __str__(self):
+        return self.display or self.value
 
     def clean(self, *args, **kwargs):
         if not self.auto_resolve and self.resolve_time:
@@ -2390,10 +2390,6 @@ class PatrolConfiguration(TenantSingletonModel):
         SubjectGroup, related_name="groups", blank=True, through="activity.PatrolConfigurationSubjectGroup"
     )
     objects = CommonTenantManager()
-
-    class Meta:
-        verbose_name = _("Patrol Configuration")
-        verbose_name_plural = _("Patrol Configurations")
 
     @property
     def effective_subject_groups(self):
