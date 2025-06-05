@@ -5,15 +5,19 @@ from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
 import pytest
+from psycopg2.extras import DateTimeTZRange
 from pytz import UTC
 
 from django.contrib.auth import get_user_model
+from django.contrib.gis.geos import Point
 from django.core.management import call_command
 from django.db.models import F
 from django.urls import reverse
 
 from core.tests import BaseAPITest
 from observations.models import (
+    DEFAULT_STATUS_VALUE_DATE,
+    DEFAULT_STATUS_VALUE_LOCATION,
     STATIONARY_SUBJECT_VALUE,
     Observation,
     Source,
@@ -165,7 +169,7 @@ class ObservationTestCase(BaseAPITest):
         source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
 
         # Generate some random data for the observation.
-        observation_time = UTC.localize(datetime.now())
+        observation_time = datetime.now(tz=timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 
@@ -245,10 +249,39 @@ class ObservationTestCase(BaseAPITest):
         self.assertTrue(obs is not None)
         obs.delete()
 
-        subject_status = SubjectStatus.objects.filter(
-            subject_id=subject_id, delay_hours=0, recorded_at=observation_time2
-        )
-        self.assertTrue(subject_status.first() is None)
+        # the signal handler is async, so call it directly
+        SubjectStatus.objects.maintain_subject_status(subject_id)
+
+        subject_status = SubjectStatus.objects.filter(subject_id=subject_id, delay_hours=0)
+        assert subject_status.first().recorded_at == observation_time
+
+    def test_exclude_latest_observation_updates_subject_status(self):
+        f"""
+        Using fixture data in {FIXTURE_FOR_SUBJECT_STATUS_TESTS}
+        """
+        subject_id = "d35cb4fe-c15f-404f-bc86-b479f01b6a01"
+
+        SubjectStatus.objects.maintain_subject_status(subject_id)
+        initial_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
+
+        last1, last2 = Observation.objects.filter(
+            source__subjectsource__subject_id=subject_id,
+            source__subjectsource__assigned_range__contains=F("recorded_at"),
+        ).order_by("-recorded_at")[:2]
+
+        self.assertEqual(initial_subjectstatus.recorded_at, last1.recorded_at)
+
+        last1.exclusion_flags = Observation.EXCLUDED_MANUALLY
+        last1.save()
+
+        # the signal handler is async, so call it directly
+        SubjectStatus.objects.maintain_subject_status(subject_id)
+
+        # After exclusion, check consistency.
+        next_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
+
+        self.assertEqual(last2.recorded_at, next_subjectstatus.recorded_at)
+        self.assertEqual(last2.location, next_subjectstatus.location)
 
     def test_delete_latest_observation(self):
         f"""
@@ -272,6 +305,9 @@ class ObservationTestCase(BaseAPITest):
         # DELETE the latest observations
         last1.delete()
 
+        # the signal handler is async, so call it directly
+        SubjectStatus.objects.maintain_subject_status(subject_id)
+
         # After delete, check consistency.
         next_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
 
@@ -291,6 +327,41 @@ class ObservationTestCase(BaseAPITest):
         # forgo updating the radio state in SubjectStatus.
         self.assertNotEqual(last1.additional["radio_state"], last2.additional["radio_state"])
         self.assertEqual(initial_subjectstatus.radio_state, next_subjectstatus.radio_state)
+
+    def test_delete_last_observation_for_subject_updates_subject_status(self):
+        """Scenario is that all of the observations for a subject have been deleted. This could occur
+        when the Days Data Retain feature cleans out observations for a no longer active subject.
+        We should see the subjectstatus record reset to default values"""
+
+        subject_id = "d35cb4fe-c15f-404f-bc86-b479f01b6a01"
+
+        SubjectStatus.objects.maintain_subject_status(subject_id)
+        initial_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
+
+        last1 = (
+            Observation.objects.filter(
+                source__subjectsource__subject_id=subject_id,
+                source__subjectsource__assigned_range__contains=F("recorded_at"),
+            )
+            .order_by("-recorded_at")
+            .first()
+        )
+
+        assert initial_subjectstatus.recorded_at == last1.recorded_at
+
+        # DELETE all observations
+        Observation.objects.filter(
+            source__subjectsource__subject_id=subject_id,
+            source__subjectsource__assigned_range__contains=F("recorded_at"),
+        ).delete()
+
+        SubjectStatus.objects.maintain_subject_status(subject_id)
+
+        # After delete, check consistency.
+        next_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
+
+        assert next_subjectstatus.recorded_at == DEFAULT_STATUS_VALUE_DATE
+        assert next_subjectstatus.location == DEFAULT_STATUS_VALUE_LOCATION
 
     def test_delete_observation_that_is_not_latest(self):
         f"""
@@ -316,6 +387,42 @@ class ObservationTestCase(BaseAPITest):
         # Assert that the subject status did not change.
         self.assertEqual(last1.recorded_at, initial_subjectstatus.recorded_at)
         self.assertEqual(last1.location, initial_subjectstatus.location)
+
+    def test_maintain_subject_status_updates_subject_status_for_expired_subjectsource(self):
+        """Scenario is that after backfilling old observations for a subject whose subjectsource
+        is configured with a date range in the past and otherwise expired. In this case we should still
+        see a SubjectStatus record for that subject populated with the latest observation for that subject.
+        """
+        subject_id = "d35cb4fe-c15f-404f-bc86-b479f01b6a01"
+        source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
+
+        # Delete the subjectsource
+        SubjectSource.objects.filter(subject_id=subject_id).delete()
+
+        # Create a subjectsource that is expired
+        subjectsource = SubjectSource.objects.create(
+            subject_id=subject_id,
+            source_id=source_id,
+            assigned_range=DateTimeTZRange(
+                lower=datetime(2019, 1, 1, tzinfo=timezone.utc), upper=datetime(2019, 1, 2, tzinfo=timezone.utc)
+            ),
+        )
+
+        # Create an observation for the expired subjectsource
+        observation = Observation.objects.create(
+            source_id=source_id,
+            recorded_at=datetime(2019, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            location=Point(x=float(random.randint(2800, 4000)) / 100, y=float(random.randint(3000, 3000)) / 100),
+            additional={"radio_state": "online"},
+        )
+
+        # Maintain the subject status
+        SubjectStatus.objects.maintain_subject_status(subject_id)
+
+        # Assert that the subject status was updated to the latest observation
+        subject_status = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
+        assert subject_status.recorded_at == observation.recorded_at
+        assert subject_status.location == observation.location
 
     @pytest.mark.usefixtures("tenant_settings")
     def test_subject_additional_data(self):
