@@ -315,9 +315,7 @@ class ErTrackHandler(GenericSensorHandler):
         params = SensorPostParameters(data=observations_json, many=True)
         if not params.is_valid():
             return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
-        # Adding transaction.atomic() here to compromise on speed because of the transaction being used in ensure_source
-        with transaction.atomic():
-            return cls.process_all_observations(params.validated_data, provider_key, sensor_type, request.user)
+        return cls.process_all_observations(params.validated_data, provider_key, sensor_type, request.user)
 
     @classmethod
     def ensure_source(cls, observation, user, subject_info, **kwargs):

@@ -400,6 +400,7 @@ class TrackedBySerializer(Serializer):
 class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
     """Serializer class for a Patrol"""
 
+    id = UUIDField(required=False)
     objective = text_field(required=False, allow_blank=True, allow_null=True)
     priority = priority_choices_serializer
     serial_number = IntegerField(read_only=True)
