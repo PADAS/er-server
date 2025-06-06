@@ -1,10 +1,10 @@
 name: Trigger Buoy Tests
 
- on:
-   pull_request:
-     types: [opened, synchronize, reopened]
-     paths:
-       - 'das/buoy/**'
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'das/buoy/**'
 
 jobs:
   trigger-tests:
@@ -12,6 +12,7 @@ jobs:
     steps:
       - name: Generate Preview URL
         run: echo "PREVIEW_URL=https://${{ github.head_ref }}.dev.pamdas.org" >> $GITHUB_ENV
+
       - name: Call Buoy API Tests Workflow via Repository Dispatch
         uses: peter-evans/repository-dispatch@v2
         with:
