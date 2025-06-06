@@ -247,6 +247,7 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         rep = super().to_representation(instance)
         request = self.context.get("request")
         render_last_location = self.context.get("render_last_location", True)
+        show_track_days_since = self.context.get("show_track_days_since", datetime.min.replace(tzinfo=pytz.utc))
         user = getattr(request, "user", None)
 
         additional = instance.additional
@@ -298,7 +299,7 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
                         )
                         latest_observation = query.first()
 
-                        if latest_observation:
+                        if latest_observation and latest_observation.recorded_at >= show_track_days_since:
                             additional = latest_observation.additional
                             if not isinstance(additional, dict):
                                 additional = {}
@@ -339,7 +340,11 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
                         location = statusvalues.location if statusvalues.location else get_null_point()
                         recorded_at = statusvalues.recorded_at
 
-                    tracks_available = recorded_at and recorded_at != models.DEFAULT_STATUS_VALUE_DATE
+                    tracks_available = (
+                        recorded_at
+                        and recorded_at != models.DEFAULT_STATUS_VALUE_DATE
+                        and recorded_at >= show_track_days_since
+                    )
                     rep["tracks_available"] = tracks_available
                     rep["last_position_status"] = {
                         "last_voice_call_start_at": (

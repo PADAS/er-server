@@ -1,6 +1,7 @@
 import copy
 import json
 import uuid
+from datetime import timedelta
 from pathlib import Path
 from typing import Optional, Type
 from unittest.mock import MagicMock
@@ -14,6 +15,7 @@ from oauth2_provider.models import get_application_model
 from pytest_factoryboy import register
 
 from django.apps import apps
+from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import Point
@@ -727,6 +729,14 @@ def subject_source_with_observations():
     observation.subject_source = subject_source
     observation.source = source
     observation.save()
+    return subject_source, observation
+
+
+@pytest.fixture
+def subject_source_with_older_observation_past_show_track_days_since():
+    subject_source = SubjectSourceFactory()
+    recorded_at = timezone.now() - timedelta(days=settings.SHOW_TRACK_DAYS + 1)
+    observation = ObservationFactory(recorded_at=recorded_at, source=subject_source.source)
     return subject_source, observation
 
 

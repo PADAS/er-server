@@ -1,4 +1,5 @@
 import json
+import time
 from unittest import mock
 from uuid import uuid4
 
@@ -17,7 +18,7 @@ from core.tests import API_BASE, BaseAPITest
 from das.observations.views.subjects import SubjectGroupView
 from factories import PermissionSetFactory, SubjectFactory, SubjectGroupFactory
 from observations.admin import SubjectGroupChangeForm
-from observations.models import Subject, SubjectGroup
+from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import get_cyclic_subjectgroup
 from observations.views import SubjectGroupsView, SubjectsView
 
@@ -152,6 +153,7 @@ class SubjectGroupTest(BaseAPITest):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectGroupView:
     @pytest.fixture
     def setup(self, view_subject_permissions):
@@ -232,6 +234,24 @@ class TestSubjectGroupView:
         res = user_client.get(url)
         assert len(res.json()["data"][0]["subjects"]) == 3
 
+    def test_subject_with_older_observation_past_show_track_days_since(
+        self, setup, superuser_client, subject_source_with_older_observation_past_show_track_days_since
+    ):
+        subject_source, observation = subject_source_with_older_observation_past_show_track_days_since
+        SubjectStatus.objects.maintain_subject_status(str(subject_source.subject.id))
+        self.sgrp1.subjects.add(subject_source.subject)
+        self.sgrp2.subjects.add(subject_source.subject)
+        self.sgrp1.children.add(self.sgrp2)
+        time.sleep(2)
+
+        url = reverse("subject-groups")
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert len(data[0]["subjects"]) == 1
+        subject = data[0]["subjects"][0]
+        assert not subject["tracks_available"]
+
     def test_subject_serializes_equaly_in_each_group(self, setup, superuser_client, subject_source_with_observations):
         subject = subject_source_with_observations[0].subject
         self.sgrp1.subjects.add(subject)
@@ -242,12 +262,12 @@ class TestSubjectGroupView:
 
         url = reverse("subject-groups")
         response = superuser_client.get(url)
-        data = response.json()
 
         assert response.status_code == 200
 
+        data = response.json()["data"]
         subject_set = set()
-        for sg in data["data"]:
+        for sg in data:
             for s in sg["subjects"]:
                 assert s["tracks_available"]
                 subject_set.add(json.dumps(s))
