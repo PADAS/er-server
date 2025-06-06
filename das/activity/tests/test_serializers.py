@@ -58,7 +58,7 @@ class TestPatrolSerializer:
     def __atest_data_serialization(self):
         ps = PatrolSerializer(data={"objective": self.objective, "title": self.title})
 
-        self.assertTrue(ps.is_valid())
+        assert ps.is_valid()
 
         try:
             jsonschema.validate(ps.data, self.serialized_data_schema)
@@ -67,7 +67,7 @@ class TestPatrolSerializer:
         else:
             does_serialized_data_match_schema = True
 
-        self.assertTrue(does_serialized_data_match_schema)
+        assert does_serialized_data_match_schema
 
     def test_create_patrol_no_specific_id(self):
         patrol = PatrolSerializer(data={"objective": self.objective, "title": self.title})
@@ -150,8 +150,8 @@ class TestPatrolSerializer:
         else:
             does_serialized_data_match_schema = True
 
-        self.assertEqual(ps.data["title"], self.title)
-        self.assertTrue(does_serialized_data_match_schema)
+        assert ps.data["title"] == self.title
+        assert does_serialized_data_match_schema
 
         # TODO move to apt TestCase classes
         # patrol_note = PatrolNote.objects.create(
