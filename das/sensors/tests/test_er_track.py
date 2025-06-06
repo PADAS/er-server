@@ -3,7 +3,6 @@ import datetime
 import json
 from unittest import mock
 
-import pytest
 import pytz
 
 from django.db import transaction
@@ -133,7 +132,6 @@ class ErTrackHandlerTest(BaseAPITest):
         assert db_observation.exclusion_flags.EXCLUDED_AUTOMATICALLY.is_set
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @pytest.mark.skip
     def test_post_a_duplicate_observation(self):
         response = self._post_data(json.dumps(self.one_observation), user=self.super_user)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
