@@ -374,25 +374,16 @@ class ErTrackHandler(GenericSensorHandler):
         if an_observation.get("source_additional") is not None:
             source_info["additional"] = an_observation["source_additional"]
 
-        # Create a cache key from the source parameters
-        source_cache_key = (source_type, provider_key, manufacturer_id, model_name, str(subject_info), str(source_info))
-
-        # Use cached source if available
-        if source_cache is not None and source_cache_key in source_cache:
-            src = source_cache[source_cache_key]
-        else:
-            src = cls.ensure_source(
-                observation=an_observation,
-                user=user,
-                subject_info=subject_info,
-                source_type=source_type,
-                provider=provider_key,
-                manufacturer_id=manufacturer_id,
-                model_name=model_name,
-                **source_info,
-            )
-            if source_cache is not None:
-                source_cache[source_cache_key] = src
+        src = cls.ensure_source(
+            observation=an_observation,
+            user=user,
+            subject_info=subject_info,
+            source_type=source_type,
+            provider=provider_key,
+            manufacturer_id=manufacturer_id,
+            model_name=model_name,
+            **source_info,
+        )
 
         recorded_at = an_observation.get("recorded_at")
         additional = an_observation.get("additional", {})
