@@ -2075,6 +2075,8 @@ class Patrol(TenantModelMixin, SerialNumberModelMixin, TimestampedModel, Revisio
                     f"{segment.time_range.upper} is lower than {now}"
                 )
                 self.state = PC_DONE
+            elif segment.time_range and all([segment.time_range.upper is None, self.state == PC_DONE]):
+                self.state = PC_OPEN
 
 
 class PatrolNote(TenantModelMixin, RevisionMixin, TimestampedModel):
