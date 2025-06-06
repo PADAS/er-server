@@ -9,7 +9,7 @@ from observations.servicesutils import get_source_provider_statuses
 from sensors.views import RadioAgentHandlerView
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestDasRadioAgentHandler:
     PROVIDER_KEY = "dasradioagent"

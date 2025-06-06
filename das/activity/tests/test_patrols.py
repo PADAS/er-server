@@ -377,9 +377,9 @@ class TestPatrol(BaseAPITest):
             notes=[{"text": "New Note.."}],
             patrol_segments=[
                 {
-                    "id": segment_id,
+                    "id": str(segment_id),
                     "patrol_type": "routine_patrol",
-                    "leader": {"content_type": "observations.subject", "id": self.ranger_sari.id},
+                    "leader": {"content_type": "observations.subject", "id": str(self.ranger_sari.id)},
                 },
             ],
         )

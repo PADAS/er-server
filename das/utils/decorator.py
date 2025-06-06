@@ -65,7 +65,14 @@ def retry_on_exception(exception_type, retry_forever=False, max_retries=3, delay
             exception = None
             while retry_forever or retries < max_retries:
                 try:
-                    return func(*args, **kwargs)
+                    # If the exception type is IntegrityError, wrap the function call in a transaction
+                    if exception_type.__name__ == "IntegrityError":
+                        from django.db import transaction
+
+                        with transaction.atomic():
+                            return func(*args, **kwargs)
+                    else:
+                        return func(*args, **kwargs)
                 except exception_type as exc:
                     exception = exc
                     retries += 1
