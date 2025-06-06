@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from django.test import override_settings
 from django.urls import resolve, reverse
 from rest_framework import status
 
@@ -18,6 +19,7 @@ class TestDasRadioAgentHandler:
         resolver = resolve(f"/api/v1.0/sensors/dasradioagent/{self.PROVIDER_KEY}/status/")
         assert resolver.func.cls == RadioAgentHandlerView
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_invalid_services_in_status(self, user_client):
         initial_services = get_source_provider_statuses()
 
@@ -37,6 +39,7 @@ class TestDasRadioAgentHandler:
 
         assert all([all(k in r.keys() for k in ["heartbeat", "datasource"]) for r in current_services])
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_services_in_status(self, user_client):
         now = datetime.now(tz=timezone.utc)
 
