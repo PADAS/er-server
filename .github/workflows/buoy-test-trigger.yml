@@ -1,15 +1,10 @@
 name: Trigger Buoy Tests
-# TEMPORARILY DISABLED - Will be restored in a future PR
-# Original trigger configuration:
-# on:
-#   pull_request:
-#     types: [opened, synchronize, reopened]
-#     paths:
-#       - 'das/buoy/**'
 
-# Only manual triggers allowed while disabled
-on:
-  workflow_dispatch:
+ on:
+   pull_request:
+     types: [opened, synchronize, reopened]
+     paths:
+       - 'das/buoy/**'
 
 jobs:
   trigger-tests:
