@@ -1,4 +1,5 @@
 import json
+import uuid
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
@@ -6,6 +7,7 @@ import jsonschema
 import pytest
 
 from django.contrib.gis.geos import Point, Polygon
+from django.db import IntegrityError
 from django.test import TestCase
 
 from activity.libs import constants as activities_constants
@@ -31,7 +33,9 @@ class TestCoordinateField(TestCase):
         CoordinateField().to_representation(0)
 
 
-class TestPatrolSerializer(TestCase):
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestPatrolSerializer:
     serialized_data_schema = {
         "type": "object",
         "properties": {
@@ -64,6 +68,76 @@ class TestPatrolSerializer(TestCase):
             does_serialized_data_match_schema = True
 
         self.assertTrue(does_serialized_data_match_schema)
+
+    def test_create_patrol_no_specific_id(self):
+        patrol = PatrolSerializer(data={"objective": self.objective, "title": self.title})
+        assert patrol.is_valid()
+        patrol = patrol.save()
+        assert patrol.id is not None
+
+    def test_create_patrol_and_segment_no_specific_id(self, patrol_type):
+        patrol = PatrolSerializer(
+            data={
+                "objective": self.objective,
+                "title": self.title,
+                "patrol_segments": [
+                    {
+                        "patrol_type": patrol_type.value,
+                        "start_date": "2000-01-01T00:00:00Z",
+                        "end_date": "2020-12-31T23:59:59Z",
+                    }
+                ],
+            }
+        )
+        assert patrol.is_valid()
+        patrol = patrol.save()
+        assert patrol.id is not None
+        assert patrol.patrol_segments.count() == 1
+        assert patrol.patrol_segments.first().id is not None
+        assert patrol.patrol_segments.first().patrol_type.value == patrol_type.value
+
+    def test_create_patrol_with_specific_id(self):
+        id = uuid.uuid4()
+        patrol = PatrolSerializer(data={"objective": self.objective, "title": self.title, "id": str(id)})
+        assert patrol.is_valid()
+        patrol.save()
+        patrol = Patrol.objects.get(id=id)
+        assert patrol.id == id
+
+    @pytest.mark.django_db(transaction=True)
+    def test_create_patrol_with_specific_existing_id(self):
+        id = uuid.uuid4()
+        patrol = Patrol.objects.create(objective=self.objective, title=self.title, id=id)
+        patrol = PatrolSerializer(data={"objective": self.objective, "title": self.title, "id": str(id)})
+        assert patrol.is_valid()
+        with pytest.raises(IntegrityError):
+            patrol.save()
+
+    def test_create_patrol_with_specific_id_and_specific_patrol_segment_id(self, patrol_type):
+        id = uuid.uuid4()
+        patrol_segment_id = uuid.uuid4()
+        patrol = PatrolSerializer(
+            data={
+                "objective": self.objective,
+                "title": self.title,
+                "id": str(id),
+                "patrol_segments": [
+                    {
+                        "id": str(patrol_segment_id),
+                        "patrol_type": patrol_type.value,
+                        "start_date": "2000-01-01T00:00:00Z",
+                        "end_date": "2020-12-31T23:59:59Z",
+                    }
+                ],
+            }
+        )
+        assert patrol.is_valid()
+        patrol.save()
+        patrol = Patrol.objects.get(id=id)
+        assert patrol.id == id
+        assert patrol.patrol_segments.count() == 1
+        assert patrol.patrol_segments.first().id == patrol_segment_id
+        assert patrol.patrol_segments.first().patrol_type.value == patrol_type.value
 
     def test_instance_to_data_serialization(self):
         patrol = Patrol.objects.create(objective=self.objective, title=self.title)

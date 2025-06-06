@@ -45,6 +45,7 @@ from factories import (
     PatrolSegmentFactory,
     PatrolSegmentSubjectFactory,
     PatrolSegmentUserFactory,
+    PatrolTypeFactory,
     PermissionFactory,
     PermissionSetFactory,
     ProviderFactory,
@@ -331,6 +332,11 @@ def five_event_categories():
     for values in categories_codename:
         categories.append(EventCategoryFactory.create(**values))
     return categories
+
+
+@pytest.fixture
+def patrol_type():
+    return PatrolTypeFactory.create()
 
 
 @pytest.fixture
