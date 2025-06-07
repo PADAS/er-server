@@ -1,5 +1,4 @@
 import json
-import time
 from unittest import mock
 from uuid import uuid4
 
@@ -238,19 +237,27 @@ class TestSubjectGroupView:
         self, setup, superuser_client, subject_source_with_older_observation_past_show_track_days_since
     ):
         subject_source, observation = subject_source_with_older_observation_past_show_track_days_since
+        SubjectStatus.objects.update_current_from_source(subject_source.source)
         SubjectStatus.objects.maintain_subject_status(str(subject_source.subject.id))
         self.sgrp1.subjects.add(subject_source.subject)
         self.sgrp2.subjects.add(subject_source.subject)
         self.sgrp1.children.add(self.sgrp2)
-        time.sleep(2)
 
         url = reverse("subject-groups")
         response = superuser_client.get(url)
         assert response.status_code == 200
         data = response.json()["data"]
-        assert len(data[0]["subjects"]) == 1
-        subject = data[0]["subjects"][0]
-        assert not subject["tracks_available"]
+        subject_set = set()
+        for sg in data:
+            for s in sg["subjects"]:
+                assert not s["tracks_available"]
+                subject_set.add(json.dumps(s))
+            for subgroup in sg["subgroups"]:
+                for s in subgroup["subjects"]:
+                    assert not s["tracks_available"]
+                    subject_set.add(json.dumps(s))
+
+        assert len(subject_set) == 1
 
     def test_subject_serializes_equaly_in_each_group(self, setup, superuser_client, subject_source_with_observations):
         subject = subject_source_with_observations[0].subject
