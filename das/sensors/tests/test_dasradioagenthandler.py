@@ -7,7 +7,6 @@ from django.test import override_settings
 from django.urls import resolve, reverse
 from rest_framework import status
 
-from observations.models import SourceProvider
 from observations.servicesutils import get_source_provider_statuses
 from sensors.views import RadioAgentHandlerView
 
@@ -42,11 +41,6 @@ class TestDasRadioAgentHandler:
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_services_in_status(self, user_client):
-        # Create SourceProvider record first
-        SourceProvider.objects.get_or_create(
-            provider_key=self.PROVIDER_KEY, defaults={"display_name": "DAS Radio Agent"}
-        )
-
         now = datetime.now(tz=timezone.utc)
 
         status_data = {
@@ -66,12 +60,12 @@ class TestDasRadioAgentHandler:
             },
         }
 
-        url = reverse("dasradioagenthandler", kwargs={"provider_key": str(self.PROVIDER_KEY)})
-        response = user_client.post(url, data=status_data)
-
-        assert response.status_code == status.HTTP_200_OK
-
         with transaction.atomic():
+            url = reverse("dasradioagenthandler", kwargs={"provider_key": str(self.PROVIDER_KEY)})
+            response = user_client.post(url, data=status_data)
+
+            assert response.status_code == status.HTTP_200_OK
+
             current_services = get_source_provider_statuses()
 
             # valid data from all preexistent keys
