@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from django.db import transaction
 from django.test import override_settings
 from django.urls import resolve, reverse
 from rest_framework import status
@@ -65,7 +66,8 @@ class TestDasRadioAgentHandler:
 
         assert response.status_code == status.HTTP_200_OK
 
-        current_services = get_source_provider_statuses()
+        with transaction.atomic():
+            current_services = get_source_provider_statuses()
 
-        # valid data from all preexistent keys
-        assert all([all(k in r.keys() for k in ["heartbeat", "datasource"]) for r in current_services])
+            # valid data from all preexistent keys
+            assert all([all(k in r.keys() for k in ["heartbeat", "datasource"]) for r in current_services])

@@ -136,8 +136,8 @@ class TestPatrolSerializer:
             }
         )
         assert patrol.is_valid()
-        patrol.save()
-        patrol = Patrol.objects.get(id=id)
+        patrol = patrol.save()
+
         assert patrol.id == id
         assert patrol.patrol_segments.count() == 1
         assert patrol.patrol_segments.first().id == patrol_segment_id
