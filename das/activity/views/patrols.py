@@ -221,11 +221,11 @@ class PatrolsView(ListCreateAPIView):
     schema = PatrolSchema()
 
     def post(self, request, *args, **kwargs):
-        with transaction.atomic():
-            try:
+        try:
+            with transaction.atomic():
                 return super().post(request, *args, **kwargs)
-            except IntegrityError as integrity_error:
-                return return_409_response(message=str(integrity_error))
+        except IntegrityError as integrity_error:
+            return return_409_response(message=str(integrity_error))
 
     def get(self, request, *args, **kwargs):
         state_filters = self.request.query_params.getlist("status", None)
