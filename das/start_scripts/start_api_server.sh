@@ -73,6 +73,5 @@ gunicorn das_server.wsgi --name das \
     --worker-tmp-dir /dev/shm \
     -c das_server/gunicorn.conf.py \
     --log-level info \
-    --access-logfile - \
     --error-logfile - \
     --capture-output 2>&1
