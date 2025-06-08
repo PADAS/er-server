@@ -7,7 +7,9 @@ from django.urls import resolve, reverse
 from rest_framework import status
 
 from observations.servicesutils import get_source_provider_statuses
+from rt_api.tasks import _broadcast_service_status
 from sensors.views import RadioAgentHandlerView
+from utils.tenant import get_tenant_settings
 
 
 @pytest.mark.django_db
@@ -39,7 +41,7 @@ class TestDasRadioAgentHandler:
         assert all([all(k in r.keys() for k in ["heartbeat", "datasource"]) for r in current_services])
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_services_in_status(self, user_client):
+    def test_services_in_status(self, user_client, disable_close_old_connections):
         now = datetime.now(tz=timezone.utc)
 
         status_data = {
@@ -63,6 +65,8 @@ class TestDasRadioAgentHandler:
         response = user_client.post(url, data=status_data)
 
         assert response.status_code == status.HTTP_200_OK
+
+        _broadcast_service_status(domain=get_tenant_settings().domain)
 
         url = reverse("api-status")
         response = user_client.get(url, {"service_status": True})

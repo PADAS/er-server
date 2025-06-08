@@ -797,3 +797,14 @@ def json_schema_fixture(request):
     fixture_path = Path(__file__).parent.parent / "fixtures" / f"{fixture_name}.json"
     with open(fixture_path) as f:
         return json.load(f)
+
+
+@pytest.fixture
+def disable_close_old_connections(monkeypatch):
+    """
+    Disables the server's use of Django's close_old_connections() function during tests to prevent connection already closed errors.
+    """
+    monkeypatch.setattr("rt_api.views.close_old_connections", lambda: None)
+    monkeypatch.setattr("rt_api.tasks.close_old_connections", lambda: None)
+    monkeypatch.setattr("rt_api.management.commands.rtserver.close_old_connections", lambda: None)
+    monkeypatch.setattr("utils.db.connections.close_old_shared_connections", lambda: None)
