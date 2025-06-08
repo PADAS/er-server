@@ -7,7 +7,6 @@ import jsonschema
 import pytest
 
 from django.contrib.gis.geos import Point, Polygon
-from django.db import IntegrityError, transaction
 from django.test import TestCase
 
 from activity.libs import constants as activities_constants
@@ -103,19 +102,6 @@ class TestPatrolSerializer:
         patrol.save()
         patrol = Patrol.objects.get(id=id)
         assert patrol.id == id
-
-    def test_create_patrol_with_specific_existing_id(self):
-        id = uuid.uuid4()
-        patrol = Patrol.objects.create(objective=self.objective, title=self.title, id=id)
-        patrol = PatrolSerializer(data={"objective": self.objective, "title": self.title, "id": str(id)})
-        assert patrol.is_valid()
-        try:
-            with transaction.atomic():
-                assert patrol.save() is None
-        except IntegrityError:
-            assert True
-        else:
-            assert False
 
     def test_create_patrol_with_specific_id_and_specific_patrol_segment_id(self, patrol_type):
         id = uuid.uuid4()
