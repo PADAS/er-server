@@ -1,7 +1,7 @@
 from random import uniform
 
 from django.conf import settings
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.db.models import BigIntegerField, Subquery, Value
 from django.db.models.functions import Coalesce
 
@@ -54,9 +54,7 @@ class SerialNumberModelMixin:
                 )
                 + Value(1),
             )
-        # Only wrap the final save operation in a transaction
-        with transaction.atomic():
-            result = super().save(*args, **kwargs)
+        result = super().save(*args, **kwargs)
         self.refresh_from_db()
         return result
 
