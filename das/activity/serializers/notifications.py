@@ -56,6 +56,12 @@ class NotificationMethodSerializer(ModelSerializer):
         return super().create(validated_data)
 
     def validate_contact(self, value):
+        if not value:
+            raise ValidationError({"contact": "Must be a valid contact, empty contact is not allowed"})
+        if "method" not in value:
+            raise ValidationError({"contact": "Must be a valid contact, method is required"})
+        if "value" not in value:
+            raise ValidationError({"contact": "Must be a valid contact, value is required"})
 
         if value["method"] == "email":
             try:
