@@ -237,7 +237,6 @@ class TestSubjectGroupView:
         self, setup, superuser_client, subject_source_with_older_observation_past_show_track_days_since
     ):
         subject_source, observation = subject_source_with_older_observation_past_show_track_days_since
-        SubjectStatus.objects.update_current_from_source(subject_source.source)
         SubjectStatus.objects.maintain_subject_status(str(subject_source.subject.id))
         self.sgrp1.subjects.add(subject_source.subject)
         self.sgrp2.subjects.add(subject_source.subject)
