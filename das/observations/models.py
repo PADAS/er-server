@@ -181,7 +181,7 @@ class SourceGroup(
     def __str__(self):
         return self.name
 
-    def get_all_sources(self, user=None, active=None, include_from_subgroups=True, **kwargs):
+    def get_all_sources(self, user=None, include_inactive=None, include_from_subgroups=True, **kwargs):
         """Including descendant group sources"""
         sources = set(iter(self.sources.all()))
 
@@ -1145,7 +1145,7 @@ class SubjectGroup(
 
     objects = SubjectGroupManager()
 
-    def get_all_subjects(self, user=None, active=None, include_from_subgroups=True, mou_expiry_date=None):
+    def get_all_subjects(self, user=None, include_inactive=None, include_from_subgroups=True, mou_expiry_date=None):
         min_age_days = get_minimum_allowed_age(user) or 0 if user else 0
 
         queryset = (
@@ -1153,8 +1153,7 @@ class SubjectGroup(
             .annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_expiry_date)
             .select_related("subject_subtype__subject_type")
         )
-        if active is not None:
-            queryset = queryset.by_is_active(active=active).order_by("name")
+        queryset = queryset.by_include_inactive(include_inactive).order_by("name")
 
         if include_from_subgroups:
             """Including descendant group subjects"""

@@ -1,4 +1,3 @@
-import json
 import logging
 from collections import OrderedDict
 from datetime import MAXYEAR, MINYEAR, datetime
@@ -81,20 +80,14 @@ class GroupSerializer(serializers.ModelSerializer):
         user = getattr(self.context.get("request", None), "user", None)
         data_serializer = self.serializer(context=self.context)
         contained_field = self.contained_field
-        active = True
 
-        params = self.context["request"].GET.get("include_inactive", None)
-        try:
-            if params and json.loads(params.lower()):
-                active = None
-        except Exception:
-            pass
+        include_inactive = self.context["request"].GET.get("include_inactive", None)
 
         mou_date = user.additional.get("expiry", None)
         mou_date = dateparse(mou_date) if mou_date else None
 
         queryset = getattr(instance, "get_all_{0}".format(contained_field))(
-            user=user, active=active, include_from_subgroups=False, mou_expiry_date=mou_date
+            user=user, include_inactive=include_inactive, include_from_subgroups=False, mou_expiry_date=mou_date
         )
 
         # queryset = queryset.order_by('name')
