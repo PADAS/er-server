@@ -24,16 +24,6 @@ from utils.tenant.celery import TenantQueueOnceTask, TenantTask
 logger = logging.getLogger(__name__)
 
 
-def get_active_subject(subject_id):
-    # Check existence of active subject object with provided subject_id
-    try:
-        if Subject.objects.get(id=subject_id, is_active=True):
-            return True
-    except Subject.DoesNotExist as e:
-        logger.error("No active Subject found with id=%s", subject_id)
-        return False
-
-
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True, "timeout": 3 * 60})
 def handle_subject(subject_id, *args, **kwargs):
     """
@@ -119,7 +109,7 @@ def annotate_observations_for_subject(subject_id):
 def handle_observation(observation_id, *arg, **kwargs):
     logger.debug("Handling observation: %s", observation_id)
 
-    subjects = Subject.objects.get_subjects_from_observation_id(observation_id, values=("id", "name"))
+    subjects = Subject.objects.get_active_subjects_from_observation_id(observation_id, values=("id", "name"))
 
     if not subjects:
         logger.debug("Handling observation %s, but it has no associated subject.", observation_id)
@@ -129,8 +119,7 @@ def handle_observation(observation_id, *arg, **kwargs):
 
         # Execute in one minute, which will allow squashing a succession of observations for a single subject.
         # See 'handle_subject' and it's use of QueueOnce to do the squashing.
-        if get_active_subject(subject_id):
-            handle_subject.apply_async(args=(subject_id,), countdown=60)
+        handle_subject.apply_async(args=(subject_id,), countdown=60)
 
 
 @celery.app.task(base=TenantTask, bind=True, max_retries=5)
