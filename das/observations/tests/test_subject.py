@@ -1550,6 +1550,24 @@ class TestSubjectsViewFilter:
             assert abs(coords[0] - base_lon) < 0.2  # Allow for some variation
             assert abs(coords[1] - base_lat) < 0.2  # Allow for some variation
 
+    def test_not_include_inactive_subjects(self, superuser_client, five_subjects):
+        subject_one = five_subjects[0]
+        subject_one.is_active = False
+        subject_one.save()
+
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(url)
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 4
+
+        res = superuser_client.get(url, dict(include_inactive=True))
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 5
+
+        res = superuser_client.get(url, dict(include_inactive=False))
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 4
+
     def test_filter_by_subject_group_id_list(self, superuser_client):
         two_subjects = SubjectFactory.create_batch(2)
         last_subject = SubjectFactory.create()
