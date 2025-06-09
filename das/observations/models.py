@@ -1465,6 +1465,25 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         except ObjectDoesNotExist:
             return None
 
+    def by_include_inactive(self, include_inactive: Union[str, bool, None] = None):
+        """
+        Filters the queryset to include or exclude inactive subjects based on the request parameters.
+
+        Args:
+            include_inactive: the value straight from the request parameters. Could be a string, bool, or None.
+                if it's None, return all active subjects.
+                if it's a string, parse it to a bool. (see next)
+                if it's True, return the subjects with no filtering.
+                if it's False, return all active subjects.
+
+        Returns:
+            QuerySet: A queryset of subjects filtered by is_active.
+        """
+        if include_inactive is not None:
+            if parse_bool(include_inactive):
+                return self
+        return self.by_is_active(True)
+
     def by_ids_user_and_mou_expiry_date(self, id_list: list, user=None, include_inactive=None, mou_expiry_date=None):
         min_age_days = get_minimum_allowed_age(user) or 0 if user else 0
 
@@ -1475,11 +1494,8 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             .prefetch_related("subjectsources")
         )
 
-        if include_inactive is not None:
-            is_active = not parse_bool(include_inactive)
-            return queryset.by_is_active(active=is_active).order_by("name")
-
-        return queryset.by_is_active(active=True).order_by("name")
+        queryset = queryset.by_include_inactive(include_inactive)
+        return queryset.order_by("name")
 
 
 class SubjectManager(TenantManagerMixin, models.Manager.from_queryset(SubjectQuerySet)):
