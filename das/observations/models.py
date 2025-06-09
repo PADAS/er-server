@@ -1593,7 +1593,9 @@ class SubjectManager(TenantManagerMixin, models.Manager.from_queryset(SubjectQue
         dt = dt or datetime.now(tz=pytz.utc)
 
         subjects = Subject.objects.filter(
-            subjectsource__source__id=source_id, subjectsource__assigned_range__contains=dt
+            subjectsource__source__id=source_id,
+            subjectsource__assigned_range__contains=dt,
+            is_active=True,
         )
 
         if values:
