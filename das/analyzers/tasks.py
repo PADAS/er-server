@@ -62,8 +62,7 @@ def handle_source(source_id, *args, **kwargs):
 
         # Execute in one minute, which will allow squashing a succession of observations for a single subject.
         # See 'handle_subject' and it's use of QueueOnce to do the squashing.
-        if get_active_subject(subject_id):
-            handle_subject.apply_async(args=(subject_id,), countdown=60)
+        handle_subject.apply_async(args=(subject_id,), countdown=60)
 
 
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
