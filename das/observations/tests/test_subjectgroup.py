@@ -58,7 +58,7 @@ class SubjectGroupTest(BaseAPITest):
 
     def test_subjectgroup(self):
         subject_group = SubjectGroup.objects.get(name="Lewa Elephants")
-        lewa_elephants = subject_group.get_all_subjects()
+        lewa_elephants = subject_group.get_all_subjects(include_inactive=True)
         # Check inactive subjects are in subject group's subject list
         self.assertTrue(self.alpha in lewa_elephants and self.beta in lewa_elephants)
 
@@ -223,7 +223,7 @@ class TestSubjectGroupView:
 
         assert response.status_code == 200
         assert len(data["data"]) == 1
-        assert len(data["data"][0]["subjects"]) == 1
+        assert len(data["data"][0]["subjects"]) == 4
 
         # assert inactive subject is not in the response
         res = user_client.get(url, {"include_inactive": False})

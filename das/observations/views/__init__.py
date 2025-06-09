@@ -569,7 +569,7 @@ class KmlSubjectsView(APIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def get_queryset(self):
-        include_inactive = self.request.GET.get("include_inactive", "false")
+        include_inactive = self.request.GET.get("include_inactive")
 
         start_date = self.request.GET.get("start")
         end_date = self.request.GET.get("end")
@@ -592,8 +592,8 @@ class KmlSubjectsView(APIView):
             # filter is passed
             queryset = Subject.objects.all()
         queryset = queryset.by_user_subjects(self.request.user)
-        if not parse_bool(include_inactive):
-            queryset = queryset.filter(is_active=True)
+        queryset = queryset.by_include_inactive(include_inactive)
+
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
         return queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24)

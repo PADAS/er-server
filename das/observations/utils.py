@@ -191,11 +191,8 @@ def check_to_include_inactive_subjects(request, full_queryset):
         The filtered queryset, including inactive subjects if specified in the request parameters.
     """
     query_params = request.query_params
-
     include_inactive = query_params.get("include_inactive", None)
-    if not include_inactive:
-        full_queryset = full_queryset.by_is_active()
-    return full_queryset
+    return full_queryset.by_include_inactive(include_inactive)
 
 
 def assigned_range_dates(o):
