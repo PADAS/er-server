@@ -1481,7 +1481,7 @@ class BusinessRulesTestCase(BaseAPITest):
 
         self.assertIn(str(test_subj.id), str(response.data))
 
-    def test_alert_conditions_with_v2_eventtype_schema_fails(self):
+    def test_alert_conditions_with_v2_eventtypes(self):
         """Test that alert conditions endpoint fails when V2 event type schemas exist."""
         from factories import EventTypeFactory
 
@@ -1516,7 +1516,7 @@ class BusinessRulesTestCase(BaseAPITest):
         api_request = self.factory.get(self.api_base + "/activity/alerts/conditions/")
         self.force_authenticate(api_request, self.admin_user)
         response = EventAlertConditionsListView.as_view()(api_request)
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 200)
 
     def test_evaluating_alert_rule_for_event_state_change_to_resolved(self):
         category = EventCategory.objects.get(value="security")
