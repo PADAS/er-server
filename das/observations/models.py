@@ -1567,7 +1567,7 @@ class SubjectManager(TenantManagerMixin, models.Manager.from_queryset(SubjectQue
 
         return subject
 
-    def get_subjects_from_observation_id(self, observation_id, values=None):
+    def get_active_subjects_from_observation_id(self, observation_id, values=None):
         """
         Convenient place to keep rules for identifying a Subject(s) related to an observation.
         :param observation_id:
@@ -1576,6 +1576,7 @@ class SubjectManager(TenantManagerMixin, models.Manager.from_queryset(SubjectQue
         subjects = Subject.objects.filter(
             subjectsource__source__observation__id=observation_id,
             subjectsource__assigned_range__contains=F("subjectsource__source__observation__recorded_at"),
+            is_active=True,
         )
         if values:
             subjects = subjects.values(*values)
