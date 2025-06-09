@@ -45,19 +45,20 @@ def run_plugins(self):
         "graceful": True,
     },
 )
-def run_plugin_class(self, plugin_class, **kwargs):
+def run_plugin_class(self, plugin_class, domain=None, **kwargs):
     """Fetch all instances of plugin_class and execute."""
     if isinstance(plugin_class, str):
         plugin_class = apps.get_model("tracking", plugin_class)
+
+    # Use passed domain or fall back to tenant settings
+    effective_domain = domain or get_tenant_settings().domain
 
     for plugin in plugin_class.objects.all():
         if plugin.run_source_plugins:
             if plugin.status == TrackingPlugin.STATUS_ENABLED:
                 for sp in plugin.source_plugins.filter(status=TrackingPlugin.STATUS_ENABLED):
                     if sp.should_run():
-                        run_source_plugin.apply_async(
-                            kwargs=dict(source_plugin_id=str(sp.id), domain=get_tenant_settings().domain)
-                        )
+                        run_source_plugin.apply_async(kwargs=dict(source_plugin_id=str(sp.id), domain=effective_domain))
         else:
             plugin.execute()
 
