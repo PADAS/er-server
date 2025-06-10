@@ -38,6 +38,7 @@ from observations.views.utils import (
     SubjectGroupGetQuerySet,
     all_group_subjects_etag,
     build_groups_hierarchy_with_all_subjects,
+    default_since,
     get_track_days,
     subject_group_etag,
 )
@@ -430,6 +431,7 @@ class SubjectGroupsView(ListAPIView, TwoWaySubjectSourceMixin):
         context["render_last_location"] = True
         context["request"] = self.request
         context["two_way_subject_sources"] = self.two_way_subject_sources
+        context["show_track_days_since"] = default_since()
         return context
 
 
