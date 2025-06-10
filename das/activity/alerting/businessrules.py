@@ -287,7 +287,7 @@ def _generate_aggregate_event_variables_class(
         try:
             rendered_schema = schema_utils.get_rendered_schema(event_type.schema)
         except Exception as ex:
-            logger.warn(f"Error in get_rendered_schema with {event_type.value}, ex:{ex}")
+            logger.warning("Error in get_rendered_schema with %s, ex:%s", event_type.value, ex)
             raise
 
         keyset = set(rendered_schema["properties"].keys())

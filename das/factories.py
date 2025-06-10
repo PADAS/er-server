@@ -305,7 +305,7 @@ class ObservationFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Observation
 
-    recorded_at = factory.Sequence(lambda n: timezone.now() + timedelta(minutes=n * 5))
+    recorded_at = factory.LazyFunction(lambda: datetime.now(tz=timezone.utc))
     source = factory.SubFactory(SourceFactory)
 
     @factory.lazy_attribute

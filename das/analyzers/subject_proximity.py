@@ -24,9 +24,7 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
 
     def _create_proximity_analysis_params(self, analysis_subject):
 
-        second_group_subjects = self.config.second_subject_group.get_all_subjects(
-            active=True, include_from_subgroups=True
-        )
+        second_group_subjects = self.config.second_subject_group.get_all_subjects(include_from_subgroups=True)
         if analysis_subject in second_group_subjects:
             second_group_subjects = second_group_subjects.exclude(name=analysis_subject.name)
         return [k for k in second_group_subjects]

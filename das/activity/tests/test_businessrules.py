@@ -1481,6 +1481,43 @@ class BusinessRulesTestCase(BaseAPITest):
 
         self.assertIn(str(test_subj.id), str(response.data))
 
+    def test_alert_conditions_with_v2_eventtypes(self):
+        """Test that alert conditions endpoint fails when V2 event type schemas exist."""
+        from factories import EventTypeFactory
+
+        category = EventCategory.objects.first()
+
+        # Similar to cat1_fire_v2_event_type fixture
+        schema = {
+            "json": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "additionalProperties": False,
+                "properties": {
+                    "status": {
+                        "deprecated": False,
+                        "description": "",
+                        "title": "Status",
+                        "type": "string",
+                        "anyOf": [{"$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=firerep_status"}],
+                    }
+                },
+            }
+        }
+
+        # Create event type with V2 schema
+        EventTypeFactory.create(
+            category=category,
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(schema),
+            value="test_fire_v2",
+        )
+
+        # Now attempt to access alert conditions endpoint, which should fail with V2 schema
+        api_request = self.factory.get(self.api_base + "/activity/alerts/conditions/")
+        self.force_authenticate(api_request, self.admin_user)
+        response = EventAlertConditionsListView.as_view()(api_request)
+        self.assertEqual(response.status_code, 200)
+
     def test_evaluating_alert_rule_for_event_state_change_to_resolved(self):
         category = EventCategory.objects.get(value="security")
 

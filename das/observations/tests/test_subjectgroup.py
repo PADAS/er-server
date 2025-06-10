@@ -17,7 +17,7 @@ from core.tests import API_BASE, BaseAPITest
 from das.observations.views.subjects import SubjectGroupView
 from factories import PermissionSetFactory, SubjectFactory, SubjectGroupFactory
 from observations.admin import SubjectGroupChangeForm
-from observations.models import Subject, SubjectGroup
+from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import get_cyclic_subjectgroup
 from observations.views import SubjectGroupsView, SubjectsView
 
@@ -58,7 +58,7 @@ class SubjectGroupTest(BaseAPITest):
 
     def test_subjectgroup(self):
         subject_group = SubjectGroup.objects.get(name="Lewa Elephants")
-        lewa_elephants = subject_group.get_all_subjects()
+        lewa_elephants = subject_group.get_all_subjects(include_inactive=True)
         # Check inactive subjects are in subject group's subject list
         self.assertTrue(self.alpha in lewa_elephants and self.beta in lewa_elephants)
 
@@ -152,6 +152,7 @@ class SubjectGroupTest(BaseAPITest):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectGroupView:
     @pytest.fixture
     def setup(self, view_subject_permissions):
@@ -222,7 +223,7 @@ class TestSubjectGroupView:
 
         assert response.status_code == 200
         assert len(data["data"]) == 1
-        assert len(data["data"][0]["subjects"]) == 1
+        assert len(data["data"][0]["subjects"]) == 4
 
         # assert inactive subject is not in the response
         res = user_client.get(url, {"include_inactive": False})
@@ -231,6 +232,31 @@ class TestSubjectGroupView:
         # assert inactive subject is not in the response even without param
         res = user_client.get(url)
         assert len(res.json()["data"][0]["subjects"]) == 3
+
+    def test_subject_with_older_observation_past_show_track_days_since(
+        self, setup, superuser_client, subject_source_with_older_observation_past_show_track_days_since
+    ):
+        subject_source, observation = subject_source_with_older_observation_past_show_track_days_since
+        SubjectStatus.objects.maintain_subject_status(str(subject_source.subject.id))
+        self.sgrp1.subjects.add(subject_source.subject)
+        self.sgrp2.subjects.add(subject_source.subject)
+        self.sgrp1.children.add(self.sgrp2)
+
+        url = reverse("subject-groups")
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        data = response.json()["data"]
+        subject_set = set()
+        for sg in data:
+            for s in sg["subjects"]:
+                assert not s["tracks_available"]
+                subject_set.add(json.dumps(s))
+            for subgroup in sg["subgroups"]:
+                for s in subgroup["subjects"]:
+                    assert not s["tracks_available"]
+                    subject_set.add(json.dumps(s))
+
+        assert len(subject_set) == 1
 
     def test_subject_serializes_equaly_in_each_group(self, setup, superuser_client, subject_source_with_observations):
         subject = subject_source_with_observations[0].subject
@@ -242,12 +268,12 @@ class TestSubjectGroupView:
 
         url = reverse("subject-groups")
         response = superuser_client.get(url)
-        data = response.json()
 
         assert response.status_code == 200
 
+        data = response.json()["data"]
         subject_set = set()
-        for sg in data["data"]:
+        for sg in data:
             for s in sg["subjects"]:
                 assert s["tracks_available"]
                 subject_set.add(json.dumps(s))

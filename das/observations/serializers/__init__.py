@@ -1,4 +1,3 @@
-import json
 import logging
 from collections import OrderedDict
 from datetime import MAXYEAR, MINYEAR, datetime
@@ -81,20 +80,14 @@ class GroupSerializer(serializers.ModelSerializer):
         user = getattr(self.context.get("request", None), "user", None)
         data_serializer = self.serializer(context=self.context)
         contained_field = self.contained_field
-        active = True
 
-        params = self.context["request"].GET.get("include_inactive", None)
-        try:
-            if params and json.loads(params.lower()):
-                active = None
-        except Exception:
-            pass
+        include_inactive = self.context["request"].GET.get("include_inactive", None)
 
         mou_date = user.additional.get("expiry", None)
         mou_date = dateparse(mou_date) if mou_date else None
 
         queryset = getattr(instance, "get_all_{0}".format(contained_field))(
-            user=user, active=active, include_from_subgroups=False, mou_expiry_date=mou_date
+            user=user, include_inactive=include_inactive, include_from_subgroups=False, mou_expiry_date=mou_date
         )
 
         # queryset = queryset.order_by('name')
@@ -247,6 +240,7 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         rep = super().to_representation(instance)
         request = self.context.get("request")
         render_last_location = self.context.get("render_last_location", True)
+        show_track_days_since = self.context.get("show_track_days_since", datetime.min.replace(tzinfo=pytz.utc))
         user = getattr(request, "user", None)
 
         additional = instance.additional
@@ -298,7 +292,7 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
                         )
                         latest_observation = query.first()
 
-                        if latest_observation:
+                        if latest_observation and latest_observation.recorded_at >= show_track_days_since:
                             additional = latest_observation.additional
                             if not isinstance(additional, dict):
                                 additional = {}
@@ -339,7 +333,11 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
                         location = statusvalues.location if statusvalues.location else get_null_point()
                         recorded_at = statusvalues.recorded_at
 
-                    tracks_available = recorded_at and recorded_at != models.DEFAULT_STATUS_VALUE_DATE
+                    tracks_available = (
+                        recorded_at
+                        and recorded_at != models.DEFAULT_STATUS_VALUE_DATE
+                        and recorded_at >= show_track_days_since
+                    )
                     rep["tracks_available"] = tracks_available
                     rep["last_position_status"] = {
                         "last_voice_call_start_at": (
@@ -659,7 +657,7 @@ class SourceProviderSerializer(serializers.Serializer):
         return instance
 
 
-class SubjectTrackSerializer(serializers.BaseSerializer):
+class SubjectTrackSerializer(serializers.Serializer):
     def to_representation(self, subject):
         image_url = subject.image_url
         user = self.context["request"].user
@@ -689,7 +687,7 @@ class SubjectTrackSerializer(serializers.BaseSerializer):
         return rep
 
 
-class SubjectStatusSerializer(serializers.BaseSerializer):
+class SubjectStatusSerializer(serializers.Serializer):
     def to_representation(self, subject_status):
         coordinates = Point(x=subject_status.location.x, y=subject_status.location.y, srid=4326)
 
