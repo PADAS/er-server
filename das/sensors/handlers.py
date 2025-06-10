@@ -117,11 +117,28 @@ class GenericSensorHandler:
 
     @classmethod
     def process_all_observations(cls, data: list, provider_key: str, sensor_type: str, user, batch_size: int = 128):
+        logger.info("Processing %s observations", len(data), extra={"observation_count": len(data)})
+
+        # Sort observations by recorded_at in ascending order
+        sorted_data = sorted(data, key=lambda x: x.get("recorded_at"))
+
         try:
             try:
-                return cls.process_observations(data, provider_key, sensor_type, user, batch_size)
+                return cls.process_observations(
+                    data=sorted_data,
+                    provider_key=provider_key,
+                    sensor_type=sensor_type,
+                    user=user,
+                    batch_size=batch_size,
+                )
             except UniqueViolation:
-                return cls.process_observations(data, provider_key, sensor_type, user, batch_size)
+                return cls.process_observations(
+                    data=sorted_data,
+                    provider_key=provider_key,
+                    sensor_type=sensor_type,
+                    user=user,
+                    batch_size=batch_size,
+                )
         except UniqueViolation:
             return Response({}, status=status.HTTP_409_CONFLICT)
 
@@ -373,17 +390,39 @@ class ErTrackHandler(GenericSensorHandler):
         source_info = {}
         if an_observation.get("source_additional") is not None:
             source_info["additional"] = an_observation["source_additional"]
+        er_mobile_info = {k: v for k, v in an_observation.items() if k in ["subject_id", "user_id"]}
 
-        src = cls.ensure_source(
-            observation=an_observation,
-            user=user,
-            subject_info=subject_info,
-            source_type=source_type,
-            provider=provider_key,
-            manufacturer_id=manufacturer_id,
-            model_name=model_name,
-            **source_info,
+        # Create a cache key from the source parameters
+        # A single ER Mobile could be sending observations for more than once subject,
+        # on the same source. If the subject changes, we need to redo by calling
+        # ensure_source which sets up the subject and subjectsource with a new date range.
+        source_cache_key = (
+            source_type,
+            provider_key,
+            manufacturer_id,
+            model_name,
+            str(subject_info),
+            str(source_info),
+            str(er_mobile_info),
         )
+
+        # Use cached source if available
+        if source_cache is not None and source_cache_key in source_cache:
+            src = source_cache[source_cache_key]
+        else:
+            src = cls.ensure_source(
+                observation=an_observation,
+                user=user,
+                subject_info=subject_info,
+                source_type=source_type,
+                provider=provider_key,
+                manufacturer_id=manufacturer_id,
+                model_name=model_name,
+                **source_info,
+            )
+            if source_cache is not None:
+                source_cache.clear()
+                source_cache[source_cache_key] = src
 
         recorded_at = an_observation.get("recorded_at")
         additional = an_observation.get("additional", {})
