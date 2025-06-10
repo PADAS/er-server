@@ -52,6 +52,13 @@ var/
 # Ignore all local history of files
 **/.history
 
+
+### AI-augmented ###
+.cursor/*
+.windsurf/*
+.windsurfrules
+
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
