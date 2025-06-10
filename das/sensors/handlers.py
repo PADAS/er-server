@@ -393,7 +393,7 @@ class ErTrackHandler(GenericSensorHandler):
         er_mobile_info = {k: v for k, v in an_observation.items() if k in ["subject_id", "user_id"]}
 
         # Create a cache key from the source parameters
-        # A single ER Mobile could be sending observations for more than once subject,
+        # A single ER Mobile could be sending observations for more than one subject,
         # on the same source. If the subject changes, we need to redo by calling
         # ensure_source which sets up the subject and subjectsource with a new date range.
         source_cache_key = (
