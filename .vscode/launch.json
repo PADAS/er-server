@@ -23,6 +23,7 @@
             "justMyCode": false,
             "module": "pytest",
             "args": [
+                "-vv",
                 "--reuse-db",
                 "--ds",
                 "test_scripts.unittest_settings",
@@ -30,9 +31,7 @@
             ],
             "cwd": "${workspaceRoot}/das",
             "env": {},
-            "debugOptions": [
-                "RedirectOutput"
-            ]
+            "redirectOutput": true
         },
         {
             "name": "PyTest --createdb",
@@ -51,9 +50,7 @@
             "env": {
                 "IS_OAUTH2_PROVIDER_MIGRATION": "True"
             },
-            "debugOptions": [
-                "RedirectOutput"
-            ]
+            "redirectOutput": true
         },
         {
             "name": "Django:Run",
