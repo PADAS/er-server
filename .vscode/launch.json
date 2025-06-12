@@ -9,7 +9,9 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "purpose": ["debug-test"],
+            "purpose": [
+                "debug-test"
+            ],
             "console": "integratedTerminal",
             "justMyCode": false
         },
@@ -21,6 +23,7 @@
             "justMyCode": false,
             "module": "pytest",
             "args": [
+                "-vv",
                 "--reuse-db",
                 "--ds",
                 "test_scripts.unittest_settings",
@@ -28,9 +31,7 @@
             ],
             "cwd": "${workspaceRoot}/das",
             "env": {},
-            "debugOptions": [
-                "RedirectOutput"
-            ]
+            "redirectOutput": true
         },
         {
             "name": "PyTest --createdb",
@@ -49,10 +50,7 @@
             "env": {
                 "IS_OAUTH2_PROVIDER_MIGRATION": "True"
             },
-            "debugOptions": [
-
-                "RedirectOutput"
-            ]
+            "redirectOutput": true
         },
         {
             "name": "Django:Run",
@@ -234,6 +232,7 @@
                 "${input:django_command_args}"
             ],
             "django": true,
+            "sudo": true,
             "env": {
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
             }
@@ -300,6 +299,23 @@
             "env": {
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
                 "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+            }
+        },
+        {
+            "name": "Django collectstatic",
+            "type": "debugpy",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "${workspaceFolder}/das/manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "collectstatic"
+            ],
+            "django": true,
+            "sudo": true,
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
             }
         },
         {
