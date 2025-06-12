@@ -87,7 +87,7 @@ DAYS_BACK_TO_SEARCH_OBSERVATION_PARTITIONS = 365
         "graceful": True,
     },
 )
-def maintain_observation_data_for_source_provider(self, source_provider_id, days_data_retain):
+def maintain_observation_data_for_source_provider(self, source_provider_id, days_data_retain, **kwargs):
     """
     Delete observation records older than days_data_retain for a source_provider.
     Only go back DAYS_BACK_TO_SEARCH_OBSERVATION_PARTITIONS days to not search all Observation table partitions
