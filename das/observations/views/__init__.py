@@ -569,7 +569,7 @@ class KmlSubjectsView(APIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def get_queryset(self):
-        include_inactive = self.request.GET.get("include_inactive", "false")
+        include_inactive = self.request.GET.get("include_inactive")
 
         start_date = self.request.GET.get("start")
         end_date = self.request.GET.get("end")
@@ -592,8 +592,8 @@ class KmlSubjectsView(APIView):
             # filter is passed
             queryset = Subject.objects.all()
         queryset = queryset.by_user_subjects(self.request.user)
-        if not parse_bool(include_inactive):
-            queryset = queryset.filter(is_active=True)
+        queryset = queryset.by_include_inactive(include_inactive)
+
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
         return queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24)
@@ -770,9 +770,9 @@ class KmlSubjectView(generics.RetrieveAPIView):
 
 
 class TrackingDataViewSchema(InactiveSubjectsViewSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
             query_params = [
                 {
                     "name": "current_status",
@@ -835,7 +835,7 @@ class TrackingDataViewSchema(InactiveSubjectsViewSchema):
                     "schema": {"type": "integer"},
                 },
             ]
-
+            operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)
         return operation
 
@@ -1368,9 +1368,10 @@ def get_user_messages(user):
 
 
 class MessagesSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        operation["parameters"] = operation.get("parameters", [])
+        if self.method == "GET":
             query_params = [
                 {"name": "subject_id", "in": "query", "description": "Get messages of this subject."},
                 {"name": "source_id", "in": "query", "description": "Get messages of this device/source"},
@@ -1381,7 +1382,7 @@ class MessagesSchema(CustomSchema):
             ]
             operation["parameters"].extend(query_params)
 
-        elif method == "POST":
+        elif self.method == "POST":
             query_params = [
                 {"name": "subject_id", "in": "query", "description": "Post messages to this subject."},
                 {"name": "source_id", "in": "query", "description": "Post Messages to this device/source"},
@@ -1582,13 +1583,14 @@ class AnnouncementsView(generics.ListCreateAPIView):
 
 
 class SubjectSourceAssignmentSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
             query_params = [
                 {"name": "subjects", "in": "query", "description": "A comma-delimited list of Subject IDs."},
                 {"name": "sources", "in": "query", "description": "A comma-delimited list of Source IDs."},
             ]
+            operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)
 
         return operation

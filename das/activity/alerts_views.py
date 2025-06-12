@@ -24,8 +24,11 @@ class EventAlertConditionsListView(generics.ListAPIView):
     serializer_class = EventTypeSerializer
 
     def get_queryset(self):
-        qs = EventType.objects.all().select_related("category")
-        qs = qs.filter(category__is_active=True, is_active=True)
+        qs = EventType.objects.select_related("category").filter(
+            category__is_active=True,
+            is_active=True,
+            version=EventType.VersionChoices.VERSION_1,
+        )
 
         event_types = self.request.query_params.get("event_type", "")
         if event_types:
@@ -35,7 +38,7 @@ class EventAlertConditionsListView(generics.ListAPIView):
         errored_types = []
         for eventype in qs:
             try:
-                get_schema_renderer_method()(eventype.schema)
+                get_schema_renderer_method(empty=True)(eventype.schema)
             except Exception:
                 logger.exception(f"{eventype} event type skipped, invalid schema")
                 errored_types.append(eventype.display)

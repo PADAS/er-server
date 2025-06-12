@@ -27,7 +27,22 @@ class ChoiceZipIcon(APIView):
         return file_compress.zip_compress("choice_icons")
 
 
-class ChoicesView(generics.ListCreateAPIView, DynamicSchemaDataMixin):
+class ChoicesViewSchema(CustomSchema):
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
+            query_params = [
+                {"name": "model", "in": "query", "description": "Filter by 'model' field"},
+                {"name": "field", "in": "query", "description": "Filter by 'field' field"},
+                {"name": "include_inactive", "in": "query", "description": "include inactive choices"},
+            ]
+            operation["parameters"] = operation.get("parameters", [])
+            operation["parameters"].extend(query_params)
+        return operation
+
+
+class ChoicesView(generics.ListCreateAPIView):
+    pagination_class = StandardResultsSetPagination
     permission_classes = (ChoiceModelPermissions,)
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
     filterset_class = ChoicesFilterSet

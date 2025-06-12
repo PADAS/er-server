@@ -1,6 +1,7 @@
 import copy
 import json
 import uuid
+from datetime import timedelta
 from pathlib import Path
 from typing import Optional, Type
 from unittest.mock import MagicMock
@@ -14,6 +15,7 @@ from oauth2_provider.models import get_application_model
 from pytest_factoryboy import register
 
 from django.apps import apps
+from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import Point
@@ -45,6 +47,7 @@ from factories import (
     PatrolSegmentFactory,
     PatrolSegmentSubjectFactory,
     PatrolSegmentUserFactory,
+    PatrolTypeFactory,
     PermissionFactory,
     PermissionSetFactory,
     ProviderFactory,
@@ -60,7 +63,7 @@ from factories import (
     TwoWayMessageSubjectFactory,
     UserFactory,
 )
-from observations.models import Observation
+from observations.models import Observation, SubjectStatus
 from utils.features import features
 from utils.tenant import Tenant
 from utils.tenant.managers import TenantContextManager
@@ -331,6 +334,11 @@ def five_event_categories():
     for values in categories_codename:
         categories.append(EventCategoryFactory.create(**values))
     return categories
+
+
+@pytest.fixture
+def patrol_type():
+    return PatrolTypeFactory.create()
 
 
 @pytest.fixture
@@ -713,14 +721,16 @@ def source_group():
 @pytest.fixture
 def subject_source_with_observations():
     subject_source = SubjectSourceFactory()
-    subject_source.subject = SubjectFactory()
-    source = SourceFactory()
-    subject_source.source = source
-    subject_source.save()
-    observation = ObservationFactory()
-    observation.subject_source = subject_source
-    observation.source = source
-    observation.save()
+    observation = ObservationFactory(source=subject_source.source)
+    SubjectStatus.objects.maintain_subject_status(subject_source.subject.id)
+    return subject_source, observation
+
+
+@pytest.fixture
+def subject_source_with_older_observation_past_show_track_days_since():
+    subject_source = SubjectSourceFactory()
+    recorded_at = timezone.now() - timedelta(days=settings.SHOW_TRACK_DAYS + 1)
+    observation = ObservationFactory(recorded_at=recorded_at, source=subject_source.source)
     return subject_source, observation
 
 
@@ -781,3 +791,14 @@ def json_schema_fixture(request):
     fixture_path = Path(__file__).parent.parent / "fixtures" / f"{fixture_name}.json"
     with open(fixture_path) as f:
         return json.load(f)
+
+
+@pytest.fixture
+def disable_close_old_connections(monkeypatch):
+    """
+    Disables the server's use of Django's close_old_connections() function during tests to prevent connection already closed errors.
+    """
+    monkeypatch.setattr("rt_api.views.close_old_connections", lambda: None)
+    monkeypatch.setattr("rt_api.tasks.close_old_connections", lambda: None)
+    monkeypatch.setattr("rt_api.management.commands.rtserver.close_old_connections", lambda: None)
+    monkeypatch.setattr("utils.db.connections.close_old_shared_connections", lambda: None)

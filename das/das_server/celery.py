@@ -112,6 +112,9 @@ app.conf.task_routes = {
     "observations.tasks.maintain_observation_data": {
         "queue": "maintenance",
     },
+    "observations.tasks.maintain_observation_data_for_source_provider": {
+        "queue": "maintenance",
+    },
     "mapping.tasks.automate_download_features_from_wfs": {
         "queue": "maintenance",
     },

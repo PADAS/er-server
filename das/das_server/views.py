@@ -1,25 +1,17 @@
 import copy
-from datetime import datetime, timedelta
 
-import pytz
-from drf_extra_fields.geo_fields import PointField
+from drf_spectacular.openapi import AutoSchema
 from oauth2_provider.models import get_access_token_model, get_application_model
-from oauthlib.common import generate_token
 
 from django.conf import settings
 from django.db import connection
 from django.db.migrations.recorder import MigrationRecorder
 from django.shortcuts import render
 from django.utils import timezone
-from django.views.generic import TemplateView
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
-from rest_framework.schemas.openapi import AutoSchema
-from rest_framework.serializers import ChoiceField
 
 from activity.alerts import has_alerts_permissionset, has_patrol_view_permission
-from activity.serializers import LeaderRelatedField, PatrolList
-from activity.serializers.fields import DateTimeRangeField
 from core.utils import get_site_name
 
 # This import ensures we register user-login receivers.
@@ -29,6 +21,9 @@ from observations import servicesutils
 from observations.servicesutils import has_message_view_permission
 from utils.json import parse_bool
 from utils.tenant import get_tenant_settings
+
+# from rest_framework.serializers import ChoiceField
+
 
 CLIENT_ID = "das_web_client"
 AccessToken = get_access_token_model()
@@ -41,37 +36,23 @@ def index(request):
 
 class CustomSchema(AutoSchema):
 
-    def map_field(self, field):
-        if isinstance(field, PointField):
-            return {"type": "object", "properties": {"latitude": {"type": "string"}, "longitude": {"type": "string"}}}
-        if isinstance(field, DateTimeRangeField):
-            return {
-                "type": "object",
-                "properties": {
-                    "start_time": {"type": "string", "format": "date-time"},
-                    "end_time": {"type": "string", "format": "date-time"},
-                },
-            }
+    # def map_field(self, field):
+    #     if isinstance(field, PointField):
+    #     if isinstance(field, DateTimeRangeField):
+    #     if isinstance(field, ChoiceField):
+    #     if isinstance(field, LeaderRelatedField):
+    #     if isinstance(field, PatrolList):
+    #         return {
+    #             "type": "object",
+    #             "properties": {
+    #                 "id": {"type": "string", "format": "uuid", "readOnly": True},
+    #                 "title": {"type": "string", "maxLength": 255},
+    #                 "priority": {"type": "integer"},
+    #                 "state": {"type": "string", "maxLength": 255},
+    #             },
+    #         }
 
-        if isinstance(field, ChoiceField):
-            return {"type": "integer" if isinstance(field.default, int) else "string"}
-
-        if isinstance(field, LeaderRelatedField):
-            return {"type": "object", "properties": {}}
-
-        if isinstance(field, PatrolList):
-            return {
-                "type": "object",
-                "properties": {
-                    "id": {"type": "string", "format": "uuid", "readOnly": True},
-                    "title": {"type": "string", "maxLength": 255},
-                    "priority": {"type": "integer"},
-                    "state": {"type": "string", "maxLength": 255},
-                },
-            }
-        return super().map_field(field)
-
-    def get_tags(self, path, method):
+    def get_tags(self):
         return [self._view.__module__.split(".")[0].replace("_", " ").title()]
 
 
@@ -144,31 +125,3 @@ class StatusView(generics.RetrieveAPIView):
 
     def get_last_migration(self):
         return MigrationRecorder.Migration.objects.latest("id")
-
-
-class SwaggerTemplate(TemplateView):
-    template_name = "swagger-ui.html"
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.application = Application.objects.get(client_id=CLIENT_ID)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        token = None
-        if self.request.user.is_authenticated:
-            token = self._get_token()
-        context["token"] = token
-        context["schema_url"] = "openapi-schema"
-        return context
-
-    def _get_token(self):
-        ttl = getattr(settings, "ACCESS_TOKEN_EXPIRE_SECONDS", 3600 * 48)  # this value is in seconds
-        expire = datetime.now(tz=pytz.utc) + timedelta(seconds=ttl)
-        return AccessToken.objects.create(
-            user=self.request.user,
-            token=generate_token(),
-            application=self.application,
-            scope="read write",
-            expires=expire,
-        )

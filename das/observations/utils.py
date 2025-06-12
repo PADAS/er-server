@@ -191,11 +191,8 @@ def check_to_include_inactive_subjects(request, full_queryset):
         The filtered queryset, including inactive subjects if specified in the request parameters.
     """
     query_params = request.query_params
-
     include_inactive = query_params.get("include_inactive", None)
-    if not include_inactive:
-        full_queryset = full_queryset.by_is_active()
-    return full_queryset
+    return full_queryset.by_include_inactive(include_inactive)
 
 
 def assigned_range_dates(o):
@@ -431,13 +428,6 @@ def is_banned(user):
 
 def is_subject_stationary_subject(subject):
     return subject.subject_subtype.subject_type.value == "stationary-object"
-
-
-def is_observation_stationary_subject(observation):
-    subject_source = observation.source.subjectsource_set.last()
-    if subject_source:
-        return is_subject_stationary_subject(subject_source.subject)
-    return False
 
 
 def check_valid_date_string(date_str: Optional[str], parameter_name: str) -> Tuple[bool, Optional[datetime]]:

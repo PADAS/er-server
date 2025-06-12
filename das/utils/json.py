@@ -171,6 +171,9 @@ class ExtendedBrowsableAPIRenderer(BrowsableAPIRenderer):
 
         return super().render(data, accepted_media_type=accepted_media_type, renderer_context=renderer_context)
 
+    def render_form_for_serializer(self, serializer):
+        return super().render_form_for_serializer(serializer)
+
 
 class DirectBrowsableAPIRenderer(BrowsableAPIRenderer):
     """

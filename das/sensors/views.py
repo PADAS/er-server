@@ -58,9 +58,9 @@ class ERTrackHandlerView(BaseSensorsView):
 
 
 class GsatSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
             query_params = [
                 {"name": "uniqueid", "in": "query", "required": True},
                 {"name": "lat", "in": "query", "required": True, "description": "latitude"},
@@ -71,6 +71,7 @@ class GsatSchema(CustomSchema):
                 {"name": "speed", "in": "query", "description": "subject speed"},
                 {"name": "emer", "in": "query", "description": "If emergency", "schema": {"type": "bool"}},
             ]
+            operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)
         return operation
 

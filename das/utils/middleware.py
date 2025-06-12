@@ -159,7 +159,7 @@ class RequestLoggingMiddleware(object):
         if status_code >= status.HTTP_400_BAD_REQUEST:
             data = getattr(response, "data", {"status": {}})
             if isinstance(data, dict):
-                error_message = error_message or str(data.get("status").get("detail", ""))
+                error_message = error_message or str(data.get("status", {}).get("detail", ""))
             if not error_message:
                 # our response data is not standardised at this point, log all of it
                 error_message = str(getattr(response, "data", ""))

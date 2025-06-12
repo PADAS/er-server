@@ -58,7 +58,9 @@ INSTALLED_APPS = (
     "oauth2_provider",
     "rest_framework",
     "rest_framework_gis",
-    "rest_framework_swagger",
+    # "rest_framework_swagger",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",
     "observations.apps.ObservationsConfig",
     "analyzers.apps.AnalyzersConfig",
     "das_server.apps.DasServerConfig",
@@ -91,7 +93,6 @@ MIDDLEWARE = (
     "django.middleware.common.CommonMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
-    "corsheaders.middleware.CorsPostCsrfMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -272,7 +273,6 @@ UI_SITE_URL = "http://www.earthranger.com"
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ORIGIN_WHITELIST = ()
-CORS_REPLACE_HTTPS_REFERER = True
 CORS_ALLOW_HEADERS = default_headers + ("user-profile", "traceparent")
 
 ALLOWED_HOSTS = ["*"]
@@ -282,6 +282,18 @@ CSRF_COOKIE_SECURE = True
 
 
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "EarthRanger API Documentation",
+    "DESCRIPTION": ("Welcome to the <b>EarthRanger API</b>! </br>"),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SWAGGER_UI_DIST": "SIDECAR",  # shorthand to use the sidecar instead
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    "REDOC_DIST": "SIDECAR",
+    "COMPONENT_SPLIT_REQUEST": True,
+    "GENERIC_ADDITIONAL_PROPERTIES": "bool",
+}
 
 SWAGGER_SETTINGS = {
     "api_version": "v1.0",

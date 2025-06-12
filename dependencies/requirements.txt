@@ -34,7 +34,9 @@ argon2-cffi==23.1.0
 argon2-cffi-bindings==21.2.0
     # via argon2-cffi
 asgiref==3.7.2
-    # via django
+    # via
+    #   django
+    #   django-cors-headers
 asttokens==2.4.0
     # via stack-data
 async-lru==1.0.3
@@ -59,6 +61,7 @@ backcall==0.2.0
 backports-zoneinfo[tzdata]==0.2.1
     # via
     #   celery
+    #   djangorestframework
     #   kombu
 beautifulsoup4==4.12.2
     # via nbconvert
@@ -137,12 +140,6 @@ comm==0.1.4
     # via ipykernel
 contourpy==1.1.1
     # via matplotlib
-coreapi==2.3.3
-    # via
-    #   django-rest-swagger
-    #   openapi-codec
-coreschema==0.0.4
-    # via coreapi
 cryptography==41.0.1
     # via
     #   -r requirements.in
@@ -155,7 +152,7 @@ cython==0.29.35
     # via -r requirements.in
 dask==2023.5.0
     # via arcgis
-dataclasses-json==0.5.8
+dataclasses-json==0.6.7
     # via -r requirements.in
 datadog==0.36.0
     # via -r requirements.in
@@ -180,7 +177,6 @@ django==3.2.25
     #   django-debug-toolbar
     #   django-docs
     #   django-extensions
-    #   django-extra-fields
     #   django-fast-update
     #   django-filter
     #   django-js-asset
@@ -196,21 +192,23 @@ django==3.2.25
     #   django-treebeard
     #   django-versatileimagefield
     #   djangorestframework
+    #   drf-extensions
+    #   drf-extra-fields
+    #   drf-spectacular
+    #   drf-spectacular-sidecar
 django-bitfield==2.2.0
     # via -r requirements.in
-django-cors-headers==3.14.0
+django-cors-headers==4.4.0
     # via -r requirements.in
 django-debug-toolbar==4.3.0
     # via -r requirements.in
 django-docs==0.3.3
     # via -r requirements.in
-django-environ==0.10.0
+django-environ==0.11.2
     # via -r requirements.in
 django-extensions==3.2.3
     # via -r requirements.in
-django-extra-fields==3.0.2
-    # via -r requirements.in
-django-fast-update==0.2.3
+django-fast-update==0.2.4
     # via -r requirements.in
 django-filter==23.5
     # via
@@ -218,9 +216,9 @@ django-filter==23.5
     #   djangorestframework-gis
 django-js-asset==2.1.0
     # via django-mptt
-django-leaflet==0.29.0
+django-leaflet==0.31.0
     # via -r requirements.in
-django-model-utils==4.3.1
+django-model-utils==5.0.0
     # via -r requirements.in
 django-mptt==0.14.0
     # via -r requirements.in
@@ -236,8 +234,6 @@ django-redis==5.2.0
     # via -r requirements.in
 django-rest-framework-condition==0.1.1
     # via -r requirements.in
-django-rest-swagger==2.2.0
-    # via -r requirements.in
 django-sendsms==0.5
     # via -r requirements.in
 django-ses==3.5.0
@@ -250,13 +246,13 @@ django-treebeard==4.7
     # via -r requirements.in
 django-versatileimagefield==3.1
     # via -r requirements.in
-djangorestframework==3.12.4
+djangorestframework==3.15.1
     # via
     #   -r requirements.in
-    #   django-extra-fields
-    #   django-rest-swagger
     #   djangorestframework-gis
     #   drf-extensions
+    #   drf-extra-fields
+    #   drf-spectacular
 djangorestframework-gis==1.1
     # via -r requirements.in
 dnspython==1.16.0
@@ -265,7 +261,13 @@ docxcompose==1.4.0
     # via docxtpl
 docxtpl==0.16.7
     # via -r requirements.in
-drf-extensions==0.7.1
+drf-extensions==0.8.0
+    # via -r requirements.in
+drf-extra-fields==3.7.0
+    # via -r requirements.in
+drf-spectacular==0.28.0
+    # via -r requirements.in
+drf-spectacular-sidecar==2025.6.1
     # via -r requirements.in
 earthengine-api==0.1.371
     # via pymet
@@ -285,6 +287,8 @@ fastjsonschema==2.18.1
     # via nbformat
 fastkml @ git+https://github.com/PADAS/fastkml.git@7922b3f38c4cef4a513a599e899bfb10576d8bd3
     # via -r requirements-pinned.txt
+filetype==1.2.0
+    # via drf-extra-fields
 fiona==1.9.4.post1
     # via
     #   geopandas
@@ -435,6 +439,8 @@ importlib-resources==6.1.0
     #   jsonschema-specifications
     #   keyring
     #   matplotlib
+inflection==0.5.1
+    # via drf-spectacular
 ipykernel==6.25.2
     # via
     #   ipywidgets
@@ -452,8 +458,6 @@ ipython-genutils==0.2.0
     #   notebook
 ipywidgets==7.7.1
     # via arcgis
-itypes==1.2.0
-    # via coreapi
 jaraco-classes==3.3.0
     # via keyring
 jedi==0.19.1
@@ -465,7 +469,6 @@ jeepney==0.8.0
 jinja2==3.1.4
     # via
     #   -r requirements.in
-    #   coreschema
     #   docxtpl
     #   jupyter-server
     #   jupyterlab
@@ -486,6 +489,7 @@ json5==0.9.14
 jsonschema==4.23.0
     # via
     #   -r requirements.in
+    #   drf-spectacular
     #   jupyterlab-server
     #   nbformat
 jsonschema-specifications==2023.12.1
@@ -551,10 +555,6 @@ markupsafe==2.0.1
     #   jinja2
     #   nbconvert
 marshmallow==3.20.1
-    # via
-    #   dataclasses-json
-    #   marshmallow-enum
-marshmallow-enum==1.5.1
     # via dataclasses-json
 matplotlib==3.7.3
     # via arcgis
@@ -625,8 +625,6 @@ oauthlib==3.2.2
     #   -r requirements.in
     #   django-oauth-toolkit
     #   requests-oauthlib
-openapi-codec==1.3.2
-    # via django-rest-swagger
 openpyxl==3.1.2
     # via -r requirements.in
 opentelemetry-api==1.25.0
@@ -701,10 +699,11 @@ opentelemetry-util-http==0.46b0
     #   opentelemetry-instrumentation-django
     #   opentelemetry-instrumentation-requests
     #   opentelemetry-instrumentation-wsgi
-packaging==22.0
+packaging==25.0
     # via
     #   -r requirements.in
     #   dask
+    #   drf-extensions
     #   geopandas
     #   ipykernel
     #   jupyter-server
@@ -712,8 +711,7 @@ packaging==22.0
     #   jupyterlab-server
     #   marshmallow
     #   matplotlib
-    #   setuptools-scm
-pandas==1.5.3
+pandas==2.0.3
     # via
     #   arcgis
     #   geopandas
@@ -859,6 +857,7 @@ pyyaml==6.0
     # via
     #   -r requirements.in
     #   dask
+    #   drf-spectacular
 pyzmq==24.0.1
     # via
     #   ipykernel
@@ -886,7 +885,6 @@ requests==2.31.0
     # via
     #   -r requirements.in
     #   arcgis
-    #   coreapi
     #   datadog
     #   django-oauth-toolkit
     #   earthengine-api
@@ -940,7 +938,6 @@ simple-websocket==0.10.1
 simplejson==3.19.1
     # via
     #   -r requirements.in
-    #   django-rest-swagger
     #   rasterstats
 simplekml==1.3.6
     # via -r requirements.in
@@ -980,13 +977,7 @@ testpath==0.6.0
 threadpoolctl==3.2.0
     # via scikit-learn
 tomli==2.0.1
-    # via
-    #   jupyterlab
-    #   setuptools-scm
-toolz==1.0.0
-    # via
-    #   dask
-    #   partd
+    # via jupyterlab
 tornado==6.3.3
     # via
     #   ipykernel
@@ -1016,6 +1007,7 @@ twilio==9.5.1
 typing-extensions==4.8.0
     # via
     #   asgiref
+    #   drf-spectacular
     #   ipython
     #   kombu
     #   opentelemetry-resourcedetector-gcp
@@ -1032,7 +1024,7 @@ ujson==5.10.0
     # via arcgis
 uritemplate==4.1.1
     # via
-    #   coreapi
+    #   drf-spectacular
     #   google-api-python-client
 urllib3==1.26.20
     # via
