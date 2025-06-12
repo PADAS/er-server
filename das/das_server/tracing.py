@@ -14,6 +14,9 @@ from django.http.request import HttpRequest
 
 
 def request_hook(span: Span, request: HttpRequest):
+    if request.path == "/api/v1.0/status":
+        span.set_attribute("tracing.excluded", True)
+        return
     span.update_name(request.path)
 
 

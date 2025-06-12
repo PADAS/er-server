@@ -29,9 +29,9 @@ from .response_headers import SUBJECT_FIELDS
 
 
 class PatrolSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
             query_params = [
                 {
                     "name": "filter",
@@ -47,14 +47,15 @@ class PatrolSchema(CustomSchema):
                     "schema": {"type": "bool"},
                 },
             ]
+            operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)
         return operation
 
 
 class EventsViewSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
             query_params = [
                 {
                     "name": "sort_by",
@@ -102,6 +103,7 @@ class EventsViewSchema(CustomSchema):
                 {"name": "include_related_events", "in": "query", "description": "Boolean value"},
                 {"name": "state", "in": "query", "description": "event states to filter on, ex: new, active, resolved"},
             ]
+            operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)
         return operation
 
@@ -126,9 +128,9 @@ class TrackedBySchema(ListCreateAPIView):
 
 
 class EventCategoriesViewSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
             query_params = [
                 {"name": "include_inactive", "in": "query", "description": "include inactive event-categories"},
                 {
@@ -144,14 +146,16 @@ class EventCategoriesViewSchema(CustomSchema):
                     "description": "adds the property `permission_set_changed` which indicates whether permission sets are default.",
                 },
             ]
+            operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)
         return operation
 
 
 class EventCategoryViewSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        operation["parameters"] = operation.get("parameters", [])
+        if self.method == "GET":
             query_params = [
                 {
                     "name": "include_event_types",
@@ -167,7 +171,7 @@ class EventCategoryViewSchema(CustomSchema):
                 },
             ]
             operation["parameters"].extend(query_params)
-        elif method == "DELETE":
+        elif self.method == "DELETE":
             query_params = [
                 {
                     "name": "keep_permission_sets",
@@ -177,7 +181,7 @@ class EventCategoryViewSchema(CustomSchema):
                 },
             ]
             operation["parameters"].extend(query_params)
-        elif method == "PATCH":
+        elif self.method == "PATCH":
             query_params = [
                 {
                     "name": "update_permission_sets",
@@ -369,27 +373,30 @@ class EventTypeSchemaView(ListCreateAPIView):
 
 
 class EventTypeViewSchema(CustomSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        if method == "GET":
-            query_params = [
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
+            parameters = operation.get("parameters", [])
+            parameters.append(
                 {
                     "name": "include_schema",
                     "in": "query",
                     "description": "include eventtype schema in the payload",
                     "schema": {"type": "boolean", "default": False},
                 }
-            ]
+            )
 
-            if "v2" not in path:
-                query_params.append(
+            path = getattr(self, "path", None)
+
+            if path and "v2" not in path:
+                parameters.append(
                     {
                         "name": "include_inactive",
                         "in": "query",
                         "description": "Include inactive event types in the list.",
                     }
                 )
-                query_params.append(
+                parameters.append(
                     {
                         "name": "updated_since",
                         "in": "query",
@@ -397,5 +404,5 @@ class EventTypeViewSchema(CustomSchema):
                     }
                 )
 
-            operation["parameters"].extend(query_params)
+            operation["parameters"] = parameters
         return operation

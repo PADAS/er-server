@@ -48,6 +48,10 @@ def retry_on_exception(exception_type, retry_forever=False, max_retries=3, delay
     """Decorator to retry a function when a specified exception occurs. If the
     retries are exausted, the exception is raised anyway.
 
+    Be aware that if exception_type is the IntegrityError exception,
+    be careful to use the transaction.atomic() context manager in your wrapped function
+    to ensure the integrity of the database connection.
+
     :param exception_type: Exception
     :param loop_forever: bool
     :param max_retries: int

@@ -1,4 +1,3 @@
-import datetime
 import logging
 from datetime import datetime, timezone
 
@@ -7,6 +6,7 @@ from dateutil.parser import parse as parse_date
 from psycopg2.errors import UniqueViolation
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.utils import IntegrityError
 from rest_framework import serializers, status
@@ -39,6 +39,8 @@ from tracking.pubsub_registry import notify_new_tracks
 from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
+
+User = get_user_model()
 
 
 class GenericSensorHandler:
@@ -115,23 +117,48 @@ class GenericSensorHandler:
 
     @classmethod
     def process_all_observations(cls, data: list, provider_key: str, sensor_type: str, user, batch_size: int = 128):
+        logger.info("Processing %s observations", len(data), extra={"observation_count": len(data)})
+
+        # Sort observations by recorded_at in ascending order
+        sorted_data = sorted(data, key=lambda x: x.get("recorded_at"))
+
         try:
             try:
-                return cls.process_observations(data, provider_key, sensor_type, user, batch_size)
+                return cls.process_observations(
+                    data=sorted_data,
+                    provider_key=provider_key,
+                    sensor_type=sensor_type,
+                    user=user,
+                    batch_size=batch_size,
+                )
             except UniqueViolation:
-                return cls.process_observations(data, provider_key, sensor_type, user, batch_size)
+                return cls.process_observations(
+                    data=sorted_data,
+                    provider_key=provider_key,
+                    sensor_type=sensor_type,
+                    user=user,
+                    batch_size=batch_size,
+                )
         except UniqueViolation:
             return Response({}, status=status.HTTP_409_CONFLICT)
 
     @classmethod
-    def process_observations(cls, data: list, provider_key: str, sensor_type: str, user, batch_size):
+    def process_observations(cls, data: list, provider_key: str, sensor_type: str, user: User, batch_size: int):
         created = False
         obs_to_persist, errors, obs_cache = [], [], set()
+        source_cache = {}  # Cache for sources to avoid redundant ensure_source calls
         batches = cls.generate_batches(data, batch_size)
         for batch in batches:
             for an_observation in batch:
                 created |= cls.process_one_observation(
-                    an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors, user
+                    an_observation=an_observation,
+                    provider_key=provider_key,
+                    sensor_type=sensor_type,
+                    obs_to_persist=obs_to_persist,
+                    obs_cache=obs_cache,
+                    errors=errors,
+                    user=user,
+                    source_cache=source_cache,
                 )
         if response := cls.save_and_notify_tracks_listeners(obs_to_persist, errors, obs_cache):
             return response
@@ -140,17 +167,27 @@ class GenericSensorHandler:
 
     @classmethod
     def process_one_observation(
-        cls, an_observation: dict, provider_key: str, sensor_type: str, obs_to_persist, obs_cache, errors, user
+        cls,
+        an_observation: dict,
+        provider_key: str,
+        sensor_type: str,
+        obs_to_persist: list,
+        obs_cache: set,
+        errors: list,
+        user: User,
+        source_cache: dict = None,
     ):
         """return True if an observation was created
 
         Args:
-            an_observation ([type]): [description]
-            provider_key ([type]): [description]
-            sensor_type ([type]): [description]
-            obs_to_persist ([type]): [description]
-            obs_cache ([type]): [description]
-            errors ([type]): [description]
+            an_observation (dict): observation to process
+            provider_key (str): provider key
+            sensor_type (str): sensor type
+            obs_to_persist (list): list of observations to save to the database
+            obs_cache (set): set of observation keys, so if there is a duplicate on source_id+recorded_at, we don't process it again
+            errors (list): list of errors
+            user (User): user who is processing the observation
+            source_cache (dict, optional): Cache of sources to avoid redundant ensure_source calls. Defaults to None.
         """
         manufacturer_id = an_observation["manufacturer_id"]
         location = an_observation["location"]
@@ -183,14 +220,23 @@ class GenericSensorHandler:
             # update_subject_source_from_observation(src, subject_info, additional)
             subject_info["additional"] = additional
 
-        src = Source.objects.ensure_source(
-            source_type,
-            provider=provider_key,
-            manufacturer_id=manufacturer_id,
-            model_name=model_name,
-            subject=subject_info,
-            **source_info,
-        )
+        # Create a cache key from the source parameters
+        source_cache_key = (source_type, provider_key, manufacturer_id, model_name, str(subject_info), str(source_info))
+
+        # Use cached source if available
+        if source_cache is not None and source_cache_key in source_cache:
+            src = source_cache[source_cache_key]
+        else:
+            src = Source.objects.ensure_source(
+                source_type,
+                provider=provider_key,
+                manufacturer_id=manufacturer_id,
+                model_name=model_name,
+                subject=subject_info,
+                **source_info,
+            )
+            if source_cache is not None:
+                source_cache[source_cache_key] = src
 
         if subject_subtype == "ropeless_buoy_device":
             subject = src.assigned_subject
@@ -289,21 +335,6 @@ class ErTrackHandler(GenericSensorHandler):
         return cls.process_all_observations(params.validated_data, provider_key, sensor_type, request.user)
 
     @classmethod
-    def process_observations(cls, data: list, provider_key: str, sensor_type: str, user, batch_size=128):
-        obs_to_persist, errors, obs_cache = [], [], set()
-        batches = cls.generate_batches(data, batch_size)
-        created = False
-        for batch in batches:
-            for an_observation in batch:
-                created |= cls.process_one_observation(
-                    an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors, user
-                )
-        if response := cls.save_and_notify_tracks_listeners(obs_to_persist, errors, obs_cache):
-            return response
-
-        return Response({}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
-
-    @classmethod
     def ensure_source(cls, observation, user, subject_info, **kwargs):
         with transaction.atomic():
             source, source_created = Source.objects.get_source(**kwargs)
@@ -326,7 +357,15 @@ class ErTrackHandler(GenericSensorHandler):
 
     @classmethod
     def process_one_observation(
-        cls, an_observation: dict, provider_key: str, sensor_type: str, obs_to_persist, obs_cache, errors, user
+        cls,
+        an_observation: dict,
+        provider_key: str,
+        sensor_type: str,
+        obs_to_persist: list,
+        obs_cache: set,
+        errors: list,
+        user: User,
+        source_cache: dict = None,
     ):
         manufacturer_id = an_observation["manufacturer_id"]
         location = an_observation["location"]
@@ -351,17 +390,39 @@ class ErTrackHandler(GenericSensorHandler):
         source_info = {}
         if an_observation.get("source_additional") is not None:
             source_info["additional"] = an_observation["source_additional"]
+        er_mobile_info = {k: v for k, v in an_observation.items() if k in ["subject_id", "user_id"]}
 
-        src = cls.ensure_source(
-            observation=an_observation,
-            user=user,
-            subject_info=subject_info,
-            source_type=source_type,
-            provider=provider_key,
-            manufacturer_id=manufacturer_id,
-            model_name=model_name,
-            **source_info,
+        # Create a cache key from the source parameters
+        # A single ER Mobile could be sending observations for more than one subject,
+        # on the same source. If the subject changes, we need to redo by calling
+        # ensure_source which sets up the subject and subjectsource with a new date range.
+        source_cache_key = (
+            source_type,
+            provider_key,
+            manufacturer_id,
+            model_name,
+            str(subject_info),
+            str(source_info),
+            str(er_mobile_info),
         )
+
+        # Use cached source if available
+        if source_cache is not None and source_cache_key in source_cache:
+            src = source_cache[source_cache_key]
+        else:
+            src = cls.ensure_source(
+                observation=an_observation,
+                user=user,
+                subject_info=subject_info,
+                source_type=source_type,
+                provider=provider_key,
+                manufacturer_id=manufacturer_id,
+                model_name=model_name,
+                **source_info,
+            )
+            if source_cache is not None:
+                source_cache.clear()
+                source_cache[source_cache_key] = src
 
         recorded_at = an_observation.get("recorded_at")
         additional = an_observation.get("additional", {})
@@ -592,9 +653,9 @@ class GsatHandler:
     @staticmethod
     def _parse_gsat_timestamp(obj):
         try:
-            return datetime.datetime.fromtimestamp(int(obj.get("time")), tz=pytz.UTC)
+            return datetime.fromtimestamp(int(obj.get("time")), tz=pytz.UTC)
         except:
-            return datetime.datetime.now(tz=pytz.UTC)
+            return datetime.now(tz=pytz.UTC)
 
     REQUIRED_PARAMS = (
         "uniqueid",
