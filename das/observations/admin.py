@@ -3,11 +3,12 @@ import csv
 import logging
 import random
 import urllib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import partial
 from urllib.parse import quote as urlquote
 from uuid import UUID
 
+import dateutil.parser
 import humanize
 import pytz
 from bitfield import BitField
@@ -72,7 +73,11 @@ from observations.forms import (
     SubjectChangeListForm,
     SubjectSourceForm,
 )
-from observations.tasks import maintain_subjectstatus_for_subject, process_gpxtrack_file
+from observations.tasks import (
+    maintain_observation_data_for_source_provider,
+    maintain_subjectstatus_for_subject,
+    process_gpxtrack_file,
+)
 from observations.utils import assigned_range_dates, get_cyclic_subjectgroup
 from observations.widgets import MessageGenericForeignKeyRawIdWidget
 from tracking.models import SourcePlugin
@@ -1786,6 +1791,29 @@ class SourceProviderAdmin(BaseModelAdminMixin):
                     for o in models.SubjectSource.objects.filter(source__provider=obj)
                 ]
             )
+
+    def response_change(self, request, obj):
+        if "_run_maintenance" in request.POST:
+            days_data_retain = obj.additional.get("days_data_retain")
+            if not days_data_retain:
+                self.message_user(request, "No Days data retain configured for this provider", level=messages.WARNING)
+                return HttpResponseRedirect(request.path)
+
+            try:
+                days_data_retain = int(days_data_retain)
+            except ValueError:
+                self.message_user(request, "Days data retain must be an integer", level=messages.ERROR)
+                return HttpResponseRedirect(request.path)
+
+            search_back_days = (datetime.now(timezone.utc) - dateutil.parser.parse("1900-01-01T00:00:01Z")).days
+
+            maintain_observation_data_for_source_provider.apply_async(
+                args=[str(obj.id), days_data_retain, search_back_days]
+            )
+            self.message_user(request, "Maintenance task has been queued", level=messages.SUCCESS)
+            return HttpResponseRedirect(request.path)
+
+        return super().response_change(request, obj)
 
 
 class SubjectSummaryAdmin(BaseModelAdminMixin):
