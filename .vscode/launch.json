@@ -397,7 +397,8 @@
                 "choices",
                 "buoy",
                 "core",
-                "observations"
+                "observations",
+                "mapping",
             ],
             "default": "activity"
         }
