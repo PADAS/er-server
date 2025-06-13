@@ -1,6 +1,5 @@
 import logging
 
-from django_multitenant.fields import TenantForeignKey
 from django_multitenant.utils import get_model_by_db_table, get_tenant_column
 
 import django
@@ -13,7 +12,7 @@ from django.contrib.gis.db.backends.postgis.features import (
 from django.contrib.gis.db.backends.postgis.schema import PostGISSchemaEditor
 from django.db.backends.base.base import NO_DB_ALIAS
 
-# from core.fields import CompoundTenantForeignKey
+from core.fields import CompoundTenantForeignKey
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +38,7 @@ class DatabaseSchemaEditor(PostGISSchemaEditor):
         strict=False,
     ):
         """
-        If there is a change in the field, this method assures that if the field is type of TenantForeignKey
+        If there is a change in the field, this method assures that if the field is type of CompoundTenantForeignKey
         and db_constraint does not exist, adds the foreign key constraint.
         """
 
@@ -58,7 +57,7 @@ class DatabaseSchemaEditor(PostGISSchemaEditor):
         # foreign key constraints didn't previously exists so django does not
         # recreated them.
         # Here we test if we are in this case
-        if isinstance(new_field, TenantForeignKey) and new_field.db_constraint:
+        if isinstance(new_field, CompoundTenantForeignKey) and new_field.db_constraint:
             from_model = get_model_by_db_table(model._meta.db_table)
             fk_names = self._constraint_names(model, [new_field.column], foreign_key=True) + self._constraint_names(
                 model,
@@ -73,7 +72,7 @@ class DatabaseSchemaEditor(PostGISSchemaEditor):
         """
         This method overrides the additions foreign key constraint sql and adds the tenant column to the constraint
         """
-        if isinstance(field, TenantForeignKey):
+        if isinstance(field, CompoundTenantForeignKey):
             try:
                 # test if both models exists
                 # This case happens when we are running from scratch migrations and one model was removed from code
@@ -104,7 +103,7 @@ class DatabaseSchemaEditor(PostGISSchemaEditor):
 # noqa
 class TenantDatabaseFeatures(PostGISDatabaseFeatures):
     """
-    This class is crucial for DAS to work properly with compoiste primary keys at the db level.
+    This class is crucial for DAS to work properly with composite primary keys at the db level.
     Without it, django and postgresql make assumptions on default Group By behavour that are not compatible with
     composite primary keys.
     """

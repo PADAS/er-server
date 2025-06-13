@@ -50,7 +50,7 @@ class DASAccessToken(TenantModelMixin, AbstractAccessToken):
         blank=True,
         null=True,
     )
-    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
@@ -76,7 +76,7 @@ class DASApplicationManager(TenantManagerMixin, ApplicationManager):
 
 class DASApplication(TenantModelMixin, AbstractApplication):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     client_id = models.CharField(max_length=100, default=generate_client_id)
     user = TenantForeignKey(
         settings.AUTH_USER_MODEL,
@@ -112,7 +112,7 @@ class DASGrant(TenantModelMixin, AbstractGrant):
         related_name="%(app_label)s_%(class)s",
     )
     application = TenantForeignKey(to="DASApplication", on_delete=models.CASCADE)
-    das_tenant = TenantForeignKey(
+    das_tenant = models.ForeignKey(
         DASTenant,
         on_delete=models.CASCADE,
         default=default_tenant_id,
@@ -151,7 +151,7 @@ class DASIDToken(TenantModelMixin, AbstractIDToken):
         blank=True,
         null=True,
     )
-    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
@@ -187,7 +187,7 @@ class DASRefreshToken(TenantModelMixin, AbstractRefreshToken):
         null=True,
         related_name="refresh_token",
     )
-    das_tenant = TenantForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
     objects = CommonTenantManager()
