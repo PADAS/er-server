@@ -45,7 +45,6 @@ attrs==19.1.0
     #   black
     #   fiona
     #   jsonschema
-    #   pytest
     #   rasterio
 autoflake==1.4
     # via -r requirements-dev.in
@@ -579,10 +578,8 @@ mccabe==0.6.1
     #   pylint
 mdurl==0.1.2
     # via markdown-it-py
-mimesis==4.1.3
-    # via
-    #   -r requirements-dev.in
-    #   pytest-mimesis
+mimesis==11.0.0
+    # via -r requirements-dev.in
 mistune==0.8.4
     # via
     #   -r requirements.txt
@@ -842,7 +839,7 @@ pytest-clarity==1.0.1
     # via -r requirements-dev.in
 pytest-cov==2.10.0
     # via -r requirements-dev.in
-pytest-django==4.5.2
+pytest-django==4.11.1
     # via -r requirements-dev.in
 pytest-factoryboy==2.1.0
     # via -r requirements-dev.in
