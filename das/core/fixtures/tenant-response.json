@@ -34,8 +34,8 @@
     "showStationarySubjectsOnMap": true,
     "showTrackDays": 16,
     "subjectRegionEnabled": false,
-    "tableauDefaultDashboard": false,
-    "tableauSiteId": false,
+    "tableauDefaultDashboard": null,
+    "tableauSiteId": null,
     "trackLength": false
   },
   "featureFlags": {

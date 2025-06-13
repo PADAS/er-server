@@ -1,0 +1,19 @@
+[flake8]
+max-line-length = 120
+extend-ignore = E203
+exclude =
+    .git,
+    __pycache__,
+    */migrations/*,
+    .venv,
+    venv,
+    env,
+    build,
+    dist
+max-complexity = 12
+# Additional settings aligned with the project's code quality standards
+max-arguments = 5
+max-local-variables = 15
+max-returns = 6
+max-branches = 12
+max-statements = 50
