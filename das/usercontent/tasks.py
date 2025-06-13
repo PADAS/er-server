@@ -15,7 +15,7 @@ imagefile_rendered = Signal()
 
 
 @celery.app.task(base=TenantQueueOnceTask, bind=True)
-def warm_imagefilecontent(self, imagefile_content_id):
+def warm_imagefilecontent(self, imagefile_content_id, **kwargs):
     try:
         logger.info("Warming images for imagefile_content_id=%s", imagefile_content_id)
         instance = ImageFileContent.objects.get(id=imagefile_content_id)
