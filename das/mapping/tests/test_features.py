@@ -299,8 +299,8 @@ class TestSpatialFeatureListView:
             "name",
             "short_name",
             "description",
-            "feature_type_id",
-            "feature_type_name",
+            "feature_class_id",
+            "feature_class_name",
             "feature_set_id",
             "feature_set_name",
         ]
@@ -314,9 +314,9 @@ class TestSpatialFeatureListView:
             for prop in expected_properties:
                 assert prop in feature["properties"]
 
-    def test_filter_by_feature_type(self, user_client, feature1, feature2, feature3, feature_type1):
+    def test_filter_by_feature_class(self, user_client, feature1, feature2, feature3, feature_type1):
         url = reverse("mapping:spatialfeature-list")
-        response = user_client.get(url, {"feature_type": str(feature_type1.id)})
+        response = user_client.get(url, {"feature_class": str(feature_type1.id)})
         assert response.status_code == 200
         data = response.json()
         features = data["data"]["features"]
@@ -327,11 +327,11 @@ class TestSpatialFeatureListView:
         assert "Feature One" in names
         assert "Feature Two" in names
 
-    def test_filter_by_multiple_feature_types(
+    def test_filter_by_multiple_feature_classes(
         self, user_client, feature1, feature2, feature3, feature_type1, feature_type2
     ):
         url = reverse("mapping:spatialfeature-list")
-        response = user_client.get(url, {"feature_type": str(feature_type1.id) + "," + str(feature_type2.id)})
+        response = user_client.get(url, {"feature_class": str(feature_type1.id) + "," + str(feature_type2.id)})
         assert response.status_code == 200
         data = response.json()
         features = data["data"]["features"]
@@ -343,18 +343,18 @@ class TestSpatialFeatureListView:
         assert "Feature Two" in names
         assert "Feature Three" in names
 
-    def test_filter_by_invalid_feature_type(self, user_client, feature3):
+    def test_filter_by_invalid_feature_class(self, user_client, feature3):
         url = reverse("mapping:spatialfeature-list")
-        response = user_client.get(url, {"feature_type": "invalid_uuid"})
+        response = user_client.get(url, {"feature_class": "invalid_uuid"})
         assert response.status_code == 400
         assert "is not a valid UUID" in response.content.decode("utf-8")
-        assert "feature_type" in response.json()
+        assert "feature_class" in response.json()
 
         # Feature 3 is not a feature type
-        response = user_client.get(url, {"feature_type": str(feature3.id)})
+        response = user_client.get(url, {"feature_class": str(feature3.id)})
         assert response.status_code == 400
         assert "Select a valid choice." in response.content.decode("utf-8")
-        assert "feature_type" in response.json()
+        assert "feature_class" in response.json()
 
     def test_filter_by_feature_set(self, user_client, feature1, feature2, feature3, category2):
         url = reverse("mapping:spatialfeature-list")
