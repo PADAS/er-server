@@ -310,7 +310,7 @@ class EventTypeManager(TenantManagerMixin, models.Manager.from_queryset(EventTyp
         return self.get(value=value)
 
 
-class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
+class EventType(TenantModelMixin, RankModelMixin, TimestampedModel, RevisionMixin):
 
     class VersionChoices(models.TextChoices):
         VERSION_1 = "1"
@@ -364,6 +364,7 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     objects = EventTypeManager()
+    revision = Revision()
 
     class Meta:
         verbose_name = _("Event Type")
