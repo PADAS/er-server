@@ -889,13 +889,13 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
 
     def get_search_results(self, request, queryset, search_term):
         """Override to add efficient search on Source.manufacturer_id"""
-        queryset, may_have_duplicates = super().get_search_results(request, queryset, search_term)
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
 
         if search_term:
             # Add efficient search on Source.manufacturer_id through SubjectSource
             queryset |= self.model.objects.filter(subjectsource__source__manufacturer_id__icontains=search_term)
 
-        return queryset, may_have_duplicates
+        return queryset, use_distinct
 
 
 @admin.register(models.CommonName)
