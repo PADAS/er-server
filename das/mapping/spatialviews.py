@@ -36,7 +36,7 @@ class SpatialFeatureListView(generics.ListAPIView, DynamicSchemaDataMixin):
     serializer_class = SpatialFeatureListSerializer
     filter_backends = [OrderingFilter, filters.DjangoFilterBackend]
     filterset_class = SpatialFeatureFilterSet
-    ordering_fields = ("name", "feature_type__name")
+    ordering_fields = ("name",)
     ordering = ("name",)
 
     def get_queryset(self):

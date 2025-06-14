@@ -114,9 +114,11 @@ class FeatureTypeSerializer(serializers.ModelSerializer):
 
 
 class SpatialFeatureTypeSerializer(serializers.ModelSerializer):
+    feature_set_id = serializers.UUIDField(source="display_category_id")
+
     class Meta:
         model = SpatialFeatureType
-        fields = ("id", "name", "display_category")
+        fields = ("id", "name", "feature_set_id")
 
 
 # from django.contrib.gis.geos import (
