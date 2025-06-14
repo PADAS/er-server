@@ -19,6 +19,7 @@ from mapping.models import (
     MBTiles,
     SpatialFeature,
     SpatialFeatureGroupStatic,
+    SpatialFeatureType,
     TileLayer,
 )
 
@@ -110,6 +111,12 @@ class FeatureTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = FeatureType
         fields = ("id", "name")  # , 'presentation',)
+
+
+class SpatialFeatureTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SpatialFeatureType
+        fields = ("id", "name", "display_category")
 
 
 # from django.contrib.gis.geos import (
