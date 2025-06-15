@@ -11,7 +11,7 @@ from buoy.views.helpers import (
 )
 from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import LatestObservationSource, Subject, SubjectSource
+from observations.models import Subject, SubjectSource
 from observations.permissions import StandardObjectPermissions
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
