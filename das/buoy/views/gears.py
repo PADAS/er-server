@@ -11,7 +11,7 @@ from buoy.views.helpers import (
 )
 from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import LatestObservationSource, Subject, SubjectSource
+from observations.models import Subject, SubjectSource
 from observations.permissions import StandardObjectPermissions
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
@@ -69,20 +69,9 @@ class GearsView(generics.ListAPIView):
             raise ValueError("updated_since must be a valid date")
 
         # Filter queryset by deployed/hauled status
-        # Update the queryset with the latest observation
-        latest_observation = LatestObservationSource.objects.filter(source_id=OuterRef("source_id"))
-        queryset.update(additional=Subquery(latest_observation.values("observation__additional")[:1]))
-
-        # Tech Debt tracked by ticket RF-755: Workaround from RF-816
-        subjects_qs = Subject.objects.filter(
-            subjectsource__in=queryset.filter(additional__event_type="gear_deployed")
-        ).filter(is_active=False)
-        subjects_qs.update(is_active=True)
-
-        subjects_qs = Subject.objects.filter(
-            subjectsource__in=queryset.filter(additional__event_type="gear_retrieved")
-        ).filter(is_active=True)
-        subjects_qs.update(is_active=False)
+        # Update SubjectSource.additional with the related Subject.additional
+        subject_additional_subquery = Subject.objects.filter(pk=OuterRef("subject_id")).values("additional")[:1]
+        queryset.update(additional=Subquery(subject_additional_subquery))
 
         is_active = check_valid_state_string(query_params.get("state"))
         queryset = queryset.filter(subject__is_active=is_active)
