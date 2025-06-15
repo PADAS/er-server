@@ -111,7 +111,8 @@ class GearsSerializer(serializers.Serializer):
         rep = super(GearsSerializer, self).to_representation(instance)
         subject = rep["subject"]
 
-        assert isinstance(subject, dict), "Subject must be a dictionary"
+        if not isinstance(subject, dict):
+            raise serializers.ValidationError("Subject must be a dictionary")
 
         gear_rep = dict()
         gear_rep[ID_KEY] = subject[ID_KEY]
