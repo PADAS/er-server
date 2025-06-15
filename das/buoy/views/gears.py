@@ -71,7 +71,7 @@ class GearsView(generics.ListAPIView):
         # Filter queryset by deployed/hauled status
         # Update SubjectSource.additional with the related Subject.additional
         subject_additional_subquery = Subject.objects.filter(pk=OuterRef("subject_id")).values("additional")[:1]
-        queryset.update(additional=Subquery(subject_additional_subquery))
+        queryset = queryset.annotate(additional=Subquery(subject_additional_subquery))
 
         is_active = check_valid_state_string(query_params.get("state"))
         queryset = queryset.filter(subject__is_active=is_active)
