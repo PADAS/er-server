@@ -88,10 +88,16 @@ class GearsSerializer(serializers.Serializer):
         fields = ("id", "assigned_range", "source", "subject", "additional", "location")
 
     def get_type(self, subject):
+        additional = subject.get("additional", {})
+        if DEVICES_KEY not in additional or len(additional[DEVICES_KEY]) == 0:
+            raise serializers.ValidationError(f"Subject {subject['id']} does not have additional devices information.")
+
         return GEAR_TYPE_TRAWL if len(subject["additional"][DEVICES_KEY]) > 1 else GEAR_TYPE_SINGLE
 
     def get_display_id(self, subject):
-        return subject["additional"].get(DISPLAY_ID_KEY, subject["name"])
+        if DISPLAY_ID_KEY in subject.get("additional", {}):
+            return subject["additional"][DISPLAY_ID_KEY]
+        return subject["name"]
 
     def to_internal_value(self, data):
         if ID_KEY in data and self.read_only:
@@ -105,14 +111,17 @@ class GearsSerializer(serializers.Serializer):
         rep = super(GearsSerializer, self).to_representation(instance)
         subject = rep["subject"]
 
+        assert isinstance(subject, dict), "Subject must be a dictionary"
+
         gear_rep = dict()
         gear_rep[ID_KEY] = subject[ID_KEY]
         gear_rep[STATUS_KEY] = "deployed" if subject["is_active"] else "hauled"
         gear_rep["last_updated"] = subject["updated_at"]
         # TODO: add last_change_time
-        if subject.get("additional"):
+        additional = subject.get("additional")
+        if additional:
             gear_rep[DISPLAY_ID_KEY] = self.get_display_id(subject)
-            if DEVICES_KEY in subject["additional"]:
+            if DEVICES_KEY in additional:
                 gear_rep["type"] = self.get_type(subject)
                 gear_rep[DEVICES_KEY] = subject["additional"][DEVICES_KEY]
         else:
