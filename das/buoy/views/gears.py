@@ -1,4 +1,3 @@
-from django.db.models import F, Func, OuterRef, Subquery, Value
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework.response import Response
@@ -11,7 +10,7 @@ from buoy.views.helpers import (
 )
 from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import LatestObservationSource, Subject, SubjectSource
+from observations.models import Subject, SubjectSource
 from observations.permissions import StandardObjectPermissions
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
@@ -68,22 +67,6 @@ class GearsView(generics.ListAPIView):
         elif updated_since and not is_updated_since_valid:
             raise ValueError("updated_since must be a valid date")
 
-        # Filter queryset by deployed/hauled status
-        # Update the queryset with the latest observation
-        latest_observation = LatestObservationSource.objects.filter(source_id=OuterRef("source_id"))
-        queryset.update(additional=Subquery(latest_observation.values("observation__additional")[:1]))
-
-        # Tech Debt tracked by ticket RF-755: Workaround from RF-816
-        subjects_qs = Subject.objects.filter(
-            subjectsource__in=queryset.filter(additional__event_type="gear_deployed")
-        ).filter(is_active=False)
-        subjects_qs.update(is_active=True)
-
-        subjects_qs = Subject.objects.filter(
-            subjectsource__in=queryset.filter(additional__event_type="gear_retrieved")
-        ).filter(is_active=True)
-        subjects_qs.update(is_active=False)
-
         is_active = check_valid_state_string(query_params.get("state"))
         queryset = queryset.filter(subject__is_active=is_active)
 
@@ -101,19 +84,10 @@ class GearsView(generics.ListAPIView):
             if self.request.user.username not in allowed_users_no_location:
                 raise ForbiddenAPIException("lat and lon are required query parameters")
 
-        # Keep an eye on performance of the query and potentially add new indexes to improve performance
-        # Remove subject_name so we can distinct on the additional field to remove duplicate gearsets from the qs
-        queryset.update(
-            additional=Func(
-                F("additional"),
-                Value("{subject_name}"),  # Path to the key inside the JSON
-                Value("1"),  # New value for subject_name
-                function="jsonb_set",
-            )
-        )
-
         # Filter queryset by removing subjects where the additional field is the same
-        queryset = queryset.order_by("additional__display_id", "subject__name").distinct("additional__display_id")
+        queryset = queryset.order_by("subject__additional__display_id", "subject__name").distinct(
+            "subject__additional__display_id"
+        )
 
         # Normal ListAPIView.list() code here
         page = self.paginate_queryset(queryset)
