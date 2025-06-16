@@ -5,7 +5,6 @@ from drf_extra_fields.geo_fields import PointField
 from rest_framework import serializers
 
 from observations import models
-from observations.models import LatestObservationSource
 from observations.serializers import (
     CommonNameRelatedField,
     SubjectRelatedField,
@@ -88,15 +87,17 @@ class GearsSerializer(serializers.Serializer):
         model = models.SubjectSource
         fields = ("id", "assigned_range", "source", "subject", "additional", "location")
 
-    def get_type(self, latest_observation):
-        return GEAR_TYPE_TRAWL if len(latest_observation.additional[DEVICES_KEY]) > 1 else GEAR_TYPE_SINGLE
+    def get_type(self, subject):
+        additional = subject.get("additional", {})
+        if DEVICES_KEY not in additional or len(additional[DEVICES_KEY]) == 0:
+            raise serializers.ValidationError(f"Subject {subject['id']} does not have additional devices information.")
 
-    def get_display_id(self, subject, latest_observation):
-        return (
-            subject["name"]
-            if DISPLAY_ID_KEY not in latest_observation.additional
-            else latest_observation.additional[DISPLAY_ID_KEY]
-        )
+        return GEAR_TYPE_TRAWL if len(subject["additional"][DEVICES_KEY]) > 1 else GEAR_TYPE_SINGLE
+
+    def get_display_id(self, subject):
+        if DISPLAY_ID_KEY in subject.get("additional", {}):
+            return subject["additional"][DISPLAY_ID_KEY]
+        return subject["name"]
 
     def to_internal_value(self, data):
         if ID_KEY in data and self.read_only:
@@ -108,19 +109,22 @@ class GearsSerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         rep = super(GearsSerializer, self).to_representation(instance)
-        latest_observation = LatestObservationSource.objects.filter(source_id=instance.source_id).first().observation
         subject = rep["subject"]
+
+        if not isinstance(subject, dict):
+            raise serializers.ValidationError("Subject must be a dictionary")
 
         gear_rep = dict()
         gear_rep[ID_KEY] = subject[ID_KEY]
         gear_rep[STATUS_KEY] = "deployed" if subject["is_active"] else "hauled"
         gear_rep["last_updated"] = subject["updated_at"]
         # TODO: add last_change_time
-        if latest_observation.additional:
-            gear_rep[DISPLAY_ID_KEY] = self.get_display_id(subject, latest_observation)
-            if DEVICES_KEY in latest_observation.additional:
-                gear_rep["type"] = self.get_type(latest_observation)
-                gear_rep[DEVICES_KEY] = latest_observation.additional[DEVICES_KEY]
+        additional = subject.get("additional")
+        if additional:
+            gear_rep[DISPLAY_ID_KEY] = self.get_display_id(subject)
+            if DEVICES_KEY in additional:
+                gear_rep["type"] = self.get_type(subject)
+                gear_rep[DEVICES_KEY] = subject["additional"][DEVICES_KEY]
         else:
             gear_rep[DISPLAY_ID_KEY] = subject["name"]
             # TODO: return 500 internal server error with this detail

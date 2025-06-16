@@ -1,4 +1,3 @@
-from django.db.models import F, Func, OuterRef, Subquery, Value
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework.response import Response
@@ -11,7 +10,7 @@ from buoy.views.helpers import (
 )
 from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import LatestObservationSource, Subject, SubjectSource
+from observations.models import Subject, SubjectSource
 from observations.permissions import StandardObjectPermissions
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
@@ -67,19 +66,10 @@ class GearsView(generics.ListAPIView):
             latest_observation_additional=Subquery(latest_observations.values("additional")[:1])
         )
 
-        # Keep an eye on performance of the query and potentially add new indexes to improve performance
-        # Remove subject_name so we can distinct on the additional field to remove duplicate gearsets from the qs
-        queryset.update(
-            additional=Func(
-                F("additional"),
-                Value("{subject_name}"),  # Path to the key inside the JSON
-                Value("1"),  # New value for subject_name
-                function="jsonb_set",
-            )
-        )
-
         # Filter queryset by removing subjects where the additional field is the same
-        queryset = queryset.order_by("additional__display_id", "subject__name").distinct("additional__display_id")
+        queryset = queryset.order_by("subject__additional__display_id", "subject__name").distinct(
+            "subject__additional__display_id"
+        )
 
         page = self.paginate_queryset(queryset)
         if page is not None:
