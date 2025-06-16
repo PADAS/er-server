@@ -51,7 +51,8 @@ asgiref==3.7.2
     # via
     #   -r requirements.txt
     #   django
-astroid==2.15.8
+    #   django-cors-headers
+astroid==3.2.4
     # via pylint
 asttokens==2.4.0
     # via
@@ -70,12 +71,11 @@ attrs==23.1.0
     #   aiohttp
     #   fiona
     #   jsonschema
-    #   pytest
     #   rasterio
     #   referencing
 autoflake==2.3.1
     # via -r requirements-dev.in
-autopep8==2.0.4
+autopep8==2.3.1
     # via
     #   -r requirements-dev.in
     #   django-silk
@@ -106,7 +106,7 @@ billiard==4.1.0
     # via
     #   -r requirements.txt
     #   celery
-black==22.12.0
+black==24.8.0
     # via -r requirements-dev.in
 bleach==6.0.0
     # via
@@ -203,7 +203,7 @@ contourpy==1.1.1
     # via
     #   -r requirements.txt
     #   matplotlib
-coverage[toml]==7.5.3
+coverage[toml]==7.6.1
     # via
     #   -r requirements-dev.in
     #   pytest-cov
@@ -223,7 +223,7 @@ dask==2023.5.0
     # via
     #   -r requirements.txt
     #   arcgis
-dataclasses-json==0.5.8
+dataclasses-json==0.6.7
     # via -r requirements.txt
 datadog==0.36.0
     # via -r requirements.txt
@@ -280,19 +280,19 @@ django==3.2.25
     #   drf-spectacular-sidecar
 django-bitfield==2.2.0
     # via -r requirements.txt
-django-cors-headers==3.14.0
+django-cors-headers==4.4.0
     # via -r requirements.txt
 django-debug-toolbar==4.3.0
     # via -r requirements.txt
 django-docs==0.3.3
     # via -r requirements.txt
-django-environ==0.10.0
+django-environ==0.11.2
     # via -r requirements.txt
 django-extensions==3.2.3
     # via -r requirements.txt
 django-fakeredis==0.1.2
     # via -r requirements-dev.in
-django-fast-update==0.2.3
+django-fast-update==0.2.4
     # via -r requirements.txt
 django-filter==23.5
     # via
@@ -302,9 +302,9 @@ django-js-asset==2.1.0
     # via
     #   -r requirements.txt
     #   django-mptt
-django-leaflet==0.29.0
+django-leaflet==0.31.0
     # via -r requirements.txt
-django-model-utils==4.3.1
+django-model-utils==5.0.0
     # via -r requirements.txt
 django-mptt==0.14.0
     # via -r requirements.txt
@@ -382,13 +382,14 @@ exceptiongroup==1.1.3
     # via
     #   -r requirements.txt
     #   anyio
-execnet==2.0.2
+    #   pytest
+execnet==2.1.1
     # via pytest-xdist
 executing==2.0.0
     # via
     #   -r requirements.txt
     #   stack-data
-factory-boy==3.3.0
+factory-boy==3.3.3
     # via
     #   -r requirements-dev.in
     #   pytest-factoryboy
@@ -416,7 +417,7 @@ fiona==1.9.4.post1
     #   geopandas
     #   pymet
     #   rasterstats
-flake8==6.0.0
+flake8==7.1.2
     # via -r requirements-dev.in
 fonttools==4.43.0
     # via
@@ -636,7 +637,7 @@ ipywidgets==7.7.1
     # via
     #   -r requirements.txt
     #   arcgis
-isort==5.12.0
+isort==5.13.2
     # via
     #   -r requirements-dev.in
     #   pylint
@@ -747,8 +748,6 @@ kombu==5.3.0
     # via
     #   -r requirements.txt
     #   celery
-lazy-object-proxy==1.9.0
-    # via astroid
 lerc==4.0.1
     # via
     #   -r requirements.txt
@@ -776,11 +775,6 @@ marshmallow==3.20.1
     # via
     #   -r requirements.txt
     #   dataclasses-json
-    #   marshmallow-enum
-marshmallow-enum==1.5.1
-    # via
-    #   -r requirements.txt
-    #   dataclasses-json
 matplotlib==3.7.3
     # via
     #   -r requirements.txt
@@ -796,10 +790,8 @@ mccabe==0.7.0
     #   pylint
 mdurl==0.1.2
     # via markdown-it-py
-mimesis==4.1.3
-    # via
-    #   -r requirements-dev.in
-    #   pytest-mimesis
+mimesis==11.0.0
+    # via -r requirements-dev.in
 mistune==0.8.4
     # via
     #   -r requirements.txt
@@ -969,6 +961,7 @@ opentelemetry-util-http==0.46b0
 packaging==25.0
     # via
     #   -r requirements.txt
+    #   black
     #   build
     #   dask
     #   drf-extensions
@@ -1035,7 +1028,7 @@ platformdirs==3.11.0
     #   jupyter-core
     #   pylint
     #   virtualenv
-pluggy==1.3.0
+pluggy==1.5.0
     # via pytest
 pprintpp==0.4.0
     # via pytest-clarity
@@ -1093,10 +1086,6 @@ pure-eval==0.2.2
     # via
     #   -r requirements.txt
     #   stack-data
-py==1.11.0
-    # via
-    #   -r requirements-dev.in
-    #   pytest
 pyasn1==0.5.0
     # via
     #   -r requirements.txt
@@ -1108,7 +1097,7 @@ pyasn1-modules==0.3.0
     #   -r requirements.txt
     #   google-auth
     #   oauth2client
-pycodestyle==2.10.0
+pycodestyle==2.12.1
     # via
     #   -r requirements-dev.in
     #   autopep8
@@ -1119,7 +1108,7 @@ pycparser==2.21
     #   cffi
 pycryptodome==3.18.0
     # via -r requirements.txt
-pyflakes==3.0.1
+pyflakes==3.2.0
     # via
     #   autoflake
     #   flake8
@@ -1139,7 +1128,7 @@ pyjwt==2.8.0
     # via
     #   -r requirements.txt
     #   twilio
-pylint==2.17.7
+pylint==3.2.7
     # via
     #   -r requirements-dev.in
     #   pylint-django
@@ -1168,29 +1157,23 @@ pyshp==2.3.1
     # via
     #   -r requirements.txt
     #   arcgis
-pytest==6.2.5
+pytest==8.3.5
     # via
     #   -r requirements-dev.in
     #   pytest-clarity
     #   pytest-cov
     #   pytest-django
     #   pytest-factoryboy
-    #   pytest-mimesis
-    #   pytest-pythonpath
     #   pytest-xdist
 pytest-clarity==1.0.1
     # via -r requirements-dev.in
-pytest-cov==4.1.0
+pytest-cov==5.0.0
     # via -r requirements-dev.in
-pytest-django==4.5.2
+pytest-django==4.11.1
     # via -r requirements-dev.in
 pytest-factoryboy==2.7.0
     # via -r requirements-dev.in
-pytest-mimesis==1.1.0
-    # via -r requirements-dev.in
-pytest-pythonpath==0.7.4
-    # via -r requirements-dev.in
-pytest-xdist==3.5.0
+pytest-xdist==3.6.1
     # via -r requirements-dev.in
 python-certifi-win32==1.6.1
     # via
@@ -1288,7 +1271,7 @@ requests-gssapi==1.3.0
     # via
     #   -r requirements.txt
     #   arcgis
-requests-mock==1.11.0
+requests-mock==1.12.1
     # via -r requirements-dev.in
 requests-oauthlib==1.3.1
     # via
@@ -1367,7 +1350,6 @@ six==1.16.0
     #   fiona
     #   oauth2client
     #   python-dateutil
-    #   requests-mock
 sniffio==1.3.0
     # via
     #   -r requirements.txt
@@ -1408,8 +1390,6 @@ threadpoolctl==3.2.0
     # via
     #   -r requirements.txt
     #   scikit-learn
-toml==0.10.2
-    # via pytest
 tomli==2.0.1
     # via
     #   -r requirements.txt
@@ -1422,6 +1402,7 @@ tomli==2.0.1
     #   pip-tools
     #   pylint
     #   pyproject-hooks
+    #   pytest
     #   setuptools-scm
 tomlkit==0.12.1
     # via pylint
@@ -1531,7 +1512,6 @@ widgetsnbextension==3.6.10
 wrapt==1.15.0
     # via
     #   -r requirements.txt
-    #   astroid
     #   deprecated
     #   opentelemetry-instrumentation
     #   opentelemetry-instrumentation-dbapi
@@ -1543,7 +1523,7 @@ wsproto==1.2.0
     #   simple-websocket
 xmltodict==0.13.0
     # via -r requirements.txt
-xmlunittest==0.5.0
+xmlunittest==1.0.1
     # via -r requirements-dev.in
 yarl==1.9.2
     # via

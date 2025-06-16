@@ -887,6 +887,16 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
 
     _linked_user_warning.short_description = "Warning"
 
+    def get_search_results(self, request, queryset, search_term):
+        """Override to add efficient search on Source.manufacturer_id"""
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+
+        if search_term:
+            # Add efficient search on Source.manufacturer_id through SubjectSource
+            queryset |= self.model.objects.filter(subjectsource__source__manufacturer_id__icontains=search_term)
+
+        return queryset, use_distinct
+
 
 @admin.register(models.CommonName)
 class CommonNameAdmin(BaseModelAdminMixin):
