@@ -200,6 +200,7 @@ class GenericSensorHandler:
         model_name = an_observation.get("model_name", None) or "{}:{}".format(sensor_type, provider_key)
         subject_name = an_observation.get("subject_name") or manufacturer_id
         subject_additional = an_observation.get("subject_additional", None)
+        recorded_at = an_observation.get("recorded_at")
 
         subject_info = {
             "subject_subtype_id": subject_subtype,
@@ -239,28 +240,35 @@ class GenericSensorHandler:
                 source_cache[source_cache_key] = src
 
         if subject_subtype == "ropeless_buoy_device":
+            event_type = additional.get("event_type")
             subject = src.assigned_subject
+
             subject_is_active = additional.get("subject_is_active")
             latest_observation = LatestObservationSource.objects.filter(source=src).first()
-            recorded_at = an_observation.get("recorded_at")
+
+            if event_type == "gear_deployed":
+                subject_is_active = True
+            elif event_type == "gear_retrieved":
+                subject_is_active = False
 
             updated_fields = []
-            if (
-                subject
-                and subject_is_active is not None
-                and (not latest_observation or recorded_at > latest_observation.recorded_at)
-            ):
-                subject.is_active = subject_is_active
-                updated_fields.extend(["is_active"])
+            if not latest_observation or recorded_at > latest_observation.recorded_at:
+                if subject:
+                    if subject_is_active is not None:
+                        subject.is_active = subject_is_active
+                        updated_fields.append("is_active")
 
-            if additional:
-                subject.additional = additional
-                updated_fields.append("additional")
+                    if additional:
+                        subject.additional = additional
+                        updated_fields.append("additional")
 
-            if updated_fields:
-                subject.save(update_fields=[*updated_fields, "updated_at"])
+                    if updated_fields:
+                        subject.save(update_fields=[*updated_fields, "updated_at"])
+                else:
+                    logger.warning(
+                        "Subject not found for ropeless_buoy_device source %s and recorded_at %s", src.id, recorded_at
+                    )
 
-        recorded_at = an_observation.get("recorded_at")
         event_action = an_observation.get("additional", {}).get("event_action", cls.DEFAULT_EVENT_ACTION)
         observation = {
             "location": location,
