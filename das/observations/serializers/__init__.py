@@ -209,6 +209,9 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
     additional_fields = ("region", "country", "sex", "species", "additional")
 
     allowed_partial_update_fields = ("name", "subject_subtype", "common_name", "additional", "is_active")
+    partial_update_side_effects = [
+        "updated_at",
+    ]
 
     class Meta:
         model = models.Subject
@@ -587,6 +590,9 @@ class SourceSerializer(PartialUpdateMixin, serializers.Serializer):
     updated_at = serializers.DateTimeField(read_only=True)
 
     allowed_partial_update_fields = ("source_type", "manufacturer_id", "model_name", "additional", "provider")
+    partial_update_side_effects = [
+        "updated_at",
+    ]
 
     class Meta:
         model = models.Source
