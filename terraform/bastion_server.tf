@@ -15,7 +15,7 @@ resource "tls_private_key" "bastion_server" {
 data "google_compute_image" "ubuntu" {
   provider = google
 
-  family  = "ubuntu-2004-lts"
+  family  = "ubuntu-2204-lts"
   project = "ubuntu-os-cloud"
 }
 
