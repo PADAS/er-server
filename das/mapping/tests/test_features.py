@@ -4,6 +4,7 @@ import logging
 import pytest
 from faker import Faker
 
+from django.contrib.gis import geos
 from django.contrib.gis.geos import LineString, MultiLineString, MultiPoint, Point
 from django.urls import reverse
 
@@ -242,6 +243,32 @@ class TestSpatialFeatureGroup:
             form = FeatureProximityAnalyzerForm({"proximal_features": spatial_feature_group_linestring_only.pk})
             assert not form.is_valid()
             assert "proximal_features" in form.errors.keys()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestSpatialFeatureListJsonView:
+    @pytest.fixture
+    def empty_multi_polygon(self):
+        return SpatialFeatureFactory(feature_geometry=geos.GEOSGeometry("0106000020E610000000000000", srid=4326))
+
+    def test_empty_feature_geometry_ignored(self, empty_multi_polygon, display_category, user_client):
+        spatial_feature_type = empty_multi_polygon.feature_type
+        spatial_feature_type.display_category = display_category
+        spatial_feature_type.save()
+
+        good_polygon = SpatialFeatureFactory(
+            feature_type=spatial_feature_type,
+            feature_geometry=geos.GEOSGeometry(
+                "MULTIPOLYGON(((-122 47, -122 48, -123 48, -123 47, -122 47)))", srid=4326
+            ),
+        )
+
+        url = reverse("mapping:mapping-featureset-geojson", kwargs={"id": str(display_category.id)})
+        response = user_client.get(url)
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["features"]) == 1
 
 
 @pytest.mark.django_db
