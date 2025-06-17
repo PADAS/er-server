@@ -32,6 +32,7 @@ from factories import (
     AccessTokenFactory,
     ChoiceFactory,
     CommunityFactory,
+    DisplayCategoryFactory,
     EventCategoryFactory,
     EventDetailsFactory,
     EventFactory,
@@ -255,6 +256,11 @@ def spatial_feature_group_static():
 @pytest.fixture
 def spatial_feature_type():
     return SpatialFeatureTypeFactory.create()
+
+
+@pytest.fixture
+def display_category():
+    return DisplayCategoryFactory.create()
 
 
 @pytest.fixture
