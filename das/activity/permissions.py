@@ -422,6 +422,9 @@ class PatrolTypePermissions(DjangoModelPermissions):
         model_cls = Patrol
         user = request.user
 
+        if user.is_anonymous:
+            return False
+
         perms = self.get_required_permissions(request.method, model_cls)
 
         # for this, it's any permission, not all

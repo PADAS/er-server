@@ -80,6 +80,11 @@ class APIClientWithUser(APIClient):
 
 
 @pytest.fixture
+def anonymous_client():
+    return APIClient()
+
+
+@pytest.fixture
 def patrol():
     return PatrolFactory()
 
