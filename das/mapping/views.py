@@ -145,11 +145,13 @@ class FeatureSetGeoJsonView(APIView):
         featureset = get_object_or_404(DisplayCategory, id=kwargs["id"])
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
         querysets = (
-            SpatialFeature.objects.filter(feature_type__display_category=featureset)
-            if include_hidden
-            else SpatialFeature.objects.filter(feature_type__display_category=featureset).filter(
-                feature_type__is_visible=True
+            SpatialFeature.objects.filter(feature_type__display_category=featureset).filter(
+                feature_geometry__intersects=F("feature_geometry")
             )
+            if include_hidden
+            else SpatialFeature.objects.filter(feature_type__display_category=featureset)
+            .filter(feature_type__is_visible=True)
+            .filter(feature_geometry__intersects=F("feature_geometry"))
         )
         # So type-name can appear in geojson properties.
         querysets = (querysets.prefetch_related("feature_type").annotate(type_name=F("feature_type__name")),)

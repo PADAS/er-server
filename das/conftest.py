@@ -32,6 +32,7 @@ from factories import (
     AccessTokenFactory,
     ChoiceFactory,
     CommunityFactory,
+    DisplayCategoryFactory,
     EventCategoryFactory,
     EventDetailsFactory,
     EventFactory,
@@ -77,6 +78,11 @@ with open(Path(__file__).parent / "core/fixtures/tenant-response.json") as tenan
 
 class APIClientWithUser(APIClient):
     user: User = None
+
+
+@pytest.fixture
+def anonymous_client():
+    return APIClient()
 
 
 @pytest.fixture
@@ -250,6 +256,11 @@ def spatial_feature_group_static():
 @pytest.fixture
 def spatial_feature_type():
     return SpatialFeatureTypeFactory.create()
+
+
+@pytest.fixture
+def display_category():
+    return DisplayCategoryFactory.create()
 
 
 @pytest.fixture
