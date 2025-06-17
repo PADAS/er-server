@@ -236,3 +236,21 @@ class TestUserProfilesView:
 
         assert new_response.status_code == status.HTTP_200_OK
         assert etag != new_response.headers["ETag"]
+
+    def test_std_user_with_profile_and_profile_can_retrieve_user_info(self, user_client, five_users):
+        profile_user = five_users[0]
+        user_client.user.act_as_profiles.add(profile_user)
+
+        url = reverse("accounts:user", kwargs={"id": str(profile_user.id)})
+        response = user_client.get(url, HTTP_USER_PROFILE=str(profile_user.id))
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_std_user_with_profile_retrieve_by_id_should_return_404(self, user_client, five_users):
+        profile_user = five_users[0]
+        user_client.user.act_as_profiles.add(profile_user)
+
+        url = reverse("accounts:user", kwargs={"id": str(profile_user.id)})
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND

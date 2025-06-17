@@ -2476,6 +2476,12 @@ class TestPatrolView:
         assert empty_response.status_code == status.HTTP_304_NOT_MODIFIED
         assert isinstance(empty_response, HttpResponseNotModified)
 
+    def test_anonymous_user_with_no_permissions_should_return_401(self, anonymous_client):
+        url = reverse("patrol-types")
+        response = anonymous_client.get(url)
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings")
