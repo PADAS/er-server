@@ -809,13 +809,9 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
             no_trackpoint_records.update(status_description=None)
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
-        latest_observations = (
-            models.Observation.objects.filter(
-                source__subjectsource__subject__id=object_id,
-                source__subjectsource__assigned_range__contains=F("recorded_at"),
-            )
-            .order_by("-recorded_at")
-            .values("source__manufacturer_id", "recorded_at", "location", "additional")
+        subject = models.Subject.objects.get(id=object_id)
+        latest_observations = subject.observations().values(
+            "source__manufacturer_id", "recorded_at", "location", "additional"
         )
         extra_context = self.get_observations_context(extra_context, latest_observations, object_id)
 
@@ -886,6 +882,16 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
         )
 
     _linked_user_warning.short_description = "Warning"
+
+    def get_search_results(self, request, queryset, search_term):
+        """Override to add efficient search on Source.manufacturer_id"""
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+
+        if search_term:
+            # Add efficient search on Source.manufacturer_id through SubjectSource
+            queryset |= self.model.objects.filter(subjectsource__source__manufacturer_id__icontains=search_term)
+
+        return queryset, use_distinct
 
 
 @admin.register(models.CommonName)
