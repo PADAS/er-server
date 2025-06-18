@@ -52,7 +52,6 @@ class FeatureListJsonView(APIView):
         for feature in features:
             type_dict = dict(name=feature.feature_type.name, id=str(feature.feature_type.id))
 
-            print(f"\nHEX: {feature.id.hex}\n")
             response_data["features"].append(
                 {
                     "name": feature.name,

@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=Event)
 def event_post_save(sender, instance, created, **kwargs):
-    logger.info("saved event {}, created={}".format(instance.pk, str(created)))
+    logger.debug("saved event {}, created={}".format(instance.pk, str(created)))
     transaction.on_commit(
         lambda: pubsub.publish(
             {"event_id": str(instance.pk)},
@@ -60,13 +60,13 @@ def event_post_save(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=Event)
 def event_post_delete(sender, instance, **kwargs):
-    logger.info("delete event {}".format(instance.pk))
+    logger.debug("delete event {}".format(instance.pk))
     transaction.on_commit(lambda: pubsub.publish({"event_id": str(instance.pk)}, "das.event.delete"))
 
 
 @receiver(post_delete, sender=EventGeometry)
 def event_geometry_post_delete(sender, instance, **kwargs):
-    logger.info("delete event geometry {}".format(instance.pk))
+    logger.debug("delete event geometry {}".format(instance.pk))
     instance.event.dependent_table_updated()
 
 
@@ -77,7 +77,7 @@ def warm_EventPhoto_image(sender, instance, **kwargs):
 
 @receiver(post_delete, sender=EventPhoto)
 def delete_EventPhoto_products(sender, instance, **kwargs):
-    logger.info("delete sized images for EventPhoto.id: {}".format(instance.pk))
+    logger.debug("delete sized images for EventPhoto.id: {}".format(instance.pk))
     instance.image.delete_all_created_images()
 
 
@@ -92,14 +92,14 @@ imagefile_rendered.connect(send_event_thumbnail_update)
 # Patrol signals
 @receiver(post_save, sender=Patrol)
 def patrol_post_save(sender, instance, created, **kwargs):
-    logger.info("saved patrol {}, created={}".format(instance.pk, str(created)))
+    logger.debug("saved patrol {}, created={}".format(instance.pk, str(created)))
     patrol_action = "das.patrol.new" if created else "das.patrol.update"
     transaction.on_commit(lambda: pubsub.publish({"patrol_id": str(instance.pk)}, patrol_action))
 
 
 @receiver(post_delete, sender=Patrol)
 def patrol_post_delete(sender, instance, **kwargs):
-    logger.info("deleted patrol {}".format(instance.pk))
+    logger.debug("deleted patrol {}".format(instance.pk))
     patrol_action = "das.patrol.delete"
     transaction.on_commit(lambda: pubsub.publish({"patrol_id": str(instance.pk)}, patrol_action))
 
@@ -107,7 +107,7 @@ def patrol_post_delete(sender, instance, **kwargs):
 @receiver(m2m_changed, sender=Event.patrol_segments.through)
 def event_linked_to_patrol_segment(sender, instance, action, reverse, model, pk_set, **kwargs):
     def publish_patrol_event_actions(patrol_ids, event_ids):
-        logger.info(f"linked event {event_ids} and patrol {patrol_ids}")
+        logger.debug(f"linked event {event_ids} and patrol {patrol_ids}")
         patrol_action = "das.patrol.update"
         event_action = "das.event.update"
         for id in patrol_ids:
@@ -136,7 +136,7 @@ def verify_patrol_constituent_for_rt_messaging(instance):
 @receiver(post_save, sender=PatrolNote)
 @receiver(post_save, sender=PatrolFile)
 def patrol_item_post_save(sender, instance, created, **kwargs):
-    logger.info(f"saved {sender._meta.verbose_name} {instance.pk}, created={str(created)}")
+    logger.debug(f"saved {sender._meta.verbose_name} {instance.pk}, created={str(created)}")
     set_eta(instance)
     verify_patrol_constituent_for_rt_messaging(instance)
 
@@ -145,7 +145,7 @@ def patrol_item_post_save(sender, instance, created, **kwargs):
 @receiver(post_delete, sender=PatrolNote)
 @receiver(post_delete, sender=PatrolFile)
 def patrol_item_post_delete(sender, instance, **kwargs):
-    logger.info(f"deleted {sender._meta.verbose_name} {instance.pk}")
+    logger.debug(f"deleted {sender._meta.verbose_name} {instance.pk}")
     verify_patrol_constituent_for_rt_messaging(instance)
 
 
