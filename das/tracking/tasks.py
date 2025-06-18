@@ -13,6 +13,7 @@ from tracking.models import (
     runnable_plugins,
 )
 from tracking.models.plugin_base import (
+    DasPluginConfigurationError,
     DasPluginFetchError,
     DasPluginSourceRetryError,
     TrackingPlugin,
@@ -90,6 +91,8 @@ def run_firms_plugin(id: str, **kwargs):
     try:
         plugin = FirmsPlugin.objects.get(id=id, status=FirmsPlugin.STATUS_ENABLED)
         plugin.execute()
+    except DasPluginConfigurationError as dex:
+        logger.warning("FirmsPlugin %s, configuration error: %s", id, dex)
     except FirmsPlugin.DoesNotExist:
         logger.warning("Failed to find FirmsPlugin for id:%s", id)
 
@@ -120,6 +123,8 @@ def run_source_plugin(self, source_plugin_id, **kwargs):
         result = sp.execute()
     except DasPluginFetchError as ex:
         logger.warning("Failed to fetch observations for source plugin %s. Error %s", sp, ex)
+    except DasPluginConfigurationError as dex:
+        logger.warning("Plugin %s, configuration error: %s", sp, dex)
     except DasPluginSourceRetryError as ex:
         logger.debug("Retry plugin {} for source {} after {}".format(sp, sp.source, ex.retry_seconds))
         self.retry(countdown=ex.retry_seconds)
