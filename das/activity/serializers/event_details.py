@@ -163,7 +163,8 @@ class EventDetailsSerializer(ModelSerializer):
                 continue
             elif isinstance(v, dict) and "value" in v.keys():
                 event_details[k] = v["value"]
-            # This is not meant for property type=array, but here we are attempting a cleanup up of enums for the property type=array
+            # This is not meant for property type=array, but here we are attempting a cleanup up of enums
+            # for the property type=array
             elif isinstance(v, list):
                 values = [x["value"] if isinstance(x, dict) and "value" in x.keys() else x for x in v]
                 event_details[k] = values
@@ -194,7 +195,7 @@ class EventDetailsSerializer(ModelSerializer):
             result = None
             fieldnames = []
             revision_details = revision.data.get("data", {}).get("event_details", {})
-            details = get_display_values_for_event_details(revision_details, rendered_schema)
+            details = get_display_values_for_event_details(revision_details, rendered_schema, event=event_details.event)
 
             def get_display_fieldnames():
                 for k, v in revision_details.items():
