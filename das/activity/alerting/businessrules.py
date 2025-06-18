@@ -236,7 +236,7 @@ def remove_field_suffix(input_string: str) -> str:
     return input_string
 
 
-def accumulate_options(schema_option, accumulator=None):
+def accumulate_options(schema_option, accumulator=None, event_type_value=None):
     """
     Transform an Event-Type choice list from `enumNames` to business-rules friendly list.
     :param schema_option:
@@ -251,17 +251,23 @@ def accumulate_options(schema_option, accumulator=None):
             for k, v in schema_option["enumNames"].items():
                 if k not in accumulator:
                     accumulator["k"] = v
-        except AttributeError:
-            logger.exception(
-                "Failed to parse options for schema_option. I expected a dictionary but got %s", schema_option
+        except AttributeError as aex:
+            logger.warning(
+                "Failed to parse options for schema_option and event_type_value %s. I expected a dictionary but got %s. Error: %s",
+                event_type_value,
+                schema_option,
+                aex,
             )
         return accumulator
     else:
         try:
             return dict((k, v) for k, v in schema_option["enumNames"].items())
-        except AttributeError:
-            logger.exception(
-                "Failed to parse options for schema_option. I expected a dictionary but got %s", schema_option
+        except AttributeError as aex:
+            logger.warning(
+                "Failed to parse options for schema_option and event_type_value %s. I expected a dictionary but got %s. Error: %s",
+                event_type_value,
+                schema_option,
+                aex,
             )
 
     return {}
@@ -286,6 +292,9 @@ def _generate_aggregate_event_variables_class(
     for event_type in event_types:
         try:
             rendered_schema = schema_utils.get_rendered_schema(event_type.schema)
+        except SchemaValidationError as svex:
+            logger.warning("Error in get_rendered_schema with %s, ex:%s", event_type.value, svex)
+            raise
         except Exception as ex:
             logger.warning("Error in get_rendered_schema with %s, ex:%s", event_type.value, ex)
             raise
@@ -319,10 +328,10 @@ def _generate_aggregate_event_variables_class(
             composite_key = field_name + "_" + get_schema_type(field_properties)
             existing_attr = attributes_accumulator.get(composite_key, None)
             if existing_attr:
-                dummy = accumulate_options(field_properties)
+                dummy = accumulate_options(field_properties, event_type_value=event_type_value)
                 logger.debug(f"{event_type_value}.{composite_key} options = {list(dummy.keys())}")
                 if existing_attr.return_type == rule_return_type:
-                    accumulate_options(field_properties, existing_attr.optionsdict)
+                    accumulate_options(field_properties, existing_attr.optionsdict, event_type_value=event_type_value)
                 else:
                     logger.warning(
                         "Collision on %s with different return types. Adding a new object with different return type",
@@ -332,7 +341,7 @@ def _generate_aggregate_event_variables_class(
                         attrname=field_name,
                         return_type=rule_return_type,
                         label=field_properties.get("title", field_name),
-                        optionsdict=accumulate_options(field_properties),
+                        optionsdict=accumulate_options(field_properties, event_type_value=event_type_value),
                     )
                     attributes_accumulator[composite_key] = newattr
             else:
@@ -340,7 +349,7 @@ def _generate_aggregate_event_variables_class(
                     attrname=field_name,
                     return_type=rule_return_type,
                     label=field_properties.get("title", field_name),
-                    optionsdict=accumulate_options(field_properties),
+                    optionsdict=accumulate_options(field_properties, event_type_value=event_type_value),
                 )
                 attributes_accumulator[composite_key] = newattr
 

@@ -556,7 +556,10 @@ def get_rendered_all(schema):
 
 
 def get_rendered_schema(schema):
-    return get_rendered_all(schema)["schema"]
+    rendered = get_rendered_all(schema)
+    if "schema" not in rendered:
+        raise SchemaValidationError("Schema is missing a 'schema' key")
+    return rendered["schema"]
 
 
 def get_all_fields_and_definitions(schema):

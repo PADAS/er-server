@@ -33,6 +33,7 @@ from activity.models import (
 from activity.util import get_er_user
 from das_server import celery
 from utils.features import features
+from utils.schema_utils import SchemaValidationError
 from utils.tenant import get_tenant_settings
 from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask
 
@@ -65,7 +66,11 @@ def evaluate_alert_rules(event_id, created, **kwargs) -> None:
     try:
         logger.info("Evaluating event %s for alerting.", event_id)
         event = Event.objects.get(id=event_id)
-        action_list = evaluate_event(event)
+        try:
+            action_list = evaluate_event(event)
+        except SchemaValidationError as svex:
+            logger.warning("Error in evaluate_event with %s, ex:%s", event_id, svex)
+            return
 
         # Resolve distinct list of active NotificationMethod objects for the given set of alert rule IDs.
         # TODO: revisit ordering by alert-rule to preserve precedence
