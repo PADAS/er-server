@@ -74,19 +74,18 @@ class VectronicsPlugin(TrackingPlugin):
             + "&afterScts={0}".format(latest_timestamp)
         )
         try:
-            self.logger.info("SSL Verify is turned off for Vectronics API calls")
             response = requests.get(url, timeout=self.DEFAULT_TIMEOUT, verify=False)
             if response.status_code != 200:
-                raise DasPluginFetchError(f"Non 200 response status {response.status_code}.")
+                raise DasPluginFetchError(f"Non 200 response status {response.status_code}, for collar: {collar_id}.")
             return json.loads(response.text)
         except requests.ConnectionError as e:
-            self.logger.exception("Failed connecting to Vectronics API.")
+            self.logger.warning("Failed connecting to Vectronics API for collar: %s. Error %s", collar_id, e)
             raise
         except requests.Timeout as e:
-            self.logger.exception("Time-out connecting to Vectronics API.")
+            self.logger.warning("Time-out connecting to Vectronics API for collar: %s. Error %s", collar_id, e)
             raise
-        except Exception as e:
-            self.logger.exception(e)
+        except Exception:
+            self.logger.exception("Exception connecting to Vectronics API for collar: %s", collar_id)
             raise
 
         return None
