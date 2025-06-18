@@ -65,7 +65,12 @@ def warm_eventphotos(self, event_photo_id):
 def evaluate_alert_rules(event_id, created, **kwargs) -> None:
     try:
         logger.info("Evaluating event %s for alerting.", event_id)
-        event = Event.objects.get(id=event_id)
+        try:
+            event = Event.objects.get(id=event_id)
+        except Event.DoesNotExist as dex:
+            logger.warning("Event %s does not exist. Error: %s", event_id, dex)
+            return
+
         try:
             action_list = evaluate_event(event)
         except SchemaValidationError as svex:
