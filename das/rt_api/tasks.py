@@ -77,7 +77,6 @@ def get_sid_user(username, user_sids):
     try:
         return User.objects.get(username=username)
     except User.DoesNotExist:
-        logger.warning("realtime-handler found no username=%s.", username)
         client.remove_clients(user_sids)
 
 
@@ -268,7 +267,7 @@ def _subjectstatus_update_handler(subject_id):
                         logger.debug("Emitting: %s", message)
                         pubsub.publish(message, routing_key="das.realtime.emit")
                 else:
-                    logger.warning(
+                    logger.debug(
                         "SubjectStatus payload is empty.", extra=dict(username=username, subject_id=subject_id)
                     )
 
@@ -292,7 +291,7 @@ def _subjectstatus_update_handler(subject_id):
                         pubsub.publish(emit_message, routing_key="das.realtime.emit")
 
                     else:
-                        logger.warning(
+                        logger.debug(
                             "Observation payload is empty.", extra=dict(username=username, subject_id=subject_id)
                         )
 
