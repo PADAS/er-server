@@ -6,12 +6,7 @@ import pytz
 from django.utils.translation import gettext_lazy as _
 
 from analyzers.models import SubjectAnalyzerResult
-from observations.models import (
-    LatestObservationSource,
-    Observation,
-    Subject,
-    SubjectSource,
-)
+from observations.models import Observation, Subject, SubjectSource
 from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
@@ -41,10 +36,7 @@ def generate_subject_records(report_hours=24):
             "region": ss.subject.additional.get("region", "Unassigned"),
         }
 
-        if latest_observation := LatestObservationSource.objects.filter(source=ss.source).first():
-            latest_observation = latest_observation.observation
-        else:
-            latest_observation = Observation.objects.get_last_source_observation(source=ss.source)
+        latest_observation = Observation.objects.get_latest_for_source(source=ss.source)
 
         # If a subject gets here but has no Observations then we'll exclude it from the report.
         # TODO: Consider a 'blank' report record for this case.
