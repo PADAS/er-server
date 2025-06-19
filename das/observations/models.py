@@ -747,11 +747,9 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
             Observation | None: the Observation instance or None if no observations exist.
         """
         latest_observation = LatestObservationSource.objects.get_latest_for_source(source, include_empty_location)
-        if not latest_observation or (
-            not include_empty_location and latest_observation.observation.location == EMPTY_POINT
-        ):
+        if not latest_observation or (not include_empty_location and latest_observation.location == EMPTY_POINT):
             return Observation.objects.get_latest_observation_source(source, include_empty_location)
-        return latest_observation.observation
+        return latest_observation
 
 
 class Observation(TenantModelMixin, models.Model):
