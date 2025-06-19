@@ -56,7 +56,13 @@ from core.utils import static_image_finder
 from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import dateparse as dparse
 from observations.utils import is_banned
-from revision.manager import Revision, RevisionAdapter, RevisionMixin, relation_deleted
+from revision.manager import (
+    CompoundUserField,
+    Revision,
+    RevisionAdapter,
+    RevisionMixin,
+    relation_deleted,
+)
 from utils.gis import convert_to_point, get_circle_polygon_from_point
 from utils.html import clean_user_text
 from utils.json import parse_bool
@@ -310,7 +316,7 @@ class EventTypeManager(TenantManagerMixin, models.Manager.from_queryset(EventTyp
         return self.get(value=value)
 
 
-class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
+class EventType(TenantModelMixin, RankModelMixin, TimestampedModel, RevisionMixin):
 
     class VersionChoices(models.TextChoices):
         VERSION_1 = "1"
@@ -364,6 +370,7 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
     tenant_id = "das_tenant_id"
 
     objects = EventTypeManager()
+    revision = Revision(user_field_class=CompoundUserField)
 
     class Meta:
         verbose_name = _("Event Type")
