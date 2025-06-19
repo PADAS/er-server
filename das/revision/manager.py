@@ -18,6 +18,7 @@ from django.core import serializers
 from django.db.models import Max, QuerySet
 
 from activity.constants import PRIORITY_CHOICES
+from core.fields import CompoundTenantForeignKey
 from core.models import DASTenant
 from core.utils import is_uuid
 from observations.models import Source, Subject
@@ -78,8 +79,9 @@ class UserField(TenantForeignKey):
     def __init__(self, to=getattr(settings, "AUTH_USER_MODEL", "auth.User"), null=True, editable=False, **kwargs):
         super().__init__(to=to, null=null, editable=editable, **kwargs)
 
-    def contribute_to_class(self, cls, name):
-        super().contribute_to_class(cls, name)
+
+class CompoundUserField(CompoundTenantForeignKey, UserField):
+    pass
 
 
 def make_revision_model_name(model):
@@ -148,6 +150,9 @@ ACTION_CHOICES = (
 class Revision(object):
     manager_class = RevisionManager
     revision_adapter = RevisionAdapter
+
+    def __init__(self, user_field_class=UserField):
+        self.user_field_class = user_field_class
 
     def contribute_to_class(self, cls, name):
         self.manager_name = name
@@ -242,11 +247,11 @@ class Revision(object):
             )
             return result
 
-        user_field = UserField(related_name=rel_name, editable=False, on_delete=models.SET_NULL)
+        user_field = self.user_field_class(related_name=rel_name, editable=False, on_delete=models.SET_NULL)
 
         # check if this manager has been attached to auth user model
         if [model._meta.app_label, model.__name__] == getattr(settings, "AUTH_USER_MODEL", "auth.User").split("."):
-            user_field = UserField(related_name=rel_name, editable=False, to="self")
+            user_field = self.user_field_class(related_name=rel_name, editable=False, to="self")
 
         return {
             "id": models.UUIDField(primary_key=True, default=uuid.uuid4),
