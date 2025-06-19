@@ -87,16 +87,26 @@ DAYS_BACK_TO_SEARCH_OBSERVATION_PARTITIONS = 365
         "graceful": True,
     },
 )
-def maintain_observation_data_for_source_provider(self, source_provider_id, days_data_retain, **kwargs):
+def maintain_observation_data_for_source_provider(
+    self,
+    source_provider_id: str,
+    days_data_retain: int,
+    search_back_days: int = DAYS_BACK_TO_SEARCH_OBSERVATION_PARTITIONS,
+    **kwargs,
+):
     """
     Delete observation records older than days_data_retain for a source_provider.
     Only go back DAYS_BACK_TO_SEARCH_OBSERVATION_PARTITIONS days to not search all Observation table partitions
     """
+    if search_back_days < days_data_retain:
+        logger.warning(
+            f"search_back_days {search_back_days} is less than days_data_retain {days_data_retain} for source_provider_id: {source_provider_id}"
+        )
+        return
+
     current_datetime = datetime.now(timezone.utc)
     minimum_date = current_datetime - timedelta(days=days_data_retain)
-    minimum_observation_partition_lower_bound = current_datetime - timedelta(
-        days=DAYS_BACK_TO_SEARCH_OBSERVATION_PARTITIONS
-    )
+    minimum_observation_partition_lower_bound = current_datetime - timedelta(days=search_back_days)
 
     logger.info(f"Deleting observation records older than {minimum_date} for source_provider_id: {source_provider_id}")
 
