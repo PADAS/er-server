@@ -40,7 +40,7 @@ def get_users_for_permission(permission_codename: str, usernames: list = None):
     if usernames:
         queryset = queryset.filter(username__in=usernames)
 
-    return queryset
+    return queryset.distinct("id")
 
 
 def create_report_permissionset(tenant=None):
