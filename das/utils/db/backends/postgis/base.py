@@ -38,7 +38,7 @@ class DatabaseSchemaEditor(PostGISSchemaEditor):
         strict=False,
     ):
         """
-        If there is a change in the field, this method assures that if the field is type of TenantForeignKey
+        If there is a change in the field, this method assures that if the field is type of CompoundTenantForeignKey
         and db_constraint does not exist, adds the foreign key constraint.
         """
 
@@ -103,7 +103,7 @@ class DatabaseSchemaEditor(PostGISSchemaEditor):
 # noqa
 class TenantDatabaseFeatures(PostGISDatabaseFeatures):
     """
-    This class is crucial for DAS to work properly with compoiste primary keys at the db level.
+    This class is crucial for DAS to work properly with composite primary keys at the db level.
     Without it, django and postgresql make assumptions on default Group By behavour that are not compatible with
     composite primary keys.
     """
