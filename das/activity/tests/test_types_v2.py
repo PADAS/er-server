@@ -443,6 +443,165 @@ class TestEventTypesV2:
         target_et.refresh_from_db()
         assert target_et.icon == new_icon_slug
 
+    def test_put_event_type_missing_required_fields(self, superuser_client, cat1_fire_v2_event_type):
+        """Test PUT validation for missing required fields."""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        # Test missing 'value' field
+        put_payload = {
+            "display": "Test Display",
+            "category": "cat1",
+            "default_priority": PRI_URGENT,
+        }
+        response = superuser_client.put(url, data=put_payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "value" in response.data
+        assert "required" in str(response.data["value"]).lower()
+
+        # Test missing 'category' field
+        put_payload = {
+            "value": "test-event-type",
+            "display": "Test Display",
+            "default_priority": PRI_URGENT,
+        }
+        response = superuser_client.put(url, data=put_payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "category" in response.data
+        assert "required" in str(response.data["category"]).lower()
+
+    def test_put_event_type_invalid_category(self, superuser_client, cat1_fire_v2_event_type):
+        """Test PUT validation for invalid category value."""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        put_payload = {
+            "value": "test-event-type",
+            "display": "Test Display",
+            "category": "nonexistent-category",
+            "default_priority": PRI_URGENT,
+        }
+        response = superuser_client.put(url, data=put_payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "category" in response.data
+
+    def test_put_event_type_invalid_value_format(self, superuser_client, cat1_fire_v2_event_type, cat1_cat2_categories):
+        """Test PUT validation for invalid value field format (regex validation)."""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        # Test value with spaces (invalid)
+        put_payload = {
+            "value": "invalid value with spaces",
+            "display": "Test Display",
+            "category": cat1_cat2_categories[0].value,
+            "default_priority": PRI_URGENT,
+        }
+        response = superuser_client.put(url, data=put_payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "value" in response.data
+
+        # Test value with special characters (invalid)
+        put_payload["value"] = "invalid@value#with$symbols"
+        response = superuser_client.put(url, data=put_payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "value" in response.data
+
+    def test_put_event_type_auto_resolve_constraint_violation(
+        self, superuser_client, cat1_fire_v2_event_type, cat1_cat2_categories
+    ):
+        """Test PUT validation for auto_resolve constraint violations."""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        # Get a valid schema from the existing event type
+        existing_schema = cat1_fire_v2_event_type.schema
+
+        # Test auto_resolve=True without resolve_time (should fail)
+        put_payload = {
+            "value": "test-event-type",
+            "display": "Test Display",
+            "category": cat1_cat2_categories[0].value,
+            "default_priority": PRI_URGENT,
+            "auto_resolve": True,
+            "resolve_time": None,
+            "schema": existing_schema,
+        }
+        response = superuser_client.put(url, data=put_payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        # Check for the constraint validation error in the nested error format
+        assert "resolve_time" in response.data.get("status", {}).get("detail", {})
+
+        # Test auto_resolve=False with resolve_time (should fail)
+        put_payload = {
+            "value": "test-event-type",
+            "display": "Test Display",
+            "category": cat1_cat2_categories[0].value,
+            "default_priority": PRI_URGENT,
+            "auto_resolve": False,
+            "resolve_time": 24,
+            "schema": existing_schema,
+        }
+        response = superuser_client.put(url, data=put_payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        # Check for the constraint validation error in the nested error format
+        assert "resolve_time" in response.data.get("status", {}).get("detail", {})
+
+    def test_put_event_type_invalid_field_types(self, superuser_client, cat1_fire_v2_event_type, cat1_cat2_categories):
+        """Test PUT validation for invalid field types."""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        # Get a valid schema from the existing event type
+        existing_schema = cat1_fire_v2_event_type.schema
+
+        # Test with invalid default_priority type
+        put_payload = {
+            "value": "test-event-type",
+            "display": "Test Display",
+            "category": cat1_cat2_categories[0].value,
+            "default_priority": "invalid_priority_string",
+            "schema": existing_schema,
+        }
+        response = superuser_client.put(url, data=put_payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "default_priority" in response.data
+
+        # Test with invalid boolean field type
+        put_payload = {
+            "value": "test-event-type",
+            "display": "Test Display",
+            "category": cat1_cat2_categories[0].value,
+            "default_priority": PRI_URGENT,
+            "is_active": "not_a_boolean",
+            "schema": existing_schema,
+        }
+        response = superuser_client.put(url, data=put_payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "is_active" in response.data
+
+    def test_put_event_type_readonly_field_updates(
+        self, superuser_client, cat1_fire_v2_event_type, cat1_cat2_categories
+    ):
+        """Test that readonly fields are ignored in PUT requests."""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+        original_id = cat1_fire_v2_event_type.id
+
+        # Get a valid schema from the existing event type
+        existing_schema = cat1_fire_v2_event_type.schema
+
+        put_payload = {
+            "value": "test-event-type",
+            "display": "Test Display",
+            "category": cat1_cat2_categories[0].value,
+            "default_priority": PRI_URGENT,
+            "schema": existing_schema,
+            "id": "00000000-0000-0000-0000-000000000000",  # Try to change readonly field
+            "has_events_assigned": True,  # Try to change readonly field
+        }
+        response = superuser_client.put(url, data=put_payload)
+        assert response.status_code == status.HTTP_200_OK
+
+        # Verify readonly fields were ignored and original values preserved
+        cat1_fire_v2_event_type.refresh_from_db()
+        assert cat1_fire_v2_event_type.id == original_id  # Should be unchanged
+        assert cat1_fire_v2_event_type.display == "Test Display"  # Should be updated
+
     def test_patch_event_type_success(self, superuser_client, cat1_fire_v2_event_type):
         target_et = cat1_fire_v2_event_type
         original_icon_id = target_et.icon_id
@@ -470,7 +629,6 @@ class TestEventTypesV2:
         # Ensure other fields not in the payload are unchanged
         assert target_et.icon_id == original_icon_id
         assert target_et.schema == original_schema
-
         # Check response data
         response_get = superuser_client.get(url)
         assert response_get.status_code == status.HTTP_200_OK
