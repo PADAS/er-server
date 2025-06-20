@@ -19,6 +19,7 @@ from mapping.models import (
     MBTiles,
     SpatialFeature,
     SpatialFeatureGroupStatic,
+    SpatialFeatureType,
     TileLayer,
 )
 
@@ -112,6 +113,14 @@ class FeatureTypeSerializer(serializers.ModelSerializer):
         fields = ("id", "name")  # , 'presentation',)
 
 
+class SpatialFeatureTypeSerializer(serializers.ModelSerializer):
+    feature_set_id = serializers.UUIDField(source="display_category_id")
+
+    class Meta:
+        model = SpatialFeatureType
+        fields = ("id", "name", "feature_set_id")
+
+
 # from django.contrib.gis.geos import (
 #     GeometryCollection, GEOSException, GEOSGeometry, LineString,
 #     MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
@@ -119,7 +128,8 @@ class FeatureTypeSerializer(serializers.ModelSerializer):
 
 
 class SpatialFeatureListSerializer(GeoFeatureModelSerializer):
-    feature_type_name = serializers.SerializerMethodField()
+    feature_class_name = serializers.SerializerMethodField()
+    feature_class_id = serializers.SerializerMethodField()
     feature_set_name = serializers.SerializerMethodField()
     feature_set_id = serializers.SerializerMethodField()
 
@@ -132,14 +142,17 @@ class SpatialFeatureListSerializer(GeoFeatureModelSerializer):
             "name",
             "short_name",
             "description",
-            "feature_type_name",
-            "feature_type_id",
+            "feature_class_name",
+            "feature_class_id",
             "feature_set_name",
             "feature_set_id",
         )
 
-    def get_feature_type_name(self, obj: SpatialFeature) -> str:
+    def get_feature_class_name(self, obj: SpatialFeature) -> str:
         return obj.feature_type.name
+
+    def get_feature_class_id(self, obj: SpatialFeature) -> uuid.UUID:
+        return obj.feature_type.id
 
     def get_feature_set_name(self, obj: SpatialFeature) -> Optional[str]:
         return obj.feature_type.display_category.name if obj.feature_type.display_category else None
@@ -150,14 +163,14 @@ class SpatialFeatureListSerializer(GeoFeatureModelSerializer):
 
 class SpatialFeatureSerializer(serializers.ModelSerializer):
     # feature_geometry = FeatureGeometrySerializer()
-    feature_type = FeatureTypeSerializer()
+    feature_class = FeatureTypeSerializer()
 
     class Meta:
         model = SpatialFeature
         fields = (
             "id",
             "name",
-            "feature_type",
+            "feature_class",
             # 'feature_geometry',
         )
 
