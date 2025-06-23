@@ -43,6 +43,20 @@ class GearsView(generics.ListAPIView):
     pagination_class = StandardResultsSetPagination
     schema = GearsViewSchema()
 
+    def get_permissions(self):
+        if self.request.method == "POST":
+            from rest_framework.permissions import IsAuthenticated
+
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return serializers.GearCreateSerializer
+        if self.request.method == "GET":
+            return serializers.GearsSerializer
+        raise ValueError("Unsupported method: {}".format(self.request.method))
+
     def get_queryset(self):
         return SubjectSource.objects.none()
 
@@ -92,6 +106,14 @@ class GearsView(generics.ListAPIView):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data, context={"user_id": request.user.id})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        # TODO: Implement sending gears to Gundi
+
+        return Response({"detail": "Gears sent for processing"}, status=200)
 
 
 class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
