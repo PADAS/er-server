@@ -1,6 +1,8 @@
+import hashlib
 import logging
 import re
 from datetime import datetime, timezone
+from uuid import uuid4
 
 from drf_extra_fields.geo_fields import PointField
 
@@ -20,6 +22,31 @@ STATUS_KEY = "status"
 GEAR_TYPE_TRAWL = "trawl"
 GEAR_TYPE_SINGLE = "single"
 SUBJECT_KEY = "subject"
+POSITIONING_TYPE_GPS = "gps"
+POSITIONING_TYPE_ACOUSTIC = "acoustic"
+SOURCE_TYPE = "ropeless_buoy"
+SUBJECT_SUBTYPE = "ropeless_buoy_device"
+GEAR_DEPLOYED_EVENT = "gear_deployed"
+GEAR_RETRIEVED_EVENT = "gear_retrieved"
+
+DEPLOYMENT_TYPE_CHOICES = [("trawl", "trawl"), ("single", "single"), ("surface", "surface")]
+
+DEVICE_DEPLOYMENT_STATUS_CHOICES = [
+    ("deployed", "deployed"),
+    ("hauled", "hauled"),
+    ("lost", "lost"),
+]
+
+RELEASE_TYPE_CHOICES = [
+    ("timed", "timed"),
+    ("acoustic", "acoustic"),
+    ("galvanic", "galvanic"),
+]
+
+POSITIONING_TYPE_CHOICES = [
+    ("gps", "gps"),
+    ("acoustic", "acoustic"),
+]
 
 
 class GearSerializer(serializers.Serializer):
@@ -189,3 +216,142 @@ class GearSerializer(serializers.Serializer):
             gear_rep["manufacturer"] = self.get_source_provider_standardized_name(instance)
 
         return gear_rep
+
+
+class GeoLocationSerializer(serializers.Serializer):
+    latitude = serializers.FloatField(
+        required=True,
+    )
+    longitude = serializers.FloatField(
+        required=True,
+    )
+
+
+class GearDeviceCreateSerializer(serializers.Serializer):
+    device_id = serializers.CharField(max_length=255, required=False)
+    mfr_device_id = serializers.CharField(max_length=255, required=True)
+    mfr_id = serializers.CharField(max_length=255, required=True)
+    device_initial_deploy_date = serializers.DateTimeField(
+        required=True,
+    )
+    device_last_updated_date = serializers.DateTimeField(
+        required=True,
+    )
+    device_status = serializers.ChoiceField(
+        choices=DEVICE_DEPLOYMENT_STATUS_CHOICES,
+        required=True,
+    )
+    positioning_type = serializers.ChoiceField(
+        choices=POSITIONING_TYPE_CHOICES,
+        default=POSITIONING_TYPE_GPS,
+        required=False,
+    )
+    release_type = serializers.ChoiceField(
+        choices=RELEASE_TYPE_CHOICES,
+        required=False,
+    )
+    location = GeoLocationSerializer(required=True)
+    device_additional_data = serializers.JSONField(
+        required=False,
+    )
+    device_pgn_data = serializers.JSONField(
+        required=False,
+    )
+
+
+class GearCreateSerializer(serializers.Serializer):
+    set_id = serializers.CharField(max_length=255, required=False)
+    vessel_id = serializers.CharField(max_length=255, required=False)
+    mfr_set_id = serializers.CharField(max_length=255, required=False)
+    owner_id = serializers.CharField(max_length=255, required=True)
+    permit_number = serializers.CharField(max_length=255, required=False)
+    deployment_type = serializers.ChoiceField(
+        choices=DEPLOYMENT_TYPE_CHOICES,
+        required=True,
+    )
+    devices_in_set = serializers.IntegerField(
+        required=False,
+    )
+    trawl_path = serializers.ListField(
+        child=GeoLocationSerializer(),
+        required=False,
+    )
+    last_updated_date = serializers.DateTimeField(
+        required=False,
+    )
+    initial_deployment_date = serializers.DateTimeField(
+        required=True,
+    )
+    set_additional_data = (
+        serializers.JSONField(
+            required=False,
+        ),
+    )
+    devices = GearDeviceCreateSerializer(
+        many=True,
+        required=True,
+    )
+
+    def validate(self, attrs):
+        # TODO: Add validation logic for the gear creation e.g. devices status, devices_in_set geq devices count, etc.
+        return super().validate(attrs)
+
+    def get_device_label(self, position_index: int):
+        result = []
+        while position_index > 0:
+            position_index -= 1
+            result.append(chr(ord("A") + (position_index % 26)))
+            position_index //= 26
+        return "".join(reversed(result))
+
+    def save(self, **kwargs):
+        devices = []
+        for position_idx, device in enumerate(self.validated_data.get("devices", [])):
+            device_data = {
+                "label": self.get_device_label(position_idx + 1),
+                "location": device.pop("location"),
+                "device_id": device.get("device_id") or str(uuid4()),
+                "last_updated": device["device_last_updated_date"],
+                "device_info": device,
+            }
+            devices.append(device_data)
+
+        concatenated_device_ids = "".join(device["device_id"] for device in devices)
+        default_display_id = hashlib.sha256(concatenated_device_ids.encode("utf-8")).hexdigest()[:12]
+        display_id = self.validated_data.get("set_display_id", default_display_id)
+
+        observations = []
+        for device in devices:
+            device_info = device.get("device_info", {})
+            is_active = device_info.get("device_status") == "deployed"
+            observation = {
+                "name": device.get("device_id"),
+                "source": device.get("device_id"),
+                "type": SOURCE_TYPE,
+                "subject_type": SUBJECT_SUBTYPE,
+                "is_active": is_active,
+                "recorded_at": device["last_updated"],
+                "location": {"lat": device["location"]["latitude"], "lon": device["location"]["longitude"]},
+                "additional": {
+                    "subject_name": device.get("device_id"),
+                    "display_id": display_id,
+                    "subject_is_active": is_active,
+                    "event_type": GEAR_DEPLOYED_EVENT if is_active else GEAR_RETRIEVED_EVENT,
+                    "devices": devices,
+                    "user_id": self.context.get("user_id"),
+                },
+            }
+            observations.append(observation)
+        return observations
+
+    class Meta(GearSerializer.Meta):
+        fields = (
+            "set_id",
+            "vessel_id",
+            "mfr_set_id",
+            "owner_id",
+            "set_display_id",
+            "permit_number",
+            "deployment_type",
+            "trawl_path",
+        )
