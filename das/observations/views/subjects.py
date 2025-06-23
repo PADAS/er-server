@@ -89,6 +89,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             F("assigned_range").desc(),
         ],
     }
+    cached_queryset = None
     queryset_linked_user = None
     linked_exists = None
 
@@ -108,6 +109,9 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
     def get_queryset(self) -> QuerySet:
         query_params = self.request.query_params
         user = self.request.user
+
+        if self.cached_queryset is not None:
+            return self.cached_queryset
 
         if not user.has_any_perms(VIEW_SUBJECT_PERMS):
             if self.linked_exists:
@@ -153,7 +157,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             queryset = queryset.union(chunk_queryset.order_by("id"))
 
         self._get_two_way_sources(queryset)
-        self.queryset = queryset
+        self.cached_queryset = queryset
         return queryset
 
     def filter_on_subject_and_source_groups(self, filtered_queryset, user, query_params):
