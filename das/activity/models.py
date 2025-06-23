@@ -326,8 +326,10 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel):
         validators=[
             RegexValidator(
                 regex="^[A-Za-z0-9-_]*$",
-                message="""An invalid character was detected in the Event type Value field.
-        Supported characters are: Letters a-z (lowercase), Numbers 0-9 and Underscore""",
+                message=(
+                    "An invalid character was detected in the Event type Value field. "
+                    "Supported characters are: Letters a-z (lowercase), Numbers 0-9 and Underscore"
+                ),
             )
         ],
     )
