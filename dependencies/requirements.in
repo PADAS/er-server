@@ -117,3 +117,4 @@ async-lru==1.0.3
 markupsafe==2.0.1
 pygeoif==0.6
 google-cloud-pubsub==2.25.0
+gundi-client-v2==2.2.0

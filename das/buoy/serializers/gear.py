@@ -282,10 +282,8 @@ class GearCreateSerializer(serializers.Serializer):
     initial_deployment_date = serializers.DateTimeField(
         required=True,
     )
-    set_additional_data = (
-        serializers.JSONField(
-            required=False,
-        ),
+    set_additional_data = serializers.JSONField(
+        required=False,
     )
     devices = GearDeviceCreateSerializer(
         many=True,

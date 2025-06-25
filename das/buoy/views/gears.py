@@ -2,6 +2,7 @@ from drf_spectacular.utils import extend_schema
 
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from buoy import serializers
@@ -16,6 +17,7 @@ from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
 from observations.permissions import StandardObjectPermissions
+from observations.services.gundi import send_observations_to_gundi
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
 
@@ -49,8 +51,6 @@ class GearsView(generics.ListAPIView):
 
     def get_permissions(self):
         if self.request.method == "POST":
-            from rest_framework.permissions import IsAuthenticated
-
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -104,7 +104,8 @@ class GearsView(generics.ListAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data, context={"user_id": request.user.id})
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        observations = serializer.save()
+        send_observations_to_gundi(observations=observations, integration_id=...)  # Replace with actual integration ID
         # TODO: Implement sending gears to Gundi
 
         return Response({"detail": "Gears sent for processing"}, status=200)
