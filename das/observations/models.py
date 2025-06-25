@@ -21,7 +21,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from functools import reduce
 from operator import getitem
-from typing import NamedTuple, Set, Union
+from typing import List, NamedTuple, Set, Union
 
 import pymet
 import pytz
@@ -911,12 +911,11 @@ class SubjectSourceManager(TenantManagerMixin, models.Manager.from_queryset(Subj
 
         return subject_source, created
 
-    def get_for_source_at_time(self, source, at_time):
+    def get_for_source_at_time(self, source, at_time) -> List[SubjectSource]:
         return (
             self.filter(source=source, assigned_range__contains=at_time)
             .select_related("subject", "source", "source__provider")
-            .order_by("-assigned_range")[:1]
-            .first()
+            .order_by("-assigned_range")
         )
 
 
@@ -2144,14 +2143,14 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
         """
 
         source = observation.source
-        if subjectsource := SubjectSource.objects.get_for_source_at_time(source, observation.recorded_at):
+        for subjectsource in SubjectSource.objects.get_for_source_at_time(source, observation.recorded_at):
             subjectstatus = SubjectStatus.objects.get_current_status(subjectsource.subject)
             if not created and (not subjectstatus or observation.recorded_at != subjectstatus.recorded_at):
                 # If the observation was modified and not the current subjectstatus observation, do nothing
-                return
+                continue
             if subjectsource.is_expired:
                 # If the subjectsource is expired, do nothing, leave it to daily maintenance to update the subjectstatus
-                return
+                continue
             if created and (not subjectstatus or observation.recorded_at > subjectstatus.recorded_at):
                 update_subjectstatus_from_observation(subjectsource.subject, observation)
             if not created and (latest_observation := Observation.objects.get_latest_for_subjectsource(subjectsource)):
