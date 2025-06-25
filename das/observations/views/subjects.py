@@ -89,30 +89,32 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             F("assigned_range").desc(),
         ],
     }
+    cached_queryset = None
     queryset_linked_user = None
-    query_params = None
+    linked_exists = None
 
     def check_permissions(self, request):
         if request.user.is_anonymous:
             self.permission_denied(request)
-        self.queryset_linked_user = self.queryset_linked_user or Subject.objects.filter(
-            linked_user=request.user
-        ).distinct("id")
 
-        if not self.queryset_linked_user.exists():
-            for permission in self.get_permissions():
-                if not permission.has_permission(request, self):
-                    self.permission_denied(request)
+        if self.queryset_linked_user is None:
+            self.queryset_linked_user = Subject.objects.filter(linked_user=request.user).distinct("id")
+
+        if self.linked_exists is None:
+            self.linked_exists = self.queryset_linked_user.exists()
+
+        if not self.linked_exists:
+            super().check_permissions(request)
 
     def get_queryset(self) -> QuerySet:
         query_params = self.request.query_params
-
-        if self.queryset and self.query_params == query_params:
-            return self.queryset
         user = self.request.user
 
+        if self.cached_queryset is not None:
+            return self.cached_queryset
+
         if not user.has_any_perms(VIEW_SUBJECT_PERMS):
-            if self.queryset_linked_user.exists():
+            if self.linked_exists:
                 return self.queryset_linked_user
             raise ForbiddenAPIException
 
@@ -155,8 +157,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             queryset = queryset.union(chunk_queryset.order_by("id"))
 
         self._get_two_way_sources(queryset)
-        self.queryset = queryset
-        self.query_params = query_params
+        self.cached_queryset = queryset
         return queryset
 
     def filter_on_subject_and_source_groups(self, filtered_queryset, user, query_params):
