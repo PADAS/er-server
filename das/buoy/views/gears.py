@@ -1,5 +1,7 @@
-from drf_spectacular.utils import extend_schema
+from asgiref.sync import async_to_sync
 
+from django.conf import settings
+from drf_spectacular.utils import extend_schema
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
@@ -111,10 +113,10 @@ class GearsView(generics.ListAPIView):
         serializer = self.get_serializer(data=request.data, context={"user_id": request.user.id})
         serializer.is_valid(raise_exception=True)
         observations = serializer.save()
-        send_observations_to_gundi(observations=observations, integration_id=...)  # Replace with actual integration ID
-        # TODO: Implement sending gears to Gundi
-
-        return Response({"detail": "Gears sent for processing"}, status=200)
+        result = async_to_sync(send_observations_to_gundi)(
+            observations=observations, integration_id=settings.BUOY_GUNDI_INTEGRATION_ID
+        )
+        return Response({"detail": "Gears sent for processing", "result": result}, status=200)
 
 
 class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
