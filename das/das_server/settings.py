@@ -725,3 +725,5 @@ else:
 
 # Initialize ALT_SERVER_NAMES as an empty list
 ALT_SERVER_NAMES = []
+
+BUOY_GUNDI_INTEGRATION_ID = env.str("BUOY_GUNDI_INTEGRATION_ID", "default")
