@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from django.contrib.gis.geos import Polygon
+from django.contrib.gis.geos import Point, Polygon
 
 from activity.models import EventGeometry
 from activity.serializers import EventGeometryField
@@ -76,6 +76,28 @@ class TestEventGeometryField:
         assert feature.get("type") == "Feature"
         assert feature.get("properties") == event_geometry.properties
         assert feature.get("geometry") == json.loads(event_geometry.geometry.geojson)
+
+    def test_serialized_point_geometry(self, event_with_detail):
+        event = event_with_detail.event
+        event_geometry = EventGeometry.objects.create(
+            event=event,
+            geometry=Point(-103.418984, 20.638567),
+            properties={"size": "S", "color": "Red", "width": 5},
+        )
+
+        serialized_geometry = EventGeometryField().to_representation(event.geometries)
+        feature = serialized_geometry.get("features")[0]
+
+        expected_geometry = feature.get("geometry")
+        if "is_valid" in expected_geometry:
+            del expected_geometry["is_valid"]
+
+        assert serialized_geometry.get("type") == "FeatureCollection"
+        assert feature.get("type") == "Feature"
+        assert feature.get("properties") == event_geometry.properties
+        assert feature.get("geometry") == json.loads(event_geometry.geometry.geojson)
+        assert feature.get("geometry").get("type") == "Point"
+        assert feature.get("geometry").get("coordinates") == [-103.418984, 20.638567]
 
     def test_serialized_empty_geometry(self, event_with_detail):
         serialized_geometry = EventGeometryField().to_representation(event_with_detail.event.geometries)

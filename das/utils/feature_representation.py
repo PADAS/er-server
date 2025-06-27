@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Union
 
-from geojson import Feature, Polygon
+from geojson import Feature, Point, Polygon
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 
 from rest_framework.request import Request
@@ -73,8 +73,13 @@ class FeatureRepresentation:
 
 class GeometryFeature(ABC):
     @abstractmethod
-    def get(self, coordinates: dict, properties: dict) -> Feature:
+    def get(self, coordinates: Union[tuple, list], properties: dict) -> Feature:
         pass
+
+
+class PointFeature(GeometryFeature):
+    def get(self, coordinates: tuple, properties: dict) -> Feature:
+        return Feature(geometry=Point(coordinates), properties=properties)
 
 
 class PolygonFeature(GeometryFeature):
@@ -83,7 +88,7 @@ class PolygonFeature(GeometryFeature):
 
 
 class FeatureFactory:
-    _features = {"Polygon": PolygonFeature()}
+    _features = {"Point": PointFeature(), "Polygon": PolygonFeature()}
 
     def get_for_feature(self, sort):
         try:
