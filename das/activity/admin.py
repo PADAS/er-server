@@ -74,6 +74,26 @@ class EventGeometryInline(PropsOSMGeoAdminMixin, admin.StackedInline):
         self.opts = self.model._meta
         self.has_registered_model = admin_site.is_registered(self.model)
 
+    def get_formset(self, request, obj=None, **kwargs):
+        """Override to set event_type on the form."""
+        formset = super().get_formset(request, obj, **kwargs)
+
+        # Get the original form class
+        original_form = formset.form
+
+        # Create a new form class that sets the event_type
+        class EventGeometryFormWithEventType(original_form):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                # Set the event_type from the parent event
+                if obj and obj.event_type:
+                    self.set_event_type(obj.event_type)
+
+        # Replace the form class in the formset
+        formset.form = EventGeometryFormWithEventType
+
+        return formset
+
 
 @admin.register(models.Event)
 class EventAdmin(OSMGeoExtendedAdmin):
@@ -138,9 +158,20 @@ class EventAdmin(OSMGeoExtendedAdmin):
         ),
     )
 
-    def __init__(self, model, admin_site):
-        super().__init__(model, admin_site)
-        self.inlines = (EventGeometryInline, *self.inlines)
+    def get_inlines(self, request, obj=None):
+        """Return inlines based on the event type's geometry type."""
+        base_inlines = list(self.inlines)
+
+        # If creating a new event (obj is None), show EventGeometryInline by default
+        # If editing an existing event, only show EventGeometryInline if the event type is not Point
+        if (
+            obj is None
+            or obj.event_type is None
+            or (obj.event_type and obj.event_type.geometry_type != models.EventType.GeometryTypesChoices.POINT)
+        ):
+            return (EventGeometryInline,) + tuple(base_inlines)
+
+        return self.inlines
 
     def resolve_event(self, request, queryset):
         queryset.update(state=models.Event.SC_RESOLVED)
