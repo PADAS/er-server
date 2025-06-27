@@ -78,20 +78,17 @@ class EventGeometryInline(PropsOSMGeoAdminMixin, admin.StackedInline):
         """Override to set event_type on the form."""
         formset = super().get_formset(request, obj, **kwargs)
 
-        # Get the original form class
-        original_form = formset.form
+        # Subclass the formset's form (which includes DELETE and other inline fields)
+        base_form = formset.form
 
-        # Create a new form class that sets the event_type
-        class EventGeometryFormWithEventType(original_form):
+        class EventGeometryFormWithEventType(base_form):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 # Set the event_type from the parent event
-                if obj and obj.event_type:
+                if obj and hasattr(self, "set_event_type"):
                     self.set_event_type(obj.event_type)
 
-        # Replace the form class in the formset
         formset.form = EventGeometryFormWithEventType
-
         return formset
 
 
