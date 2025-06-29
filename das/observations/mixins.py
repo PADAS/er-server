@@ -1,7 +1,9 @@
 import uuid
+from datetime import datetime
 
 from django.db.models import Q
 from django.db.models.fields.json import KeyTransform
+from django.utils import timezone
 
 from observations import models
 
@@ -37,6 +39,7 @@ class TwoWaySubjectSourceMixin(object):
         self.two_way_subject_sources = {}
         subject_sources = (
             models.SubjectSource.objects.filter(subject__in=subject_ids)
+            .filter(assigned_range__contains=datetime.now(tz=timezone.utc))
             .annotate(
                 two_way_messaging=KeyTransform("two_way_messaging", "source__provider__additional"),
                 source_two_way_messaging=KeyTransform("two_way_messaging", "source__additional"),

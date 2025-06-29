@@ -31,7 +31,6 @@ from core.inline_openlayer import InlineOSMGeoAdmin
 from core.utils import OneWeekSchedule
 from core.widget import IconKeyInput, get_icon_select_list
 from observations.models import Subject
-from utils.gis import get_polygon_info
 from utils.schema_utils import (
     get_schema_renderer_method,
     validate_rendered_schema_is_wellformed,
@@ -145,7 +144,8 @@ class EventTypeForm(forms.ModelForm):
         fields = ["icon", "display", "schema", "auto_eventtype_resolve"]
         help_texts = {
             "geometry_type": mark_safe(
-                f"<strong>{_('WARNING: After this event type is created, its geometry type cannot be changed.')}</strong>"
+                f"<strong>{_('WARNING: After this event type is created, ')}"
+                f"{_('its geometry type cannot be changed.')}</strong>"
             ),
         }
 
@@ -192,7 +192,7 @@ class NotificationMethodSelectField(forms.ModelMultipleChoiceField):
     def label_from_instance(self, obj):
         try:
             return f"owner > {obj.owner.username} | {obj.method} : {obj.value}"
-        except:
+        except AttributeError:
             logger.exception("notification method owner not found in AlertRule admin")
         return f"owner > unknown | {obj.method} : {obj.value}"
 
@@ -332,14 +332,61 @@ class EventForm(forms.ModelForm):
 class EventGeometryForm(forms.ModelForm):
     class Meta:
         model = EventGeometry
-        fields = "__all__"
-        exclude = ("das_tenant",)
+        fields = ("id", "geometry")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.event_type = None
+        # Try to get the event type from the parent event
+        if hasattr(self, "instance") and self.instance and hasattr(self.instance, "event"):
+            try:
+                if self.instance.event:
+                    self.event_type = self.instance.event.event_type
+            except EventGeometry.event.RelatedObjectDoesNotExist:
+                # Instance exists but doesn't have an event yet
+                pass
+        # Set id field as hidden if present
+        if "id" in self.fields:
+            self.fields["id"].widget = forms.HiddenInput()
+        # Pass the form instance to the geometry widget for error display
+        if "geometry" in self.fields:
+            self.fields["geometry"].widget.form = self
+
+    def set_event_type(self, event_type):
+        """Set the event type for validation when creating new instances."""
+        self.event_type = event_type
+
+    def clean_geometry(self):
+        """Validate that the geometry type matches the event type's geometry type."""
+        geometry = self.cleaned_data.get("geometry")
+        if not geometry:
+            return geometry
+        if self.event_type:
+            if self.event_type.geometry_type == EventType.GeometryTypesChoices.POLYGON:
+                # Only allow polygon geometries
+                if geometry.geom_type not in ["Polygon", "MultiPolygon"]:
+                    raise forms.ValidationError(
+                        f"This event type requires a polygon geometry. " f"Received geometry type: {geometry.geom_type}"
+                    )
+            elif self.event_type.geometry_type == EventType.GeometryTypesChoices.POINT:
+                # Only allow point geometries
+                if geometry.geom_type not in ["Point", "MultiPoint"]:
+                    raise forms.ValidationError(
+                        f"This event type requires a point geometry. " f"Received geometry type: {geometry.geom_type}"
+                    )
+        return geometry
+
+    def clean(self):
+        """Remove id field errors since they're not relevant for new instances."""
+        cleaned_data = super().clean()
+        if self.errors and "id" in self.errors:
+            del self.errors["id"]
+        return cleaned_data
 
     def save(self, commit=True):
         if "geometry" in self.changed_data or "area" in self.changed_data:
-            self.instance.properties["area"] = get_polygon_info(self.instance.geometry, "area")
-            self.instance.properties["perimeter"] = get_polygon_info(self.instance.geometry, "length")
-            self.instance.properties["provenance"] = "web"
+            if self.instance.geometry:
+                self.instance.properties["area"] = self.instance.geometry.area
         return super().save(commit)
 
 

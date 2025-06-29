@@ -78,12 +78,18 @@ class EventGeometryField(RelatedField):
             return geometry_json.get("type")
         except TypeError:
             logger.exception(f"Trying to parse a wrong type of geometry {geometry}.")
+            return None
 
     def _get_geometry_coordinates(self, geometry):
         try:
-            return geometry.coords
+            coords = geometry.coords
+            if coords is None:
+                logger.exception("Geometry coordinates are None.")
+                return None
+            return coords
         except AttributeError:
             logger.exception("Was tried to get an attribute that does not exist.")
+            return None
 
 
 class EventAttributesField(JSONField):
@@ -98,10 +104,12 @@ class EventAttributesField(JSONField):
 
     def to_internal_value(self, data):
         if not self.schema and data:
-            ValidationError("Schema not set for Event.Attributes")
+            raise ValidationError("Schema not set for Event.Attributes")
+        if self.schema is None:
+            return data
         try:
             jsonschema.validate(data, self.schema)
-        except jsonschema.exceptions.ValidationError as error:
+        except jsonschema.ValidationError as error:
             raise ValidationError(error.message)
 
         return data
@@ -124,7 +132,7 @@ class EventSourceRelatedField(RelatedField):
             else:
                 try:
                     return EventSource.objects.get(id=data, eventprovider__owner=user)
-                except EventSource.DoesNotExist:
+                except EventSource.DoesNotExist:  # type: ignore
                     raise ValidationError({"eventsource": f"ID '{data}' does not exist."})
         return None
 
@@ -136,16 +144,18 @@ class EventSourceRelatedField(RelatedField):
 class EventTypeRelatedField(RelatedField):
     def get_queryset(self):
         queryset = EventType.objects.all_sort()
-        if self.context.get("view").get_view_name() == "Event Schema":
+        view = self.context.get("view")
+        if view and view.get_view_name() == "Event Schema":
             event_categories = EventCategory.get_category_keys()
             actions = ("create", "update", "read", "delete")
             allowed_event_categories = []
             for event_category in event_categories:
                 permission_name = [f"activity.{event_category}_{action}" for action in actions]
-                if any([self.context.get("request").user.has_perm(perm) for perm in permission_name]):
+                request = self.context.get("request")
+                if request and request.user and any([request.user.has_perm(perm) for perm in permission_name]):
                     allowed_event_categories.append(event_category)
 
-                return queryset.by_category(allowed_event_categories) if allowed_event_categories else queryset.none()
+            return queryset.by_category(allowed_event_categories) if allowed_event_categories else queryset.none()
         else:
             return queryset
 
@@ -156,18 +166,23 @@ class EventTypeRelatedField(RelatedField):
         if data:
             try:
                 return EventType.objects.get_by_value(data)
-            except EventType.DoesNotExist:
+            except EventType.DoesNotExist:  # type: ignore
                 raise ValidationError({"event_type": f"Value '{data}' does not exist."})
         else:
             request_data = self.context["request"].data
             external_event_type = request_data.get("external_event_type")
             if external_event_type:
-                eventsource = resolve_external_event_source()
-                if eventsource:
-                    return eventsource.event_type
+                request = self.context.get("request")
+                if request and request.user:
+                    eventsource = resolve_external_event_source(request.user, external_event_type)
+                    if eventsource:
+                        return eventsource.event_type
 
         return None
 
     @property
     def choices(self):
-        return OrderedDict(((row.value, row.display) for row in self.get_queryset()))
+        queryset = self.get_queryset()
+        if queryset is None:
+            return OrderedDict()
+        return OrderedDict(((row.value, row.display) for row in queryset))
