@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import pytz
 from dateutil.parser import parse as parse_date
@@ -41,6 +42,8 @@ from utils.tenant import get_tenant_settings
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
+
+EXCLUDED_AUTOMATICALLY_TIME_DELTA = timedelta(days=7)
 
 
 class GenericSensorHandler:
@@ -277,6 +280,11 @@ class GenericSensorHandler:
             "additional": additional,
         }
 
+        # Get the subject for exclusion checks
+        subject = src.assigned_subject if hasattr(src, "assigned_subject") else None
+
+        observation = cls.apply_exclusion_flags(observation, an_observation, location, additional, subject)
+
         obs_key = (str(src.id), recorded_at)
         # Short-circuit if we already have this observation.
         if obs_key in obs_cache:
@@ -317,6 +325,90 @@ class GenericSensorHandler:
             errors.append(validator.errors)
 
         return created
+
+    @classmethod
+    def apply_exclusion_flags(
+        cls,
+        observation_dict: dict,
+        an_observation: dict,
+        location: Optional[dict] = None,
+        additional: Optional[dict] = None,
+        subject: Optional[object] = None,
+    ):
+        """Apply exclusion flags to an observation dictionary.
+
+        This method handles both manual exclusion flags from the observation data
+        and automatic exclusion flags based on location/accuracy conditions.
+
+        Args:
+            observation_dict (dict): The observation dictionary to modify
+            an_observation (dict): The raw observation data from the sensor
+            location (dict, optional): Location data for automatic exclusion checks
+            additional (dict, optional): Additional data for automatic exclusion checks
+            subject (object, optional): Subject object for exclusion checks
+
+        Returns:
+            dict: The modified observation dictionary with exclusion flags applied
+        """
+        # Handle manual exclusion flags from observation data
+        if (exclusion_flags := an_observation.get("exclusion_flags", 0)) != 0:
+            observation_dict["exclusion_flags"] = observation_dict.get("exclusion_flags", 0) | exclusion_flags
+
+        # Handle automatic exclusion flags based on conditions
+        if cls.should_exclude_automatically(
+            location=location, additional=additional, subject=subject, recorded_at=an_observation.get("recorded_at")
+        ):
+            observation_dict["exclusion_flags"] = (
+                observation_dict.get("exclusion_flags", 0) | Observation.EXCLUDED_AUTOMATICALLY
+            )
+
+        return observation_dict
+
+    @classmethod
+    def should_exclude_automatically(
+        cls, location: dict, additional: dict, subject: Optional[Subject] = None, recorded_at: Optional[str] = None
+    ) -> bool:
+        """Determine if an observation should be automatically excluded.
+
+        This method can be overridden by subclasses to implement custom
+        exclusion logic based on location, additional data, and subject information.
+
+        Args:
+            location (dict): Location data containing latitude and longitude
+            additional (dict): Additional observation data
+            subject (Subject, optional): Subject object for exclusion checks
+            recorded_at (str, optional): Recorded timestamp for future time checks
+
+        Returns:
+            bool: True if the observation should be automatically excluded
+        """
+        # Check for future timestamps
+        if recorded_at:
+            try:
+                # Parse the recorded_at timestamp
+                if isinstance(recorded_at, str):
+                    parsed_time = parse_date(recorded_at)
+                else:
+                    parsed_time = recorded_at
+
+                # Ensure timezone awareness
+                if not parsed_time.tzinfo:
+                    parsed_time = pytz.utc.localize(parsed_time)
+
+                # Check if the timestamp is in the future
+                current_offset_time = datetime.now(timezone.utc) + EXCLUDED_AUTOMATICALLY_TIME_DELTA
+                if parsed_time > current_offset_time:
+                    return True
+            except (ValueError, TypeError):
+                # If we can't parse the timestamp, don't exclude based on time
+                pass
+        if location:
+            # Check for invalid coordinates (0,0) or (1,1) for non-stationary subjects
+            lat, lon = int(location.get("latitude", 0)), int(location.get("longitude", 0))
+            if (lat, lon) == (0, 0) or (lat, lon) == (1, 1):
+                return not subject or not subject.is_stationary_subject
+
+        return False
 
 
 class ErTrackHandler(GenericSensorHandler):
@@ -441,8 +533,10 @@ class ErTrackHandler(GenericSensorHandler):
             "additional": additional,
         }
 
-        if cls.exclude_observation(location=location, additional=additional):
-            observation["exclusion_flags"] = Observation.EXCLUDED_AUTOMATICALLY
+        # Get the subject for exclusion checks
+        subject = src.assigned_subject if hasattr(src, "assigned_subject") else None
+
+        observation = cls.apply_exclusion_flags(observation, an_observation, location, additional, subject)
 
         obs_key = (str(src.id), recorded_at)
         # Short-circuit if we already have this observation.
@@ -484,13 +578,21 @@ class ErTrackHandler(GenericSensorHandler):
         return compliant_observations
 
     @classmethod
-    def exclude_observation(cls, location, additional):
-        threshold = (
+    def should_exclude_automatically(
+        cls, location: dict, additional: dict, subject: Optional[object] = None, recorded_at: Optional[str] = None
+    ) -> bool:
+        threshold = int(
             get_tenant_settings().env_settings.observation_accuracy_threshold or settings.OBSERVATION_ACCURACY_THRESHOLD
         )
-        lat, lon = location.get("latitude"), location.get("longitude")
 
-        return (float(additional.get("accuracy", 0)) >= threshold) or ((lat, lon) == (0, 0)) or ((lat, lon) == (1, 1))
+        # Check for high accuracy (existing logic)
+        if additional and int(additional.get("accuracy", 0)) >= threshold:
+            return True
+
+        # Call parent class method for other checks (future time, invalid coordinates)
+        return super().should_exclude_automatically(
+            location=location, additional=additional, subject=subject, recorded_at=recorded_at
+        )
 
 
 class FollowltTrackerHandler:
@@ -587,21 +689,6 @@ def clean_subjectgroups(subjectgroups):
     return subjectgroups
 
 
-class DraObservationSerializer(serializers.Serializer):
-    manufacturer_id = serializers.CharField()
-    source_type = serializers.CharField(default=None)
-    subject_name = serializers.CharField(default=None)
-    subject_groups = serializers.ListField(
-        child=serializers.CharField(allow_blank=True), allow_empty=True, default=list
-    )
-    recorded_at = serializers.DateTimeField()
-    location = LocationDictSerializer()
-
-    subject_subtype = serializers.CharField(required=False)
-    # model_name = serializers.CharField(default=None)
-    additional = RadioAdditionalSerializer()
-
-
 class DasRadioAgentHandler(GenericSensorHandler):
     """
     Deprecated. I need to move das-radio-agent to the generic handler above.
@@ -611,7 +698,6 @@ class DasRadioAgentHandler(GenericSensorHandler):
     DEFAULT_SOURCE_TYPE = SOURCE_TYPE = "gps-radio"
     DEFAULT_SUBJECT_SUBTYPE = "ranger"
     DEFAULT_EVENT_ACTION = "unknown"
-    # serializer_class = DraObservationSerializer
 
 
 class GsatHandler:

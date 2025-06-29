@@ -5,7 +5,7 @@ from django.contrib.gis.admin.widgets import OpenLayersWidget
 from django.templatetags.static import static
 from django.utils import translation
 
-from core.admin import SaveCoordinatesToCookieMixin, BaseModelAdminMixin
+from core.admin import SaveCoordinatesToCookieMixin
 
 from .mixins import TileLayersMixin
 
@@ -17,6 +17,17 @@ class OlWidget(OpenLayersWidget):
     """
     Render an OpenLayers map using the WKT of the geometry.
     """
+
+    def get_context(self, name, value, attrs):
+        """Override to include form errors in context."""
+        context = super().get_context(name, value, attrs)
+
+        # Get the form instance from the widget's attrs if available
+        form = getattr(self, "form", None)
+        if form and hasattr(form, "errors"):
+            context["form"] = form
+
+        return context
 
     def map_options(self):
         """Build the map options hash for the OpenLayers template."""
