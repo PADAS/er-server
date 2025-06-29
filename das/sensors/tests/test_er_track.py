@@ -115,6 +115,7 @@ class ErTrackHandlerTest(BaseAPITest):
     def test_post_observation_with_0_0_is_excluded(self):
         obs = copy.deepcopy(self.one_observation)
         obs["location"] = {"lon": 0, "lat": 0}
+        obs["recorded_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         response = self._post_data(json.dumps(obs), user=self.super_user)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -125,6 +126,7 @@ class ErTrackHandlerTest(BaseAPITest):
     def test_post_observation_with_1_1_is_excluded(self):
         obs = copy.deepcopy(self.one_observation)
         obs["location"] = {"lon": 1, "lat": 1}
+        obs["recorded_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         response = self._post_data(json.dumps(obs), user=self.super_user)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -528,6 +530,135 @@ class ErTrackHandlerTest(BaseAPITest):
         assert Subject.objects.count() == 2
         assert SubjectSource.objects.filter(subject__name=obs_three["subject_name"]).count() == 2
         assert SubjectSource.objects.filter(source__manufacturer_id=obs_one["manufacturer_id"]).count() == 2
+
+    def test_apply_exclusion_flags_manual_exclusion(self):
+        """Test that manual exclusion flags from observation data are applied correctly."""
+        from sensors.handlers import ErTrackHandler
+
+        observation_dict = {
+            "location": {"latitude": 1.0, "longitude": 1.0},
+            "recorded_at": "2023-01-01T00:00:00Z",
+            "source": "test_source",
+            "additional": {},
+        }
+        an_observation = {
+            "exclusion_flags": 1,
+            "location": {"lat": 1.0, "lon": 1.0},
+            "recorded_at": "2023-01-01T00:00:00Z",
+        }
+
+        result = ErTrackHandler.apply_exclusion_flags(observation_dict, an_observation)
+
+        assert result.get("exclusion_flags") == 1
+        assert result["location"] == {"latitude": 1.0, "longitude": 1.0}
+
+    def test_apply_exclusion_flags_automatic_exclusion_high_accuracy(self):
+        """Test that automatic exclusion flags are applied for high accuracy values."""
+        from observations.models import Observation
+        from sensors.handlers import ErTrackHandler
+
+        observation_dict = {
+            "location": {"latitude": 1.0, "longitude": 1.0},
+            "recorded_at": "2023-01-01T00:00:00Z",
+            "source": "test_source",
+            "additional": {},
+        }
+        an_observation = {"location": {"lat": 1.0, "lon": 1.0}, "recorded_at": "2023-01-01T00:00:00Z"}
+        location = {"latitude": 1.0, "longitude": 1.0}
+        additional = {"accuracy": 1000}  # High accuracy value
+
+        result = ErTrackHandler.apply_exclusion_flags(observation_dict, an_observation, location, additional)
+
+        assert result.get("exclusion_flags") == Observation.EXCLUDED_AUTOMATICALLY
+
+    def test_apply_exclusion_flags_automatic_exclusion_invalid_coords(self):
+        """Test that automatic exclusion flags are applied for invalid coordinates (0,0)."""
+        from observations.models import Observation
+        from sensors.handlers import ErTrackHandler
+
+        observation_dict = {
+            "location": {"latitude": 0.0, "longitude": 0.0},
+            "recorded_at": "2023-01-01T00:00:00Z",
+            "source": "test_source",
+            "additional": {},
+        }
+        an_observation = {"location": {"lat": 0.0, "lon": 0.0}, "recorded_at": "2023-01-01T00:00:00Z"}
+        location = {"latitude": 0.0, "longitude": 0.0}
+        additional = {"accuracy": 0}
+
+        result = ErTrackHandler.apply_exclusion_flags(observation_dict, an_observation, location, additional)
+
+        assert result.get("exclusion_flags") == Observation.EXCLUDED_AUTOMATICALLY
+
+    def test_apply_exclusion_flags_automatic_exclusion_1_1_coords(self):
+        """Test that automatic exclusion flags are applied for coordinates (1,1)."""
+        from observations.models import Observation
+        from sensors.handlers import ErTrackHandler
+
+        observation_dict = {
+            "location": {"latitude": 1.0, "longitude": 1.0},
+            "recorded_at": "2023-01-01T00:00:00Z",
+            "source": "test_source",
+            "additional": {},
+        }
+        an_observation = {"location": {"lat": 1.0, "lon": 1.0}, "recorded_at": "2023-01-01T00:00:00Z"}
+        location = {"latitude": 1.0, "longitude": 1.0}
+        additional = {"accuracy": 0}
+
+        result = ErTrackHandler.apply_exclusion_flags(observation_dict, an_observation, location, additional)
+
+        assert result.get("exclusion_flags") == Observation.EXCLUDED_AUTOMATICALLY
+
+    def test_should_exclude_automatically_high_accuracy(self):
+        """Test that should_exclude_automatically returns True for high accuracy values."""
+        from sensors.handlers import ErTrackHandler
+
+        location = {"latitude": 1.0, "longitude": 1.0}
+        additional = {"accuracy": 1000}  # High accuracy value
+
+        result = ErTrackHandler.should_exclude_automatically(location, additional)
+
+        assert result is True
+
+    def test_should_notexclude_automatically_low_accuracy(self):
+        """Test that should_exclude_automatically returns False for low accuracy values."""
+        from sensors.handlers import ErTrackHandler
+
+        location = {"latitude": -1.2921, "longitude": 36.8219}  # Nairobi, Kenya coordinates
+        additional = {"accuracy": 1}  # Low accuracy value
+
+        result = ErTrackHandler.should_exclude_automatically(location=location, additional=additional)
+
+        assert result is False
+
+    def test_should_exclude_automatically_invalid_coords(self):
+        """Test that should_exclude_automatically returns True for invalid coordinates."""
+        from sensors.handlers import ErTrackHandler
+
+        # Test (0,0) coordinates
+        location = {"latitude": 0.0, "longitude": 0.0}
+        additional = {"accuracy": 0}
+
+        result = ErTrackHandler.should_exclude_automatically(location=location, additional=additional)
+        assert result is True
+
+        # Test (1,1) coordinates
+        location = {"latitude": 1.0, "longitude": 1.0}
+        additional = {"accuracy": 0}
+
+        result = ErTrackHandler.should_exclude_automatically(location=location, additional=additional)
+        assert result is True
+
+    def test_should_not_exclude_automatically_missing_accuracy(self):
+        """Test that should_exclude_automatically handles missing accuracy field."""
+        from sensors.handlers import ErTrackHandler
+
+        location = {"latitude": -1.2921, "longitude": 36.8219}  # Nairobi, Kenya coordinates
+        additional = {}  # No accuracy field
+
+        result = ErTrackHandler.should_exclude_automatically(location=location, additional=additional)
+
+        assert result is False
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def _post_data(self, payload, provider=None, user=None):
