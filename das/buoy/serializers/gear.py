@@ -295,6 +295,7 @@ class GearCreateSerializer(serializers.Serializer):
         return super().validate(attrs)
 
     def get_device_label(self, position_index: int):
+        """Receive the position index and return a label for the device in the format A, B, C, ..., Z, AA, AB ..."""
         result = []
         while position_index > 0:
             position_index -= 1
