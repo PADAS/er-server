@@ -18,6 +18,11 @@ from observations.models import (
     SubjectSource,
     SubjectSubType,
 )
+from buoy.serializers import GearCreateSerializer, GearsSerializer
+from buoy.serializers.gear import GEAR_DEPLOYED_EVENT, SOURCE_TYPE, SUBJECT_SUBTYPE
+from buoy.tests import generate_devices
+from core.tests import BaseAPITest
+from observations.models import Observation
 from utils.tenant.dataclass import FeatureFlags
 
 
@@ -239,3 +244,86 @@ class TestGearSerializer:
         assert len(serialized_gear2["devices"]) == 3
         device_ids2 = [device["device_id"] for device in serialized_gear2["devices"]]
         assert set(device_ids) == set(device_ids2)  # Same devices regardless of which subject we serialize
+
+
+class TestGearCreateSerializer(BaseAPITest):
+    def test_save_single_device(self):
+        now = timezone.now()
+        data = {
+            "owner_id": "owner123",
+            "deployment_type": "single",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    "mfr_device_id": "mfr123",
+                    "mfr_id": "mfrcomp",
+                    "device_initial_deploy_date": now,
+                    "device_last_updated_date": now,
+                    "device_status": "deployed",
+                    "location": {"latitude": 1.23, "longitude": 4.56},
+                }
+            ],
+        }
+        serializer = GearCreateSerializer(data=data, context={"user_id": 99})
+        assert serializer.is_valid(), serializer.errors
+        observations = serializer.save()
+        assert isinstance(observations, list)
+        assert len(observations) == 1
+        obs = observations[0]
+        # Basic fields
+        assert obs["name"]
+        assert obs["source"] == obs["name"]
+        assert obs["type"] == SOURCE_TYPE
+        assert obs["subject_type"] == SUBJECT_SUBTYPE
+        assert obs["is_active"] is True
+        assert obs["recorded_at"] == now
+        assert obs["location"] == {"lat": 1.23, "lon": 4.56}
+        # Additional payload
+        additional = obs["additional"]
+        assert additional["user_id"] == 99
+        assert additional["subject_name"] == obs["name"]
+        assert additional["event_type"] == GEAR_DEPLOYED_EVENT
+        assert isinstance(additional["devices"], list) and len(additional["devices"]) == 1
+        # Label generation
+        assert additional["devices"][0]["label"] == "A"
+
+    def test_save_multiple_devices(self):
+        now = timezone.now()
+        data = {
+            "owner_id": "ownerXYZ",
+            "deployment_type": "trawl",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    "mfr_device_id": "mfrA",
+                    "mfr_id": "compA",
+                    "device_initial_deploy_date": now,
+                    "device_last_updated_date": now,
+                    "device_status": "deployed",
+                    "location": {"latitude": 0.0, "longitude": 0.0},
+                },
+                {
+                    "mfr_device_id": "mfrB",
+                    "mfr_id": "compB",
+                    "device_initial_deploy_date": now,
+                    "device_last_updated_date": now,
+                    "device_status": "hauled",
+                    "location": {"latitude": 9.99, "longitude": 9.99},
+                },
+            ],
+        }
+        serializer = GearCreateSerializer(data=data, context={"user_id": 7})
+        assert serializer.is_valid(), serializer.errors
+        observations = serializer.save()
+        assert isinstance(observations, list)
+        # Two observations returned
+        assert len(observations) == 2
+        # Display ID consistency
+        display_ids = {obs["additional"]["display_id"] for obs in observations}
+        assert len(display_ids) == 1 and len(display_ids.pop()) == 12
+        # Check labels A and B
+        labels = [obs["additional"]["devices"][i]["label"] for i, obs in enumerate(observations)]
+        assert labels == ["A", "B"]
+        # Check active status for each device
+        statuses = [obs["is_active"] for obs in observations]
+        assert statuses == [True, False]
