@@ -15,7 +15,7 @@ Including another URLconf
 """
 
 import oauth2_provider.views as oauth2_views
-from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
+from drf_spectacular.views import SpectacularAPIView
 
 import django.contrib.staticfiles.views
 from django.conf import settings
@@ -25,7 +25,10 @@ from django.urls import path, re_path
 
 from das_server import views
 from das_server.admin import dasadmin_site
-from das_server.spectacular_views import AuthenticatedSpectacularSwaggerView
+from das_server.spectacular_views import (
+    AuthenticatedSpectacularRedocView,
+    AuthenticatedSpectacularSwaggerView,
+)
 
 admin.autodiscover()
 admin.site.enable_nav_sidebar = False
@@ -47,7 +50,11 @@ urlpatterns = [
         AuthenticatedSpectacularSwaggerView.as_view(url_name="openapi-schema"),
         name="openapi-swagger-ui",
     ),
-    path("api/v1.0/docs/redoc/", SpectacularRedocView.as_view(url_name="openapi-schema"), name="openapi-redoc-ui"),
+    path(
+        "api/v1.0/docs/redoc/",
+        AuthenticatedSpectacularRedocView.as_view(url_name="openapi-schema"),
+        name="openapi-redoc-ui",
+    ),
     path("api/v1.0/docs/", include("docs.urls")),
     path("admin/", admin.site.urls),
     path("dasadmin/", dasadmin_site.urls),
