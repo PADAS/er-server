@@ -58,7 +58,6 @@ INSTALLED_APPS = (
     "oauth2_provider",
     "rest_framework",
     "rest_framework_gis",
-    # "rest_framework_swagger",
     "drf_spectacular",
     "drf_spectacular_sidecar",
     "observations.apps.ObservationsConfig",
@@ -288,28 +287,26 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": ("Welcome to the <b>EarthRanger API</b>! </br>"),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
-    "SWAGGER_UI_DIST": "SIDECAR",  # shorthand to use the sidecar instead
+    "SWAGGER_UI_DIST": "SIDECAR",
     "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
     "REDOC_DIST": "SIDECAR",
     "COMPONENT_SPLIT_REQUEST": True,
     "GENERIC_ADDITIONAL_PROPERTIES": "bool",
-}
-
-SWAGGER_SETTINGS = {
-    "api_version": "v1.0",
-    "api_path": "/",
-    "enabled_methods": ["get", "post", "put", "patch", "delete"],
-    "doc_expansion": "None",
-    "exclude_namespaces": [],
-    # 'is_authenticated': True,
-    # 'is_superuser': True,
-    "info": {
-        "contact": "guest@test.com",
-        "description": "EarthRanger Server",
-        "license": "",
-        "licenseUrl": "",
-        "termsOfServiceUrl": "",
-        "title": "EarthRanger Server API",
+    "SERVE_AUTHENTICATION": [
+        "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "SERVE_PERMISSIONS": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "OAUTH2_FLOWS": {
+        "password": {
+            "tokenUrl": "/oauth2/token/",
+            "scopes": {
+                "read": "Read access",
+                "write": "Write access",
+            },
+        }
     },
 }
 

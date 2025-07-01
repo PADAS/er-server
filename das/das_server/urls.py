@@ -15,11 +15,7 @@ Including another URLconf
 """
 
 import oauth2_provider.views as oauth2_views
-from drf_spectacular.views import (
-    SpectacularAPIView,
-    SpectacularRedocView,
-    SpectacularSwaggerView,
-)
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
 
 import django.contrib.staticfiles.views
 from django.conf import settings
@@ -29,6 +25,7 @@ from django.urls import path, re_path
 
 from das_server import views
 from das_server.admin import dasadmin_site
+from das_server.spectacular_views import AuthenticatedSpectacularSwaggerView
 
 admin.autodiscover()
 admin.site.enable_nav_sidebar = False
@@ -47,14 +44,10 @@ urlpatterns = [
     path("api/v1.0/api-schema/", SpectacularAPIView.as_view(), name="openapi-schema"),
     path(
         "api/v1.0/docs/interactive/",
-        SpectacularSwaggerView.as_view(url_name="openapi-schema"),
+        AuthenticatedSpectacularSwaggerView.as_view(url_name="openapi-schema"),
         name="openapi-swagger-ui",
     ),
-    path(
-        "api/v1.0/docs/interactive-redoc/",
-        SpectacularRedocView.as_view(url_name="openapi-schema"),
-        name="openapi-redoc",
-    ),
+    path("api/v1.0/docs/redoc/", SpectacularRedocView.as_view(url_name="openapi-schema"), name="openapi-redoc-ui"),
     path("api/v1.0/docs/", include("docs.urls")),
     path("admin/", admin.site.urls),
     path("dasadmin/", dasadmin_site.urls),
@@ -78,11 +71,7 @@ if settings.ENABLE_SILK:
     urlpatterns += [path("silk/", include("silk.urls", namespace="silk"))]
 if settings.DEV:
     urlpatterns += [
-        re_path(
-            r"^(?:index.html)?$",
-            django.contrib.staticfiles.views.serve,
-            kwargs={"path": "index.html"},
-        ),
+        re_path(r"^(?:index.html)?$", django.contrib.staticfiles.views.serve, kwargs={"path": "index.html"}),
         re_path(r"^(?P<path>.*)$", django.contrib.staticfiles.views.serve),
     ]
 
