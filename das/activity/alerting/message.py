@@ -176,18 +176,19 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
         increment_alert_counter(notification_method.owner, NOTIFICATION_METHOD_WHATSAPP)
 
     else:
-        logger.error(
+        logger.warning(
             f"Unsupported NotifcationMethod ({notification_method.method})"
-            f" when processing event:{event_id} for notification: {notification_method.id}"
+            f" when processing event:{event_id} for notification: {notification_method.id}. site {get_tenant_settings().domain()}"
         )
 
 
 def get_valid_phone_number(notification_method):
     if not (phone_number := notification_method.phone_number):
-        logger.error(
-            "Phone number is missing or invalid %s, notification id %s",
+        logger.warning(
+            "Phone number is missing or invalid %s, notification id %s, site %s",
             notification_method.value,
             notification_method.id,
+            get_ui_site_name(get_tenant_settings()),
         )
         return None
     return phone_number

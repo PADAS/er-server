@@ -10,7 +10,7 @@ from shapely.ops import unary_union
 from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
-from django.contrib.gis.geos import Point
+from django.contrib.gis.geos import GEOSException, Point
 from django.db import transaction
 from django.utils import dateparse
 from django.utils.translation import gettext_lazy as _
@@ -20,6 +20,7 @@ from mapping.models import SpatialFeatureGroupStatic
 from observations.models import Source
 from tracking.models.plugin_base import (
     DasFireEventTarget,
+    DasPluginConfigurationError,
     Obs,
     SourcePlugin,
     TrackingPlugin,
@@ -341,11 +342,16 @@ class FirmsPlugin(TrackingPlugin):
             try:
                 self._geo_filter = self.union_geofilterfeatures(geometries)
             except Exception as ex:
-                logger.info(f"failed to use union_geofilterfeatures: {ex}")
-                polyunion = geometries[0]
-                for geom in geometries[1:]:
-                    polyunion = polyunion.union(geom)
-                self._geo_filter = polyunion
+                logger.info("failed to use union_geofilterfeatures: %s, trying polyunion", ex)
+                try:
+                    polyunion = geometries[0]
+                    for geom in geometries[1:]:
+                        polyunion = polyunion.union(geom)
+                    self._geo_filter = polyunion
+                except GEOSException as gex:
+                    raise DasPluginConfigurationError(
+                        f"Not able to compute firms boundary for {self.spatial_feature_group.name}. Error: {gex}"
+                    )
 
             logger.debug("Geometry union = %s", self._geo_filter)
         else:

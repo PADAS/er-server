@@ -261,7 +261,7 @@ def validate(event, schema=None, raise_exception=False):
     return False
 
 
-def extract_from_list(items: list = list, schema_item=None):
+def extract_from_list(items: list = list, schema_item=None, event=None):
     """
     return a 2-tuple of strings where the first holds IDs and the second holds
     corresponding human-friendly names.
@@ -283,13 +283,18 @@ def extract_from_list(items: list = list, schema_item=None):
                           }
                        }
                     }
+    :param event: (default to None) event object to get eventtype.value for logging
     :return: 2-tuple (str, str)
     """
     names = []
     ids = []
+    event_type_info = ""
+    if event and hasattr(event, "event_type"):
+        event_type_info = f" for event type '{event.event_type.value}'"
+
     for item in items:
         if item and isinstance(item, (str, bool, int, float)):
-            logger.warning(f"extract_from_list value is not a dict: {item} from {items}")
+            logger.warning(f"extract_from_list value is not a dict{event_type_info}: {item} from {items}")
             name = item
             if schema_item and isinstance(item, str):
                 name = schema_item.get("items", {}).get("enumNames", {}).get(item, item)
@@ -301,7 +306,7 @@ def extract_from_list(items: list = list, schema_item=None):
             names.append(item["name"])
             ids.append(item["value"])
         else:
-            logger.warning(f"extract_from_list cannot parse in value: {item} from {items}")
+            logger.warning(f"extract_from_list cannot parse in value{event_type_info}: {item} from {items}")
 
     return ";".join(ids), ";".join(names)
 
@@ -355,46 +360,52 @@ def is_uuid(record):
         return False
 
 
-def extract_from_definition(schema_item, definition, key, eventdetail_value, extracted_value, display):
+def extract_from_definition(schema_item, definition, key, eventdetail_value, extracted_value, display, event=None):
     for definition_item in flatten_definition_items(definition):
         if isinstance(definition_item, dict) and (
             schema_item.get("key") == definition_item.get("key") or key == definition_item.get("key")
         ):
             if definition_item.get("type") == "checkboxes":
-                extracted_value, display = handle_checkboxes_in_fieldsets(definition_item, eventdetail_value)
+                extracted_value, display = handle_checkboxes_in_fieldsets(
+                    definition_item, eventdetail_value, event=event
+                )
             return definition_item.get("title"), extracted_value, display
     title = schema_item.get("title") or key
     return title, extracted_value, display
 
 
-def extractor(schema_item, definition, key, eventdetail_value):
+def extractor(schema_item, definition, key, eventdetail_value, event=None):
     # Determine how the value should appear.
     if isinstance(eventdetail_value, list):
-        extracted_value, display = extract_from_list(eventdetail_value, schema_item)
+        extracted_value, display = extract_from_list(eventdetail_value, schema_item, event=event)
     else:
         extracted_value, display = extract_from_dict_or_string(schema_item, eventdetail_value)
 
     # The simplest case is when the json schema specifies the title.
     if "title" in schema_item:
         if extracted_value == display and all(is_uuid(data) for data in str(display).split(";")):
-            return extract_from_definition(schema_item, definition, key, eventdetail_value, extracted_value, display)
+            return extract_from_definition(
+                schema_item, definition, key, eventdetail_value, extracted_value, display, event=event
+            )
         return schema_item["title"], extracted_value, display
 
     if "key" not in schema_item:
         logger.warning(f"key not found in schema_item {schema_item}")
         return key, extracted_value, display
 
-    return extract_from_definition(schema_item, definition, key, eventdetail_value, extracted_value, display)
+    return extract_from_definition(
+        schema_item, definition, key, eventdetail_value, extracted_value, display, event=event
+    )
 
 
-def handle_checkboxes_in_fieldsets(definition_item, values):
+def handle_checkboxes_in_fieldsets(definition_item, values, event=None):
     names = []
     ids = []
     for map_item in definition_item.get("titleMap", []):
         val = map_item["value"]
         is_list_of_dicts = all([isinstance(i, dict) for i in values])
         if is_list_of_dicts:
-            return extract_from_list(values)
+            return extract_from_list(values, event=event)
 
         if isinstance(values, list) and val in values:
             ids.append(map_item["value"])
@@ -498,10 +509,10 @@ def property_keys_order_as_dict(schema):
     return OrderedDict()
 
 
-def detail_resolver(schema, key, value):
+def detail_resolver(schema, key, value, event=None):
     if key in schema["schema"]["properties"]:
         schema_item = schema["schema"]["properties"][key]
-        return extractor(schema_item, schema.get("definition", []), key, value)
+        return extractor(schema_item, schema.get("definition", []), key, value, event=event)
 
 
 def generate_details(event, schema):
@@ -519,7 +530,7 @@ def generate_details(event, schema):
     definition_order = dict(definition_keys(schema.get("definition", [])))
 
     for k, v in event_details.items():
-        resolved_details = detail_resolver(schema, k, v)
+        resolved_details = detail_resolver(schema, k, v, event=event)
         if resolved_details:
             value = resolved_details[1]
             yield {
@@ -529,10 +540,10 @@ def generate_details(event, schema):
             }
 
 
-def get_display_values_for_event_details(event_details, schema):
+def get_display_values_for_event_details(event_details, schema, event=None):
     ret = {}
     for k, v in event_details.items():
-        resolved_details = detail_resolver(schema, k, v)
+        resolved_details = detail_resolver(schema, k, v, event=event)
 
         logger.debug(f"Resolved details for {k} {v} = {resolved_details}")
         if resolved_details:
@@ -544,7 +555,7 @@ def get_display_values_for_event_details(event_details, schema):
 def get_details_and_display_values(event, schema):
     try:
         event_details = event.event_details.first().data.get("event_details", {})
-        return get_display_values_for_event_details(event_details, schema)
+        return get_display_values_for_event_details(event_details, schema, event=event)
     except AttributeError:
         return {}
 
@@ -556,7 +567,10 @@ def get_rendered_all(schema):
 
 
 def get_rendered_schema(schema):
-    return get_rendered_all(schema)["schema"]
+    rendered = get_rendered_all(schema)
+    if "schema" not in rendered:
+        raise SchemaValidationError("Schema is missing a 'schema' key")
+    return rendered["schema"]
 
 
 def get_all_fields_and_definitions(schema):

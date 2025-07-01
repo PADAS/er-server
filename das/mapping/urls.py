@@ -3,6 +3,7 @@ from django.urls import re_path
 from mapping.spatialviews import (
     SpatialFeatureGroupView,
     SpatialFeatureListView,
+    SpatialFeatureTypeListView,
     SpatialFeatureView,
 )
 from mapping.views import (
@@ -41,7 +42,16 @@ urlpatterns = (
         SpatialFeatureGroupView.as_view(),
         name="spatialfeaturegroup-view",
     ),
-    re_path(r"^spatialfeature/?$", SpatialFeatureListView.as_view(), name="spatialfeature-list"),
+    re_path(
+        r"^featureclass/?$",
+        SpatialFeatureTypeListView.as_view(),
+        name="spatialfeaturetype-list",
+    ),
+    re_path(
+        r"^spatialfeature/?$",
+        SpatialFeatureListView.as_view(),
+        name="spatialfeature-list",
+    ),
     re_path(
         rf"^spatialfeature/(?P<id>{regex.UUID})/?$",
         SpatialFeatureView.as_view(),

@@ -66,7 +66,6 @@ class SourcePluginForm(forms.ModelForm):
     def _decode_plugin_identifier(encvalue):
         matches = re.match(r"(\d+):::([\w\-]+)", encvalue).groups()
 
-        print(matches)
         plugin_type_id = matches[0]
         plugin_object_id = matches[1]
         return (plugin_type_id, plugin_object_id)

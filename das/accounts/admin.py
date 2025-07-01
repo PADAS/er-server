@@ -426,7 +426,7 @@ class AccessTokenAdmin(BaseModelAdminMixin):
     form = AccessGrantForm
     list_display = ("token", "user", "application", "_expires")
     ordering = ("token", "user", "application", "expires")
-    raw_id_fields = ("user",)
+    raw_id_fields = ("user", "source_refresh_token")
     search_fields = (
         "user__username",
         "token",

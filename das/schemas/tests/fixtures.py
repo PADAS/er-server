@@ -1,10 +1,13 @@
 from rest_framework.generics import ListAPIView
+from rest_framework.permissions import AllowAny
 
 from schemas.view_mixins import DynamicSchemaDataMixin, DynamicSchemaFromSourceView
 
 
 class MockSourceView(ListAPIView, DynamicSchemaDataMixin):
     """A mock source view to simulate returning data."""
+
+    permission_classes = (AllowAny,)
 
     def get_schema_queryset(self):
         raise NotImplementedError

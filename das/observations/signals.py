@@ -45,15 +45,16 @@ def observation_post_save(sender, instance, created, **kwargs):
     # Otherwise, queue a task to update the subjectstatus.
     if created and instance.recorded_at > last_week:
         SubjectStatus.objects.update_from_observation(observation=instance, created=created)
-    elif subjectsource := SubjectSource.objects.get_for_source_at_time(instance.source, instance.recorded_at):
-        transaction.on_commit(
-            lambda: maintain_subjectstatus_for_subject.apply_async(args=[str(subjectsource.subject.id)])
-        )
+    else:
+        for subjectsource in SubjectSource.objects.get_for_source_at_time(instance.source, instance.recorded_at):
+            transaction.on_commit(
+                lambda: maintain_subjectstatus_for_subject.apply_async(args=[str(subjectsource.subject.id)])
+            )
 
 
 @receiver(post_delete, sender=Observation)
 def observation_post_delete(sender, instance, **kwargs):
-    if subjectsource := SubjectSource.objects.get_for_source_at_time(instance.source, instance.recorded_at):
+    for subjectsource in SubjectSource.objects.get_for_source_at_time(instance.source, instance.recorded_at):
         transaction.on_commit(
             lambda: maintain_subjectstatus_for_subject.apply_async(args=[str(subjectsource.subject.id)])
         )

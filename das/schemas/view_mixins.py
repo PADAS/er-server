@@ -111,7 +111,7 @@ class DynamicSchemaFromSourceView(APIView):
 
     renderer_classes = (DirectJSONRenderer, DirectBrowsableAPIRenderer)
 
-    allowed_methods: List[str] = ("get",)
+    allowed_methods: List[str] = ("GET",)
 
     source_view: Type[APIView]  # The source view to get the data from
     source_view_initkwargs: dict  # Extra kwargs to pass to the source view
@@ -207,9 +207,17 @@ class DynamicSchemaFromSourceView(APIView):
         if hasattr(source_view, "get_schema_data"):
             source_view.request = request
             source_view.format_kwarg = source_view.get_format_suffix()
+            source_view.check_permissions(request)
             data = source_view.get_schema_data()
+
         else:
+
+            def handle_exception(exc):
+                raise exc
+
+            source_view.handle_exception = handle_exception
             response = source_view.dispatch(original_request)
+
             if hasattr(response, "render"):
                 response.render()
                 data = response.data
