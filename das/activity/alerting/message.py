@@ -414,12 +414,13 @@ def render_to_whatsapp_content(report_context):
     event = report_context["event"]
     alert = report_context["alert"]
     return {
-        "1": f'{event["serial_number"]["value"]}: {event["title"]["value"]}',
-        "2": event["priority"]["value"],
-        "3": event["state"]["value"],
-        "4": timezone.localtime(alert["time"]["value"]).strftime("%A %b %d, %Y %H:%M (%Z)"),
-        "5": location["value"] if not location.get("longitude") else f'{location["value"]} {location["href"]}',
-        "6": report_context["site_url"],
+        "1": f'{event["state"]["value"]} ({event["revision_action"]})',
+        "2": f'{event["serial_number"]["value"]}',
+        "3": f'{event["title"]["value"]}',
+        "4": event["priority"]["value"],
+        "5": timezone.localtime(alert["time"]["value"]).strftime("%A %b %d, %Y %H:%M (%Z)"),
+        "6": location["value"] if not location.get("longitude") else f'{location["value"]} {location["href"]}',
+        "7": report_context["site_url"],
     }
 
 
