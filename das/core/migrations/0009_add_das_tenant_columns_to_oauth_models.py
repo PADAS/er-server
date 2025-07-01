@@ -3,7 +3,7 @@
 import django_multitenant.fields
 
 import django.db.models.deletion
-from django.db import migrations
+from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
@@ -15,35 +15,35 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="dasaccesstoken",
             name="das_tenant",
-            field=django_multitenant.fields.TenantForeignKey(
+            field=models.ForeignKey(
                 blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="core.dastenant"
             ),
         ),
         migrations.AddField(
             model_name="dasapplication",
             name="das_tenant",
-            field=django_multitenant.fields.TenantForeignKey(
+            field=models.ForeignKey(
                 blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="core.dastenant"
             ),
         ),
         migrations.AddField(
             model_name="dasgrant",
             name="das_tenant",
-            field=django_multitenant.fields.TenantForeignKey(
+            field=models.ForeignKey(
                 blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="core.dastenant"
             ),
         ),
         migrations.AddField(
             model_name="dasidtoken",
             name="das_tenant",
-            field=django_multitenant.fields.TenantForeignKey(
+            field=models.ForeignKey(
                 blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="core.dastenant"
             ),
         ),
         migrations.AddField(
             model_name="dasrefreshtoken",
             name="das_tenant",
-            field=django_multitenant.fields.TenantForeignKey(
+            field=models.ForeignKey(
                 blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="core.dastenant"
             ),
         ),

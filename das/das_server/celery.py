@@ -243,8 +243,10 @@ def debug_task(self):
 @setup_logging.connect
 def das_server_logging(loglevel, **kwargs):
     from das_server.log import init_logging
+    from utils.tenant.log import add_log_filters
 
     init_logging()
+    add_log_filters()
 
 
 @task_prerun.connect

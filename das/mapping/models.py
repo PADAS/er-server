@@ -777,6 +777,8 @@ class SpatialFeatureTypeManager(TenantManagerMixin, models.Manager):
 
 
 class SpatialFeatureType(TenantModelMixin, TimestampedModel):
+    # Note: referred as "Feature Class" on external APIs.
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255)
     # JSON field for storing the json schema for each unique feature type

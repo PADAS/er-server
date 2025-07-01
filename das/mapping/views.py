@@ -52,7 +52,6 @@ class FeatureListJsonView(APIView):
         for feature in features:
             type_dict = dict(name=feature.feature_type.name, id=str(feature.feature_type.id))
 
-            print(f"\nHEX: {feature.id.hex}\n")
             response_data["features"].append(
                 {
                     "name": feature.name,
@@ -61,7 +60,7 @@ class FeatureListJsonView(APIView):
                     "geojson_url": reverse("mapping:mapping-feature-geojson", args=[feature.id.hex]),
                 }
             )
-        return HttpResponse(json.dumps(response_data), content_type="application/json")
+        return HttpResponse(json.dumps(response_data).encode("utf-8"), content_type="application/json")
 
 
 class FeatureGeoJsonView(APIView):
@@ -79,7 +78,7 @@ class FeatureGeoJsonView(APIView):
             properties={"name": "title", "default_presentation": "presentation"},
             geometry_field="feature_geometry",
         )
-        return HttpResponse(feature, content_type="application/json")
+        return HttpResponse(feature.encode("utf-8"), content_type="application/json")
 
 
 class FeatureSetListJsonView(APIView):
@@ -115,7 +114,7 @@ class FeatureSetListJsonView(APIView):
                     "geojson_url": reverse("mapping:mapping-featureset-geojson", args=[featureset.id.hex]),
                 }
             )
-        return HttpResponse(json.dumps(response_data), content_type="application/json")
+        return HttpResponse(json.dumps(response_data).encode("utf-8"), content_type="application/json")
 
 
 def calculate_featureset_etag(view_instance, view_method, request, args, kwargs):
@@ -144,15 +143,19 @@ class FeatureSetGeoJsonView(APIView):
     def get(self, request, **kwargs):
         featureset = get_object_or_404(DisplayCategory, id=kwargs["id"])
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
+
+        # Filter out null geometries instead of using expensive spatial intersection
         querysets = (
-            SpatialFeature.objects.filter(feature_type__display_category=featureset).filter(
-                feature_geometry__intersects=F("feature_geometry")
-            )
+            SpatialFeature.objects.filter(feature_type__display_category=featureset)
+            .exclude(feature_geometry__isnull=True)
+            .filter(feature_geometry__bboverlaps=F("feature_geometry"))
             if include_hidden
             else SpatialFeature.objects.filter(feature_type__display_category=featureset)
             .filter(feature_type__is_visible=True)
-            .filter(feature_geometry__intersects=F("feature_geometry"))
+            .filter(feature_geometry__bboverlaps=F("feature_geometry"))
+            .exclude(feature_geometry__isnull=True)
         )
+
         # So type-name can appear in geojson properties.
         querysets = (querysets.prefetch_related("feature_type").annotate(type_name=F("feature_type__name")),)
 
@@ -167,7 +170,7 @@ class FeatureSetGeoJsonView(APIView):
             geometry_field="feature_geometry",
         )
 
-        return HttpResponse(feature, content_type="application/json")
+        return HttpResponse(feature.encode("utf-8"), content_type="application/json")
 
     def post(self, request, format=None):
         pass
@@ -271,7 +274,8 @@ def grid(request, name, z, x, y, catalog=None):
     callback = request.GET.get("callback", None)
     try:
         mbtiles = MBTiles(name, catalog)
-        return HttpResponse(mbtiles.grid(z, x, y, callback), content_type="application/javascript; charset=utf8")
+        grid_content = mbtiles.grid(z, x, y, callback).encode("utf-8")
+        return HttpResponse(grid_content, content_type="application/javascript; charset=utf8")
     except MBTilesNotFoundError as e:
         logger.warning(e)
     except MissingTileError:
@@ -294,7 +298,7 @@ def tilejson(request, name, catalog=None):
         tilejson = json.dumps(tilejson)
         if callback:
             tilejson = "%s(%s);" % (callback, tilejson)
-        return HttpResponse(tilejson, content_type="application/javascript; charset=utf8")
+        return HttpResponse(tilejson.encode("utf-8"), content_type="application/javascript; charset=utf8")
     except MBTilesNotFoundError as e:
         logger.warning(e)
     raise Http404

@@ -458,7 +458,7 @@ class EventSerializerMixin:
         return Event.objects.get(id=new_event.id)
 
     def update(self, instance: Event, validated_data: dict) -> Event:
-        logger.info("Inside update: %s", validated_data)
+        logger.debug("Inside update: %s", validated_data)
         update_fields = []
 
         patrol_segments = validated_data.pop("patrol_segments", None)
@@ -902,7 +902,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
     def _get_event_relationship(self, event: Event, relationship_name: str) -> List[Dict]:
         if not hasattr(event, relationship_name):
-            logger.warning(
+            logger.debug(
                 f"Event {event.id} does not have the {relationship_name} attribute. "
                 f"Fetching related events using fallback mechanism."
             )
