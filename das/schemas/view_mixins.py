@@ -156,6 +156,8 @@ class DynamicSchemaFromSourceView(APIView):
         source_view_class = self.get_source_view(request)
         kwargs.update(self.get_source_view_initkwargs(request))
         source_view_instance = source_view_class(**kwargs)
+        source_view_instance.args = getattr(self, "args", ())
+        source_view_instance.kwargs = kwargs
 
         return source_view_instance
 
@@ -216,7 +218,7 @@ class DynamicSchemaFromSourceView(APIView):
                 raise exc
 
             source_view.handle_exception = handle_exception
-            response = source_view.dispatch(original_request)
+            response = source_view.dispatch(original_request, *source_view.args, **source_view.kwargs)
 
             if hasattr(response, "render"):
                 response.render()

@@ -318,6 +318,8 @@ class TestEventTypesV2:
         [
             "valid_nested_collection_schema.json",
             "valid_user_choices_schema.json",
+            "valid_collection_field_w_description.json",
+            "valid_event_type_v2_schema.json",
         ],
     )
     def test_post_event_type_with_valid_schema(self, superuser_client, cat1_cat2_categories, json_schema_fixture):
