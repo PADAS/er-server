@@ -261,6 +261,7 @@ class GearDeviceCreateSerializer(serializers.Serializer):
 
 class GearCreateSerializer(serializers.Serializer):
     set_id = serializers.CharField(max_length=255, required=False)
+    set_display_id = serializers.CharField(max_length=255, required=False)
     vessel_id = serializers.CharField(max_length=255, required=False)
     mfr_set_id = serializers.CharField(max_length=255, required=False)
     owner_id = serializers.CharField(max_length=255, required=True)
