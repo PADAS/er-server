@@ -10,7 +10,8 @@ async def _get_gundi_api_key(integration_id):
 
 async def _get_sensors_api_client(integration_id):
     gundi_api_key = await _get_gundi_api_key(integration_id=integration_id)
-    assert gundi_api_key, f"Cannot get a valid API Key for integration {integration_id}"
+    if not gundi_api_key:
+        raise ValueError(f"Cannot get a valid API Key for integration {integration_id}")
     sensors_api_client = GundiDataSenderClient(integration_api_key=gundi_api_key)
     return sensors_api_client
 
