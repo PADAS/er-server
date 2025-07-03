@@ -26,6 +26,7 @@ class SensorPostParameters(serializers.Serializer):
     additional = serializers.DictField(default=dict)
     source_additional = serializers.DictField(default=None)
     user_id = serializers.UUIDField(required=False)
+    exclusion_flags = serializers.IntegerField(required=False, default=0)
 
     def validate(self, data):
         user_id = data.get("user_id")

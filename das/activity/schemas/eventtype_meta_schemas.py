@@ -221,6 +221,9 @@ collection_field_schema = {
     "type": "object",
     "title": "Collection field schema for EventType Builder",
     "properties": {
+        "type": {"type": "string", "const": "array"},
+        "title": {"type": "string"},
+        "description": {"type": "string"},
         "deprecated": {"type": "boolean"},
         "items": {
             "type": "object",
@@ -250,12 +253,9 @@ collection_field_schema = {
                 },
             },
         },
-        "title": {"type": "string"},
-        "type": {"type": "string", "const": "array"},
         "unevaluatedItems": {"type": "boolean", "const": False},
         "maxItems": {"type": "integer"},
         "minItems": {"type": "integer"},
-        "additionalProperties": False,
     },
     "$defs": {
         "textField": text_field_schema,

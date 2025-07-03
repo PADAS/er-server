@@ -508,6 +508,96 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         self.assertNotEqual(subject.updated_at, last_updated)
 
+    def test_apply_exclusion_flags_manual_exclusion(self):
+        """Test that manual exclusion flags from observation data are applied correctly."""
+        from sensors.handlers import GenericSensorHandler
+
+        observation_dict = {
+            "location": {"latitude": 1.0, "longitude": 1.0},
+            "recorded_at": "2023-01-01T00:00:00Z",
+            "source": "test_source",
+            "additional": {},
+        }
+        an_observation = {
+            "exclusion_flags": 1,
+            "location": {"lat": 1.0, "lon": 1.0},
+            "recorded_at": "2023-01-01T00:00:00Z",
+        }
+
+        result = GenericSensorHandler.apply_exclusion_flags(observation_dict, an_observation)
+
+        self.assertEqual(result.get("exclusion_flags"), 1)
+        self.assertEqual(result["location"], {"latitude": 1.0, "longitude": 1.0})
+
+    def test_apply_exclusion_flags_no_exclusion(self):
+        """Test that no exclusion flags are applied when none are provided."""
+        from sensors.handlers import GenericSensorHandler
+
+        observation_dict = {
+            "location": {"latitude": 1.0, "longitude": 1.0},
+            "recorded_at": "2023-01-01T00:00:00Z",
+            "source": "test_source",
+            "additional": {},
+        }
+        an_observation = {"location": {"lat": 1.0, "lon": 1.0}, "recorded_at": "2023-01-01T00:00:00Z"}
+
+        result = GenericSensorHandler.apply_exclusion_flags(observation_dict, an_observation)
+
+        self.assertNotIn("exclusion_flags", result)
+        self.assertEqual(result["location"], {"latitude": 1.0, "longitude": 1.0})
+
+    def test_apply_exclusion_flags_zero_exclusion(self):
+        """Test that zero exclusion flags are not applied."""
+        from sensors.handlers import GenericSensorHandler
+
+        observation_dict = {
+            "location": {"latitude": 1.0, "longitude": 1.0},
+            "recorded_at": "2023-01-01T00:00:00Z",
+            "source": "test_source",
+            "additional": {},
+        }
+        an_observation = {
+            "exclusion_flags": 0,
+            "location": {"lat": 1.0, "lon": 1.0},
+            "recorded_at": "2023-01-01T00:00:00Z",
+        }
+
+        result = GenericSensorHandler.apply_exclusion_flags(observation_dict, an_observation)
+
+        assert "exclusion_flags" not in result
+        assert result["location"] == {"latitude": 1.0, "longitude": 1.0}
+
+    def test_should_exclude_automatically_default_behavior(self):
+        """Test that the default should_exclude_automatically method returns False."""
+        from sensors.handlers import GenericSensorHandler
+
+        location = None
+        additional = {}
+
+        result = GenericSensorHandler.should_exclude_automatically(location, additional)
+
+        assert result is False
+
+    def test_apply_exclusion_flags_with_optional_params(self):
+        """Test that apply_exclusion_flags works with optional location and additional parameters."""
+        from sensors.handlers import GenericSensorHandler
+
+        observation_dict = {
+            "location": {"latitude": 1.0, "longitude": 1.0},
+            "recorded_at": "2023-01-01T00:00:00Z",
+            "source": "test_source",
+            "additional": {},
+        }
+        an_observation = {"location": {"lat": 1.0, "lon": 1.0}, "recorded_at": "2023-01-01T00:00:00Z"}
+
+        # Test with None optional parameters
+        result = GenericSensorHandler.apply_exclusion_flags(observation_dict, an_observation, None, None)
+        assert "exclusion_flags" not in result
+
+        # Test with empty optional parameters
+        result = GenericSensorHandler.apply_exclusion_flags(observation_dict, an_observation, {}, {})
+        assert "exclusion_flags" not in result
+
     @mock.patch("utils.tenant.thread._get_local_thread")
     def test_request_with_varying_provider_key_lengths(self, get_main_thread):
         get_main_thread.return_value = self.thread
@@ -543,3 +633,177 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = GenericSensorHandlerView.as_view()(request, sensor_type=self.sensor_type, provider_key=provider)
         return response
+
+    def test_apply_exclusion_flags_stationary_subject_zero_location(self):
+        """Test that observations with (0,0) location are NOT excluded for stationary subjects."""
+        from observations.models import Subject, SubjectSubType, SubjectType
+        from sensors.handlers import GenericSensorHandler
+
+        # Create a stationary subject
+        subject_type, _ = SubjectType.objects.get_or_create(
+            value="stationary-object", defaults=dict(display="Stationary Object")
+        )
+        subject_subtype, _ = SubjectSubType.objects.get_or_create(
+            value="camera_trap", defaults=dict(display="Camera Trap", subject_type=subject_type)
+        )
+        subject, _ = Subject.objects.get_or_create(
+            name="Test Stationary Subject", defaults=dict(subject_subtype=subject_subtype)
+        )
+
+        observation_dict = {
+            "location": {"latitude": 0.0, "longitude": 0.0},
+            "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "source": "test_source",
+            "additional": {},
+        }
+        an_observation = {
+            "location": {"lat": 0.0, "lon": 0.0},
+            "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+
+        result = GenericSensorHandler.apply_exclusion_flags(
+            observation_dict,
+            an_observation,
+            location={"latitude": 0.0, "longitude": 0.0},
+            additional={},
+            subject=subject,
+        )
+
+        # Should NOT be excluded for stationary subjects
+        assert "exclusion_flags" not in result
+
+    def test_apply_exclusion_flags_non_stationary_subject_zero_location(self):
+        """Test that observations with (0,0) location ARE excluded for non-stationary subjects."""
+        from observations.models import Subject, SubjectSubType, SubjectType
+        from sensors.handlers import GenericSensorHandler
+
+        # Create a non-stationary subject
+        subject_type, _ = SubjectType.objects.get_or_create(
+            value="mobile-object", defaults=dict(display="Mobile Object")
+        )
+        subject_subtype, _ = SubjectSubType.objects.get_or_create(
+            value="ranger", defaults=dict(display="Ranger", subject_type=subject_type)
+        )
+        subject, _ = Subject.objects.get_or_create(
+            name="Test Mobile Subject", defaults=dict(subject_subtype=subject_subtype)
+        )
+
+        observation_dict = {
+            "location": {"latitude": 0.0, "longitude": 0.0},
+            "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "source": "test_source",
+            "additional": {},
+        }
+        an_observation = {
+            "location": {"lat": 0.0, "lon": 0.0},
+            "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+
+        result = GenericSensorHandler.apply_exclusion_flags(
+            observation_dict,
+            an_observation,
+            location={"latitude": 0.0, "longitude": 0.0},
+            additional={},
+            subject=subject,
+        )
+
+        # Should be excluded for non-stationary subjects
+        assert "exclusion_flags" in result
+        assert result["exclusion_flags"] == 2  # EXCLUDED_AUTOMATICALLY
+
+    def test_apply_exclusion_flags_no_subject_zero_location(self):
+        """Test that observations with (0,0) location are excluded when no subject is provided."""
+        from sensors.handlers import GenericSensorHandler
+
+        observation_dict = {
+            "location": {"latitude": 0.0, "longitude": 0.0},
+            "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "source": "test_source",
+            "additional": {},
+        }
+        an_observation = {
+            "location": {"lat": 0.0, "lon": 0.0},
+            "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+
+        result = GenericSensorHandler.apply_exclusion_flags(
+            observation_dict, an_observation, location={"latitude": 0.0, "longitude": 0.0}, additional={}, subject=None
+        )
+
+        # Should be excluded when no subject is provided (default behavior)
+        assert "exclusion_flags" in result
+        assert result["exclusion_flags"] == 2  # EXCLUDED_AUTOMATICALLY
+
+    def test_apply_exclusion_flags_future_timestamp(self):
+        """Test that observations with future timestamps are automatically excluded."""
+        from sensors.handlers import GenericSensorHandler
+
+        # Create a future timestamp (1 hour from now)
+        future_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+        future_timestamp = future_time.isoformat()
+
+        observation_dict = {
+            "location": {"latitude": 1.0, "longitude": 1.0},
+            "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "source": "test_source",
+            "additional": {},
+        }
+        an_observation = {"location": {"lat": 1.0, "lon": 1.0}, "recorded_at": future_timestamp}
+
+        result = GenericSensorHandler.apply_exclusion_flags(
+            observation_dict, an_observation, location={"latitude": 1.0, "longitude": 1.0}, additional={}, subject=None
+        )
+
+        # Should be excluded for future timestamps
+        assert "exclusion_flags" in result
+        assert result["exclusion_flags"] == 2  # EXCLUDED_AUTOMATICALLY
+
+    def test_apply_exclusion_flags_past_timestamp(self):
+        """Test that observations with past timestamps are NOT automatically excluded."""
+        from sensors.handlers import GenericSensorHandler
+
+        # Create a past timestamp (1 hour ago)
+        past_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1)
+        past_timestamp = past_time.isoformat()
+
+        observation_dict = {
+            "location": {"latitude": 1.0, "longitude": 1.0},
+            "recorded_at": past_timestamp,
+            "source": "test_source",
+            "additional": {},
+        }
+        an_observation = {"location": {"lat": 1.0, "lon": 1.0}, "recorded_at": past_timestamp}
+
+        result = GenericSensorHandler.apply_exclusion_flags(
+            observation_dict=observation_dict,
+            an_observation=an_observation,
+            location={"latitude": -1.2921, "longitude": 36.8219},
+            additional={},
+            subject=None,
+        )
+
+        # Should NOT be excluded for past timestamps
+        assert "exclusion_flags" not in result
+
+    def test_apply_exclusion_flags_invalid_timestamp(self):
+        """Test that observations with invalid timestamps are NOT automatically excluded."""
+        from sensors.handlers import GenericSensorHandler
+
+        observation_dict = {
+            "location": {"latitude": 1.0, "longitude": 1.0},
+            "recorded_at": "invalid-timestamp",
+            "source": "test_source",
+            "additional": {},
+        }
+        an_observation = {"location": {"lat": 1.0, "lon": 1.0}, "recorded_at": "invalid-timestamp"}
+
+        result = GenericSensorHandler.apply_exclusion_flags(
+            observation_dict,
+            an_observation,
+            location={"latitude": -1.2921, "longitude": 36.8219},
+            additional={},
+            subject=None,
+        )
+
+        # Should NOT be excluded for invalid timestamps
+        assert "exclusion_flags" not in result

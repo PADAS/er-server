@@ -35,7 +35,7 @@ function run_test_suite_three() {
 
 function run_test_suite_four() {
   echo_b "Running test suite four...";
-  pytest --reuse-db --junitxml=/testresults/junit/result_suite_four.xml --maxfail=15 choices/tests das_server/tests observations/tests core/tests
+  pytest --reuse-db --junitxml=/testresults/junit/result_suite_four.xml --maxfail=15 choices/tests das_server/tests observations/tests core/tests schemas/tests
   review_results
 }
 

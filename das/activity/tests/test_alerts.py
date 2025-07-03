@@ -226,8 +226,8 @@ class TestAlerts(BaseAPITest):
             self.alert_rule, event, self.notification_method, event_updated_fields={}, event_details_updated_fields={}
         )
         whatsapp_content = render_to_whatsapp_content(report_context)
-        assert whatsapp_content["6"].endswith(f"/events/{event.id}")
-        assert "lnglat" not in whatsapp_content["6"]
+        assert whatsapp_content["7"].endswith(f"/events/{event.id}")
+        assert "lnglat" not in whatsapp_content["7"]
 
         event.location = Point(-103.313486, 20.420935)
         event.save()
@@ -235,7 +235,7 @@ class TestAlerts(BaseAPITest):
             self.alert_rule, event, self.notification_method, event_updated_fields={}, event_details_updated_fields={}
         )
         whatsapp_content = render_to_whatsapp_content(report_context)
-        assert "lnglat" in whatsapp_content["6"]
+        assert "lnglat" in whatsapp_content["7"]
 
     def test_only_sending_notifications_when_the_condition_value_changes(self):
         with self.settings(CELERY_TASK_ALWAYS_EAGER=True):

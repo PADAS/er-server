@@ -18,9 +18,18 @@
 #{{ id }}_map { width: {{ map_width }}px; height: {{ map_height }}px; }
 #{{ id }}_map .aligned label { float:inherit; }
 #{{ id }}_admin_map { position: relative; vertical-align: top; float: {{ LANGUAGE_BIDI|yesno:"right,left" }}; }
+.geometry-error {
+  color: #ba2121;
+  background-color: #fff0f0;
+  border: 1px solid #ba2121;
+  padding: 8px;
+  margin: 5px 0;
+  border-radius: 3px;
+  font-size: 12px;
+}
 </style>
 
-{% endblock %} 
+{% endblock %}
 <span id="{{ id }}_admin_map">
     <script type="text/javascript">
     if (!"{{module}}".includes("___prefix___")){
@@ -30,6 +39,19 @@
     </script>
 
   <div id="{{ id }}_map" {% if LANGUAGE_BIDI %} dir="ltr" {% endif %}></div>
+
+  <!-- Display geometry validation errors -->
+  {% if form.geometry.errors %}
+    <div class="geometry-error">
+      <strong>{% trans "Geometry Error:" %}</strong>
+      <ul>
+        {% for error in form.geometry.errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
   {% if display_wkt %}
   <p style="color: #777">
     {% trans "WKT debugging window:" %} (<span
