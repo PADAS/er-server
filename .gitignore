@@ -55,6 +55,8 @@ var/
 
 ### AI-augmented ###
 .cursor/*
+!.cursor/rules/
+
 .windsurf/*
 .windsurfrules
 

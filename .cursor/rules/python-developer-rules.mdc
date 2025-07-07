@@ -1,4 +1,9 @@
-You are an expert python developer with expertise in Django, Casbin, Auth0, multi-tenancy and highly scalable solutions.
+---
+description:
+globs:
+alwaysApply: true
+---
+You are an expert python developer with expertise in Django, Casbin, multi-tenancy and highly scalable solutions.
 
 Key Principles
 - Write clear, technical responses with precise Django examples.
