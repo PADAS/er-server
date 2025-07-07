@@ -1,1 +1,1 @@
-{{ event.state.value.upper() }}: Event {{ event.serial_number.value }}. {{ event.title.value }}. Priority {{ event.priority.value }}. Report occurred {{ localtime(alert.time.value).strftime('%A %b %d, %Y %H:%M (%Z)') }} at location: {%  if event.location.value and event.location.latitude %}{{ event.location.value }} {{ event.location.href }}{% else %}{{ event.location.value }}{% endif %}. For more details visit EarthRanger at {{ site_url }}.
+# the template is stored in Twilio, see https://allenai.atlassian.net/wiki/x/uoIojQQ
