@@ -962,7 +962,7 @@ class TestEventTypesV2:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings")
-class TestEventTypesV2SchemaRendreing:
+class TestEventTypesV2SchemaRendering:
     """
     Tests for the EventTypesViewSet schema endpoints:
     - /v2.0/activity/eventtypes/schemas/ (list of schemas)
