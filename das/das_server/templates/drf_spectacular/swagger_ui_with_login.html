@@ -1,0 +1,16 @@
+{% extends "drf_spectacular/swagger_ui.html" %}
+
+{% block body %}
+  <div class="swagger-ui">
+    {% if request.user.is_authenticated %}
+      <div class="authorization__btn" style="position: absolute;top: 1rem;right: 1rem;z-index: 1000;">
+        <a href="{% url 'rest_framework:logout' %}?next={{ request.path }}" class="btn" style="text-decoration: none;">Log out</a>
+      </div>
+    {% elif login_url %}
+      <div class="authorization__btn" style="position: absolute;top: 1rem;right: 1rem;z-index: 1000;">
+        <a href="{{ login_url }}" class="btn authorize" style="text-decoration: none;">Log in</a>
+      </div>
+    {% endif %}
+  </div>
+  {{ block.super }}
+{% endblock %}
