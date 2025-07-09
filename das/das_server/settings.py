@@ -292,14 +292,6 @@ SPECTACULAR_SETTINGS = {
     "REDOC_DIST": "SIDECAR",
     "COMPONENT_SPLIT_REQUEST": True,
     "GENERIC_ADDITIONAL_PROPERTIES": "bool",
-    # Documentation is public; users may optionally log in via the link.
-    # "SERVE_AUTHENTICATION": [
-    #     "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
-    #     "rest_framework.authentication.SessionAuthentication",
-    # ],
-    # "SERVE_PERMISSIONS": [
-    #     "rest_framework.permissions.IsAuthenticated",
-    # ],
     "OAUTH2_FLOWS": {
         "password": {
             "tokenUrl": "/oauth2/token/",
