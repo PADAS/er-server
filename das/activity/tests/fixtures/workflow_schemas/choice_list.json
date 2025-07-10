@@ -1,0 +1,60 @@
+{
+  "json": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "choice_list_of_choices": {
+        "deprecated": false,
+        "description": "",
+        "title": "choice list of choices",
+        "type": "string",
+        "anyOf": [
+          {
+            "$ref": "https://root.dev.pamdas.org/api/v2.0/schemas/choices.json?field=service_type"
+          }
+        ]
+      }
+    },
+    "required": [],
+    "type": "object"
+  },
+  "ui": {
+    "fields": {
+      "choice_list_of_choices": {
+        "choices": {
+          "eventTypeCategories": [],
+          "existingChoiceList": [
+            "service_type"
+          ],
+          "featureCategories": [],
+          "myDataType": "SUBJECTS_FROM_SUBJECT_GROUP",
+          "subjectGroups": [],
+          "subjectSubtypes": [],
+          "type": "EXISTING_CHOICE_LIST"
+        },
+        "inputType": "DROPDOWN",
+        "placeholder": "",
+        "type": "CHOICE_LIST",
+        "parent": "section-1"
+      }
+    },
+    "headers": {},
+    "order": [
+      "section-1"
+    ],
+    "sections": {
+      "section-1": {
+        "columns": 1,
+        "isActive": true,
+        "label": "",
+        "leftColumn": [
+          {
+            "name": "choice_list_of_choices",
+            "type": "field"
+          }
+        ],
+        "rightColumn": []
+      }
+    }
+  }
+}

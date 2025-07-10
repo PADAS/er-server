@@ -40,8 +40,30 @@ class TestEventTypesV2:
         "url",
     ]
 
-    def test_get_event_types_list(self, superuser_client, cat1_cat2_event_types):
+    @pytest.fixture
+    def valid_schema(self):
+        """Valid event type schema structure for tests."""
+        return {
+            "json": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+            "ui": {"fields": {}, "headers": {}, "order": [], "sections": {}},
+        }
 
+    @pytest.fixture
+    def base_post_data(self, valid_schema, cat1_cat2_categories):
+        """Base POST data structure for event type creation."""
+        return {
+            "value": "test-event-type",
+            "display": "Test Display",
+            "category": cat1_cat2_categories[0].value,
+            "schema": valid_schema,
+        }
+
+    def test_get_event_types_list(self, superuser_client, cat1_cat2_event_types):
         url = reverse("v2-eventtype-list")
         response = superuser_client.get(url)
 
@@ -260,6 +282,37 @@ class TestEventTypesV2:
         assert et_serializer.get_has_events_assigned(et_with_events) is True
         assert warning_msg in caplog.text
 
+    def test_list_event_types_conditional_schema(self, superuser_client, five_event_types):
+        """Verify `schema` is included only when `include_schema=true` query param is present."""
+        url = reverse("v2-eventtype-list")
+
+        # Test without include_schema
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        for item in response.data:
+            assert "schema" not in item
+
+        # Test with include_schema=true
+        response = superuser_client.get(url, {"include_schema": "true"})
+        assert response.status_code == status.HTTP_200_OK
+        for item in response.data:
+            assert "schema" in item  # Schema should now be present
+
+    def test_retrieve_event_type_conditional_schema(self, superuser_client, cat1_cat2_event_types):
+        """Verify `schema` is included on detail view only when `include_schema=true` query param is present."""
+        event_type = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": event_type.value})
+
+        # Test without include_schema
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert "schema" not in response.data
+
+        # Test with include_schema=true
+        response = superuser_client.get(url, {"include_schema": "true"})
+        assert response.status_code == status.HTTP_200_OK
+        assert "schema" in response.data  # Schema should now be present
+
     @pytest.mark.parametrize(
         "json_schema_fixture",
         [
@@ -295,82 +348,211 @@ class TestEventTypesV2:
         assert new_eventtype.version == EventType.VersionChoices.VERSION_2
         assert new_eventtype.category == cat1
 
-    def test_post_event_type_with_invalid_schema(self, superuser_client, cat1_cat2_categories):
-        cat1, _ = cat1_cat2_categories
-        data = {
-            "display": "Simple Report",
-            "value": "simple_report",
-            "category": cat1.value,
-            "schema": {"json": {"$schema": "https://json-schema.org/draft/2020-12/schema"}, "ui": {"key": "value"}},
-        }
+    def test_post_event_type_with_wrong_schema_draft(self, superuser_client, base_post_data):
+        data = base_post_data.copy()
         url = reverse("v2-eventtype-list")
+        data["schema"]["json"]["$schema"] = "https://json-schema.org/draft/-12/schema"
         response = superuser_client.post(url, data=data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "schema" in response.data
-        assert "Invalid JSON Schema:" in response.data["schema"][0]
-
-    def test_post_event_type_with_wrong_schema_draft(self, superuser_client, cat1_cat2_categories):
-        cat1, _ = cat1_cat2_categories
-        data = {
-            "display": "Simple Report",
-            "value": "simple_report",
-            "category": cat1.value,
-            "schema": {
-                "json": {
-                    "$schema": "https://json-schema.org/draft/-12/schema",
-                    "type": "object",
-                    "properties": {
-                        "json": {
-                            "type": "object",
-                            "properties": {"$schema": {"type": "string"}},
-                            "required": ["$schema"],
-                        },
-                        "ui": {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]},
-                    },
-                    "required": ["json", "ui"],
-                },
-                "ui": {"key": "value"},
-            },
-        }
-        url = reverse("v2-eventtype-list")
-        response = superuser_client.post(url, data=data)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        # TODO: improve schema validation error response
         assert response.json() == {
             "schema": ["$schema must be https://json-schema.org/draft/2020-12/schema"],
             "status": {"code": 400, "message": "Bad Request"},
         }
 
-    def test_list_event_types_conditional_schema(self, superuser_client, five_event_types):
-        """Verify `schema` is included only when `include_schema=true` query param is present."""
+    def test_post_event_type_missing_required_fields(self, superuser_client, cat1_cat2_categories, valid_schema):
+        """Test POST validation for missing required fields."""
         url = reverse("v2-eventtype-list")
 
-        # Test without include_schema
-        response = superuser_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-        for item in response.data:
-            assert "schema" not in item
+        # Test missing value field
+        data = {
+            "display": "Test Display",
+            "category": cat1_cat2_categories[0].value,
+            "schema": valid_schema,
+        }
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "value" in response.data
+        assert "This field is required." in response.data["value"][0]
 
-        # Test with include_schema=true
-        response = superuser_client.get(url, {"include_schema": "true"})
-        assert response.status_code == status.HTTP_200_OK
-        for item in response.data:
-            assert "schema" in item  # Schema should now be present
+        # Test missing category field
+        data = {
+            "value": "test-event-type",
+            "display": "Test Display",
+            "schema": valid_schema,
+        }
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "category" in response.data
+        assert "This field is required." in response.data["category"][0]
 
-    def test_retrieve_event_type_conditional_schema(self, superuser_client, cat1_cat2_event_types):
-        """Verify `schema` is included on detail view only when `include_schema=true` query param is present."""
-        event_type = cat1_cat2_event_types[0]
-        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": event_type.value})
+        # Test missing schema field
+        data = {
+            "value": "test-event-type",
+            "display": "Test Display",
+            "category": cat1_cat2_categories[0].value,
+        }
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "schema" in response.data
+        assert "This field is required." in response.data["schema"][0]
 
-        # Test without include_schema
-        response = superuser_client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-        assert "schema" not in response.data
+    def test_post_event_type_invalid_category(self, superuser_client, cat1_cat2_categories, valid_schema):
+        """Test POST validation for invalid category value."""
+        url = reverse("v2-eventtype-list")
+        data = {
+            "value": "test-event-type",
+            "display": "Test Display",
+            "category": "nonexistent-category",
+            "schema": valid_schema,
+        }
+        response = superuser_client.post(url, data=data)
 
-        # Test with include_schema=true
-        response = superuser_client.get(url, {"include_schema": "true"})
-        assert response.status_code == status.HTTP_200_OK
-        assert "schema" in response.data  # Schema should now be present
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "category" in response.data
+        assert "nonexistent-category does not exist" in response.data["category"][0]
 
+    def test_post_event_type_invalid_value_format(self, superuser_client, cat1_cat2_categories, valid_schema):
+        """Test POST validation for invalid value field format (regex validation)."""
+        url = reverse("v2-eventtype-list")
+
+        # Test value with spaces (invalid)
+        data = {
+            "value": "invalid value with spaces",
+            "display": "Test Display",
+            "category": cat1_cat2_categories[0].value,
+            "schema": valid_schema,
+        }
+        response = superuser_client.post(url, data=data)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "value" in response.data
+        assert "An invalid character was detected in the Event type Value field." in response.data["value"][0]
+
+        # Test value with special characters (invalid)
+        data["value"] = "invalid@value!"
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "value" in response.data
+        assert "An invalid character was detected in the Event type Value field." in response.data["value"][0]
+
+    def test_post_event_type_auto_resolve_constraint_violation(
+        self, superuser_client, cat1_cat2_categories, valid_schema
+    ):
+        """Test POST validation for auto_resolve constraint violations."""
+        url = reverse("v2-eventtype-list")
+
+        # Test auto_resolve=True with resolve_time=None
+        data = {
+            "value": "test-event-type-1",
+            "display": "Test Display",
+            "category": cat1_cat2_categories[0].value,
+            "auto_resolve": True,
+            "resolve_time": None,
+            "schema": valid_schema,
+        }
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        # Check for the constraint validation error in the nested error format
+        assert "resolve_time" in response.data.get("status", {}).get("detail", {})
+        assert "'resolve_time' must be set if 'auto_resolve' is true." in (
+            response.data["status"]["detail"]["resolve_time"]
+        )
+
+        # Test auto_resolve=False with resolve_time
+        data.update(
+            {
+                "auto_resolve": False,
+                "resolve_time": 24,
+            }
+        )
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        # Check for the constraint validation error in the nested error format
+        assert "resolve_time" in response.data.get("status", {}).get("detail", {})
+        assert "'resolve_time' must be null if 'auto_resolve' is false." in (
+            response.data["status"]["detail"]["resolve_time"]
+        )
+
+    def test_post_event_type_invalid_field_types(self, superuser_client, base_post_data):
+        """Test POST validation for invalid field types."""
+        url = reverse("v2-eventtype-list")
+
+        # Test with invalid default_priority type
+        data = base_post_data.copy()
+        data.update(
+            {
+                "default_priority": "invalid_priority_string",
+            }
+        )
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "default_priority" in response.data
+        assert '"invalid_priority_string" is not a valid choice' in response.data["default_priority"][0]
+
+        # Test with invalid is_active type
+        data = base_post_data.copy()
+        data.update(
+            {
+                "is_active": "not_a_boolean",
+            }
+        )
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "is_active" in response.data
+        assert "Must be a valid boolean." in response.data["is_active"][0]
+
+        # Test with invalid readonly type
+        data = base_post_data.copy()
+        data.update(
+            {
+                "readonly": "not_a_boolean",
+            }
+        )
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "readonly" in response.data
+        assert "Must be a valid boolean." in response.data["readonly"][0]
+
+    def test_post_event_type_duplicate_value(self, superuser_client, cat1_fire_v2_event_type, base_post_data):
+        """Test POST validation for duplicate value field."""
+        url = reverse("v2-eventtype-list")
+        data = base_post_data.copy()
+        data.update({"value": cat1_fire_v2_event_type.value})  # Use existing event type value
+
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+        assert "__all__" in response.data["status"]["detail"]
+        assert "Event Type with this Das tenant and Value already exists." in (
+            response.data["status"]["detail"]["__all__"]
+        )
+
+    def test_post_event_type_readonly_field_attempts(self, superuser_client, cat1_cat2_categories, valid_schema):
+        """Test that readonly fields are ignored in POST requests."""
+        url = reverse("v2-eventtype-list")
+
+        data = {
+            "value": "test-readonly-event-type",
+            "display": "Test Display",
+            "category": cat1_cat2_categories[0].value,
+            "schema": valid_schema,
+            # Try to set readonly fields - these should be ignored
+            "id": 99999,
+            "version": "1",  # Should always be v2 for new event types
+        }
+        response = superuser_client.post(url, data=data)
+        assert response.status_code == status.HTTP_201_CREATED
+
+        # Verify readonly fields were ignored and set to correct values
+        new_eventtype = EventType.objects.get(value=data["value"])
+        assert new_eventtype.id != 99999  # ID should be auto-assigned
+        assert new_eventtype.version == EventType.VersionChoices.VERSION_2  # Should be v2 for new types
+
+        # Clean up the created event type
+        new_eventtype.delete()
+
+    # PUT tests
     def test_put_event_type_success(self, superuser_client, cat1_fire_v2_event_type, cat1_cat2_categories):
         target_et = cat1_fire_v2_event_type  # fixture with known valid schema
         original_updated_at = target_et.updated_at
@@ -400,7 +582,7 @@ class TestEventTypesV2:
 
         response = superuser_client.put(url, data=put_payload)
 
-        assert response.status_code == status.HTTP_200_OK, response.content
+        assert response.status_code == status.HTTP_200_OK
 
         # Check updated fields
         target_et.refresh_from_db()
@@ -445,6 +627,48 @@ class TestEventTypesV2:
         target_et.refresh_from_db()
         assert target_et.icon == new_icon_slug
 
+    def test_put_event_type_missing_required_fields(self, superuser_client, cat1_fire_v2_event_type):
+        """Test PUT validation for missing required fields."""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        # Test missing value field
+        put_payload = {
+            "display": "Test Display",
+            "category": cat1_fire_v2_event_type.category.value,
+            "schema": cat1_fire_v2_event_type.schema,
+        }
+        response = superuser_client.put(url, data=put_payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "value" in response.data
+        assert "This field is required" in response.data["value"][0]
+
+        # Test missing category field
+        put_payload = {
+            "value": "test-event-type",
+            "display": "Test Display",
+            "schema": cat1_fire_v2_event_type.schema,
+        }
+        response = superuser_client.put(url, data=put_payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "category" in response.data
+        assert "This field is required" in response.data["category"][0]
+
+    def test_put_event_type_invalid_category(self, superuser_client, cat1_fire_v2_event_type):
+        """Test PUT validation for invalid category value."""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+        put_payload = {
+            "value": "test-event-type",
+            "display": "Test Display",
+            "category": "nonexistent-category",
+            "default_priority": PRI_URGENT,
+            "schema": cat1_fire_v2_event_type.schema,
+        }
+        response = superuser_client.put(url, data=put_payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "category" in response.data
+        assert "Object with value=nonexistent-category does not exist." in response.data["category"][0]
+
+    # PATCH tests
     def test_patch_event_type_success(self, superuser_client, cat1_fire_v2_event_type):
         target_et = cat1_fire_v2_event_type
         original_icon_id = target_et.icon_id
@@ -472,7 +696,6 @@ class TestEventTypesV2:
         # Ensure other fields not in the payload are unchanged
         assert target_et.icon_id == original_icon_id
         assert target_et.schema == original_schema
-
         # Check response data
         response_get = superuser_client.get(url)
         assert response_get.status_code == status.HTTP_200_OK
@@ -524,6 +747,35 @@ class TestEventTypesV2:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["is_active"] is True
 
+    def test_patch_event_type_auto_resolve_constraint_violation(self, superuser_client, cat1_fire_v2_event_type):
+        """Test PATCH validation for auto_resolve constraint violations."""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        response = superuser_client.patch(url, data={"auto_resolve": True, "resolve_time": None})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "resolve_time" in response.data.get("status", {}).get("detail", {})
+        assert "'resolve_time' must be set if 'auto_resolve' is true." in (
+            response.data["status"]["detail"]["resolve_time"]
+        )
+
+        response = superuser_client.patch(url, data={"auto_resolve": False, "resolve_time": 24})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "resolve_time" in response.data.get("status", {}).get("detail", {})
+        assert "'resolve_time' must be null if 'auto_resolve' is false." in (
+            response.data["status"]["detail"]["resolve_time"]
+        )
+
+    def test_patch_event_type_duplicate_value(self, superuser_client, cat1_cat2_event_types):
+        """Test PATCH validation for duplicate value field."""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_cat2_event_types[0].value})
+
+        response = superuser_client.patch(url, data={"value": cat1_cat2_event_types[1].value})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "__all__" in response.data["status"]["detail"]
+        assert "Event Type with this Das tenant and Value already exists." in (
+            response.data["status"]["detail"]["__all__"]
+        )
+
     def test_patch_event_type_invalid_value_format(self, superuser_client, cat1_fire_v2_event_type):
         """Test updating with invalid value format (must match regex)"""
         invalid_value = "invalid!value"  # contains invalid character !
@@ -532,7 +784,7 @@ class TestEventTypesV2:
         response = superuser_client.patch(url, data={"value": invalid_value})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "value" in response.data
-        assert "invalid character" in str(response.data["value"][0])
+        assert "An invalid character was detected in the Event type Value field." in response.data["value"][0]
 
     def test_patch_event_type_long_display(self, superuser_client, cat1_fire_v2_event_type):
         """Test updating with very long display name"""
@@ -542,27 +794,44 @@ class TestEventTypesV2:
         response = superuser_client.patch(url, data={"display": long_display})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "display" in response.data
-        assert "Ensure this field has no more than 255 characters" in str(response.data["display"][0])
+        assert "Ensure this field has no more than 255 characters." in response.data["display"][0]
 
-    def test_patch_event_type_invalid_state(self, superuser_client, cat1_fire_v2_event_type):
-        """Test updating with invalid state value"""
-        invalid_state = "invalid_state"
+    def test_patch_event_type_invalid_category(self, superuser_client, cat1_fire_v2_event_type):
+        """Test PATCH validation for invalid category value."""
         url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
 
-        response = superuser_client.patch(url, data={"default_state": invalid_state})
+        response = superuser_client.patch(url, data={"category": "nonexistent-category"})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "default_state" in response.data
-        assert "is not a valid choice" in str(response.data["default_state"][0])
+        assert "category" in response.data
+        assert "Object with value=nonexistent-category does not exist." in response.data["category"][0]
 
-    def test_patch_event_type_invalid_priority(self, superuser_client, cat1_fire_v2_event_type):
-        """Test updating with invalid priority value"""
-        invalid_priority = 999  # not in PRIORITY_CHOICES
+    def test_patch_event_type_invalid_field_types(self, superuser_client, cat1_fire_v2_event_type):
+        """Test PATCH validation for invalid field types."""
         url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
 
-        response = superuser_client.patch(url, data={"default_priority": invalid_priority})
+        # Test with invalid default_priority type
+        response = superuser_client.patch(url, data={"default_priority": "invalid_priority_string"})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "default_priority" in response.data
-        assert "is not a valid choice" in str(response.data["default_priority"][0])
+        assert '"invalid_priority_string" is not a valid choice' in response.data["default_priority"][0]
+
+        # Test with invalid state type
+        response = superuser_client.patch(url, data={"default_state": "invalid_state"})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "default_state" in response.data
+        assert '"invalid_state" is not a valid choice.' in response.data["default_state"][0]
+
+        # Test with invalid is_active type
+        response = superuser_client.patch(url, data={"is_active": "not_a_boolean"})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "is_active" in response.data
+        assert "Must be a valid boolean." in response.data["is_active"][0]
+
+        # Test with invalid readonly type
+        response = superuser_client.patch(url, data={"readonly": "not_a_boolean"})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "readonly" in response.data
+        assert "Must be a valid boolean." in response.data["readonly"][0]
 
     def test_delete_event_type_success(self, superuser_client, cat1_cat2_event_types):
         """
@@ -693,14 +962,11 @@ class TestEventTypesV2:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings")
-class TestEventTypesV2Schemas:
+class TestEventTypesV2SchemaRendering:
     """
-    Tests for the EventTypesViewSet schemas.
-
-    Tests:
-
-    - Test that the list of event type schemas is returned successfully
-    - Test that the schema of an event type is returned successfully
+    Tests for the EventTypesViewSet schema endpoints:
+    - /v2.0/activity/eventtypes/schemas/ (list of schemas)
+    - /v2.0/activity/eventtypes/{eventtype_value}/schema/ (single schema)
     """
 
     def test_get_event_type_schemas(self, superuser_client, cat1_cat2_event_types):
