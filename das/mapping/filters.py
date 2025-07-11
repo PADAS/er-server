@@ -18,7 +18,12 @@ class SpatialFeatureFilterSet(filters.FilterSet):
         widget=CSVWidget(),
         label="Feature Set (Display Category)",
     )
+    external_source = filters.CharFilter(
+        field_name="external_source",
+        lookup_expr="iexact",
+        label="External Source",
+    )
 
     class Meta:
         model = SpatialFeature
-        fields = ["feature_class", "feature_set"]
+        fields = ["feature_class", "feature_set", "external_source"]

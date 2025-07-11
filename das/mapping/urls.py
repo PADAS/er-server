@@ -14,6 +14,7 @@ from mapping.views import (
     LayerJsonView,
     LayerListJsonView,
     MapListJsonView,
+    SpatialFeatureTileView,
 )
 from utils.constants import regex
 
@@ -57,4 +58,6 @@ urlpatterns = (
         SpatialFeatureView.as_view(),
         name="spatialfeature-detail",
     ),
+    # Vector tile endpoint for spatial features
+    SpatialFeatureTileView.get_url(r"spatialfeatures/tiles/"),
 )
