@@ -4,7 +4,9 @@ from itertools import chain
 
 import simplejson as json
 from rest_framework_extensions.etag.decorators import etag
+from vectortiles.views import MVTView
 
+from django.core.cache import cache
 from django.core.serializers import serialize
 from django.db.models import Count, F
 from django.http import Http404, HttpResponse
@@ -29,6 +31,7 @@ from mapping.models import (
     TileLayer,
 )
 from mapping.permissions import LayerObjectPermissions
+from mapping.vector_layers import SpatialFeatureLayer
 from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
@@ -218,6 +221,28 @@ class LayerJsonView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return TileLayer.objects.all()
+
+
+class SpatialFeatureTileView(MVTView):
+    """
+    Simple vector tile view for SpatialFeature geometries
+    """
+
+    layer_classes = [SpatialFeatureLayer]
+
+    def get(self, request, z, x, y):
+        # Create simple cache key from view name and tile coordinates
+        cache_key = f"{self.__class__.__name__}:{z}:{x}:{y}"
+
+        # Try to get cached tile
+        tile = cache.get(cache_key)
+        if tile is None:
+            # Generate new tile if not cached
+            tile = super().get(request, z, x, y)
+            # Cache for 1 hour
+            cache.set(cache_key, tile, timeout=3600)
+
+        return tile
 
 
 #

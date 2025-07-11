@@ -77,6 +77,7 @@ INSTALLED_APPS = (
     "django.contrib.postgres",
     "django.contrib.humanize",
     "django_extensions",
+    "vectortiles",
     "docs",
     "buoy.apps.BuoyConfig",
     "schemas.apps.SchemasConfig",
@@ -640,6 +641,9 @@ TABLEAU_DEFAULT_DASHBOARD = "er_standard_analytics/summary"
 
 # Sensible default domain name.
 SERVER_FQDN = "tempuri.org"
+
+# SERVER_NAMES should be a list for extending with tenant domains
+SERVER_NAMES = env.list("SERVER_NAMES", default=["localhost"])
 
 # Default to re-use the site's domain-name as a folder for daily-report template.
 DAILY_REPORT_TEMPLATE_SUBFOLDER = SERVER_FQDN

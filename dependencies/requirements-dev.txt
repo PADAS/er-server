@@ -168,6 +168,7 @@ click==8.1.7
     #   dask
     #   fiona
     #   geomet
+    #   mercantile
     #   pip-tools
     #   rasterio
     #   rasterstats
@@ -272,6 +273,7 @@ django==3.2.25
     #   django-storages
     #   django-tagulous
     #   django-treebeard
+    #   django-vectortiles
     #   django-versatileimagefield
     #   djangorestframework
     #   drf-extensions
@@ -333,6 +335,8 @@ django-storages[google]==1.13.2
 django-tagulous==1.3.3
     # via -r requirements.txt
 django-treebeard==4.7
+    # via -r requirements.txt
+django-vectortiles==1.0.1
     # via -r requirements.txt
 django-versatileimagefield==3.1
     # via -r requirements.txt
@@ -790,6 +794,10 @@ mccabe==0.7.0
     #   pylint
 mdurl==0.1.2
     # via markdown-it-py
+mercantile==1.2.1
+    # via
+    #   -r requirements.txt
+    #   django-vectortiles
 mimesis==11.0.0
     # via -r requirements-dev.in
 mistune==0.8.4
