@@ -31,6 +31,9 @@ def load_features_from_wfs(obj_id, group_id, *args, **kwargs):
     errored_files, success_files, group_members = [], [], wfs_group.content()
 
     received_item_ids = [m.itemid for m in group_members]
+    if not received_item_ids:
+        logger.warning("No items found in group %s, exiting before deletion", str(wfs_group))
+        return
     delete_result = (
         models.ArcgisItem.objects.filter(arcgis_config=arc_config).exclude(id__in=received_item_ids).delete()
     )
@@ -50,9 +53,8 @@ def load_features_from_wfs(obj_id, group_id, *args, **kwargs):
                     # if created or last_modified > arcgis_item.updated_at:
                     # arcgis_item.save()  # update model's updated_at field
 
-        except Exception as ex:
-            logger.warning(f"Exception raised for object id {obj_id}")
-            logger.exception(ex)
+        except Exception:
+            logger.exception("Failed to process ArcgisItem id=%s, name=%s, obj_id=%s", member.id, member.title, obj_id)
 
     # update last download time
     arc_config.last_download = convert_date_string(str(datetime.now()))
