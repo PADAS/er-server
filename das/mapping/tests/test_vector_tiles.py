@@ -2,106 +2,88 @@
 Test vector tile functionality for SpatialFeature model.
 """
 
+from unittest.mock import patch
+
 import pytest
 
+from django.core.cache import cache
 from django.test import RequestFactory
 
-from mapping.filters import SpatialFeatureFilterSet
-from mapping.spatialviews import SpatialFeatureTileView
 from mapping.vector_layers import SpatialFeatureLayer
+from mapping.views import SpatialFeatureTileView
 
 
 class TestSpatialFeatureVectorTiles:
     """Test suite for SpatialFeature vector tiles."""
 
-    def test_spatial_feature_layer_filter_info(self):
-        """Test that the layer provides correct filter information."""
+    def test_spatial_feature_layer_basic_config(self):
+        """Test that the layer has correct basic configuration."""
         layer = SpatialFeatureLayer()
-        filter_info = layer.get_filter_info()
 
-        # Should include filters from SpatialFeatureFilterSet
-        expected_filters = ["feature_class", "feature_set", "external_source"]
-        for filter_name in expected_filters:
-            assert filter_name in filter_info
-            assert "field_name" in filter_info[filter_name]
-            assert "filter_type" in filter_info[filter_name]
-
-    def test_spatial_feature_layer_allowed_params(self):
-        """Test that the layer correctly identifies allowed parameters."""
-        layer = SpatialFeatureLayer()
-        allowed_params = layer.get_allowed_filter_params()
-
-        expected_mappings = {
-            "feature_class": "feature_type",
-            "feature_set": "feature_type__display_category",
-            "external_source": "external_source",
-        }
-
-        for param, field in expected_mappings.items():
-            assert param in allowed_params
-            assert allowed_params[param] == field
-
-    def test_vector_tile_view_cache_key_generation(self):
-        """Test that cache keys are generated correctly with filtered parameters."""
-        from mapping.vector_utils import get_vector_layer_cache_key_elements
-
-        # Test with valid parameters
-        params = {
-            "feature_class": "1,2,3",
-            "feature_set": "conservation",
-            "external_source": "test",
-            "invalid_param": "should_be_ignored",  # This should not appear in cache key
-        }
-
-        cache_elements = get_vector_layer_cache_key_elements(
-            view_class_name="SpatialFeatureTileView",
-            z=10,
-            x=100,
-            y=200,
-            params=params,
-            filterset_class=SpatialFeatureFilterSet,
-        )
-
-        cache_key = ":".join(map(str, cache_elements))
-
-        # Should include valid parameters but exclude invalid ones
-        assert "feature_class-1,2,3" in cache_key
-        assert "feature_set-conservation" in cache_key
-        assert "external_source-test" in cache_key
-        assert "invalid_param" not in cache_key
+        assert layer.model.__name__ == "SpatialFeature"
+        assert layer.id == "spatial_features"
+        assert layer.geometry_field == "feature_geometry"
+        assert layer.min_zoom == 3
+        assert layer.max_zoom == 24
+        assert "id" in layer.tile_fields
+        assert "name" in layer.tile_fields
 
     @pytest.mark.django_db
-    def test_spatial_feature_layer_filtering(self):
-        """Test that the layer correctly applies filtering."""
-        # This test would require setting up test data
-        # You can expand this based on your test data setup
+    def test_spatial_feature_layer_queryset(self):
+        """Test that the layer correctly builds querysets."""
         layer = SpatialFeatureLayer()
-
-        # Test empty parameters
-        empty_params = {}
-        layer.request_params = empty_params
 
         # Should work without errors
         queryset = layer.get_vector_tile_queryset(10, 100, 200)
         assert queryset is not None
 
-    def test_filterset_consistency(self):
-        """Test that the FilterSet and vector layer are consistent."""
-        # Create a filterset
-        filterset = SpatialFeatureFilterSet()
+        # Should include the annotated fields
+        queryset_str = str(queryset.query)
+        assert "feature_type_name" in queryset_str or "feature_type__name" in queryset_str
 
-        # Create a layer
-        layer = SpatialFeatureLayer()
+    def test_vector_tile_view_cache_hit(self):
+        """Test that cache hit works correctly."""
+        factory = RequestFactory()
+        request = factory.get("/tiles/10/327/791.pbf")
 
-        # The layer should use the same filterset
-        assert layer.filterset_class == SpatialFeatureFilterSet
+        view = SpatialFeatureTileView()
 
-        # The allowed parameters should match the filterset filters
-        allowed_params = layer.get_allowed_filter_params()
-        filterset_filters = list(filterset.filters.keys())
+        # Mock the parent get method to return a serializable response
+        with patch.object(view.__class__.__bases__[0], "get") as mock_parent_get:
+            mock_tile_response = b"mock_tile_data"  # Use bytes instead of MagicMock
+            mock_parent_get.return_value = mock_tile_response
 
-        for filter_name in filterset_filters:
-            assert filter_name in allowed_params
+            # First call should generate tile and cache it
+            response1 = view.get(request, 10, 327, 791)
+
+            # Second call should hit cache
+            response2 = view.get(request, 10, 327, 791)
+
+            # Parent should only be called once (first time)
+            assert mock_parent_get.call_count == 1
+            assert response1 == response2
+
+    def test_vector_tile_view_cache_miss(self):
+        """Test that cache miss generates new tile."""
+        factory = RequestFactory()
+        request = factory.get("/tiles/10/327/791.pbf")
+
+        view = SpatialFeatureTileView()
+
+        # Clear any existing cache
+        cache.clear()
+
+        # Mock the parent get method to return a serializable response
+        with patch.object(view.__class__.__bases__[0], "get") as mock_parent_get:
+            mock_tile_response = b"mock_tile_data"  # Use bytes instead of MagicMock
+            mock_parent_get.return_value = mock_tile_response
+
+            # Call should generate tile since cache is empty
+            response = view.get(request, 10, 327, 791)
+
+            # Parent should be called to generate tile
+            assert mock_parent_get.call_count == 1
+            assert response == mock_tile_response
 
 
 # Example of how to test the actual vector tile endpoint
@@ -114,7 +96,7 @@ class TestSpatialFeatureTileEndpoint:
         factory = RequestFactory()
 
         # Create a request to the tile endpoint
-        request = factory.get("/api/mapping/spatialfeatures/tiles/10/512/512.pbf")
+        request = factory.get("/api/v1.0/mapping/tiles/10/512/512.pbf")
 
         view = SpatialFeatureTileView()
         view.setup(request)
@@ -123,18 +105,16 @@ class TestSpatialFeatureTileEndpoint:
         # For now, just ensure the view can be instantiated
         assert view.layer_classes == [SpatialFeatureLayer]
 
-    def test_tile_endpoint_with_filters(self):
-        """Test tile endpoint with filter parameters."""
+    def test_tile_view_basic_functionality(self):
+        """Test basic tile view functionality."""
         factory = RequestFactory()
 
-        # Create a request with filter parameters
-        request = factory.get(
-            "/api/mapping/spatialfeatures/tiles/10/512/512.pbf", {"feature_class": "1,2", "external_source": "test"}
-        )
+        # Create a simple request
+        request = factory.get("/api/v1.0/mapping/tiles/10/512/512.pbf")
 
         view = SpatialFeatureTileView()
         view.setup(request)
 
-        # Test that the request parameters are handled
-        assert "feature_class" in request.GET
-        assert "external_source" in request.GET
+        # Test that the view has the expected configuration
+        assert len(view.layer_classes) == 1
+        assert view.layer_classes[0] == SpatialFeatureLayer

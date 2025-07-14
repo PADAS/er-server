@@ -225,7 +225,10 @@ class LayerJsonView(generics.RetrieveUpdateDestroyAPIView):
 
 class SpatialFeatureTileView(MVTView):
     """
-    Simple vector tile view for SpatialFeature geometries
+    Vector tile endpoint for SpatialFeature geometries.
+
+    Returns Mapbox Vector Tiles (MVT) containing spatial features for the given tile coordinates.
+    Tiles are cached for 1 hour to improve performance.
     """
 
     layer_classes = [SpatialFeatureLayer]
