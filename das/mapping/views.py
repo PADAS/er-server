@@ -228,7 +228,11 @@ class SpatialFeatureTileView(MVTView):
     Vector tile endpoint for SpatialFeature geometries.
 
     Returns Mapbox Vector Tiles (MVT) containing spatial features for the given tile coordinates.
-    Tiles are cached for 1 hour to improve performance.
+
+    Cache strategy:
+    - Short server-side TTL (5 minutes) for fresh data
+    - Long client-side cache headers (1 hour) for performance
+    - Users can refresh with hard reload if needed
     """
 
     layer_classes = [SpatialFeatureLayer]
@@ -239,14 +243,20 @@ class SpatialFeatureTileView(MVTView):
         cache_key = f"{self.__class__.__name__}:{z}:{x}:{y}"
 
         # Try to get cached tile
-        tile = cache.get(cache_key)
-        if tile is None:
+        cached_response = cache.get(cache_key)
+        if cached_response is not None:
+            # Return cached response with fresh cache headers
+            response = cached_response
+        else:
             # Generate new tile if not cached
-            tile = super().get(request, z, x, y)
-            # Cache for 1 hour
-            cache.set(cache_key, tile, timeout=3600)
+            response = super().get(request, z, x, y)
+            # Cache for 5 minutes (short server-side TTL)
+            cache.set(cache_key, response, timeout=300)
 
-        return tile
+        # Set client-side cache headers for 1 hour
+        response["Cache-Control"] = "public, max-age=3600"
+
+        return response
 
 
 #
