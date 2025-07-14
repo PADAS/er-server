@@ -306,5 +306,5 @@ class DynamicSchemaFromSourceView(APIView):
 
         return schema
 
-    def get(self, request: Request, *args, **kwargs) -> dict:
+    def get(self, request: Request, *args, **kwargs) -> Response:
         return Response(self.generate_dynamic_schema(request))
