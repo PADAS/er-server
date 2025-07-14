@@ -1,7 +1,4 @@
-import json
 import logging
-from enum import Enum
-from typing import Optional, Tuple
 
 from django_filters import rest_framework as filters
 
@@ -14,12 +11,14 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from activity.exceptions import SchemaRenderingError
 from activity.filters import EventTypeFilterSet
 from activity.models import Event, EventType
 from activity.permissions import EventCategoryPermissions
-from activity.schemas.schema_rendering import SchemaRenderer
-from activity.schemas.schema_retrieving import build_dynamic_schemas_registry
+from activity.schemas.eventtype_service import (
+    EventTypeSchemaService,
+    RenderOptions,
+    RenderStatus,
+)
 from activity.serializers.events_v2 import EventTypeSerializer
 from activity.views.events.utils import AllowedCategoriesMixin
 from activity.views.schemas import EventTypeViewSchema
@@ -29,81 +28,6 @@ from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer, parse_boo
 from utils.views import EtagListRetrieveModelMixin
 
 logger = logging.getLogger(__name__)
-
-
-class StrEnum(str, Enum):
-    """Enum that can be used as a string."""
-
-
-class RenderStatus(StrEnum):
-    SUCCESS = "success"
-    FAILURE = "failure"
-
-
-class RenderErrors(StrEnum):
-    NO_SCHEMA_DEFINED = "no_schema_defined"
-    INVALID_JSON = "invalid_json"
-    NO_JSON_KEY = "no_json_key"
-    INVALID_SCHEMA = "invalid_schema"
-    SCHEMA_RENDERING_ERROR = "rendering_error"
-
-
-def parse_and_render_schema(event_type: EventType, schema_renderer: Optional[SchemaRenderer]) -> Tuple[bool, dict]:
-    """
-    Attempts to parse the raw event_type.schema as JSON, check if 'json' key is present,
-    and de-reference using schema_renderer if provided.
-
-    :return: (success, data) where
-            success = True => data is the fully prepared schema
-            success = False => data is an error dict with 'code' and 'message'
-    """
-    if not event_type.schema:
-        return (
-            False,
-            {
-                "code": RenderErrors.NO_SCHEMA_DEFINED,
-                "message": f"EventType {event_type.value} has no schema defined.",
-            },
-        )
-
-    try:
-        parsed_schema = json.loads(event_type.schema)
-    except json.JSONDecodeError as e:
-        logger.warning("Error decoding JSON for event type %s: %s", event_type.value, str(e))
-        return (
-            False,
-            {
-                "code": RenderErrors.INVALID_JSON,
-                "message": f"Invalid JSON for event type {event_type.value}: {str(e)}",
-            },
-        )
-
-    if "json" not in parsed_schema:
-        return (
-            False,
-            {
-                "code": RenderErrors.NO_JSON_KEY,
-                "message": f"Schema for event type {event_type.value} does not contain 'json' key.",
-            },
-        )
-
-    if not schema_renderer:
-        # Return as-is
-        return (True, parsed_schema)
-
-    # Attempt render
-    try:
-        parsed_schema["json"] = schema_renderer.dereference_schema(parsed_schema["json"])
-        return (True, parsed_schema)
-    except SchemaRenderingError as e:
-        logger.warning("Error rendering schema for event type %s: %s", event_type.value, str(e))
-        return (
-            False,
-            {
-                "code": RenderErrors.SCHEMA_RENDERING_ERROR,
-                "message": f"Error rendering schema for event type {event_type.value}: {str(e)}",
-            },
-        )
 
 
 class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, DynamicSchemaDataMixin, ModelViewSet):
@@ -213,30 +137,16 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         Each item indicates 'success' or 'failure' and contains an 'error.code' when failing.
         """
         queryset = self.filter_queryset(self.get_queryset())
-        schema_renderer = None
-        if parse_bool(request.query_params.get("pre_render", False)):
-            schema_renderer = self.get_schema_renderer(request)
+        render_options = RenderOptions(pre_render=parse_bool(request.query_params.get("pre_render", False)))
+        schema_service = EventTypeSchemaService(request)
+        schema_results = schema_service.bulk_render_schemas(queryset, options=render_options)
 
-        results = []
-        for et in queryset:
-            schema_item = {"value": et.value}
-
-            success, data = parse_and_render_schema(et, schema_renderer)
-            if success:
-                schema_item["status"] = RenderStatus.SUCCESS
-                schema_item["schema"] = data
-            else:
-                schema_item["status"] = RenderStatus.FAILURE
-                schema_item["error"] = data
-
-            results.append(schema_item)
-
-        # Format designed for easy implementation of pagination
+        # Format designed for easy implementation of pagination later
         response_data = {
-            "count": len(results),
-            "results": results,
+            "count": len(schema_results),
+            "results": [sr.to_api_dict() for sr in schema_results],
         }
-        if all(item["status"] == RenderStatus.SUCCESS for item in results):
+        if all(sr.status == RenderStatus.SUCCESS for sr in schema_results):
             response_status = status.HTTP_200_OK
         else:
             response_status = status.HTTP_207_MULTI_STATUS
@@ -255,11 +165,11 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         Returns the rendered schema for the specified event type.
         """
         event_type = self.get_object()
-        schema_renderer = None
-        if parse_bool(request.query_params.get("pre_render", False)):
-            schema_renderer = self.get_schema_renderer(request)
+        render_options = RenderOptions(pre_render=parse_bool(request.query_params.get("pre_render", False)))
+        schema_service = EventTypeSchemaService(request)
+        schema_result = schema_service.render_schema(event_type, options=render_options)
 
-        success, data = parse_and_render_schema(event_type, schema_renderer)
-        if success:
-            return Response(data, status=status.HTTP_200_OK)
-        return Response({"error": data}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        # TODO: Propose a change to the shape of the response, to be more in line with the list_schemas response
+        if schema_result.status != RenderStatus.FAILURE:
+            return Response(schema_result.schema, status=status.HTTP_200_OK)
+        return Response({"errors": schema_result.errors}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
