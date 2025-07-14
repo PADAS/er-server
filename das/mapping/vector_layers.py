@@ -26,9 +26,11 @@ class SpatialFeatureLayer(VectorLayer):
     max_zoom = 24
 
     def get_vector_tile_queryset(self, zoom, x, y):
+        from django.contrib.gis.db.models.functions import Transform
+
         return self.model.objects.select_related("feature_type", "feature_type__display_category").annotate(
             feature_type_name=F("feature_type__name"),
             display_category_name=F("feature_type__display_category__name"),
-            # Add geom annotation for django-vectortiles compatibility
-            geom=F(self.geometry_field),
+            # Convert geography to geometry in Web Mercator for django-vectortiles compatibility
+            geom=Transform(self.geometry_field, 3857),
         )
