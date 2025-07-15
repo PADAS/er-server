@@ -35,6 +35,7 @@ from observations.services import (
     get_observation_coordinates_and_times_by_subject_id_and_source_id,
 )
 from observations.utils import (
+    VIEW_SUBJECT_PERMS,
     dateparse,
     get_maximum_allowed_age,
     get_minimum_allowed_age,
@@ -446,6 +447,43 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
                 if transform.get("default"):
                     return transform.get("label")
         return ""
+
+
+class SubjectIdSerializer(serializers.Serializer):
+    """Serializer for a single subject ID."""
+
+    id = serializers.UUIDField(help_text="Subject UUID to add to the group")
+
+    def validate(self, value):
+        """Validate that all subject IDs exist and are accessible to the user."""
+        request = self.context.get("request")
+        if not request or not request.user:
+            raise serializers.ValidationError("User context is required.")
+
+        user = request.user
+
+        # Extract subject IDs from the subject objects
+        subject_ids = [value.get("id")] if isinstance(value, dict) else [item.get("id") for item in value]
+
+        if not subject_ids:
+            raise serializers.ValidationError("No valid subject IDs provided.")
+
+        existing_subjects = models.Subject.objects.filter(id__in=subject_ids)
+
+        # Check if all subjects exist
+        if len(existing_subjects) != len(subject_ids):
+            existing_ids = {str(subject.id) for subject in existing_subjects}
+            missing_ids = [str(subject_id) for subject_id in subject_ids if str(subject_id) not in existing_ids]
+            raise serializers.ValidationError(f"Subjects with IDs {missing_ids} do not exist.")
+
+        # Check permissions for each subject
+        if not user.has_any_perms(VIEW_SUBJECT_PERMS):
+            # If user doesn't have general subject permissions, check if they're linked to these subjects
+            linked_subjects = models.Subject.objects.filter(linked_user=user, id__in=subject_ids)
+            if len(linked_subjects) != len(subject_ids):
+                raise serializers.ValidationError("You don't have permission to access all the specified subjects.")
+
+        return value
 
 
 class SubjectRelatedField(serializers.RelatedField):
