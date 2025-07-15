@@ -203,7 +203,7 @@ class ObservationViewTestCase(BaseAPITest):
 
         # Create an observation within the bbox to test that bbox filtering works
         bbox_observation_data = {
-            "recorded_at": datetime.now(pytz.UTC).isoformat(),
+            "recorded_at": datetime.now(pytz.UTC),
             "location": Point(x=0.5, y=0.5),  # Within bbox "0,0,1,1"
             "source": self.collar,
             "additional": self.additional,
@@ -218,6 +218,42 @@ class ObservationViewTestCase(BaseAPITest):
         filter_params = {"bbox": "2,2,3,3"}
         response = self.make_observations_filter_request(filter_params)
         self.assertEqual(response.data.get("count"), 0)
+
+    def test_filter_observations_invalid_bbox_returns_400(self):
+        """Test that invalid bbox parameters return 400 Bad Request instead of 500."""
+        # Test with invalid bbox format (not 4 values)
+        filter_params = {"bbox": "0,0,1"}
+        response = self.make_observations_filter_request(filter_params, expect_success=False)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("error", response.data)
+        self.assertIn("Invalid bbox param", response.data["error"])
+
+        # Test with non-numeric values in bbox
+        filter_params = {"bbox": "a,b,c,d"}
+        response = self.make_observations_filter_request(filter_params, expect_success=False)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("error", response.data)
+        self.assertIn("Invalid bbox param", response.data["error"])
+
+    def test_filter_observations_multiple_ids_returns_400(self):
+        """Test that specifying multiple IDs returns 400 Bad Request instead of 500."""
+        # Test with both subject_id and source_id
+        filter_params = {"subject_id": str(self.elephant.id), "source_id": str(self.collar.id)}
+        response = self.make_observations_filter_request(filter_params, expect_success=False)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("error", response.data)
+        self.assertIn("Can only specify one of: subject_id and source_id and subjectsource_id", response.data["error"])
+
+        # Test with all three IDs
+        filter_params = {
+            "subject_id": str(self.elephant.id),
+            "source_id": str(self.collar.id),
+            "subjectsource_id": str(self.elephant.subjectsources.all()[0].id),
+        }
+        response = self.make_observations_filter_request(filter_params, expect_success=False)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("error", response.data)
+        self.assertIn("Can only specify one of: subject_id and source_id and subjectsource_id", response.data["error"])
 
     def test_filter_observations_by_recorded_until(self):
         filter_params = {"until": self.observation_time + timedelta(days=1)}
@@ -235,14 +271,15 @@ class ObservationViewTestCase(BaseAPITest):
         # self.observation and self.observation both lie in this range
         self.assertEqual(response.data.get("count"), 2)
 
-    def make_observations_filter_request(self, filter_params):
+    def make_observations_filter_request(self, filter_params, expect_success=True):
         url = reverse("observations-list-view")
         url += f"?{urlencode(filter_params)}"
         request = self.factory.get(self.api_base + url)
 
         self.force_authenticate(request, self.user)
         response = ObservationsView.as_view()(request)
-        self.assertEqual(response.status_code, 200)
+        if expect_success:
+            self.assertEqual(response.status_code, 200)
         return response
 
     def test_observation_readonly_can_view(self):
