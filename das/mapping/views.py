@@ -236,7 +236,7 @@ class SpatialFeatureTileView(MVTView):
     """
 
     layer_classes = [SpatialFeatureLayer]
-    permission_classes = ()  # No authentication required for tile endpoint
+    permission_classes = (LayerObjectPermissions,)
 
     def get(self, request, z, x, y):
         # Create simple cache key from view name and tile coordinates
