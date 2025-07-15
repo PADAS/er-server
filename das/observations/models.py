@@ -458,7 +458,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return self.annotate(source_transforms=F("source__provider__transforms"))
 
     def get_subjectsource_observations(
-        self, subjectsource, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
+        self, subjectsource, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None, bbox=None
     ):
         queryset = self.filter(
             source__subjectsource=subjectsource, source__subjectsource__assigned_range__contains=F("recorded_at")
@@ -466,6 +466,9 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
         queryset = queryset.by_since_until(since, until)
         queryset = queryset.by_exclusion_flags(filter_flag)
+        if bbox:
+            geometry = Polygon.from_bbox(bbox)
+            queryset = queryset.filter(location__within=geometry)
 
         if order_by:
             queryset = queryset.order_by(order_by)
@@ -488,6 +491,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         filter_flag: int = 0,
         order_by: str = None,
         include_empty_location: bool = True,
+        bbox: List[float] = None,
     ) -> QuerySet:
         """Filter Observation on source, plus some standard filters.
         If since and until are not included, defaults are used to keep from inadvertantly creating
@@ -515,6 +519,9 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         queryset = self.filter(source=source)
         queryset = queryset.by_since_until(since, until)
         queryset = queryset.by_exclusion_flags(filter_flag)
+        if bbox:
+            geometry = Polygon.from_bbox(bbox)
+            queryset = queryset.filter(location__within=geometry)
 
         if not include_empty_location:
             queryset = queryset.exclude(location=EMPTY_POINT)
@@ -543,7 +550,16 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return self.get_subject_observations_partitioned(subject, since=since, until=until, created_after=created_after)
 
     def get_subject_observations_partitioned(
-        self, subject, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None, created_after=None
+        self,
+        subject,
+        since=None,
+        until=None,
+        limit=None,
+        values=None,
+        filter_flag=0,
+        order_by=None,
+        created_after=None,
+        bbox=None,
     ):
         """
         An optimized version of get_subject_observations that uses partitioning to avoid full table scans.
@@ -600,6 +616,9 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                     source_qs = source_qs.filter(recorded_at__lte=until)
                 if created_after:
                     source_qs = source_qs.filter(created_at__gte=created_after)
+                if bbox:
+                    geometry = Polygon.from_bbox(bbox)
+                    source_qs = source_qs.filter(location__within=geometry)
 
                 # Apply exclusion flags
                 source_qs = source_qs.by_exclusion_flags(

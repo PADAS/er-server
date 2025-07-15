@@ -29,7 +29,8 @@ class FlattenObservationsView(ListAPIView):
 
     def get_queryset(self):
         subject_id = self.request.query_params.get("subject_id")
-        created_after = dateparse(self.request.query_params.get("created_after"))
+        created_after_param = self.request.query_params.get("created_after")
+        created_after = dateparse(str(created_after_param)) if created_after_param else None
 
         subject = get_object_or_404(Subject, pk=subject_id)
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
@@ -81,6 +82,11 @@ class ObservationsViewSchema(CustomSchema):
                     "in": "query",
                     "description": "default is to use a page based paginator, which does not scale to a large dataset. Set use_cursor=true to employ a paginator that can handle millions of rows by using next/prev urls.",
                 },
+                {
+                    "name": "bbox",
+                    "in": "query",
+                    "description": "filter to observations within a bounding box, [west, south, east, north]. format is 'min_lat,min_lon,max_lat,max_lon'",
+                },
             ]
             operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)
@@ -121,10 +127,16 @@ class ObservationsView(ListCreateAPIView):
         return self._paginator
 
     def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset()).values()
-        page = self.paginate_queryset(queryset)
-        serializer = self.get_serializer(page, many=True)
-        return self.get_paginated_response(serializer.data)
+        try:
+            queryset = self.filter_queryset(self.get_queryset()).values()
+            page = self.paginate_queryset(queryset)
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_OBSERVATION_PERMS):
