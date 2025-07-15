@@ -64,7 +64,10 @@ class ObservationsViewSchema(CustomSchema):
                 {
                     "name": "filter",
                     "in": "query",
-                    "description": "filter using exclusion_flags for an observation. one of [null, 0, 1, 2  or 3].",
+                    "description": """filter using exclusion_flags for an observation. This is a bigint based bitfield. Standard values are one of [null, 0, 1, 2  or 3]. For example, a value of 3 will return manually excluded and automatically excluded observations.
+                    Setting to null will return all observations, regardless of exclusion flags.
+                    Setting to 0 will return observations with no excluded flags but does include observations with flags in the 3rd-party bit range.
+                    Values with a mask of 0xFFFF000000000000 are reserved for 3rd-party flags. These 3rd-party flags added to an observation are ignored by this API when standard filtering is applied.""",
                 },
                 {
                     "name": "include_details",
