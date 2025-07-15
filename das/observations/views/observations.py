@@ -81,6 +81,11 @@ class ObservationsViewSchema(CustomSchema):
                     "in": "query",
                     "description": "default is to use a page based paginator, which does not scale to a large dataset. Set use_cursor=true to employ a paginator that can handle millions of rows by using next/prev urls.",
                 },
+                {
+                    "name": "bbox",
+                    "in": "query",
+                    "description": "filter to observations within a bounding box, [west, south, east, north]. format is 'min_lat,min_lon,max_lat,max_lon'",
+                },
             ]
             operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)

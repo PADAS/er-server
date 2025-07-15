@@ -1,13 +1,28 @@
 import logging
 import math
-from typing import Union
+from typing import List, Union
+
+from geopy.distance import distance
 
 from django.contrib.gis.geos import GEOSGeometry, MultiPolygon, Point, Polygon
-from geopy.distance import distance
 
 from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
+
+
+def bbox_from_string(bbox: str) -> Union[List[float], None]:
+    """
+    Convert a comma-delimited string describing the bbox corners to a list of floats.
+    The bbox is expected to be in the format: "min_lat,min_lon,max_lat,max_lon" (west, south, east, north)
+    """
+    try:
+        calculated_bbox = [float(v) for v in bbox.split(",")]
+        if len(calculated_bbox) != 4:
+            raise ValueError("Invalid bbox param")
+        return calculated_bbox
+    except (ValueError, AttributeError):
+        raise ValueError("Invalid bbox param")
 
 
 def validate_bbox(bbox_as_string):
@@ -46,14 +61,14 @@ def validate_bbox(bbox_as_string):
 
 def calculate_bbox(latitude, longitude, nautical_miles):
     """
-        Calculate the bbox.
-        Calculate the bounding box given the position and radius.
+    Calculate the bbox.
+    Calculate the bounding box given the position and radius.
 
-        :param latitude:
-        :param longitude:
-        :param nautical_miles:
-        :return: array representing bbox [west. south, east, north].
-        """
+    :param latitude:
+    :param longitude:
+    :param nautical_miles:
+    :return: array representing bbox [west. south, east, north].
+    """
     # Create a Point at the original location
     original_point = Point(latitude, longitude)
 
