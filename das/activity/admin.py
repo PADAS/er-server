@@ -923,3 +923,49 @@ class PatrolConfiguration(
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+class FormBuilderAdmin(admin.ModelAdmin):
+    """Admin class to provide a link to the form-builder page."""
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_view_permission(self, request, obj=None):
+        return True
+
+    def changelist_view(self, request, extra_context=None):
+        """Override to redirect to the form-builder page."""
+        from django.http import HttpResponseRedirect
+
+        return HttpResponseRedirect("/admin/form-builder")
+
+    def get_urls(self):
+        """Override to provide a custom URL that opens in a new tab."""
+        from django.urls import path
+        from django.views.generic import RedirectView
+
+        urls = super().get_urls()
+        custom_urls = [
+            path("", RedirectView.as_view(url="/admin/form-builder", permanent=False), name="form-builder-redirect"),
+        ]
+        return custom_urls + urls
+
+
+# Create a proxy model for the form builder
+class FormBuilderProxy(models.EventType):
+    class Meta:
+        proxy = True
+        verbose_name = "Event Types and Category 2.0"
+        verbose_name_plural = "Event Types and Category 2.0"
+
+
+@admin.register(FormBuilderProxy)
+class FormBuilderProxyAdmin(FormBuilderAdmin):
+    pass
