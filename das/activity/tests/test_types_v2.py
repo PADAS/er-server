@@ -617,7 +617,7 @@ class TestEventTypesV2:
             "has_events_assigned": False,  # No events assigned since we just updated it
             "icon": new_icon_slug,
             "icon_id": new_icon_slug,
-            "url": f"http://testserver/api/v2.0/activity/eventtypes/{target_et.value}/",
+            "url": f"http://testserver/api/v2.0/activity/eventtypes/{target_et.value}",
         }
 
         # Verify the response matches our expected dictionary
@@ -1156,3 +1156,41 @@ class TestEventTypesV2ConditionalResponses:
 
         conditional_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
         assert conditional_response.status_code == status.HTTP_304_NOT_MODIFIED
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestTrailingSlashConfiguration:
+    """
+    These tests verify that endpoints work both with and without trailing slashes in urls_v2.py.
+    """
+
+    def test_list_endpoint_with_and_without_trailing_slash(self, superuser_client):
+        base_url = reverse("v2-eventtype-list")
+
+        url_with_slash = f"{base_url}/" if not base_url.endswith("/") else base_url
+        response_with_slash = superuser_client.get(url_with_slash)
+        assert response_with_slash.status_code == status.HTTP_200_OK
+
+        url_without_slash = base_url.rstrip("/")
+        response_without_slash = superuser_client.get(url_without_slash)
+        assert response_without_slash.status_code == status.HTTP_200_OK
+
+        # Verify both responses return the same data
+        assert response_with_slash.data == response_without_slash.data
+
+    def test_detail_endpoint_with_and_without_trailing_slash(self, superuser_client, cat1_cat2_event_types):
+        target = cat1_cat2_event_types[0]
+
+        base_url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+
+        url_with_slash = f"{base_url}/" if not base_url.endswith("/") else base_url
+        response_with_slash = superuser_client.get(url_with_slash)
+        assert response_with_slash.status_code == status.HTTP_200_OK
+
+        url_without_slash = base_url.rstrip("/")
+        response_without_slash = superuser_client.get(url_without_slash)
+        assert response_without_slash.status_code == status.HTTP_200_OK
+
+        # Verify both responses return the same data
+        assert response_with_slash.data == response_without_slash.data
