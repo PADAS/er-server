@@ -15,7 +15,6 @@ class SpatialFeatureLayer(VectorLayer):
         "name",
         "short_name",
         "external_id",
-        "external_source",
         "description",
         "feature_type_id",
         "feature_type_name",
