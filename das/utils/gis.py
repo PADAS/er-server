@@ -11,7 +11,7 @@ from utils.tenant import get_tenant_settings
 logger = logging.getLogger(__name__)
 
 
-def bbox_from_string(bbox: str) -> Union[List[float], None]:
+def bbox_from_string(bbox: str) -> List[float]:
     """
     Convert a comma-delimited string describing the bbox corners to a list of floats.
     The bbox is expected to be in the format: "min_lat,min_lon,max_lat,max_lon" (west, south, east, north)
