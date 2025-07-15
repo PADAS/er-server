@@ -447,10 +447,6 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         Returns:
             queryset: a further filtered queryset
         """
-        from observations.models import (
-            Observation,  # Import here to avoid circular import
-        )
-
         queryset = self
         if filter_flag is None:
             # When filter_flag is None (e.g., "null"), return all observations without any exclusion filtering
@@ -491,11 +487,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         )
 
         queryset = queryset.by_since_until(since, until)
-        # Use system-only filtering for default filter_flag=0 to preserve 3rd-party flags
-        if filter_flag == 0:
-            queryset = queryset.by_exclusion_flags(filter_flag)
-        else:
-            queryset = queryset.by_exclusion_flags(filter_flag)
+        queryset = queryset.by_exclusion_flags(filter_flag)
 
         if order_by:
             queryset = queryset.order_by(order_by)
@@ -544,11 +536,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
         queryset = self.filter(source=source)
         queryset = queryset.by_since_until(since, until)
-        # Use system-only filtering for default filter_flag=0 to preserve 3rd-party flags
-        if filter_flag == 0:
-            queryset = queryset.by_exclusion_flags(filter_flag)
-        else:
-            queryset = queryset.by_exclusion_flags(filter_flag)
+        queryset = queryset.by_exclusion_flags(filter_flag)
 
         if not include_empty_location:
             queryset = queryset.exclude(location=EMPTY_POINT)
@@ -635,15 +623,9 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                 if created_after:
                     source_qs = source_qs.filter(created_at__gte=created_after)
 
-                # Apply exclusion flags - use system-only filtering for default filter_flag=0 to preserve 3rd-party flags
-                if filter_flag == 0:
-                    source_qs = source_qs.by_exclusion_flags(
-                        filter_flag, include_empty_location=subject.is_stationary_subject
-                    )
-                else:
-                    source_qs = source_qs.by_exclusion_flags(
-                        filter_flag, include_empty_location=subject.is_stationary_subject
-                    )
+                source_qs = source_qs.by_exclusion_flags(
+                    filter_flag, include_empty_location=subject.is_stationary_subject
+                )
 
                 # Add to batch query
                 batch_qs = batch_qs.union(source_qs)
@@ -674,11 +656,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         if not isinstance(subject, Subject):
             subject = Subject.objects.get(id=subject)
 
-        # Use system-only filtering for default filter_flag=0 to preserve 3rd-party flags
-        if filter_flag == 0:
-            queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=subject.is_stationary_subject)
-        else:
-            queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=subject.is_stationary_subject)
+        queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=subject.is_stationary_subject)
 
         if order_by:
             queryset = queryset.order_by(order_by)
@@ -717,11 +695,7 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
             source__subjectsource__assigned_range__contains=F("recorded_at"),
         )
 
-        # Use system-only filtering for default filter_flag=0 to preserve 3rd-party flags
-        if filter_flag == 0:
-            queryset = queryset.by_exclusion_flags(filter_flag)
-        else:
-            queryset = queryset.filter(exclusion_flags=filter_flag)
+        queryset = queryset.by_exclusion_flags(filter_flag)
 
         if since and until:
             queryset = queryset.filter(recorded_at__range=(since, until))
@@ -774,11 +748,7 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
     ) -> Union[Observation, None]:
         try:
             queryset = Observation.objects.filter(source=source)
-            # Use system-only filtering for default filter_flag=0 to preserve 3rd-party flags
-            if filter_flag == 0:
-                queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=include_empty_location)
-            else:
-                queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=include_empty_location)
+            queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=include_empty_location)
             if delay_hours:
                 end_time = datetime.now(tz=timezone.utc) - timedelta(hours=delay_hours)
                 queryset = queryset.filter(recorded_at__lt=end_time)
