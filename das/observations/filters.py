@@ -1,8 +1,10 @@
+from django.contrib.gis.geos import Polygon
 from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.filters import BaseFilterBackend
 
 from observations.models import Subject
 from observations.utils import VIEW_SUBJECT_PERMS, check_valid_date_string
+from utils.gis import bbox_from_string
 from utils.json import parse_bool
 
 
@@ -84,6 +86,8 @@ class ObservationsFilter(BaseFilterBackend):
         subject_id = query_params.get("subject_id")
         source_id = query_params.get("source_id")
         subjectsource_id = query_params.get("subjectsource_id")
+        if bbox := query_params.get("bbox"):
+            bbox = bbox_from_string(bbox)
 
         if len([id for id in (subject_id, source_id, subjectsource_id) if id]) > 1:
             raise ValueError("Can only specify one of: subject_id and source_id and subjectsource_id")
@@ -104,18 +108,21 @@ class ObservationsFilter(BaseFilterBackend):
                 raise PermissionDenied
 
             queryset = queryset.get_subject_observations_partitioned(
-                subject, since=recorded_since, until=recorded_until, filter_flag=filter_flag
+                subject, since=recorded_since, until=recorded_until, filter_flag=filter_flag, bbox=bbox
             )
         elif source_id:
             queryset = queryset.get_source_observations(
-                source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag
+                source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, bbox=bbox
             )
         elif subjectsource_id:
             queryset = queryset.get_subjectsource_observations(
-                subjectsource_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag
+                subjectsource_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, bbox=bbox
             )
         else:
             queryset = queryset.by_since_until(recorded_since, recorded_until)
             queryset = queryset.by_exclusion_flags(filter_flag)
+            if bbox:
+                geometry = Polygon.from_bbox(bbox)
+                queryset = queryset.filter(location__within=geometry)
 
         return queryset
