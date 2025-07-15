@@ -132,14 +132,4 @@ class Command(BaseCommand):
 
         self.stdout.write("")
 
-    def style_success(self, message):
-        """Helper for success styling."""
-        return f"\033[92m{message}\033[0m"
-
-    def style_warning(self, message):
-        """Helper for warning styling."""
-        return f"\033[93m{message}\033[0m"
-
-    def style_error(self, message):
-        """Helper for error styling."""
-        return f"\033[91m{message}\033[0m"
+# Removed unused methods: style_success, style_warning, and style_error.
