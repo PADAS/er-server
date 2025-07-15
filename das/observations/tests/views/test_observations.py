@@ -194,6 +194,31 @@ class ObservationViewTestCase(BaseAPITest):
         # no records 1 days from last observations creation date
         self.assertEqual(response.data.get("count"), 0)
 
+    def test_filter_observations_by_bbox(self):
+        # Test with bbox that doesn't contain the existing observation
+        filter_params = {"bbox": "0,0,1,1"}
+        response = self.make_observations_filter_request(filter_params)
+
+        self.assertEqual(response.data.get("count"), 0)
+
+        # Create an observation within the bbox to test that bbox filtering works
+        bbox_observation_data = {
+            "recorded_at": datetime.now(pytz.UTC).isoformat(),
+            "location": Point(x=0.5, y=0.5),  # Within bbox "0,0,1,1"
+            "source": self.collar,
+            "additional": self.additional,
+        }
+        Observation.objects.create(**bbox_observation_data)
+
+        # Test that the new observation is found by the bbox filter
+        response = self.make_observations_filter_request(filter_params)
+        self.assertEqual(response.data.get("count"), 1)
+
+        # Test with a different bbox that doesn't contain the new observation
+        filter_params = {"bbox": "2,2,3,3"}
+        response = self.make_observations_filter_request(filter_params)
+        self.assertEqual(response.data.get("count"), 0)
+
     def test_filter_observations_by_recorded_until(self):
         filter_params = {"until": self.observation_time + timedelta(days=1)}
         response = self.make_observations_filter_request(filter_params)
