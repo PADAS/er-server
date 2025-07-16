@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
 import pytz
@@ -18,7 +18,12 @@ from django.db.models import Index, UniqueConstraint
 import observations
 from core.models import TimestampedModel
 from core.models.core import DASTenant
-from observations.models import Source, SourceProvider, get_default_source_provider_id
+from observations.models import (
+    Observation,
+    Source,
+    SourceProvider,
+    get_default_source_provider_id,
+)
 from tracking.pubsub_registry import notify_new_tracks
 from utils import stats
 from utils.migrations.columns import default_tenant_id
@@ -147,7 +152,7 @@ class SourcePlugin(TenantModelMixin, TimestampedModel):
                         observation = self.validate_obs_location(observation)
                     accumulator = t.send(observation)
 
-            self.last_run = pytz.utc.localize(datetime.utcnow())
+            self.last_run = datetime.now(tz=timezone.utc)
             self.cursor_data = self.plugin.cursor_data
             self.save()
 
@@ -177,13 +182,16 @@ class SourcePlugin(TenantModelMixin, TimestampedModel):
 
     def validate_obs_location(self, observation):
         """
-        Flags observations that are at 180 x 90 as excluded_automatically.
+        Flags observations that are at 180 x 90 or 0 x 0 as excluded_automatically.
         :param observation
         :return observation
         """
-        if int(observation.longitude) == 180 and int(observation.latitude) == 90:
-            logger.info("Invalid observation location.To be flagged/excluded")
-            observation = observation._replace(exclusion_flags=2)  # 2 for excluded_automatically
+        lonlat = (int(observation.longitude), int(observation.latitude))
+        current_offset_time = datetime.now(timezone.utc) + Observation.EXCLUDED_AUTOMATICALLY_TIME_DELTA
+
+        if lonlat == (180, 90) or lonlat == (0, 0) or observation.recorded_at > current_offset_time:
+            logger.debug("Invalid observation location or recorded_at in future. Flagged as excluded_automatically")
+            observation = observation._replace(exclusion_flags=Observation.EXCLUDED_AUTOMATICALLY)
         return observation
 
     def __str__(self):
