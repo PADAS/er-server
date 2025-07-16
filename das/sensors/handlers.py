@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional
 
 import pytz
@@ -42,8 +42,6 @@ from utils.tenant import get_tenant_settings
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
-
-EXCLUDED_AUTOMATICALLY_TIME_DELTA = timedelta(days=7)
 
 
 class GenericSensorHandler:
@@ -396,7 +394,7 @@ class GenericSensorHandler:
                     parsed_time = pytz.utc.localize(parsed_time)
 
                 # Check if the timestamp is in the future
-                current_offset_time = datetime.now(timezone.utc) + EXCLUDED_AUTOMATICALLY_TIME_DELTA
+                current_offset_time = datetime.now(timezone.utc) + Observation.EXCLUDED_AUTOMATICALLY_TIME_DELTA
                 if parsed_time > current_offset_time:
                     return True
             except (ValueError, TypeError):
