@@ -124,12 +124,7 @@ class FeatureSetListJsonView(APIView):
                         else:
                             featureTypeDict.feature_summaries.append({"name": feature.name or "", "bounds": None})
 
-                    yield dict(
-                        name=t.name,
-                        id=str(t.id),
-                        feature_count=t.spatialfeature_count,
-                        feature_summaries=feature_summaries,
-                    )
+                yield featureTypeDict
 
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
         include_summaries = parse_bool(request.GET.get("include_summaries", False))
