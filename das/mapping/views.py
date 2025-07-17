@@ -126,7 +126,7 @@ class FeatureSetListJsonView(APIView):
                 yield featureTypeDict
 
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
-        include_summaries = parse_bool(request.GET.get("include_summaries", False))
+        summarize_features = parse_bool(request.GET.get("summarize_features", False))
         response_data = {"features": []}
         featuresets = DisplayCategory.objects.all()
 
@@ -135,7 +135,7 @@ class FeatureSetListJsonView(APIView):
                 {
                     "name": featureset.name,
                     "id": str(featureset.id),
-                    "types": list(feature_types(featureset, include_hidden, include_summaries)),
+                    "types": list(feature_types(featureset, include_hidden, summarize_features)),
                     "description": featureset.description if featureset.description else "",
                     "geojson_url": reverse("mapping:mapping-featureset-geojson", args=[featureset.id.hex]),
                 }
