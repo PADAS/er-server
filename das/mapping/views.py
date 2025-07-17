@@ -90,7 +90,7 @@ class FeatureSetListJsonView(APIView):
     """
 
     def get(self, request):
-        def feature_types(featureset, include_hidden, summarize_features=False):
+        def feature_types(featureset, include_hidden, summarize_features):
             if include_hidden:
                 feature_types_qs = featureset.spatialfeaturetype_set.annotate(
                     spatialfeature_count=Count("spatialfeature")
@@ -101,7 +101,6 @@ class FeatureSetListJsonView(APIView):
                 ).filter(is_visible=True)
 
             for t in feature_types_qs:
-                # Get feature summaries for this feature type
                 features_qs = SpatialFeature.objects.filter(feature_type=t)
                 if not include_hidden:
                     features_qs = features_qs.filter(feature_type__is_visible=True)
