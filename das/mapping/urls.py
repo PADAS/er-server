@@ -59,8 +59,8 @@ urlpatterns = (
         name="spatialfeature-detail",
     ),
     # Vector tile endpoint for spatial features
-    path(
-        "spatialfeatures/tiles/<int:z>/<int:x>/<int:y>.pbf",
+    re_path(
+        r"^spatialfeatures/tiles/(?P<z>\d+)/(?P<x>\d+)/(?P<y>\d+)\.pbf$",
         SpatialFeatureTileView.as_view(),
         name="spatialfeature-tiles",
     ),
