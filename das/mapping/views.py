@@ -101,7 +101,25 @@ class FeatureSetListJsonView(APIView):
                 ).filter(is_visible=True)
 
             for t in feature_types_qs:
-                yield dict(name=t.name, id=str(t.id), feature_count=t.spatialfeature_count)
+                # Get feature summaries for this feature type
+                features_qs = SpatialFeature.objects.filter(feature_type=t)
+                if not include_hidden:
+                    features_qs = features_qs.filter(feature_type__is_visible=True)
+
+                feature_summaries = []
+                for feature in features_qs:
+                    if feature.feature_geometry:
+                        # Get bounding box coordinates
+                        bounds = feature.feature_geometry.extent  # Returns (xmin, ymin, xmax, ymax)
+                        feature_summaries.append(
+                            {"name": feature.name or "", "bounds": list(bounds) if bounds else None}
+                        )
+                    else:
+                        feature_summaries.append({"name": feature.name or "", "bounds": None})
+
+                yield dict(
+                    name=t.name, id=str(t.id), feature_count=t.spatialfeature_count, feature_summaries=feature_summaries
+                )
 
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
         response_data = {"features": []}
