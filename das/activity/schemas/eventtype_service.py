@@ -14,8 +14,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional
 
-from django.db.models import QuerySet
-from rest_framework.request import Request  # type: ignore
+from rest_framework.request import Request as DRFRequest
 
 from activity.models import EventType
 from activity.schemas.errors import ErrorCategory, ErrorCode, ErrorHint, SchemaError
@@ -41,16 +40,6 @@ class RenderErrors(StrEnum):
     NO_JSON_KEY = "no_json_key"
     INVALID_SCHEMA = "invalid_schema"
     SCHEMA_RENDERING_ERROR = "rendering_error"
-
-
-@dataclass
-class RenderOptions:
-    """
-    Wrappes all schema rendering options, for now only one: `pre_render`, will help to keep the contract
-    between the API and the internal implementation stable.
-    """
-
-    pre_render: bool = False  # dereference $ref & bundle defs
 
 
 @dataclass
@@ -86,53 +75,46 @@ class SchemaResult:
 class EventTypeSchemaService:
     """Service encapsulating all schema operations for ``EventTypes``."""
 
-    def __init__(self, request: Optional[Request] = None):
-        self.request = request
-        self._renderer: Optional[SchemaRenderer] = None
+    def __init__(self):
+        self.renderer: Optional[SchemaRenderer] = None
 
-    def render_schema(self, event_type: EventType, options: Optional[RenderOptions] = None) -> SchemaResult:
-        """Parses the raw schema field and (optionally) dereferences $refs using `SchemaRenderer` implementation.
+    def get_raw_schema(self, event_type: EventType) -> SchemaResult:
+        """
+        Returns a "raw schema" wrapped in a `SchemaResult`, ready to be returned as-is to the API layer.
+        It parses performs some basic checks over the structure of the schema, note that it doesn't perform any
+        dereferencing.
+        """
+        schema, errors = self.parse_schema(event_type.schema)
+        return SchemaResult(event_type_value=event_type.value, schema=schema, errors=errors)
+
+    def get_rendered_schema(self, event_type: EventType, request: DRFRequest) -> SchemaResult:
+        """
+        Returns a "rendered schema" wrapped in a `SchemaResult`, ready to be returned as-is to the API layer.
 
         Always returns a `SchemaResult`, even when errors occur we try to return the schema gathered so far
         so that clients can still inspect or use it (e.g. when the error is in a non-required field).
         """
-        options = options or RenderOptions()
-        schema, errors = self._parse_and_render(event_type, options)
+        schema, errors = self.parse_schema(event_type.schema)
+        if not errors:
+            schema, errors = self.render_schema(schema, request)
         return SchemaResult(event_type_value=event_type.value, schema=schema, errors=errors)
 
-    def bulk_render_schemas(
-        self, queryset: QuerySet[EventType], options: Optional[RenderOptions] = None
-    ) -> List[SchemaResult]:
-        """Convenience wrapper for list endpoint."""
-        options = options or RenderOptions()
-        return [self.render_schema(et, options=options) for et in queryset]
+    def parse_schema(self, raw_schema: str) -> tuple[Optional[dict], List[SchemaError]]:
+        """
+        Parses the raw schema field, returns a tuple of the parsed schema and a list of errors.
+        """
+        raw_schema = raw_schema.strip()
+        parsed_schema = None
 
-    def _get_renderer(self) -> SchemaRenderer:
-        if self._renderer is None:
-            registry = build_dynamic_schemas_registry(self.request) if self.request else None
-            self._renderer = SchemaRenderer(registry) if registry else SchemaRenderer(None)
-        return self._renderer
-
-    def _parse_and_render(
-        self,
-        event_type: EventType,
-        options: RenderOptions,
-    ) -> tuple[Optional[dict], List[SchemaError]]:
-
-        # --------------------------------------------------------------
-        # basic checks
-        # --------------------------------------------------------------
-        raw_schema = event_type.schema
         if not raw_schema:
             return None, [
                 SchemaError(
                     category=ErrorCategory.VALIDATION,
-                    code=ErrorCode.MISSING_SCHEMA_STRUCTURE,
-                    message="No schema defined for this event type.",
-                    context={"event_type": event_type.value},
+                    code=ErrorCode.NO_SCHEMA_DEFINED,
+                    message="No schema defined in the event type.",
                     hints=[
                         ErrorHint(
-                            message="Check that the schema is defined in the event type.",
+                            message="Update/define an event type schema, via the API, UI, or the admin interface.",
                             action_type="fix",
                         )
                     ],
@@ -142,62 +124,62 @@ class EventTypeSchemaService:
         try:
             parsed_schema = json.loads(raw_schema)
         except json.JSONDecodeError as exc:
-            logger.warning("Invalid JSON in schema for %s: %s", event_type.value, exc)
             return None, [
                 SchemaError(
                     category=ErrorCategory.VALIDATION,
                     code=ErrorCode.SCHEMA_PARSING_ERROR,
                     message="Schema contains invalid JSON.",
-                    context={"event_type": event_type.value},
-                    cause=exc,
                     hints=[
                         ErrorHint(
-                            message="Check that the schema is valid JSON.",
+                            message="Update/define an event type schema, via the API, UI, or the admin interface.",
                             action_type="fix",
                         )
                     ],
+                    cause=exc,
                 )
             ]
 
-        if "json" not in parsed_schema:
+        if "json" not in parsed_schema or "ui" not in parsed_schema:
             return parsed_schema, [
                 SchemaError(
                     category=ErrorCategory.VALIDATION,
-                    code=ErrorCode.MISSING_SCHEMA_STRUCTURE,
-                    message="Schema missing 'json' top-level key.",
-                    context={"event_type": event_type.value},
+                    code=ErrorCode.SCHEMA_STRUCTURE_ERROR,
+                    message="Schema missing 'json' or 'ui' top-level key.",
                     hints=[
                         ErrorHint(
-                            message="Check that the schema has a 'json' top-level key.",
+                            message="Update/define an event type schema, via the API, UI, or the admin interface.",
                             action_type="fix",
                         )
                     ],
                 )
             ]
+        return parsed_schema, []
 
-        # --------------------------------------------------------------
-        # optional dereference
-        # --------------------------------------------------------------
-        if not options.pre_render:
-            return parsed_schema, []
+    def get_renderer(self, request: DRFRequest) -> SchemaRenderer:
+        # Temporal implementation while build_dynamic_schemas_registry is not ready
+        if self.renderer is None:
+            registry = build_dynamic_schemas_registry(request)
+            self.renderer = SchemaRenderer(registry)
+        return self.renderer
 
-        renderer = self._get_renderer()
+    def render_schema(self, parsed_schema: dict, request: DRFRequest) -> tuple[dict, List[SchemaError]]:
+        """
+        Renders a parsed schema. Always returns tuple of (schema, errors).
+
+        At this point we expect a structure valid schema, so we can just render it.
+        """
+
+        renderer = self.get_renderer(request)
         try:
-            # TODO: capture / propagate errors from dereference_schema proces
             parsed_schema["json"] = renderer.dereference_schema(parsed_schema["json"])
             return parsed_schema, []
         except Exception as exc:  # pylint: disable=broad-except
+            # GENERIC ERROR, dereference_schema will collect and handle errors, in progress...
             schema_error = SchemaError(
                 category=ErrorCategory.RENDERING,
                 code=ErrorCode.SCHEMA_RENDERING_ERROR,
                 message="Error rendering schema.",
-                context={"event_type": event_type.value},
+                hints=[],
                 cause=exc,
-                hints=[
-                    ErrorHint(
-                        message="Check that the schema is valid JSON.",
-                        action_type="fix",
-                    )
-                ],
             )
             return parsed_schema, [schema_error]

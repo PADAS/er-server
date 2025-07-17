@@ -11,7 +11,6 @@ from django.urls import Resolver404, resolve
 from rest_framework.request import Request as DRFRequest
 from rest_framework.request import clone_request
 
-from activity.exceptions import UriIsNotJsonSchema, UriNotFound
 from schemas.view_mixins import DynamicSchemaFromSourceView
 
 logger = logging.getLogger(__name__)
@@ -63,7 +62,7 @@ def retrieve_dynamic_schema(uri: str, request: DRFRequest) -> Resource:
         match = resolve(parsed.path)
     except Resolver404 as e:
         logger.info("URI %s cannot be resolved to an internal view: %s", uri, e)
-        raise UriNotFound(message="URI cannot be resolved to an internal view", uri=uri) from e
+        raise referencing_exceptions.Unresolvable(ref=uri)
 
     # Let's verify that it's a DynamicSchemaFromSourceView
     # Note: Instead of checking that it's a subclass of DynamicSchemaFromSourceView,
@@ -71,7 +70,7 @@ def retrieve_dynamic_schema(uri: str, request: DRFRequest) -> Resource:
     view_class = getattr(match.func, "view_class", None)
     if not view_class or not issubclass(view_class, DynamicSchemaFromSourceView):
         logger.info("Resolved view for URI %s is not a DynamicSchemaFromSourceView.", uri)
-        raise UriIsNotJsonSchema(message="Resolved view for URI is not a DynamicSchemaFromSourceView", uri=uri)
+        raise referencing_exceptions.Unresolvable(ref=uri)
 
     view_instance = view_class(**match.kwargs)
 

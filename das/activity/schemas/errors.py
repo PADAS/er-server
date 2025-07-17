@@ -1,4 +1,5 @@
-"""Structured error definitions for schema-related operations.
+"""
+Structured error definitions for schema-related operations.
 
 This module centralises all error data-structures so that every component
 (rendering, retrieving, validation, high-level services) can surface
@@ -33,18 +34,19 @@ class ErrorCode(StrEnum):
     """Stable codes to allow i18n and programmatic handling."""
 
     # Validation
+    NO_SCHEMA_DEFINED = "no_schema_defined"
     SCHEMA_PARSING_ERROR = "schema_parsing_error"
-    MISSING_SCHEMA_STRUCTURE = "missing_schema_structure"
-    SCHEMA_VALIDATION_ERROR = "schema_validation_error"  # jsonschema validation
+    SCHEMA_STRUCTURE_ERROR = "schema_structure_error"  # for json and ui schema keys
+    SCHEMA_VALIDATION_ERROR = "schema_validation_error"  # other jsonschema validation
 
     # Resolution (during dereferencing)
     UNRESOLVABLE_REFERENCE = "unresolvable_reference"  # no resolvers found for $ref
     RESOLVER_CONFIGURATION_ERROR = "resolver_configuration_error"  # resolver config error, e.g. required token or etc.
 
     # Retrieval (dynamic schema)
-    VIEW_NOT_FOUND = "view_not_found"
-    VIEW_IS_NOT_DYNAMIC = "view_is_not_dynamic"
-    SOURCE_VIEW_ERROR = "source_view_error"
+    RESOURCE_NOT_FOUND = "resource_not_found"
+    RESOURCE_IS_NOT_SCHEMA = "resource_is_not_json_schema"
+    SOURCE_RESOURCE_ERROR = "source_resource_error"
 
     # Rendering
     SCHEMA_RENDERING_ERROR = "schema_rendering_error"
@@ -69,13 +71,13 @@ class SchemaError:
     category: ErrorCategory
     code: ErrorCode
     message: str
-    context: Dict[str, Any]
     # "severity" needs to be iterated:
     # - the schema is not procesable, or is rendered but invalid
     # - the schema is valid, but the not resolved reference makes it unusable
     # - the schema is valid, and the not resolved reference is for a not required field, the less severe
     severity: str = "error"
     hints: List[ErrorHint] = field(default_factory=list)
+    context: Optional[Dict[str, Any]] = None
     cause: Optional[Exception] = None  # raw exception for logging only
 
     def to_dict(self) -> Dict[str, Any]:
