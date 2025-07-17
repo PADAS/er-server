@@ -112,16 +112,14 @@ class FeatureSetListJsonView(APIView):
                 }
 
                 if summarize_features:
-                    featureTypeDict.feature_summaries = []
-                    for feature in features_qs:
-                        if feature.feature_geometry:
-                            # Get bounding box coordinates
-                            bounds = feature.feature_geometry.extent  # Returns (xmin, ymin, xmax, ymax)
-                            featureTypeDict.feature_summaries.append(
-                                {"name": feature.name or "", "bounds": list(bounds) if bounds else None}
-                            )
-                        else:
-                            featureTypeDict.feature_summaries.append({"name": feature.name or "", "bounds": None})
+                    # Correctly add the 'feature_summaries' key to the dictionary
+                    featureTypeDict["feature_summaries"] = [
+                        {
+                            "name": f.name,
+                            "bounds": f.feature_geometry.extent if f.feature_geometry else None,
+                        }
+                        for f in features_qs
+                    ]
 
                 yield featureTypeDict
 
