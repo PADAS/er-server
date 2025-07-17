@@ -90,7 +90,7 @@ class FeatureSetListJsonView(APIView):
     """
 
     def get(self, request):
-        def feature_types(featureset, include_hidden):
+        def feature_types(featureset, include_hidden, summarize_features=False):
             if include_hidden:
                 feature_types_qs = featureset.spatialfeaturetype_set.annotate(
                     spatialfeature_count=Count("spatialfeature")
@@ -106,22 +106,33 @@ class FeatureSetListJsonView(APIView):
                 if not include_hidden:
                     features_qs = features_qs.filter(feature_type__is_visible=True)
 
-                feature_summaries = []
-                for feature in features_qs:
-                    if feature.feature_geometry:
-                        # Get bounding box coordinates
-                        bounds = feature.feature_geometry.extent  # Returns (xmin, ymin, xmax, ymax)
-                        feature_summaries.append(
-                            {"name": feature.name or "", "bounds": list(bounds) if bounds else None}
-                        )
-                    else:
-                        feature_summaries.append({"name": feature.name or "", "bounds": None})
+                featureTypeDict = {
+                    "name": t.name,
+                    "id": str(t.id),
+                    "feature_count": t.spatialfeature_count,
+                }
 
-                yield dict(
-                    name=t.name, id=str(t.id), feature_count=t.spatialfeature_count, feature_summaries=feature_summaries
-                )
+                if summarize_features:
+                    featureTypeDict.feature_summaries = []
+                    for feature in features_qs:
+                        if feature.feature_geometry:
+                            # Get bounding box coordinates
+                            bounds = feature.feature_geometry.extent  # Returns (xmin, ymin, xmax, ymax)
+                            featureTypeDict.feature_summaries.append(
+                                {"name": feature.name or "", "bounds": list(bounds) if bounds else None}
+                            )
+                        else:
+                            featureTypeDict.feature_summaries.append({"name": feature.name or "", "bounds": None})
+
+                    yield dict(
+                        name=t.name,
+                        id=str(t.id),
+                        feature_count=t.spatialfeature_count,
+                        feature_summaries=feature_summaries,
+                    )
 
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
+        include_summaries = parse_bool(request.GET.get("include_summaries", False))
         response_data = {"features": []}
         featuresets = DisplayCategory.objects.all()
 
@@ -130,7 +141,7 @@ class FeatureSetListJsonView(APIView):
                 {
                     "name": featureset.name,
                     "id": str(featureset.id),
-                    "types": list(feature_types(featureset, include_hidden)),
+                    "types": list(feature_types(featureset, include_hidden, include_summaries)),
                     "description": featureset.description if featureset.description else "",
                     "geojson_url": reverse("mapping:mapping-featureset-geojson", args=[featureset.id.hex]),
                 }
