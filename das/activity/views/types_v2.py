@@ -14,11 +14,7 @@ from rest_framework.viewsets import ModelViewSet
 from activity.filters import EventTypeFilterSet
 from activity.models import Event, EventType
 from activity.permissions import EventCategoryPermissions
-from activity.schemas.eventtype_service import (
-    EventTypeSchemaService,
-    RenderOptions,
-    RenderStatus,
-)
+from activity.schemas.eventtype_service import EventTypeSchemaService
 from activity.serializers.events_v2 import EventTypeSerializer
 from activity.views.events.utils import AllowedCategoriesMixin
 from activity.views.schemas import EventTypeViewSchema
@@ -137,16 +133,20 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         Each item indicates 'success' or 'failure' and contains an 'error.code' when failing.
         """
         queryset = self.filter_queryset(self.get_queryset())
-        render_options = RenderOptions(pre_render=parse_bool(request.query_params.get("pre_render", False)))
-        schema_service = EventTypeSchemaService(request)
-        schema_results = schema_service.bulk_render_schemas(queryset, options=render_options)
+        schema_service = EventTypeSchemaService()
+        pre_render = parse_bool(request.query_params.get("pre_render", False))
+
+        if pre_render:
+            schema_results = [schema_service.get_rendered_schema(event_type, request) for event_type in queryset]
+        else:
+            schema_results = [schema_service.get_raw_schema(event_type) for event_type in queryset]
 
         # Format designed for easy implementation of pagination later
         response_data = {
             "count": len(schema_results),
             "results": [sr.to_api_dict() for sr in schema_results],
         }
-        if all(sr.status == RenderStatus.SUCCESS for sr in schema_results):
+        if all(sr.status == "success" for sr in schema_results):
             response_status = status.HTTP_200_OK
         else:
             response_status = status.HTTP_207_MULTI_STATUS
@@ -165,11 +165,37 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         Returns the rendered schema for the specified event type.
         """
         event_type = self.get_object()
-        render_options = RenderOptions(pre_render=parse_bool(request.query_params.get("pre_render", False)))
-        schema_service = EventTypeSchemaService(request)
-        schema_result = schema_service.render_schema(event_type, options=render_options)
+        schema_service = EventTypeSchemaService()
+        pre_render = parse_bool(request.query_params.get("pre_render", False))
+
+        if pre_render:
+            schema_result = schema_service.get_rendered_schema(event_type, request)
+        else:
+            schema_result = schema_service.get_raw_schema(event_type)
 
         # TODO: Propose a change to the shape of the response, to be more in line with the list_schemas response
-        if schema_result.status != RenderStatus.FAILURE:
+        if schema_result.status != "failure":
             return Response(schema_result.schema, status=status.HTTP_200_OK)
-        return Response({"errors": schema_result.errors}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        return Response(
+            {"errors": [err.to_dict() for err in schema_result.errors]}, status=status.HTTP_422_UNPROCESSABLE_ENTITY
+        )
+
+    @action(
+        methods=["get"],
+        detail=True,
+        url_path="schema_result",
+    )
+    def retrieve_schema_result(self, request: Request, **kwargs) -> Response:
+        """
+        [Preview] Returns the rendered schema for the specified event type, including errors and status.
+        """
+        event_type = self.get_object()
+        schema_service = EventTypeSchemaService()
+        pre_render = parse_bool(request.query_params.get("pre_render", False))
+
+        if pre_render:
+            schema_result = schema_service.get_rendered_schema(event_type, request)
+        else:
+            schema_result = schema_service.get_raw_schema(event_type)
+
+        return Response(schema_result.to_api_dict(), status=status.HTTP_200_OK)
