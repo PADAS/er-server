@@ -280,12 +280,13 @@ def accumulate_options(schema_option, accumulator=None, event_type_value=None):
 
 
 def _generate_aggregate_event_variables_class(
-    event_types, request, only_common_factors=False, support_legacy_event_variables=False
+    event_types, request=None, only_common_factors=False, support_legacy_event_variables=False
 ):
     """
     From a list of EventTypes, generate an EventVariables class adhering to business-rules interface.
     :param event_types: A list of DAS EventType objects from which to build a variables type.
-    :param request: DRF request object (needed for V2 EventType processing).
+    :param request: Optional DRF request object. If None, a synthetic superuser request
+                   is created to ensure all schema options are available for alert rule evaluation.
     :param only_common_factors: Whether to reduce the list of variables to just those which apply to all event_types.
     :param support_legacy_event_variables: Whether to support legacy event variables.
     :return: A `Variables` type to be used with Venmo business-rules package.
@@ -303,7 +304,6 @@ def _generate_aggregate_event_variables_class(
             properties_result = schema_properties_adapter.get_alert_properties(event_type, request)
             if properties_result.status == "failure":
                 logger.warning("Schema processing failed for %s: %s", event_type.value, properties_result.errors)
-                # raise Exception(f"Schema processing failed for {event_type.value}")  # TODO: Display errors?
                 continue
 
             properties = properties_result.properties
@@ -391,7 +391,8 @@ def _generate_aggregate_event_variables_class(
         for key_suffix in supported_field_attributes
     }
 
-    subject_group_func = create_subject_group_func(request.user)
+    user = getattr(request, "user", None) if request else None
+    subject_group_func = create_subject_group_func(user)
     attrs["subject_group"] = subject_group_func
 
     # Invent a class name
@@ -416,7 +417,7 @@ def render_aggregate_event_variables(event_types, request, only_common_factors=F
     :return: A rules document that the UI will render allowing a user to build a condition set.
     """
     variables_class, applies_to_map = _generate_aggregate_event_variables_class(
-        event_types, request, only_common_factors=only_common_factors
+        event_types, request=request, only_common_factors=only_common_factors
     )
 
     rules = export_rule_data(variables_class, EventActions)
@@ -453,7 +454,7 @@ def render_event(event, user, method="GET"):
         event_data["inferred_state"] = infer_event_state(event)
         return event_data
     else:
-        logger.info(f"Permission denied when rendering event {event.serial_number} for user {user}.")
+        logger.info("Permission denied when rendering event %s for user %s.", event.serial_number, user)
         return None
 
 
