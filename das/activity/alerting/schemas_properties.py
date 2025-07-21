@@ -11,11 +11,13 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, List
 
+from django.contrib.auth.models import User
 from rest_framework.request import Request as DRFRequest
 
 from activity.models import EventType
 from activity.schemas.errors import SchemaError
-from activity.schemas.eventtype_service import EventTypeSchemaService, RenderStatus
+from activity.schemas.eventtype_service import EventTypeSchemaService
+from core.utils import NonHttpRequest
 from utils import schema_utils
 
 logger = logging.getLogger(__name__)
@@ -41,22 +43,40 @@ class AlertSchemaAdapter:
     def __init__(self):
         self.v2_service = EventTypeSchemaService()
 
-    def get_alert_properties(self, event_type: EventType, request: DRFRequest) -> SchemaPropertiesResult:
-        """Main entry point - detects version and routes appropriately."""
+    def get_alert_properties(self, event_type: EventType, request: DRFRequest = None) -> SchemaPropertiesResult:
+        """Main entry point - detects version and routes appropriately.
+
+        Args:
+            event_type: The EventType to process
+            request: Optional DRF request. If None, a synthetic superuser request is created
+                    to ensure all schema options are available (used for alert rule evaluation)
+        """
+        # Create superuser request if none provided (for alert rule evaluation)
+        if request is None:
+            request = self._create_superuser_request()
 
         if event_type.version == EventType.VersionChoices.VERSION_1:
             return self._process_v1_schema(event_type)
         else:
             return self._process_v2_schema(event_type, request)
 
+    def _create_superuser_request(self) -> DRFRequest:
+        """Create a synthetic superuser request for alert rule evaluation.
+
+        This ensures that V2 schema processing has access to all possible
+        options and data, which is needed for comprehensive alert rule matching.
+        """
+        django_request = NonHttpRequest()
+        django_request.method = "GET"
+        django_request.user = User(is_superuser=True)
+        return DRFRequest(django_request)
+
     def _process_v1_schema(self, event_type: EventType) -> SchemaPropertiesResult:
         """V1-specific processing using legacy utils."""
         try:
-            # Use existing V1 schema processing
             rendered_schema = schema_utils.get_rendered_schema(event_type.schema)
             properties = rendered_schema.get("properties", {})
 
-            # Build choice options map for V1
             choice_options_map = {}
             for field_name, field_props in properties.items():
                 if "enumNames" in field_props:
@@ -100,25 +120,17 @@ class AlertSchemaAdapter:
             json_schema = schema_result.schema["json"]
             properties = json_schema.get("properties", {})
 
-            # Build choice options map for V2
             for field_name, field_props in properties.items():
                 choice_options = self._extract_v2_choice_options(field_props)
                 if choice_options:
                     choice_options_map[field_name] = choice_options
-
-        # Map V2 status to our status
-        status_mapping = {
-            RenderStatus.SUCCESS: "success",
-            RenderStatus.PARTIAL: "partial",
-            RenderStatus.FAILURE: "failure",
-        }
 
         return SchemaPropertiesResult(
             event_type_value=event_type.value,
             properties=properties,
             choice_options_map=choice_options_map,
             version=event_type.version,
-            status=status_mapping.get(schema_result.status, "failure"),
+            status=schema_result.status.value,
             errors=schema_result.errors,
         )
 
