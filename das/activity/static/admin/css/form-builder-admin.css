@@ -1,6 +1,6 @@
 /* Override the default viewlink icon for FormBuilder admin */
 .viewlink, .inlineviewlink {
     padding-left: 18px;
-    background: url(/api/v1.0/static/admin/img/open-form-builder-in-new-tab.png) 0 1px no-repeat;
+    background: url(/static/admin/img/open-form-builder-in-new-tab.png) 0 1px no-repeat;
     background-size: 16px 16px;
 }
