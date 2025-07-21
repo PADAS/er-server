@@ -256,7 +256,6 @@ STATIC_URL = env.str("STATIC_URL", "/static/")
 STATIC_ROOT = env.str("STATIC_ROOT", os.path.join(BASE_DIR, "www", "static"))
 # Only include static subdirectories, not entire app directories
 STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, "static"),  # Main static directory
     os.path.join(BASE_DIR, "activity", "static"),
     os.path.join(BASE_DIR, "das_server", "static"),
     os.path.join(BASE_DIR, "mapping", "static"),
