@@ -10,9 +10,25 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name="spatialfeaturetypetag",
-            name="id",
-            field=models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID"),
-        ),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql="""
+                ALTER TABLE mapping_spatialfeaturetypetag DROP CONSTRAINT mapping_spatialfeaturetypetag_pkey;
+
+                ALTER TABLE mapping_spatialfeaturetypetag ALTER COLUMN id TYPE bigint;
+                ALTER SEQUENCE mapping_spatialfeaturetypetag_id_seq OWNED BY mapping_spatialfeaturetypetag.id;
+
+                ALTER TABLE mapping_spatialfeaturetypetag ADD CONSTRAINT mapping_spatialfeaturetypetag_pkey PRIMARY KEY (das_tenant_id, id);
+            """,
+                ),
+            ],
+            state_operations=[
+                migrations.AlterField(
+                    model_name="spatialfeaturetypetag",
+                    name="id",
+                    field=models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID"),
+                ),
+            ],
+        )
     ]

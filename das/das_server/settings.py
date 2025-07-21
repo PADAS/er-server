@@ -108,7 +108,7 @@ ROOT_URLCONF = "das_server.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR, "das_server/templates"],
+        "DIRS": ["das_server/templates", "activity/templates", str(BASE_DIR)],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -125,7 +125,7 @@ TEMPLATES = [
         "BACKEND": "reports.backends.DocxBackend",
         "DIRS": [
             "/var/www/env_configs/",
-            BASE_DIR,
+            str(BASE_DIR),
         ],
         "APP_DIRS": True,
         "OPTIONS": {"environment": "reports.environment.Environment", "optimized": False},
@@ -134,7 +134,7 @@ TEMPLATES = [
         "BACKEND": "django.template.backends.jinja2.Jinja2",
         "NAME": "jinja2",
         "DIRS": [
-            BASE_DIR,
+            str(BASE_DIR),
         ],
         "APP_DIRS": True,
         "OPTIONS": {"environment": "das_server.jinja2.environment"},
@@ -254,12 +254,14 @@ TIME_ZONE = "UTC"
 
 STATIC_URL = env.str("STATIC_URL", "/static/")
 STATIC_ROOT = env.str("STATIC_ROOT", os.path.join(BASE_DIR, "www", "static"))
+# Only include static subdirectories, not entire app directories
 STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, "activity"),
-    os.path.join(BASE_DIR, "das_server"),
-    os.path.join(BASE_DIR, "mapping"),
-    os.path.join(BASE_DIR, "observations"),
-    os.path.join(BASE_DIR, "rt_api"),
+    os.path.join(BASE_DIR, "static"),  # Main static directory
+    os.path.join(BASE_DIR, "activity", "static"),
+    os.path.join(BASE_DIR, "das_server", "static"),
+    os.path.join(BASE_DIR, "mapping", "static"),
+    os.path.join(BASE_DIR, "observations", "static"),
+    os.path.join(BASE_DIR, "rt_api", "static"),
 )
 
 SITE_ID = 1

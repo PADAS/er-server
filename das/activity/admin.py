@@ -928,6 +928,10 @@ class PatrolConfiguration(
 class FormBuilderAdmin(admin.ModelAdmin):
     """Admin class to provide a link to the form-builder page."""
 
+    def get_actions(self, request):
+        """Override to disable actions."""
+        return []
+
     def has_add_permission(self, request):
         return False
 
@@ -959,11 +963,12 @@ class FormBuilderAdmin(admin.ModelAdmin):
 
 
 # Create a proxy model for the form builder
+# This is a workaround to allow the form builder to be accessed from the admin site.
 class FormBuilderProxy(models.EventType):
     class Meta:
         proxy = True
-        verbose_name = "Event Types and Category 2.0"
-        verbose_name_plural = "Event Types and Category 2.0"
+        verbose_name = "Event Types and Categories 2.0 (Beta)"
+        verbose_name_plural = "Event Types and Categories 2.0 (Beta)"
 
 
 @admin.register(FormBuilderProxy)

@@ -17,8 +17,8 @@ class Migration(migrations.Migration):
             name="FormBuilderProxy",
             fields=[],
             options={
-                "verbose_name": "Event Types and Category 2.0",
-                "verbose_name_plural": "Event Types and Category 2.0",
+                "verbose_name": "Event Types and Categories 2.0 (Beta)",
+                "verbose_name_plural": "Event Types and Categories 2.0 (Beta)",
                 "proxy": True,
                 "indexes": [],
                 "constraints": [],
