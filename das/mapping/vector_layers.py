@@ -9,7 +9,7 @@ from mapping.models import SpatialFeature
 class SpatialFeatureLayer(VectorLayer):
     model = SpatialFeature
     id = "spatial_features"
-    geometry_field = "geom"  # Use the transformed geometry field
+    geometry_field = "feature_geometry"  # Use the transformed geometry field
     tile_fields = (
         "id",
         "name",
