@@ -226,7 +226,7 @@ DATABASES = {
         "USER": "das",
         "HOST": env.str("DB_HOST", "postgis"),
         "PORT": env.int("DB_PORT", 5432),
-        "PASSWORD": "password",
+        "PASSWORD": env.str("DB_PASSWORD", "password"),
     },
 }
 
@@ -273,7 +273,8 @@ UI_SITE_URL = "http://www.earthranger.com"
 # http://localhost
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = True
-CORS_ORIGIN_WHITELIST = ()
+CORS_ORIGIN_WHITELIST = []
+CORS_ALLOWED_ORIGINS = []
 CORS_ALLOW_HEADERS = default_headers + ("user-profile", "traceparent")
 
 ALLOWED_HOSTS = ["*"]
@@ -713,3 +714,9 @@ elif CLUSTER_NAME == "das-dev":
     PUBSUB_PROJECT_ID = "earthranger-dev"
 else:
     PUBSUB_PROJECT_ID = env.str(var="PUBSUB_PROJECT_ID", default="earthranger-dev")
+
+
+# LD_PRELOAD = "/usr/lib/aarch64-linux-gnu/libgomp.so.1"
+
+# Initialize ALT_SERVER_NAMES as an empty list
+ALT_SERVER_NAMES = []
