@@ -1,6 +1,9 @@
 from vectortiles import VectorLayer
 
-from django.db.models import F
+from django.contrib.gis.db import models as gis_models
+from django.contrib.gis.db.models.functions import Transform
+from django.db.models import Case, CharField, F, Value, When
+from django.db.models.functions import Cast
 
 from mapping.filters import SpatialFeatureFilterSet
 from mapping.models import SpatialFeature
@@ -28,11 +31,6 @@ class SpatialFeatureLayer(VectorLayer):
     filterset_class = SpatialFeatureFilterSet
 
     def get_vector_tile_queryset(self, zoom, x, y):
-        from django.contrib.gis.db import models as gis_models
-        from django.contrib.gis.db.models.functions import Transform
-        from django.db.models import Case, CharField, Value, When
-        from django.db.models.functions import Cast
-
         return self.model.objects.select_related("feature_type", "feature_type__display_category").annotate(
             feature_type_name=F("feature_type__name"),
             display_category_name=F("feature_type__display_category__name"),
@@ -48,6 +46,19 @@ class SpatialFeatureLayer(VectorLayer):
         )
 
     def get_tile(self, x, y, z):
-        """Override to pass annotated queryset to parent"""
-        queryset = self.get_vector_tile_queryset(z, x, y)
-        return super().get_tile(x, y, z, queryset=queryset)
+        """Override to use our custom annotated queryset for vector tiles"""
+        # Store the current queryset and temporarily replace it with our annotated version
+        original_queryset = getattr(self, "queryset", None)
+
+        # Set our annotated queryset for tile generation
+        self.queryset = self.get_vector_tile_queryset(z, x, y)
+
+        try:
+            # Call parent method which will use our custom queryset
+            return super().get_tile(x, y, z)
+        finally:
+            # Restore original queryset
+            if original_queryset is not None:
+                self.queryset = original_queryset
+            elif hasattr(self, "queryset"):
+                delattr(self, "queryset")
