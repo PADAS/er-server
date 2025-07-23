@@ -641,7 +641,7 @@ class EventsView(ListCreateAPIView):
 
         queryset = queryset.select_related("event_type__category", "created_by_user")
 
-        queryset = queryset.prefetch_related(
+        prefetches = [
             Prefetch("eventsource_event_refs__eventsource__eventprovider"),
             Prefetch("reported_by"),
             Prefetch("patrol_segments"),
@@ -673,14 +673,15 @@ class EventsView(ListCreateAPIView):
                 .order_by("ordernum", "to_event__created_at")
                 .all(),
             ),
-        )
-
-        queryset = queryset.annotate(patrol_ids=ArrayAgg("patrol_segments__patrol_id"))
+        ]
 
         if serializer_context.get("include_notes"):
-            queryset = queryset.prefetch_related("notes")
+            prefetches.append(Prefetch("notes"))
         if serializer_context.get("include_files"):
-            queryset = queryset.prefetch_related("files")
+            prefetches.append(Prefetch("files"))
+
+        queryset = queryset.prefetch_related(*prefetches)
+        queryset = queryset.annotate(patrol_ids=ArrayAgg("patrol_segments__patrol_id"))
         return queryset
 
     def add_segment_to_record(self, patrol_segment_id: Union[List[str], str], new_record: List[Dict]) -> List[Dict]:

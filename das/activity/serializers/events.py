@@ -1024,7 +1024,8 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             # pop the following out of the representation if we've prefetched using the _set
             self.fields.pop("event_details", None)
             self.fields.pop("related_subjects", None)
-            self.fields.pop("files", None)
+            if "files" in self.fields:
+                self.fields.pop("files", None)
 
         rep = super().to_representation(event)
 
@@ -1041,16 +1042,14 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                 event.related_subjects_set, many=True, context=self.context, read_only=True
             ).data
 
-            try:
-                if context.get("include_files"):
+            # Only serialize files if the field is present
+            if "files" in self.fields:
+                try:
                     rep["files"] = EventFileSerializer(event.files.all(), many=True, context=self.context).data
-            except GoogleAuthError as ex:
-                # DefaultCredentialsError('Your default credentials were not found.
-                # To set up Application Default Credentials,
-                # see https://cloud.google.com/docs/authentication/external/set-up-adc for more information.')
-                logger.exception("Failed rendering event pre-fetched files  {}".format(ex))
+                except GoogleAuthError as ex:
+                    logger.exception("Failed rendering event pre-fetched files  {}".format(ex))
         else:
-            if rep["event_details"] is not None:
+            if rep.get("event_details") is not None:
                 details_updates = rep["event_details"].pop("updates", [])
 
         # Be sure to prefetch this, should not query the database for each
@@ -1081,8 +1080,10 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             for note in rep.get("notes", []):
                 updates.extend(note["updates"])
 
-            for _file in rep.get("files", []):
-                updates.extend(_file["updates"])
+            # Only process file updates if files are present
+            if "files" in self.fields and rep.get("files") is not None:
+                for _file in rep["files"]:
+                    updates.extend(_file["updates"])
 
             for geometry in self._render_geometries_updates(event):
                 updates.extend(geometry)
