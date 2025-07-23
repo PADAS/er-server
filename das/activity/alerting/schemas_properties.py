@@ -1,8 +1,7 @@
-"""Alert-specific schema processing service for EventTypes.
+"""
+Alert-specific schema processing service for EventTypes.
 
-Provides clean separation between V1 and V2 EventType schema processing
-for alert condition generation, following the pattern established by
-EventTypeSchemaService.
+Provides clean separation between V1 and V2 EventType schema processing for alert condition generation.
 """
 
 from __future__ import annotations
@@ -37,7 +36,7 @@ class SchemaPropertiesResult:
 
 class AlertSchemaAdapter:
     """
-    Adapter for EventType v1 and v2 schemas specifically for alert conditions.
+    Properties extractor for EventType schemas (v1 and v2), specifically for alert conditions.
     """
 
     def __init__(self):
