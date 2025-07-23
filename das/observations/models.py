@@ -785,6 +785,7 @@ class Observation(TenantModelMixin, models.Model):
     SYSTEM_FLAGS_MASK = 0x0000FFFFFFFFFFFF  # Lower 48 bits: 0-47
     # Upper 16 bits available for 3rd-party use (bits 48-63)
     THIRD_PARTY_FLAGS_MASK = 0xFFFF000000000000  # Upper 16 bits: 48-63
+    THIRD_PARTY_FLAGS_SHIFT = 48
 
     # Combined mask for default filtering (exclude records with system exclusion flags)
     DEFAULT_EXCLUSION_MASK = EXCLUDED_MANUALLY | EXCLUDED_AUTOMATICALLY
@@ -815,7 +816,7 @@ class Observation(TenantModelMixin, models.Model):
     def __str__(self):
         return "{}:{}:{:08b}".format(self.recorded_at.isoformat(), self.location, self.exclusion_flags.mask)
 
-    @property
+    @cached_property
     def system_exclusion_flags(self):
         """Get only the system exclusion flags (lower 48 bits)."""
         return self.exclusion_flags.mask & self.SYSTEM_FLAGS_MASK
@@ -823,7 +824,7 @@ class Observation(TenantModelMixin, models.Model):
     @property
     def third_party_exclusion_flags(self):
         """Get only the 3rd-party exclusion flags (upper 16 bits)."""
-        return (self.exclusion_flags.mask & self.THIRD_PARTY_FLAGS_MASK) >> 48
+        return (self.exclusion_flags.mask & self.THIRD_PARTY_FLAGS_MASK) >> self.THIRD_PARTY_FLAGS_SHIFT
 
     def set_third_party_flags(self, flags):
         """Set 3rd-party flags in the upper 16 bits while preserving system flags.
@@ -837,7 +838,7 @@ class Observation(TenantModelMixin, models.Model):
         # Clear the upper 16 bits and preserve lower 48 bits
         system_flags = self.exclusion_flags.mask & self.SYSTEM_FLAGS_MASK
         # Shift the 3rd-party flags to upper 16 bits and combine
-        new_flags = system_flags | (flags << 48)
+        new_flags = system_flags | (flags << self.THIRD_PARTY_FLAGS_SHIFT)
         self.exclusion_flags = new_flags
 
     def has_system_exclusion_flags(self):
