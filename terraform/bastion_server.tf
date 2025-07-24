@@ -9,7 +9,7 @@ locals {
 }
 
 resource "tls_private_key" "bastion_server" {
-  algorithm = "RSA"
+  algorithm = "ED25519"
 }
 
 data "google_compute_image" "ubuntu" {
