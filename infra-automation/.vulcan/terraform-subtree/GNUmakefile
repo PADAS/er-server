@@ -59,6 +59,13 @@ terraform_apply: apply_options ?=
 terraform_apply: $(terraform_binary)
 	export PATH="$(coerced_path_for_terraform)" && terraform apply $(apply_options) $(apply_dir_or_planfile)
 
+.PHONY: terraform_refresh
+terraform_refresh: refresh_dir ?=
+terraform_refresh: refresh_options ?=
+terraform_refresh: $(terraform_binary)
+	export PATH="$(coerced_path_for_terraform)" && terraform refresh $(refresh_options) $(refresh_dir)
+
+
 .PHONY: terraform_output
 terraform_output: output_name ?=
 terraform_output: output_options ?=
