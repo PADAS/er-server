@@ -75,6 +75,12 @@ tf_apply: apply_options ?=
 tf_apply: ## terraform apply | [apply_options="ARGS"] [apply_dir_or_planfile="PATH"]
 	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_dir_or_planfile="$(apply_dir_or_planfile)" apply_options="$(apply_options)"
 
+.PHONY: tf_refresh
+tf_refresh: refresh_dir ?=
+tf_refresh: refresh_options ?=
+tf_refresh: ## terraform refresh | [refresh_options="ARGS"] [refresh_dir="PATH"]
+	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_refresh refresh_dir="$(refresh_dir)" refresh_options="$(refresh_options)"
+
 .PHONY: tf_destroy
 tf_destroy: destroy_dir ?=
 tf_destroy: ## terraform destroy | [destroy_dir="PATH"]
