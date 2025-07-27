@@ -4,5 +4,6 @@ window.addEventListener('DOMContentLoaded', function() {
     if (link && link.textContent.trim() === 'View') {
         link.textContent = 'View and Edit';
         link.target = '_blank';
+        link.href = '/admin/form-builder';
     }
 });
