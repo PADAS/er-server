@@ -1024,8 +1024,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             # pop the following out of the representation if we've prefetched using the _set
             self.fields.pop("event_details", None)
             self.fields.pop("related_subjects", None)
-            if "files" in self.fields:
-                self.fields.pop("files", None)
+            self.fields.pop("files", None)
 
         rep = super().to_representation(event)
 
@@ -1081,8 +1080,8 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                 updates.extend(note["updates"])
 
             # Only process file updates if files are present
-            if "files" in self.fields and rep.get("files") is not None:
-                for _file in rep["files"]:
+            if "files" in self.fields:
+                for _file in rep.get("files", []):
                     updates.extend(_file["updates"])
 
             for geometry in self._render_geometries_updates(event):
