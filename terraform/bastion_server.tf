@@ -9,7 +9,7 @@ locals {
 }
 
 resource "tls_private_key" "bastion_server" {
-  algorithm = "RSA"
+  algorithm = "ED25519"
 }
 
 data "google_compute_image" "ubuntu" {
@@ -56,6 +56,7 @@ resource "google_compute_instance" "bastion_server" {
 
   metadata = {
     ssh-keys = "${local.bastion_server_user}:${tls_private_key.bastion_server.public_key_openssh}"
+
   }
 
   network_interface {
@@ -67,6 +68,7 @@ resource "google_compute_instance" "bastion_server" {
     }
   }
 
+
   provisioner "file" {
     source      = "${path.root}/bastion_server_scripts/postgres_bootstrapping.sql"
     destination = "/home/${local.bastion_server_user}/postgres_bootstrapping.sql"
@@ -76,6 +78,7 @@ resource "google_compute_instance" "bastion_server" {
       type        = "ssh"
       private_key = tls_private_key.bastion_server.private_key_pem
       user        = local.bastion_server_user
+      timeout     = "5m"
     }
   }
 
@@ -86,10 +89,12 @@ resource "google_compute_instance" "bastion_server" {
       private_key = tls_private_key.bastion_server.private_key_pem
       type        = "ssh"
       user        = local.bastion_server_user
+      timeout     = "10m"
     }
 
     script = "${path.root}/bastion_server_scripts/docker_install.sh"
 
   }
+
 
 }
