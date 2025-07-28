@@ -1033,7 +1033,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         if set_prefetched:
             # Apply the prefetched data back to the representation
             rep["event_details"] = None
-            if event.event_details_set:
+            if context.get("include_details", True) and event.event_details_set:
                 rep["event_details"] = EventDetailsSerializer(event.event_details_set[0], context=self.context).data
                 details_updates = rep["event_details"].get("updates")
 
@@ -1042,7 +1042,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             ).data
 
             # Only serialize files if the field is present
-            if "files" in self.fields:
+            if self.context.get("include_files", True):
                 try:
                     rep["files"] = EventFileSerializer(event.files.all(), many=True, context=self.context).data
                 except GoogleAuthError as ex:
@@ -1079,10 +1079,8 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             for note in rep.get("notes", []):
                 updates.extend(note["updates"])
 
-            # Only process file updates if files are present
-            if "files" in self.fields:
-                for _file in rep.get("files", []):
-                    updates.extend(_file["updates"])
+            for _file in rep.get("files", []):
+                updates.extend(_file["updates"])
 
             for geometry in self._render_geometries_updates(event):
                 updates.extend(geometry)

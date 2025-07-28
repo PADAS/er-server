@@ -646,7 +646,6 @@ class EventsView(ListCreateAPIView):
             Prefetch("reported_by"),
             Prefetch("patrol_segments"),
             Prefetch("geometries"),
-            Prefetch("event_details", to_attr="event_details_set"),
             Prefetch("related_subjects", to_attr="related_subjects_set"),
             Prefetch(
                 "in_relationships",
@@ -675,6 +674,8 @@ class EventsView(ListCreateAPIView):
             ),
         ]
 
+        if serializer_context.get("include_details"):
+            prefetches.append(Prefetch("event_details", to_attr="event_details_set"))
         if serializer_context.get("include_notes"):
             prefetches.append(Prefetch("notes"))
         if serializer_context.get("include_files"):
