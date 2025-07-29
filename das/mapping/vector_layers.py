@@ -12,8 +12,8 @@ from mapping.models import SpatialFeature
 
 class SpatialFeatureLayer(VectorLayer):
     queryset = (
-        SpatialFeature.objects.filter(feature_type__display_category__isnull=False)
-        .select_related("feature_type", "feature_type__display_category")
+        SpatialFeature.objects.select_related("feature_type", "feature_type__display_category")
+        .filter(feature_type__display_category__isnull=False)
         .annotate(
             int_id=RawSQL("hashtext(CAST(mapping_spatialfeature.id AS TEXT))", []),
             feature_type_name=F("feature_type__name"),
