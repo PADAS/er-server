@@ -190,13 +190,37 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
             "subject__additional__display_id"
         )
 
+        # Handling new Subject Subtype for new Data Model
+        queryset_gearset = (
+            SubjectSource.objects.filter(subject__subject_subtype="ropeless_buoy_gearset")
+            .select_related("source")
+            .select_related("subject")
+        )
+
+        # Apply the same filters to gearset queryset
+        if updated_since and is_updated_since_valid:
+            queryset_gearset = queryset_gearset.by_updated_since(updated_since)
+
+        queryset_gearset = queryset_gearset.filter(subject__is_active=is_active)
+
+        if lat and lon:
+            queryset_gearset = filter_by_bbox(queryset=queryset_gearset, latitude=lat, longitude=lon)
+
+        # Apply same distinct filtering
+        queryset_gearset = queryset_gearset.order_by("subject__additional__display_id", "subject__name").distinct(
+            "subject__additional__display_id"
+        )
+
+        # Union both querysets - need to ensure same ordering for union
+        combined_queryset = queryset.union(queryset_gearset).order_by("id")
+
         # Normal ListAPIView.list() code here
-        page = self.paginate_queryset(queryset)
+        page = self.paginate_queryset(combined_queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
 
-        serializer = self.get_serializer(queryset, many=True)
+        serializer = self.get_serializer(combined_queryset, many=True)
         return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
