@@ -10,6 +10,7 @@ from observations.serializers import (
     SubjectRelatedField,
     SubjectSubTypeRelatedField,
 )
+from sensors.handlers import LatestObservationSource
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,13 @@ class GearsSerializer(serializers.Serializer):
                 raise serializers.ValidationError(f"Subject: {data} does not exist.")
         return super().to_internal_value(data)
 
+    def _idx_to_device_label(self, idx):
+        """
+        Convert an index to a device label.
+        1. a, 2. b, 3. c, etc.
+        """
+        return chr(97 + idx)
+
     def to_representation(self, instance):
         rep = super(GearsSerializer, self).to_representation(instance)
         subject = rep["subject"]
@@ -115,20 +123,49 @@ class GearsSerializer(serializers.Serializer):
             raise serializers.ValidationError("Subject must be a dictionary")
 
         gear_rep = dict()
-        gear_rep[ID_KEY] = subject[ID_KEY]
-        gear_rep[STATUS_KEY] = "deployed" if subject["is_active"] else "hauled"
-        gear_rep["last_updated"] = subject["updated_at"]
-        # TODO: add last_change_time
-        additional = subject.get("additional")
-        if additional:
-            gear_rep[DISPLAY_ID_KEY] = self.get_display_id(subject)
-            if DEVICES_KEY in additional:
-                gear_rep["type"] = self.get_type(subject)
-                gear_rep[DEVICES_KEY] = subject["additional"][DEVICES_KEY]
-        else:
+
+        # Handle ropeless_buoy_gearset differently
+        if subject.get("subject_subtype") == "ropeless_buoy_gearset":
+            gear_rep[ID_KEY] = subject[ID_KEY]
             gear_rep[DISPLAY_ID_KEY] = subject["name"]
-            # TODO: return 500 internal server error with this detail
-            gear_rep["type"] = "Error: no device information"
-            gear_rep[DEVICES_KEY] = []
+            gear_rep[STATUS_KEY] = "deployed" if subject["is_active"] else "hauled"
+            gear_rep["last_updated"] = subject["updated_at"]
+
+            # Get devices from related SubjectSources
+            devices = []
+            related_subject_sources = instance.subject.subjectsources.all()
+            for idx, subject_source in enumerate(related_subject_sources):
+                if subject_source.source:
+                    device_id = subject_source.source.manufacturer_id
+                    observation = LatestObservationSource.objects.get_latest_for_source(subject_source.source)
+                    additional = subject_source.source.additional or {}
+                    device = {
+                        "device_id": device_id,
+                        "label": self._idx_to_device_label(idx),
+                        "location": {"latitude": observation.location.y, "longitude": observation.location.x},
+                        "last_updated": subject_source.source.updated_at,
+                        "last_deployed": additional.get("last_deployed", None),
+                    }
+                    devices.append(device)
+
+            gear_rep[DEVICES_KEY] = devices
+            gear_rep["type"] = GEAR_TYPE_TRAWL if len(devices) > 1 else GEAR_TYPE_SINGLE
+        else:
+            # Original logic for other subject subtypes
+            gear_rep[ID_KEY] = subject[ID_KEY]
+            gear_rep[STATUS_KEY] = "deployed" if subject["is_active"] else "hauled"
+            gear_rep["last_updated"] = subject["updated_at"]
+            # TODO: add last_change_time
+            additional = subject.get("additional")
+            if additional:
+                gear_rep[DISPLAY_ID_KEY] = self.get_display_id(subject)
+                if DEVICES_KEY in additional:
+                    gear_rep["type"] = self.get_type(subject)
+                    gear_rep[DEVICES_KEY] = subject["additional"][DEVICES_KEY]
+            else:
+                gear_rep[DISPLAY_ID_KEY] = subject["name"]
+                # TODO: return 500 internal server error with this detail
+                gear_rep["type"] = "Error: no device information"
+                gear_rep[DEVICES_KEY] = []
 
         return gear_rep
