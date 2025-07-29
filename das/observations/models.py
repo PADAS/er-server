@@ -433,7 +433,12 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return self.filter(created_at__gte=timestamp)
 
     def by_exclusion_flags(self, filter_flag=None, include_empty_location: bool = False):
-        """Works with more than one filter flag, for example 3 which is manual and automatic exclusion.
+        """Filter by exclusion flags with intelligent handling of system vs 3rd-party flags.
+
+        Automatically determines the appropriate filtering strategy:
+        - For None/0: Uses system-only filtering to preserve 3rd-party flags
+        - For values <= 0x0000FFFFFFFFFFFF: Uses system-only filtering for backward compatibility
+        - For values with 3rd-party flags: Uses full 64-bit filtering
 
         Args:
             filter_flag (optional): the exclusion filter flag, think bits. 0 is a valid value. Defaults to None.
@@ -443,15 +448,32 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             queryset: a further filtered queryset
         """
         queryset = self
-        if filter_flag is not None:
+        if filter_flag is None:
+            # When filter_flag is None (e.g., "null"), return all observations without any exclusion filtering
+            pass
+        elif filter_flag <= Observation.SYSTEM_FLAGS_MASK:  # Value fits in system flags (lower 48 bits)
+            # System-only filtering for backward compatibility and to preserve 3rd-party flags
+            system_filter_flag = filter_flag & Observation.SYSTEM_FLAGS_MASK
+            if system_filter_flag > 0:
+                queryset = queryset.annotate(exclusion_filter=F("exclusion_flags").bitand(system_filter_flag)).filter(
+                    exclusion_filter__gt=0
+                )
+            else:
+                # When filter_flag is 0, filter for exact match on system bits only
+                queryset = queryset.annotate(
+                    system_flags=F("exclusion_flags").bitand(Observation.SYSTEM_FLAGS_MASK)
+                ).filter(system_flags=system_filter_flag)
+        else:
+            # Value has 3rd-party flags (upper 16 bits): use full 64-bit filtering
             if filter_flag > 0:
                 queryset = queryset.annotate(exclusion_filter=F("exclusion_flags").bitand(filter_flag)).filter(
                     exclusion_filter__gt=0
                 )
             else:
                 queryset = queryset.filter(exclusion_flags=filter_flag)
-            if not include_empty_location:
-                queryset = queryset.exclude(location=EMPTY_POINT)
+
+        if not include_empty_location:
+            queryset = queryset.exclude(location=EMPTY_POINT)
         return queryset
 
     def annotate_transforms(self):
@@ -620,7 +642,6 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                     geometry = Polygon.from_bbox(bbox)
                     source_qs = source_qs.filter(location__within=geometry)
 
-                # Apply exclusion flags
                 source_qs = source_qs.by_exclusion_flags(
                     filter_flag, include_empty_location=subject.is_stationary_subject
                 )
@@ -691,8 +712,9 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
         queryset = Observation.objects.filter(
             source__subjectsource__in=subject_source,
             source__subjectsource__assigned_range__contains=F("recorded_at"),
-            exclusion_flags=filter_flag,
         )
+
+        queryset = queryset.by_exclusion_flags(filter_flag)
 
         if since and until:
             queryset = queryset.filter(recorded_at__range=(since, until))
@@ -780,6 +802,16 @@ class Observation(TenantModelMixin, models.Model):
 
     EXCLUDED_AUTOMATICALLY_TIME_DELTA = timedelta(days=7)
 
+    # Bit masks for partitioning exclusion flags (64-bit BigIntegerField)
+    # Lower 48 bits reserved for system use (bits 0-47)
+    SYSTEM_FLAGS_MASK = 0x0000FFFFFFFFFFFF  # Lower 48 bits: 0-47
+    # Upper 16 bits available for 3rd-party use (bits 48-63)
+    THIRD_PARTY_FLAGS_MASK = 0xFFFF000000000000  # Upper 16 bits: 48-63
+    THIRD_PARTY_FLAGS_SHIFT = 48
+
+    # Combined mask for default filtering (exclude records with system exclusion flags)
+    DEFAULT_EXCLUSION_MASK = EXCLUDED_MANUALLY | EXCLUDED_AUTOMATICALLY
+
     BITMAP_FILTER_CHOICES = [
         ("EXCLUDED_MANUALLY", _("EXCLUDED_MANUALLY")),
         ("EXCLUDED_AUTOMATICALLY", _("EXCLUDED_AUTOMATICALLY")),
@@ -805,6 +837,35 @@ class Observation(TenantModelMixin, models.Model):
 
     def __str__(self):
         return "{}:{}:{:08b}".format(self.recorded_at.isoformat(), self.location, self.exclusion_flags.mask)
+
+    @cached_property
+    def system_exclusion_flags(self):
+        """Get only the system exclusion flags (lower 48 bits)."""
+        return self.exclusion_flags.mask & self.SYSTEM_FLAGS_MASK
+
+    @property
+    def third_party_exclusion_flags(self):
+        """Get only the 3rd-party exclusion flags (upper 16 bits)."""
+        return (self.exclusion_flags.mask & self.THIRD_PARTY_FLAGS_MASK) >> self.THIRD_PARTY_FLAGS_SHIFT
+
+    def set_third_party_flags(self, flags):
+        """Set 3rd-party flags in the upper 16 bits while preserving system flags.
+
+        Args:
+            flags (int): 16-bit value to set in the upper 16 bits (bits 48-63)
+        """
+        if flags > 0xFFFF:
+            raise ValueError("3rd-party flags must be a 16-bit value (0-65535)")
+
+        # Clear the upper 16 bits and preserve lower 48 bits
+        system_flags = self.exclusion_flags.mask & self.SYSTEM_FLAGS_MASK
+        # Shift the 3rd-party flags to upper 16 bits and combine
+        new_flags = system_flags | (flags << self.THIRD_PARTY_FLAGS_SHIFT)
+        self.exclusion_flags = new_flags
+
+    def has_system_exclusion_flags(self):
+        """Check if any system exclusion flags are set."""
+        return bool(self.system_exclusion_flags & self.DEFAULT_EXCLUSION_MASK)
 
     class Meta:
         constraints = [
