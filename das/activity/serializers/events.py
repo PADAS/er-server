@@ -1019,13 +1019,14 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                 return {"id": str(event.id), "serial_number": event.serial_number}
 
         self.fields.pop("eventsource", None)
-        set_prefetched = hasattr(event, "event_details_set")
+        has_prefetched_event_details = hasattr(event, "event_details_set")
+        has_prefetched_related_subjects = hasattr(event, "related_subjects_set")
 
-        if set_prefetched:
-            # pop the following out of the representation if we've prefetched using the _set
+        # pop the following out of the representation if we've prefetched using the _set
+        if has_prefetched_event_details:
             self.fields.pop("event_details", None)
+        if has_prefetched_related_subjects:
             self.fields.pop("related_subjects", None)
-            self.fields.pop("files", None)
 
         rep = super().to_representation(event)
 
@@ -1037,28 +1038,32 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
         rep["is_collection"] = event.event_type.is_collection if event.event_type else False
 
-        details_updates = ""
+        details_updates = []
 
-        if set_prefetched:
+        if has_prefetched_event_details:
             # Apply the prefetched data back to the representation
             rep["event_details"] = None
+
             if context.get("include_details", True) and event.event_details_set:
                 rep["event_details"] = EventDetailsSerializer(event.event_details_set[0], context=self.context).data
                 details_updates = rep["event_details"].get("updates")
+        else:
+            if rep.get("event_details") is not None:
+                details_updates = rep["event_details"].pop("updates", [])
+            else:
+                rep["event_details"] = None
 
+        if has_prefetched_related_subjects:
             rep["related_subjects"] = SubjectSerializer(
                 event.related_subjects_set, many=True, context=self.context, read_only=True
             ).data
 
-            # Only serialize files if the field is present
-            if self.context.get("include_files", True):
-                try:
-                    rep["files"] = EventFileSerializer(event.files.all(), many=True, context=self.context).data
-                except GoogleAuthError as ex:
-                    logger.exception("Failed rendering event pre-fetched files  {}".format(ex))
-        else:
-            if rep.get("event_details") is not None:
-                details_updates = rep["event_details"].pop("updates", [])
+        # Only serialize files if the field is present
+        if self.context.get("include_files", True):
+            try:
+                rep["files"] = EventFileSerializer(event.files.all(), many=True, context=self.context).data
+            except GoogleAuthError as ex:
+                logger.exception("Failed rendering event pre-fetched files  {}".format(ex))
 
         # Be sure to prefetch this, should not query the database for each
         # event, event_source_ref, event_source, eventprovider...
