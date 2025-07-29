@@ -222,6 +222,11 @@ class GenericSensorHandler:
             # update_subject_source_from_observation(src, subject_info, additional)
             subject_info["additional"] = additional
 
+        if subject_subtype == "ropeless_buoy_gearset":
+            subject = Subject.objects.filter(name=subject_name).order_by("-created_at").first()
+            if subject:
+                subject_info["id"] = subject.id
+
         # Create a cache key from the source parameters
         source_cache_key = (source_type, provider_key, manufacturer_id, model_name, str(subject_info), str(source_info))
 
