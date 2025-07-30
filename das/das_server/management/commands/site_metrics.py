@@ -163,12 +163,12 @@ class ExtractSiteMetrics:
         return rep
 
     def is_enum_field(self, schema, key):
-        properties = schema["schema"]["properties"]
+        properties = schema_utils.get_resolved_v1v2_properties(schema)
         if key in properties and "enum" in properties[key]:
             return True
 
     def is_field_type(self, schema, key, field_type):
-        properties = schema["schema"]["properties"]
+        properties = schema_utils.get_resolved_v1v2_properties(schema)
         try:
             return properties[key]["type"] == field_type
         except KeyError:
