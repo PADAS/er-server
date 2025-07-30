@@ -502,7 +502,7 @@ def definition_key_order_as_dict(schema):
 
 
 def property_keys_order_as_dict(schema):
-    properties = schema.get("schema", {}).get("properties", [])
+    properties = get_resolved_v1v2_properties(schema)
     if properties:
         property_keys = properties.keys()
         return OrderedDict(definition_keys(property_keys))
@@ -510,8 +510,10 @@ def property_keys_order_as_dict(schema):
 
 
 def detail_resolver(schema, key, value, event=None):
-    if key in schema["schema"]["properties"]:
-        schema_item = schema["schema"]["properties"][key]
+    properties = get_resolved_v1v2_properties(schema)
+
+    if key in properties:
+        schema_item = properties[key]
         return extractor(schema_item, schema.get("definition", []), key, value, event=event)
 
 
@@ -652,7 +654,7 @@ def get_column_header_name(schema, key):
     if definition_header:
         return definition_header
     else:
-        properties = schema["schema"]["properties"]
+        properties = get_resolved_v1v2_properties(schema)
         if key in properties and "title" in properties[key]:
             return properties[key]["title"]
 
@@ -670,7 +672,7 @@ def get_display_value_header_for_key(schema, key):
     """
     definition_header = find_display_value_for_key_in_definition(schema, key)
     properties_title = ""
-    properties = schema["schema"]["properties"]
+    properties = get_resolved_v1v2_properties(schema)
     if key in properties and "title" in properties[key]:
         properties_title = properties[key]["title"]
     if properties_title and definition_header != properties_title:
@@ -746,7 +748,7 @@ def validate_rendered_schema_is_wellformed(rendered_schema: dict):
     if "$schema" not in rendered_schema.get("schema", {}):
         raise SchemaValidationError(SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA)
 
-    properties = rendered_schema["schema"].get("properties")
+    properties = get_resolved_v1v2_properties(rendered_schema)
 
     if not properties:
         raise SchemaValidationError('Schema must include a "properties" attribute.')
@@ -816,7 +818,7 @@ def _schema_properties(rendered_schema):
             else:
                 yield key, value
 
-    for prop_name, props in inner_schema_properties(rendered_schema["schema"]["properties"]):
+    for prop_name, props in inner_schema_properties(get_resolved_v1v2_properties(rendered_schema)):
         yield prop_name, props
 
 
@@ -856,3 +858,26 @@ def schema_property_choices(schema, rendered_schema):
             except StopIteration:
                 return
             yield SchemaChoiceProperty(prop_name, props, field_name, lookup)
+
+
+def get_resolved_v1v2_properties(schema):
+    """
+    Resolve schema properties from either legacy or new schema structure.
+
+    Legacy format: schema["schema"]["properties"]
+    New format: schema["json"]["properties"]
+
+    Args:
+        schema (dict): The schema dictionary
+    Returns:
+        dict: The properties dictionary
+    Raises:
+        KeyError: If neither expected structure is found
+    """
+    if "schema" in schema and "properties" in schema["schema"]:
+        return schema["schema"]["properties"]
+    elif "json" in schema and "properties" in schema["json"]:
+        return schema["json"]["properties"]
+    else:
+        logger.warning("Schema properties not found in expected structure.")
+        return {}
