@@ -5,7 +5,7 @@ from business_rules import actions, export_rule_data, fields, variables
 
 from django.utils.translation import gettext as _
 
-from activity.alerting.schemas_properties import AlertSchemaAdapter
+from activity.alerting.schema_properties import AlertingSchemaPropertiesAdapter
 from activity.alerting.variables import case_insensitive_string_rule_variable
 from activity.models import Event, EventDetails
 from activity.permissions import EventCategoryPermissions
@@ -196,10 +196,7 @@ def create_new_func(key, return_type, label=None, options_dict=None):
 
 
 def translate_schema_type_to_type(option):
-    if "enumNames" in option:
-        return "select"
-
-    if "anyOf" in option or "oneOf" in option:
+    if any(key in option for key in ["enumNames", "anyOf", "oneOf"]):
         return "select"
 
     if "type" not in option:
@@ -217,10 +214,7 @@ def translate_schema_type_to_type(option):
 
 
 def get_schema_type(option: Dict[str, str]) -> str:
-    if "enumNames" in option:
-        return "select"
-
-    if "anyOf" in option or "oneOf" in option:
+    if any(key in option for key in ["enumNames", "anyOf", "oneOf"]):
         return "select"
 
     if "type" not in option:
@@ -242,43 +236,6 @@ def remove_field_suffix(input_string: str) -> str:
     return input_string
 
 
-def accumulate_options(schema_option, accumulator=None, event_type_value=None):
-    """
-    Transform an Event-Type choice list from `enumNames` to business-rules friendly list.
-    :param schema_option:
-    :return:
-    """
-
-    if "enumNames" not in schema_option:
-        return accumulator or {}
-
-    elif accumulator is not None:
-        try:
-            for k, v in schema_option["enumNames"].items():
-                if k not in accumulator:
-                    accumulator["k"] = v
-        except AttributeError as aex:
-            logger.warning(
-                "Failed to parse options for schema_option and event_type_value %s. I expected a dictionary but got %s. Error: %s",
-                event_type_value,
-                schema_option,
-                aex,
-            )
-        return accumulator
-    else:
-        try:
-            return dict((k, v) for k, v in schema_option["enumNames"].items())
-        except AttributeError as aex:
-            logger.warning(
-                "Failed to parse options for schema_option and event_type_value %s. I expected a dictionary but got %s. Error: %s",
-                event_type_value,
-                schema_option,
-                aex,
-            )
-
-    return {}
-
-
 def _generate_aggregate_event_variables_class(
     event_types, request=None, only_common_factors=False, support_legacy_event_variables=False
 ):
@@ -295,7 +252,7 @@ def _generate_aggregate_event_variables_class(
     supported_field_attributes = ["no_legacy"] + (["legacy"] if support_legacy_event_variables else [])
 
     schema_properties_map = {}
-    schema_properties_adapter = AlertSchemaAdapter()
+    schema_properties_adapter = AlertingSchemaPropertiesAdapter()
 
     # Reduce schemas to common properties
     keyset_list = []
