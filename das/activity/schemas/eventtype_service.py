@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import List, Optional, Tuple
 
 from rest_framework.request import Request as DRFRequest
@@ -20,12 +19,9 @@ from activity.models import EventType
 from activity.schemas.errors import ErrorCategory, ErrorCode, ErrorHint, SchemaError
 from activity.schemas.schema_rendering import SchemaRenderer
 from activity.schemas.schema_retrieving import build_dynamic_schemas_registry
+from utils import StrEnum
 
 logger = logging.getLogger(__name__)
-
-
-class StrEnum(str, Enum):
-    """Enum that can be used as a string."""
 
 
 class RenderStatus(StrEnum):

@@ -9,15 +9,9 @@ consistent, machine-readable errors to the API layer.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
-
-class StrEnum(str, Enum):
-    """Enum that can be compared to str values directly."""
-
-    def __str__(self) -> str:  # noqa: D401 (simple override)
-        return str(self.value)
+from utils import StrEnum
 
 
 class ErrorCategory(StrEnum):

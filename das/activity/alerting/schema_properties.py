@@ -50,14 +50,13 @@ class AlertingSchemaPropertiesAdapter:
             request: Optional DRF request. If None, a synthetic superuser request is created
                     to ensure all schema options are available (used for alert rule evaluation)
         """
+        if event_type.version == EventType.VersionChoices.VERSION_1:
+            return self._process_v1_schema(event_type)
+
         # Create superuser request if none provided (for alert rule evaluation)
         if request is None:
             request = self._create_superuser_request()
-
-        if event_type.version == EventType.VersionChoices.VERSION_1:
-            return self._process_v1_schema(event_type)
-        else:
-            return self._process_v2_schema(event_type, request)
+        return self._process_v2_schema(event_type, request)
 
     def _create_superuser_request(self) -> DRFRequest:
         """Create a synthetic superuser request for alert rule evaluation.
