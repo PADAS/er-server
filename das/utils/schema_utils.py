@@ -502,7 +502,7 @@ def definition_key_order_as_dict(schema):
 
 
 def property_keys_order_as_dict(schema):
-    properties = schema.get("schema", {}).get("properties", [])
+    properties = get_resolved_v1v2_properties(schema)
     if properties:
         property_keys = properties.keys()
         return OrderedDict(definition_keys(property_keys))
