@@ -12,7 +12,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from rest_framework.request import Request as DRFRequest
 
@@ -99,7 +99,7 @@ class EventTypeSchemaService:
             schema, errors = self.render_schema(schema, request)
         return SchemaResult(event_type_value=event_type.value, schema=schema, errors=errors)
 
-    def parse_schema(self, raw_schema: str) -> tuple[Optional[dict], List[SchemaError]]:
+    def parse_schema(self, raw_schema: str) -> Tuple[Optional[dict], List[SchemaError]]:
         """
         Parses the raw schema field, returns a tuple of the parsed schema and a list of errors.
         """
@@ -162,7 +162,7 @@ class EventTypeSchemaService:
             self.renderer = SchemaRenderer(registry)
         return self.renderer
 
-    def render_schema(self, parsed_schema: dict, request: DRFRequest) -> tuple[dict, List[SchemaError]]:
+    def render_schema(self, parsed_schema: dict, request: DRFRequest) -> Tuple[dict, List[SchemaError]]:
         """
         Renders a parsed schema. Always returns tuple of (schema, errors).
 

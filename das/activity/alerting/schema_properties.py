@@ -34,7 +34,7 @@ class SchemaPropertiesResult:
     errors: List[SchemaError] = field(default_factory=list)
 
 
-class AlertSchemaAdapter:
+class AlertingSchemaPropertiesAdapter:
     """
     Properties extractor for EventType schemas (v1 and v2), specifically for alert conditions.
     """

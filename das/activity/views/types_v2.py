@@ -184,23 +184,3 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         return Response(
             {"errors": [err.to_dict() for err in schema_result.errors]}, status=status.HTTP_422_UNPROCESSABLE_ENTITY
         )
-
-    @action(
-        methods=["get"],
-        detail=True,
-        url_path="schema_result",
-    )
-    def retrieve_schema_result(self, request: Request, **kwargs) -> Response:
-        """
-        [Preview] Returns the rendered schema for the specified event type, including errors and status.
-        """
-        event_type = self.get_object()
-        schema_service = EventTypeSchemaService()
-        pre_render = parse_bool(request.query_params.get("pre_render", False))
-
-        if pre_render:
-            schema_result = schema_service.get_rendered_schema(event_type, request)
-        else:
-            schema_result = schema_service.get_raw_schema(event_type)
-
-        return Response(schema_result.to_api_dict(), status=status.HTTP_200_OK)

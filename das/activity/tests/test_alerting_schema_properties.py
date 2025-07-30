@@ -1,7 +1,7 @@
 """
-Comprehensive unit tests for AlertSchemaAdapter.
+Comprehensive unit tests for AlertingSchemaPropertiesAdapter.
 
-Tests the AlertSchemaAdapter class with focus on:
+Tests the AlertingSchemaPropertiesAdapter class with focus on:
 1. V1 vs V2 schema processing equivalence
 2. All supported field types for alert conditions
 3. Choice field extraction and processing
@@ -14,7 +14,7 @@ import json
 
 import pytest
 
-from activity.alerting.schemas_properties import AlertSchemaAdapter
+from activity.alerting.schema_properties import AlertingSchemaPropertiesAdapter
 from activity.models import EventType
 from activity.tests.helpers.schema_test_utils import (
     V1SchemaBuilder,
@@ -27,12 +27,12 @@ from factories import EventTypeFactory
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings")
-class TestAlertSchemaAdapter:
-    """Comprehensive unit tests for AlertSchemaAdapter class."""
+class TestAlertingSchemaPropertiesAdapter:
+    """Comprehensive unit tests for AlertingSchemaPropertiesAdapter class."""
 
     def test_v1_string_field_processing(self, five_event_categories):
         """Test V1 string field processing."""
-        adapter = AlertSchemaAdapter()
+        adapter = AlertingSchemaPropertiesAdapter()
 
         # Create V1 EventType with string field using shared builder
         v1_schema = V1SchemaBuilder.simple_field("description", "string")
@@ -55,7 +55,7 @@ class TestAlertSchemaAdapter:
 
     def test_v2_string_field_processing(self, five_event_categories):
         """Test V2 string field processing."""
-        adapter = AlertSchemaAdapter()
+        adapter = AlertingSchemaPropertiesAdapter()
 
         # Create V2 EventType with string field using shared builder
         v2_schema = V2SchemaBuilder.simple_field("description", "string")
@@ -78,7 +78,7 @@ class TestAlertSchemaAdapter:
 
     def test_v1_number_field_processing(self, five_event_categories):
         """Test V1 number field processing."""
-        adapter = AlertSchemaAdapter()
+        adapter = AlertingSchemaPropertiesAdapter()
 
         # Create V1 EventType with number field using shared builder
         v1_schema = V1SchemaBuilder.simple_field("count", "number", minimum=0)
@@ -100,7 +100,7 @@ class TestAlertSchemaAdapter:
 
     def test_v2_number_field_processing(self, five_event_categories):
         """Test V2 number field processing."""
-        adapter = AlertSchemaAdapter()
+        adapter = AlertingSchemaPropertiesAdapter()
 
         # Create V2 EventType with number field using shared builder
         v2_schema = V2SchemaBuilder.simple_field("count", "number", minimum=0)
@@ -122,7 +122,7 @@ class TestAlertSchemaAdapter:
 
     def test_v1_choice_field_processing(self, five_event_categories):
         """Test V1 choice field processing with enumNames."""
-        adapter = AlertSchemaAdapter()
+        adapter = AlertingSchemaPropertiesAdapter()
 
         # Create V1 EventType with choice field using shared builder and predefined choices
         v1_schema = V1SchemaBuilder.choice_field("status", standard_choices)
@@ -149,7 +149,7 @@ class TestAlertSchemaAdapter:
 
     def test_v2_choice_field_processing(self, five_event_categories):
         """Test V2 choice field processing with oneOf structure."""
-        adapter = AlertSchemaAdapter()
+        adapter = AlertingSchemaPropertiesAdapter()
 
         # Create V2 EventType with choice field using shared builder and predefined choices
         v2_schema = V2SchemaBuilder.choice_field("status", standard_choices)
@@ -176,7 +176,7 @@ class TestAlertSchemaAdapter:
 
     def test_equivalent_v1_v2_schemas_comparison(self, five_event_categories):
         """Test that equivalent V1 and V2 schemas produce comparable results."""
-        adapter = AlertSchemaAdapter()
+        adapter = AlertingSchemaPropertiesAdapter()
 
         # Create equivalent multi-field schemas using shared builders
         priority_choices = {"critical": "Critical", "high": "High", "medium": "Medium", "low": "Low"}
@@ -247,7 +247,7 @@ class TestAlertSchemaAdapter:
 
     def test_mixed_field_types_processing(self, five_event_categories):
         """Test processing of schemas with mixed field types."""
-        adapter = AlertSchemaAdapter()
+        adapter = AlertingSchemaPropertiesAdapter()
 
         # Create V1 schema with mixed field types using shared builder
         v1_mixed_schema = V1SchemaBuilder.multi_field(
@@ -286,7 +286,7 @@ class TestAlertSchemaAdapter:
 
     def test_v1_schema_processing_error_handling(self, five_event_categories):
         """Test V1 schema processing error handling."""
-        adapter = AlertSchemaAdapter()
+        adapter = AlertingSchemaPropertiesAdapter()
 
         # Create V1 EventType with invalid schema using shared helper
         invalid_schema = {"invalid": "schema format"}
