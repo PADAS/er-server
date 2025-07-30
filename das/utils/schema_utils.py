@@ -879,4 +879,5 @@ def get_resolved_v1v2_properties(schema):
     elif "json" in schema and "properties" in schema["json"]:
         return schema["json"]["properties"]
     else:
-        raise KeyError("Schema properties not found in expected structure.")
+        logger.warning("Schema properties not found in expected structure.")
+        return {}
