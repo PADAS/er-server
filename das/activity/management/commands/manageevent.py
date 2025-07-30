@@ -496,7 +496,7 @@ class Command(TenantCommandMixin, BaseCommand):
     def is_choice_property(self, property_id, rendered_schema):
         # simple check to see if the rendered schema has an enum for that
         # property
-        properties = rendered_schema["schema"]["properties"]
+        properties = schema_utils.get_resolved_v1v2_properties(rendered_schema)
         try:
             property_def = properties[property_id]
         except KeyError:
