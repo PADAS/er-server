@@ -10,7 +10,6 @@ from observations.serializers import (
     SubjectRelatedField,
     SubjectSubTypeRelatedField,
 )
-from sensors.handlers import LatestObservationSource
 
 logger = logging.getLogger(__name__)
 
@@ -132,12 +131,13 @@ class GearsSerializer(serializers.Serializer):
             gear_rep["last_updated"] = subject["updated_at"]
 
             # Get devices from related SubjectSources
+            # Note: subjectsources and their sources are prefetched in the view to avoid N+1 queries
             devices = []
             related_subject_sources = instance.subject.subjectsources.all()
             for idx, subject_source in enumerate(related_subject_sources):
                 if subject_source.source:
                     device_id = subject_source.source.manufacturer_id
-                    observation = LatestObservationSource.objects.get_latest_for_source(subject_source.source)
+                    observation = models.LatestObservationSource.objects.get_latest_for_source(subject_source.source)
                     additional = subject_source.source.additional or {}
                     device = {
                         "device_id": device_id,
