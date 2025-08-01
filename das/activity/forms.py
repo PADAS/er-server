@@ -162,8 +162,6 @@ class EventTypeForm(forms.ModelForm):
         if instance and instance.version == "2":
             self.fields["schema"].widget = PrettyReadOnlyJSONWidget()
             self.fields["schema"].disabled = True
-            if "is_collection" in self.fields:
-                self.fields.pop("is_collection", None)
 
     def clean_schema(self):
         schema = self.cleaned_data.get("schema")
