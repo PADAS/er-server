@@ -226,6 +226,9 @@ class GenericSensorHandler:
             subject = Subject.objects.filter(name=subject_name).order_by("-created_at").first()
             if subject:
                 subject_info["id"] = subject.id
+                if subject_additional is not None:
+                    subject.additional = subject_additional
+                    subject.save(update_fields=["additional", "updated_at"])
 
         # Create a cache key from the source parameters
         source_cache_key = (source_type, provider_key, manufacturer_id, model_name, str(subject_info), str(source_info))

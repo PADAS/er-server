@@ -23,6 +23,7 @@ from observations.models import (
     SourceProvider,
     Subject,
     SubjectGroup,
+    SubjectSource,
     SubjectSubType,
 )
 from sensors.views import GenericSensorHandlerView
@@ -807,3 +808,78 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         # Should NOT be excluded for invalid timestamps
         assert "exclusion_flags" not in result
+
+    def test_post_ropeless_buoy_gearset_observation(self):
+        """Test posting observation for ropeless_buoy_gearset subject subtype with multiple devices."""
+        import random
+        from datetime import datetime
+
+        # Arrange
+        random_lat = round(random.uniform(-90, 90), 6)
+        random_lon = round(random.uniform(-180, 180), 6)
+        iso_timestamp = datetime.now().isoformat().replace(":", "").replace("-", "").replace(".", "")
+        iso_timestamp_2 = iso_timestamp + "2"
+
+        first_observation = {
+            "location": {"lat": str(random_lat), "lon": str(random_lon)},
+            "recorded_at": "2025-07-30T01:03:35.239Z",
+            "source_type": "ropeless_gear",
+            "subject_subtype": "ropeless_buoy_gearset",
+            "subject_name": "GearSet_1",
+            "manufacturer_id": f"Trap_{iso_timestamp}",
+            "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
+            "source_additional": {"any_information_related_to_the_specific_devive": "source_additional"},
+        }
+
+        second_observation = {
+            "location": {
+                "lat": str(round(random.uniform(-90, 90), 6)),
+                "lon": str(round(random.uniform(-180, 180), 6)),
+            },
+            "recorded_at": "2025-07-30T01:05:35.239Z",
+            "source_type": "ropeless_gear",
+            "subject_subtype": "ropeless_buoy_gearset",
+            "subject_name": "GearSet_1",
+            "manufacturer_id": f"Trap_{iso_timestamp_2}",
+            "subject_additional": {"any_information_related_to_the_trawl": "subject_additional_updated"},
+            "source_additional": {"any_information_related_to_the_specific_devive": "source_additional_device_2"},
+        }
+
+        # Act
+        first_response = self._post_data(json.dumps(first_observation))
+        second_response = self._post_data(json.dumps(second_observation))
+
+        # Assert
+        self.assertEqual(first_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second_response.status_code, status.HTTP_201_CREATED)
+
+        source_1 = Source.objects.get(manufacturer_id=first_observation["manufacturer_id"])
+        source_2 = Source.objects.get(manufacturer_id=second_observation["manufacturer_id"])
+        subject = Subject.objects.get(name="GearSet_1")
+
+        self.assertIsNotNone(source_1)
+        self.assertIsNotNone(source_2)
+        self.assertIsNotNone(subject)
+
+        self.assertEqual(1, Observation.objects.filter(source=source_1).count())
+        self.assertEqual(1, Observation.objects.filter(source=source_2).count())
+        self.assertEqual(1, Subject.objects.filter(name="GearSet_1").count())
+
+        self.assertEqual(subject.subject_subtype.value, "ropeless_buoy_gearset")
+        self.assertEqual(subject.additional, second_observation["subject_additional"])
+        self.assertEqual(source_1.additional, first_observation["source_additional"])
+        self.assertEqual(source_2.additional, second_observation["source_additional"])
+
+        self.assertIsNotNone(SubjectSubType.objects.get(value="ropeless_buoy_gearset"))
+
+        subject_source_1 = SubjectSource.objects.get(subject=subject, source=source_1)
+        subject_source_2 = SubjectSource.objects.get(subject=subject, source=source_2)
+        self.assertIsNotNone(subject_source_1)
+        self.assertIsNotNone(subject_source_2)
+
+        subject_sources = SubjectSource.objects.filter(subject=subject)
+        self.assertEqual(2, subject_sources.count())
+
+        source_ids = {ss.source.id for ss in subject_sources}
+        expected_source_ids = {source_1.id, source_2.id}
+        self.assertEqual(source_ids, expected_source_ids)
