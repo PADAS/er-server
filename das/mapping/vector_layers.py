@@ -52,4 +52,4 @@ class SpatialFeatureLayer(VectorLayer):
     )
     min_zoom = 3
     max_zoom = 24
-    filterset_class = SpatialFeatureFilterSet
+    # filterset_class = SpatialFeatureFilterSet
