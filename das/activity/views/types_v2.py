@@ -20,7 +20,7 @@ from activity.models import Event, EventType
 from activity.permissions import EventCategoryPermissions
 from activity.schemas.schema_rendering import SchemaRenderer
 from activity.schemas.schema_retrieving import build_dynamic_schemas_registry
-from activity.serializers.events_v2 import EventTypeSerializer
+from activity.serializers.events_v2 import EventTypeV2Serializer
 from activity.views.events.utils import AllowedCategoriesMixin
 from activity.views.schemas import EventTypeViewSchema
 from core.utils import is_uuid
@@ -112,7 +112,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
     permission_classes = (EventCategoryPermissions,)
     filter_backends = [OrderingFilter, filters.DjangoFilterBackend]
     filterset_class = EventTypeFilterSet
-    serializer_class = EventTypeSerializer
+    serializer_class = EventTypeV2Serializer
     lookup_field = "value"
     lookup_url_kwarg = "eventtype_value"
     ordering = ("ordernum",)
