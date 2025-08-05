@@ -2,11 +2,9 @@ import logging
 
 from vectortiles import VectorLayer
 
-from django.contrib.gis.db import models as gis_models
 from django.contrib.gis.db.models.functions import Transform
 from django.db.models import Case, CharField, F, Value, When
 from django.db.models.expressions import RawSQL
-from django.db.models.functions import Cast
 
 from mapping.filters import SpatialFeatureFilterSet
 from mapping.models import SpatialFeature
@@ -22,7 +20,7 @@ class SpatialFeatureLayer(VectorLayer):
             int_id=RawSQL("hashtext(CAST(mapping_spatialfeature.id AS TEXT))", []),
             feature_type_name=F("feature_type__name"),
             display_category_name=F("feature_type__display_category__name"),
-            geom=Transform(Cast(F("feature_geometry"), gis_models.GeometryField()), 3857),
+            geom=Transform(F("feature_geometry"), 3857),
             image=Case(
                 When(presentation__has_key="image", then=F("presentation__image")),
                 When(
