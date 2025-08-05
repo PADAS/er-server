@@ -249,6 +249,20 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         response_data = {k: response_data[k] for k in self.event_data.keys()}
         self.assertDictEqual(response_data, self.event_data)
 
+    def test_create_new_event_with_specific_id(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data["id"] = "0198439e-9be1-7cc5-866b-25137b95b2b8"  # uuid7
+        event_data["reported_by"] = self.user_rep
+        event_data["provenance"] = Event.PC_STAFF
+        event_data["event_type"] = ET_OTHER
+        request = self.factory.post(self.api_base + "/events/", event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        response_data = {k: response.data[k] for k in event_data.keys()}
+        self.assertDictEqual(response_data, event_data)
+
     def test_create_new_event(self):
         event_data = copy.deepcopy(self.event_data)
         event_data["reported_by"] = self.user_rep

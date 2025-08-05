@@ -434,3 +434,281 @@ class TestObservationTriggers:
 
         assert not sources.first().last_observation
         assert not sources.first().last_observation_recorded_at
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestExclusionFlagsFiltering:
+    """Test cases for the unified by_exclusion_flags filtering with 3rd-party support."""
+
+    @pytest.fixture
+    def exclusion_flags_test_data(self):
+        """Fixture to create test data for exclusion flags filtering tests."""
+        from factories import SubjectSourceFactory
+
+        subject_source = SubjectSourceFactory.create()
+        source = subject_source.source
+        now = datetime.now(tz=pytz.utc)
+
+        # Create observations with different exclusion flag combinations
+        obs_no_flags = Observation.objects.create(
+            source=source, location=Point(0, 1), recorded_at=now - timedelta(minutes=10), exclusion_flags=0
+        )
+
+        obs_manual = Observation.objects.create(
+            source=source,
+            location=Point(1, 1),
+            recorded_at=now - timedelta(minutes=9),
+            exclusion_flags=Observation.EXCLUDED_MANUALLY,  # 1
+        )
+
+        obs_automatic = Observation.objects.create(
+            source=source,
+            location=Point(2, 1),
+            recorded_at=now - timedelta(minutes=8),
+            exclusion_flags=Observation.EXCLUDED_AUTOMATICALLY,  # 2
+        )
+
+        obs_both_system = Observation.objects.create(
+            source=source,
+            location=Point(3, 1),
+            recorded_at=now - timedelta(minutes=7),
+            exclusion_flags=Observation.EXCLUDED_MANUALLY | Observation.EXCLUDED_AUTOMATICALLY,  # 3
+        )
+
+        # Create observations with 3rd-party flags (upper 16 bits)
+        # 3rd-party flag 1 in bit 48 = 0x0001000000000000
+        obs_third_party_1 = Observation.objects.create(
+            source=source,
+            location=Point(4, 1),
+            recorded_at=now - timedelta(minutes=6),
+            exclusion_flags=0x0001000000000000,
+        )
+
+        # 3rd-party flag 2 in bit 49 = 0x0002000000000000
+        obs_third_party_2 = Observation.objects.create(
+            source=source,
+            location=Point(5, 1),
+            recorded_at=now - timedelta(minutes=5),
+            exclusion_flags=0x0002000000000000,
+        )
+
+        # Combined system + 3rd-party flags
+        obs_combined = Observation.objects.create(
+            source=source,
+            location=Point(6, 1),
+            recorded_at=now - timedelta(minutes=4),
+            exclusion_flags=Observation.EXCLUDED_MANUALLY | 0x0001000000000000,
+        )
+
+        # Multiple 3rd-party flags
+        obs_multi_third_party = Observation.objects.create(
+            source=source,
+            location=Point(7, 1),
+            recorded_at=now - timedelta(minutes=3),
+            exclusion_flags=0x0003000000000000,  # Both 3rd-party flags
+        )
+
+        obs_third_party_ncz = Observation.objects.create(
+            source=source,
+            location=Point(8, 1),
+            recorded_at=now - timedelta(minutes=2),
+            exclusion_flags=1311673391471656960,
+        )
+
+        return {
+            "source": source,
+            "obs_no_flags": obs_no_flags,
+            "obs_manual": obs_manual,
+            "obs_automatic": obs_automatic,
+            "obs_both_system": obs_both_system,
+            "obs_third_party_1": obs_third_party_1,
+            "obs_third_party_2": obs_third_party_2,
+            "obs_combined": obs_combined,
+            "obs_multi_third_party": obs_multi_third_party,
+            "obs_third_party_ncz": obs_third_party_ncz,
+        }
+
+    def test_filter_flag_none_returns_all_observations(self, exclusion_flags_test_data):
+        """When filter_flag is None (e.g., 'null'), all observations should be returned."""
+        source = exclusion_flags_test_data["source"]
+        queryset = Observation.objects.filter(source=source).by_exclusion_flags(filter_flag=None)
+        assert queryset.count() == 9
+
+    def test_filter_flag_zero_uses_system_only_filtering(self, exclusion_flags_test_data):
+        """When filter_flag is 0, should only filter by system flags (exclude manual/auto)."""
+        source = exclusion_flags_test_data["source"]
+        obs_no_flags = exclusion_flags_test_data["obs_no_flags"]
+        obs_third_party_1 = exclusion_flags_test_data["obs_third_party_1"]
+        obs_third_party_2 = exclusion_flags_test_data["obs_third_party_2"]
+        obs_multi_third_party = exclusion_flags_test_data["obs_multi_third_party"]
+        obs_third_party_ncz = exclusion_flags_test_data["obs_third_party_ncz"]
+
+        queryset = Observation.objects.filter(source=source).by_exclusion_flags(filter_flag=0)
+        # Should return observations with flag 0 and 3rd-party flags only
+        expected_ids = {
+            obs_no_flags.id,
+            obs_third_party_1.id,
+            obs_third_party_2.id,
+            obs_multi_third_party.id,
+            obs_third_party_ncz.id,
+        }
+        actual_ids = set(queryset.values_list("id", flat=True))
+        assert actual_ids == expected_ids
+
+    def test_filter_system_flags_preserves_third_party_flags(self, exclusion_flags_test_data):
+        """System flag filtering should preserve observations with only 3rd-party flags."""
+        source = exclusion_flags_test_data["source"]
+        obs_manual = exclusion_flags_test_data["obs_manual"]
+        obs_automatic = exclusion_flags_test_data["obs_automatic"]
+        obs_both_system = exclusion_flags_test_data["obs_both_system"]
+        obs_combined = exclusion_flags_test_data["obs_combined"]
+
+        # Filter for manually excluded (flag 1) - should include obs with flags 1 and 3 (1|2) and combined
+        queryset = Observation.objects.filter(source=source).by_exclusion_flags(filter_flag=1)
+        expected_ids = {obs_manual.id, obs_both_system.id, obs_combined.id}
+        actual_ids = set(queryset.values_list("id", flat=True))
+        assert actual_ids == expected_ids
+
+        # Filter for automatically excluded (flag 2) - should include obs with flags 2 and 3 (1|2)
+        queryset = Observation.objects.filter(source=source).by_exclusion_flags(filter_flag=2)
+        expected_ids = {obs_automatic.id, obs_both_system.id}
+        actual_ids = set(queryset.values_list("id", flat=True))
+        assert actual_ids == expected_ids
+
+        # Filter for both system flags (flag 3) - should include any obs with either flag 1 or 2 set
+        queryset = Observation.objects.filter(source=source).by_exclusion_flags(filter_flag=3)
+        expected_ids = {obs_manual.id, obs_automatic.id, obs_both_system.id, obs_combined.id}
+        actual_ids = set(queryset.values_list("id", flat=True))
+        assert actual_ids == expected_ids
+
+    def test_filter_third_party_flags_uses_full_filtering(self, exclusion_flags_test_data):
+        """When filter_flag contains 3rd-party bits, should use full 64-bit filtering."""
+        source = exclusion_flags_test_data["source"]
+        obs_third_party_1 = exclusion_flags_test_data["obs_third_party_1"]
+        obs_third_party_2 = exclusion_flags_test_data["obs_third_party_2"]
+        obs_combined = exclusion_flags_test_data["obs_combined"]
+        obs_multi_third_party = exclusion_flags_test_data["obs_multi_third_party"]
+        obs_third_party_ncz = exclusion_flags_test_data["obs_third_party_ncz"]
+
+        # Filter for 3rd-party flag 1 only
+        queryset = Observation.objects.filter(source=source).by_exclusion_flags(filter_flag=0x0001000000000000)
+        expected_ids = {obs_third_party_1.id, obs_combined.id, obs_multi_third_party.id}
+        actual_ids = set(queryset.values_list("id", flat=True))
+        assert actual_ids == expected_ids
+
+        # Filter for 3rd-party flag 2 only
+        queryset = Observation.objects.filter(source=source).by_exclusion_flags(filter_flag=0x0002000000000000)
+        expected_ids = {obs_third_party_2.id, obs_multi_third_party.id}
+        actual_ids = set(queryset.values_list("id", flat=True))
+        assert actual_ids == expected_ids
+
+        # Filter for both 3rd-party flags
+        queryset = Observation.objects.filter(source=source).by_exclusion_flags(filter_flag=0x0003000000000000)
+        expected_ids = {obs_third_party_1.id, obs_third_party_2.id, obs_combined.id, obs_multi_third_party.id}
+        actual_ids = set(queryset.values_list("id", flat=True))
+        assert actual_ids == expected_ids
+
+        # Filter for NCZ flag
+        queryset = Observation.objects.filter(source=source).by_exclusion_flags(filter_flag=0x1000000000000000)
+        expected_ids = {obs_third_party_ncz.id}
+        actual_ids = set(queryset.values_list("id", flat=True))
+        assert actual_ids == expected_ids
+
+    def test_filter_combined_system_and_third_party_flags(self, exclusion_flags_test_data):
+        """Test filtering with both system and 3rd-party flags set."""
+        source = exclusion_flags_test_data["source"]
+        obs_manual = exclusion_flags_test_data["obs_manual"]
+        obs_both_system = exclusion_flags_test_data["obs_both_system"]
+        obs_combined = exclusion_flags_test_data["obs_combined"]
+        obs_third_party_1 = exclusion_flags_test_data["obs_third_party_1"]
+        obs_multi_third_party = exclusion_flags_test_data["obs_multi_third_party"]
+
+        # Filter for manual exclusion + 3rd-party flag 1
+        # This should match observations that have BOTH flags set
+        combined_flag = Observation.EXCLUDED_MANUALLY | 0x0001000000000000
+        queryset = Observation.objects.filter(source=source).by_exclusion_flags(filter_flag=combined_flag)
+
+        # When filtering with combined flags, we get observations that have ANY of the specified bits set
+        # So this should include: obs_manual (has flag 1), obs_both_system (has flag 1),
+        # obs_combined (has both), obs_third_party_1 (has 3rd party flag),
+        # obs_multi_third_party (has 3rd party flag)
+        expected_ids = {
+            obs_manual.id,
+            obs_both_system.id,
+            obs_combined.id,
+            obs_third_party_1.id,
+            obs_multi_third_party.id,
+        }
+        actual_ids = set(queryset.values_list("id", flat=True))
+        assert actual_ids == expected_ids
+
+    def test_filter_boundary_values(self, exclusion_flags_test_data):
+        """Test filtering at the boundary between system and 3rd-party flags."""
+        source = exclusion_flags_test_data["source"]
+        obs_third_party_1 = exclusion_flags_test_data["obs_third_party_1"]
+        obs_combined = exclusion_flags_test_data["obs_combined"]
+        obs_multi_third_party = exclusion_flags_test_data["obs_multi_third_party"]
+
+        # Maximum system flag value (all lower 48 bits set)
+        max_system_flag = 0x0000FFFFFFFFFFFF
+        queryset = Observation.objects.filter(source=source).by_exclusion_flags(filter_flag=max_system_flag)
+        # Should use system-only filtering, so observations with only 3rd-party flags are preserved
+        assert queryset.count() > 0
+
+        # Minimum 3rd-party flag value (bit 48 set)
+        min_third_party_flag = 0x0001000000000000
+        queryset = Observation.objects.filter(source=source).by_exclusion_flags(filter_flag=min_third_party_flag)
+        # Should use full filtering
+        expected_ids = {obs_third_party_1.id, obs_combined.id, obs_multi_third_party.id}
+        actual_ids = set(queryset.values_list("id", flat=True))
+        assert actual_ids == expected_ids
+
+    def test_include_empty_location_parameter(self, exclusion_flags_test_data):
+        """Test that include_empty_location parameter works with all filtering modes."""
+        source = exclusion_flags_test_data["source"]
+        now = datetime.now(tz=pytz.utc)
+
+        # Create observation at (0,0)
+        empty_obs = Observation.objects.create(
+            source=source, location=Point(0, 0), recorded_at=now - timedelta(minutes=1), exclusion_flags=0
+        )
+
+        try:
+            # Test with include_empty_location=False (default)
+            queryset = Observation.objects.filter(source=source).by_exclusion_flags(filter_flag=0)
+            assert empty_obs.id not in queryset.values_list("id", flat=True)
+
+            # Test with include_empty_location=True
+            queryset = Observation.objects.filter(source=source).by_exclusion_flags(
+                filter_flag=0, include_empty_location=True
+            )
+            assert empty_obs.id in queryset.values_list("id", flat=True)
+        finally:
+            empty_obs.delete()
+
+    def test_system_flags_mask_constant(self):
+        """Verify the SYSTEM_FLAGS_MASK constant is correctly defined."""
+        assert Observation.SYSTEM_FLAGS_MASK == 0x0000FFFFFFFFFFFF
+
+    def test_third_party_flags_mask_constant(self):
+        """Verify the THIRD_PARTY_FLAGS_MASK constant is correctly defined."""
+        assert Observation.THIRD_PARTY_FLAGS_MASK == 0xFFFF000000000000
+
+    def test_system_and_third_party_properties(self, exclusion_flags_test_data):
+        """Test the system_exclusion_flags and third_party_exclusion_flags properties."""
+        obs_manual = exclusion_flags_test_data["obs_manual"]
+        obs_third_party_1 = exclusion_flags_test_data["obs_third_party_1"]
+        obs_combined = exclusion_flags_test_data["obs_combined"]
+
+        # Test observation with only system flags
+        assert obs_manual.system_exclusion_flags == 1
+        assert obs_manual.third_party_exclusion_flags == 0
+
+        # Test observation with only 3rd-party flags
+        assert obs_third_party_1.system_exclusion_flags == 0
+        assert obs_third_party_1.third_party_exclusion_flags == 1
+
+        # Test observation with combined flags
+        assert obs_combined.system_exclusion_flags == 1
+        assert obs_combined.third_party_exclusion_flags == 1

@@ -30,6 +30,8 @@ logger = logging.getLogger("django.request")
 def fixup_api_response(response):
     """The DAS api returns a json error payload"""
     if response:
+        if isinstance(response.data, list):  # validation errors return a list of errors
+            return response
         detail = response.data.pop("detail", None)
         status = {
             "code": response.status_code,
