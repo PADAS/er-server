@@ -16,7 +16,9 @@ logger = logging.getLogger(__name__)
 
 class SpatialFeatureLayer(VectorLayer):
     model = SpatialFeature
-    queryset = model.objects.select_related("feature_type", "feature_type__display_category").annotate(
+    queryset = model.objects.select_related("feature_type", "feature_type__display_category").filter(
+        feature_type__display_category__isnull=False
+    ).annotate(
         int_id=RawSQL("hashtext(CAST(mapping_spatialfeature.id AS TEXT))", []),
         feature_type_name=F("feature_type__name"),
         display_category_name=F("feature_type__display_category__name"),
@@ -31,11 +33,6 @@ class SpatialFeatureLayer(VectorLayer):
             output_field=CharField(),
         ),
     )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        count = self.queryset.count()
-        logger.info(f"SpatialFeatureLayer initialized with {count} total features")
 
     id = "spatial_features"
     tile_fields = (
