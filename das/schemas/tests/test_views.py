@@ -43,6 +43,29 @@ def test_get_choices_dynamic_schemas(superuser_client):
 
 
 @pytest.mark.django_db
+def test_choices_dynamic_schema_accessible_without_choice_permissions(user_client, five_choices):
+    """Test that ChoicesDynamicSchemaView is accessible to users without choice permissions."""
+
+    # Attempt to access the choices dynamic schema
+    url = reverse("schemas:choices")
+    response = user_client.get(url)
+
+    # Should succeed even without choice-specific permissions
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+    assert "oneOf" in data
+    assert len(data["oneOf"]) >= len(five_choices)
+
+    # Verify the structure matches what's expected from choice data
+    for item in data["oneOf"]:
+        assert "const" in item
+        assert "title" in item
+        assert "description" in item
+
+
+@pytest.mark.django_db
 def test_get_dynamic_schema_choices_filtered(superuser_client):
     Choice.objects.filter(id=Choice.objects.first().id).update(field="firerep_status")
     Choice.objects.filter(id=Choice.objects.last().id).update(field="carcassrep_ageofcarcass")
