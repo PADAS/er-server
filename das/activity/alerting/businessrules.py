@@ -5,13 +5,13 @@ from business_rules import actions, export_rule_data, fields, variables
 
 from django.utils.translation import gettext as _
 
+from activity.alerting.schema_properties import AlertingSchemaPropertiesAdapter
 from activity.alerting.variables import case_insensitive_string_rule_variable
 from activity.models import Event, EventDetails
 from activity.permissions import EventCategoryPermissions
 from activity.serializers import EventSerializer
 from core.utils import NonHttpRequest
 from observations.models import Subject, SubjectGroup
-from utils import schema_utils
 
 VIEW_SUBJECTGROUP_PERMS = ("observations.view_subjectgroup",)
 
@@ -196,7 +196,7 @@ def create_new_func(key, return_type, label=None, options_dict=None):
 
 
 def translate_schema_type_to_type(option):
-    if "enumNames" in option:
+    if any(key in option for key in ["enumNames", "anyOf", "oneOf"]):
         return "select"
 
     if "type" not in option:
@@ -214,7 +214,7 @@ def translate_schema_type_to_type(option):
 
 
 def get_schema_type(option: Dict[str, str]) -> str:
-    if "enumNames" in option:
+    if any(key in option for key in ["enumNames", "anyOf", "oneOf"]):
         return "select"
 
     if "type" not in option:
@@ -236,87 +236,53 @@ def remove_field_suffix(input_string: str) -> str:
     return input_string
 
 
-def accumulate_options(schema_option, accumulator=None, event_type_value=None):
-    """
-    Transform an Event-Type choice list from `enumNames` to business-rules friendly list.
-    :param schema_option:
-    :return:
-    """
-
-    if "enumNames" not in schema_option:
-        return accumulator or {}
-
-    elif accumulator is not None:
-        try:
-            for k, v in schema_option["enumNames"].items():
-                if k not in accumulator:
-                    accumulator["k"] = v
-        except AttributeError as aex:
-            logger.warning(
-                "Failed to parse options for schema_option and event_type_value %s. I expected a dictionary but got %s. Error: %s",
-                event_type_value,
-                schema_option,
-                aex,
-            )
-        return accumulator
-    else:
-        try:
-            return dict((k, v) for k, v in schema_option["enumNames"].items())
-        except AttributeError as aex:
-            logger.warning(
-                "Failed to parse options for schema_option and event_type_value %s. I expected a dictionary but got %s. Error: %s",
-                event_type_value,
-                schema_option,
-                aex,
-            )
-
-    return {}
-
-
 def _generate_aggregate_event_variables_class(
-    event_types, only_common_factors=False, user=None, support_legacy_event_variables=False
+    event_types, request=None, only_common_factors=False, support_legacy_event_variables=False
 ):
     """
     From a list of EventTypes, generate an EventVariables class adhering to business-rules interface.
     :param event_types: A list of DAS EventType objects from which to build a variables type.
+    :param request: Optional DRF request object. If None, a synthetic superuser request
+                   is created to ensure all schema options are available for alert rule evaluation.
     :param only_common_factors: Whether to reduce the list of variables to just those which apply to all event_types.
+    :param support_legacy_event_variables: Whether to support legacy event variables.
     :return: A `Variables` type to be used with Venmo business-rules package.
     """
 
     supported_field_attributes = ["no_legacy"] + (["legacy"] if support_legacy_event_variables else [])
 
     schema_properties_map = {}
+    schema_properties_adapter = AlertingSchemaPropertiesAdapter()
 
     # Reduce schemas to common properties
     keyset_list = []
     for event_type in event_types:
         try:
-            rendered_schema = schema_utils.get_rendered_schema(event_type.schema)
-        except SchemaValidationError as svex:
-            logger.warning("Error in get_rendered_schema with %s, ex:%s", event_type.value, svex)
-            raise
+            properties_result = schema_properties_adapter.get_alert_properties(event_type, request)
+            if properties_result.status == "failure":
+                logger.warning("Schema processing failed for %s: %s", event_type.value, properties_result.errors)
+                continue
+
+            properties = properties_result.properties
+            keyset = set(properties.keys())
+            keyset_list.append(keyset)
+
+            # Accumulate rendered schema properties and choice options
+            schema_properties_map[event_type.value] = properties_result
+
         except Exception as ex:
-            logger.warning("Error in get_rendered_schema with %s, ex:%s", event_type.value, ex)
+            logger.warning("Error processing schema for %s, ex:%s", event_type.value, ex)
             raise
-
-        keyset = set(rendered_schema["properties"].keys())
-        keyset_list.append(keyset)
-        logger.debug("event_type: %s - Adding keyset: %s", event_type.value, keyset)
-
-        # Accumulate rendered schema properties in a dict.
-        schema_properties_map[event_type.value] = rendered_schema.get("properties", {})
 
     # Determine intersection of keys.
     if only_common_factors:
         keyset_intersection = set.intersection(*keyset_list)
-        logger.debug("Keyset intersection: %s", keyset_intersection)
 
     attributes_accumulator = {}
     applies_to_map = {}
-    for event_type_value, schema_properties in schema_properties_map.items():
-        # Create an attributes list derived from schema and suitable for
-        # creating a Variables class.
-        for field_name, field_properties in schema_properties.items():
+    for event_type_value, properties_result in schema_properties_map.items():
+        # Create an attributes list derived from schema and suitable for creating a Variables class.
+        for field_name, field_properties in properties_result.properties.items():
             if only_common_factors and field_name not in keyset_intersection:
                 continue
 
@@ -327,11 +293,12 @@ def _generate_aggregate_event_variables_class(
 
             composite_key = field_name + "_" + get_schema_type(field_properties)
             existing_attr = attributes_accumulator.get(composite_key, None)
+            field_choice_options = properties_result.choice_options_map.get(field_name, {})
             if existing_attr:
-                dummy = accumulate_options(field_properties, event_type_value=event_type_value)
-                logger.debug(f"{event_type_value}.{composite_key} options = {list(dummy.keys())}")
+                logger.debug("%s.%s options = %s", event_type_value, composite_key, list(field_choice_options.keys()))
                 if existing_attr.return_type == rule_return_type:
-                    accumulate_options(field_properties, existing_attr.optionsdict, event_type_value=event_type_value)
+                    # Merge choice options into existing attribute
+                    existing_attr.optionsdict.update(field_choice_options)
                 else:
                     logger.warning(
                         "Collision on %s with different return types. Adding a new object with different return type",
@@ -341,7 +308,7 @@ def _generate_aggregate_event_variables_class(
                         attrname=field_name,
                         return_type=rule_return_type,
                         label=field_properties.get("title", field_name),
-                        optionsdict=accumulate_options(field_properties, event_type_value=event_type_value),
+                        optionsdict=field_choice_options,
                     )
                     attributes_accumulator[composite_key] = newattr
             else:
@@ -349,7 +316,7 @@ def _generate_aggregate_event_variables_class(
                     attrname=field_name,
                     return_type=rule_return_type,
                     label=field_properties.get("title", field_name),
-                    optionsdict=accumulate_options(field_properties, event_type_value=event_type_value),
+                    optionsdict=field_choice_options,
                 )
                 attributes_accumulator[composite_key] = newattr
 
@@ -381,6 +348,7 @@ def _generate_aggregate_event_variables_class(
         for key_suffix in supported_field_attributes
     }
 
+    user = getattr(request, "user", None) if request else None
     subject_group_func = create_subject_group_func(user)
     attrs["subject_group"] = subject_group_func
 
@@ -397,15 +365,16 @@ PRUNE_OPTIONS_FROM = (
 )
 
 
-def render_aggregate_event_variables(event_types, only_common_factors=False, user=None):
+def render_aggregate_event_variables(event_types, request, only_common_factors=False):
     """
     From a list of EventTypes, generate render a set of rules.
     :param event_types: A list of DAS EventType objects from which to build a variables type.
     :param only_common_factors: Whether to reduce the list of variables to just those which apply to all event_types.
+    :param request: DRF request object (needed for V2 EventType processing).
     :return: A rules document that the UI will render allowing a user to build a condition set.
     """
     variables_class, applies_to_map = _generate_aggregate_event_variables_class(
-        event_types, only_common_factors=only_common_factors, user=user
+        event_types, request=request, only_common_factors=only_common_factors
     )
 
     rules = export_rule_data(variables_class, EventActions)
@@ -442,7 +411,7 @@ def render_event(event, user, method="GET"):
         event_data["inferred_state"] = infer_event_state(event)
         return event_data
     else:
-        logger.info(f"Permission denied when rendering event {event.serial_number} for user {user}.")
+        logger.info("Permission denied when rendering event %s for user %s.", event.serial_number, user)
         return None
 
 
