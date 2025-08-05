@@ -1,6 +1,7 @@
 import copy
 import datetime
 import json
+import random
 from unittest import mock
 from uuid import uuid4
 
@@ -811,13 +812,10 @@ class GenericSensorHandlerTest(BaseAPITest):
 
     def test_post_ropeless_buoy_gearset_observation(self):
         """Test posting observation for ropeless_buoy_gearset subject subtype with multiple devices."""
-        import random
-        from datetime import datetime
-
         # Arrange
         random_lat = round(random.uniform(-90, 90), 6)
         random_lon = round(random.uniform(-180, 180), 6)
-        iso_timestamp = datetime.now().isoformat().replace(":", "").replace("-", "").replace(".", "")
+        iso_timestamp = datetime.datetime.now().isoformat().replace(":", "").replace("-", "").replace(".", "")
         iso_timestamp_2 = iso_timestamp + "2"
 
         first_observation = {
