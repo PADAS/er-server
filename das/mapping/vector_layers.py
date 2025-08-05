@@ -1,3 +1,5 @@
+import logging
+
 from vectortiles import VectorLayer
 
 from django.contrib.gis.db import models as gis_models
@@ -8,6 +10,8 @@ from django.db.models.functions import Cast
 
 from mapping.filters import SpatialFeatureFilterSet
 from mapping.models import SpatialFeature
+
+logger = logging.getLogger(__name__)
 
 
 class SpatialFeatureLayer(VectorLayer):
@@ -26,6 +30,11 @@ class SpatialFeatureLayer(VectorLayer):
             output_field=CharField(),
         ),
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        count = self.queryset.count()
+        logger.info(f"SpatialFeatureLayer initialized with {count} total features")
 
     id = "spatial_features"
     tile_fields = (
