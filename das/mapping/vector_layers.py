@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class SpatialFeatureLayer(VectorLayer):
-    queryset = SpatialFeature.objects.select_related("feature_type", "feature_type__display_category").annotate(
+    model = SpatialFeature
+    queryset = model.objects.select_related("feature_type", "feature_type__display_category").annotate(
         int_id=RawSQL("hashtext(CAST(mapping_spatialfeature.id AS TEXT))", []),
         feature_type_name=F("feature_type__name"),
         display_category_name=F("feature_type__display_category__name"),
@@ -52,4 +53,4 @@ class SpatialFeatureLayer(VectorLayer):
     )
     min_zoom = 3
     max_zoom = 24
-    # filterset_class = SpatialFeatureFilterSet
+    filterset_class = SpatialFeatureFilterSet
