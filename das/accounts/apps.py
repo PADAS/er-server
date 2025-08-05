@@ -7,3 +7,4 @@ class AccountsConfig(AppConfig):
 
     def ready(self):
         import accounts.signals  # fmt: skip
+        import accounts.spectacular_extensions  # fmt: skip
