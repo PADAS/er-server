@@ -19,7 +19,7 @@ class EventCategoryValueField(serializers.SlugRelatedField):
         return EventCategory.objects.all_sort()
 
 
-class EventTypeSerializer(serializers.ModelSerializer):
+class EventTypeV2Serializer(serializers.ModelSerializer):
     category = EventCategoryValueField()
     has_events_assigned = serializers.SerializerMethodField()
     icon_id = serializers.SerializerMethodField()
