@@ -1,3 +1,9 @@
+from typing import Type
+
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+from rest_framework.views import APIView
+
 from accounts.views import UsersView
 from activity.views.types_v2 import EventTypesViewSet
 from choices.views import ChoicesView
@@ -26,12 +32,17 @@ class SubjectsDynamicSchemaView(DynamicSchemaFromSourceView):
 
 
 class ChoicesDynamicSchemaView(DynamicSchemaFromSourceView):
-    source_view = ChoicesView
     schema_title = "Choices"
     schema_description = "All choices schema list"
     default_const_field = "id"
     default_title_field = "value"
     default_description_field = "display"
+
+    def get_source_view(self, request: Request) -> Type[APIView]:
+        class PermissionsFreeChoicesView(ChoicesView):
+            permission_classes = [IsAuthenticated]
+
+        return PermissionsFreeChoicesView
 
 
 class SpatialFeaturesDynamicSchemaView(DynamicSchemaFromSourceView):
