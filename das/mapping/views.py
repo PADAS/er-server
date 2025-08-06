@@ -6,7 +6,6 @@ import simplejson as json
 from rest_framework_extensions.etag.decorators import etag
 from vectortiles.views import MVTView
 
-from django.core.cache import cache
 from django.core.serializers import serialize
 from django.db.models import Count, F
 from django.http import Http404, HttpResponse
@@ -261,21 +260,21 @@ class SpatialFeatureTileView(MVTView):
 
     def get(self, request, z, x, y):
         # Create simple cache key from view name and tile coordinates
-        cache_key = f"{self.__class__.__name__}:{z}:{x}:{y}"
+        # cache_key = f"{self.__class__.__name__}:{z}:{x}:{y}"
 
         # Try to get cached tile
-        cached_response = cache.get(cache_key)
-        if cached_response is not None:
-            # Return cached response with fresh cache headers
-            response = cached_response
-        else:
-            # Generate new tile if not cached
-            response = super().get(request, z, x, y)
-            # Cache for 5 minutes (short server-side TTL)
-            cache.set(cache_key, response, timeout=300)
+        # cached_response = cache.get(cache_key)
+        # if cached_response is not None:
+        # Return cached response with fresh cache headers
+        # response = cached_response
+        # else:
+        # Generate new tile if not cached
+        # Cache for 5 minutes (short server-side TTL)
+        # cache.set(cache_key, response, timeout=300)
 
-        # Set client-side cache headers for 1 hour
-        response["Cache-Control"] = "public, max-age=3600"
+        response = super().get(request, z, x, y)
+        # Set client-side cache headers to expire immediately
+        response["Cache-Control"] = "public, max-age=0"
 
         return response
 
