@@ -62,7 +62,7 @@ class GearsView(generics.ListAPIView):
             .select_related("source")
             .select_related("subject")
             .prefetch_related(
-                "subject__subjectsources__source", "subject__subjectsources__source__latestobservationsource_set"
+                "subject__subjectsources__source",
             )
         )
 
