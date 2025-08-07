@@ -1,4 +1,5 @@
 import logging
+import re
 
 from drf_extra_fields.geo_fields import PointField
 
@@ -114,6 +115,17 @@ class GearsSerializer(serializers.Serializer):
         """
         return chr(97 + idx)
 
+    def get_source_provider_standardized_name(self, instance):
+        """
+        Get the standardized name of the source provider.
+        """
+        provider_key = instance.source.provider.provider_key
+        if provider_key:
+            match = re.match(r"^gundi_(.+?)_[0-9a-f-]+$", provider_key)
+            if match:
+                return match.group(1)
+        return provider_key
+
     def to_representation(self, instance):
         rep = super(GearsSerializer, self).to_representation(instance)
         subject = rep["subject"]
@@ -150,6 +162,7 @@ class GearsSerializer(serializers.Serializer):
 
             gear_rep[DEVICES_KEY] = devices
             gear_rep["type"] = GEAR_TYPE_TRAWL if len(devices) > 1 else GEAR_TYPE_SINGLE
+            gear_rep["manufacturer"] = self.get_source_provider_standardized_name(instance)
         else:
             # Original logic for other subject subtypes
             gear_rep[ID_KEY] = subject[ID_KEY]
