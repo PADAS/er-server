@@ -180,5 +180,6 @@ class GearsSerializer(serializers.Serializer):
                 # TODO: return 500 internal server error with this detail
                 gear_rep["type"] = "Error: no device information"
                 gear_rep[DEVICES_KEY] = []
+            gear_rep["manufacturer"] = self.get_source_provider_standardized_name(instance)
 
         return gear_rep
