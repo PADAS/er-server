@@ -10,6 +10,7 @@ from buoy.views.helpers import (
     filter_by_bbox,
 )
 from buoy.views.schemas import GearsViewSchema
+from das.buoy.consts import BUOY_SUBJECT_SUBTYPE
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
 from observations.permissions import StandardObjectPermissions
@@ -58,7 +59,7 @@ class GearsView(generics.ListAPIView):
 
         # First get subject-sources.
         queryset = (
-            SubjectSource.objects.filter(subject__subject_subtype__in=["ropeless_buoy_device", "ropeless_buoy_gearset"])
+            SubjectSource.objects.filter(subject__subject_subtype__in=["ropeless_buoy_device", BUOY_SUBJECT_SUBTYPE])
             .select_related("source")
             .select_related("subject")
             .prefetch_related(

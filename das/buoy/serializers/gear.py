@@ -7,6 +7,7 @@ from drf_extra_fields.geo_fields import PointField
 from django.db.models.functions import Lower
 from rest_framework import serializers
 
+from das.buoy.consts import BUOY_SUBJECT_SUBTYPE
 from observations import models
 from observations.serializers import (
     CommonNameRelatedField,
@@ -123,7 +124,7 @@ class GearsSerializer(serializers.Serializer):
         """
         provider_key = instance.source.provider.provider_key
         if provider_key:
-            if match := re.match(r"^gundi_(.+?)_[0-9a-f-]+$", provider_key)
+            if match := re.match(r"^gundi_(.+?)_[0-9a-f-]+$", provider_key):
                 return match.group(1)
         return provider_key
 
@@ -138,7 +139,7 @@ class GearsSerializer(serializers.Serializer):
         gear_rep = dict()
 
         # Handle ropeless_buoy_gearset differently
-        if subject.get("subject_subtype") == "ropeless_buoy_gearset":
+        if subject.get("subject_subtype") == BUOY_SUBJECT_SUBTYPE:
             gear_rep[ID_KEY] = subject[ID_KEY]
             gear_rep[DISPLAY_ID_KEY] = subject["name"]
             gear_rep[STATUS_KEY] = "deployed" if subject["is_active"] else "hauled"

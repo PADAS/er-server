@@ -17,6 +17,7 @@ from rest_framework import status
 
 from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest, fake_get_pool
+from das.buoy.consts import BUOY_SUBJECT_SUBTYPE
 from observations.models import (
     SEX_MALE,
     Observation,
@@ -764,7 +765,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             },
             "recorded_at": "2025-07-30T01:03:35.239Z",
             "source_type": "ropeless_gear",
-            "subject_subtype": "ropeless_buoy_gearset",
+            "subject_subtype": BUOY_SUBJECT_SUBTYPE,
             "subject_name": "GearSet_1",
             "manufacturer_id": f"Trap_{iso_timestamp}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
@@ -782,7 +783,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             },
             "recorded_at": "2025-07-30T01:05:35.239Z",
             "source_type": "ropeless_gear",
-            "subject_subtype": "ropeless_buoy_gearset",
+            "subject_subtype": BUOY_SUBJECT_SUBTYPE,
             "subject_name": "GearSet_1",
             "manufacturer_id": f"Trap_{iso_timestamp_2}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional_updated"},
@@ -805,12 +806,12 @@ class GenericSensorHandlerTest(BaseAPITest):
         source_2 = Source.objects.get(manufacturer_id=second_observation["manufacturer_id"])
         subject = Subject.objects.get(name="GearSet_1")
 
-        self.assertEqual(subject.subject_subtype.value, "ropeless_buoy_gearset")
+        self.assertEqual(subject.subject_subtype.value, BUOY_SUBJECT_SUBTYPE)
         self.assertEqual(subject.additional, {**second_observation["subject_additional"], "display_id": "GearSet_1"})
         self.assertEqual(source_1.additional, first_observation["source_additional"])
         self.assertEqual(source_2.additional, second_observation["source_additional"])
 
-        self.assertIsNotNone(SubjectSubType.objects.get(value="ropeless_buoy_gearset"))
+        self.assertIsNotNone(SubjectSubType.objects.get(value=BUOY_SUBJECT_SUBTYPE))
 
         subject_source_1 = SubjectSource.objects.get(subject=subject, source=source_1)
         subject_source_2 = SubjectSource.objects.get(subject=subject, source=source_2)
@@ -837,7 +838,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             },
             "recorded_at": "2025-07-30T01:03:35.239Z",
             "source_type": "ropeless_gear",
-            "subject_subtype": "ropeless_buoy_gearset",
+            "subject_subtype": BUOY_SUBJECT_SUBTYPE,
             "subject_name": "GearSet_1",
             "manufacturer_id": f"Trap_{iso_timestamp}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_1_additional"},
@@ -855,7 +856,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             },
             "recorded_at": "2025-07-30T01:05:35.239Z",
             "source_type": "ropeless_gear",
-            "subject_subtype": "ropeless_buoy_gearset",
+            "subject_subtype": BUOY_SUBJECT_SUBTYPE,
             "subject_name": "GearSet_2",
             "manufacturer_id": f"Trap_{iso_timestamp_2}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_2_additional"},
@@ -879,12 +880,12 @@ class GenericSensorHandlerTest(BaseAPITest):
         subject_1 = Subject.objects.get(name="GearSet_1")
         subject_2 = Subject.objects.get(name="GearSet_2")
 
-        self.assertEqual(subject_1.subject_subtype.value, "ropeless_buoy_gearset")
+        self.assertEqual(subject_1.subject_subtype.value, BUOY_SUBJECT_SUBTYPE)
         self.assertEqual(
             subject_1.additional,
             {**first_observation["subject_additional"], "display_id": first_observation["subject_name"]},
         )
-        self.assertEqual(subject_2.subject_subtype.value, "ropeless_buoy_gearset")
+        self.assertEqual(subject_2.subject_subtype.value, BUOY_SUBJECT_SUBTYPE)
         self.assertEqual(
             subject_2.additional,
             {**second_observation["subject_additional"], "display_id": second_observation["subject_name"]},
@@ -892,7 +893,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(source_1.additional, first_observation["source_additional"])
         self.assertEqual(source_2.additional, second_observation["source_additional"])
 
-        self.assertIsNotNone(SubjectSubType.objects.get(value="ropeless_buoy_gearset"))
+        self.assertIsNotNone(SubjectSubType.objects.get(value=BUOY_SUBJECT_SUBTYPE))
 
         subject_source_1 = SubjectSource.objects.get(subject=subject_1, source=source_1)
         subject_source_2 = SubjectSource.objects.get(subject=subject_2, source=source_2)
@@ -911,7 +912,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             },
             "recorded_at": "2025-07-30T01:03:35.239Z",
             "source_type": "ropeless_gear",
-            "subject_subtype": "ropeless_buoy_gearset",
+            "subject_subtype": BUOY_SUBJECT_SUBTYPE,
             "subject_name": "GearSet_1",
             "manufacturer_id": f"Trap_{iso_timestamp}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
@@ -944,7 +945,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             },
             "recorded_at": "2025-07-30T01:03:35.239Z",
             "source_type": "ropeless_gear",
-            "subject_subtype": "ropeless_buoy_gearset",
+            "subject_subtype": BUOY_SUBJECT_SUBTYPE,
             "subject_name": "GearSet_1",
             "manufacturer_id": f"Trap_{iso_timestamp}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
