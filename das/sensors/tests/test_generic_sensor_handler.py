@@ -968,3 +968,36 @@ class GenericSensorHandlerTest(BaseAPITest):
             f"Cannot deploy a trap ({first_observation['manufacturer_id']}) that is already deployed.",
             [str(error) for error in response.data],
         )
+
+    def test_failed_post_ropeless_buoy_gearset_observation_invalid_event(self):
+        """Test posting observation for ropeless_buoy_gearset subject subtype should fail if event type is invalid."""
+        # Arrange
+        iso_timestamp = datetime.datetime.now().isoformat().replace(":", "").replace("-", "").replace(".", "")
+
+        observation = {
+            "location": {
+                "lat": str(round(random.uniform(-90, 90), 6)),
+                "lon": str(round(random.uniform(-180, 180), 6)),
+            },
+            "recorded_at": "2025-07-30T01:03:35.239Z",
+            "source_type": "ropeless_gear",
+            "subject_subtype": BUOY_SUBJECT_SUBTYPE,
+            "subject_name": "GearSet_1",
+            "manufacturer_id": f"Trap_{iso_timestamp}",
+            "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
+            "source_additional": {"any_information_related_to_the_specific_device": "source_additional"},
+            "additional": {
+                "event_type": "invalid",
+                "any_information_related_to_the_observation": "observational_additional",
+            },
+        }
+
+        # Act
+        response = self._post_data(json.dumps(observation))
+
+        # Assert
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Ropeless buoy gearset observations must have an additional.event_type of 'trap_deployed' or 'trap_retrieved'.",
+            [str(error) for error in response.data],
+        )
