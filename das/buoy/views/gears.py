@@ -3,6 +3,7 @@ from rest_framework import generics
 from rest_framework.response import Response
 
 from buoy import serializers
+from buoy.consts import BUOY_SUBJECT_SUBTYPE
 from buoy.views.helpers import (
     NAUTICAL_MILE_RADIUS,
     check_valid_date_string,
@@ -10,7 +11,6 @@ from buoy.views.helpers import (
     filter_by_bbox,
 )
 from buoy.views.schemas import GearsViewSchema
-from das.buoy.consts import BUOY_SUBJECT_SUBTYPE
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
 from observations.permissions import StandardObjectPermissions
