@@ -276,6 +276,8 @@ class GenericSensorHandler:
             else:
                 subject_info["additional"] = {"display_id": subject_name}
             subject = cls.find_subject_by_name(subject_name)
+            if subject:
+                subject_info["id"] = subject.id
 
         # Create a cache key from the source parameters
         source_cache_key = (source_type, provider_key, manufacturer_id, model_name, str(subject_info), str(source_info))
