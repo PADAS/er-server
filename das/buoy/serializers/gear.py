@@ -123,8 +123,7 @@ class GearsSerializer(serializers.Serializer):
         """
         provider_key = instance.source.provider.provider_key
         if provider_key:
-            match = re.match(r"^gundi_(.+?)_[0-9a-f-]+$", provider_key)
-            if match:
+            if match := re.match(r"^gundi_(.+?)_[0-9a-f-]+$", provider_key)
                 return match.group(1)
         return provider_key
 
