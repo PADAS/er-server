@@ -1,8 +1,10 @@
 import logging
 import re
+from datetime import datetime, timezone
 
 from drf_extra_fields.geo_fields import PointField
 
+from django.db.models.functions import Lower
 from rest_framework import serializers
 
 from observations import models
@@ -129,6 +131,7 @@ class GearsSerializer(serializers.Serializer):
     def to_representation(self, instance):
         rep = super(GearsSerializer, self).to_representation(instance)
         subject = rep["subject"]
+        now = datetime.now(timezone.utc)
 
         if not isinstance(subject, dict):
             raise serializers.ValidationError("Subject must be a dictionary")
@@ -145,7 +148,21 @@ class GearsSerializer(serializers.Serializer):
             # Get devices from related SubjectSources
             # Note: subjectsources and their sources are prefetched in the view to avoid N+1 queries
             devices = []
-            related_subject_sources = instance.subject.subjectsources.all()
+            minimum_active_lower_bound = datetime.min.replace(tzinfo=now.tzinfo)
+            if subject["is_active"]:
+                related_subject_sources = (
+                    instance.subject.subjectsources.annotate(lower=Lower("assigned_range"))
+                    .filter(assigned_range__contains=now)
+                    .exclude(
+                        lower=minimum_active_lower_bound
+                    )  # This prevents including sources that didn't had the lower bound set
+                )
+            else:
+                related_subject_sources = instance.subject.subjectsources.annotate(
+                    lower=Lower("assigned_range")
+                ).exclude(
+                    lower=minimum_active_lower_bound
+                )  # This prevents including sources that didn't had the lower bound set
             for idx, subject_source in enumerate(related_subject_sources):
                 if subject_source.source:
                     device_id = subject_source.source.manufacturer_id
@@ -156,7 +173,7 @@ class GearsSerializer(serializers.Serializer):
                         "label": self._idx_to_device_label(idx),
                         "location": {"latitude": observation.location.y, "longitude": observation.location.x},
                         "last_updated": subject_source.source.updated_at,
-                        "last_deployed": additional.get("last_deployed", None),
+                        "last_deployed": subject_source.assigned_range.lower,
                     }
                     devices.append(device)
 

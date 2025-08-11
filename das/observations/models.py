@@ -1095,6 +1095,24 @@ class SubjectSource(TenantModelMixin, models.Model):
         return datetime.now(tz=timezone.utc) not in self.assigned_range
 
     @property
+    def is_current(self):
+        return datetime.now(tz=timezone.utc) in self.assigned_range
+
+    @property
+    def has_assigned_lower_range(self):
+        min_with_timezone = datetime.min.replace(tzinfo=self.assigned_range.lower.tzinfo)
+        return self.assigned_range.lower != min_with_timezone
+
+    @property
+    def has_assigned_upper_range(self):
+        max_with_timezone = datetime.max.replace(tzinfo=self.assigned_range.upper.tzinfo)
+        return self.assigned_range.upper != max_with_timezone
+
+    @property
+    def has_assigned_range(self):
+        return self.has_assigned_lower_range or self.has_assigned_upper_range
+
+    @property
     def safe_assigned_range(self):
         # The app should never assign 'empty' to assigned_range, but add these guards in case
         # data enters the database through other means.
