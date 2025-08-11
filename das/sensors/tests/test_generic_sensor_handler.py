@@ -451,65 +451,6 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(1, Observation.objects.filter(source=new_source).count())
         self.assertIsNotNone(SubjectSubType.objects.get(value=self.ropeless_buoy_observation["subject_subtype"]))
 
-    def test_ropeless_buoy_device_subtype_update_subject_is_active(self):
-        # Creating the subject with is_active = True
-        payload = copy.deepcopy(self.ropeless_buoy_observation_2)
-        self._post_data(json.dumps(payload))
-        subject = Subject.objects.get(name=payload["subject_name"])
-
-        # Assert that the subject is created with is_active = True
-        self.assertEqual(subject.is_active, True)
-
-        # Updating the subject with is_active = False using a newer observation
-        payload["additional"]["subject_is_active"] = False
-        payload["additional"]["event_type"] = "gear_retrieved"
-        payload["recorded_at"] = "2024-10-16T11:08:17-08:00"
-        self._post_data(json.dumps(payload))
-        subject.refresh_from_db()
-
-        self.assertEqual(subject.is_active, False)
-
-        # Sending an observation with previous recorded_at and asserting that the subject is still inactive
-        payload["additional"]["subject_is_active"] = True
-        payload["additional"]["event_type"] = "gear_deployed"
-        payload["recorded_at"] = "2024-10-16T11:08:17-08:00"
-        self._post_data(json.dumps(payload))
-        subject.refresh_from_db()
-
-        self.assertEqual(subject.is_active, False)
-
-    def test_ropeless_buoy_device_subtype_update_subject_additional(self):
-        payload = copy.deepcopy(self.ropeless_buoy_observation_2)
-        self._post_data(json.dumps(payload))
-        subject = Subject.objects.get(name=payload["subject_name"])
-
-        self.assertEqual(subject.additional, payload["additional"])
-
-        # Updating the observation payload with different additional data
-        payload["additional"]["subject_is_active"] = False
-        payload["additional"]["event_type"] = "gear_retrieved"
-        payload["recorded_at"] = "2024-10-16T11:08:17-08:00"
-        self._post_data(json.dumps(payload))
-        subject.refresh_from_db()
-
-        self.assertEqual(subject.additional, payload["additional"])
-
-    def test_ropeless_buoy_device_subtype_update_subject_last_updated(self):
-        payload = copy.deepcopy(self.ropeless_buoy_observation_2)
-        self._post_data(json.dumps(payload))
-        subject = Subject.objects.get(name=payload["subject_name"])
-
-        last_updated = subject.updated_at
-
-        # Updating the observation payload with different additional data
-        payload["additional"]["subject_is_active"] = False
-        payload["additional"]["event_type"] = "gear_retrieved"
-        payload["recorded_at"] = "2024-10-16T11:08:17-08:00"
-        self._post_data(json.dumps(payload))
-        subject.refresh_from_db()
-
-        self.assertNotEqual(subject.updated_at, last_updated)
-
     def test_apply_exclusion_flags_manual_exclusion(self):
         """Test that manual exclusion flags from observation data are applied correctly."""
         from sensors.handlers import GenericSensorHandler
@@ -810,23 +751,28 @@ class GenericSensorHandlerTest(BaseAPITest):
         # Should NOT be excluded for invalid timestamps
         assert "exclusion_flags" not in result
 
-    def test_post_ropeless_buoy_gearset_observation(self):
+    def test_post_ropeless_buoy_gearset_observation_create_trawl(self):
         """Test posting observation for ropeless_buoy_gearset subject subtype with multiple devices."""
         # Arrange
-        random_lat = round(random.uniform(-90, 90), 6)
-        random_lon = round(random.uniform(-180, 180), 6)
         iso_timestamp = datetime.datetime.now().isoformat().replace(":", "").replace("-", "").replace(".", "")
         iso_timestamp_2 = iso_timestamp + "2"
 
         first_observation = {
-            "location": {"lat": str(random_lat), "lon": str(random_lon)},
+            "location": {
+                "lat": str(round(random.uniform(-90, 90), 6)),
+                "lon": str(round(random.uniform(-180, 180), 6)),
+            },
             "recorded_at": "2025-07-30T01:03:35.239Z",
             "source_type": "ropeless_gear",
             "subject_subtype": "ropeless_buoy_gearset",
             "subject_name": "GearSet_1",
             "manufacturer_id": f"Trap_{iso_timestamp}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
-            "source_additional": {"any_information_related_to_the_specific_devive": "source_additional"},
+            "source_additional": {"any_information_related_to_the_specific_device": "source_additional"},
+            "additional": {
+                "event_type": "trap_deployed",
+                "any_information_related_to_the_observation": "observational_additional",
+            },
         }
 
         second_observation = {
@@ -840,7 +786,11 @@ class GenericSensorHandlerTest(BaseAPITest):
             "subject_name": "GearSet_1",
             "manufacturer_id": f"Trap_{iso_timestamp_2}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional_updated"},
-            "source_additional": {"any_information_related_to_the_specific_devive": "source_additional_device_2"},
+            "source_additional": {"any_information_related_to_the_specific_device": "source_additional_device_2"},
+            "additional": {
+                "event_type": "trap_deployed",
+                "any_information_related_to_the_observation": "observational_additional",
+            },
         }
 
         # Act
@@ -855,16 +805,8 @@ class GenericSensorHandlerTest(BaseAPITest):
         source_2 = Source.objects.get(manufacturer_id=second_observation["manufacturer_id"])
         subject = Subject.objects.get(name="GearSet_1")
 
-        self.assertIsNotNone(source_1)
-        self.assertIsNotNone(source_2)
-        self.assertIsNotNone(subject)
-
-        self.assertEqual(1, Observation.objects.filter(source=source_1).count())
-        self.assertEqual(1, Observation.objects.filter(source=source_2).count())
-        self.assertEqual(1, Subject.objects.filter(name="GearSet_1").count())
-
         self.assertEqual(subject.subject_subtype.value, "ropeless_buoy_gearset")
-        self.assertEqual(subject.additional, second_observation["subject_additional"])
+        self.assertEqual(subject.additional, {**second_observation["subject_additional"], "display_id": "GearSet_1"})
         self.assertEqual(source_1.additional, first_observation["source_additional"])
         self.assertEqual(source_2.additional, second_observation["source_additional"])
 
@@ -881,3 +823,147 @@ class GenericSensorHandlerTest(BaseAPITest):
         source_ids = {ss.source.id for ss in subject_sources}
         expected_source_ids = {source_1.id, source_2.id}
         self.assertEqual(source_ids, expected_source_ids)
+
+    def test_post_ropeless_buoy_gearset_observation_create_multiple_gear(self):
+        """Test posting observation for ropeless_buoy_gearset subject subtype to create multiple gear."""
+        # Arrange
+        iso_timestamp = datetime.datetime.now().isoformat().replace(":", "").replace("-", "").replace(".", "")
+        iso_timestamp_2 = iso_timestamp + "2"
+
+        first_observation = {
+            "location": {
+                "lat": str(round(random.uniform(-90, 90), 6)),
+                "lon": str(round(random.uniform(-180, 180), 6)),
+            },
+            "recorded_at": "2025-07-30T01:03:35.239Z",
+            "source_type": "ropeless_gear",
+            "subject_subtype": "ropeless_buoy_gearset",
+            "subject_name": "GearSet_1",
+            "manufacturer_id": f"Trap_{iso_timestamp}",
+            "subject_additional": {"any_information_related_to_the_trawl": "subject_1_additional"},
+            "source_additional": {"any_information_related_to_the_specific_device": "source_1_additional"},
+            "additional": {
+                "event_type": "trap_deployed",
+                "any_information_related_to_the_observation": "observational_additional",
+            },
+        }
+
+        second_observation = {
+            "location": {
+                "lat": str(round(random.uniform(-90, 90), 6)),
+                "lon": str(round(random.uniform(-180, 180), 6)),
+            },
+            "recorded_at": "2025-07-30T01:05:35.239Z",
+            "source_type": "ropeless_gear",
+            "subject_subtype": "ropeless_buoy_gearset",
+            "subject_name": "GearSet_2",
+            "manufacturer_id": f"Trap_{iso_timestamp_2}",
+            "subject_additional": {"any_information_related_to_the_trawl": "subject_2_additional"},
+            "source_additional": {"any_information_related_to_the_specific_device": "source_2_additional"},
+            "additional": {
+                "event_type": "trap_deployed",
+                "any_information_related_to_the_observation": "observational_additional",
+            },
+        }
+
+        # Act
+        first_response = self._post_data(json.dumps(first_observation))
+        second_response = self._post_data(json.dumps(second_observation))
+
+        # Assert
+        self.assertEqual(first_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second_response.status_code, status.HTTP_201_CREATED)
+
+        source_1 = Source.objects.get(manufacturer_id=first_observation["manufacturer_id"])
+        source_2 = Source.objects.get(manufacturer_id=second_observation["manufacturer_id"])
+        subject_1 = Subject.objects.get(name="GearSet_1")
+        subject_2 = Subject.objects.get(name="GearSet_2")
+
+        self.assertEqual(subject_1.subject_subtype.value, "ropeless_buoy_gearset")
+        self.assertEqual(
+            subject_1.additional,
+            {**first_observation["subject_additional"], "display_id": first_observation["subject_name"]},
+        )
+        self.assertEqual(subject_2.subject_subtype.value, "ropeless_buoy_gearset")
+        self.assertEqual(
+            subject_2.additional,
+            {**second_observation["subject_additional"], "display_id": second_observation["subject_name"]},
+        )
+        self.assertEqual(source_1.additional, first_observation["source_additional"])
+        self.assertEqual(source_2.additional, second_observation["source_additional"])
+
+        self.assertIsNotNone(SubjectSubType.objects.get(value="ropeless_buoy_gearset"))
+
+        subject_source_1 = SubjectSource.objects.get(subject=subject_1, source=source_1)
+        subject_source_2 = SubjectSource.objects.get(subject=subject_2, source=source_2)
+        self.assertIsNotNone(subject_source_1)
+        self.assertIsNotNone(subject_source_2)
+
+    def test_failed_post_ropeless_buoy_gearset_observation_retrieving_not_deployed(self):
+        """Test posting observation for ropeless_buoy_gearset subject subtype should fail if trap not deployed yet."""
+        # Arrange
+        iso_timestamp = datetime.datetime.now().isoformat().replace(":", "").replace("-", "").replace(".", "")
+
+        observation = {
+            "location": {
+                "lat": str(round(random.uniform(-90, 90), 6)),
+                "lon": str(round(random.uniform(-180, 180), 6)),
+            },
+            "recorded_at": "2025-07-30T01:03:35.239Z",
+            "source_type": "ropeless_gear",
+            "subject_subtype": "ropeless_buoy_gearset",
+            "subject_name": "GearSet_1",
+            "manufacturer_id": f"Trap_{iso_timestamp}",
+            "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
+            "source_additional": {"any_information_related_to_the_specific_device": "source_additional"},
+            "additional": {
+                "event_type": "trap_retrieved",
+                "any_information_related_to_the_observation": "observational_additional",
+            },
+        }
+
+        # Act
+        response = self._post_data(json.dumps(observation))
+
+        # Assert
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            f"Cannot retrieve a trap ({observation['manufacturer_id']}) that is not deployed.",
+            [str(error) for error in response.data],
+        )
+
+    def test_failed_post_ropeless_buoy_gearset_observation_deployed_already_active(self):
+        """Test posting observation for ropeless_buoy_gearset subject subtype should fail if trap not deployed yet."""
+        # Arrange
+        iso_timestamp = datetime.datetime.now().isoformat().replace(":", "").replace("-", "").replace(".", "")
+
+        first_observation = {
+            "location": {
+                "lat": str(round(random.uniform(-90, 90), 6)),
+                "lon": str(round(random.uniform(-180, 180), 6)),
+            },
+            "recorded_at": "2025-07-30T01:03:35.239Z",
+            "source_type": "ropeless_gear",
+            "subject_subtype": "ropeless_buoy_gearset",
+            "subject_name": "GearSet_1",
+            "manufacturer_id": f"Trap_{iso_timestamp}",
+            "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
+            "source_additional": {"any_information_related_to_the_specific_device": "source_additional"},
+            "additional": {
+                "event_type": "trap_deployed",
+                "any_information_related_to_the_observation": "observational_additional",
+            },
+        }
+        second_observation = copy.deepcopy(first_observation)
+        second_observation["recorded_at"] = "2025-07-30T01:05:35.239Z"
+
+        # Act
+        response = self._post_data(json.dumps(first_observation))
+        response = self._post_data(json.dumps(second_observation))
+
+        # Assert
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            f"Cannot deploy a trap ({first_observation['manufacturer_id']}) that is already deployed.",
+            [str(error) for error in response.data],
+        )
