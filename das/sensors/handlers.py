@@ -15,6 +15,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from analyzers import gfw_inbound
+from das.buoy.consts import BUOY_SUBJECT_SUBTYPE
 from observations import servicesutils
 from observations.models import (
     DateTimeTZRange,
@@ -265,7 +266,7 @@ class GenericSensorHandler:
         observation_additional = an_observation.get("additional", {})
 
         # Special initial validation for ropeless_buoy_gearset
-        if subject_subtype == "ropeless_buoy_gearset":
+        if subject_subtype == BUOY_SUBJECT_SUBTYPE:
             event_type = observation_additional.get("event_type")
             if event_type not in ["trap_deployed", "trap_retrieved"]:
                 raise ValidationError(
@@ -297,7 +298,7 @@ class GenericSensorHandler:
             if source_cache is not None:
                 source_cache[source_cache_key] = src
 
-        if subject_subtype == "ropeless_buoy_gearset":
+        if subject_subtype == BUOY_SUBJECT_SUBTYPE:
             subject_source = SubjectSource.objects.get(source=src, subject__name=subject_name)
 
             cls.update_subject_source_assigned_range(

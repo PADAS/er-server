@@ -6,6 +6,7 @@ from dateutil import parser as date_parser
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 
+from das.buoy.consts import BUOY_SUBJECT_SUBTYPE
 from das.buoy.serializers import GearsSerializer
 from das.buoy.tests import generate_devices
 from factories import SubjectTypeFactory
@@ -102,7 +103,7 @@ class TestGearSerializer:
         # Create a subject subtype for ropeless_buoy_gearset
         subject_type = SubjectTypeFactory(value="gear")
         subject_subtype = SubjectSubType.objects.create(
-            value="ropeless_buoy_gearset", display="Ropeless Buoy Gearset", subject_type=subject_type
+            value=BUOY_SUBJECT_SUBTYPE, display="Ropeless Buoy Gearset", subject_type=subject_type
         )
 
         # Create main subject (gearset)
