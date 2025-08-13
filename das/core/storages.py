@@ -56,9 +56,27 @@ class TenantGoogleCloudStorage(GoogleCloudStorage):
             return legacy_filename
         return filename
 
+    def add_tenant_to_filename(self, filename: str) -> str:
+        """Add tenant prefix to filename if it doesn't already have it.
+
+        Args:
+            filename (str): the full path and filename of the file stored in GCS
+
+        Returns:
+            str: filename with tenant prefix added if not already present
+        """
+        filename_path = Path(filename)
+        tenant = get_tenant_settings()
+        tenant_path = Path(tenant.slug_name)
+        # If the filename already starts with the tenant slug, return as-is
+        if filename_path.parts and filename_path.parts[0] == str(tenant_path):
+            return filename
+        # Otherwise, add tenant prefix
+        return str(tenant_path / filename_path)
+
     def _open(self, name, mode="rb"):
         # Define a list of paths to try.
-        paths_to_try = [name, self.remove_tenant_from_filename(name)]
+        paths_to_try = [name, self.remove_tenant_from_filename(name), self.add_tenant_to_filename(name)]
 
         for path in paths_to_try:
             try:

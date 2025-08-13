@@ -107,8 +107,16 @@ class ObservationsFilter(BaseFilterBackend):
             if not request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
                 raise PermissionDenied
 
+            # Check if cursor pagination is being used
+            use_cursor = parse_bool(request.query_params.get("use_cursor", False))
+
             queryset = queryset.get_subject_observations_partitioned(
-                subject, since=recorded_since, until=recorded_until, filter_flag=filter_flag, bbox=bbox
+                subject,
+                since=recorded_since,
+                until=recorded_until,
+                filter_flag=filter_flag,
+                bbox=bbox,
+                avoid_unions=use_cursor,
             )
         elif source_id:
             queryset = queryset.get_source_observations(

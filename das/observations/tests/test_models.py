@@ -9,6 +9,7 @@ from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
 from django.db.models import F
 from django.test import TestCase
+from django.utils import timezone
 
 from accounts.models import PermissionSet, User
 from observations.models import (
@@ -18,6 +19,7 @@ from observations.models import (
     Subject,
     SubjectGroup,
     SubjectMaximumSpeed,
+    SubjectSource,
 )
 
 
@@ -712,3 +714,40 @@ class TestExclusionFlagsFiltering:
         # Test observation with combined flags
         assert obs_combined.system_exclusion_flags == 1
         assert obs_combined.third_party_exclusion_flags == 1
+
+
+class TestObservationQuerySet(TestCase):
+    """Test ObservationQuerySet methods."""
+
+    def test_get_subject_observations_partitioned_avoid_unions(self):
+        """Test that avoid_unions parameter works correctly."""
+        # Create test data
+        subject = Subject.objects.create(name="Test Subject")
+        source = Source.objects.create(provider_id=1)
+
+        # Create subject-source assignment
+        now = timezone.now()
+        SubjectSource.objects.create(
+            subject=subject, source=source, assigned_range=(now - timedelta(days=1), now + timedelta(days=1))
+        )
+
+        # Create some observations
+        for i in range(3):
+            Observation.objects.create(source=source, recorded_at=now + timedelta(hours=i), location="POINT(1.0 1.0)")
+
+        # Test with avoid_unions=True
+        queryset_with_avoid = Observation.objects.get_subject_observations_partitioned(subject, avoid_unions=True)
+
+        # Test with avoid_unions=False (default)
+        queryset_without_avoid = Observation.objects.get_subject_observations_partitioned(subject, avoid_unions=False)
+
+        # Both should return the same number of observations
+        self.assertEqual(queryset_with_avoid.count(), 3)
+        self.assertEqual(queryset_without_avoid.count(), 3)
+
+        # The queryset with avoid_unions should not have UNION operations
+        # We can check this by looking at the SQL
+        sql_with_avoid = str(queryset_with_avoid.query)
+
+        # The avoid_unions version should not contain UNION
+        self.assertNotIn("UNION", sql_with_avoid.upper())
