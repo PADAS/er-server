@@ -11,7 +11,6 @@ from choices.filters import ChoicesFilterSet
 from choices.models import Choice
 from choices.permissions import ChoiceModelPermissions
 from choices.serializers import ChoiceIconZipSerializer, ChoiceSerializer
-from schemas.view_mixins import DynamicSchemaDataMixin
 from utils.drf import StandardResultsSetPagination, return_409_response
 from utils.helpers import FileCompression
 
