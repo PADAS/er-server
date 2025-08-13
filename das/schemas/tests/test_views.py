@@ -28,7 +28,6 @@ def test_get_choices_dynamic_schemas(superuser_client):
     response = superuser_client.get(url)
 
     choices = Choice.objects.all()
-    choice_ids = [str(choice.id) for choice in choices]
     choice_values = [choice.value for choice in choices]
     choice_displays = [choice.display for choice in choices]
 
@@ -37,9 +36,8 @@ def test_get_choices_dynamic_schemas(superuser_client):
     assert response.status_code == 200
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
     for item in data["oneOf"]:
-        assert item["const"] in choice_ids
-        assert item["title"] in choice_values
-        assert item["description"] in choice_displays
+        assert item["const"] in choice_values
+        assert item["title"] in choice_displays
 
 
 @pytest.mark.django_db
@@ -62,7 +60,6 @@ def test_choices_dynamic_schema_accessible_without_choice_permissions(user_clien
     for item in data["oneOf"]:
         assert "const" in item
         assert "title" in item
-        assert "description" in item
 
 
 @pytest.mark.django_db
@@ -74,11 +71,11 @@ def test_get_dynamic_schema_choices_filtered(superuser_client):
     response = superuser_client.get(f"{url}?field=firerep_status,carcassrep_ageofcarcass")
 
     not_in_filter_choices = [
-        str(choice.id)
+        str(choice.value)
         for choice in Choice.objects.exclude(field__in=["firerep_status", "carcassrep_ageofcarcass"]).all()
     ]
     filtered_choices = [
-        str(choice.id)
+        str(choice.value)
         for choice in Choice.objects.filter(field__in=["firerep_status", "carcassrep_ageofcarcass"]).all()
     ]
 
@@ -91,7 +88,7 @@ def test_get_dynamic_schema_choices_filtered(superuser_client):
 @pytest.mark.django_db
 def test_choices_display_as_title(superuser_client):
     url = reverse("schemas:choices")
-    response = superuser_client.get(f"{url}?s_title=display")
+    response = superuser_client.get(f"{url}?s_description=display")
 
     data = response.json()
 
