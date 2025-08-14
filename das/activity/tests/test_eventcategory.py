@@ -14,6 +14,7 @@ from accounts.views import UserView
 from activity.models import EventCategory, EventType
 from activity.views import EventCategoriesView, EventCategoryRankView, EventCategoryView
 from core.tests import BaseAPITest
+from utils.rank import RankedTool
 
 User = django.contrib.auth.get_user_model()
 
@@ -288,3 +289,32 @@ class TestEventCategories:
 
         new_etag = response["eTag"]
         assert new_etag != initial_etag
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestEventCategoryRanking:
+    def test_event_category_ranking_rank_second_as_first(self, superuser_client, five_event_categories) -> None:
+        qs = EventCategory.objects.all().order_by("ordernum", "value")
+        RankedTool.make_full_rebalance(queryset=qs)
+        event_category = list(qs)[1]
+
+        url = reverse("event-category-ranking", kwargs={"eventcategory_id": str(event_category.id)})
+        response = superuser_client.post(url, {"before_key": None})
+
+        obj = EventCategory.objects.get(id=event_category.id)
+        assert obj.ordernum == 0.5
+
+    def test_event_category_ranking_first_stays_first_with_before_none(
+        self, superuser_client, five_event_categories
+    ) -> None:
+        qs = EventCategory.objects.all().order_by("ordernum", "value")
+        RankedTool.make_full_rebalance(queryset=qs)
+        first_category = list(qs)[0]
+        orig_ordernum = first_category.ordernum
+
+        url = reverse("event-category-ranking", kwargs={"eventcategory_id": str(first_category.id)})
+        response = superuser_client.post(url, {"before_key": None})
+
+        obj = EventCategory.objects.get(id=first_category.id)
+        assert obj.ordernum == orig_ordernum
