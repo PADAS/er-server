@@ -143,6 +143,9 @@ class EventCategoryRankView(GenericAPIView):
 
     def post(self, request, *args, **kwargs) -> Response:
         instance = self.get_object()
+        if not request.data:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
         before_key = request.data.get("before_key")
         ranked_tool = RankedTool(instance=instance, before_key=before_key)
         ranked_tool.rank()
