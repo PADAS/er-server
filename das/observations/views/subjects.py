@@ -120,6 +120,8 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             raise ForbiddenAPIException
 
         # Apply annotations and additional joins
+        use_lkl = parse_bool(query_params.get("use_lkl", False))
+        use_bbox = bool(query_params.get("bbox", False))
         min_age_days = get_minimum_allowed_age(user) or 0
         mou_date = user.additional.get("expiry", None)
         mou_date = dateparse(mou_date) if mou_date else None
@@ -129,7 +131,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
         filtered_queryset = base_queryset.annotate_with_subjectstatus(
             delay_hours=min_age_days * 24, mou_expiry_date=mou_date
-        ).annotate_with_subjectsource()
+        ).annotate_with_subjectsource(use_lkl=use_lkl, use_bbox=use_bbox)
 
         filtered_queryset = self.filter_on_subject_and_source_groups(filtered_queryset, user, query_params)
 
