@@ -581,6 +581,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         order_by=None,
         created_after=None,
         bbox=None,
+        avoid_unions=False,
     ):
         """
         An optimized version of get_subject_observations that uses partitioning to avoid full table scans.
@@ -596,6 +597,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             filter_flag (int, optional): Flags to filter observations. Defaults to 0.
             order_by (str, optional): Field by which to order the results. Defaults to "-recorded_at".
             created_after (datetime, optional): Filter on the created_at time of the observations. Must provide since and until if using this. Defaults to None.
+            avoid_unions (bool, optional): If True, uses a single query instead of UNIONs for better compatibility with cursor pagination. Defaults to False.
 
         Returns:
             QuerySet: A Django QuerySet containing the filtered and partitioned observations.
@@ -603,6 +605,56 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         if created_after and not (since and until):
             raise ValueError("If using created_after, since and until must be provided and set to a limited time range")
 
+        if avoid_unions:
+            # Use a single query approach that's compatible with cursor pagination
+            time_range = DateTimeTZRange(
+                lower=since or datetime.min.replace(tzinfo=pytz.UTC),
+                upper=until or datetime.max.replace(tzinfo=pytz.UTC),
+            )
+
+            # Get all source assignments that overlap with our time range
+            source_assignments = SubjectSource.objects.filter(subject=subject, assigned_range__overlap=time_range)
+
+            # Build a single query using Q objects to combine conditions
+            from django.db.models import Q
+
+            source_conditions = Q()
+
+            for assignment in source_assignments:
+                assignment_condition = Q(
+                    source_id=assignment.source_id,
+                    recorded_at__gte=assignment.assigned_range.lower,
+                    recorded_at__lte=assignment.assigned_range.upper,
+                )
+                source_conditions |= assignment_condition
+
+            queryset = self.filter(source_conditions)
+
+            # Apply additional time range filters if specified
+            if since:
+                queryset = queryset.filter(recorded_at__gte=since)
+            if until:
+                queryset = queryset.filter(recorded_at__lte=until)
+            if created_after:
+                queryset = queryset.filter(created_at__gte=created_after)
+            if bbox:
+                geometry = Polygon.from_bbox(bbox)
+                queryset = queryset.filter(location__within=geometry)
+
+            queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=subject.is_stationary_subject)
+
+            # Apply ordering and limit
+            queryset = queryset.order_by(order_by or "-recorded_at")
+
+            if limit and limit > 0:
+                queryset = queryset[:limit]
+
+            if values:
+                queryset = queryset.values(*values)
+
+            return queryset
+
+        # Original UNION-based implementation
         time_range = DateTimeTZRange(
             lower=since or datetime.min.replace(tzinfo=pytz.UTC), upper=until or datetime.max.replace(tzinfo=pytz.UTC)
         )

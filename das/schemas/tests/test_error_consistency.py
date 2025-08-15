@@ -12,11 +12,6 @@ DYNAMIC_SCHEMA_MAPPINGS = [
         "source_url_name": "subjects-list-view",
     },
     {
-        "name": "choices",
-        "url_name": "schemas:choices",
-        "source_url_name": "choices",
-    },
-    {
         "name": "spatial_features",
         "url_name": "schemas:spatial_features",
         "source_url_name": "mapping:spatialfeature-list",
