@@ -302,23 +302,21 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
     def get_serializer_context(self):
         request = self.request
-        query_params = self.request.query_params
+        query_params = request.query_params
 
         context = super().get_serializer_context()
-        context["render_last_location"] = True
-        context["tracks"] = parse_bool(query_params.get("tracks", False))
+        context["render_last_location"] = parse_bool(query_params.get("render_last_location", True))
+        render_tracks = parse_bool(query_params.get("tracks", False))
+        context["tracks"] = render_tracks
         context["subject_linked_sources"] = self.subject_linked_sources
         context["two_way_subject_sources"] = self.two_way_subject_sources
 
-        if request and parse_bool(request.query_params.get("tracks", None)):
-            context["tracks"] = True
+        if request and render_tracks:
             for track_param in self.TRACK_QPARAMS:
-                context[track_param] = request.query_params.get(track_param, None)
+                context[track_param] = query_params.get(track_param, None)
             for track_param in self.TRACK_DATE_QPARAMS:
                 context[track_param] = (
-                    dateparse(request.query_params.get(track_param, None))
-                    if request.query_params.get(track_param, None)
-                    else None
+                    dateparse(query_params.get(track_param, None)) if query_params.get(track_param, None) else None
                 )
         return context
 
@@ -430,7 +428,8 @@ class SubjectGroupsView(ListAPIView, TwoWaySubjectSourceMixin):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context["render_last_location"] = True
+        query_params = self.request.query_params
+        context["render_last_location"] = parse_bool(query_params.get("render_last_location", True))
         context["request"] = self.request
         context["two_way_subject_sources"] = self.two_way_subject_sources
         context["show_track_days_since"] = default_since()
@@ -442,7 +441,8 @@ class SubjectGroupSubjectsMixin(TwoWaySubjectSourceMixin):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context["render_last_location"] = True
+        query_params = self.request.query_params
+        context["render_last_location"] = parse_bool(query_params.get("render_last_location", True))
         context["two_way_subject_sources"] = self.two_way_subject_sources
         return context
 
