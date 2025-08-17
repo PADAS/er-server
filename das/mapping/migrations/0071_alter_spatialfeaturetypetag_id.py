@@ -17,6 +17,16 @@ class Migration(migrations.Migration):
                 ALTER TABLE mapping_spatialfeaturetypetag DROP CONSTRAINT mapping_spatialfeaturetypetag_pkey;
 
                 ALTER TABLE mapping_spatialfeaturetypetag ALTER COLUMN id TYPE bigint;
+
+                -- Handle older database sequence naming convention
+                DO $$
+                BEGIN
+                    -- Check if the old sequence exists and rename it if needed
+                    IF EXISTS (SELECT 1 FROM pg_sequences WHERE schemaname = 'public' AND sequencename = 'mapping__tagulous_spatialfeaturetype_tags_id_seq') THEN
+                        ALTER SEQUENCE mapping__tagulous_spatialfeaturetype_tags_id_seq RENAME TO mapping_spatialfeaturetypetag_id_seq;
+                    END IF;
+                END $$;
+
                 ALTER SEQUENCE mapping_spatialfeaturetypetag_id_seq OWNED BY mapping_spatialfeaturetypetag.id;
 
                 ALTER TABLE mapping_spatialfeaturetypetag ADD CONSTRAINT mapping_spatialfeaturetypetag_pkey PRIMARY KEY (das_tenant_id, id);
