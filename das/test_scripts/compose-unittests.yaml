@@ -26,7 +26,7 @@ services:
       - /testresults:/testresults
 
   dbserver:
-    image: gcr.io/padas-app/postgis
+    image: postgis/postgis:14-3.5-alpine
     container_name: dbserver-test
     environment:
       - POSTGRES_USER=testuser
@@ -41,7 +41,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:6.0.6
+    image: redis:7.2
     container_name: redis-test
     environment:
       - FOO=bar
