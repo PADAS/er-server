@@ -12,7 +12,7 @@ import utils.tenant.thread
 from accounts.models.permissionset import PermissionSet
 from accounts.views import UserView
 from activity.models import EventCategory, EventType
-from activity.views import EventCategoriesView, EventCategoryRankView, EventCategoryView
+from activity.views import EventCategoriesView, EventCategoryView
 from core.tests import BaseAPITest
 from utils.rank import RankedTool
 
@@ -182,16 +182,6 @@ class TestRetrieveEventCategoryWithEventTypes(BaseAPITest):
         response.render()
         self.assertEqual(response.status_code, 200)
 
-    def test_event_category_rank_without_property(self) -> None:
-        eventcategory_id = str(EventCategory.objects.first().id)
-        url = reverse("event-category-ranking", kwargs={"eventcategory_id": eventcategory_id})
-
-        request = self.factory.post(url)
-        self.force_authenticate(request, self.user)
-        response = EventCategoryRankView.as_view()(request, eventcategory_id=eventcategory_id)
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
     def test_delete_event_category_with_eventtypes(self):
         eventcategory_id = str(self.event_category_logistic.id)
         EventType.objects.create(value="event_type", display="Event Type", category_id=eventcategory_id)
@@ -294,20 +284,30 @@ class TestEventCategories:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventCategoryRanking:
-    def test_event_category_ranking_rank_second_as_first(self, superuser_client, five_event_categories) -> None:
+
+    def test_rank_second_as_first(self, superuser_client, five_event_categories):
         qs = EventCategory.objects.all().order_by("ordernum", "value")
         RankedTool.make_full_rebalance(queryset=qs)
         event_category = list(qs)[1]
 
         url = reverse("event-category-ranking", kwargs={"eventcategory_id": str(event_category.id)})
-        response = superuser_client.post(url, {"before_key": None})
 
+        response = superuser_client.post(url, {"before_key": None})
+        assert response.status_code == status.HTTP_200_OK
         obj = EventCategory.objects.get(id=event_category.id)
         assert obj.ordernum == 0.5
 
-    def test_event_category_ranking_first_stays_first_with_before_none(
-        self, superuser_client, five_event_categories
-    ) -> None:
+        response = superuser_client.post(url, {"before_key": ""})
+        assert response.status_code == status.HTTP_200_OK
+        obj = EventCategory.objects.get(id=event_category.id)
+        assert obj.ordernum == 0.5
+
+        response = superuser_client.post(url)
+        assert response.status_code == status.HTTP_200_OK
+        obj = EventCategory.objects.get(id=event_category.id)
+        assert obj.ordernum == 0.5
+
+    def test_event_category_ranking_first_stays_first_with_before_none(self, superuser_client, five_event_categories):
         qs = EventCategory.objects.all().order_by("ordernum", "value")
         RankedTool.make_full_rebalance(queryset=qs)
         first_category = list(qs)[0]
@@ -315,6 +315,7 @@ class TestEventCategoryRanking:
 
         url = reverse("event-category-ranking", kwargs={"eventcategory_id": str(first_category.id)})
         response = superuser_client.post(url, {"before_key": None})
+        assert response.status_code == status.HTTP_200_OK
 
         obj = EventCategory.objects.get(id=first_category.id)
         assert obj.ordernum == orig_ordernum
