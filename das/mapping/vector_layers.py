@@ -38,7 +38,6 @@ class SpatialFeatureLayer(VectorLayer):
 
     def _build_base_queryset(self):
         """Construct annotated queryset (called per access via queryset property).
-
         We deliberately DO NOT cache this on the class to ensure tenant scoping
         and filtering remain correct for each request.
         """
@@ -65,13 +64,7 @@ class SpatialFeatureLayer(VectorLayer):
 
     @property
     def queryset(self):  # noqa: D401 - property used by django-vectortiles
-        qs = self._build_base_queryset()
-        try:
-            cnt = qs.count()
-            logger.debug("SpatialFeatureLayer queryset(count=%s) built", cnt)
-        except Exception:  # pragma: no cover
-            logger.debug("SpatialFeatureLayer queryset build encountered count error", exc_info=True)
-        return qs
+        return self._build_base_queryset()
 
     # If future library versions start calling get_queryset(), keep a compatible method.
     def get_queryset(self):  # pragma: no cover - compatibility shim

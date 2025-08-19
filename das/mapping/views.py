@@ -8,6 +8,7 @@ from vectortiles.views import MVTView
 
 from django.core.serializers import serialize
 from django.db.models import Count, F
+from django.core.cache import cache
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -31,6 +32,8 @@ from mapping.models import (
 )
 from mapping.permissions import LayerObjectPermissions
 from mapping.vector_layers import SpatialFeatureLayer
+from mapping.cache import build_tile_cache_key
+from django.conf import settings
 from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
@@ -258,24 +261,54 @@ class SpatialFeatureTileView(MVTView):
     layer_classes = [SpatialFeatureLayer]
     permission_classes = (LayerObjectPermissions,)
 
+    # Server-side cache TTL (seconds). Keep a little longer than client max-age so we can
+    # usually revalidate from server cache rather than hitting the DB immediately.
+    cache_timeout_seconds = 240  # 4 minutes server cache
+    # Client cache controls (freshness window + stale-while-revalidate window)
+    client_max_age_seconds = 180  # 3 minutes fresh
+    client_stale_while_revalidate_seconds = 180  # serve stale up to another 3 minutes while revalidating
+    client_stale_if_error_seconds = 180  # serve stale if origin errors for same window
+
     def get(self, request, z, x, y):
-        # Create simple cache key from view name and tile coordinates
-        # cache_key = f"{self.__class__.__name__}:{z}:{x}:{y}"
-
-        # Try to get cached tile
-        # cached_response = cache.get(cache_key)
-        # if cached_response is not None:
-        # Return cached response with fresh cache headers
-        # response = cached_response
-        # else:
-        # Generate new tile if not cached
-        # Cache for 5 minutes (short server-side TTL)
-        # cache.set(cache_key, response, timeout=300)
-
+        layer_ids = [lc.id for lc in self.layer_classes]
+        try:
+            cache_key = build_tile_cache_key(
+                request,
+                z,
+                x,
+                y,
+                layer_ids,
+                cache_version=getattr(settings, "VECTOR_TILE_CACHE_VERSION", "1"),
+            )
+        except ValueError:
+            return HttpResponse(
+                status=401, headers={"WWW-Authenticate": "Bearer realm=vector-tiles"}
+            )  # Fast reject unauthenticated / malformed token requests
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            # Reconstruct fresh response object to avoid mutating cached instance
+            content, content_type = cached_payload
+            resp = HttpResponse(content, content_type=content_type)
+            resp["Cache-Control"] = (
+                "public, max-age="
+                f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
+                f"stale-if-error={self.client_stale_if_error_seconds}"
+            )
+            resp["X-Cache"] = "HIT"
+            resp["Vary"] = "Authorization"
+            return resp
         response = super().get(request, z, x, y)
-        # Set client-side cache headers to expire immediately
-        response["Cache-Control"] = "public, max-age=0"
-
+        if response.status_code == 200 and response.get("Content-Type", "").startswith("application/x-protobuf"):
+            cache.set(cache_key, (response.content, response.get("Content-Type")), timeout=self.cache_timeout_seconds)
+            response["X-Cache"] = "MISS"
+        else:
+            response["X-Cache"] = "BYPASS"
+        response["Cache-Control"] = (
+            "public, max-age="
+            f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
+            f"stale-if-error={self.client_stale_if_error_seconds}"
+        )
+        response["Vary"] = "Authorization"
         return response
 
 
