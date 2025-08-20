@@ -172,6 +172,14 @@ class TenantGoogleCloudStorage(GoogleCloudStorage):
             parameters = {}
         parameters["credentials"] = credentials
 
+        paths_to_try = self.generate_search_paths(name)
+
+        for path in paths_to_try:
+            try:
+                if super().exists(path):
+                    return super().url(path, parameters)
+            except Exception:
+                continue
         return super().url(name, parameters)
 
     def get_impersonated_credentials(self):
