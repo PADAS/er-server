@@ -51,7 +51,6 @@ class SpatialFeatureLayer(VectorLayer):
                 feature_type_name=F("feature_type__name"),
                 display_category_name=F("feature_type__display_category__name"),
                 geom=Transform(Cast(F("feature_geometry"), gis_models.GeometryField()), 3857),
-                presentation=F("presentation"),
                 image=Case(
                     # Nested object pattern: {"image": {"image": "/path.svg", ...}}
                     When(
