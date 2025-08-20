@@ -16,7 +16,16 @@ import hashlib
 from typing import Iterable, List, Mapping, Protocol, Sequence, Union
 from urllib.parse import urlencode
 
+from django.conf import settings
+from django.core.cache import cache
 from django.http import HttpRequest
+
+
+def get_effective_cache_version():
+    """Get the effective cache version combining static setting with dynamic data version."""
+    static_version = getattr(settings, "VECTOR_TILE_CACHE_VERSION", "1")
+    data_version = cache.get("vector_tile_data_version", 0)
+    return f"{static_version}-{data_version}"
 
 
 def _hash_token(auth_header: str) -> str:
@@ -91,4 +100,4 @@ def build_tile_cache_key(
     return f"vt:cv{cache_version}:{layers_part}:{z}:{x}:{y}:{tenant_component}:{token_hash}:{query_hash}"
 
 
-__all__ = ["build_tile_cache_key"]
+__all__ = ["build_tile_cache_key", "get_effective_cache_version"]

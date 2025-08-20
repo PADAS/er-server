@@ -947,6 +947,31 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
         base_manager_name = "objects"
         default_manager_name = "objects"
 
+    def _bump_cache_version(self):
+        """Increment the vector tile cache version to invalidate cached tiles."""
+        from django.core.cache import cache
+
+        cache_key = "vector_tile_data_version"
+        try:
+            # Increment the counter, or initialize to 1 if it doesn't exist
+            cache.add(cache_key, 0)  # Only adds if key doesn't exist
+            cache.incr(cache_key)
+        except Exception:
+            # Fallback in case of cache issues - set to current timestamp
+            import time
+
+            cache.set(cache_key, int(time.time()), timeout=None)
+
+    def save(self, *args, **kwargs):
+        result = super().save(*args, **kwargs)
+        self._bump_cache_version()
+        return result
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        self._bump_cache_version()
+        return result
+
     @property
     def default_presentation(self):
         if self.presentation:
