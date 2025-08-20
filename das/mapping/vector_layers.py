@@ -4,6 +4,7 @@ from vectortiles import VectorLayer
 
 from django.contrib.gis.db import models as gis_models
 from django.contrib.gis.db.models.functions import Transform
+from django.contrib.postgres.fields.jsonb import KeyTextTransform
 from django.db.models import Case, CharField, F, Value, When
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import Cast
@@ -51,26 +52,35 @@ class SpatialFeatureLayer(VectorLayer):
                 display_category_name=F("feature_type__display_category__name"),
                 geom=Transform(Cast(F("feature_geometry"), gis_models.GeometryField()), 3857),
                 image=Case(
-                    # Nested object pattern: {"image": {"image": "/path.svg", "width": 20, ...}}
-                    When(presentation__image__has_key="image", then=F("presentation__image__image")),
+                    # Nested object pattern: {"image": {"image": "/path.svg", ...}}
+                    When(
+                        presentation__image__has_key="image",
+                        then=KeyTextTransform("image", KeyTextTransform("image", F("presentation"))),
+                    ),
                     # Direct string
-                    When(presentation__has_key="image", then=F("presentation__image")),
+                    When(
+                        presentation__has_key="image",
+                        then=KeyTextTransform("image", F("presentation")),
+                    ),
                     # Direct icon_url
-                    When(presentation__has_key="icon_url", then=F("presentation__icon_url")),
+                    When(
+                        presentation__has_key="icon_url",
+                        then=KeyTextTransform("icon_url", F("presentation")),
+                    ),
                     # FeatureType nested object
                     When(
                         feature_type__presentation__image__has_key="image",
-                        then=F("feature_type__presentation__image__image"),
+                        then=KeyTextTransform("image", KeyTextTransform("image", F("feature_type__presentation"))),
                     ),
                     # FeatureType direct string
                     When(
                         feature_type__presentation__has_key="image",
-                        then=F("feature_type__presentation__image"),
+                        then=KeyTextTransform("image", F("feature_type__presentation")),
                     ),
                     # FeatureType icon_url
                     When(
                         feature_type__presentation__has_key="icon_url",
-                        then=F("feature_type__presentation__icon_url"),
+                        then=KeyTextTransform("icon_url", F("feature_type__presentation")),
                     ),
                     default=Value(None),
                     output_field=CharField(),
