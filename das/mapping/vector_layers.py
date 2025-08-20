@@ -52,9 +52,14 @@ class SpatialFeatureLayer(VectorLayer):
                 geom=Transform(Cast(F("feature_geometry"), gis_models.GeometryField()), 3857),
                 image=Case(
                     When(presentation__has_key="image", then=F("presentation__image")),
+                    When(presentation__has_key="icon_url", then=F("presentation__icon_url")),
                     When(
                         feature_type__presentation__has_key="image",
                         then=F("feature_type__presentation__image"),
+                    ),
+                    When(
+                        feature_type__presentation__has_key="icon_url",
+                        then=F("feature_type__presentation__icon_url"),
                     ),
                     default=Value(None),
                     output_field=CharField(),

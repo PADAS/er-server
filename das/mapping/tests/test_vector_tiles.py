@@ -109,6 +109,45 @@ class TestSpatialFeatureVectorTiles:
             assert "stale-while-revalidate=180" in cc2
             assert "stale-if-error=180" in cc2
 
+    @pytest.mark.django_db
+    def test_image_annotation_precedence(self, django_assert_num_queries):
+        """Verify that image annotation resolves through image -> icon_url -> feature_type fallbacks."""
+        from django.contrib.gis.geos import Point
+
+        from mapping.models import SpatialFeature, SpatialFeatureType
+
+        # Create feature type with icon_url only
+        ft = SpatialFeatureType.objects.create(name="Camp", presentation={"icon_url": "type_icon.png"})
+        # Feature 1: has explicit image
+        f1 = SpatialFeature.objects.create(
+            feature_type=ft,
+            name="Feat1",
+            presentation={"image": "feat_image.png"},
+            feature_geometry=Point(0, 0),
+        )
+        # Feature 2: has icon_url only
+        f2 = SpatialFeature.objects.create(
+            feature_type=ft,
+            name="Feat2",
+            presentation={"icon_url": "feat_icon.png"},
+            feature_geometry=Point(1, 1),
+        )
+        # Feature 3: no image fields; should inherit feature_type icon_url
+        f3 = SpatialFeature.objects.create(
+            feature_type=ft,
+            name="Feat3",
+            presentation={},
+            feature_geometry=Point(2, 2),
+        )
+
+        layer = SpatialFeatureLayer()
+        qs = layer.get_vector_tile_queryset(10, 0, 0).filter(id__in=[f1.id, f2.id, f3.id])
+        results = {r.id: r.image for r in qs}
+
+        assert results[f1.id] == "feat_image.png"
+        assert results[f2.id] == "feat_icon.png"
+        assert results[f3.id] == "type_icon.png"
+
 
 # Example of how to test the actual vector tile endpoint
 @pytest.mark.django_db
