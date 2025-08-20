@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 class SpatialFeatureLayer(VectorLayer):
     model = SpatialFeature
     id = "spatial_features"
-    # Include 'id' so clients can still correlate (even though int_id provided)
+    # send the uuid 'id' so clients can still correlate
+    # int_id is included to be compatible with mapboxgl's feature state interfaces
     tile_fields = (
         "id",
         "name",

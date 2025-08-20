@@ -45,25 +45,20 @@ class TestSpatialFeatureVectorTiles:
         """Test that cache hit works correctly."""
         factory = RequestFactory()
         request = factory.get("/tiles/10/327/791.pbf")
+        request.META["HTTP_AUTHORIZATION"] = "Bearer testtoken1"
 
         view = SpatialFeatureTileView()
 
-        # Mock the parent get method to return a proper HttpResponse
         with patch.object(view.__class__.__bases__[0], "get") as mock_parent_get:
             from django.http import HttpResponse
 
             mock_response = HttpResponse(b"mock_tile_data", content_type="application/x-protobuf")
             mock_parent_get.return_value = mock_response
 
-            # First call should generate tile and cache it
             response1 = view.get(request, 10, 327, 791)
-
-            # Second call should hit cache
             response2 = view.get(request, 10, 327, 791)
 
-            # Parent should only be called once (first time)
             assert mock_parent_get.call_count == 1
-            # Both responses should have cache headers
             assert "Cache-Control" in response1
             assert "Cache-Control" in response2
 
@@ -71,23 +66,18 @@ class TestSpatialFeatureVectorTiles:
         """Test that cache miss generates new tile."""
         factory = RequestFactory()
         request = factory.get("/tiles/10/327/791.pbf")
+        request.META["HTTP_AUTHORIZATION"] = "Bearer testtoken2"
 
         view = SpatialFeatureTileView()
-
-        # Clear any existing cache
         cache.clear()
 
-        # Mock the parent get method to return a proper HttpResponse
         with patch.object(view.__class__.__bases__[0], "get") as mock_parent_get:
             from django.http import HttpResponse
 
             mock_response = HttpResponse(b"mock_tile_data", content_type="application/x-protobuf")
             mock_parent_get.return_value = mock_response
 
-            # Call should generate tile since cache is empty
             response = view.get(request, 10, 327, 791)
-
-            # Parent should be called to generate tile
             assert mock_parent_get.call_count == 1
             assert "Cache-Control" in response
 
@@ -95,31 +85,30 @@ class TestSpatialFeatureVectorTiles:
         """Test that cache headers are set correctly."""
         factory = RequestFactory()
         request = factory.get("/tiles/10/327/791.pbf")
+        request.META["HTTP_AUTHORIZATION"] = "Bearer testtoken3"
 
         view = SpatialFeatureTileView()
-
-        # Clear any existing cache
         cache.clear()
 
-        # Mock the parent get method to return a response with headers
         with patch.object(view.__class__.__bases__[0], "get") as mock_parent_get:
-            # Create a mock response that behaves like HttpResponse
             from django.http import HttpResponse
 
             mock_response = HttpResponse(b"mock_tile_data", content_type="application/x-protobuf")
             mock_parent_get.return_value = mock_response
 
-            # Call should generate tile and set cache headers
             response = view.get(request, 10, 327, 791)
-
-            # Check that Cache-Control header is set for 1 hour
             assert "Cache-Control" in response
-            assert response["Cache-Control"] == "public, max-age=3600"
+            cc = response["Cache-Control"]
+            assert "max-age=180" in cc
+            assert "stale-while-revalidate=180" in cc
+            assert "stale-if-error=180" in cc
 
-            # Test cache hit also has headers
             response2 = view.get(request, 10, 327, 791)
             assert "Cache-Control" in response2
-            assert response2["Cache-Control"] == "public, max-age=3600"
+            cc2 = response2["Cache-Control"]
+            assert "max-age=180" in cc2
+            assert "stale-while-revalidate=180" in cc2
+            assert "stale-if-error=180" in cc2
 
 
 # Example of how to test the actual vector tile endpoint
