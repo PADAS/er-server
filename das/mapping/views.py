@@ -6,7 +6,6 @@ import simplejson as json
 from rest_framework_extensions.etag.decorators import etag
 from vectortiles.views import MVTView
 
-from django.conf import settings
 from django.core.cache import cache
 from django.core.serializers import serialize
 from django.db.models import Count, F
@@ -22,7 +21,7 @@ from rest_framework.views import APIView
 
 import mapping.serializers as serializers
 from mapping import app_settings
-from mapping.cache import build_tile_cache_key
+from mapping.cache import build_tile_cache_key, get_effective_cache_version
 from mapping.models import (
     DisplayCategory,
     Map,
@@ -279,7 +278,7 @@ class SpatialFeatureTileView(MVTView):
                 x,
                 y,
                 layer_ids,
-                cache_version=getattr(settings, "VECTOR_TILE_CACHE_VERSION", "1"),
+                cache_version=get_effective_cache_version(),
             )
         except ValueError:
             return HttpResponse(

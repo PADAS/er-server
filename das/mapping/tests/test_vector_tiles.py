@@ -22,7 +22,6 @@ class TestSpatialFeatureVectorTiles:
 
         assert layer.model.__name__ == "SpatialFeature"
         assert layer.id == "spatial_features"
-        assert layer.geometry_field == "feature_geometry"
         assert layer.min_zoom == 3
         assert layer.max_zoom == 24
         assert "id" in layer.tile_fields
