@@ -6,9 +6,10 @@ import simplejson as json
 from rest_framework_extensions.etag.decorators import etag
 from vectortiles.views import MVTView
 
+from django.conf import settings
+from django.core.cache import cache
 from django.core.serializers import serialize
 from django.db.models import Count, F
-from django.core.cache import cache
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -21,6 +22,7 @@ from rest_framework.views import APIView
 
 import mapping.serializers as serializers
 from mapping import app_settings
+from mapping.cache import build_tile_cache_key
 from mapping.models import (
     DisplayCategory,
     Map,
@@ -32,8 +34,6 @@ from mapping.models import (
 )
 from mapping.permissions import LayerObjectPermissions
 from mapping.vector_layers import SpatialFeatureLayer
-from mapping.cache import build_tile_cache_key
-from django.conf import settings
 from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
@@ -253,9 +253,10 @@ class SpatialFeatureTileView(MVTView):
     Returns Mapbox Vector Tiles (MVT) containing spatial features for the given tile coordinates.
 
     Cache strategy:
-    - Short server-side TTL (5 minutes) for fresh data
-    - Long client-side cache headers (1 hour) for performance
-    - Users can refresh with hard reload if needed
+    - Server-side TTL ~ 4 minutes (slightly longer than client freshness)
+    - Client: 3 minutes fresh (max-age), then 3 minutes stale-while-revalidate window
+    - Client: stale-if-error for same 3 minute window to mask transient origin faults
+    - Authorization varied so per-user/tenant isolation is preserved
     """
 
     layer_classes = [SpatialFeatureLayer]

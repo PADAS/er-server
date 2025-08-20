@@ -13,8 +13,9 @@ Design goals:
 from __future__ import annotations
 
 import hashlib
+from typing import Iterable, List, Mapping, Protocol, Sequence, Union
 from urllib.parse import urlencode
-from typing import Sequence, Iterable, Mapping, List, Union, Protocol
+
 from django.http import HttpRequest
 
 
@@ -26,7 +27,10 @@ def _hash_token(auth_header: str) -> str:
     """
     if not auth_header or not auth_header.lower().startswith("bearer "):
         raise ValueError("Missing or invalid bearer token")
-    token = auth_header.split(None, 1)[1].strip()
+    parts = auth_header.split(None, 1)
+    if len(parts) < 2:
+        raise ValueError("Empty bearer token")
+    token = parts[1].strip()
     if not token:
         raise ValueError("Empty bearer token")
     return hashlib.sha1(token.encode("utf-8")).hexdigest()[:16]
