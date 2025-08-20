@@ -252,7 +252,7 @@ class SpatialFeatureTileView(MVTView):
     Returns Mapbox Vector Tiles (MVT) containing spatial features for the given tile coordinates.
 
     Cache strategy:
-    - Server-side TTL ~ 4 minutes (slightly longer than client freshness)
+    - Server-side TTL ~ 24 hours (spatial features rarely change once stable)
     - Client: 3 minutes fresh (max-age), then 3 minutes stale-while-revalidate window
     - Client: stale-if-error for same 3 minute window to mask transient origin faults
     - Authorization varied so per-user/tenant isolation is preserved
@@ -263,11 +263,11 @@ class SpatialFeatureTileView(MVTView):
 
     # Server-side cache TTL (seconds). Keep a little longer than client max-age so we can
     # usually revalidate from server cache rather than hitting the DB immediately.
-    cache_timeout_seconds = 240  # 4 minutes server cache
+    cache_timeout_seconds = 86400  # 1 day server cache
     # Client cache controls (freshness window + stale-while-revalidate window)
-    client_max_age_seconds = 180  # 3 minutes fresh
-    client_stale_while_revalidate_seconds = 180  # serve stale up to another 3 minutes while revalidating
-    client_stale_if_error_seconds = 180  # serve stale if origin errors for same window
+    client_max_age_seconds = 300  # 5 minutes fresh
+    client_stale_while_revalidate_seconds = 300  # serve stale up to another 5 minutes while revalidating
+    client_stale_if_error_seconds = 300  # serve stale if origin errors for same window
 
     def get(self, request, z, x, y):
         layer_ids = [lc.id for lc in self.layer_classes]
