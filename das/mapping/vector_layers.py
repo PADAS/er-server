@@ -51,12 +51,23 @@ class SpatialFeatureLayer(VectorLayer):
                 display_category_name=F("feature_type__display_category__name"),
                 geom=Transform(Cast(F("feature_geometry"), gis_models.GeometryField()), 3857),
                 image=Case(
+                    # Nested object pattern: {"image": {"image": "/path.svg", "width": 20, ...}}
+                    When(presentation__image__has_key="image", then=F("presentation__image__image")),
+                    # Direct string
                     When(presentation__has_key="image", then=F("presentation__image")),
+                    # Direct icon_url
                     When(presentation__has_key="icon_url", then=F("presentation__icon_url")),
+                    # FeatureType nested object
+                    When(
+                        feature_type__presentation__image__has_key="image",
+                        then=F("feature_type__presentation__image__image"),
+                    ),
+                    # FeatureType direct string
                     When(
                         feature_type__presentation__has_key="image",
                         then=F("feature_type__presentation__image"),
                     ),
+                    # FeatureType icon_url
                     When(
                         feature_type__presentation__has_key="icon_url",
                         then=F("feature_type__presentation__icon_url"),

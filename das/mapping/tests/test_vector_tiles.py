@@ -6,9 +6,11 @@ from unittest.mock import patch
 
 import pytest
 
+from django.contrib.gis.geos import Point
 from django.core.cache import cache
 from django.test import RequestFactory
 
+from mapping.models import DisplayCategory, SpatialFeature, SpatialFeatureType
 from mapping.vector_layers import SpatialFeatureLayer
 from mapping.views import SpatialFeatureTileView
 
@@ -112,12 +114,13 @@ class TestSpatialFeatureVectorTiles:
     @pytest.mark.django_db
     def test_image_annotation_precedence(self, django_assert_num_queries):
         """Verify that image annotation resolves through image -> icon_url -> feature_type fallbacks."""
-        from django.contrib.gis.geos import Point
-
-        from mapping.models import SpatialFeature, SpatialFeatureType
-
         # Create feature type with icon_url only
-        ft = SpatialFeatureType.objects.create(name="Camp", presentation={"icon_url": "type_icon.png"})
+        dc = DisplayCategory.objects.create(name="General")
+        ft = SpatialFeatureType.objects.create(
+            name="Camp",
+            presentation={"icon_url": "type_icon.png"},
+            display_category=dc,
+        )
         # Feature 1: has explicit image
         f1 = SpatialFeature.objects.create(
             feature_type=ft,
@@ -139,14 +142,23 @@ class TestSpatialFeatureVectorTiles:
             presentation={},
             feature_geometry=Point(2, 2),
         )
+        # Feature 4: nested image dict pattern
+        f4 = SpatialFeature.objects.create(
+            feature_type=ft,
+            name="Feat4",
+            presentation={"image": {"image": "nested_image.png", "width": 20, "height": 20}},
+            feature_geometry=Point(3, 3),
+        )
 
         layer = SpatialFeatureLayer()
-        qs = layer.get_vector_tile_queryset(10, 0, 0).filter(id__in=[f1.id, f2.id, f3.id])
+        qs = layer.get_vector_tile_queryset(10, 0, 0).filter(id__in=[f1.id, f2.id, f3.id, f4.id])
+        assert qs.count() == 4
         results = {r.id: r.image for r in qs}
 
         assert results[f1.id] == "feat_image.png"
         assert results[f2.id] == "feat_icon.png"
         assert results[f3.id] == "type_icon.png"
+        assert results[f4.id] == "nested_image.png"
 
 
 # Example of how to test the actual vector tile endpoint
