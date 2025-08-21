@@ -100,16 +100,16 @@ class TestSpatialFeatureVectorTiles:
             response = view.get(request, 10, 327, 791)
             assert "Cache-Control" in response
             cc = response["Cache-Control"]
-            assert "max-age=180" in cc
-            assert "stale-while-revalidate=180" in cc
-            assert "stale-if-error=180" in cc
+            assert "max-age=86400" in cc
+            assert "stale-while-revalidate=86400" in cc
+            assert "stale-if-error=86400" in cc
 
             response2 = view.get(request, 10, 327, 791)
             assert "Cache-Control" in response2
             cc2 = response2["Cache-Control"]
-            assert "max-age=180" in cc2
-            assert "stale-while-revalidate=180" in cc2
-            assert "stale-if-error=180" in cc2
+            assert "max-age=86400" in cc2
+            assert "stale-while-revalidate=86400" in cc2
+            assert "stale-if-error=86400" in cc2
 
     @pytest.mark.django_db
     def test_image_annotation_precedence(self, django_assert_num_queries):
