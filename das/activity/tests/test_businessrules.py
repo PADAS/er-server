@@ -13,6 +13,8 @@ from django.contrib.auth.models import Permission
 from django.core import mail
 from django.core.management import call_command
 from django.template.loader import get_template
+from django.test import override_settings
+from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import PermissionSet, User
@@ -40,6 +42,7 @@ from activity.models import (
 from activity.serializers import AlertRuleSerializer, EventSerializer
 from activity.tasks import (
     evaluate_conditions_for_sending_alerts,
+    execute_evaluate_alert_rules,
     send_alert_to_notificationmethod,
 )
 from activity.tests.helpers.schema_test_utils import (
@@ -192,7 +195,7 @@ class TestV2EventTypeAlerts:
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 @pytest.mark.django_db
-class TestEventTypesRulesGeneration:
+class TestEventTypesAlertVariablesGeneration:
     def get_string_json_schema(self, field_name, type="string"):
         json_schema = {
             "schema": {
@@ -1908,99 +1911,71 @@ class TestV2VariableGeneration:
 @pytest.mark.usefixtures("tenant_settings")
 class TestV2AlertIntegration:
 
-    def test_v2_event_against_defined_alert_rule_integration(self, user_factory, five_event_categories):
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_v2_event_against_defined_alert_rule_integration(self, five_event_categories, superuser_client):
         """V2 equivalent of major integration test - event against defined alert rule."""
-        # Create power user and category
-        power_user = user_factory(is_superuser=True, is_staff=True)
         category = five_event_categories[0]
-
-        area_choices = {"senapa": "Senapa", "iggr": "IGGR", "wma": "WMA", "grumetireserves": "Grumeti Reserves"}
-        reason_choices = {
-            "bushmeat": "Bushmeat/Trophy Possession",
-            "elephant": "Elephant Poaching",
-            "firearm": "Firearm Poaching",
-            "grazing": "Illegal Grazing",
-            "snaring": "Snaring",
-        }
 
         v2_schema = V2SchemaBuilder.multi_field(
             {
-                "arrestrep_area": {"type": "string", "choices": area_choices},
-                "arrestrep_reasonforarrest": {"type": "string", "choices": reason_choices},
+                "service_type": {"type": "string", "existing_choices": "service_type"},
                 "number_of_items": {"type": "number", "minimum": 0},
             }
         )
 
-        arrest_eventtype = EventTypeFactory.create(
+        service_type_event_type = EventTypeFactory.create(
             category=category,
             version=EventType.VersionChoices.VERSION_2,
             schema=json.dumps(v2_schema),
-            value="arrest_rep_v2",
-            display="Test arrest_rep_v2 (VERSION_2)",
+            value="service_type_v2",
+            display="Test service_type_v2 (VERSION_2)",
         )
 
         # Create V2 event with matching data
-        event_details = {"arrestrep_area": "senapa", "arrestrep_reasonforarrest": "bushmeat", "number_of_items": 3}
+        event_details = {"service_type": "wms_basemap", "number_of_items": 3}
 
-        event_data = dict(
-            title="V2 Test Event",
-            event_time=datetime.now(tz=pytz.utc),
-            provenance=Event.PC_STAFF,
-            event_type=arrest_eventtype.value,
-            priority=Event.PRI_IMPORTANT,
-            location=dict(longitude=37.5123, latitude=1.4590),
-            event_details=event_details,
-        )
+        event_data = {
+            "title": "V2 Test Event",
+            "event_time": datetime.now(tz=pytz.utc),
+            "provenance": Event.PC_STAFF,
+            "event_type": service_type_event_type.value,
+            "priority": Event.PRI_IMPORTANT,
+            "location": {"longitude": 37.5123, "latitude": 1.4590},
+            "event_details": event_details,
+        }
 
-        request = NonHttpRequest()
-        request.user = power_user
-        ser = EventSerializer(data=event_data, context={"request": request})
-
-        if not ser.is_valid():
-            pytest.fail(f"V2 Event is not valid. Errors are: {ser.errors}")
-        else:
-            event = ser.create(ser.validated_data)
-            event = Event.objects.get(id=event.id)
+        response = superuser_client.post(reverse("events"), event_data)
+        assert response.status_code == 201
+        event = Event.objects.get(id=response.data["id"])
 
         # Create notification method
         notification_method = NotificationMethod.objects.create(
-            owner=power_user, title="Email", method="email", value="test@test.com"
+            owner=superuser_client.user, title="TestEmail", method="email", value="test@test.com"
         )
 
         # Create alert rule for V2 EventType
-        alert_rule_data = dict(
-            reportTypes=[arrest_eventtype.value],
-            notification_method_ids=[notification_method.id],
-            conditions={
+        alert_rule_data = {
+            "owner": superuser_client.user,
+            "title": "WMS Service Type Alert",
+            "conditions": {
                 "all": [
                     {
-                        "name": "arrestrep_area",
-                        "value": ["senapa", "iggr", "wma", "grumetireserves"],
+                        "name": "service_type_select",
                         "operator": "shares_at_least_one_element_with",
+                        "value": ["wms_basemap"],
                     },
                     {
-                        "name": "arrestrep_reasonforarrest",
-                        "value": ["bushmeat", "elephant", "firearm", "grazing", "snaring"],
-                        "operator": "shares_at_least_one_element_with",
+                        "name": "number_of_items_number",
+                        "operator": "greater_than_or_equal_to",
+                        "value": 2,
                     },
-                    {"name": "number_of_items", "value": 2, "operator": "greater_than_or_equal_to"},
                 ]
             },
-        )
+        }
 
-        request = NonHttpRequest()
-        request.user = power_user
-        ser = AlertRuleSerializer(data=alert_rule_data, context={"request": request})
-        if not ser.is_valid():
-            pytest.fail(f"V2 AlertRule is not valid. Errors are: {ser.errors}")
-        else:
-            alert_rule = ser.create(ser.validated_data)
-            alert_rule = AlertRule.objects.get(id=alert_rule.id)
+        alert_rule = AlertRule.objects.create(**alert_rule_data)
+        alert_rule.notification_methods.add(notification_method)
+        alert_rule.event_types.add(service_type_event_type)
 
-        # Verify alert rule was created for V2 EventType
-        assert len(AlertRule.objects.filter(event_types=event.event_type)) == 1
-
-        # Test alert rule evaluation with V2 EventType
-        action_list = evaluate_event_on_alertrules([alert_rule], event)
-        # Should trigger alert since conditions match
-        assert len(action_list) == 1
+        execute_evaluate_alert_rules(event.id, created=True, domain="zoo.com")
+        assert len(mail.outbox) == 1

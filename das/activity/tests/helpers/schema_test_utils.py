@@ -4,6 +4,8 @@ Shared utilities for V1/V2 EventType schema testing.
 
 from business_rules import export_rule_data
 
+from django.urls import reverse
+
 from activity.alerting.businessrules import (
     EventActions,
     _generate_aggregate_event_variables_class,
@@ -138,6 +140,10 @@ class V2SchemaBuilder:
             if "choices" in field_config:
                 properties[field_name]["anyOf"] = [
                     {"oneOf": [{"const": k, "title": v} for k, v in field_config["choices"].items()]}
+                ]
+            if "existing_choices" in field_config:
+                properties[field_name]["anyOf"] = [
+                    {"$ref": f"{reverse('schemas:choices')}?field={field_config['existing_choices']}"}
                 ]
             ui_fields[field_name] = V2SchemaBuilder._field_ui_config(field_name, field_type)
             left_column.append({"name": field_name, "type": "field"})
