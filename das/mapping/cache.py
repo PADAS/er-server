@@ -13,6 +13,7 @@ Design goals:
 from __future__ import annotations
 
 import hashlib
+import re
 from typing import Iterable, List, Mapping, Protocol, Sequence, Union
 from urllib.parse import urlencode
 
@@ -97,7 +98,22 @@ def build_tile_cache_key(
     tenant_component = getattr(user, "das_tenant_id", "no_tenant") or "no_tenant"
     query_hash = _hash_query_params(request.GET) if include_query else "noquery"
     layers_part = ",".join(sorted(layer_ids)) if layer_ids else "nolayers"
-    return f"vt:cv{cache_version}:{layers_part}:{z}:{x}:{y}:{tenant_component}:{token_hash}:{query_hash}"
+
+    components = [
+        f"vt:cv{cache_version}",
+        layers_part,
+        str(z),
+        str(x),
+        str(y),
+        tenant_component,
+        token_hash,
+        query_hash,
+    ]
+    forbidden = re.compile(r":")
+    for c in components:
+        if forbidden.search(c):
+            raise ValueError(f"Cache key component contains forbidden character ':': {c!r}")
+    return ":".join(components)
 
 
 __all__ = ["build_tile_cache_key", "get_effective_cache_version"]
