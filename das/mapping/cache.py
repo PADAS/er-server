@@ -92,7 +92,7 @@ def build_tile_cache_key(
     Returns:
         str: Fully assembled cache key.
     """
-    auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+    auth_header = request.META.get("HTTP_AUTHORIZATION") or request.META.get("authorization", "")
     token_hash = _hash_token(auth_header)
     user = getattr(request, "user", None)
     tenant_component = getattr(user, "das_tenant_id", "no_tenant") or "no_tenant"
