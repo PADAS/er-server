@@ -110,7 +110,8 @@ def build_tile_cache_key(
         query_hash,
     ]
     forbidden = re.compile(r":")
-    for c in components:
+    # Only check variable components (not the static prefix)
+    for c in components[1:]:
         if forbidden.search(c):
             raise ValueError(f"Cache key component contains forbidden character ':': {c!r}")
     return ":".join(components)
