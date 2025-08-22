@@ -1,6 +1,7 @@
 """Tests for mapping.cache build_tile_cache_key utility."""
 
 import pytest
+
 from django.test import RequestFactory
 
 from mapping.cache import build_tile_cache_key
@@ -28,7 +29,9 @@ def test_build_tile_cache_key_basic_order_invariance_layers():
     key1 = build_tile_cache_key(request, 5, 10, 12, ["b", "a"])  # unsorted input
     key2 = build_tile_cache_key(request, 5, 10, 12, ["a", "b"])  # already sorted
     assert key1 == key2
-    assert ":a,b:" in key1  # layers segment present & sorted
+    # Key: vt:{tenant}:{token_hash}:{layers}:{version}:{z}:{x}:{y}:{query_hash}
+    parts = key1.split(":")
+    assert parts[3] == "a,b"
 
 
 def test_build_tile_cache_key_query_param_order_invariance():
@@ -50,9 +53,10 @@ def test_build_tile_cache_key_include_query_false_uses_noquery():
 
 def test_build_tile_cache_key_token_hash_length():
     request = _make_request(headers={"Authorization": "Bearer supersecrettokenvalue"})
-    key = build_tile_cache_key(request, 9, 1, 1, ["l"])  # vt:cv1:layers:z:x:y:tenant:token:query
+    key = build_tile_cache_key(request, 9, 1, 1, ["l"])
+    # Key: vt:{tenant}:{token_hash}:{layers}:{version}:{z}:{x}:{y}:{query_hash}
     parts = key.split(":")
-    token_hash = parts[-2]
+    token_hash = parts[2]
     assert len(token_hash) == 16
 
 
@@ -65,4 +69,6 @@ def test_build_tile_cache_key_missing_bearer_token_raises_value_error():
 def test_build_tile_cache_key_empty_layer_list_uses_nolayers():
     request = _make_request(headers={"Authorization": "Bearer abc"})
     key = build_tile_cache_key(request, 1, 1, 1, [])
-    assert ":nolayers:" in key
+    # Key: vt:{tenant}:{token_hash}:{layers}:{version}:{z}:{x}:{y}:{query_hash}
+    parts = key.split(":")
+    assert parts[3] == "nolayers"

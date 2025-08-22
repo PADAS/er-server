@@ -1,7 +1,7 @@
-import re
 from unittest.mock import patch
 
 import pytest
+
 from django.core.cache import cache
 from django.http import HttpResponse
 from django.test import RequestFactory, override_settings
@@ -31,8 +31,17 @@ def test_build_tile_cache_key_basic():
     req.META["HTTP_AUTHORIZATION"] = "Bearer tok_ABC123"
     req.user = DummyUser("tenantXYZ")
     key = build_tile_cache_key(req, 5, 16, 23, ["spatial_features"], cache_version="7")
-    assert key.startswith("vt:cv7:spatial_features:5:16:23:tenantXYZ:")
-    assert re.match(r".*:[0-9a-f]{10}$", key)
+    # Key: vt:{tenant}:{token_hash}:{layers}:{version}:{z}:{x}:{y}:{query_hash}
+    parts = key.split(":")
+    assert parts[0] == "vt"
+    assert parts[1] == "tenantXYZ"
+    assert len(parts[2]) == 16  # token hash
+    assert parts[3] == "spatial_features"
+    assert parts[4] == "7"
+    assert parts[5] == "5"
+    assert parts[6] == "16"
+    assert parts[7] == "23"
+    assert len(parts[8]) == 10  # query hash
     assert "tok_ABC123" not in key
 
 
@@ -57,7 +66,13 @@ def test_build_tile_cache_key_multiple_layers_sorted():
     req_unsorted.user = DummyUser("tenantB")
     key_unsorted = build_tile_cache_key(req_unsorted, 4, 10, 11, ["layerZ", "layerA"], cache_version="3")
     # Expect layers ordered lexicographically in the key
-    assert ":layerA,layerZ:4:10:11:" in key_unsorted
+    # Key: vt:{tenant}:{token_hash}:{layers}:{version}:{z}:{x}:{y}:{query_hash}
+    parts = key_unsorted.split(":")
+    assert parts[3] == "layerA,layerZ"
+    assert parts[4] == "3"
+    assert parts[5] == "4"
+    assert parts[6] == "10"
+    assert parts[7] == "11"
 
 
 @pytest.mark.django_db
@@ -68,6 +83,14 @@ def test_build_tile_cache_key_include_query_false():
     req.user = DummyUser("tenantC")
     key = build_tile_cache_key(req, 6, 20, 21, ["spatial_features"], cache_version="5", include_query=False)
     assert key.endswith(":noquery")
+    parts = key.split(":")
+    assert parts[0] == "vt"
+    assert parts[1] == "tenantC"
+    assert parts[3] == "spatial_features"
+    assert parts[4] == "5"
+    assert parts[5] == "6"
+    assert parts[6] == "20"
+    assert parts[7] == "21"
 
 
 @pytest.mark.django_db
