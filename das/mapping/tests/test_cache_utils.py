@@ -29,14 +29,16 @@ def test_build_tile_cache_key_basic_order_invariance_layers():
     key1 = build_tile_cache_key(request, 5, 10, 12, ["b", "a"])  # unsorted input
     key2 = build_tile_cache_key(request, 5, 10, 12, ["a", "b"])  # already sorted
     assert key1 == key2
-    # Key: vt:{tenant}:{token_hash}:{layers}:{version}:{z}:{x}:{y}:{query_hash}
+    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{token_hash}:{query_hash}
     parts = key1.split(":")
     assert parts[0] == "vt"
-    assert parts[3] == "1"      # cache_version (default)
-    assert parts[4] == "5"      # z
-    assert parts[5] == "10"     # x
-    assert parts[6] == "12"     # y
-    assert parts[7] == "a,b"    # layers (sorted)
+    assert parts[1] == "tenant123"  # tenant
+    assert parts[2] == "a,b"        # layers (sorted)
+    assert parts[3] == "1"          # cache_version (default)
+    assert parts[4] == "5"          # z
+    assert parts[5] == "10"         # x
+    assert parts[6] == "12"         # y
+    assert len(parts[7]) == 16      # token hash
 
 
 def test_build_tile_cache_key_query_param_order_invariance():
@@ -59,9 +61,9 @@ def test_build_tile_cache_key_include_query_false_uses_noquery():
 def test_build_tile_cache_key_token_hash_length():
     request = _make_request(headers={"Authorization": "Bearer supersecrettokenvalue"})
     key = build_tile_cache_key(request, 9, 1, 1, ["l"])
-    # Key: vt:{tenant}:{token_hash}:{layers}:{version}:{z}:{x}:{y}:{query_hash}
+    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{token_hash}:{query_hash}
     parts = key.split(":")
-    token_hash = parts[2]
+    token_hash = parts[7]
     assert len(token_hash) == 16
 
 
@@ -74,11 +76,13 @@ def test_build_tile_cache_key_missing_bearer_token_raises_value_error():
 def test_build_tile_cache_key_empty_layer_list_uses_nolayers():
     request = _make_request(headers={"Authorization": "Bearer abc"})
     key = build_tile_cache_key(request, 1, 1, 1, [])
-    # Key: vt:{tenant}:{token_hash}:{layers}:{version}:{z}:{x}:{y}:{query_hash}
+    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{token_hash}:{query_hash}
     parts = key.split(":")
     assert parts[0] == "vt"
-    assert parts[3] == "1"      # cache_version (default)
-    assert parts[4] == "1"      # z
-    assert parts[5] == "1"      # x
-    assert parts[6] == "1"      # y
-    assert parts[7] == "nolayers"
+    assert parts[1] == "tenant123"   # tenant
+    assert parts[2] == "nolayers"    # empty layer list becomes 'nolayers'
+    assert parts[3] == "1"           # cache_version (default)
+    assert parts[4] == "1"           # z
+    assert parts[5] == "1"           # x
+    assert parts[6] == "1"           # y
+    assert len(parts[7]) == 16       # token hash

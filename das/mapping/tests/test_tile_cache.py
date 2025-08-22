@@ -31,16 +31,16 @@ def test_build_tile_cache_key_basic():
     req.META["HTTP_AUTHORIZATION"] = "Bearer tok_ABC123"
     req.user = DummyUser("tenantXYZ")
     key = build_tile_cache_key(req, 5, 16, 23, ["spatial_features"], cache_version="7")
-    # Key: vt:{tenant}:{token_hash}:{layers}:{version}:{z}:{x}:{y}:{query_hash}
+    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{token_hash}:{query_hash}
     parts = key.split(":")
     assert parts[0] == "vt"
     assert parts[1] == "tenantXYZ"
-    assert len(parts[2]) == 16  # token hash
-    assert parts[3] == "7"      # cache_version
-    assert parts[4] == "5"      # z
-    assert parts[5] == "16"     # x
-    assert parts[6] == "23"     # y
-    assert parts[7] == "spatial_features"
+    assert parts[2] == "spatial_features"
+    assert parts[3] == "7"
+    assert parts[4] == "5"
+    assert parts[5] == "16"
+    assert parts[6] == "23"
+    assert len(parts[7]) == 16  # token hash
     assert len(parts[8]) == 10  # query hash
     assert "tok_ABC123" not in key
 
@@ -66,15 +66,16 @@ def test_build_tile_cache_key_multiple_layers_sorted():
     req_unsorted.user = DummyUser("tenantB")
     key_unsorted = build_tile_cache_key(req_unsorted, 4, 10, 11, ["layerZ", "layerA"], cache_version="3")
     # Expect layers ordered lexicographically in the key
-    # Key: vt:{tenant}:{token_hash}:{layers}:{version}:{z}:{x}:{y}:{query_hash}
+    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{token_hash}:{query_hash}
     parts = key_unsorted.split(":")
     assert parts[0] == "vt"
     assert parts[1] == "tenantB"
+    assert parts[2] == "layerA,layerZ"
     assert parts[3] == "3"      # cache_version
     assert parts[4] == "4"      # z
     assert parts[5] == "10"     # x
     assert parts[6] == "11"     # y
-    assert parts[7] == "layerA,layerZ"
+    assert len(parts[7]) == 16  # token hash
 
 
 @pytest.mark.django_db
@@ -88,11 +89,12 @@ def test_build_tile_cache_key_include_query_false():
     parts = key.split(":")
     assert parts[0] == "vt"
     assert parts[1] == "tenantC"
+    assert parts[2] == "spatial_features"
     assert parts[3] == "5"      # cache_version
     assert parts[4] == "6"      # z
     assert parts[5] == "20"     # x
     assert parts[6] == "21"     # y
-    assert parts[7] == "spatial_features"
+    assert len(parts[7]) == 16  # token hash
 
 
 @pytest.mark.django_db

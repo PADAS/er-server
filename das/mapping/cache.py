@@ -81,7 +81,7 @@ def build_tile_cache_key(
           ("include_query=False") when higher fanout is undesirable.
 
     Key layout
-        vt:cv{cache_version}:{layers_csv}:{z}:{x}:{y}:{tenant}:{token_hash}:{query_hash}
+        vt:{tenant}:{layers_csv}:{cache_version}:{z}:{x}:{y}:{token_hash}:{query_hash}
 
     Returns:
         str: Fully-assembled cache key.
@@ -99,12 +99,12 @@ def build_tile_cache_key(
     components = [
         "vt",
         str(tenant_component),
-        str(token_hash),
         str(layers_part),
         str(cache_version),
         str(z),
         str(x),
         str(y),
+        str(token_hash),
         str(query_hash),
     ]
     cache_key = ":".join(components)
