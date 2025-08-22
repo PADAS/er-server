@@ -8,7 +8,6 @@ to generate comprehensive OpenAPI documentation including dynamic query paramete
 from typing import Any, Dict, List, Type
 
 from drf_spectacular.extensions import OpenApiViewExtension
-from drf_spectacular.openapi import AutoSchema
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiExample,
@@ -17,10 +16,12 @@ from drf_spectacular.utils import (
     inline_serializer,
 )
 
+from django.contrib.auth.models import AnonymousUser
 from django.http import HttpRequest
 from rest_framework import serializers
 from rest_framework.views import APIView
 
+from das_server.views import CustomSchema
 from schemas.view_mixins import DynamicSchemaFromSourceView
 
 
@@ -49,8 +50,8 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
 
         source_view_class = getattr(self.target, "source_view", None)
         if source_view_class:
-            parameters = self._build_comprehensive_parameters(source_view_class)
-            description = self._build_description(self.target)
+            parameters = self.build_comprehensive_parameters(source_view_class)
+            description = self.build_description(self.target)
             summary = f"Dynamic {getattr(self.target, 'schema_title', 'Schema')}"
 
             EnhancedDynamicSchemaView = extend_schema(
@@ -97,26 +98,26 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
 
         return EnhancedDynamicSchemaView
 
-    def _build_comprehensive_parameters(self, source_view_class) -> List[OpenApiParameter]:
+    def build_comprehensive_parameters(self, source_view_class) -> List[OpenApiParameter]:
         """Build comprehensive parameter documentation for dynamic schema endpoint."""
         parameters = []
 
         # Add schema control parameters
-        parameters.extend(self._get_schema_control_parameters())
+        parameters.extend(self.get_schema_control_parameters())
 
         # Add source view parameters
-        source_params = self._get_source_view_parameters(source_view_class)
+        source_params = self.get_source_view_parameters(source_view_class)
         if source_params:
             parameters.extend(source_params)
 
         # Add field documentation
-        field_examples = self._get_field_path_examples(source_view_class)
+        field_examples = self.get_field_path_examples(source_view_class)
         if field_examples:
-            parameters.extend(self._generate_field_documentation(field_examples))
+            parameters.extend(self.generate_field_documentation(field_examples))
 
         return parameters
 
-    def _get_schema_control_parameters(self) -> List[OpenApiParameter]:
+    def get_schema_control_parameters(self) -> List[OpenApiParameter]:
         """Generate parameters for schema control (s_const, s_title, etc.)."""
         return [
             OpenApiParameter(
@@ -204,49 +205,124 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
             ),
         ]
 
-    def _get_source_view_parameters(self, source_view_class: Type[APIView]) -> List[OpenApiParameter]:
-        """Extract parameters from the source view using DRF Spectacular introspection."""
+    def get_source_view_parameters(self, source_view_class: Type[APIView]) -> List[OpenApiParameter]:
+        """Extract all parameters from the source view (filters, overrides, and decorators)."""
+        view_instance = self.setup_source_view(source_view_class)
+        auto_schema = CustomSchema()
+        auto_schema.view = view_instance
+        auto_schema.method = "GET"
+        auto_schema.path = "/dummy/"
+
+        # Collect parameters from all sources
+        all_params = self.collect_all_parameters(view_instance, auto_schema)
+        # Convert to OpenApiParameter objects
+        return self.convert_to_openapi_parameters(all_params)
+
+    def setup_source_view(self, source_view_class: Type[APIView]):
+        """Set up a view instance for parameter introspection."""
+        view_instance = source_view_class()
+
+        # Create minimal request with user for ViewSets that access request.user
+        request = HttpRequest()
+        request.method = "GET"
+        request.user = AnonymousUser()
+
+        # Set up ViewSet action for proper decorator recognition
+        if hasattr(view_instance, "action_map"):
+            view_instance.action = "list"
+            view_instance.action_map = {"get": "list"}
+
+        view_instance.request = request
+        view_instance.format_kwarg = None
+        return view_instance
+
+    def collect_all_parameters(self, view_instance, auto_schema):
+        """Collect parameters from all sources: filters, overrides, and decorators."""
+        all_params = []
+
+        # Get filter parameters (from filterset/filter backends)
+        filter_params = auto_schema._get_filter_parameters()
+        if filter_params:
+            all_params.extend(filter_params)
+
+        # Get @extend_schema_view decorator parameters
+        decorator_params = self.extract_decorator_parameters(view_instance)
+        if decorator_params:
+            all_params.extend(decorator_params)
+
+        return all_params
+
+    def convert_to_openapi_parameters(self, all_params) -> List[OpenApiParameter]:
+        """Convert mixed parameter types to OpenApiParameter objects."""
+        parameters = []
+
+        for param in all_params:
+            if isinstance(param, dict):
+                # Convert dict to OpenApiParameter
+                parameters.append(
+                    OpenApiParameter(
+                        name=param["name"],
+                        location=OpenApiParameter.QUERY,
+                        required=param.get("required", False),
+                        description=param.get("description", ""),
+                        type=self.convert_schema_to_type(param.get("schema", {})),
+                    )
+                )
+            else:
+                # Already an OpenApiParameter object from decorators
+                parameters.append(param)
+
+        return parameters
+
+    def extract_decorator_parameters(self, view_instance) -> List[OpenApiParameter]:
+        """Extract parameters from @extend_schema_view decorators by inspecting method closures."""
         try:
-            # Create a dummy view instance with request
-            view_instance = source_view_class()
-
-            # Create minimal request object for introspection
-            request = HttpRequest()
-            request.method = "GET"
-            view_instance.request = request
-            view_instance.format_kwarg = None
-
-            # Use AutoSchema to extract parameters
-            auto_schema = AutoSchema()
-            auto_schema.view = view_instance
-            auto_schema.method = "GET"
-            auto_schema.path = "/dummy/"
-
-            parameters = []
-
-            # Get filter parameters
-            filter_params = auto_schema._get_filter_parameters()
-            if filter_params:
-                for param in filter_params:
-                    if isinstance(param, dict):
-                        parameters.append(
-                            OpenApiParameter(
-                                name=param["name"],
-                                location=OpenApiParameter.QUERY,
-                                required=param.get("required", False),
-                                description=param.get("description", ""),
-                                type=self._convert_schema_to_type(param.get("schema", {})),
-                            )
-                        )
-                    else:
-                        parameters.append(param)
-            return parameters
-
+            # Check common HTTP methods for @extend_schema_view decorators
+            for method_name in ["list", "get", "post", "put", "patch", "delete"]:
+                params = self.extract_from_method(view_instance.__class__, method_name)
+                if params:
+                    return params
+            return []
         except Exception:
-            # If introspection fails, return empty list
             return []
 
-    def _convert_schema_to_type(self, schema: Dict[str, Any]) -> OpenApiTypes:
+    def extract_from_method(self, view_class, method_name: str) -> List[OpenApiParameter]:
+        """Extract decorator parameters from a specific method."""
+        if not hasattr(view_class, method_name):
+            return []
+
+        method = getattr(view_class, method_name)
+
+        # Check if method has @extend_schema_view decorator
+        if not (hasattr(method, "kwargs") and "schema" in method.kwargs):
+            return []
+
+        extended_schema_class = method.kwargs["schema"]
+        return self.extract_from_schema_closure(extended_schema_class)
+
+    def extract_from_schema_closure(self, extended_schema_class) -> List[OpenApiParameter]:
+        """Extract parameters from ExtendedSchema closure variables."""
+        if not hasattr(extended_schema_class, "get_override_parameters"):
+            return []
+
+        override_method = extended_schema_class.get_override_parameters
+
+        # Parameters are stored in closure variables
+        if not (hasattr(override_method, "__closure__") and override_method.__closure__):
+            return []
+
+        parameters = []
+        for cell in override_method.__closure__:
+            content = cell.cell_contents
+            # Look for lists of OpenApiParameter objects
+            if isinstance(content, (list, tuple)):
+                for item in content:
+                    if hasattr(item, "name") and hasattr(item, "description"):
+                        parameters.append(item)
+
+        return parameters
+
+    def convert_schema_to_type(self, schema: Dict[str, Any]) -> OpenApiTypes:
         """Convert schema type to OpenApiTypes enum."""
         schema_type = schema.get("type", "string")
         type_mapping = {
@@ -254,12 +330,12 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
             "integer": OpenApiTypes.INT,
             "number": OpenApiTypes.NUMBER,
             "boolean": OpenApiTypes.BOOL,
-            "array": OpenApiTypes.OBJECT,  # Default fallback
+            "array": OpenApiTypes.STR,
             "object": OpenApiTypes.OBJECT,
         }
         return type_mapping.get(schema_type, OpenApiTypes.STR)
 
-    def _get_field_path_examples(self, source_view_class: Type[APIView]) -> Dict[str, List[str]]:
+    def get_field_path_examples(self, source_view_class: Type[APIView]) -> Dict[str, List[str]]:
         """Generate examples of available field paths from the source view's serializer."""
         try:
             view_instance = source_view_class()
@@ -290,15 +366,21 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
         except Exception:
             return {}
 
-    def _generate_field_documentation(self, field_examples: Dict[str, List[str]]) -> List[OpenApiParameter]:
-        """Generate documentation for available field paths."""
-        available_fields = []
-        available_fields.extend(field_examples.get("direct_fields", []))
-        available_fields.extend(field_examples.get("nested_fields", []))
-        available_fields.extend(field_examples.get("related_fields", []))
+    def generate_field_documentation(self, field_examples: Dict[str, List[str]]) -> List[OpenApiParameter]:
+        """Generate documentation parameter showing available field paths."""
+        # Flatten all field examples into a single list
+        all_fields = []
+        for field_list in field_examples.values():
+            all_fields.extend(field_list)
 
-        if not available_fields:
+        if not all_fields:
             return []
+
+        # Create documentation parameter
+        unique_fields = sorted(set(all_fields))
+        field_display = ", ".join(unique_fields[:20])
+        if len(unique_fields) > 20:
+            field_display += "..."
 
         return [
             OpenApiParameter(
@@ -308,19 +390,56 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
                 description=(
                     "This parameter is for documentation only. "
                     "Available field paths for s_const, s_title, s_description: "
-                    f"{', '.join(sorted(set(available_fields[:20])))} "
-                    f"{'...' if len(available_fields) > 20 else ''}"
+                    f"{field_display}"
                 ),
                 type=OpenApiTypes.STR,
                 deprecated=True,
             )
         ]
 
-    def _build_description(self, view_class) -> str:
+    def build_source_parameters_section(self, source_view_class) -> str:
+        """Build the source parameters section showing discovered parameters."""
+        if not source_view_class:
+            return "2. **Source View Parameters**: None available"
+
+        source_name = source_view_class.__name__
+        source_params = self.get_source_view_parameters(source_view_class)
+
+        if not source_params:
+            return f"2. **Source View Parameters**: No parameters discovered from {source_name}"
+
+        # Format parameters for documentation
+        param_lines = [self.format_parameter_line(param) for param in source_params]
+        param_list = "\n".join(param_lines) if param_lines else "   - None discovered"
+
+        return f"""2. **Source View Parameters**: Parameters from {source_name} \n {param_list}"""
+
+    def format_parameter_line(self, param) -> str:
+        """Format a single parameter for documentation display."""
+        # Extract parameter info regardless of type (OpenApiParameter or dict)
+        if hasattr(param, "name"):
+            name = param.name
+            description = getattr(param, "description", "")
+            required = getattr(param, "required", False)
+        elif isinstance(param, dict):
+            name = param.get("name", "unknown")
+            description = param.get("description", "")
+            required = param.get("required", False)
+        else:
+            return "   - Unknown parameter type"
+
+        req_text = " (required)" if required else ""
+        desc_text = f": {description}" if description else ""
+        return f"   - `{name}`{req_text}{desc_text}"
+
+    def build_description(self, view_class) -> str:
         """Generate a comprehensive description for the endpoint."""
         base_description = getattr(view_class, "schema_description", "Dynamic schema endpoint")
         source_view_name = getattr(view_class, "source_view", None)
         source_name = source_view_name.__name__ if source_view_name else "unknown"
+
+        # Get discovered source view parameters
+        source_params_section = self.build_source_parameters_section(source_view_name)
 
         return f"""{base_description}
 
@@ -336,7 +455,7 @@ This endpoint dynamically generates JSON schemas based on data from {source_name
    - `s_mode`: Schema composition mode (oneOf, anyOf, etc.)
    - `s_type`: Value type for schema items
 
-2. **Source View Parameters**: Any parameters accepted by the underlying {source_name}
+{source_params_section}
 
 3. **Nested Field Access**: Use dotted notation to access nested properties:
    - Direct fields: `name`, `id`, `value`
