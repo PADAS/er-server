@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from typing import Iterable, List, Mapping, Protocol, Sequence, Union
 from urllib.parse import urlencode
 
@@ -93,9 +94,7 @@ def build_tile_cache_key(
     query_hash = _hash_query_params(request.GET) if include_query else "noquery"
     layers_part = ",".join(sorted(layer_ids)) if layer_ids else "nolayers"
 
-    import logging
-
-    logger = logging.getLogger(__name__)
+    logging.getLogger(__name__)
     components = [
         "vt",
         str(tenant_component),
@@ -108,7 +107,6 @@ def build_tile_cache_key(
         str(query_hash),
     ]
     cache_key = ":".join(components)
-    logger.info(f"Vector tile cache key: {cache_key}")
     return cache_key
 
 

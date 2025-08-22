@@ -71,10 +71,10 @@ def test_build_tile_cache_key_multiple_layers_sorted():
     assert parts[0] == "vt"
     assert parts[1] == "tenantB"
     assert parts[2] == "layerA,layerZ"
-    assert parts[3] == "3"      # cache_version
-    assert parts[4] == "4"      # z
-    assert parts[5] == "10"     # x
-    assert parts[6] == "11"     # y
+    assert parts[3] == "3"  # cache_version
+    assert parts[4] == "4"  # z
+    assert parts[5] == "10"  # x
+    assert parts[6] == "11"  # y
     assert len(parts[7]) == 16  # token hash
 
 
@@ -90,10 +90,10 @@ def test_build_tile_cache_key_include_query_false():
     assert parts[0] == "vt"
     assert parts[1] == "tenantC"
     assert parts[2] == "spatial_features"
-    assert parts[3] == "5"      # cache_version
-    assert parts[4] == "6"      # z
-    assert parts[5] == "20"     # x
-    assert parts[6] == "21"     # y
+    assert parts[3] == "5"  # cache_version
+    assert parts[4] == "6"  # z
+    assert parts[5] == "20"  # x
+    assert parts[6] == "21"  # y
     assert len(parts[7]) == 16  # token hash
 
 
