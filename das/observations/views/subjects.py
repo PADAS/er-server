@@ -1,5 +1,12 @@
 import logging
 
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiTypes,
+    extend_schema,
+    extend_schema_view,
+)
 from rest_framework_condition import etag
 
 from django.db.models import F, QuerySet, Window
@@ -34,7 +41,7 @@ from observations.utils import (
     dateparse,
     get_minimum_allowed_age,
 )
-from observations.views.schemas import SubjectGroupsViewSchema, SubjectsViewSchema
+from observations.views.schemas import SubjectGroupsViewSchema
 from observations.views.utils import (
     SubjectGroupGetQuerySet,
     all_group_subjects_etag,
@@ -58,6 +65,116 @@ from utils.tenant.thread import get_tenant_settings
 logger = logging.getLogger(__name__)
 
 
+SUBJECTS_LIST_PARAMS = [
+    # from InactiveSubjectsViewSchema
+    OpenApiParameter(
+        name="include_inactive",
+        location=OpenApiParameter.QUERY,
+        description="Include inactive subjects in list.",
+        type=OpenApiTypes.BOOL,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="tracks_since",
+        location=OpenApiParameter.QUERY,
+        description="Include tracks since this timestamp (ISO8601).",
+        type=OpenApiTypes.DATETIME,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="tracks_until",
+        location=OpenApiParameter.QUERY,
+        description="Include tracks up through this timestamp (ISO8601).",
+        type=OpenApiTypes.DATETIME,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="bbox",
+        location=OpenApiParameter.QUERY,
+        description=(
+            "Include subjects having track data within this bounding box defined "
+            "as west,south,east,north (comma-separated)."
+        ),
+        type=OpenApiTypes.STR,
+        required=False,
+        examples=[OpenApiExample("Lima-ish", value="-77.2,-12.3,-76.7,-11.9")],
+    ),
+    OpenApiParameter(
+        name="subject_group",
+        location=OpenApiParameter.QUERY,
+        description=(
+            "Single UUID or comma-separated UUIDs. "
+            "Returns subjects that belong to ANY listed group."
+            "If the subject group ID is one UUID only, it will return subjects of nested groups of the group."
+        ),
+        type=OpenApiTypes.STR,  # no `schema=` here
+        examples=[
+            OpenApiExample("One UUID", value="123e4567-e89b-12d3-a456-426614174000"),
+            OpenApiExample("Many", value="123e4567-e89b-12d3-a456-426614174000,987e6543-e21b-54d3-a654-426614174999"),
+        ],
+        style="form",
+        explode=False,
+    ),
+    OpenApiParameter(
+        name="name",
+        location=OpenApiParameter.QUERY,
+        description="Find subjects with the given name.",
+        type=OpenApiTypes.STR,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="updated_since",
+        location=OpenApiParameter.QUERY,
+        description="Return Subjects updated since the given timestamp (ISO8601).",
+        type=OpenApiTypes.DATETIME,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="position_updated_since",
+        location=OpenApiParameter.QUERY,
+        description="Return Subjects whose position updated since the given timestamp (ISO8601).",
+        type=OpenApiTypes.DATETIME,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="render_last_location",
+        location=OpenApiParameter.QUERY,
+        description="If true, include each subject's last location in the response.",
+        type=OpenApiTypes.BOOL,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="tracks",
+        location=OpenApiParameter.QUERY,
+        description="If true, include each subject's recent tracks.",
+        type=OpenApiTypes.BOOL,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="id",
+        location=OpenApiParameter.QUERY,
+        description="Comma-delimited list of Subject IDs.",
+        type=OpenApiTypes.STR,
+        required=False,
+        examples=[OpenApiExample("Multiple IDs", value="42,43,44")],
+    ),
+    OpenApiParameter(
+        name="subject_subtypes",
+        location=OpenApiParameter.QUERY,
+        description="Comma-delimited subtype values to filter Subjects.",
+        type=OpenApiTypes.STR,
+        required=False,
+    ),
+]
+
+
+@extend_schema_view(
+    get=extend_schema(
+        parameters=SUBJECTS_LIST_PARAMS,
+        summary="List subjects",
+        description="List subjects with optional filters for time, bbox, group, name, etc.",
+    )
+)
 class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDataMixin):
     """
     get:
@@ -71,8 +188,6 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
     TRACK_QPARAMS = ("tracks_limit",)
     TRACK_DATE_QPARAMS = ("tracks_since", "tracks_until")
-
-    schema = SubjectsViewSchema()
 
     # Ensure this attribute is present with a sensible default for any child
     # classes.
