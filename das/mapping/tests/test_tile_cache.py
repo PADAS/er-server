@@ -36,11 +36,11 @@ def test_build_tile_cache_key_basic():
     assert parts[0] == "vt"
     assert parts[1] == "tenantXYZ"
     assert len(parts[2]) == 16  # token hash
-    assert parts[3] == "spatial_features"
-    assert parts[4] == "7"
-    assert parts[5] == "5"
-    assert parts[6] == "16"
-    assert parts[7] == "23"
+    assert parts[3] == "7"      # cache_version
+    assert parts[4] == "5"      # z
+    assert parts[5] == "16"     # x
+    assert parts[6] == "23"     # y
+    assert parts[7] == "spatial_features"
     assert len(parts[8]) == 10  # query hash
     assert "tok_ABC123" not in key
 
@@ -68,11 +68,13 @@ def test_build_tile_cache_key_multiple_layers_sorted():
     # Expect layers ordered lexicographically in the key
     # Key: vt:{tenant}:{token_hash}:{layers}:{version}:{z}:{x}:{y}:{query_hash}
     parts = key_unsorted.split(":")
-    assert parts[3] == "layerA,layerZ"
-    assert parts[4] == "3"
-    assert parts[5] == "4"
-    assert parts[6] == "10"
-    assert parts[7] == "11"
+    assert parts[0] == "vt"
+    assert parts[1] == "tenantB"
+    assert parts[3] == "3"      # cache_version
+    assert parts[4] == "4"      # z
+    assert parts[5] == "10"     # x
+    assert parts[6] == "11"     # y
+    assert parts[7] == "layerA,layerZ"
 
 
 @pytest.mark.django_db
@@ -86,11 +88,11 @@ def test_build_tile_cache_key_include_query_false():
     parts = key.split(":")
     assert parts[0] == "vt"
     assert parts[1] == "tenantC"
-    assert parts[3] == "spatial_features"
-    assert parts[4] == "5"
-    assert parts[5] == "6"
-    assert parts[6] == "20"
-    assert parts[7] == "21"
+    assert parts[3] == "5"      # cache_version
+    assert parts[4] == "6"      # z
+    assert parts[5] == "20"     # x
+    assert parts[6] == "21"     # y
+    assert parts[7] == "spatial_features"
 
 
 @pytest.mark.django_db

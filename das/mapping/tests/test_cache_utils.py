@@ -31,7 +31,12 @@ def test_build_tile_cache_key_basic_order_invariance_layers():
     assert key1 == key2
     # Key: vt:{tenant}:{token_hash}:{layers}:{version}:{z}:{x}:{y}:{query_hash}
     parts = key1.split(":")
-    assert parts[3] == "a,b"
+    assert parts[0] == "vt"
+    assert parts[3] == "1"      # cache_version (default)
+    assert parts[4] == "5"      # z
+    assert parts[5] == "10"     # x
+    assert parts[6] == "12"     # y
+    assert parts[7] == "a,b"    # layers (sorted)
 
 
 def test_build_tile_cache_key_query_param_order_invariance():
@@ -71,4 +76,9 @@ def test_build_tile_cache_key_empty_layer_list_uses_nolayers():
     key = build_tile_cache_key(request, 1, 1, 1, [])
     # Key: vt:{tenant}:{token_hash}:{layers}:{version}:{z}:{x}:{y}:{query_hash}
     parts = key.split(":")
-    assert parts[3] == "nolayers"
+    assert parts[0] == "vt"
+    assert parts[3] == "1"      # cache_version (default)
+    assert parts[4] == "1"      # z
+    assert parts[5] == "1"      # x
+    assert parts[6] == "1"      # y
+    assert parts[7] == "nolayers"

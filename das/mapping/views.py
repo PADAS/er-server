@@ -265,9 +265,9 @@ class SpatialFeatureTileView(MVTView):
     # usually revalidate from server cache rather than hitting the DB immediately.
     cache_timeout_seconds = 86400  # 1 day server cache
     # Client cache controls (freshness window + stale-while-revalidate window)
-    client_max_age_seconds = 300  # 5 minutes fresh
-    client_stale_while_revalidate_seconds = 300  # serve stale up to another 5 minutes while revalidating
-    client_stale_if_error_seconds = 300  # serve stale if origin errors for same window
+    client_max_age_seconds = 86400  # 24 hours fresh
+    client_stale_while_revalidate_seconds = 86400  # serve stale up to another 24 hours while revalidating
+    client_stale_if_error_seconds = 86400  # serve stale if origin errors for same window
 
     def get(self, request, z, x, y):
         layer_ids = [lc.id for lc in self.layer_classes]
