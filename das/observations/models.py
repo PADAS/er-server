@@ -1457,7 +1457,32 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             latest_subjectsource_exists=Exists(latest_subjectsource),
         )
 
-    def annotate_with_subjectsource(self):
+    def annotate_with_subjectsource(self, use_lkl=False, use_bbox=False):
+        """
+        Annotates the queryset with the location from the most current subjectsource.
+        Uses a subquery to get the latest subjectsource record for each subject.
+
+        Args:
+            use_lkl (bool): if using lkl, then we only need the latest subjectsource location for stationary subjects. Defaults to False.
+            use_bbox (bool): If using bbox to filter subjects, then we need subjectsource_locations for all stationary subjects. Defaults to False.
+
+        Returns:
+            QuerySet: Annotated with subjectsource_location
+        """
+        if not use_bbox:
+            return self
+
+        if use_lkl:
+            # Get the latest subjectsource record by assigned_range for each subject
+            latest_subjectsource = (
+                SubjectSource.objects.filter(subject=OuterRef("pk")).order_by("-assigned_range").values("location")[:1]
+            )
+
+            return self.annotate(
+                subjectsource_location=Subquery(latest_subjectsource),
+            )
+
+        # performance note, if we have subjects with many subjectsource assignments, this results in a large number of joins
         return self.annotate(
             s2=FilteredRelation("subjectsource", condition=Q(subjectsource__isnull=False)),
             subjectsource_location=F("s2__location"),
