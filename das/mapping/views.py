@@ -8,7 +8,7 @@ from vectortiles.views import MVTView
 
 from django.core.cache import cache
 from django.core.serializers import serialize
-from django.db.models import Count, F
+from django.db.models import Count, F, Prefetch
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -92,6 +92,7 @@ class FeatureSetListJsonView(APIView):
 
     def get(self, request):
         def feature_types(featureset, include_hidden, summarize_features):
+            # First, get all feature types with their counts
             if include_hidden:
                 feature_types_qs = featureset.spatialfeaturetype_set.annotate(
                     spatialfeature_count=Count("spatialfeature")
@@ -101,11 +102,17 @@ class FeatureSetListJsonView(APIView):
                     spatialfeature_count=Count("spatialfeature")
                 ).filter(is_visible=True)
 
-            for t in feature_types_qs:
-                features_qs = SpatialFeature.objects.filter(feature_type=t)
+            # If we need to summarize features, prefetch the related features in a single query
+            if summarize_features:
+                features_qs = SpatialFeature.objects.filter(feature_type__display_category=featureset)
                 if not include_hidden:
                     features_qs = features_qs.filter(feature_type__is_visible=True)
 
+                feature_types_qs = feature_types_qs.prefetch_related(
+                    Prefetch("spatialfeature_set", queryset=features_qs, to_attr="prefetched_features")
+                )
+
+            for t in feature_types_qs:
                 featureTypeDict = {
                     "name": t.name,
                     "id": str(t.id),
@@ -113,13 +120,15 @@ class FeatureSetListJsonView(APIView):
                 }
 
                 if summarize_features:
-                    # Correctly add the 'feature_summaries' key to the dictionary
+                    # Use the prefetched features, which are already filtered to this feature type
+                    features = getattr(t, "prefetched_features", [])
+
                     featureTypeDict["feature_summaries"] = [
                         {
                             "name": f.name,
                             "bounds": f.feature_geometry.extent if f.feature_geometry else None,
                         }
-                        for f in features_qs
+                        for f in features
                     ]
 
                 yield featureTypeDict
