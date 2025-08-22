@@ -182,8 +182,8 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
                 required=False,
                 description="Type for schema values. Defaults to 'string'.",
                 type=OpenApiTypes.STR,
-                enum=["string", "integer", "number", "boolean", "array", "object"],
-                examples=[OpenApiExample(name="type_example", summary="Schema value type", value="string")],
+                enum=["string", "number", "boolean", "array", "object"],
+                examples=[OpenApiExample(name="type_example", value="string")],
             ),
             OpenApiParameter(
                 name="s_x",
@@ -195,31 +195,11 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
                     'Example: \'{"icon": "properties.icon_url", "color": "metadata.color"}\''
                 ),
                 type=OpenApiTypes.STR,
-                examples=[
-                    OpenApiExample(
-                        name="custom_extensions",
-                        summary="Custom x- extensions",
-                        value='{"icon": "properties.icon_url", "color": "metadata.color"}',
-                    )
-                ],
             ),
         ]
 
     def get_source_view_parameters(self, source_view_class: Type[APIView]) -> List[OpenApiParameter]:
         """Extract all parameters from the source view (filters, overrides, and decorators)."""
-        view_instance = self.setup_source_view(source_view_class)
-        auto_schema = CustomSchema()
-        auto_schema.view = view_instance
-        auto_schema.method = "GET"
-        auto_schema.path = "/dummy/"
-
-        # Collect parameters from all sources
-        all_params = self.collect_all_parameters(view_instance, auto_schema)
-        # Convert to OpenApiParameter objects
-        return self.convert_to_openapi_parameters(all_params)
-
-    def setup_source_view(self, source_view_class: Type[APIView]):
-        """Set up a view instance for parameter introspection."""
         view_instance = source_view_class()
 
         # Create minimal request with user for ViewSets that access request.user
@@ -234,11 +214,19 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
 
         view_instance.request = request
         view_instance.format_kwarg = None
-        return view_instance
 
-    def collect_all_parameters(self, view_instance, auto_schema):
+        auto_schema = CustomSchema()
+        auto_schema.view = view_instance
+        auto_schema.method = "GET"
+        auto_schema.path = "/dummy/"
+
+        # Collect parameters from all sources
+        return self.collect_all_parameters(view_instance, auto_schema)
+
+    def collect_all_parameters(self, view_instance, auto_schema) -> List[OpenApiParameter]:
         """Collect parameters from all sources: filters, overrides, and decorators."""
         all_params = []
+        parameters = []
 
         # Get filter parameters (from filterset/filter backends)
         filter_params = auto_schema._get_filter_parameters()
@@ -249,12 +237,6 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
         decorator_params = self.extract_decorator_parameters(view_instance)
         if decorator_params:
             all_params.extend(decorator_params)
-
-        return all_params
-
-    def convert_to_openapi_parameters(self, all_params) -> List[OpenApiParameter]:
-        """Convert mixed parameter types to OpenApiParameter objects."""
-        parameters = []
 
         for param in all_params:
             if isinstance(param, dict):
