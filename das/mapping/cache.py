@@ -97,10 +97,11 @@ def build_tile_cache_key(
 
     logger = logging.getLogger(__name__)
     components = [
-        f"vt:{tenant_component}",
+        "vt",
+        str(tenant_component),
         str(token_hash),
-        str(cache_version),
         str(layers_part),
+        str(cache_version),
         str(z),
         str(x),
         str(y),
