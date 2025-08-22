@@ -1,13 +1,10 @@
 """Cache utilities for vector tile endpoints.
-
-Provides small, testable helpers to construct stable, low‑risk cache keys
-without embedding hashing / normalization logic directly inside views.
-
-Design goals:
- - Do NOT leak bearer tokens or PII into cache keys.
- - Keep key length compact while still varying on user, tenant, filters, tile.
- - Deterministic ordering of query parameters for consistent hashing.
- - Easy to extend with a version component for future cache busts.
+- Construct stable, low-risk cache keys
+- Keep embedding hashing / normalization out of views.
+- Do NOT leak bearer tokens or PII into cache keys.
+- Keep key length compact while still varying on user, tenant, filters, tile.
+- Deterministic ordering of query parameters for consistent hashing
+- Versioning for easy cache-busting
 """
 
 from __future__ import annotations
@@ -78,18 +75,16 @@ def build_tile_cache_key(
 ) -> str:
     """Construct a deterministic cache key for a vector tile request.
 
-    Behaviour:
-        * Requires a Bearer token (raises ValueError otherwise) – upstream view
-          translates this into a 401 instead of a silent cache miss.
-        * Layer ids are sorted so caller order does not fragment cache.
-        * Query string hashing is stable and order independent; can be disabled
-          ("include_query=False") when higher fan‑out is undesirable.
+        * Requires a Bearer token
+        * Sorted layer ids (caller order does not fragment cache)
+        * Query string hashing is stable (caller order does not fragment cache); can be disabled
+          ("include_query=False") when higher fanout is undesirable.
 
-    Key layout (components never contain ':'):
+    Key layout
         vt:cv{cache_version}:{layers_csv}:{z}:{x}:{y}:{tenant}:{token_hash}:{query_hash}
 
     Returns:
-        str: Fully assembled cache key.
+        str: Fully-assembled cache key.
     """
     auth_header = request.META.get("HTTP_AUTHORIZATION") or request.META.get("authorization", "")
     token_hash = _hash_token(auth_header)
@@ -104,8 +99,8 @@ def build_tile_cache_key(
     components = [
         f"vt:{tenant_component}",
         str(token_hash),
-        str(layers_part),
         str(cache_version),
+        str(layers_part),
         str(z),
         str(x),
         str(y),
