@@ -1,7 +1,9 @@
 import json
+import random
 from datetime import datetime
 
 import pytest
+from geopy.distance import distance
 
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
@@ -12,7 +14,11 @@ from rest_framework import status
 from accounts.models import PermissionSet
 from buoy import views
 from client_http import HTTPClient
-from das.buoy.tests import generate_devices, get_custom_location_gear_subjectsource
+from das.buoy.tests import (
+    generate_devices,
+    generate_fake_display_id,
+    get_custom_location_gear_subjectsource,
+)
 from observations.models import Observation, SubjectGroup, SubjectSource
 
 
@@ -494,3 +500,62 @@ class TestGearsView:
         # Check if the subject is still inactive
         gear_subjectsource.refresh_from_db()
         assert gear_subjectsource.subject.is_active is True
+
+    def test_filter_gear_subject_api_max_nm_range_provided(self, buoy_client):
+        user_client, _ = buoy_client
+
+        # Arrange - Create a set of gears
+        origin = Point(10, 10)
+
+        for miles in [4, 40, 400]:
+            bearing = random.uniform(0, 360)
+            new_point = distance(miles=miles).destination(origin, bearing)
+            gear_subjectsource = get_custom_location_gear_subjectsource(Point(new_point.longitude, new_point.latitude))
+            gear_subjectsource.subject.additional["display_id"] = generate_fake_display_id()
+            gear_subjectsource.subject.save()
+
+        url = reverse(self.base_url)
+
+        user_client.user.username = "default"
+        user_client.user.save()
+        response = user_client.get(url + f"?lat={origin.y}&lon={origin.x}&max_nm_range=500")
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 3
+
+        user_client.user.username = "username0"
+        user_client.user.save()
+        response = user_client.get(url + f"?lat={origin.y}&lon={origin.x}")
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 1
+
+        user_client.user.username = "username0"
+        user_client.user.save()
+        response = user_client.get(url + f"?lat={origin.y}&lon={origin.x}&max_nm_range=250")
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 2
+
+        user_client.user.username = "username0"
+        user_client.user.save()
+        response = user_client.get(url + f"?lat={origin.y}&lon={origin.x}&max_nm_range=500")
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 3
+
+    def test_filter_gear_subject_api_max_nm_range_provided_but_no_lat_lon(self, buoy_client):
+        user_client, _ = buoy_client
+
+        url = reverse(self.base_url)
+
+        user_client.user.username = "edgetech"
+        user_client.user.save()
+        response = user_client.get(url + "?max_nm_range=500")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+        user_client.user.username = "admin"
+        user_client.user.save()
+        response = user_client.get(url + "?max_nm_range=500")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+        user_client.user.username = "blueoceangear"
+        user_client.user.save()
+        response = user_client.get(url + "?max_nm_range=500")
+        assert response.status_code == status.HTTP_403_FORBIDDEN

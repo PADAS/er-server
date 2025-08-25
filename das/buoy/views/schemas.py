@@ -32,6 +32,12 @@ class GearsViewSchema(CustomSchema):
                     "required": False,
                     "description": 'Return Subjects that have the specified state. Use "deployed" for gear in the water, or "hauled" for recovered gear.',
                 },
+                {
+                    "name": "max_nm_range",
+                    "in": "query",
+                    "required": False,
+                    "description": "Return Subjects that have the specified maximum nautical mile range.",
+                },
             ]
             operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)

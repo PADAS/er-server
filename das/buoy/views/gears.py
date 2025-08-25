@@ -4,6 +4,7 @@ from rest_framework.response import Response
 
 from buoy import serializers
 from buoy.views.helpers import (
+    NAUTICAL_MILE_RADIUS,
     check_valid_date_string,
     check_valid_state_string,
     filter_by_bbox,
@@ -29,6 +30,7 @@ class GearsView(generics.ListAPIView):
     state, where state is either "deployed" or "hauled".
         example: state=deployed
     updated_since, where updated_since is a date-string to limit on updated_at
+    max_nm_range
 
     page, page number
 
