@@ -23,6 +23,7 @@ from utils.models import CommonTenantManager
 
 class DASAccessToken(TenantModelMixin, AbstractAccessToken):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    token = models.CharField(max_length=255)
     user = TenantForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -64,9 +65,6 @@ class DASAccessToken(TenantModelMixin, AbstractAccessToken):
                 fields=["das_tenant", "token"],
                 name="%(app_label)s_%(class)s_unique_token_across_tenants",
             )
-        ]
-        indexes = [
-            models.Index(fields=["das_tenant", "token"]),
         ]
 
 
