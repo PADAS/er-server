@@ -4,6 +4,7 @@ from rest_framework.response import Response
 
 from buoy import serializers
 from buoy.views.helpers import (
+    NAUTICAL_MILE_RADIUS,
     check_valid_date_string,
     check_valid_state_string,
     filter_by_bbox,
@@ -29,6 +30,7 @@ class GearsView(generics.ListAPIView):
     state, where state is either "deployed" or "hauled".
         example: state=deployed
     updated_since, where updated_since is a date-string to limit on updated_at
+    max_nm_range
 
     page, page number
 
@@ -70,15 +72,17 @@ class GearsView(generics.ListAPIView):
         is_active = check_valid_state_string(query_params.get("state"))
         queryset = queryset.filter(subject__is_active=is_active)
 
+        max_nm_range = query_params.get("max_nm_range", NAUTICAL_MILE_RADIUS)
         lat = query_params.get("lat")
         lon = query_params.get("lon")
+
         if lat and lon:
             lat = float(lat)
             lon = float(lon)
             is_lat_lon_valid = check_valid_lat_lon(latitude=lat, longitude=lon)
             if not is_lat_lon_valid:
                 raise ValueError("lat and lon are invalid values")
-            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon)
+            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=int(max_nm_range))
         else:
             allowed_users_no_location = {"edgetech", "admin", "blueoceangear"}
             if self.request.user.username not in allowed_users_no_location:
