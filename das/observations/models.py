@@ -2301,6 +2301,10 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
         We don't know if this observation is necessarily the latest for the source in which case it can be ignored.
         """
 
+        # short circuit if the observation is excluded
+        if observation.has_system_exclusion_flags():
+            return
+
         source = observation.source
         for subjectsource in SubjectSource.objects.get_for_source_at_time(source, observation.recorded_at):
             subjectstatus = SubjectStatus.objects.get_current_status(subjectsource.subject)

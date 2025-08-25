@@ -1,5 +1,6 @@
 import json
 import logging
+import random
 import tempfile
 from datetime import datetime, timedelta, timezone
 
@@ -36,7 +37,10 @@ logger = logging.getLogger(__name__)
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def maintain_subjectstatus_all():
     for subject_id in Subject.objects.filter(is_active=True).values_list("id", flat=True):
-        maintain_subjectstatus_for_subject.apply_async(args=(str(subject_id),))
+        maintain_subjectstatus_for_subject.apply_async(
+            args=(str(subject_id),),
+            countdown=random.randint(0, 600),  # Random delay in seconds between 0 and 10 minutes
+        )
 
 
 @celery.app.task(
