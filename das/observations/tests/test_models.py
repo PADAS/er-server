@@ -762,7 +762,6 @@ class TestObservationExclusionProcessing:
     def test_excluded_observation_not_update_subjectstatus(self, subject_source_with_observations):
         subject_source, observation = subject_source_with_observations
         subject = subject_source.subject
-        subject_source.source
 
         subjectstatus = SubjectStatus.objects.get_current_status(subject)
         assert subjectstatus.location == observation.location
