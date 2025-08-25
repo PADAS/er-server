@@ -8,7 +8,7 @@ from django.contrib.auth import get_permission_codename
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
 from django.db.models import F
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from accounts.models import PermissionSet, User
@@ -20,6 +20,7 @@ from observations.models import (
     SubjectGroup,
     SubjectMaximumSpeed,
     SubjectSource,
+    SubjectStatus,
 )
 
 
@@ -751,3 +752,28 @@ class TestObservationQuerySet(TestCase):
 
         # The avoid_unions version should not contain UNION
         self.assertNotIn("UNION", sql_with_avoid.upper())
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestObservationExclusionProcessing:
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_excluded_observation_not_update_subjectstatus(self, subject_source_with_observations):
+        subject_source, observation = subject_source_with_observations
+        subject = subject_source.subject
+        subject_source.source
+
+        subjectstatus = SubjectStatus.objects.get_current_status(subject)
+        assert subjectstatus.location == observation.location
+
+        # observation with invalid location, and was automatically excluded
+        Observation.objects.create(
+            source=subject_source.source,
+            recorded_at=timezone.now(),
+            location=Point(0, 0),
+            exclusion_flags=Observation.EXCLUDED_AUTOMATICALLY,
+        )
+
+        subjectstatus = SubjectStatus.objects.get_current_status(subject)
+        assert subjectstatus.location == observation.location
