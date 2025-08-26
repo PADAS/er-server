@@ -110,11 +110,6 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
         if source_params:
             parameters.extend(source_params)
 
-        # Add field documentation
-        field_examples = self.get_field_path_examples(source_view_class)
-        if field_examples:
-            parameters.extend(self.generate_field_documentation(field_examples))
-
         return parameters
 
     def get_schema_control_parameters(self) -> List[OpenApiParameter]:
@@ -224,7 +219,10 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
         return self.collect_all_parameters(view_instance, auto_schema)
 
     def collect_all_parameters(self, view_instance, auto_schema) -> List[OpenApiParameter]:
-        """Collect parameters from all sources: filters, overrides, and decorators."""
+        """
+        Collect source view parameters from all common sources: filters, overrides, and decorators.
+        Skipping pagination parameters on purpose.
+        """
         all_params = []
         parameters = []
 
@@ -348,37 +346,6 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
         except Exception:
             return {}
 
-    def generate_field_documentation(self, field_examples: Dict[str, List[str]]) -> List[OpenApiParameter]:
-        """Generate documentation parameter showing available field paths."""
-        # Flatten all field examples into a single list
-        all_fields = []
-        for field_list in field_examples.values():
-            all_fields.extend(field_list)
-
-        if not all_fields:
-            return []
-
-        # Create documentation parameter
-        unique_fields = sorted(set(all_fields))
-        field_display = ", ".join(unique_fields[:20])
-        if len(unique_fields) > 20:
-            field_display += "..."
-
-        return [
-            OpenApiParameter(
-                name="_available_fields",
-                location=OpenApiParameter.QUERY,
-                required=False,
-                description=(
-                    "This parameter is for documentation only. "
-                    "Available field paths for s_const, s_title, s_description: "
-                    f"{field_display}"
-                ),
-                type=OpenApiTypes.STR,
-                deprecated=True,
-            )
-        ]
-
     def build_source_parameters_section(self, source_view_class) -> str:
         """Build the source parameters section showing discovered parameters."""
         if not source_view_class:
@@ -414,6 +381,27 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
         desc_text = f": {description}" if description else ""
         return f"   - `{name}`{req_text}{desc_text}"
 
+    def build_nested_fields_section(self, source_view_class) -> str:
+        """Build the nested fields section showing discovered nested fields."""
+        if not source_view_class:
+            return "3. **Available Fields**: None available"
+
+        source_name = source_view_class.__name__
+        field_examples = self.get_field_path_examples(source_view_class)
+
+        if not field_examples:
+            return f"3. **Available Fields**: No fields discovered from {source_name}"
+
+        fields_section = ""
+        # Format nested fields for documentation
+        for field_type, fields in field_examples.items():
+            if not fields:
+                continue
+            fields = [f"`{field}`" for field in fields]
+            fields_section += f"   - {field_type.replace('_', ' ').capitalize()}: {', '.join(fields)}\n"
+
+        return f"""3. **Available Fields**: Available fields from {source_name} \n {fields_section}"""
+
     def build_description(self, view_class) -> str:
         """Generate a comprehensive description for the endpoint."""
         base_description = getattr(view_class, "schema_description", "Dynamic schema endpoint")
@@ -422,6 +410,7 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
 
         # Get discovered source view parameters
         source_params_section = self.build_source_parameters_section(source_view_name)
+        nested_fields_section = self.build_nested_fields_section(source_view_name)
 
         return f"""{base_description}
 
@@ -438,11 +427,7 @@ This endpoint dynamically generates JSON schemas based on data from {source_name
    - `s_type`: Value type for schema items
 
 {source_params_section}
-
-3. **Nested Field Access**: Use dotted notation to access nested properties:
-   - Direct fields: `name`, `id`, `value`
-   - Nested properties: `properties.name`, `metadata.description`
-   - Related fields: `category.name`, `user.display_name`
+{nested_fields_section}
 
 **Example Usage:**
 - Basic: `?s_title=name&s_const=id`
