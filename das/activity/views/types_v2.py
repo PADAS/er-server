@@ -1,6 +1,12 @@
 import logging
 
 from django_filters import rest_framework as filters
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiTypes,
+    extend_schema,
+    extend_schema_view,
+)
 
 from django.db import models
 from django.urls import reverse
@@ -15,9 +21,8 @@ from activity.filters import EventTypeFilterSet
 from activity.models import Event, EventType
 from activity.permissions import EventCategoryPermissions
 from activity.schemas.eventtype_service import EventTypeSchemaService
-from activity.serializers.events_v2 import EventTypeSerializer
+from activity.serializers.events_v2 import EventTypeV2Serializer
 from activity.views.events.utils import AllowedCategoriesMixin
-from activity.views.schemas import EventTypeViewSchema
 from core.utils import is_uuid
 from schemas.view_mixins import DynamicSchemaDataMixin
 from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer, parse_bool
@@ -26,13 +31,24 @@ from utils.views import EtagListRetrieveModelMixin
 logger = logging.getLogger(__name__)
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="include_schema",
+                description="Include eventtype schema in the payload",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                required=False,
+            ),
+        ]
+    )
+)
 class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, DynamicSchemaDataMixin, ModelViewSet):
-
-    schema = EventTypeViewSchema()
     permission_classes = (EventCategoryPermissions,)
     filter_backends = [OrderingFilter, filters.DjangoFilterBackend]
     filterset_class = EventTypeFilterSet
-    serializer_class = EventTypeSerializer
+    serializer_class = EventTypeV2Serializer
     lookup_field = "value"
     lookup_url_kwarg = "eventtype_value"
     ordering = ("ordernum",)

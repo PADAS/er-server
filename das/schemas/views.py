@@ -32,6 +32,7 @@ class SubjectsDynamicSchemaView(DynamicSchemaFromSourceView):
 
 
 class ChoicesDynamicSchemaView(DynamicSchemaFromSourceView):
+    source_view = ChoicesView
     schema_title = "Choices"
     schema_description = "All choices schema list"
     default_const_field = "value"

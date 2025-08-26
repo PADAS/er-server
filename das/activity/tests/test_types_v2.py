@@ -9,7 +9,7 @@ from rest_framework import status
 
 from activity.constants import PRI_IMPORTANT, PRI_URGENT
 from activity.models import AlertRule, Event, EventType
-from activity.serializers.events_v2 import EventTypeSerializer
+from activity.serializers.events_v2 import EventTypeV2Serializer
 
 
 @pytest.mark.django_db
@@ -278,7 +278,7 @@ class TestEventTypesV2:
 
         # Now, test that the warning is in place when the `in_use` annotation is missing
         caplog.clear()
-        et_serializer = EventTypeSerializer()
+        et_serializer = EventTypeV2Serializer()
         assert et_serializer.get_has_events_assigned(et_with_events) is True
         assert warning_msg in caplog.text
 

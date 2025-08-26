@@ -293,6 +293,7 @@ SPECTACULAR_SETTINGS = {
     "REDOC_DIST": "SIDECAR",
     "COMPONENT_SPLIT_REQUEST": True,
     "GENERIC_ADDITIONAL_PROPERTIES": "bool",
+    "AUTHENTICATION_WHITELIST": [],
     "OAUTH2_FLOWS": {
         "password": {
             "tokenUrl": "/oauth2/token/",
