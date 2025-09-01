@@ -1849,6 +1849,10 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
             ("access_ends_1", "Can view tracks no less than 1 day old"),
             ("access_ends_3", "Can view tracks no less than 3 days old"),
             ("access_ends_7", "Can view tracks no less than 7 days old"),
+            (
+                "can_view_gear_regardless_location",
+                "Can view gear/subject regardless of location restriction (lat/lon not required).",
+            ),
         )
         constraints = [
             UniqueConstraint(

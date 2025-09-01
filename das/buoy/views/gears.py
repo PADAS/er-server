@@ -72,7 +72,8 @@ class GearsView(generics.ListAPIView):
         is_active = check_valid_state_string(query_params.get("state"))
         queryset = queryset.filter(subject__is_active=is_active)
 
-        max_nm_range = query_params.get("max_nm_range", NAUTICAL_MILE_RADIUS)
+        # Validate max_nm_range using schema helper
+        max_nm_range = self.schema.validate_query_params(query_params) or NAUTICAL_MILE_RADIUS
         lat = query_params.get("lat")
         lon = query_params.get("lon")
 
@@ -84,8 +85,7 @@ class GearsView(generics.ListAPIView):
                 raise ValueError("lat and lon are invalid values")
             queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=int(max_nm_range))
         else:
-            allowed_users_no_location = {"edgetech", "admin", "blueoceangear"}
-            if self.request.user.username not in allowed_users_no_location:
+            if not self.request.user.has_perm("observations.can_view_gear_regardless_location"):
                 raise ForbiddenAPIException("lat and lon are required query parameters")
 
         # Filter queryset by removing subjects where the additional field is the same
