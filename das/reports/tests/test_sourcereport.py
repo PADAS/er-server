@@ -5,6 +5,7 @@ import pytest
 import pytz
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
 from django.core import mail
@@ -80,10 +81,18 @@ class TestSubjectSourceReport(TestCase):
             email="u3@tempuri.org",
             password="Sko2901!kd219",
         )
+        self.u4 = User.objects.create(
+            username="user4",
+            first_name="User 4",
+            last_name="Report User",
+            email="u4@tempuri.org",
+            is_active=False,
+            password=make_password("Sko2901!kd219"),
+        )
 
         # Add the users to the report recipients permission set.
         pset = PermissionSet.objects.get(permissions__codename=SOURCE_REPORT_PERMISSION_CODENAME)
-        for u in (self.u1, self.u2):
+        for u in (self.u1, self.u2, self.u4):
             u.permission_sets.add(pset)
 
         # Add Subjects
