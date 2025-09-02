@@ -8,6 +8,7 @@ import pytest
 
 from django.contrib.gis.geos import Point
 from django.core.cache import cache
+from django.db.models import Case
 from django.test import RequestFactory
 
 from mapping.models import DisplayCategory, SpatialFeature, SpatialFeatureType
@@ -159,6 +160,122 @@ class TestSpatialFeatureVectorTiles:
         assert results[f2.id] == "feat_icon.png"
         assert results[f3.id] == "type_icon.png"
         assert results[f4.id] == "nested_image.png"
+
+    @pytest.mark.django_db
+    def test_extract_presentation_json_keys(self):
+        """Test that presentation keys are extracted correctly."""
+        # Create a feature type with presentation data
+        dc = DisplayCategory.objects.create(name="Test Category")
+        ft = SpatialFeatureType.objects.create(
+            name="Test Type",
+            display_category=dc,
+            presentation={
+                "stroke": "#ff0000",
+                "stroke-width": 2,
+                "fill-color": "#00ff00",
+                "fill-opacity": 0.5,
+                "custom-field": "custom-value",
+            },
+        )
+        # Create a spatial feature with this feature type so it can be found by the query
+        SpatialFeature.objects.create(
+            name="Test Feature",
+            feature_type=ft,
+            feature_geometry=Point(1, 1),
+        )
+
+        # Test the extract method directly
+        layer = SpatialFeatureLayer()
+        annotations = layer._extract_presentation_json_keys()
+
+        # Only check for the annotations that are actually implemented
+        # Currently, only keys from tile_fields are extracted
+        for key in ["stroke", "stroke-width", "fill-color", "fill-opacity"]:
+            if key in layer.tile_fields:
+                assert key in annotations
+                assert isinstance(annotations[key], Case)
+
+        # Keys not in tile_fields should be logged as warnings and not included
+        assert "custom-field" not in annotations
+
+    @pytest.mark.django_db
+    def test_queryset_includes_presentation_keys(self):
+        """Test that the queryset includes the extracted presentation keys."""
+        # Create test data
+        dc = DisplayCategory.objects.create(name="Test Category")
+        ft = SpatialFeatureType.objects.create(
+            name="Test Type",
+            display_category=dc,
+            presentation={
+                "stroke": "#ff0000",
+                "stroke-width": 2,
+                "fill-color": "#00ff00",
+                "fill-opacity": 0.5,
+            },
+        )
+        feature = SpatialFeature.objects.create(
+            feature_type=ft,
+            name="Test Feature",
+            feature_geometry=Point(1, 1),
+        )
+
+        # Get the queryset
+        layer = SpatialFeatureLayer()
+        queryset = layer.get_vector_tile_queryset(10, 0, 0).filter(id=feature.id)
+
+        # Get a single feature to check annotations
+        annotated_feature = queryset.first()
+
+        # Check that the presentation fields were properly annotated
+        # Common fields should be mapped directly (no prefix)
+        assert hasattr(annotated_feature, "stroke")
+        assert annotated_feature.stroke == "#ff0000"
+        assert hasattr(annotated_feature, "stroke-width") or hasattr(annotated_feature, "stroke_width")
+
+        # The ORM may convert hyphens to underscores in attribute names
+        stroke_width_value = getattr(annotated_feature, "stroke-width", None) or getattr(
+            annotated_feature, "stroke_width", None
+        )
+        assert stroke_width_value == 2
+
+    @pytest.mark.django_db
+    def test_empty_presentation_handling(self):
+        """Test handling of empty/missing presentation data."""
+        # Create feature type with empty presentation
+        dc = DisplayCategory.objects.create(name="Empty Category")
+        ft = SpatialFeatureType.objects.create(
+            name="Empty Type", display_category=dc, presentation={}  # Empty presentation
+        )
+        SpatialFeature.objects.create(
+            feature_type=ft,
+            name="Empty Feature",
+            feature_geometry=Point(1, 1),
+        )
+
+        # Test extract method returns empty dict for empty presentation
+        layer = SpatialFeatureLayer()
+        annotations = layer._extract_presentation_json_keys()
+
+        # Should return a dict with default None values for all presentation keys
+        assert isinstance(annotations, dict)
+
+        # But they should all be Case expressions with None defaults
+        for key, annotation in annotations.items():
+            assert isinstance(annotation, Case)
+
+    @pytest.mark.django_db
+    def test_tile_fields_include_presentation_fields(self):
+        """Test that tile_fields include all necessary presentation fields."""
+        layer = SpatialFeatureLayer()
+
+        # Check that key styling fields are in tile_fields directly
+        assert "stroke" in layer.tile_fields
+        assert "stroke-width" in layer.tile_fields
+        assert "stroke-opacity" in layer.tile_fields
+        assert "fill-color" in layer.tile_fields
+        assert "fill-opacity" in layer.tile_fields
+        assert "width" in layer.tile_fields
+        assert "height" in layer.tile_fields
 
 
 # Example of how to test the actual vector tile endpoint
