@@ -4,9 +4,9 @@ from vectortiles import VectorLayer
 
 from django.contrib.gis.db import models as gis_models
 from django.contrib.gis.db.models.functions import Transform
-from django.contrib.postgres.fields.jsonb import KeyTextTransform
-from django.db.models import Case, CharField, F, TextField, Value, When
+from django.db.models import Case, CharField, F, FloatField, IntegerField, Value, When
 from django.db.models.expressions import RawSQL
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast
 
 from mapping.filters import SpatialFeatureFilterSet
@@ -16,33 +16,52 @@ logger = logging.getLogger(__name__)
 
 
 class SpatialFeatureLayer(VectorLayer):
-    model = SpatialFeature
-    id = "spatial_features"
-    # send the uuid 'id' so clients can still correlate
-    # int_id is included to be compatible with mapboxgl's feature state interfaces
-    tile_fields = (
-        "id",
-        "name",
-        "int_id",
-        "short_name",
-        "external_id",
-        "description",
-        "feature_type_id",
-        "feature_type_name",
-        "display_category_name",
-        "presentation_json",
-        "attributes",
-        "image",
-    )
-    min_zoom = 3
-    max_zoom = 24
-    filterset_class = SpatialFeatureFilterSet
+
+    @property
+    def presentation_keys(self):
+        return [
+            "stroke",
+            "stroke-width",
+            "stroke-opacity",
+            "fill-color",
+            "fill-opacity",
+            "width",
+            "height",
+            "image",
+        ]
+
+    def _extract_presentation_json_keys(self):
+        annotations = {}
+
+        for key in self.presentation_keys:
+            # Prevent duplicate with explicit image annotation
+            if key == "image":
+                continue
+
+            if key in {"stroke-width", "width", "height"}:
+                output_field = IntegerField()
+                then_self = Cast(KeyTextTransform(key, F("presentation")), IntegerField())
+                then_ft = Cast(KeyTextTransform(key, F("feature_type__presentation")), IntegerField())
+            elif key in {"stroke-opacity", "fill-opacity"}:
+                output_field = FloatField()
+                then_self = Cast(KeyTextTransform(key, F("presentation")), FloatField())
+                then_ft = Cast(KeyTextTransform(key, F("feature_type__presentation")), FloatField())
+            else:
+                output_field = CharField()
+                then_self = KeyTextTransform(key, F("presentation"))
+                then_ft = KeyTextTransform(key, F("feature_type__presentation"))
+
+            # Return a Case expression directly (tests assert isinstance(..., Case))
+            annotations[key] = Case(
+                When(presentation__has_key=key, then=then_self),
+                When(feature_type__presentation__has_key=key, then=then_ft),
+                default=Value(None),
+                output_field=output_field,
+            )
+
+        return annotations
 
     def _build_base_queryset(self):
-        """Construct annotated queryset (called per access via queryset property).
-        We deliberately DO NOT cache this on the class to ensure tenant scoping
-        and filtering remain correct for each request.
-        """
         qs = (
             self.model.objects.select_related("feature_type", "feature_type__display_category")
             .filter(feature_type__display_category__isnull=False)
@@ -51,34 +70,30 @@ class SpatialFeatureLayer(VectorLayer):
                 feature_type_name=F("feature_type__name"),
                 display_category_name=F("feature_type__display_category__name"),
                 geom=Transform(Cast(F("feature_geometry"), gis_models.GeometryField()), 3857),
-                presentation_json=Cast(F("feature_type__presentation"), output_field=TextField()),
+                # presentation keys (never include 'image' here)
+                **self._extract_presentation_json_keys(),
+                # explicit image fallback chain
                 image=Case(
-                    # Nested object pattern: {"image": {"image": "/path.svg", ...}}
                     When(
                         presentation__image__has_key="image",
                         then=KeyTextTransform("image", KeyTextTransform("image", F("presentation"))),
                     ),
-                    # Direct string
                     When(
                         presentation__has_key="image",
                         then=KeyTextTransform("image", F("presentation")),
                     ),
-                    # Direct icon_url
                     When(
                         presentation__has_key="icon_url",
                         then=KeyTextTransform("icon_url", F("presentation")),
                     ),
-                    # FeatureType nested object
                     When(
                         feature_type__presentation__image__has_key="image",
                         then=KeyTextTransform("image", KeyTextTransform("image", F("feature_type__presentation"))),
                     ),
-                    # FeatureType direct string
                     When(
                         feature_type__presentation__has_key="image",
                         then=KeyTextTransform("image", F("feature_type__presentation")),
                     ),
-                    # FeatureType icon_url
                     When(
                         feature_type__presentation__has_key="icon_url",
                         then=KeyTextTransform("icon_url", F("feature_type__presentation")),
@@ -89,6 +104,29 @@ class SpatialFeatureLayer(VectorLayer):
             )
         )
         return qs
+
+    model = SpatialFeature
+    id = "spatial_features"
+
+    @property
+    def tile_fields(self):
+        return (
+            "id",
+            "name",
+            "int_id",
+            "short_name",
+            "external_id",
+            "description",
+            "feature_type_id",
+            "feature_type_name",
+            "display_category_name",
+            "attributes",
+            *self.presentation_keys,
+        )
+
+    min_zoom = 3
+    max_zoom = 24
+    filterset_class = SpatialFeatureFilterSet
 
     @property
     def queryset(self):  # noqa: D401 - property used by django-vectortiles
