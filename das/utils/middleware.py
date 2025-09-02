@@ -96,6 +96,7 @@ class RequestLoggingMiddleware(object):
             host = request.get_host()
             method = request.method
             protocol = request.META.get("SERVER_PROTOCOL", "")
+            language = request.META.get("HTTP_ACCEPT_LANGUAGE", "")
             try:
                 tenant_domain = get_tenant_settings().domain
             except TenantNotFoundException:
@@ -117,6 +118,7 @@ class RequestLoggingMiddleware(object):
                 protocol=protocol,
                 tenant=tenant_domain,
                 host=host,
+                language=language,
             )
 
             if error_message:
