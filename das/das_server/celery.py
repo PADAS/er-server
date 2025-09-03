@@ -157,7 +157,7 @@ app.conf.beat_schedule = {
     },
     "subject-status-maintenance": {
         "task": "observations.tasks.maintain_subjectstatus_all",
-        "schedule": timedelta(hours=12),
+        "schedule": timedelta(days=1),
     },
     "reports": {
         "task": "reports.tasks.subjectsource_report",

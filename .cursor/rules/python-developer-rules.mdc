@@ -20,8 +20,9 @@ Django/Python
 - Utilize Django's form and model form classes for form handling and validation.
 - Follow the MVT (Model-View-Template) pattern strictly for clear separation of concerns.
 - Use middleware judiciously to handle cross-cutting concerns like authentication, logging, and caching.
-- we prefer pytest and django-pytest over django's unittest based framework. Fixtures can be found in conftest.py
+- we prefer pytest. Fixtures can be found in conftest.py and run pytest from the project root to use the pytest.ini
 - Use test driven design principles. When fixing bugs, write the assertion unittest that exposes the bug, then fix the code to pass the test.
+- pre-commit handles application of Pep rules including import sorting and pruning, so don't waste time on managing whitespace and other code formatting.
 
 Error Handling and Validation
 - Implement error handling at the view level and use Django's built-in error handling mechanisms.
@@ -47,6 +48,7 @@ Django-Specific Guidelines
 - Use Django’s built-in tools for testing (pytest and pytest-django) to ensure code quality and reliability.
 - Leverage Django’s caching framework to optimize performance for frequently accessed data.
 - Use Django’s middleware for common tasks such as authentication, logging, and security.
+- when running manage.py, cd /workspaces/das/das, then python manage.py --settings das_server.local_settings_docker
 
 Performance Optimization
 - Optimize query performance using Django ORM's select_related and prefetch_related for related object fetching.

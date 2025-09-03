@@ -167,9 +167,18 @@ class SchemaRenderer:
         except referencing_exceptions.Unresolvable as e:
             # leave it as $ref if we can't resolve it
             logger.info("Unresolvable reference %s => %s", ref_uri, str(e))
-            node["$ref"] = ref_uri
+            return self.temp_empty_schema()
 
         return dereferenced_dict
+
+    def temp_empty_schema(self) -> dict:
+        """Returns a temporary empty schema"""
+        return {
+            "type": "string",
+            "description": "Data not available",
+            "title": "Empty schema",
+            "oneOf": [],
+        }
 
     def process_anchors(self, node: dict, current_uri: str) -> dict:
         """Processes anchors on the provided node if any."""

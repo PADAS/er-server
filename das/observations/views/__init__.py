@@ -85,6 +85,7 @@ from observations.utils import (
 from observations.views.observations import FlattenObservationsView, ObservationsView
 from observations.views.schemas import InactiveSubjectsViewSchema
 from observations.views.subjects import (
+    SubjectGroupSubjectsView,
     SubjectGroupsView,
     SubjectGroupView,
     SubjectsGeoJsonView,
@@ -1648,6 +1649,7 @@ __all__ = [
     "SourcesView",
     "SubjectGroupView",
     "SubjectGroupsView",
+    "SubjectGroupSubjectsView",
     "SubjectSourceTrackView",
     "SubjectSourceView",
     "SubjectSourcesAssignmentView",

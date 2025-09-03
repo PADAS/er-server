@@ -11,26 +11,26 @@ class EventGeometryRevisionSerializer(serializers.Serializer):
     type = serializers.SerializerMethodField()
     user = serializers.SerializerMethodField()
 
-    def get_message(self, obj):
+    def get_message(self, obj) -> str:
         if obj.action == ACTION_ADDED:
             return "Added Area"
         elif obj.action == ACTION_UPDATED:
             return "Changed Area"
         return obj.get_action_display()
 
-    def get_time(self, obj):
+    def get_time(self, obj) -> str:
         return obj.revision_at.isoformat()
 
-    def get_type(self, obj):
+    def get_type(self, obj) -> str:
         return self._get_update_type(obj)
 
-    def get_user(self, obj):
+    def get_user(self, obj) -> dict:
         return self._get_revision_user(obj.user, obj)
 
-    def _get_event_geometry(self, obj):
+    def _get_event_geometry(self, obj) -> EventGeometry:
         return EventGeometry.objects.get(id=obj.object_id)
 
-    def _get_revision_user(self, user, obj):
+    def _get_revision_user(self, user, obj) -> dict:
         if user:
             return UserDisplaySerializer().to_representation(user)
 
@@ -56,7 +56,7 @@ class EventGeometryRevisionSerializer(serializers.Serializer):
 
         return ""
 
-    def _get_update_type(self, revision):
+    def _get_update_type(self, revision) -> str:
         field_mapping = (
             ("event", "update_event"),
             ("geometry", "update_geometry"),
@@ -73,5 +73,5 @@ class EventGeometryRevisionSerializer(serializers.Serializer):
             return "update_event_geometry"
         return "other"
 
-    def _get_added_action_message(self, revision):
+    def _get_added_action_message(self, revision) -> str:
         return f"add_{revision._meta.model_name.replace('revision', '')}"
