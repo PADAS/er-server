@@ -9,11 +9,7 @@ from rest_framework import serializers
 
 from buoy.consts import BUOY_SUBJECT_SUBTYPE
 from observations import models
-from observations.serializers import (
-    CommonNameRelatedField,
-    SubjectRelatedField,
-    SubjectSubTypeRelatedField,
-)
+from observations.serializers import SubjectRelatedField
 
 logger = logging.getLogger(__name__)
 
@@ -30,58 +26,6 @@ class GearSerializer(serializers.Serializer):
     id = serializers.UUIDField(
         required=False,
     )
-    name = serializers.CharField(max_length=100)
-    subject_type = serializers.CharField(max_length=100, required=False, read_only=True)
-    subject_subtype = SubjectSubTypeRelatedField()
-    common_name = CommonNameRelatedField(required=False)
-    created_at = serializers.DateTimeField(read_only=True)
-    updated_at = serializers.DateTimeField(read_only=True)
-    is_active = serializers.BooleanField(required=False)
-    additional_fields = "additional"
-
-    class Meta:
-        model = models.Subject
-        read_only_fields = (
-            "image_url",
-            "color",
-            "content_type",
-            "subject_type",
-            "user",
-        )
-        fields = (
-            "id",
-            "name",
-            "subject_subtype",
-            "common_name",
-            "additional",
-            "is_active",
-        ) + read_only_fields
-
-    def to_internal_value(self, data):
-        if "id" in data and self.read_only:
-            try:
-                return models.Subject.objects.get(id=data["id"])
-            except models.Subject.DoesNotExist:
-                raise serializers.ValidationError(f"Subject: {data} does not exist.")
-        return super().to_internal_value(data)
-
-    def to_representation(self, instance):
-        rep = super(GearSerializer, self).to_representation(instance)
-
-        gear_rep = dict()
-        gear_rep["id"] = rep["id"]
-        gear_rep["display_id"] = rep["name"]
-        gear_rep[STATUS_KEY] = "deployed" if rep["is_active"] else "hauled"
-        gear_rep["last_updated"] = rep["updated_at"]
-        # TODO: add last_change_time
-
-        return gear_rep
-
-
-class GearsSerializer(serializers.Serializer):
-    id = serializers.UUIDField(
-        required=False,
-    )
     location = PointField(required=False)
     subject = SubjectRelatedField()
 
@@ -90,6 +34,10 @@ class GearsSerializer(serializers.Serializer):
     class Meta:
         model = models.SubjectSource
         fields = ("id", "assigned_range", "source", "subject", "additional", "location")
+
+    def __init__(self, *args, **kwargs):
+        self.simple_mode = kwargs.pop("simple_mode", False)
+        super().__init__(*args, **kwargs)
 
     def get_type(self, subject):
         additional = subject.get("additional", {})
@@ -106,9 +54,12 @@ class GearsSerializer(serializers.Serializer):
     def to_internal_value(self, data):
         if ID_KEY in data and self.read_only:
             try:
-                return models.SubjectSource.objects.get(id=data["id"])
-            except models.SubjectSource.DoesNotExist:
-                raise serializers.ValidationError(f"Subject: {data} does not exist.")
+                if hasattr(data, "source"):
+                    return models.SubjectSource.objects.get(id=data["id"])
+                else:
+                    return models.Subject.objects.get(id=data["id"])
+            except (models.SubjectSource.DoesNotExist, models.Subject.DoesNotExist):
+                raise serializers.ValidationError(f"Object: {data} does not exist.")
         return super().to_internal_value(data)
 
     def _idx_to_device_label(self, idx):
@@ -122,14 +73,43 @@ class GearsSerializer(serializers.Serializer):
         """
         Get the standardized name of the source provider.
         """
-        provider_key = instance.source.provider.provider_key
+        if hasattr(instance, "source"):
+            provider_key = instance.source.provider.provider_key
+        else:
+            related_sources = instance.subjectsources.all()
+            if related_sources:
+                provider_key = related_sources[0].source.provider.provider_key
+            else:
+                return "unknown"
+
         if provider_key:
             if match := re.match(r"^gundi_(.+?)_[0-9a-f-]+$", provider_key):
                 return match.group(1)
         return provider_key
 
     def to_representation(self, instance):
-        rep = super(GearsSerializer, self).to_representation(instance)
+        if isinstance(instance, models.Subject):
+            subject = {
+                "id": str(instance.id),
+                "name": instance.name,
+                "subject_subtype": instance.subject_subtype.value if instance.subject_subtype else None,
+                "is_active": instance.is_active,
+                "updated_at": instance.updated_at,
+                "additional": instance.additional or {},
+            }
+            if self.simple_mode:
+                return {
+                    "id": subject["id"],
+                    "display_id": subject["name"],
+                    "status": "deployed" if subject["is_active"] else "hauled",
+                    "last_updated": subject["updated_at"],
+                }
+            related_subjectsource = instance.subjectsources.first()
+            if not related_subjectsource:
+                raise serializers.ValidationError("Subject has no associated sources")
+            instance = related_subjectsource
+
+        rep = super(GearSerializer, self).to_representation(instance)
         subject = rep["subject"]
         now = datetime.now(timezone.utc)
 
