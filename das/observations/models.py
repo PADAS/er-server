@@ -433,7 +433,12 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return self.filter(created_at__gte=timestamp)
 
     def by_exclusion_flags(self, filter_flag=None, include_empty_location: bool = False):
-        """Works with more than one filter flag, for example 3 which is manual and automatic exclusion.
+        """Filter by exclusion flags with intelligent handling of system vs 3rd-party flags.
+
+        Automatically determines the appropriate filtering strategy:
+        - For None/0: Uses system-only filtering to preserve 3rd-party flags
+        - For values <= 0x0000FFFFFFFFFFFF: Uses system-only filtering for backward compatibility
+        - For values with 3rd-party flags: Uses full 64-bit filtering
 
         Args:
             filter_flag (optional): the exclusion filter flag, think bits. 0 is a valid value. Defaults to None.
@@ -443,22 +448,39 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             queryset: a further filtered queryset
         """
         queryset = self
-        if filter_flag is not None:
+        if filter_flag is None:
+            # When filter_flag is None (e.g., "null"), return all observations without any exclusion filtering
+            pass
+        elif filter_flag <= Observation.SYSTEM_FLAGS_MASK:  # Value fits in system flags (lower 48 bits)
+            # System-only filtering for backward compatibility and to preserve 3rd-party flags
+            system_filter_flag = filter_flag & Observation.SYSTEM_FLAGS_MASK
+            if system_filter_flag > 0:
+                queryset = queryset.annotate(exclusion_filter=F("exclusion_flags").bitand(system_filter_flag)).filter(
+                    exclusion_filter__gt=0
+                )
+            else:
+                # When filter_flag is 0, filter for exact match on system bits only
+                queryset = queryset.annotate(
+                    system_flags=F("exclusion_flags").bitand(Observation.SYSTEM_FLAGS_MASK)
+                ).filter(system_flags=system_filter_flag)
+        else:
+            # Value has 3rd-party flags (upper 16 bits): use full 64-bit filtering
             if filter_flag > 0:
                 queryset = queryset.annotate(exclusion_filter=F("exclusion_flags").bitand(filter_flag)).filter(
                     exclusion_filter__gt=0
                 )
             else:
                 queryset = queryset.filter(exclusion_flags=filter_flag)
-            if not include_empty_location:
-                queryset = queryset.exclude(location=EMPTY_POINT)
+
+        if not include_empty_location:
+            queryset = queryset.exclude(location=EMPTY_POINT)
         return queryset
 
     def annotate_transforms(self):
         return self.annotate(source_transforms=F("source__provider__transforms"))
 
     def get_subjectsource_observations(
-        self, subjectsource, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
+        self, subjectsource, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None, bbox=None
     ):
         queryset = self.filter(
             source__subjectsource=subjectsource, source__subjectsource__assigned_range__contains=F("recorded_at")
@@ -466,6 +488,9 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
         queryset = queryset.by_since_until(since, until)
         queryset = queryset.by_exclusion_flags(filter_flag)
+        if bbox:
+            geometry = Polygon.from_bbox(bbox)
+            queryset = queryset.filter(location__within=geometry)
 
         if order_by:
             queryset = queryset.order_by(order_by)
@@ -488,6 +513,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         filter_flag: int = 0,
         order_by: str = None,
         include_empty_location: bool = True,
+        bbox: List[float] = None,
     ) -> QuerySet:
         """Filter Observation on source, plus some standard filters.
         If since and until are not included, defaults are used to keep from inadvertantly creating
@@ -515,6 +541,9 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         queryset = self.filter(source=source)
         queryset = queryset.by_since_until(since, until)
         queryset = queryset.by_exclusion_flags(filter_flag)
+        if bbox:
+            geometry = Polygon.from_bbox(bbox)
+            queryset = queryset.filter(location__within=geometry)
 
         if not include_empty_location:
             queryset = queryset.exclude(location=EMPTY_POINT)
@@ -543,7 +572,17 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return self.get_subject_observations_partitioned(subject, since=since, until=until, created_after=created_after)
 
     def get_subject_observations_partitioned(
-        self, subject, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None, created_after=None
+        self,
+        subject,
+        since=None,
+        until=None,
+        limit=None,
+        values=None,
+        filter_flag=0,
+        order_by=None,
+        created_after=None,
+        bbox=None,
+        avoid_unions=False,
     ):
         """
         An optimized version of get_subject_observations that uses partitioning to avoid full table scans.
@@ -559,6 +598,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             filter_flag (int, optional): Flags to filter observations. Defaults to 0.
             order_by (str, optional): Field by which to order the results. Defaults to "-recorded_at".
             created_after (datetime, optional): Filter on the created_at time of the observations. Must provide since and until if using this. Defaults to None.
+            avoid_unions (bool, optional): If True, uses a single query instead of UNIONs for better compatibility with cursor pagination. Defaults to False.
 
         Returns:
             QuerySet: A Django QuerySet containing the filtered and partitioned observations.
@@ -566,6 +606,56 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         if created_after and not (since and until):
             raise ValueError("If using created_after, since and until must be provided and set to a limited time range")
 
+        if avoid_unions:
+            # Use a single query approach that's compatible with cursor pagination
+            time_range = DateTimeTZRange(
+                lower=since or datetime.min.replace(tzinfo=pytz.UTC),
+                upper=until or datetime.max.replace(tzinfo=pytz.UTC),
+            )
+
+            # Get all source assignments that overlap with our time range
+            source_assignments = SubjectSource.objects.filter(subject=subject, assigned_range__overlap=time_range)
+
+            # Build a single query using Q objects to combine conditions
+            from django.db.models import Q
+
+            source_conditions = Q()
+
+            for assignment in source_assignments:
+                assignment_condition = Q(
+                    source_id=assignment.source_id,
+                    recorded_at__gte=assignment.assigned_range.lower,
+                    recorded_at__lte=assignment.assigned_range.upper,
+                )
+                source_conditions |= assignment_condition
+
+            queryset = self.filter(source_conditions)
+
+            # Apply additional time range filters if specified
+            if since:
+                queryset = queryset.filter(recorded_at__gte=since)
+            if until:
+                queryset = queryset.filter(recorded_at__lte=until)
+            if created_after:
+                queryset = queryset.filter(created_at__gte=created_after)
+            if bbox:
+                geometry = Polygon.from_bbox(bbox)
+                queryset = queryset.filter(location__within=geometry)
+
+            queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=subject.is_stationary_subject)
+
+            # Apply ordering and limit
+            queryset = queryset.order_by(order_by or "-recorded_at")
+
+            if limit and limit > 0:
+                queryset = queryset[:limit]
+
+            if values:
+                queryset = queryset.values(*values)
+
+            return queryset
+
+        # Original UNION-based implementation
         time_range = DateTimeTZRange(
             lower=since or datetime.min.replace(tzinfo=pytz.UTC), upper=until or datetime.max.replace(tzinfo=pytz.UTC)
         )
@@ -600,8 +690,10 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                     source_qs = source_qs.filter(recorded_at__lte=until)
                 if created_after:
                     source_qs = source_qs.filter(created_at__gte=created_after)
+                if bbox:
+                    geometry = Polygon.from_bbox(bbox)
+                    source_qs = source_qs.filter(location__within=geometry)
 
-                # Apply exclusion flags
                 source_qs = source_qs.by_exclusion_flags(
                     filter_flag, include_empty_location=subject.is_stationary_subject
                 )
@@ -672,8 +764,9 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
         queryset = Observation.objects.filter(
             source__subjectsource__in=subject_source,
             source__subjectsource__assigned_range__contains=F("recorded_at"),
-            exclusion_flags=filter_flag,
         )
+
+        queryset = queryset.by_exclusion_flags(filter_flag)
 
         if since and until:
             queryset = queryset.filter(recorded_at__range=(since, until))
@@ -759,6 +852,18 @@ class Observation(TenantModelMixin, models.Model):
     EXCLUDED_MANUALLY = 1
     EXCLUDED_AUTOMATICALLY = 2
 
+    EXCLUDED_AUTOMATICALLY_TIME_DELTA = timedelta(days=7)
+
+    # Bit masks for partitioning exclusion flags (64-bit BigIntegerField)
+    # Lower 48 bits reserved for system use (bits 0-47)
+    SYSTEM_FLAGS_MASK = 0x0000FFFFFFFFFFFF  # Lower 48 bits: 0-47
+    # Upper 16 bits available for 3rd-party use (bits 48-63)
+    THIRD_PARTY_FLAGS_MASK = 0xFFFF000000000000  # Upper 16 bits: 48-63
+    THIRD_PARTY_FLAGS_SHIFT = 48
+
+    # Combined mask for default filtering (exclude records with system exclusion flags)
+    DEFAULT_EXCLUSION_MASK = EXCLUDED_MANUALLY | EXCLUDED_AUTOMATICALLY
+
     BITMAP_FILTER_CHOICES = [
         ("EXCLUDED_MANUALLY", _("EXCLUDED_MANUALLY")),
         ("EXCLUDED_AUTOMATICALLY", _("EXCLUDED_AUTOMATICALLY")),
@@ -784,6 +889,35 @@ class Observation(TenantModelMixin, models.Model):
 
     def __str__(self):
         return "{}:{}:{:08b}".format(self.recorded_at.isoformat(), self.location, self.exclusion_flags.mask)
+
+    @cached_property
+    def system_exclusion_flags(self):
+        """Get only the system exclusion flags (lower 48 bits)."""
+        return self.exclusion_flags.mask & self.SYSTEM_FLAGS_MASK
+
+    @property
+    def third_party_exclusion_flags(self):
+        """Get only the 3rd-party exclusion flags (upper 16 bits)."""
+        return (self.exclusion_flags.mask & self.THIRD_PARTY_FLAGS_MASK) >> self.THIRD_PARTY_FLAGS_SHIFT
+
+    def set_third_party_flags(self, flags):
+        """Set 3rd-party flags in the upper 16 bits while preserving system flags.
+
+        Args:
+            flags (int): 16-bit value to set in the upper 16 bits (bits 48-63)
+        """
+        if flags > 0xFFFF:
+            raise ValueError("3rd-party flags must be a 16-bit value (0-65535)")
+
+        # Clear the upper 16 bits and preserve lower 48 bits
+        system_flags = self.exclusion_flags.mask & self.SYSTEM_FLAGS_MASK
+        # Shift the 3rd-party flags to upper 16 bits and combine
+        new_flags = system_flags | (flags << self.THIRD_PARTY_FLAGS_SHIFT)
+        self.exclusion_flags = new_flags
+
+    def has_system_exclusion_flags(self):
+        """Check if any system exclusion flags are set."""
+        return bool(self.system_exclusion_flags & self.DEFAULT_EXCLUSION_MASK)
 
     class Meta:
         constraints = [
@@ -1323,7 +1457,32 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             latest_subjectsource_exists=Exists(latest_subjectsource),
         )
 
-    def annotate_with_subjectsource(self):
+    def annotate_with_subjectsource(self, use_lkl=False, use_bbox=False):
+        """
+        Annotates the queryset with the location from the most current subjectsource.
+        Uses a subquery to get the latest subjectsource record for each subject.
+
+        Args:
+            use_lkl (bool): if using lkl, then we only need the latest subjectsource location for stationary subjects. Defaults to False.
+            use_bbox (bool): If using bbox to filter subjects, then we need subjectsource_locations for all stationary subjects. Defaults to False.
+
+        Returns:
+            QuerySet: Annotated with subjectsource_location
+        """
+        if not use_bbox:
+            return self
+
+        if use_lkl:
+            # Get the latest subjectsource record by assigned_range for each subject
+            latest_subjectsource = (
+                SubjectSource.objects.filter(subject=OuterRef("pk")).order_by("-assigned_range").values("location")[:1]
+            )
+
+            return self.annotate(
+                subjectsource_location=Subquery(latest_subjectsource),
+            )
+
+        # performance note, if we have subjects with many subjectsource assignments, this results in a large number of joins
         return self.annotate(
             s2=FilteredRelation("subjectsource", condition=Q(subjectsource__isnull=False)),
             subjectsource_location=F("s2__location"),
@@ -2141,6 +2300,10 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
         As needed, update the SubjectStatus from a new or updated observation.
         We don't know if this observation is necessarily the latest for the source in which case it can be ignored.
         """
+
+        # short circuit if the observation is excluded
+        if observation.has_system_exclusion_flags():
+            return
 
         source = observation.source
         for subjectsource in SubjectSource.objects.get_for_source_at_time(source, observation.recorded_at):

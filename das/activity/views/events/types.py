@@ -89,7 +89,7 @@ class IconsListView(ListAPIView):
     serializer_class = IconSerializer
 
     @etag(DirectoryIconFinder.get_etag)
-    def list(self, request):
+    def list(self, request, *args, **kwargs):
         try:
             finder = DirectoryIconFinder()
             return Response(
@@ -126,16 +126,13 @@ class EventTypeRankView(GenericAPIView):
         before_key = request.data.get("before_key")
         category_id = request.data.get("category_id")
         if category_id:
-            self._move_to_new_category(category_id)
-        qs = self.get_queryset()
-        qs = qs.filter(category=instance.category)
+            self._move_to_new_category(instance, category_id)
         ranked_tool = RankedTool(instance=instance, before_key=before_key)
         ranked_tool.rank()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    def _move_to_new_category(self, new_category_id: UUID) -> None:
-        instance = self.get_object()
+    def _move_to_new_category(self, instance: EventType, new_category_id: UUID) -> None:
         if instance.category_id != new_category_id:
             try:
                 category = EventCategory.objects.get(id=new_category_id)

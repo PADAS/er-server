@@ -1,5 +1,6 @@
 import json
 import logging
+import random
 import tempfile
 from datetime import datetime, timedelta, timezone
 
@@ -32,11 +33,16 @@ from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask
 
 logger = logging.getLogger(__name__)
 
+MAX_MAINTAIN_SUBJECTSTATUS_DELAY_SECONDS = 600
+
 
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def maintain_subjectstatus_all():
     for subject_id in Subject.objects.filter(is_active=True).values_list("id", flat=True):
-        maintain_subjectstatus_for_subject.apply_async(args=(str(subject_id),))
+        maintain_subjectstatus_for_subject.apply_async(
+            args=(str(subject_id),),
+            countdown=random.randint(0, MAX_MAINTAIN_SUBJECTSTATUS_DELAY_SECONDS),
+        )
 
 
 @celery.app.task(

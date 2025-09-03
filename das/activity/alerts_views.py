@@ -12,7 +12,6 @@ from activity.serializers import (
 )
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool
-from utils.schema_utils import get_schema_renderer_method
 
 logger = logging.getLogger(__name__)
 
@@ -24,34 +23,19 @@ class EventAlertConditionsListView(generics.ListAPIView):
     serializer_class = EventTypeSerializer
 
     def get_queryset(self):
-        qs = EventType.objects.select_related("category").filter(
-            category__is_active=True,
-            is_active=True,
-            version=EventType.VersionChoices.VERSION_1,
-        )
+        qs = EventType.objects.select_related("category").filter(category__is_active=True, is_active=True)
 
         event_types = self.request.query_params.get("event_type", "")
         if event_types:
             qs = qs.by_event_type(event_types)
 
-        # Exclude conditions with eventtypes of invalid schema
-        errored_types = []
-        for eventype in qs:
-            try:
-                get_schema_renderer_method(empty=True)(eventype.schema)
-            except Exception:
-                logger.exception(f"{eventype} event type skipped, invalid schema")
-                errored_types.append(eventype.display)
-
-        qs = qs.exclude(display__in=errored_types)
-
         return qs
 
-    def get(self, *args, **kwargs):
-        only_common_factors = parse_bool(self.request.query_params.get("only_common_factors", False))
+    def get(self, request, *args, **kwargs):
+        only_common_factors = parse_bool(request.query_params.get("only_common_factors", False))
 
         rules = render_aggregate_event_variables(
-            self.get_queryset(), only_common_factors=only_common_factors, user=self.request.user
+            self.get_queryset(), request=request, only_common_factors=only_common_factors
         )
 
         return response.Response(rules, status=status.HTTP_200_OK)

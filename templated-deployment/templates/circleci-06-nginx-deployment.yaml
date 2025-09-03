@@ -19,11 +19,11 @@ spec:
         name: das-nginx
         resources:
           requests:
-            cpu: "30m"
+            cpu: "60m"
             memory: "65Mi"
-          limits: 
-            cpu: "100m"
-            memory: "65Mi"
+          limits:
+            cpu: "200m"
+            memory: "100Mi"
         ports:
         - containerPort: 443
         - containerPort: 8000

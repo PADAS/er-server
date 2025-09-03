@@ -1,6 +1,8 @@
 import datetime
 import re
+import unicodedata
 from pathlib import Path
+from typing import List
 
 import google.auth
 import google.auth.transport
@@ -13,6 +15,64 @@ from utils.tenant.thread import get_tenant_settings
 
 
 class TenantGoogleCloudStorage(GoogleCloudStorage):
+    def generate_nfd_filename_variants(self, filename: str) -> List[str]:
+        """Generate NFD (Normalization Form Decomposed) variants of a filename.
+
+        This method creates alternative filename representations that can be used
+        to search for files stored with NFD encoding when the database filename
+        is in NFC (Normalization Form Canonical Composition) format.
+
+        Args:
+            filename (str): The original filename (typically in NFC format)
+
+        Returns:
+            list[str]: List of filename variants including NFD versions
+        """
+        variants = [filename]
+
+        # Generate NFD variant
+        nfd_filename = unicodedata.normalize("NFD", filename)
+        if nfd_filename != filename:
+            variants.append(nfd_filename)
+
+        # Generate NFC variant (in case original was not normalized)
+        nfc_filename = unicodedata.normalize("NFC", filename)
+        if nfc_filename != filename and nfc_filename not in variants:
+            variants.append(nfc_filename)
+
+        return variants
+
+    def generate_search_paths(self, filename: str) -> List[str]:
+        """Generate all possible search paths for a filename including Unicode variants.
+
+        This method combines tenant path handling with Unicode normalization
+        to create a comprehensive list of paths to search for files.
+
+        Args:
+            filename (str): The filename to search for
+
+        Returns:
+            list[str]: List of all possible file paths to search
+        """
+        # Get base paths from existing tenant logic
+        base_paths = [filename, self.add_tenant_to_filename(filename), self.remove_tenant_from_filename(filename)]
+
+        # Generate Unicode variants for each base path
+        all_paths = []
+        for base_path in base_paths:
+            unicode_variants = self.generate_nfd_filename_variants(base_path)
+            all_paths.extend(unicode_variants)
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_paths = []
+        for path in all_paths:
+            if path not in seen:
+                seen.add(path)
+                unique_paths.append(path)
+
+        return unique_paths
+
     def update_date_in_path_with_fixed_digit_format(self, filename: str) -> str:
         """When MT was implemented, we changed
         the folder name format for the month and day. Previously we used a two character format, preceding single digits with
@@ -56,9 +116,27 @@ class TenantGoogleCloudStorage(GoogleCloudStorage):
             return legacy_filename
         return filename
 
+    def add_tenant_to_filename(self, filename: str) -> str:
+        """Add tenant prefix to filename if it doesn't already have it.
+
+        Args:
+            filename (str): the full path and filename of the file stored in GCS
+
+        Returns:
+            str: filename with tenant prefix added if not already present
+        """
+        filename_path = Path(filename)
+        tenant = get_tenant_settings()
+        tenant_path = Path(tenant.slug_name)
+        # If the filename already starts with the tenant slug, return as-is
+        if filename_path.parts and filename_path.parts[0] == str(tenant_path):
+            return filename
+        # Otherwise, add tenant prefix
+        return str(tenant_path / filename_path)
+
     def _open(self, name, mode="rb"):
-        # Define a list of paths to try.
-        paths_to_try = [name, self.remove_tenant_from_filename(name)]
+        # Use the new Unicode-aware search paths
+        paths_to_try = self.generate_search_paths(name)
 
         for path in paths_to_try:
             try:
@@ -70,7 +148,8 @@ class TenantGoogleCloudStorage(GoogleCloudStorage):
         raise FileNotFoundError(f"File not found at any of the paths: {paths_to_try}")
 
     def _get_blob(self, name):
-        paths_to_try = [name, self.remove_tenant_from_filename(name)]
+        # Use the new Unicode-aware search paths
+        paths_to_try = self.generate_search_paths(name)
 
         for path in paths_to_try:
             try:
@@ -93,6 +172,14 @@ class TenantGoogleCloudStorage(GoogleCloudStorage):
             parameters = {}
         parameters["credentials"] = credentials
 
+        paths_to_try = self.generate_search_paths(name)
+
+        for path in paths_to_try:
+            try:
+                if super().exists(path):
+                    return super().url(path, parameters)
+            except Exception:
+                continue
         return super().url(name, parameters)
 
     def get_impersonated_credentials(self):
@@ -108,3 +195,48 @@ class TenantGoogleCloudStorage(GoogleCloudStorage):
             delegates=[credentials.service_account_email],
         )
         return signing_credentials
+
+    def exists(self, name):
+        """Check if a file exists using Unicode-aware search paths.
+
+        This method overrides the default exists method to support
+        searching for files with different Unicode normalization forms.
+
+        Args:
+            name (str): The filename to check
+
+        Returns:
+            bool: True if the file exists, False otherwise
+        """
+        paths_to_try = self.generate_search_paths(name)
+
+        for path in paths_to_try:
+            try:
+                if super().exists(path):
+                    return True
+            except Exception:
+                continue
+
+        return False
+
+    def size(self, name):
+        """Get the size of a file using Unicode-aware search paths.
+
+        This method overrides the default size method to support
+        searching for files with different Unicode normalization forms.
+
+        Args:
+            name (str): The filename to get size for
+
+        Returns:
+            int: The size of the file in bytes
+        """
+        paths_to_try = self.generate_search_paths(name)
+
+        for path in paths_to_try:
+            try:
+                return super().size(path)
+            except Exception:
+                continue
+
+        raise FileNotFoundError(f"File not found at any of the paths: {paths_to_try}")

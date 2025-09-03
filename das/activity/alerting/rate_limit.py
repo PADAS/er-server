@@ -75,7 +75,8 @@ def publish_user_alert_quota_percentage(user: User, counter: int) -> None:
     if percentage >= 100:
         alerts_storage.insert_set(KEY_ALERT_100_PERCENT, str(user.id))
         alerts_storage.delete_set(KEY_ALERT_90_PERCENT, str(user.id))
+        logger.warning("Site %s user: %s hit %s%% alert limit.", domain, user.username, percentage)
     elif percentage >= 90:
-        logger.info("Site %s user: %s hit %s%% alert limit.", domain, user.username, percentage)
+        logger.warning("Site %s user: %s hit %s%% alert limit.", domain, user.username, percentage)
         alerts_storage.insert_set(KEY_ALERT_90_PERCENT, str(user.id))
     update_stats()

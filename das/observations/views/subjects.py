@@ -1,5 +1,12 @@
 import logging
 
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiTypes,
+    extend_schema,
+    extend_schema_view,
+)
 from rest_framework_condition import etag
 
 from django.db.models import F, QuerySet, Window
@@ -22,6 +29,7 @@ from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import SourceGroup, Subject, SubjectGroup, SubjectSource
 from observations.serializers import (
     SubjectGeoJsonSerializer,
+    SubjectIdSerializer,
     SubjectSerializer,
     create_sg_serializer,
 )
@@ -33,7 +41,7 @@ from observations.utils import (
     dateparse,
     get_minimum_allowed_age,
 )
-from observations.views.schemas import SubjectGroupsViewSchema, SubjectsViewSchema
+from observations.views.schemas import SubjectGroupsViewSchema
 from observations.views.utils import (
     SubjectGroupGetQuerySet,
     all_group_subjects_etag,
@@ -57,6 +65,116 @@ from utils.tenant.thread import get_tenant_settings
 logger = logging.getLogger(__name__)
 
 
+SUBJECTS_LIST_PARAMS = [
+    # from InactiveSubjectsViewSchema
+    OpenApiParameter(
+        name="include_inactive",
+        location=OpenApiParameter.QUERY,
+        description="Include inactive subjects in list.",
+        type=OpenApiTypes.BOOL,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="tracks_since",
+        location=OpenApiParameter.QUERY,
+        description="Include tracks since this timestamp (ISO8601).",
+        type=OpenApiTypes.DATETIME,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="tracks_until",
+        location=OpenApiParameter.QUERY,
+        description="Include tracks up through this timestamp (ISO8601).",
+        type=OpenApiTypes.DATETIME,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="bbox",
+        location=OpenApiParameter.QUERY,
+        description=(
+            "Include subjects having track data within this bounding box defined "
+            "as west,south,east,north (comma-separated)."
+        ),
+        type=OpenApiTypes.STR,
+        required=False,
+        examples=[OpenApiExample("Lima-ish", value="-77.2,-12.3,-76.7,-11.9")],
+    ),
+    OpenApiParameter(
+        name="subject_group",
+        location=OpenApiParameter.QUERY,
+        description=(
+            "Single UUID or comma-separated UUIDs. "
+            "Returns subjects that belong to ANY listed group."
+            "If the subject group ID is one UUID only, it will return subjects of nested groups of the group."
+        ),
+        type=OpenApiTypes.STR,  # no `schema=` here
+        examples=[
+            OpenApiExample("One UUID", value="123e4567-e89b-12d3-a456-426614174000"),
+            OpenApiExample("Many", value="123e4567-e89b-12d3-a456-426614174000,987e6543-e21b-54d3-a654-426614174999"),
+        ],
+        style="form",
+        explode=False,
+    ),
+    OpenApiParameter(
+        name="name",
+        location=OpenApiParameter.QUERY,
+        description="Find subjects with the given name.",
+        type=OpenApiTypes.STR,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="updated_since",
+        location=OpenApiParameter.QUERY,
+        description="Return Subjects updated since the given timestamp (ISO8601).",
+        type=OpenApiTypes.DATETIME,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="position_updated_since",
+        location=OpenApiParameter.QUERY,
+        description="Return Subjects whose position updated since the given timestamp (ISO8601).",
+        type=OpenApiTypes.DATETIME,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="render_last_location",
+        location=OpenApiParameter.QUERY,
+        description="If true, include each subject's last location in the response.",
+        type=OpenApiTypes.BOOL,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="tracks",
+        location=OpenApiParameter.QUERY,
+        description="If true, include each subject's recent tracks.",
+        type=OpenApiTypes.BOOL,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="id",
+        location=OpenApiParameter.QUERY,
+        description="Comma-delimited list of Subject IDs.",
+        type=OpenApiTypes.STR,
+        required=False,
+        examples=[OpenApiExample("Multiple IDs", value="42,43,44")],
+    ),
+    OpenApiParameter(
+        name="subject_subtypes",
+        location=OpenApiParameter.QUERY,
+        description="Comma-delimited subtype values to filter Subjects.",
+        type=OpenApiTypes.STR,
+        required=False,
+    ),
+]
+
+
+@extend_schema_view(
+    get=extend_schema(
+        parameters=SUBJECTS_LIST_PARAMS,
+        summary="List subjects",
+        description="List subjects with optional filters for time, bbox, group, name, etc.",
+    )
+)
 class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDataMixin):
     """
     get:
@@ -70,8 +188,6 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
     TRACK_QPARAMS = ("tracks_limit",)
     TRACK_DATE_QPARAMS = ("tracks_since", "tracks_until")
-
-    schema = SubjectsViewSchema()
 
     # Ensure this attribute is present with a sensible default for any child
     # classes.
@@ -119,6 +235,8 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             raise ForbiddenAPIException
 
         # Apply annotations and additional joins
+        use_lkl = parse_bool(query_params.get("use_lkl", False))
+        use_bbox = bool(query_params.get("bbox", False))
         min_age_days = get_minimum_allowed_age(user) or 0
         mou_date = user.additional.get("expiry", None)
         mou_date = dateparse(mou_date) if mou_date else None
@@ -128,7 +246,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
         filtered_queryset = base_queryset.annotate_with_subjectstatus(
             delay_hours=min_age_days * 24, mou_expiry_date=mou_date
-        ).annotate_with_subjectsource()
+        ).annotate_with_subjectsource(use_lkl=use_lkl, use_bbox=use_bbox)
 
         filtered_queryset = self.filter_on_subject_and_source_groups(filtered_queryset, user, query_params)
 
@@ -301,23 +419,21 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
     def get_serializer_context(self):
         request = self.request
-        query_params = self.request.query_params
+        query_params = request.query_params
 
         context = super().get_serializer_context()
-        context["render_last_location"] = True
-        context["tracks"] = parse_bool(query_params.get("tracks", False))
+        context["render_last_location"] = parse_bool(query_params.get("render_last_location", True))
+        render_tracks = parse_bool(query_params.get("tracks", False))
+        context["tracks"] = render_tracks
         context["subject_linked_sources"] = self.subject_linked_sources
         context["two_way_subject_sources"] = self.two_way_subject_sources
 
-        if request and parse_bool(request.query_params.get("tracks", None)):
-            context["tracks"] = True
+        if request and render_tracks:
             for track_param in self.TRACK_QPARAMS:
-                context[track_param] = request.query_params.get(track_param, None)
+                context[track_param] = query_params.get(track_param, None)
             for track_param in self.TRACK_DATE_QPARAMS:
                 context[track_param] = (
-                    dateparse(request.query_params.get(track_param, None))
-                    if request.query_params.get(track_param, None)
-                    else None
+                    dateparse(query_params.get(track_param, None)) if query_params.get(track_param, None) else None
                 )
         return context
 
@@ -429,14 +545,138 @@ class SubjectGroupsView(ListAPIView, TwoWaySubjectSourceMixin):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context["render_last_location"] = True
+        query_params = self.request.query_params
+        context["render_last_location"] = parse_bool(query_params.get("render_last_location", True))
         context["request"] = self.request
         context["two_way_subject_sources"] = self.two_way_subject_sources
         context["show_track_days_since"] = default_since()
         return context
 
 
-class SubjectGroupView(RetrieveAPIView, TwoWaySubjectSourceMixin):
+class SubjectGroupSubjectsMixin(TwoWaySubjectSourceMixin):
+    """Mixin to provide shared functionality for getting subjects from a subject group."""
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        query_params = self.request.query_params
+        context["render_last_location"] = parse_bool(query_params.get("render_last_location", True))
+        context["two_way_subject_sources"] = self.two_way_subject_sources
+        return context
+
+    def get_subjects_from_group(self, subject_group_id):
+        """Shared method to get subjects from a subject group with proper annotations."""
+        subject_group = get_object_or_404(SubjectGroup.objects.all(), pk=subject_group_id)
+
+        # Check permissions on the subject group
+        if not self.request.user.has_any_perms(("observations.view_subjectgroup",), subject_group):
+            raise ForbiddenAPIException
+
+        queryset = subject_group.subjects.all()
+
+        # Apply the same annotations as the main subjects view
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+        mou_date = self.request.user.additional.get("expiry", None)
+        mou_date = dateparse(mou_date) if mou_date else None
+
+        queryset = queryset.select_related("subject_subtype", "subject_subtype__subject_type", "common_name")
+        queryset = queryset.annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24, mou_expiry_date=mou_date
+        ).annotate_with_subjectsource_transforms()
+
+        self._get_two_way_sources(queryset)
+        return queryset
+
+
+class SubjectGroupSubjectsView(SubjectGroupSubjectsMixin, ListAPIView):
+    """
+    Manage subjects within a specific subject group.
+
+    GET: Returns all subjects in the group
+    POST: Add subjects to the group
+    """
+
+    serializer_class = SubjectSerializer
+    permission_classes = (StandardObjectPermissions,)
+    pagination_class = OptionalResultsSetPagination
+    lookup_field = "id"
+
+    def get_queryset(self):
+        """Get subjects that belong to the specified subject group."""
+        return self.get_subjects_from_group(self.kwargs.get("id"))
+
+    def post(self, request, *args, **kwargs):
+        """
+        Add one or more subjects to the subject group.
+
+        Expected payload:
+        [
+            {"id": "uuid1"}, {"id": "uuid2"}, ...
+        ]
+        """
+        subject_group_id = self.kwargs.get("id")
+        subject_group = get_object_or_404(SubjectGroup.objects.all(), pk=subject_group_id)
+
+        # Check permissions on the subject group
+        if not self.request.user.has_any_perms(("observations.change_subjectgroup",), subject_group):
+            raise ForbiddenAPIException
+
+        # Validate the request data
+        serializer = SubjectIdSerializer(data=request.data, context={"request": request}, many=True)
+        serializer.is_valid(raise_exception=True)
+
+        # Extract subject IDs from the validated subjects array
+        validated_data = serializer.validated_data
+        subject_ids = [item["id"] for item in validated_data]
+
+        # Get the subjects
+        subjects = Subject.objects.filter(id__in=subject_ids)
+
+        # Add subjects to the group
+        try:
+            subject_group.subjects.add(*subjects)
+        except IntegrityError:
+            # Handle case where subjects might already be in the group
+            return return_409_response(message="Some subjects may already be in this group.")
+
+        # Return the updated subject list (same as GET)
+        queryset = self.get_subjects_from_group(subject_group_id)
+        serializer = self.get_serializer(queryset, many=True, context=self.get_serializer_context())
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, *args, **kwargs):
+        """
+        Remove one or more subjects from the subject group.
+
+        Expected payload:
+        [
+            {"id": "uuid1"}, {"id": "uuid2"}, ...
+        ]
+        """
+        subject_group_id = self.kwargs.get("id")
+        subject_group = get_object_or_404(SubjectGroup.objects.all(), pk=subject_group_id)
+
+        # Check permissions on the subject group
+        if not self.request.user.has_any_perms(("observations.change_subjectgroup",), subject_group):
+            raise ForbiddenAPIException
+
+        # Validate the request data
+        serializer = SubjectIdSerializer(data=request.data, context={"request": request}, many=True)
+        serializer.is_valid(raise_exception=True)
+
+        # Extract subject IDs from the validated subjects array
+        subject_ids = [item["id"] for item in serializer.validated_data]
+
+        # Remove the subjects from the group
+        subjects = Subject.objects.filter(id__in=subject_ids)
+        subject_group.subjects.remove(*subjects)
+
+        # Return the updated subject list (same as GET)
+        queryset = self.get_subjects_from_group(subject_group_id)
+        serializer = self.get_serializer(queryset, many=True, context=self.get_serializer_context())
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class SubjectGroupView(SubjectGroupSubjectsMixin, RetrieveAPIView):
     """
     Returns a single SubjectGroup
     """
@@ -445,13 +685,6 @@ class SubjectGroupView(RetrieveAPIView, TwoWaySubjectSourceMixin):
     permission_classes = (StandardObjectPermissions,)
     lookup_field = "id"
     filter_backends = (create_gp_filter_class("subjectgf", ("observations.view_subjectgroup",), SubjectGroup),)
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["render_last_location"] = True
-        context["two_way_subject_sources"] = self.two_way_subject_sources
-
-        return context
 
     def get_queryset(self):
         queryset = SubjectGroup.objects.get_non_cyclic_subjectgroups(single_sg=True)

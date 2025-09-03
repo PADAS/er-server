@@ -13,6 +13,8 @@ from django.contrib.auth.models import Permission
 from django.core import mail
 from django.core.management import call_command
 from django.template.loader import get_template
+from django.test import override_settings
+from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import PermissionSet, User
@@ -40,10 +42,19 @@ from activity.models import (
 from activity.serializers import AlertRuleSerializer, EventSerializer
 from activity.tasks import (
     evaluate_conditions_for_sending_alerts,
+    execute_evaluate_alert_rules,
     send_alert_to_notificationmethod,
+)
+from activity.tests.helpers.schema_test_utils import (
+    EventTypeTestHelpers,
+    V1SchemaBuilder,
+    V2SchemaBuilder,
+    simple_choices,
+    standard_choices,
 )
 from core.tests import BaseAPITest
 from core.utils import NonHttpRequest, OneWeekSchedule
+from factories import EventTypeFactory
 from observations.models import CommonName, Subject, SubjectGroup
 
 logger = logging.getLogger(__name__)
@@ -61,9 +72,130 @@ power_user_permissions = [
 ]
 
 
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestV2EventTypeAlerts:
+    """V2 EventType alert functionality."""
+
+    def test_v2_schema_variable_generation(self, five_event_categories):
+        """Test V2 EventType variable generation using schema builders."""
+
+        v2_schema = V2SchemaBuilder.multi_field(
+            {
+                "trap_type": {"type": "string", "title": "Trap Type"},
+                "trap_count": {"type": "number", "title": "Trap Count", "minimum": 0},
+            }
+        )
+
+        # Add choice structure for trap_type
+        trap_choices = {"snare": "Snare", "pitfall": "Pitfall", "other": "Other"}
+        v2_schema["json"]["properties"]["trap_type"]["anyOf"] = [
+            {"oneOf": [{"const": k, "title": v} for k, v in trap_choices.items()]}
+        ]
+        v2_event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="trap_report",
+            display="Test trap_report (VERSION_2)",
+        )
+
+        # variable assertion
+        variables_class, applies_to = EventTypeTestHelpers.assert_variable_generation(
+            [v2_event_type], ["trap_type_select", "trap_count_number"]
+        )
+        # choice assertion
+        EventTypeTestHelpers.assert_choice_options(variables_class, "trap_type", ["snare", "pitfall", "other"])
+
+    def test_v1_v2_schema_equivalence(self, five_event_categories):
+        """Test that equivalent V1 and V2 schemas produce same variables."""
+
+        field_name = "status"
+
+        v1_schema = V1SchemaBuilder.choice_field(field_name, simple_choices)
+        category = five_event_categories[0]
+        v1_event_type = EventTypeFactory.create(
+            category=category,
+            version=EventType.VersionChoices.VERSION_1,
+            schema=json.dumps(v1_schema),
+            value="status_v1",
+            display="Test status_v1 (VERSION_1)",
+        )
+
+        v2_schema = V2SchemaBuilder.choice_field(field_name, simple_choices)
+        v2_event_type = EventTypeFactory.create(
+            category=category,
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="status_v2",
+            display="Test status_v2 (VERSION_2)",
+        )
+
+        # Both should generate equivalent variables
+        v1_variables_class, v1_applies_to = EventTypeTestHelpers.assert_variable_generation(
+            [v1_event_type], [f"{field_name}_select"]
+        )
+        v2_variables_class, v2_applies_to = EventTypeTestHelpers.assert_variable_generation(
+            [v2_event_type], [f"{field_name}_select"]
+        )
+
+        # Both should have same choice options
+        EventTypeTestHelpers.assert_choice_options(v1_variables_class, field_name, list(simple_choices.keys()))
+        EventTypeTestHelpers.assert_choice_options(v2_variables_class, field_name, list(simple_choices.keys()))
+
+    @pytest.mark.parametrize(
+        "field_type,expected_suffix",
+        [
+            ("string", "string"),
+            ("number", "number"),
+        ],
+    )
+    def test_v2_basic_field_types(self, field_type, expected_suffix, five_event_categories):
+        """Parametrized test for different V2 field types."""
+
+        v2_schema = V2SchemaBuilder.simple_field("test_field", field_type)
+        v2_event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value=f"field_{field_type}",
+            display=f"Test field_{field_type} (VERSION_2)",
+        )
+
+        EventTypeTestHelpers.assert_variable_generation([v2_event_type], [f"test_field_{expected_suffix}"])
+
+    def test_mixed_v1_v2_alert_conditions(self, five_event_categories):
+        """Test mixed V1/V2 EventTypes in alert conditions."""
+
+        v1_schema = V1SchemaBuilder.choice_field("category", standard_choices)
+        category = five_event_categories[0]
+        v1_event_type = EventTypeFactory.create(
+            category=category,
+            version=EventType.VersionChoices.VERSION_1,
+            schema=json.dumps(v1_schema),
+            value="mixed_v1",
+            display="Test mixed_v1 (VERSION_1)",
+        )
+
+        v2_schema = V2SchemaBuilder.simple_field("count", "number", minimum=0)
+        v2_event_type = EventTypeFactory.create(
+            category=category,
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="mixed_v2",
+            display="Test mixed_v2 (VERSION_2)",
+        )
+
+        mixed_event_types = [v1_event_type, v2_event_type]
+        variables_class, applies_to = EventTypeTestHelpers.assert_variable_generation(
+            mixed_event_types, ["category_select", "count_number"]
+        )
+        EventTypeTestHelpers.assert_choice_options(variables_class, "category", list(standard_choices.keys()))
+
+
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 @pytest.mark.django_db
-class TestEventTypesRulesGeneration:
+class TestEventTypesAlertVariablesGeneration:
     def get_string_json_schema(self, field_name, type="string"):
         json_schema = {
             "schema": {
@@ -80,7 +212,7 @@ class TestEventTypesRulesGeneration:
     def test_should_return_a_valid_apply_to_map_with_one_valid_record(self, five_event_types):
         event_types = five_event_types[0:1]
         event_types[0].value = "test_field_1"
-        event_types[0].schema = self.get_string_json_schema("full_name")
+        event_types[0].schema = json.dumps(V1SchemaBuilder.simple_field("full_name", "string"))
 
         _, applies_to = _generate_aggregate_event_variables_class(event_types)
         assert "full_name_string" in applies_to
@@ -89,10 +221,10 @@ class TestEventTypesRulesGeneration:
     def test_should_return_a_valid_apply_to_map_with_two_valid_records(self, five_event_types):
         event_types = five_event_types[0:2]
         event_types[0].value = "test_field_1"
-        event_types[0].schema = self.get_string_json_schema("number_of_elephants")
+        event_types[0].schema = json.dumps(V1SchemaBuilder.simple_field("number_of_elephants", "string"))
 
         event_types[1].value = "test_field_2"
-        event_types[1].schema = self.get_string_json_schema("number_of_elephants", "number")
+        event_types[1].schema = json.dumps(V1SchemaBuilder.simple_field("number_of_elephants", "number"))
 
         _, applies_to = _generate_aggregate_event_variables_class(event_types)
         assert "number_of_elephants_string" in applies_to
@@ -102,20 +234,20 @@ class TestEventTypesRulesGeneration:
     def test_should_return_a_valid_apply_to_map_with_valid_records_and_apply_to_groups(self, five_event_types):
         event_types = five_event_types
         event_types[0].value = "test_field_1"
-        event_types[0].schema = self.get_string_json_schema("number_of_watchers")
+        event_types[0].schema = json.dumps(V1SchemaBuilder.simple_field("number_of_watchers", "string"))
 
         event_types = five_event_types
         event_types[1].value = "test_field_2"
-        event_types[1].schema = self.get_string_json_schema("number_of_cars", "number")
+        event_types[1].schema = json.dumps(V1SchemaBuilder.simple_field("number_of_cars", "number"))
 
         event_types[2].value = "test_field_3"
-        event_types[2].schema = self.get_string_json_schema("number_of_elephants")
+        event_types[2].schema = json.dumps(V1SchemaBuilder.simple_field("number_of_elephants", "string"))
 
         event_types[3].value = "test_field_4"
-        event_types[3].schema = self.get_string_json_schema("number_of_marines")
+        event_types[3].schema = json.dumps(V1SchemaBuilder.simple_field("number_of_marines", "string"))
 
         event_types[4].value = "test_field_5"
-        event_types[4].schema = self.get_string_json_schema("number_of_marines", "number")
+        event_types[4].schema = json.dumps(V1SchemaBuilder.simple_field("number_of_marines", "number"))
 
         _, applies_to = _generate_aggregate_event_variables_class(five_event_types)
 
@@ -138,20 +270,20 @@ class TestEventTypesRulesGeneration:
     ):
         event_types = five_event_types
         event_types[0].value = "test_field_1"
-        event_types[0].schema = self.get_string_json_schema("number_of_watchers")
+        event_types[0].schema = json.dumps(V1SchemaBuilder.simple_field("number_of_watchers", "string"))
 
         event_types = five_event_types
         event_types[1].value = "test_field_2"
-        event_types[1].schema = self.get_string_json_schema("number_of_watchers", "number")
+        event_types[1].schema = json.dumps(V1SchemaBuilder.simple_field("number_of_watchers", "number"))
 
         event_types[2].value = "test_field_3"
-        event_types[2].schema = self.get_string_json_schema("number_of_watchers")
+        event_types[2].schema = json.dumps(V1SchemaBuilder.simple_field("number_of_watchers", "string"))
 
         event_types[3].value = "test_field_4"
-        event_types[3].schema = self.get_string_json_schema("number_of_watchers")
+        event_types[3].schema = json.dumps(V1SchemaBuilder.simple_field("number_of_watchers", "string"))
 
         event_types[4].value = "test_field_5"
-        event_types[4].schema = self.get_string_json_schema("number_of_watchers", "number")
+        event_types[4].schema = json.dumps(V1SchemaBuilder.simple_field("number_of_watchers", "number"))
 
         _, applies_to = _generate_aggregate_event_variables_class(five_event_types)
 
@@ -167,6 +299,8 @@ class TestEventTypesRulesGeneration:
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 @patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
 class BusinessRulesTestCase(BaseAPITest):
+    """Alert business rules test suite with DRY helpers."""
+
     def setUp(self):
         super().setUp()
         call_command("loaddata_with_tenant", "initial_eventdata")
@@ -1190,19 +1324,13 @@ class BusinessRulesTestCase(BaseAPITest):
         notification_method_id = self.create_notification_method().data["id"]
 
         # Create an alert rule
-        alert_rule_1 = dict(
-            reportTypes=[
-                carcass_eventtype.value,
-            ],
-            notification_method_ids=[
-                notification_method_id,
-            ],
-        )
+        alert_rule_1 = {
+            "reportTypes": [carcass_eventtype.value],
+            "notification_method_ids": [notification_method_id],
+        }
 
         alert_rules_list = []
-        for ar in [
-            alert_rule_1,
-        ]:
+        for ar in [alert_rule_1]:
             request = NonHttpRequest()
             request.user = self.power_user
             ser = AlertRuleSerializer(data=ar, context={"request": request})
@@ -1481,42 +1609,83 @@ class BusinessRulesTestCase(BaseAPITest):
 
         self.assertIn(str(test_subj.id), str(response.data))
 
-    def test_alert_conditions_with_v2_eventtypes(self):
-        """Test that alert conditions endpoint fails when V2 event type schemas exist."""
-        from factories import EventTypeFactory
+    def test_mixed_v1_v2_eventtypes_in_alert_conditions(self):
+        """Test alert conditions generation with both V1 and V2 EventTypes in same rule."""
 
-        category = EventCategory.objects.first()
+        v1_event_type = EventType.objects.get(value="snare_rep")
 
-        # Similar to cat1_fire_v2_event_type fixture
-        schema = {
-            "json": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "additionalProperties": False,
-                "properties": {
-                    "status": {
-                        "deprecated": False,
-                        "description": "",
-                        "title": "Status",
-                        "type": "string",
-                        "anyOf": [{"$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=firerep_status"}],
-                    }
-                },
+        category = v1_event_type.category
+
+        trap_material_choices = {"wire": "Wire", "rope": "Rope", "metal": "Metal"}
+
+        v2_schema = V2SchemaBuilder.multi_field(
+            {
+                "trap_material": {"type": "string", "choices": trap_material_choices},
+                "trap_condition": {"type": "string"},
             }
-        }
-
-        # Create event type with V2 schema
-        EventTypeFactory.create(
-            category=category,
-            version=EventType.VersionChoices.VERSION_2,
-            schema=json.dumps(schema),
-            value="test_fire_v2",
         )
 
-        # Now attempt to access alert conditions endpoint, which should fail with V2 schema
+        v2_event_type = EventTypeFactory.create(
+            category=category,
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="trap_analysis_v2",
+            display="Trap Analysis V2",
+        )
+
+        # Test generating variables for both V1 and V2 EventTypes together
+        mixed_event_types = [v1_event_type, v2_event_type]
+        variables_class, applies_to = _generate_aggregate_event_variables_class(mixed_event_types)
+
+        # Export rule data to inspect generated variables
+        exported_rule_data = export_rule_data(variables_class, EventActions)
+        variables = exported_rule_data["variables"]
+        variable_names = [var["name"] for var in variables]
+
+        # Should have variables from both V1 and V2 EventTypes
+        # V1 variables (from snare_rep schema)
+        v1_variables = [name for name in variable_names if "snarerep" in name]
+        # V2 variables
+        v2_variables = [
+            name for name in variable_names if any(v2_field in name for v2_field in ["trap_material", "trap_condition"])
+        ]
+
+        # Verify both V1 and V2 contributed variables
+        self.assertTrue(len(v1_variables) > 0, f"No V1 variables found in: {variable_names}")
+        self.assertTrue(len(v2_variables) == 2, f"No V2 variables found in: {variable_names}")
+
+        # Verify V2 choice options are properly resolved
+        trap_material_var = next((v for v in variables if "trap_material" in v["name"]), None)
+        if trap_material_var and "options" in trap_material_var:
+            option_values = [opt["name"] for opt in trap_material_var["options"]]
+            self.assertIn("wire", option_values)
+            self.assertIn("rope", option_values)
+            self.assertIn("metal", option_values)
+
+        # Test applies_to mapping includes both event types
+        self.assertTrue(any(v1_event_type.value in applies_to.get(key, []) for key in applies_to))
+        self.assertTrue(any(v2_event_type.value in applies_to.get(key, []) for key in applies_to))
+
+        # Test alert conditions endpoint with mixed V1/V2 EventTypes
         api_request = self.factory.get(self.api_base + "/activity/alerts/conditions/")
         self.force_authenticate(api_request, self.admin_user)
         response = EventAlertConditionsListView.as_view()(api_request)
         self.assertEqual(response.status_code, 200)
+
+        # Response should include variables from both V1 and V2 EventTypes
+        response_data = response.data
+        self.assertIn("variables", response_data)
+        response_variable_names = [var["name"] for var in response_data["variables"]]
+
+        # Verify mixed variables are present in API response
+        has_v1_vars = any(any(v1_field in name for v1_field in ["snarerep"]) for name in response_variable_names)
+        has_v2_vars = any(
+            any(v2_field in name for v2_field in ["trap_material", "trap_condition"])
+            for name in response_variable_names
+        )
+
+        self.assertTrue(has_v1_vars, f"No V1 variables in API response: {response_variable_names}")
+        self.assertTrue(has_v2_vars, f"No V2 variables in API response: {response_variable_names}")
 
     def test_evaluating_alert_rule_for_event_state_change_to_resolved(self):
         category = EventCategory.objects.get(value="security")
@@ -1628,3 +1797,185 @@ class BusinessRulesTestCase(BaseAPITest):
             raised = True
         self.assertFalse(raised)
         self.assertEqual(mock_evaluate_notifications.call_count, 1)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestV2VariableGeneration:
+    """
+    V2 EventType equivalent tests for core variable generation functionality.
+    """
+
+    def test_v2_valid_apply_to_map_with_one_valid_record(self, five_event_types):
+        """V2 equivalent of test_should_return_a_valid_apply_to_map_with_one_valid_record."""
+
+        event_types = five_event_types[0:1]
+        event_types[0].value = "test_field_v2_1"
+        event_types[0].version = EventType.VersionChoices.VERSION_2
+        event_types[0].schema = json.dumps(V2SchemaBuilder.simple_field("full_name", "string"))
+        event_types[0].save()
+
+        _, applies_to = _generate_aggregate_event_variables_class(event_types)
+        assert "full_name_string" in applies_to
+        assert len(applies_to) == 1
+
+    def test_v2_valid_apply_to_map_with_two_valid_records(self, five_event_types):
+        """V2 equivalent of test_should_return_a_valid_apply_to_map_with_two_valid_records."""
+        event_types = five_event_types[0:2]
+        event_types[0].value = "test_field_v2_1"
+        event_types[0].version = EventType.VersionChoices.VERSION_2
+        event_types[0].schema = json.dumps(V2SchemaBuilder.simple_field("number_of_elephants", "string"))
+        event_types[0].save()
+
+        event_types[1].value = "test_field_v2_2"
+        event_types[1].version = EventType.VersionChoices.VERSION_2
+        event_types[1].schema = json.dumps(V2SchemaBuilder.simple_field("number_of_elephants", "number"))
+        event_types[1].save()
+
+        _, applies_to = _generate_aggregate_event_variables_class(event_types)
+        assert "number_of_elephants_string" in applies_to
+        assert "number_of_elephants_number" in applies_to
+        assert len(applies_to) == 2
+
+    def test_v2_valid_apply_to_map_with_choice_fields(self, five_event_types):
+        """V2 test for choice field variable generation."""
+        event_types = five_event_types[0:1]
+        event_types[0].value = "test_choice_v2"
+        event_types[0].version = EventType.VersionChoices.VERSION_2
+        event_types[0].schema = json.dumps(V2SchemaBuilder.choice_field("status", standard_choices))
+        event_types[0].save()
+
+        _, applies_to = _generate_aggregate_event_variables_class(event_types)
+        assert "status_select" in applies_to  # Choice fields generate _select variables!
+        assert len(applies_to) == 1
+
+    def test_v2_mixed_field_types_in_apply_to_map(self, five_event_types):
+        """V2 test for mixed field types in variable generation."""
+        event_types = five_event_types[0:3]
+
+        # String field
+        event_types[0].value = "test_string_v2"
+        event_types[0].version = EventType.VersionChoices.VERSION_2
+        event_types[0].schema = json.dumps(V2SchemaBuilder.simple_field("description", "string"))
+        event_types[0].save()
+
+        # Number field
+        event_types[1].value = "test_number_v2"
+        event_types[1].version = EventType.VersionChoices.VERSION_2
+        event_types[1].schema = json.dumps(V2SchemaBuilder.simple_field("count", "number"))
+        event_types[1].save()
+
+        # Choice field
+        event_types[2].value = "test_choice_v2"
+        event_types[2].version = EventType.VersionChoices.VERSION_2
+        event_types[2].schema = json.dumps(V2SchemaBuilder.choice_field("priority", standard_choices))
+        event_types[2].save()
+
+        _, applies_to = _generate_aggregate_event_variables_class(event_types)
+        assert "description_string" in applies_to
+        assert "count_number" in applies_to
+        assert "priority_select" in applies_to  # Choice fields generate _select variables!
+        assert len(applies_to) == 3
+
+    def test_v2_apply_to_map_grouping_fields_to_valid_json_schema_field_names(self, five_event_types):
+        """V2 test for field name grouping in apply_to map generation."""
+        event_types = five_event_types[0:2]
+
+        # Same field name, different types - should group properly
+        event_types[0].value = "test_group_v2_1"
+        event_types[0].version = EventType.VersionChoices.VERSION_2
+        event_types[0].schema = json.dumps(V2SchemaBuilder.simple_field("measurement", "string"))
+        event_types[0].save()
+
+        event_types[1].value = "test_group_v2_2"
+        event_types[1].version = EventType.VersionChoices.VERSION_2
+        event_types[1].schema = json.dumps(V2SchemaBuilder.simple_field("measurement", "number"))
+        event_types[1].save()
+
+        _, applies_to = _generate_aggregate_event_variables_class(event_types)
+
+        # Should have both field type combinations
+        assert "measurement_string" in applies_to
+        assert "measurement_number" in applies_to
+        assert len(applies_to) == 2
+
+        # Verify applies_to grouping maps correctly to event types
+        measurement_string_applies_to = applies_to["measurement_string"]
+        measurement_number_applies_to = applies_to["measurement_number"]
+
+        assert "test_group_v2_1" in measurement_string_applies_to
+        assert "test_group_v2_2" in measurement_number_applies_to
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestV2AlertIntegration:
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_v2_event_against_defined_alert_rule_integration(self, five_event_categories, superuser_client):
+        """V2 equivalent of major integration test - event against defined alert rule."""
+        category = five_event_categories[0]
+
+        v2_schema = V2SchemaBuilder.multi_field(
+            {
+                "service_type": {"type": "string", "existing_choices": "service_type"},
+                "number_of_items": {"type": "number", "minimum": 0},
+            }
+        )
+
+        service_type_event_type = EventTypeFactory.create(
+            category=category,
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="service_type_v2",
+            display="Test service_type_v2 (VERSION_2)",
+        )
+
+        # Create V2 event with matching data
+        event_details = {"service_type": "wms_basemap", "number_of_items": 3}
+
+        event_data = {
+            "title": "V2 Test Event",
+            "event_time": datetime.now(tz=pytz.utc),
+            "provenance": Event.PC_STAFF,
+            "event_type": service_type_event_type.value,
+            "priority": Event.PRI_IMPORTANT,
+            "location": {"longitude": 37.5123, "latitude": 1.4590},
+            "event_details": event_details,
+        }
+
+        response = superuser_client.post(reverse("events"), event_data)
+        assert response.status_code == 201
+        event = Event.objects.get(id=response.data["id"])
+
+        # Create notification method
+        notification_method = NotificationMethod.objects.create(
+            owner=superuser_client.user, title="TestEmail", method="email", value="test@test.com"
+        )
+
+        # Create alert rule for V2 EventType
+        alert_rule_data = {
+            "owner": superuser_client.user,
+            "title": "WMS Service Type Alert",
+            "conditions": {
+                "all": [
+                    {
+                        "name": "service_type_select",
+                        "operator": "shares_at_least_one_element_with",
+                        "value": ["wms_basemap"],
+                    },
+                    {
+                        "name": "number_of_items_number",
+                        "operator": "greater_than_or_equal_to",
+                        "value": 2,
+                    },
+                ]
+            },
+        }
+
+        alert_rule = AlertRule.objects.create(**alert_rule_data)
+        alert_rule.notification_methods.add(notification_method)
+        alert_rule.event_types.add(service_type_event_type)
+
+        execute_evaluate_alert_rules(event.id, created=True, domain="zoo.com")
+        assert len(mail.outbox) == 1

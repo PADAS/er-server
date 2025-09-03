@@ -159,6 +159,10 @@ class EventTypeForm(forms.ModelForm):
                 instance.resolve_time,
             ]
 
+        if instance and instance.version == "2":
+            self.fields["schema"].widget = PrettyReadOnlyJSONWidget()
+            self.fields["schema"].disabled = True
+
     def clean_schema(self):
         schema = self.cleaned_data.get("schema")
         name = self.cleaned_data["display"]
