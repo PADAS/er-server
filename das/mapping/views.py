@@ -126,6 +126,7 @@ class FeatureSetListJsonView(APIView):
                     featureTypeDict["feature_summaries"] = [
                         {
                             "name": f.name,
+                            "id": f.id,
                             "bounds": f.feature_geometry.extent if f.feature_geometry else None,
                         }
                         for f in features
