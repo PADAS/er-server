@@ -41,7 +41,7 @@ class GearsView(generics.ListAPIView):
     )
 
     permission_classes = (StandardObjectPermissions,)
-    serializer_class = serializers.GearsSerializer
+    serializer_class = serializers.GearSerializer
     pagination_class = StandardResultsSetPagination
     schema = GearsViewSchema()
 
@@ -60,11 +60,8 @@ class GearsView(generics.ListAPIView):
         # First get subject-sources.
         queryset = (
             SubjectSource.objects.filter(subject__subject_subtype__in=["ropeless_buoy_device", BUOY_SUBJECT_SUBTYPE])
-            .select_related("source")
-            .select_related("subject")
-            .prefetch_related(
-                "subject__subjectsources__source", "subject__subjectsources__source__last_observation_sources"
-            )
+            .select_related("source", "subject")
+            .prefetch_related("source__last_observation_sources")
         )
 
         # need a stable sort for pagination.
@@ -148,3 +145,7 @@ class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
         context["two_way_subject_sources"] = self.two_way_subject_sources
 
         return context
+
+    def get_serializer(self, *args, **kwargs):
+        kwargs["simple_mode"] = True
+        return super().get_serializer(*args, **kwargs)

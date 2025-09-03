@@ -7,7 +7,7 @@ from django.contrib.gis.geos import Point
 from django.utils import timezone
 
 from buoy.consts import BUOY_SUBJECT_SUBTYPE
-from das.buoy.serializers import GearsSerializer
+from das.buoy.serializers import GearSerializer
 from das.buoy.tests import generate_devices
 from factories import SubjectTypeFactory
 from observations.models import (
@@ -46,7 +46,7 @@ class TestGearSerializer:
         observation = Observation.objects.create(**data)
         observation.save()
 
-        serialized_gear = GearsSerializer(gear_subjectsource).data
+        serialized_gear = GearSerializer(gear_subjectsource).data
 
         assert serialized_gear["id"] == str(gear_subjectsource.subject.id)
         assert serialized_gear["display_id"] == additional["display_id"]
@@ -58,7 +58,7 @@ class TestGearSerializer:
 
         # Test hauled status
         gear_subjectsource.subject.is_active = False
-        serialized_gear = GearsSerializer(gear_subjectsource).data
+        serialized_gear = GearSerializer(gear_subjectsource).data
         assert serialized_gear["status"] == "hauled"
 
     def test_with_single_gear_subject(self, gear_subjectsource):
@@ -82,7 +82,7 @@ class TestGearSerializer:
         observation = Observation.objects.create(**data)
         observation.save()
 
-        serialized_gear = GearsSerializer(gear_subjectsource).data
+        serialized_gear = GearSerializer(gear_subjectsource).data
 
         assert serialized_gear["id"] == str(gear_subjectsource.subject.id)
         assert serialized_gear["display_id"] == additional["display_id"]
@@ -94,7 +94,7 @@ class TestGearSerializer:
 
         # Test hauled status
         gear_subjectsource.subject.is_active = False
-        serialized_gear = GearsSerializer(gear_subjectsource).data
+        serialized_gear = GearSerializer(gear_subjectsource).data
         assert serialized_gear["status"] == "hauled"
 
     def test_with_ropeless_buoy_gearset_subject(self):
@@ -135,7 +135,7 @@ class TestGearSerializer:
         Observation.objects.create(recorded_at=now, location=location2, source=source2)
 
         # Act
-        serialized_gear = GearsSerializer(subject_source1).data
+        serialized_gear = GearSerializer(subject_source1).data
 
         # Assert
         assert serialized_gear["id"] == str(subject.id)
@@ -171,12 +171,12 @@ class TestGearSerializer:
         # Test hauled status
         subject.is_active = False
         subject.save()
-        serialized_gear = GearsSerializer(subject_source1).data
+        serialized_gear = GearSerializer(subject_source1).data
         assert serialized_gear["status"] == "hauled"
 
         # Test single device case (should be type "single")
         subject_source2.delete()
         source2.delete()
-        serialized_gear = GearsSerializer(subject_source1).data
+        serialized_gear = GearSerializer(subject_source1).data
         assert serialized_gear["type"] == "single"
         assert len(serialized_gear["devices"]) == 1

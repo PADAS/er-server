@@ -18,6 +18,7 @@ from analyzers import gfw_inbound
 from buoy.consts import BUOY_SUBJECT_SUBTYPE
 from observations import servicesutils
 from observations.models import (
+    DEFAULT_ASSIGNED_RANGE,
     DateTimeTZRange,
     Observation,
     Source,
@@ -186,6 +187,8 @@ class GenericSensorHandler:
         if is_active is not None:
             subject.is_active = is_active
             updated_fields.add("is_active")
+        if updated_fields:
+            updated_fields.add("updated_at")
         subject.save(update_fields=updated_fields)
         return subject
 
@@ -201,7 +204,7 @@ class GenericSensorHandler:
         if event_type == "trap_deployed":
             if subject_source.has_assigned_range and subject_source.is_current:
                 raise ValidationError(f"Cannot deploy a trap ({trap_id}) that is already deployed.")
-            subject_source.assigned_range = DateTimeTZRange(lower=recorded_at, upper=None)
+            subject_source.assigned_range = DateTimeTZRange(lower=recorded_at, upper=DEFAULT_ASSIGNED_RANGE[1])
         else:
             if not subject_source.has_assigned_lower_range:
                 raise ValidationError(f"Cannot retrieve a trap ({trap_id}) that is not deployed.")
@@ -299,7 +302,13 @@ class GenericSensorHandler:
                 source_cache[source_cache_key] = src
 
         if subject_subtype == BUOY_SUBJECT_SUBTYPE:
-            subject_source = SubjectSource.objects.get(source=src, subject__name=subject_name)
+            subject = cls.find_subject_by_name(subject_name)
+            if not subject:
+                subject = Subject.objects.create_subject(**subject_info)
+
+            subject_source, created = SubjectSource.objects.get_or_create(
+                source=src, subject=subject, defaults={"assigned_range": DEFAULT_ASSIGNED_RANGE}
+            )
 
             cls.update_subject_source_assigned_range(
                 subject_source=subject_source,
