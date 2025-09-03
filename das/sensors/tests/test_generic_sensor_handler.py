@@ -15,9 +15,9 @@ from django.urls import reverse
 from django.utils import lorem_ipsum
 from rest_framework import status
 
-from buoy.consts import BUOY_SUBJECT_SUBTYPE
 from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest, fake_get_pool
+from das.buoy.constants import BUOY_SUBJECT_SUBTYPE
 from observations.models import (
     SEX_MALE,
     Observation,
