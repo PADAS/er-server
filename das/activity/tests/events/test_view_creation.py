@@ -44,14 +44,14 @@ from choices.models import Choice
 logger = logging.getLogger(__name__)
 
 
-@pytest.mark.usefixtures("tenant_settings", "das_tenant")
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventViewCreation:
     """Test event creation"""
 
     @pytest.fixture(autouse=True)
     def setup(self, das_tenant, create_user, create_event):
-        self.event_url = reverse("events")
+        self.events_url = reverse("events")
 
         set_current_tenant(das_tenant)
         call_command("loaddata_with_tenant", "initial_eventdata")
@@ -181,7 +181,7 @@ class TestEventViewCreation:
             """{"priority":0,"event_type":"incident_collection","message":"test parent message","title":"test parent title","contains":[{"message":"test contains message","title":"SIT-REP","event_type":"contact_rep","time":"2017-06-21 14:43","event_details":{},"priority":0,"reported_by":null},{"message":"second test contains message","title":"Other","event_type":"other","time":"2017-06-21 14:44","event_details":{},"priority":0,"reported_by":null}]}"""
         )
         client = create_client_for_user(self.all_perms_user)
-        response = client.post(self.event_url, event_data)
+        response = client.post(self.events_url, event_data)
 
         assert response.status_code == status.HTTP_201_CREATED
         assert len(response.data["contains"]) == len(event_data["contains"])
@@ -190,7 +190,7 @@ class TestEventViewCreation:
     def test_event_without_event_type(self, create_client_for_user):
         event_data = {"message": "this has no event type", "priority": "200"}
         client = create_client_for_user(self.all_perms_user)
-        response = client.post(self.event_url, event_data)
+        response = client.post(self.events_url, event_data)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "event_type" in response.data[0], "Event type must be provided."
@@ -253,7 +253,7 @@ class TestEventViewCreation:
             "sort_at": sort_at.isoformat(),
         }
 
-        response = client.post(self.event_url, event_data)
+        response = client.post(self.events_url, event_data)
 
         assert response.status_code == status.HTTP_201_CREATED
 
@@ -320,7 +320,7 @@ class TestEventViewCreation:
         }
 
         client = create_client_for_user(self.eventsource_user_no2)
-        response = client.post(self.event_url, event_data)
+        response = client.post(self.events_url, event_data)
 
         # Expect 400 becausethe event_type is not pre-existent
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -362,7 +362,7 @@ class TestEventViewCreation:
             "time": datetime.now(tz=pytz.utc).isoformat(),
         }
 
-        response = client.post(self.event_url, event_data)
+        response = client.post(self.events_url, event_data)
 
         assert response.status_code == status.HTTP_201_CREATED
 
@@ -373,7 +373,7 @@ class TestEventViewCreation:
         assert eselist[0].eventsource.external_event_type == external_event_type
 
         # Add duplicate
-        response = client.post(self.event_url, event_data)
+        response = client.post(self.events_url, event_data)
 
         assert response.status_code == status.HTTP_409_CONFLICT
 
@@ -388,7 +388,7 @@ class TestEventViewCreation:
         data["event_type"] = event_type.value
 
         client = create_client_for_user(self.all_perms_user)
-        response = client.post(self.event_url, data)
+        response = client.post(self.events_url, data)
 
         assert response.status_code == 201
         event_id = response.data["id"]
@@ -422,7 +422,7 @@ class TestEventViewCreation:
         }
 
         client = create_client_for_user(self.all_perms_user)
-        response = client.post(self.event_url, payload)
+        response = client.post(self.events_url, payload)
 
         assert response.status_code == 201
 
@@ -451,7 +451,7 @@ class TestEventViewCreation:
 
         event_data = {"title": "test title", "event_type": "acoustic_detection"}
         client = create_client_for_user(self.no_perms_user)
-        response = client.post(self.event_url, event_data)
+        response = client.post(self.events_url, event_data)
 
         assert response.status_code == 201
         assert "id" in response.data
