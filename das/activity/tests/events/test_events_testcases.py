@@ -104,7 +104,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
     def setUp(self):
         super().setUp()
-        call_command("loaddata_with_tenant", "initial_eventdata")
         call_command("loaddata_with_tenant", "event_data_model")
         call_command("loaddata_with_tenant", "test_events_schema")
 
