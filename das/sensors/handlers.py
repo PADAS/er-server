@@ -15,7 +15,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from analyzers import gfw_inbound
-from buoy.consts import BUOY_SUBJECT_SUBTYPE
+from buoy.constants import BUOY_SUBJECT_SUBTYPE
 from observations import servicesutils
 from observations.models import (
     DEFAULT_ASSIGNED_RANGE,
