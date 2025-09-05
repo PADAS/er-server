@@ -8,6 +8,7 @@ from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from rest_framework import exceptions
+from rest_framework.authentication import SessionAuthentication
 
 from accounts.models import User
 from accounts.utils import filter_permissions_by_tenant, parse_permission_codename
@@ -88,6 +89,42 @@ class NoLoginOAuth2Authentication(OAuth2Authentication):
 
         user = act_as_user_in_request(user, request)
         return user, result[1]
+
+
+class PriorityOAuth2SessionAuthentication(SessionAuthentication):
+    """
+    Authentication class that prioritizes OAuth2 tokens over session cookies.
+    This ensures that when both a valid OAuth2 token and session cookie exist,
+    the OAuth2 token takes precedence.
+    """
+
+    def enforce_csrf(self, request):
+        """
+        Here we may choose to not enforce CSRF validation for session based authentication.
+        We had disabled that previously, but let's see if we still need that behavior.
+        """
+        return super().enforce_csrf(request)
+
+    def authenticate(self, request):
+        # First, try OAuth2 token authentication
+        oauth2_auth = NoLoginOAuth2Authentication()
+        oauth2_result = oauth2_auth.authenticate(request)
+
+        if oauth2_result:
+            # OAuth2 token found and valid, use it
+            return oauth2_result
+
+        # Fall back to session authentication if no valid OAuth2 token
+        # Handle both DRF request objects and Django WSGIRequest objects
+        if hasattr(request, "_request"):
+            # This is a DRF request object, use parent's authenticate method
+            return super().authenticate(request)
+        else:
+            # This is a Django WSGIRequest object, check for session user directly
+            user = getattr(request, "user", None)
+            if user and user.is_authenticated and user.is_active:
+                return (user, None)
+            return None
 
 
 class AccountsModelBackend(ModelBackend):
