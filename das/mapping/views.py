@@ -9,6 +9,7 @@ from vectortiles.views import MVTView
 from django.core.cache import cache
 from django.core.serializers import serialize
 from django.db.models import Count, F, Prefetch
+from django.db.models.expressions import RawSQL
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -36,6 +37,18 @@ from mapping.vector_layers import SpatialFeatureLayer
 from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
+
+
+def hashtext_uuid(uuid_value):
+    """
+    Calculate a hashtext value for a UUID that matches PostgreSQL's hashtext function.
+    This is a fallback for when database annotations aren't available.
+    """
+    # Convert UUID to string and encode as UTF-8
+    uuid_str = str(uuid_value).encode("utf-8")
+    # Create a hash similar to PostgreSQL's hashtext function
+    hash_value = int(hashlib.md5(uuid_str).hexdigest(), 16) % (2**31)
+    return hash_value
 
 
 class FeatureListJsonView(APIView):
@@ -108,6 +121,11 @@ class FeatureSetListJsonView(APIView):
                 if not include_hidden:
                     features_qs = features_qs.filter(feature_type__is_visible=True)
 
+                # Add int_id annotation to ensure consistency with vector_layers.py
+                features_qs = features_qs.annotate(
+                    int_id=RawSQL("hashtext(CAST(mapping_spatialfeature.id AS TEXT))", [])
+                )
+
                 feature_types_qs = feature_types_qs.prefetch_related(
                     Prefetch("spatialfeature_set", queryset=features_qs, to_attr="prefetched_features")
                 )
@@ -126,7 +144,9 @@ class FeatureSetListJsonView(APIView):
                     featureTypeDict["feature_summaries"] = [
                         {
                             "name": f.name,
-                            "id": f.id,
+                            "id": str(f.id),  # Convert UUID to string for JSON serialization
+                            # Use annotated int_id from the queryset (fallback to direct calc if not available)
+                            "int_id": getattr(f, "int_id", None) or hashtext_uuid(f.id),
                             "bounds": f.feature_geometry.extent if f.feature_geometry else None,
                         }
                         for f in features
