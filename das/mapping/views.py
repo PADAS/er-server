@@ -121,10 +121,8 @@ class FeatureSetListJsonView(APIView):
                 if not include_hidden:
                     features_qs = features_qs.filter(feature_type__is_visible=True)
 
-                # Add int_id annotation to ensure consistency with vector_layers.py
-                features_qs = features_qs.annotate(
-                    int_id=RawSQL("hashtext(CAST(mapping_spatialfeature.id AS TEXT))", [])
-                )
+                # Add id annotation to override ID into INT. to ensure consistency with vector_layers.py
+                features_qs = features_qs.annotate(id=RawSQL("hashtext(CAST(mapping_spatialfeature.id AS TEXT))", []))
 
                 feature_types_qs = feature_types_qs.prefetch_related(
                     Prefetch("spatialfeature_set", queryset=features_qs, to_attr="prefetched_features")
@@ -144,9 +142,8 @@ class FeatureSetListJsonView(APIView):
                     featureTypeDict["feature_summaries"] = [
                         {
                             "name": f.name,
-                            "id": str(f.id),  # Convert UUID to string for JSON serialization
-                            # Use annotated int_id from the queryset (fallback to direct calc if not available)
-                            "int_id": getattr(f, "int_id", None) or hashtext_uuid(f.id),
+                            # Use annotated integer ID
+                            "id": hashtext_uuid(f.id),
                             "bounds": f.feature_geometry.extent if f.feature_geometry else None,
                         }
                         for f in features
