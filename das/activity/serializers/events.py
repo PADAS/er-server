@@ -19,6 +19,7 @@ from django.db.models import OuterRef, Subquery
 from django.db.models.functions import JSONObject
 from django.db.utils import IntegrityError
 from django.urls import reverse
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request
 from rest_framework.serializers import (
     LIST_SERIALIZER_KWARGS,
@@ -1190,6 +1191,34 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
     def _is_event_source_duplicated(self, event_source: EventSource, external_event_id: str) -> bool:
         return EventsourceEvent.objects.filter(eventsource=event_source, external_event_id=external_event_id).exists()
+
+    def validate_patrol_segments(self, value):
+        """
+        Validate patrol_segments field changes.
+        Check if user has permission to remove events from patrol segments.
+        """
+        request = self.context.get("request")
+
+        if self.instance and request:
+            current_ids = set(str(ps.id) for ps in self.instance.patrol_segments.all())
+
+            new_ids = set()
+            for item in value:
+                if hasattr(item, "id"):
+                    new_ids.add(str(item.id))
+                else:
+                    new_ids.add(str(item))
+
+            removed_ids = current_ids - new_ids
+
+            if removed_ids:
+                if not request.user.has_perm("activity.delete_event_related_segments"):
+                    raise PermissionDenied(
+                        "You do not have permission to remove events from patrol segments. "
+                        "Permission 'activity.delete_event_related_segments' is required."
+                    )
+
+        return value
 
 
 class EventStateSerializer(ModelSerializer):
