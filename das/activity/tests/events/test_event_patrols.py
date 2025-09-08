@@ -283,3 +283,96 @@ class TestEventPatrols:
             events = response.json()["data"]["events"]
             assert len(events) == 1
             assert events[0]["id"] == event_id
+
+    @patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
+    def test_remove_event_from_patrol_requires_permission(self, superuser_client, user_client, patrol_type, event_data):
+        """Test that removing events from patrol segments requires specific permission."""
+        patrol1, patrol_segment1 = self.setup_patrol_with_segment(patrol_type)
+        patrol2, patrol_segment2 = self.setup_patrol_with_segment(patrol_type)
+
+        data = {**event_data}
+        data["patrol_segments"] = [str(patrol_segment1.id), str(patrol_segment2.id)]
+
+        response = superuser_client.post(self.events_url, data)
+        assert response.status_code == 201
+        event_id = response.json()["data"]["id"]
+
+        # First give user basic event update permission
+        permission_set = PermissionSet.objects.create(name="event_manager")
+        update_permission = Permission.objects.get_by_natural_key(
+            codename="monitoring_update", app_label="activity", model="event"
+        )
+        read_permission = Permission.objects.get_by_natural_key(
+            codename="monitoring_read", app_label="activity", model="event"
+        )
+        permission_set.permissions.add(update_permission, read_permission)
+        user_client.user.permission_sets.add(permission_set)
+
+        # Should fail due to missing delete_event_related_segments permission)
+        event_url = reverse("event-view", kwargs={"id": event_id})
+        update_data = {"patrol_segments": [str(patrol_segment2.id)]}  # Removing segment1
+
+        response = user_client.patch(event_url, update_data)
+        assert response.status_code == 403
+
+        # Check for our custom permission error message
+        response_text = str(response.json())
+        assert "You do not have permission to remove events from patrol segments" in response_text
+
+        # Test that user CAN remove patrol segments with permission
+        permission_set.permissions.add(
+            Permission.objects.get_by_natural_key(
+                codename="delete_event_related_segments", app_label="activity", model="eventrelatedsegments"
+            )
+        )
+        response = user_client.patch(event_url, update_data)
+        assert response.status_code == 200
+
+        # Verify the patrol segment was actually removed
+        updated_segments = response.json()["data"]["patrol_segments"]
+        assert len(updated_segments) == 1
+        assert str(patrol_segment2.id) in updated_segments
+        assert str(patrol_segment1.id) not in updated_segments
+
+    @patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
+    def test_user_can_add_without_delete_permission(self, user_client, patrol_type, event_data):
+        """Test that users can add patrol segments without the delete permission."""
+
+        # Give user basic event update and read permissions (but NOT delete_event_related_segments)
+        permission_set = PermissionSet.objects.create(name="event_updater")
+        create_permission = Permission.objects.get_by_natural_key(
+            codename="monitoring_create", app_label="activity", model="event"
+        )
+        update_permission = Permission.objects.get_by_natural_key(
+            codename="monitoring_update", app_label="activity", model="event"
+        )
+        read_permission = Permission.objects.get_by_natural_key(
+            codename="monitoring_read", app_label="activity", model="event"
+        )
+        permission_set.permissions.add(create_permission, update_permission, read_permission)
+        user_client.user.permission_sets.add(permission_set)
+
+        # Create patrol segments
+        patrol1, patrol_segment1 = self.setup_patrol_with_segment(patrol_type)
+        patrol2, patrol_segment2 = self.setup_patrol_with_segment(patrol_type)
+
+        data = {**event_data}
+        data["patrol_segments"] = [str(patrol_segment1.id)]
+        response = user_client.post(self.events_url, data)
+        assert response.status_code == 201
+        event_id = response.json()["data"]["id"]
+
+        event_url = reverse("event-view", kwargs={"id": event_id})
+        update_data = {"patrol_segments": [str(patrol_segment1.id), str(patrol_segment2.id)]}  # Adding segment2
+
+        response = user_client.patch(event_url, update_data)
+        assert response.status_code == 200
+
+        # Verify both segments are now present by fetching the event
+        response = user_client.get(event_url)
+        assert response.status_code == 200
+        response_data = response.json()
+        updated_segments = response_data.get("data", {}).get("patrol_segments", [])
+        assert len(updated_segments) == 2
+        assert str(patrol_segment1.id) in updated_segments
+        assert str(patrol_segment2.id) in updated_segments
