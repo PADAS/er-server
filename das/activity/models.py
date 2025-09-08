@@ -1219,7 +1219,7 @@ class EventRelatedSegments(TenantModelMixin, UUIDModel):
         base_manager_name = "objects"
         default_manager_name = "objects"
         permissions = [
-            ("delete_event_related_segments", "Can delete events from patrol segments"),
+            ("delete_event_related_segments", "Can remove an event from a patrol segment"),
         ]
 
 
