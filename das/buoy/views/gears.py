@@ -3,7 +3,7 @@ from rest_framework import generics
 from rest_framework.response import Response
 
 from buoy import serializers
-from buoy.consts import BUOY_SUBJECT_SUBTYPE
+from buoy.constants import BUOY_SUBJECT_SUBTYPE
 from buoy.views.helpers import (
     NAUTICAL_MILE_RADIUS,
     check_valid_date_string,

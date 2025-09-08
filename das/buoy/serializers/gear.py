@@ -7,7 +7,7 @@ from drf_extra_fields.geo_fields import PointField
 from django.db.models.functions import Lower
 from rest_framework import serializers
 
-from buoy.consts import BUOY_SUBJECT_SUBTYPE
+from buoy.constants import BUOY_SUBJECT_SUBTYPE
 from observations import models
 from observations.serializers import SubjectRelatedField
 
