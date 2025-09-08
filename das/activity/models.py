@@ -756,10 +756,10 @@ class EventRelationshipManager(TenantManagerMixin, models.Manager):
                     {"is_collection": ValidationError(_("Event is not a collection"), code="invalid")}
                 )
 
-        except EventRelationshipType.DoesNotExist:
+        except EventRelationshipType.DoesNotExist as e:
             raise ValidationError(
                 {"type": ValidationError(_("Invalid value for event relationship type."), code="invalid")}
-            )
+            ) from e
         with transaction.atomic():
             new_relation, created = EventRelationship.objects.get_or_create(
                 from_event=from_event, to_event=to_event, type=ert
@@ -775,14 +775,14 @@ class EventRelationshipManager(TenantManagerMixin, models.Manager):
         try:
             ert = EventRelationshipType.objects.get(value=type)
 
-        except EventRelationshipType.DoesNotExist:
+        except EventRelationshipType.DoesNotExist as e:
             raise ValidationError(
                 {
                     "event_relationship_type": ValidationError(
                         _("Invalid value for event_relationship_type"), code="invalid"
                     )
                 }
-            )
+            ) from e
         with transaction.atomic():
             result = EventRelationship.objects.filter(from_event=from_event, to_event=to_event, type=ert).delete()
             if ert.symmetrical:
@@ -871,6 +871,9 @@ class EventRelationship(TenantModelMixin, TimestampedModel):
         ]
         base_manager_name = "objects"
         default_manager_name = "objects"
+        permissions = [
+            ("delete_event_relationship", "Can delete event relationships"),
+        ]
 
     def __str__(self):
         return "<%s> : %s : <%s>" % (str(self.from_event), self.type.value, self.to_event)
