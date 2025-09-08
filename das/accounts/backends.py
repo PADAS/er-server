@@ -48,15 +48,13 @@ class NoLoginOAuth2Backend(OAuth2Backend):
     Disable user from logging in if they have is_nologin set on their account
     """
 
-    logger = logging.getLogger("django.request")
-
     def authenticate(self, request=None, **credentials):
         user = super().authenticate(request, **credentials)
         if not user:
             return user
 
         if user.is_nologin:
-            self.logger.info("User %s tried to login with NoLogin set.", user.pk)
+            logger.info("User %s tried to login with NoLogin set.", user.pk)
             return None
 
         if not request:
@@ -71,8 +69,6 @@ class NoLoginOAuth2Authentication(OAuth2Authentication):
     Support for DRF
     """
 
-    logger = logging.getLogger("django.request")
-
     def authenticate(self, request):
         """
         Returns two-tuple of (user, token) if authentication succeeds,
@@ -81,10 +77,15 @@ class NoLoginOAuth2Authentication(OAuth2Authentication):
 
         result = super().authenticate(request)
         if not result:
+            # Check if there's an OAuth2 error (e.g., expired token)
+            oauth2_error = getattr(request, "oauth2_error", {})
+            if oauth2_error:
+                # If there's an OAuth2 error, raise AuthenticationFailed to get 401
+                raise exceptions.AuthenticationFailed("Token is invalid or expired")
             return None
         user = result[0]
         if user.is_nologin:
-            self.logger.info("User %s tried to login with NoLogin set.", user.pk)
+            logger.info("User %s tried to login with NoLogin set.", user.pk)
             raise exceptions.PermissionDenied()
 
         user = act_as_user_in_request(user, request)
@@ -98,6 +99,9 @@ class PriorityOAuth2SessionAuthentication(SessionAuthentication):
     the OAuth2 token takes precedence.
     """
 
+    keyword = "Bearer"
+    oauth2_auth = NoLoginOAuth2Authentication()
+
     def enforce_csrf(self, request):
         """
         Here we may choose to not enforce CSRF validation for session based authentication.
@@ -105,14 +109,28 @@ class PriorityOAuth2SessionAuthentication(SessionAuthentication):
         """
         return super().enforce_csrf(request)
 
+    def authenticate_header(self, request):
+        return self.keyword
+
     def authenticate(self, request):
         # First, try OAuth2 token authentication
-        oauth2_auth = NoLoginOAuth2Authentication()
-        oauth2_result = oauth2_auth.authenticate(request)
+
+        try:
+            oauth2_result = self.oauth2_auth.authenticate(request)
+        except exceptions.AuthenticationFailed:
+            # Re-raise AuthenticationFailed exceptions to get 401 status
+            raise
 
         if oauth2_result:
             # OAuth2 token found and valid, use it
             return oauth2_result
+
+        # Check if there was an OAuth2 error (e.g., expired token)
+        oauth2_error = getattr(request, "oauth2_error", {})
+        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+        if oauth2_error and auth_header.startswith(self.keyword + " "):
+            # If there's an OAuth2 error and we have a Bearer token, raise AuthenticationFailed
+            raise exceptions.AuthenticationFailed("Token is invalid or expired")
 
         # Fall back to session authentication if no valid OAuth2 token
         # Handle both DRF request objects and Django WSGIRequest objects
