@@ -1214,6 +1214,9 @@ class EventRelatedSegments(TenantModelMixin, UUIDModel):
     class Meta:
         base_manager_name = "objects"
         default_manager_name = "objects"
+        permissions = [
+            ("delete_event_related_segments", "Can delete events from patrol segments"),
+        ]
 
 
 class EventRelatedSubject(TenantModelMixin, UUIDModel, models.Model):
@@ -2431,7 +2434,7 @@ class EventGeometry(TenantModelMixin, RevisionMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     geometry = models.GeometryField(srid=4326, geography=True)
     event = TenantForeignKey(
-        "Event",
+        Event,
         on_delete=models.CASCADE,
         related_name="geometries",
         related_query_name="geometries",
