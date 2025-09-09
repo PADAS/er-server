@@ -16,6 +16,7 @@ from accounts.utils import (
     get_profiles,
     patrol_mgmt_permissions,
 )
+from activity.models import AlertRule
 from core.common import TIMEZONE_USED
 from core.forms_utils import JSONFieldFormMixin
 from observations import kmlutils
@@ -59,7 +60,8 @@ class RelatedFieldWidgetCanAdd(forms.widgets.Select):
         self.related_url = reverse(self.related_url)
         output = [super(RelatedFieldWidgetCanAdd, self).render(name, value, *args, **kwargs)]
         output.append(
-            f'<a href="{self.related_url}?_to_field=id&_popup=1" class="add-another" id="add_id_{name}" onclick="return showAddAnotherPopup(this);"> '
+            f'<a href="{self.related_url}?_to_field=id&_popup=1" class="add-another" '
+            f'id="add_id_{name}" onclick="return showAddAnotherPopup(this);"> '
         )
         output.append(f'<img src="{settings.STATIC_URL}admin/img/icon-addlink.svg" alt="Add Another"/></a>')
         return mark_safe("".join(output))
@@ -184,6 +186,36 @@ class UserAdditionalForm(UserFormValidatorMixin, JSONFieldFormMixin, UserChangeF
         ) + json_fields
 
     json_field = "additional"
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Check if user is being deactivated and has alert rules (ERA-11874)
+        if self.instance and self.instance.pk:
+            is_active = cleaned_data.get("is_active", self.instance.is_active)
+            was_active = self.instance.is_active
+
+            # If user is being deactivated (was active, now inactive)
+            if was_active and not is_active:
+                alert_rules = AlertRule.objects.filter(owner=self.instance)
+                if alert_rules.exists():
+                    alert_rule_titles = [rule.title or f"Alert Rule {rule.id}" for rule in alert_rules[:3]]
+                    more_count = max(0, alert_rules.count() - 3)
+
+                    error_message = (
+                        f"This user has {alert_rules.count()} alert rule(s) configured. "
+                        f"Deactivating this user will prevent these alert rules from being processed. "
+                        f"Alert rules: {', '.join(alert_rule_titles)}"
+                    )
+                    if more_count > 0:
+                        error_message += f" and {more_count} more"
+                    error_message += (
+                        ". Please reassign these alert rules to active users before deactivating this account."
+                    )
+
+                    raise forms.ValidationError({"is_active": error_message})
+
+        return cleaned_data
 
 
 class PermissionSetAdminForm(forms.ModelForm):

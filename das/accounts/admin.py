@@ -1,4 +1,5 @@
 import copy
+import json
 
 from django_multitenant.utils import get_current_tenant
 from oauth2_provider.models import (
@@ -27,6 +28,7 @@ from django.utils.translation import gettext_lazy as _
 
 from accounts.models import PermissionSet, User
 from accounts.utils import patrol_mgmt_permissions
+from activity.models import AlertRule
 from core.admin import (
     BaseModelAdminMixin,
     CustomM2MChecks,
@@ -398,10 +400,38 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
 
     def _linked_subject_warning(self, instance):
         return mark_safe(
-            f"<i>This user account is being used for the Subject: <b> {instance.linked_subject}</b>, and can not assign any other Subject.</i>"
+            f"<i>This user account is being used for the Subject: <b> {instance.linked_subject}</b>, "
+            f"and can not assign any other Subject.</i>"
         )
 
     _linked_subject_warning.short_description = "Warning"
+
+    def changelist_view(self, request, extra_context=None):
+        """Override changelist_view to add alert rules data for JavaScript"""
+        extra_context = extra_context or {}
+
+        # Get all users that will be displayed in the list
+        if hasattr(self, "get_queryset"):
+            queryset = self.get_queryset(request)
+        else:
+            queryset = self.model.objects.all()
+
+        # Get alert rules data for each user and create form index mapping
+        user_alert_rules = {}
+        form_index_to_user_id = {}
+        for index, user in enumerate(queryset):
+            alert_rules = AlertRule.objects.filter(owner=user)
+            if alert_rules.exists():
+                user_alert_rules[str(user.id)] = {
+                    "count": alert_rules.count(),
+                    "titles": [rule.title or f"Alert Rule {rule.id}" for rule in alert_rules[:3]],
+                }
+            # Map form index to user ID for JavaScript
+            form_index_to_user_id[str(index)] = str(user.id)
+
+        extra_context["user_alert_rules"] = json.dumps(user_alert_rules)
+        extra_context["form_index_to_user_id"] = json.dumps(form_index_to_user_id)
+        return super().changelist_view(request, extra_context)
 
 
 admin.site.register(User, UserAdmin)
