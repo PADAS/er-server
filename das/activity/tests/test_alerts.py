@@ -336,6 +336,9 @@ class TestAlerts(BaseAPITest):
 
     def test_alert_rules_owned_by_inactive_users_are_skipped(self):
         """Test that alert rules owned by inactive users are not processed (ERA-11874)"""
+        # Clear existing alert rules to avoid interference
+        AlertRule.objects.all().delete()
+
         # Create an inactive user
         inactive_user = User.objects.create_user(
             username="inactive_user", password="asdfo9823sfdsdsiu23$", email="inactive@tempuri.org", is_active=False

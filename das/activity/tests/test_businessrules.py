@@ -1981,8 +1981,35 @@ class TestV2AlertIntegration:
         execute_evaluate_alert_rules(event.id, created=True, domain="zoo.com")
         assert len(mail.outbox) == 1
 
-    def test_evaluate_event_filters_out_inactive_user_alert_rules(self):
+    def test_evaluate_event_filters_out_inactive_user_alert_rules(self, five_event_categories):
         """Test that evaluate_event filters out alert rules owned by inactive users (ERA-11874)"""
+        # Create event type
+        category = five_event_categories[0]
+        event_type = EventTypeFactory.create(
+            category=category,
+            schema=json.dumps(
+                {
+                    "schema": {
+                        "$schema": "http://json-schema.org/draft-04/schema#",
+                        "title": "EventType Test Data",
+                        "type": "object",
+                        "required": ["details"],
+                        "properties": {
+                            "sex": {"type": "string", "title": "Sex of animal", "enum": ["Male", "Female", "Unknown"]}
+                        },
+                    },
+                    "definition": ["sex"],
+                }
+            ),
+            value="test_event_type",
+            display="Test Event Type",
+        )
+
+        # Create a power user
+        power_user = User.objects.create_user(
+            username="power_user", password="asdfo9823sfdsdsiu23$", email="power@tempuri.org", is_active=True
+        )
+
         # Create an inactive user
         inactive_user = User.objects.create_user(
             username="inactive_user", password="asdfo9823sfdsdsiu23$", email="inactive@tempuri.org", is_active=False
@@ -1995,7 +2022,7 @@ class TestV2AlertIntegration:
             conditions={"all": [{"name": "sex", "value": "Male", "operator": "equal_to"}]},
             schedule={"timezone": "Africa/Nairobi"},
         )
-        inactive_alert_rule.event_types.add(self.event_type)
+        inactive_alert_rule.event_types.add(event_type)
 
         # Create an active user and alert rule
         active_user = User.objects.create_user(
@@ -2008,17 +2035,15 @@ class TestV2AlertIntegration:
             conditions={"all": [{"name": "sex", "value": "Female", "operator": "equal_to"}]},
             schedule={"timezone": "Africa/Nairobi"},
         )
-        active_alert_rule.event_types.add(self.event_type)
+        active_alert_rule.event_types.add(event_type)
 
         # Create event that would trigger both alerts
-        event = Event.objects.create(
-            title="test event", event_type=self.event_type, created_by_user=self.power_user, state="new"
-        )
+        event = Event.objects.create(title="test event", event_type=event_type, created_by_user=power_user, state="new")
         EventDetails.objects.create(event=event, data={"event_details": {"sex": "Female"}})
 
         # Evaluate event - should only return actions for active user's alert rule
         action_list = evaluate_event(event)
 
         # Should only have one action (from active user's alert rule)
-        self.assertEqual(len(action_list), 1)
-        self.assertEqual(action_list[0]["alert_rule_id"], str(active_alert_rule.id))
+        assert len(action_list) == 1
+        assert action_list[0]["alert_rule_id"] == str(active_alert_rule.id)
