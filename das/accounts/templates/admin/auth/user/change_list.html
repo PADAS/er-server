@@ -64,7 +64,7 @@
             });
 
             // Monitor changes to all checkboxes (we'll filter by name pattern)
-            $('input[type="checkbox"]').change(function() {
+            $('input[type="checkbox"][name$="_is_active"]').change(function() {
                 var checkboxName = $(this).attr('name');
 
                 // Check if this is an is_active checkbox
