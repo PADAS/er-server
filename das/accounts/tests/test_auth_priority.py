@@ -67,8 +67,8 @@ class TestAuthenticationPriority:
         assert result is not None
         assert result[0] == user
 
-    def test_no_authentication_when_invalid_token(self, user):
-        """Test that invalid OAuth2 token doesn't prevent session authentication."""
+    def test_authentication_fails_when_invalid_token(self, user):
+        """Test that invalid OAuth2 token causes authentication to fail."""
         # Create request with invalid OAuth2 token
         factory = RequestFactory()
         request = factory.get("/api/test/")
@@ -79,11 +79,14 @@ class TestAuthenticationPriority:
 
         # Test authentication
         auth = PriorityOAuth2SessionAuthentication()
-        result = auth.authenticate(request)
 
-        # Should fall back to session authentication
-        assert result is not None
-        assert result[0] == user
+        # Should raise AuthenticationFailed when invalid token is provided
+        with pytest.raises(Exception) as exc_info:
+            auth.authenticate(request)
+
+        # Should be an AuthenticationFailed exception
+        assert "AuthenticationFailed" in str(type(exc_info.value))
+        assert "Token is invalid or expired" in str(exc_info.value)
 
     def test_no_authentication_when_no_token_or_session(self):
         """Test that no authentication occurs when neither token nor session exists."""
