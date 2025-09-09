@@ -19,7 +19,9 @@ logger = logging.getLogger(__name__)
 def evaluate_event(event):
 
     # Title
-    alert_rules = AlertRule.objects.filter(event_types=event.event_type, is_active=True).order_by("ordernum", "title")
+    alert_rules = AlertRule.objects.filter(
+        event_types=event.event_type, is_active=True, owner__is_active=True
+    ).order_by("ordernum", "title")
     # .annotate(evaluation_sequence=RowNumber())
     return evaluate_event_on_alertrules(alert_rules, event)
 

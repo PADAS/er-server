@@ -191,7 +191,7 @@ class TestAlerts(BaseAPITest):
         time.sleep(1)
 
         # event updated here
-        event_details = EventDetails.objects.create(event=event, data={"event_details": {"sex": "Male"}})
+        EventDetails.objects.create(event=event, data={"event_details": {"sex": "Male"}})
         send_event_alert(
             alert_rule_id=self.alert_rule.id, event_id=event.id, notification_method_id=self.notification_method.id
         )
@@ -333,6 +333,74 @@ class TestAlerts(BaseAPITest):
 
         # details sent to email as titles rather than guids, checkbox title returned
         self.assertDictEqual(expected_detail, details_sent_to_mail)
+
+    def test_alert_rules_owned_by_inactive_users_are_skipped(self):
+        """Test that alert rules owned by inactive users are not processed (ERA-11874)"""
+        # Create an inactive user
+        inactive_user = User.objects.create_user(
+            username="inactive_user", password="asdfo9823sfdsdsiu23$", email="inactive@tempuri.org", is_active=False
+        )
+        inactive_user.permission_sets.add(self.alerts_permissionset)
+
+        # Create alert rule owned by inactive user
+        inactive_alert_rule = AlertRule.objects.create(
+            owner=inactive_user,
+            title="Inactive User Alert",
+            conditions={"all": [{"name": "sex", "value": "Male", "operator": "equal_to"}]},
+            schedule={"timezone": "Africa/Nairobi"},
+        )
+        inactive_alert_rule.notification_methods.add(self.notification_method)
+        inactive_alert_rule.event_types.add(self.event_type)
+
+        # Create event that would trigger the alert
+        event = Event.objects.create(
+            title="test event", event_type=self.event_type, created_by_user=self.owner, state="new"
+        )
+        EventDetails.objects.create(event=event, data={"event_details": {"sex": "Male"}})
+
+        # Execute alert evaluation
+        with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
+            execute_evaluate_alert_rules(event.id, created=True, domain="zoo.com")
+
+        # No email should be sent because the alert rule owner is inactive
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_alert_rules_owned_by_active_users_are_processed(self):
+        """Test that alert rules owned by active users are still processed normally"""
+        # Create an active user
+        active_user = User.objects.create_user(
+            username="active_user", password="asdfo9823sfdsdsiu23$", email="active@tempuri.org", is_active=True
+        )
+        active_user.permission_sets.add(self.alerts_permissionset)
+
+        # Create notification method for active user
+        active_notification_method = NotificationMethod.objects.create(
+            owner=active_user, title="Active Email", method="email", value="active@test.com"
+        )
+
+        # Create alert rule owned by active user
+        active_alert_rule = AlertRule.objects.create(
+            owner=active_user,
+            title="Active User Alert",
+            conditions={"all": [{"name": "sex", "value": "Female", "operator": "equal_to"}]},
+            schedule={"timezone": "Africa/Nairobi"},
+        )
+        active_alert_rule.notification_methods.add(active_notification_method)
+        active_alert_rule.event_types.add(self.event_type)
+
+        # Create event that would trigger the alert
+        event = Event.objects.create(
+            title="test event", event_type=self.event_type, created_by_user=self.owner, state="new"
+        )
+        EventDetails.objects.create(event=event, data={"event_details": {"sex": "Female"}})
+
+        # Execute alert evaluation
+        with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
+            execute_evaluate_alert_rules(event.id, created=True, domain="zoo.com")
+
+        # Email should be sent because the alert rule owner is active
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["active@test.com"])
 
 
 @pytest.mark.django_db

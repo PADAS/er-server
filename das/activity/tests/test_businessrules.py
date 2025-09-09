@@ -36,6 +36,7 @@ from activity.models import (
     AlertRule,
     Event,
     EventCategory,
+    EventDetails,
     EventType,
     NotificationMethod,
 )
@@ -1979,3 +1980,45 @@ class TestV2AlertIntegration:
 
         execute_evaluate_alert_rules(event.id, created=True, domain="zoo.com")
         assert len(mail.outbox) == 1
+
+    def test_evaluate_event_filters_out_inactive_user_alert_rules(self):
+        """Test that evaluate_event filters out alert rules owned by inactive users (ERA-11874)"""
+        # Create an inactive user
+        inactive_user = User.objects.create_user(
+            username="inactive_user", password="asdfo9823sfdsdsiu23$", email="inactive@tempuri.org", is_active=False
+        )
+
+        # Create alert rule owned by inactive user
+        inactive_alert_rule = AlertRule.objects.create(
+            owner=inactive_user,
+            title="Inactive User Alert",
+            conditions={"all": [{"name": "sex", "value": "Male", "operator": "equal_to"}]},
+            schedule={"timezone": "Africa/Nairobi"},
+        )
+        inactive_alert_rule.event_types.add(self.event_type)
+
+        # Create an active user and alert rule
+        active_user = User.objects.create_user(
+            username="active_user", password="asdfo9823sfdsdsiu23$", email="active@tempuri.org", is_active=True
+        )
+
+        active_alert_rule = AlertRule.objects.create(
+            owner=active_user,
+            title="Active User Alert",
+            conditions={"all": [{"name": "sex", "value": "Female", "operator": "equal_to"}]},
+            schedule={"timezone": "Africa/Nairobi"},
+        )
+        active_alert_rule.event_types.add(self.event_type)
+
+        # Create event that would trigger both alerts
+        event = Event.objects.create(
+            title="test event", event_type=self.event_type, created_by_user=self.power_user, state="new"
+        )
+        EventDetails.objects.create(event=event, data={"event_details": {"sex": "Female"}})
+
+        # Evaluate event - should only return actions for active user's alert rule
+        action_list = evaluate_event(event)
+
+        # Should only have one action (from active user's alert rule)
+        self.assertEqual(len(action_list), 1)
+        self.assertEqual(action_list[0]["alert_rule_id"], str(active_alert_rule.id))
