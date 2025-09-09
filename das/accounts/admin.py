@@ -419,15 +419,17 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
         # Get alert rules data for each user and create form index mapping
         user_alert_rules = {}
         form_index_to_user_id = {}
+
+        # Get all user IDs that have alert rules in a single query
+        user_ids_with_alerts = set(AlertRule.objects.filter(owner__in=queryset).values_list("owner_id", flat=True))
+
         for index, user in enumerate(queryset):
-            alert_rules = AlertRule.objects.filter(owner=user)
-            if alert_rules.exists():
-                user_alert_rules[str(user.id)] = {
-                    "count": alert_rules.count(),
-                    "titles": [rule.title or f"Alert Rule {rule.id}" for rule in alert_rules[:3]],
-                }
             # Map form index to user ID for JavaScript
             form_index_to_user_id[str(index)] = str(user.id)
+
+            # Check if user has alert rules (just boolean, no details needed)
+            if user.id in user_ids_with_alerts:
+                user_alert_rules[str(user.id)] = {"has_alerts": True}
 
         extra_context["user_alert_rules"] = json.dumps(user_alert_rules)
         extra_context["form_index_to_user_id"] = json.dumps(form_index_to_user_id)

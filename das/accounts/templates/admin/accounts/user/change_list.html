@@ -9,19 +9,12 @@
             var userAlertRules = {{ user_alert_rules|safe }};
             var formIndexToUserId = {{ form_index_to_user_id|safe }};
 
+            // Track which users have already been warned about
+            var warnedUsers = new Set();
+
             // Function to check if a user has alert rules
             function checkUserAlertRules(userId) {
-                return userAlertRules[userId] !== undefined;
-            }
-
-            // Function to get alert rules count for a user
-            function getUserAlertRulesCount(userId) {
-                return userAlertRules[userId] ? userAlertRules[userId].count : 0;
-            }
-
-            // Function to get alert rules titles for a user
-            function getUserAlertRulesTitles(userId) {
-                return userAlertRules[userId] ? userAlertRules[userId].titles : [];
+                return userAlertRules[userId] !== undefined && userAlertRules[userId].has_alerts;
             }
 
             // Add warning div
@@ -81,22 +74,8 @@
 
                         // If unchecking (deactivating) and user has alert rules
                         if (!isChecked && checkUserAlertRules(userId)) {
-                            var alertRulesCount = getUserAlertRulesCount(userId);
-                            var alertRulesTitles = getUserAlertRulesTitles(userId);
-                            var moreCount = Math.max(0, alertRulesCount - 3);
-
-                            var content = '<p>You are about to deactivate user with alert rules configured:</p>' +
-                                '<ul>';
-
-                            alertRulesTitles.slice(0, 3).forEach(function(title) {
-                                content += '<li>' + title + '</li>';
-                            });
-
-                            if (moreCount > 0) {
-                                content += '<li>... and ' + moreCount + ' more</li>';
-                            }
-
-                            content += '</ul>' +
+                            warnedUsers.add(userId);
+                            var content = '<p>You are about to deactivate a user who has alert rules configured.</p>' +
                                 '<p><strong>Deactivating this user will prevent their alert rules from being processed.</strong></p>' +
                                 '<p><em>Consider reassigning these alert rules to active users before deactivating this account.</em></p>';
 
@@ -131,11 +110,9 @@
 
                             if (isChecked !== wasChecked) {
                                 hasChanges = true;
-                                if (!isChecked && checkUserAlertRules(userId)) {
+                                if (!isChecked && checkUserAlertRules(userId) && !warnedUsers.has(userId)) {
                                     usersWithAlertRules.push({
-                                        id: userId,
-                                        count: getUserAlertRulesCount(userId),
-                                        titles: getUserAlertRulesTitles(userId)
+                                        id: userId
                                     });
                                 }
                             }
@@ -146,21 +123,7 @@
                 if (usersWithAlertRules.length > 0) {
                     e.preventDefault();
 
-                    var content = '<p>You are about to deactivate ' + usersWithAlertRules.length + ' user(s) with alert rules configured:</p>' +
-                        '<ul>';
-
-                    usersWithAlertRules.forEach(function(user) {
-                        content += '<li>User ' + user.id + ' (' + user.count + ' alert rules)';
-                        if (user.titles.length > 0) {
-                            content += ': ' + user.titles.slice(0, 2).join(', ');
-                            if (user.titles.length > 2) {
-                                content += ' and ' + (user.titles.length - 2) + ' more';
-                            }
-                        }
-                        content += '</li>';
-                    });
-
-                    content += '</ul>' +
+                    var content = '<p>You are about to deactivate ' + usersWithAlertRules.length + ' user(s) with alert rules configured.</p>' +
                         '<p><strong>Deactivating these users will prevent their alert rules from being processed.</strong></p>' +
                         '<p><em>Consider reassigning these alert rules to active users before deactivating these accounts.</em></p>';
 
