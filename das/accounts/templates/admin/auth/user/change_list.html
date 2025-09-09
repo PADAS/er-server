@@ -4,14 +4,11 @@
 {% block extrahead %}
     {{ block.super }}
     <script type="text/javascript">
-        console.log('Script starting to load...');
 
         django.jQuery(document).ready(function($) {
-            console.log('User list template loaded and document ready');
 
             // Alert rules data from Django context
             var userAlertRules = {{ user_alert_rules|safe }};
-            console.log('User alert rules data:', userAlertRules);
 
             // Function to check if a user has alert rules
             function checkUserAlertRules(userId) {
@@ -61,17 +58,6 @@
                 $('form#changelist-form').submit();
             });
 
-            // Debug: Log all checkboxes to see what we're working with
-            console.log('Found checkboxes:', $('input[type="checkbox"]').length);
-            $('input[type="checkbox"]').each(function() {
-                console.log('Checkbox name:', $(this).attr('name'), 'checked:', $(this).is(':checked'));
-            });
-
-            // Test: Add a simple click handler to any checkbox to verify jQuery is working
-            $('input[type="checkbox"]').click(function() {
-                console.log('Checkbox clicked:', $(this).attr('name'), 'checked:', $(this).is(':checked'));
-            });
-
             // Store original checkbox states for all checkboxes
             $('input[type="checkbox"]').each(function() {
                 $(this).data('original-checked', $(this).is(':checked'));
@@ -80,23 +66,17 @@
             // Monitor changes to all checkboxes (we'll filter by name pattern)
             $('input[type="checkbox"]').change(function() {
                 var checkboxName = $(this).attr('name');
-                console.log('Checkbox changed:', checkboxName, 'checked:', $(this).is(':checked'));
 
                 // Check if this is an is_active checkbox
                 if (checkboxName && checkboxName.indexOf('_is_active') !== -1) {
                     var userId = checkboxName.replace('_is_active', '');
                     var isChecked = $(this).is(':checked');
 
-                    console.log('Processing is_active change for user:', userId, 'checked:', isChecked);
-                    console.log('User has alert rules:', checkUserAlertRules(userId));
-
                     // If unchecking (deactivating) and user has alert rules
                     if (!isChecked && checkUserAlertRules(userId)) {
                         var alertRulesCount = getUserAlertRulesCount(userId);
                         var alertRulesTitles = getUserAlertRulesTitles(userId);
                         var moreCount = Math.max(0, alertRulesCount - 3);
-
-                        console.log('Showing warning for user:', userId, 'with', alertRulesCount, 'alert rules');
 
                         var content = '<p>You are about to deactivate user with alert rules configured:</p>' +
                             '<ul>';
