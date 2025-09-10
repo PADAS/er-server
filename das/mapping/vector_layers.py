@@ -5,7 +5,6 @@ from vectortiles import VectorLayer
 from django.contrib.gis.db import models as gis_models
 from django.contrib.gis.db.models.functions import Transform
 from django.db.models import Case, CharField, F, FloatField, IntegerField, Value, When
-from django.db.models.expressions import RawSQL
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast
 
@@ -66,7 +65,6 @@ class SpatialFeatureLayer(VectorLayer):
             self.model.objects.select_related("feature_type", "feature_type__display_category")
             .filter(feature_type__display_category__isnull=False)
             .annotate(
-                int_id=RawSQL("hashtext(CAST(mapping_spatialfeature.id AS TEXT))", []),
                 feature_type_name=F("feature_type__name"),
                 display_category_name=F("feature_type__display_category__name"),
                 geom=Transform(Cast(F("feature_geometry"), gis_models.GeometryField()), 3857),
@@ -113,7 +111,6 @@ class SpatialFeatureLayer(VectorLayer):
         return (
             "id",
             "name",
-            "int_id",
             "short_name",
             "external_id",
             "description",
