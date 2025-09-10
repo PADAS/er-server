@@ -199,14 +199,6 @@ var raster = new ol.layer.Tile({
     source: new ol.source.OSM()
 });
 
-// var google_hybrid_url = 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
-
-// var google_satellite_layer = new ol.layer.Tile({
-//     source: new ol.source.XYZ({
-//         url: google_hybrid_url + '&client=AIzaSyArYgAAi9immeQFbEO2_6dRgc7hCSLaOIo'
-//     })
-// });
-
 var source = new ol.source.Vector({
     format: new ol.format.GeoJSON()
 });
