@@ -1,7 +1,9 @@
 import json
+import random
 from datetime import datetime
 
 import pytest
+from geopy.distance import distance
 
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
@@ -12,7 +14,11 @@ from rest_framework import status
 from accounts.models import PermissionSet
 from buoy import views
 from client_http import HTTPClient
-from das.buoy.tests import generate_devices, get_custom_location_gear_subjectsource
+from das.buoy.tests import (
+    generate_devices,
+    generate_fake_display_id,
+    get_custom_location_gear_subjectsource,
+)
 from observations.models import Observation, SubjectGroup, SubjectSource
 
 
@@ -80,6 +86,7 @@ class TestGearView:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestGearsView:
+
     base_url = "gear-list-view"
 
     @pytest.fixture
@@ -449,30 +456,6 @@ class TestGearsView:
 
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
-    def test_filter_gear_subject_api_location_not_required(self, buoy_client):
-        user_client, _ = buoy_client
-        url = reverse(self.base_url)
-        user_client.user.username = "edgetech"
-        user_client.user.save()
-
-        response = user_client.get(url)
-
-        assert response.status_code == status.HTTP_200_OK
-
-        user_client.user.username = "blueoceangear"
-        user_client.user.save()
-
-        response = user_client.get(url)
-
-        assert response.status_code == status.HTTP_200_OK
-
-        user_client.user.username = "not_edgetech"
-        user_client.user.save()
-
-        response = user_client.get(url)
-
-        assert response.status_code == status.HTTP_403_FORBIDDEN
-
     @pytest.mark.skip(
         reason="This test requires using the sensors api to handle the event_type field, it's relying on the gear api to magically fix the subject is_active field"
     )
@@ -494,3 +477,101 @@ class TestGearsView:
         # Check if the subject is still inactive
         gear_subjectsource.refresh_from_db()
         assert gear_subjectsource.subject.is_active is True
+
+    def test_filter_gear_subject_api_max_nm_range_provided(self, buoy_client):
+        user_client, _ = buoy_client
+
+        # Arrange - Create a set of gears
+        origin = Point(10, 10)
+
+        for miles in [4, 40, 400, 5000]:
+            bearing = random.uniform(0, 360)
+            new_point = distance(miles=miles).destination(origin, bearing)
+            gear_subjectsource = get_custom_location_gear_subjectsource(Point(new_point.longitude, new_point.latitude))
+            gear_subjectsource.subject.additional["display_id"] = generate_fake_display_id()
+            gear_subjectsource.subject.save()
+
+        url = reverse(self.base_url)
+
+        response = user_client.get(url + f"?lat={origin.y}&lon={origin.x}&max_nm_range=500")
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 3
+
+        user_client.user.save()
+        response = user_client.get(url + f"?lat={origin.y}&lon={origin.x}")
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 1
+
+        user_client.user.save()
+        response = user_client.get(url + f"?lat={origin.y}&lon={origin.x}&max_nm_range=250")
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 2
+
+        user_client.user.save()
+        response = user_client.get(url + f"?lat={origin.y}&lon={origin.x}&max_nm_range=5001")
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 5
+
+    def test_filter_gear_subject_api_max_nm_range_provided_but_no_lat_lon(self, buoy_client):
+        user_client, _ = buoy_client
+        url = reverse(self.base_url)
+
+        user_client.user.username = "edgetech"
+        user_client.user.save()
+        response = user_client.get(url + "?max_nm_range=500")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+        perm, _ = Permission.objects.get_or_create(codename="can_view_gear_regardless_location")
+        perm_set = PermissionSet.objects.create(name="CanViewGearNoLoc")
+        perm_set.permissions.add(perm)
+        perm_set.save()
+        user_client.user.permission_sets.add(perm_set)
+        user_client.user.save()
+
+        response = user_client.get(url + "?max_nm_range=500")
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_gear_subjects_view_permission_can_view_gear_regardless_location(self, buoy_client, django_user_model):
+        user_client, _ = buoy_client
+        url = reverse(self.base_url)
+
+        perm, _ = Permission.objects.get_or_create(codename="can_view_gear_regardless_location")
+        perm_set = PermissionSet.objects.create(name="CanViewGearNoLoc")
+        perm_set.permissions.add(perm)
+        perm_set.save()
+        user_client.user.permission_sets.add(perm_set)
+        user_client.user.save()
+
+        response = user_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+
+        # Also test that a user with the permission but with lat/lon still works
+        response = user_client.get(url + "?lat=0&lon=0")
+        assert response.status_code == status.HTTP_200_OK
+
+        user_client.user.permission_sets.clear()
+        response = user_client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_invalid_max_nm_range_param(self, buoy_client):
+        user_client, _ = buoy_client
+        url = reverse(self.base_url)
+
+        # Non-numeric value
+        response = user_client.get(url + "?lat=0&lon=0&max_nm_range=abc")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "max_nm_range" in str(response.data)
+
+        # Negative value
+        response = user_client.get(url + "?lat=0&lon=0&max_nm_range=-5")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "max_nm_range" in str(response.data)
+
+        # Zero value
+        response = user_client.get(url + "?lat=0&lon=0&max_nm_range=0")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "max_nm_range" in str(response.data)
+
+        # Large value (should be accepted)
+        response = user_client.get(url + "?lat=0&lon=0&max_nm_range=10000")
+        assert response.status_code == status.HTTP_200_OK

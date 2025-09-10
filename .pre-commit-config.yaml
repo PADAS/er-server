@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0 # Use the ref you want to point at
+    rev: v6.0.0 # Use the ref you want to point at
     hooks:
       - id: check-merge-conflict
       - id: debug-statements
@@ -8,7 +8,7 @@ repos:
       - id: check-yaml
       - id: trailing-whitespace
   - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
+    rev: 6.0.1
     hooks:
       - id: isort
         args: ["--profile", "black", "--filter-files"]
@@ -18,7 +18,7 @@ repos:
       - id: autoflake
         args: ['--in-place', '--remove-all-unused-imports', '--remove-unused-variable']
   - repo: https://github.com/psf/black
-    rev: 24.3.0
+    rev: 25.1.0
     hooks:
       - id: black
         args:
@@ -26,13 +26,13 @@ repos:
           - "./pyproject.toml"
           - --fast
   - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v3.2.0
+    rev: v4.2.0
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]
         args: [feat, fix, chore, test, style]
   - repo: https://github.com/gitguardian/ggshield
-    rev: v1.26.0
+    rev: v1.43.0
     hooks:
       - id: ggshield
         language_version: python3

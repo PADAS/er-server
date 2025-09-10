@@ -50,5 +50,9 @@ def generate_devices(quantity: int, starting_point: Point = TEST_LOCATION):
     original_point = starting_point if starting_point else Point(random.uniform(-90, 90), random.uniform(-180, 180))
     return {
         "devices": [generate_device(original_point) for _ in range(quantity)],
-        "display_id": fuzzy.FuzzyText(length=12).evaluate(1, 1, None).__str__(),
+        "display_id": generate_fake_display_id(),
     }
+
+
+def generate_fake_display_id():
+    return fuzzy.FuzzyText(length=12).evaluate(1, 1, None).__str__()
