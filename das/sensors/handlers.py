@@ -15,7 +15,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from analyzers import gfw_inbound
-from buoy.constants import BUOY_SUBJECT_SUBTYPE
+from buoy.constants import BUOY_SUBJECT_SUBTYPE, TRAP_DEPLOYED, TRAP_RETRIEVED
 from observations import servicesutils
 from observations.models import (
     DEFAULT_ASSIGNED_RANGE,
@@ -45,6 +45,9 @@ from utils.tenant import get_tenant_settings
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
+
+# Type alias for trap event types
+TrapEventType = Union[Literal["trap_deployed"], Literal["trap_retrieved"]]
 
 
 class GenericSensorHandler:
@@ -197,11 +200,11 @@ class GenericSensorHandler:
         cls,
         subject_source: SubjectSource,
         recorded_at: datetime,
-        event_type: Union[Literal["trap_deployed"], Literal["trap_retrieved"]],
+        event_type: TrapEventType,
     ):
         """Update the assigned range of a subject source."""
         trap_id = subject_source.source.manufacturer_id
-        if event_type == "trap_deployed":
+        if event_type == TRAP_DEPLOYED:
             if subject_source.has_assigned_range and subject_source.is_current:
                 raise ValidationError(f"Cannot deploy a trap ({trap_id}) that is already deployed.")
             subject_source.assigned_range = DateTimeTZRange(lower=recorded_at, upper=DEFAULT_ASSIGNED_RANGE[1])
@@ -271,14 +274,12 @@ class GenericSensorHandler:
         # Special initial validation for ropeless_buoy_gearset
         if subject_subtype == BUOY_SUBJECT_SUBTYPE:
             event_type = observation_additional.get("event_type")
-            if event_type not in ["trap_deployed", "trap_retrieved"]:
+            if event_type not in [TRAP_DEPLOYED, TRAP_RETRIEVED]:
                 raise ValidationError(
-                    "Ropeless buoy gearset observations must have an additional.event_type of 'trap_deployed' or 'trap_retrieved'."
+                    f"Ropeless buoy gearset observations must have an additional.event_type of "
+                    f"'{TRAP_DEPLOYED}' or '{TRAP_RETRIEVED}'."
                 )
-            if "additional" in subject_info:
-                subject_info["additional"]["display_id"] = subject_name
-            else:
-                subject_info["additional"] = {"display_id": subject_name}
+            subject_info.setdefault("additional", {})["display_id"] = subject_name
             subject = cls.find_subject_by_name(subject_name)
             if subject:
                 subject_info["id"] = subject.id
@@ -316,7 +317,6 @@ class GenericSensorHandler:
                 event_type=observation_additional.get("event_type"),
             )
 
-            subject = subject_source.subject
             has_active_sources = subject.subjectsources.filter(assigned_range__contains=now).exists()
             cls.update_subject(subject, additional=subject_additional, is_active=has_active_sources)
 

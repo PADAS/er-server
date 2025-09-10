@@ -143,9 +143,6 @@ class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context["two_way_subject_sources"] = self.two_way_subject_sources
+        context["simple_mode"] = True
 
         return context
-
-    def get_serializer(self, *args, **kwargs):
-        kwargs["simple_mode"] = True
-        return super().get_serializer(*args, **kwargs)

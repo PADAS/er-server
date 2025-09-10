@@ -36,8 +36,11 @@ class GearSerializer(serializers.Serializer):
         fields = ("id", "assigned_range", "source", "subject", "additional", "location")
 
     def __init__(self, *args, **kwargs):
-        self.simple_mode = kwargs.pop("simple_mode", False)
         super().__init__(*args, **kwargs)
+
+    @property
+    def simple_mode(self):
+        return self.context.get("simple_mode", False)
 
     def get_type(self, subject):
         additional = subject.get("additional", {})

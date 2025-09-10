@@ -17,7 +17,7 @@ from rest_framework import status
 
 from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest, fake_get_pool
-from das.buoy.constants import BUOY_SUBJECT_SUBTYPE
+from das.buoy.constants import BUOY_SUBJECT_SUBTYPE, TRAP_DEPLOYED, TRAP_RETRIEVED
 from observations.models import (
     SEX_MALE,
     Observation,
@@ -771,7 +771,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
             "source_additional": {"any_information_related_to_the_specific_device": "source_additional"},
             "additional": {
-                "event_type": "trap_deployed",
+                "event_type": TRAP_DEPLOYED,
                 "any_information_related_to_the_observation": "observational_additional",
             },
         }
@@ -789,7 +789,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional_updated"},
             "source_additional": {"any_information_related_to_the_specific_device": "source_additional_device_2"},
             "additional": {
-                "event_type": "trap_deployed",
+                "event_type": TRAP_DEPLOYED,
                 "any_information_related_to_the_observation": "observational_additional",
             },
         }
@@ -844,7 +844,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             "subject_additional": {"any_information_related_to_the_trawl": "subject_1_additional"},
             "source_additional": {"any_information_related_to_the_specific_device": "source_1_additional"},
             "additional": {
-                "event_type": "trap_deployed",
+                "event_type": TRAP_DEPLOYED,
                 "any_information_related_to_the_observation": "observational_additional",
             },
         }
@@ -862,7 +862,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             "subject_additional": {"any_information_related_to_the_trawl": "subject_2_additional"},
             "source_additional": {"any_information_related_to_the_specific_device": "source_2_additional"},
             "additional": {
-                "event_type": "trap_deployed",
+                "event_type": TRAP_DEPLOYED,
                 "any_information_related_to_the_observation": "observational_additional",
             },
         }
@@ -918,7 +918,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
             "source_additional": {"any_information_related_to_the_specific_device": "source_additional"},
             "additional": {
-                "event_type": "trap_retrieved",
+                "event_type": TRAP_RETRIEVED,
                 "any_information_related_to_the_observation": "observational_additional",
             },
         }
@@ -951,7 +951,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
             "source_additional": {"any_information_related_to_the_specific_device": "source_additional"},
             "additional": {
-                "event_type": "trap_deployed",
+                "event_type": TRAP_DEPLOYED,
                 "any_information_related_to_the_observation": "observational_additional",
             },
         }
@@ -998,6 +998,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         # Assert
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn(
-            "Ropeless buoy gearset observations must have an additional.event_type of 'trap_deployed' or 'trap_retrieved'.",
+            f"Ropeless buoy gearset observations must have an additional.event_type of "
+            f"'{TRAP_DEPLOYED}' or '{TRAP_RETRIEVED}'.",
             [str(error) for error in response.data],
         )
