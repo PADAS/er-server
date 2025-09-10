@@ -164,6 +164,33 @@ class TestEventPatrols:
         assert response.status_code == 200
         assert len(response.json()["data"]["events"]) == 1
 
+    def test_remove_event_from_all_patrol_segments(self, superuser_client, patrol_type, event_data):
+        """Test removing an event from all patrol segments."""
+        # Create two patrol segments
+        patrol1, patrol_segment1 = self.setup_patrol_with_segment(patrol_type)
+        patrol2, patrol_segment2 = self.setup_patrol_with_segment(patrol_type)
+
+        # Create event with both patrol segments
+        data = {**event_data}
+        data["patrol_segments"] = [str(patrol_segment1.id), str(patrol_segment2.id)]
+
+        response = superuser_client.post(self.events_url, data)
+        assert response.status_code == 201
+        response_data = response.json()["data"]
+        event_id = response_data["id"]
+        assert str(patrol_segment1.id) in response_data["patrol_segments"]
+        assert str(patrol_segment2.id) in response_data["patrol_segments"]  # Verify event is in both patrol segments
+        assert len(response_data["patrol_segments"]) == 2
+
+        # Remove event from all patrol segments
+        event_url = reverse("event-view", kwargs={"id": event_id})
+        update_data = {"patrol_segments": []}
+
+        response = superuser_client.patch(event_url, update_data)
+        assert response.status_code == 200
+        response_data = response.json()["data"]
+        assert len(response_data["patrol_segments"]) == 0
+
     @patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
     def test_event_patrol_permissions(
         self,
