@@ -87,11 +87,7 @@ from django.utils import timezone
 from observations.models import Subject
 from utils.date import convert_to_timezone, get_current_time_zone, get_timezone_offset
 from utils.db.expresions import ArraySubquery
-from utils.drf import (
-    CachedCountResultsSetPagination,
-    StandardResultsSetGeoJsonPagination,
-    StandardResultsSetPagination,
-)
+from utils.drf import StandardResultsSetGeoJsonPagination, StandardResultsSetPagination
 from utils.json import ExtendedGEOJSONRenderer, parse_bool
 
 logger = logging.getLogger(__name__)
@@ -532,10 +528,8 @@ class EventsView(ListCreateAPIView):
 
     page, page number
 
-    page_size, (default is {page_size}, max is {max_page_size})
-    """.format(
-        page_size=CachedCountResultsSetPagination.page_size, max_page_size=CachedCountResultsSetPagination.max_page_size
-    )
+    page_size
+    """
     permission_classes = (EventCategoryGeographicPermission,)
     filter_backends = (
         EventPermissionsFilter,
@@ -544,7 +538,7 @@ class EventsView(ListCreateAPIView):
         OrderingFilter,
     )
     serializer_class = EventSerializer
-    pagination_class = CachedCountResultsSetPagination
+    pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
     ordering_fields = ("event_time", "updated_at", "serial_number", "created_at", "sort_at")
     ordering = ("-sort_at",)
