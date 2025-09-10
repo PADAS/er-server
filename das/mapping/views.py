@@ -9,7 +9,6 @@ from vectortiles.views import MVTView
 from django.core.cache import cache
 from django.core.serializers import serialize
 from django.db.models import Count, F, Prefetch
-from django.db.models.expressions import RawSQL
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -121,11 +120,6 @@ class FeatureSetListJsonView(APIView):
                 if not include_hidden:
                     features_qs = features_qs.filter(feature_type__is_visible=True)
 
-                # Add int_id annotation to ensure consistency with vector_layers.py
-                features_qs = features_qs.annotate(
-                    int_id=RawSQL("hashtext(CAST(mapping_spatialfeature.id AS TEXT))", [])
-                )
-
                 feature_types_qs = feature_types_qs.prefetch_related(
                     Prefetch("spatialfeature_set", queryset=features_qs, to_attr="prefetched_features")
                 )
@@ -145,8 +139,6 @@ class FeatureSetListJsonView(APIView):
                         {
                             "name": f.name,
                             "id": str(f.id),  # Convert UUID to string for JSON serialization
-                            # Use the annotated int_id from the queryset, or fallback to a direct calculation if not available
-                            "int_id": getattr(f, "int_id", None) or hashtext_uuid(f.id),
                             "bounds": f.feature_geometry.extent if f.feature_geometry else None,
                         }
                         for f in features
