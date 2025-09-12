@@ -117,6 +117,10 @@ class FileSerializerMixin:
         return rep
 
     def render_updates(self, file):
+
+        if not self.context.get("include_updates", True):
+            return []
+            
         def get_action(revision):
             return revision.get_action_display()
 
