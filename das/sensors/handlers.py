@@ -304,6 +304,7 @@ class GenericSensorHandler:
                 source_cache[source_cache_key] = src
 
         if subject_subtype == BUOY_SUBJECT_SUBTYPE:
+            subject = cls.find_subject_by_name(subject_name)
             if not subject:
                 subject = Subject.objects.create_subject(**subject_info)
 
