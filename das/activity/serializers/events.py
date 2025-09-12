@@ -463,7 +463,7 @@ class EventSerializerMixin:
         update_fields = []
 
         patrol_segments = validated_data.pop("patrol_segments", None)
-        if patrol_segments:
+        if patrol_segments is not None:
             logger.info("setting patrol segments. with %s", patrol_segments)
             # update_fields.append('patrol_segments')
             instance.patrol_segments.set(patrol_segments)
