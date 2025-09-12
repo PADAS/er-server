@@ -351,6 +351,10 @@ class EventNoteSerializer(ModelSerializer):
         return "{0}: {1}".format(get_user_display(note.created_by_user), note.text)
 
     def render_updates(self, note):
+
+        if not self.context.get("include_updates", True):
+            return []
+
         def get_action(revision):
             if revision.action in (ACTION_ADDED, ACTION_UPDATED):
                 field_mapping = {"text": "Note Text"}
@@ -1268,6 +1272,9 @@ class EventPhotoSerializer(ModelSerializer):
         return rep
 
     def render_updates(self, photo):
+        if not self.context.get("include_updates", True):
+            return []
+            
         def get_action(revision):
             return revision.get_action_display()
 
