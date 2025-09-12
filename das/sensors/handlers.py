@@ -242,6 +242,7 @@ class GenericSensorHandler:
             user (User): user who is processing the observation
             source_cache (dict, optional): Cache of sources to avoid redundant ensure_source calls. Defaults to None.
         """
+        logger.debug("Processing one observation", extra={"observation": an_observation})
         manufacturer_id = an_observation["manufacturer_id"]
         location = an_observation["location"]
         lat = location.get("lat", None)
@@ -303,7 +304,6 @@ class GenericSensorHandler:
                 source_cache[source_cache_key] = src
 
         if subject_subtype == BUOY_SUBJECT_SUBTYPE:
-            subject = cls.find_subject_by_name(subject_name)
             if not subject:
                 subject = Subject.objects.create_subject(**subject_info)
 
