@@ -58,6 +58,12 @@ class EventRelationshipInline(admin.TabularInline):
     fields = ("to_event", "type")
     readonly_fields = ("to_event", "type")
 
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
 
 class EventPatrolSegmentInline(admin.TabularInline):
     model = models.Event.patrol_segments.through
@@ -69,6 +75,12 @@ class EventPatrolSegmentInline(admin.TabularInline):
 
     def _patrol_segment(self, obj):
         return f"{obj.patrol_segment.patrol} - {obj.patrol_segment.patrol_type}"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 class EventDetailsInline(admin.TabularInline):
@@ -122,7 +134,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
         "_latitude",
         "_longitude",
     )
-    ordering = ("serial_number",)
+    ordering = ("-serial_number",)
     sortable_by = (
         "serial_number",
         "_created_at",
@@ -135,6 +147,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
     search_fields = ("title", "serial_number")
     list_filter = (
         "state",
+        "event_type__is_collection",
         "event_type",
     )
     actions = ("resolve_event",)
@@ -242,11 +255,8 @@ class EventTypeAdmin(BaseModelAdminMixin):
         "is_active",
     )
     list_editable = ("default_state",)
-    list_display_links = ("display",)
-    search_fields = (
-        "display",
-        "value",
-    )
+    list_display_links = ("value",)
+    search_fields = ("display", "value")
     fieldsets = (
         (
             None,
@@ -298,7 +308,6 @@ class EventTypeAdmin(BaseModelAdminMixin):
     def get_event_source_links(self, object_id):
         links = []
         try:
-
             for eventsource in models.EventSource.objects.filter(event_type_id=object_id):
                 links.append(
                     {
@@ -322,9 +331,6 @@ class EventTypeAdmin(BaseModelAdminMixin):
         #     messages.add_message(request, messages.WARNING, "This Event Type is linked to an External Source. See the notice below for more details.")
 
         return super().change_view(request, object_id, form_url=form_url, extra_context=extra_context)
-
-    def add_view(self, request, form_url="", extra_context=None):
-        return super().add_view(request, form_url=form_url, extra_context=extra_context)
 
     def save_form(self, request, form, change):
         auto_resolve = form.cleaned_data.get("auto_resolve")
