@@ -1,4 +1,5 @@
 import copy
+import json
 import logging
 import traceback
 from collections import OrderedDict
@@ -82,6 +83,7 @@ from utils.schema_utils import (
     get_schema_renderer_method,
     validate_rendered_schema_is_wellformed,
 )
+from utils.text import replace_template_vars
 
 from .base import FileSerializerMixin
 from .event_details import EventDetailsSerializer
@@ -281,13 +283,14 @@ class EventTypeSerializer(ModelSerializer):
     @staticmethod
     def is_schema_readonly(obj) -> bool:
         try:
-            rendered_schema = get_schema_renderer_method(empty=True)(obj.schema)
+            cleaned_schema = replace_template_vars(obj.schema, "[]")
+            cleaned_schema = json.loads(cleaned_schema)
         except Exception as exc:
-            logger.error("Failed to render schema for event type %s: %s", obj.value, exc)
+            logger.error("Failed to get readonly prop for event type schema %s: %s", obj.value, exc)
+            return False
         else:
-            _schema = rendered_schema.get("schema", {})
+            _schema = cleaned_schema.get("schema", {})
             return parse_bool(_schema.get("readonly"))
-        return False
 
     def to_representation(self, obj):
         rep = super().to_representation(obj)
