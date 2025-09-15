@@ -52,6 +52,23 @@ logger = logging.getLogger(__name__)
 class EventRelationshipInline(admin.TabularInline):
     model = models.EventRelationship
     fk_name = "from_event"
+    verbose_name = _("Event Relationship")
+    verbose_name_plural = _("Event Relationships")
+    extra = 0
+    fields = ("to_event", "type")
+    readonly_fields = ("to_event", "type")
+
+
+class EventPatrolSegmentInline(admin.TabularInline):
+    model = models.Event.patrol_segments.through
+    verbose_name = _("Event Patrol Segment")
+    verbose_name_plural = _("Event Patrol Segments")
+    extra = 0
+    fields = ("_patrol_segment",)
+    readonly_fields = ("_patrol_segment",)
+
+    def _patrol_segment(self, obj):
+        return f"{obj.patrol_segment.patrol} - {obj.patrol_segment.patrol_type}"
 
 
 class EventDetailsInline(admin.TabularInline):
@@ -121,7 +138,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
         "event_type",
     )
     actions = ("resolve_event",)
-    inlines = (EventDetailsInline,)
+    inlines = (EventDetailsInline, EventPatrolSegmentInline, EventRelationshipInline)
 
     fieldsets = (
         (
