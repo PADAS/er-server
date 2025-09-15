@@ -243,16 +243,17 @@ class CommunityAdmin(BaseModelAdminMixin):
 class EventTypeAdmin(BaseModelAdminMixin):
     form = EventTypeForm
     ordering = ("display", "value", "ordernum", "category", "default_priority", "default_state")
-    list_filter = ("category", "geometry_type")
+    list_filter = ("geometry_type", "is_active", "is_collection", "version", "category")
     list_display = (
-        "display",
         "value",
-        "ordernum",
+        "display",
         "category",
+        "ordernum",
         "_default_priority_display",
         "_icon_display",
         "default_state",
         "is_active",
+        "version",
     )
     list_editable = ("default_state",)
     list_display_links = ("value",)
@@ -272,7 +273,17 @@ class EventTypeAdmin(BaseModelAdminMixin):
                 )
             },
         ),
-        ("Default Values", {"fields": ("default_priority", "default_state", "is_active")}),
+        (
+            "Default Values",
+            {
+                "fields": (
+                    "default_priority",
+                    "default_state",
+                    "is_active",
+                    "is_collection",
+                )
+            },
+        ),
         (
             "Schema & Form Definition",
             {
@@ -284,7 +295,7 @@ class EventTypeAdmin(BaseModelAdminMixin):
 
     def get_readonly_fields(self, request, obj=None):
         if obj:
-            return ["geometry_type"]
+            return ["geometry_type", "is_collection"]
         return []
 
     def _icon_display(self, obj):

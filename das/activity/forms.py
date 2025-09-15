@@ -132,7 +132,6 @@ class PrettyReadOnlyJSONWidget(forms.widgets.Widget):
 
 class EventTypeForm(forms.ModelForm):
     schema = forms.CharField(widget=SchemaWidget(attrs={"rows": 30, "cols": 100}))
-
     icon = forms.CharField(
         required=False, label="Icon Override", widget=IconKeyInput(image_list_fn=get_icon_select_list)
     )
@@ -159,14 +158,19 @@ class EventTypeForm(forms.ModelForm):
                 instance.resolve_time,
             ]
 
-        if instance and instance.version == "2":
+        if instance and instance.version == EventType.VersionChoices.VERSION_2:
             self.fields["schema"].widget = PrettyReadOnlyJSONWidget()
             self.fields["schema"].disabled = True
 
     def clean_schema(self):
+        if self.instance.version == EventType.VersionChoices.VERSION_2:
+            # Allow to update event-type fields without updating the schema
+            return self.instance.schema
+
         schema = self.cleaned_data.get("schema")
         name = self.cleaned_data["display"]
-        schema_warning = f"Warning: The event type schema for {name} is not properly formatted JSON. "
+        schema_warning = f"Warning: The event type schema for {name} is not properly formatted JSON."
+
         try:
             rendered_schema = get_schema_renderer_method()(schema)
         except NameError as ne:
