@@ -153,6 +153,7 @@ class GearSerializer(serializers.Serializer):
                     additional = subject_source.source.additional or {}
                     device = {
                         "device_id": device_id,
+                        "source_id": str(subject_source.source.id),
                         "label": self._idx_to_device_label(idx),
                         "location": {"latitude": observation.location.y, "longitude": observation.location.x},
                         "last_updated": subject_source.source.updated_at,

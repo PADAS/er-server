@@ -6,7 +6,7 @@ from dateutil import parser as date_parser
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 
-from buoy.consts import BUOY_SUBJECT_SUBTYPE
+from das.buoy.constants import BUOY_SUBJECT_SUBTYPE
 from das.buoy.serializers import GearSerializer
 from das.buoy.tests import generate_devices
 from factories import SubjectTypeFactory
