@@ -49,7 +49,6 @@ class SpatialFeatureLayer(VectorLayer):
             *self.presentation_keys,
         )
 
-    # If future library versions start calling get_queryset(), keep a compatible method.
     def get_queryset(self):  # pragma: no cover - compatibility shim
         return self._build_base_queryset()
 
