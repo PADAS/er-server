@@ -163,7 +163,7 @@ class EventTypeForm(forms.ModelForm):
             self.fields["schema"].disabled = True
 
     def clean_schema(self):
-        if self.instance.version == EventType.VersionChoices.VERSION_2:
+        if self.instance and self.instance.version == EventType.VersionChoices.VERSION_2:
             # Allow to update event-type fields without updating the schema
             return self.instance.schema
 
