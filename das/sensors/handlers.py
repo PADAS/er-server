@@ -179,6 +179,53 @@ class GenericSensorHandler:
             return Subject.objects.get(name=name)
         except Subject.DoesNotExist:
             return None
+        except Subject.MultipleObjectsReturned:
+            # Get all subjects with the same name, ordered by creation date
+            subjects = Subject.objects.filter(name=name).order_by("created_at")
+            first_subject = subjects.first()
+            duplicate_subjects = subjects.exclude(id=first_subject.id)
+
+            # Transfer SubjectSource assignments from duplicates to the first subject
+            cls._transfer_subject_source_assignments(first_subject, duplicate_subjects)
+
+            return first_subject
+
+    @classmethod
+    def _transfer_subject_source_assignments(cls, target_subject: Subject, duplicate_subjects):
+        """Transfer SubjectSource assignments from duplicate subjects to the target subject.
+
+        Args:
+            target_subject (Subject): The subject to receive the assignments
+            duplicate_subjects (QuerySet): The duplicate subjects to transfer assignments from
+        """
+        from django.db import transaction
+
+        with transaction.atomic():
+            for duplicate_subject in duplicate_subjects:
+                # Get all SubjectSource assignments for the duplicate subject
+                assignments = SubjectSource.objects.filter(subject=duplicate_subject)
+                for assignment in assignments:
+                    # Check if target subject already has an assignment with the same source and overlapping range
+                    existing_assignment = SubjectSource.objects.filter(
+                        subject=target_subject,
+                        source=assignment.source,
+                        assigned_range__overlap=assignment.assigned_range,
+                    ).first()
+
+                    if existing_assignment:
+                        if assignment.assigned_range.lower < existing_assignment.assigned_range.lower:
+                            from observations.models import DateTimeTZRange
+
+                            existing_assignment.assigned_range = DateTimeTZRange(
+                                lower=assignment.assigned_range.lower,
+                                upper=max(assignment.assigned_range.upper, existing_assignment.assigned_range.upper),
+                            )
+                            existing_assignment.save()
+                        assignment.delete()
+                    else:
+                        assignment.subject = target_subject
+                        assignment.save()
+                    duplicate_subject.delete()
 
     @classmethod
     def update_subject(cls, subject: Subject, additional: Optional[dict] = None, is_active: Optional[bool] = None):
@@ -242,7 +289,6 @@ class GenericSensorHandler:
             user (User): user who is processing the observation
             source_cache (dict, optional): Cache of sources to avoid redundant ensure_source calls. Defaults to None.
         """
-        logger.debug("Processing one observation", extra={"observation": an_observation})
         manufacturer_id = an_observation["manufacturer_id"]
         location = an_observation["location"]
         lat = location.get("lat", None)
