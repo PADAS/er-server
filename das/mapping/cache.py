@@ -90,7 +90,9 @@ def build_tile_cache_key(
     auth_header = request.META.get("HTTP_AUTHORIZATION") or request.META.get("authorization", "")
     token_hash = _hash_token(auth_header)
     user = getattr(request, "user", None)
-    tenant_component = getattr(user, "das_tenant_id", "no_tenant") or "no_tenant"
+    tenant_component = getattr(user, "das_tenant_id", None)
+    if tenant_component is None:
+        raise ValueError("Missing tenant ID - cannot create cache key")
     query_hash = _hash_query_params(request.GET) if include_query else "noquery"
     layers_part = ",".join(sorted(layer_ids)) if layer_ids else "nolayers"
 
