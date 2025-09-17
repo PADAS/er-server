@@ -134,18 +134,23 @@ class GearSerializer(serializers.Serializer):
             minimum_active_lower_bound = datetime.min.replace(tzinfo=now.tzinfo)
             if subject["is_active"]:
                 related_subject_sources = (
-                    instance.subject.subjectsources.annotate(lower=Lower("assigned_range"))
+                    models.SubjectSource.objects.filter(subject__name=subject["name"])
+                    .annotate(lower=Lower("assigned_range"))
                     .filter(assigned_range__contains=now)
                     .exclude(
                         lower=minimum_active_lower_bound
-                    )  # This prevents including sources that didn't had the lower bound set
+                    )  # This prevents including sources that didn't had the lower bound set i.e. deployed
+                    .select_related("source", "source__provider")
                 )
             else:
-                related_subject_sources = instance.subject.subjectsources.annotate(
-                    lower=Lower("assigned_range")
-                ).exclude(
-                    lower=minimum_active_lower_bound
-                )  # This prevents including sources that didn't had the lower bound set
+                related_subject_sources = (
+                    models.SubjectSource.objects.filter(subject__name=subject["name"])
+                    .annotate(lower=Lower("assigned_range"))
+                    .exclude(
+                        lower=minimum_active_lower_bound
+                    )  # This prevents including sources that didn't had the lower bound set i.e. deployed
+                    .select_related("source", "source__provider")
+                )
             for idx, subject_source in enumerate(related_subject_sources):
                 if subject_source.source:
                     device_id = subject_source.source.manufacturer_id
