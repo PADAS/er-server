@@ -56,7 +56,6 @@ class EventRelationshipInline(admin.TabularInline):
     verbose_name_plural = _("Event Relationships")
     extra = 0
     fields = ("to_event", "type")
-    readonly_fields = ("to_event", "type")
 
     def has_add_permission(self, request, obj=None):
         return False
