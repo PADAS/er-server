@@ -282,9 +282,17 @@ class EventTypeSerializer(ModelSerializer):
 
     @staticmethod
     def is_schema_readonly(obj) -> bool:
+        """
+        Check if a V1 EventType schema has the readonly property set to true.
+        Note: The readonly property is only used in V1 EventType schemas, not V2.
+        V2 schemas have a different structure with "json"/"ui" sections.
+        """
         try:
-            cleaned_schema = replace_template_vars(obj.schema, "[]")
+            cleaned_schema = replace_template_vars(obj.schema.strip(), "[]")
             cleaned_schema = json.loads(cleaned_schema)
+            if not isinstance(cleaned_schema, dict):
+                return False
+
         except Exception as exc:
             logger.error("Failed to get readonly prop for event type schema %s: %s", obj.value, exc)
             return False
