@@ -23,7 +23,7 @@ def replace_template_vars(template: str, replace_with: Union[Callable[[str], str
     """
     pattern = r"\{\{[^}]+\}\}"
 
-    if isinstance(replace_with, Callable):
+    if callable(replace_with):
 
         def replacer(match: re.Match) -> str:
             var_name = match.group(0)[2:-2]  # Extract content between {{ and }}
