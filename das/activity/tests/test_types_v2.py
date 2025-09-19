@@ -460,12 +460,7 @@ class TestEventTypesV2:
         )
 
         # Test auto_resolve=False with resolve_time
-        data.update(
-            {
-                "auto_resolve": False,
-                "resolve_time": 24,
-            }
-        )
+        data.update({"auto_resolve": False, "resolve_time": 24})
         response = superuser_client.post(url, data=data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         # Check for the constraint validation error in the nested error format
@@ -480,11 +475,7 @@ class TestEventTypesV2:
 
         # Test with invalid default_priority type
         data = base_post_data.copy()
-        data.update(
-            {
-                "default_priority": "invalid_priority_string",
-            }
-        )
+        data.update({"default_priority": "invalid_priority_string"})
         response = superuser_client.post(url, data=data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "default_priority" in response.data
@@ -492,11 +483,7 @@ class TestEventTypesV2:
 
         # Test with invalid is_active type
         data = base_post_data.copy()
-        data.update(
-            {
-                "is_active": "not_a_boolean",
-            }
-        )
+        data.update({"is_active": "not_a_boolean"})
         response = superuser_client.post(url, data=data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "is_active" in response.data
@@ -504,11 +491,7 @@ class TestEventTypesV2:
 
         # Test with invalid readonly type
         data = base_post_data.copy()
-        data.update(
-            {
-                "readonly": "not_a_boolean",
-            }
-        )
+        data.update({"readonly": "not_a_boolean"})
         response = superuser_client.post(url, data=data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "readonly" in response.data

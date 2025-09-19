@@ -2,13 +2,14 @@
 Shared utilities for V1/V2 EventType schema testing.
 """
 
-from business_rules import export_rule_data
+import json
 
 from django.urls import reverse
 
 from activity.alerting.businessrules import (
     EventActions,
     _generate_aggregate_event_variables_class,
+    export_rule_data,
 )
 
 
@@ -16,7 +17,7 @@ class V1SchemaBuilder:
     """Builder for V1 EventType JSON schemas using DRY patterns."""
 
     @staticmethod
-    def simple_field(field_name: str, field_type: str = "string", **kwargs):
+    def simple_field(field_name: str, field_type: str = "string", **kwargs) -> dict:
         """Create V1 schema with a single field."""
         field_props = {
             "type": field_type,
@@ -41,9 +42,47 @@ class V1SchemaBuilder:
         }
 
     @staticmethod
-    def choice_field(field_name: str, choices: dict, **kwargs):
+    def choice_field(field_name: str, choices: dict, **kwargs) -> dict:
         """Create V1 schema with choice field using enumNames."""
         return V1SchemaBuilder.simple_field(field_name, "string", enumNames=choices, **kwargs)
+
+    @staticmethod
+    def readonly_schema(readonly_value=True, with_field=True) -> dict:
+        """Create V1 schema with readonly property set.
+        Args:
+            readonly_value: The value for readonly (can be bool, string, number, etc.)
+            with_field: Whether to include a test field in the schema
+        """
+        schema = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "title": "Test Schema",
+            "type": "object",
+            "readonly": readonly_value,
+        }
+        if with_field:
+            schema["properties"] = {"test": {"type": "string", "title": "Test"}}
+        else:
+            schema["properties"] = {}
+        return {"schema": schema, "definition": [{"key": "test", "htmlClass": "col-lg-6"}] if with_field else []}
+
+    @staticmethod
+    def invalid_schema(schema_type="malformed_json") -> str:
+        """Create various invalid schema formats for testing error handling.
+        Args:
+            schema_type: Type of invalid schema to create
+        """
+        if schema_type == "malformed_json":
+            return '{"schema": {"readonly": true, "invalid": }'
+        elif schema_type == "no_schema_key":
+            return json.dumps({"definition": []})
+        elif schema_type == "empty_string":
+            return ""
+        elif schema_type == "none":
+            return None
+        elif schema_type == "missing_schema_wrapper":
+            return json.dumps({"properties": {"field": {"type": "string"}}, "readonly": True})
+        else:
+            raise ValueError(f"Unknown invalid schema type: {schema_type}")
 
     @staticmethod
     def multi_field(fields: dict):
@@ -72,7 +111,7 @@ class V2SchemaBuilder:
     """Builder for V2 EventType schemas with fluent interface."""
 
     @staticmethod
-    def simple_field(field_name: str, field_type: str = "string", **kwargs):
+    def simple_field(field_name: str, field_type: str = "string", **kwargs) -> dict:
         """Create V2 schema with a single field."""
         field_config = {
             "deprecated": False,
@@ -95,7 +134,7 @@ class V2SchemaBuilder:
         }
 
     @staticmethod
-    def choice_field(field_name: str, choices: dict, **kwargs):
+    def choice_field(field_name: str, choices: dict, **kwargs) -> dict:
         """Create V2 schema with oneOf choice structure."""
         one_of_choices = [{"const": key, "title": value} for key, value in choices.items()]
         field_config = {
@@ -120,7 +159,7 @@ class V2SchemaBuilder:
         }
 
     @staticmethod
-    def multi_field(fields: dict):
+    def multi_field(fields: dict) -> dict:
         """Create V2 schema with multiple fields.
 
         Args:
