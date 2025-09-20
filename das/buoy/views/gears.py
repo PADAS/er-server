@@ -3,7 +3,7 @@ from rest_framework import generics
 from rest_framework.response import Response
 
 from buoy import serializers
-from buoy.constants import BUOY_SUBJECT_SUBTYPE
+from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
 from buoy.views.helpers import (
     NAUTICAL_MILE_RADIUS,
     check_valid_date_string,
@@ -59,7 +59,9 @@ class GearsView(generics.ListAPIView):
 
         # First get subject-sources.
         queryset = (
-            SubjectSource.objects.filter(subject__subject_subtype__in=["ropeless_buoy_device", BUOY_SUBJECT_SUBTYPE])
+            SubjectSource.objects.filter(
+                subject__subject_subtype__in=["ropeless_buoy_device", BUOY_GEAR_SUBJECT_SUBTYPE]
+            )
             .select_related("source", "subject")
             .prefetch_related("source__last_observation_sources")
         )

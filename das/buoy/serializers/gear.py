@@ -7,7 +7,7 @@ from drf_extra_fields.geo_fields import PointField
 from django.db.models.functions import Lower
 from rest_framework import serializers
 
-from buoy.constants import BUOY_SUBJECT_SUBTYPE
+from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
 from observations import models
 from observations.serializers import SubjectRelatedField
 
@@ -122,7 +122,7 @@ class GearSerializer(serializers.Serializer):
         gear_rep = dict()
 
         # Handle ropeless_buoy_gearset differently
-        if subject.get("subject_subtype") == BUOY_SUBJECT_SUBTYPE:
+        if subject.get("subject_subtype") == BUOY_GEAR_SUBJECT_SUBTYPE:
             gear_rep[ID_KEY] = subject[ID_KEY]
             gear_rep[DISPLAY_ID_KEY] = subject["name"]
             gear_rep[STATUS_KEY] = "deployed" if subject["is_active"] else "hauled"
