@@ -15,7 +15,12 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from analyzers import gfw_inbound
-from buoy.constants import BUOY_SUBJECT_SUBTYPE, TRAP_DEPLOYED, TRAP_RETRIEVED
+from buoy.constants import (
+    BUOY_DEVICE_SUBJECT_SUBTYPE,
+    BUOY_GEAR_SUBJECT_SUBTYPE,
+    TRAP_DEPLOYED,
+    TRAP_RETRIEVED,
+)
 from observations import servicesutils
 from observations.models import (
     DEFAULT_ASSIGNED_RANGE,
@@ -319,7 +324,7 @@ class GenericSensorHandler:
         observation_additional = an_observation.get("additional", {})
 
         # Special initial validation for ropeless_buoy_gearset
-        if subject_subtype == BUOY_SUBJECT_SUBTYPE:
+        if subject_subtype == BUOY_GEAR_SUBJECT_SUBTYPE:
             event_type = observation_additional.get("event_type")
             if event_type not in [TRAP_DEPLOYED, TRAP_RETRIEVED]:
                 raise ValidationError(
@@ -349,7 +354,8 @@ class GenericSensorHandler:
             if source_cache is not None:
                 source_cache[source_cache_key] = src
 
-        if subject_subtype == BUOY_SUBJECT_SUBTYPE:
+        # For Buoy Subject's, ensure that we have a Subject and SubjectSource set up and define the assigned_range as the deploy/retrieve event dictates
+        if subject_subtype == BUOY_GEAR_SUBJECT_SUBTYPE:
             subject = cls.find_subject_by_name(subject_name)
             if not subject:
                 subject = Subject.objects.create_subject(**subject_info)
@@ -367,6 +373,10 @@ class GenericSensorHandler:
             has_active_sources = subject.subjectsources.filter(assigned_range__contains=now).exists()
             cls.update_subject(subject, additional=subject_additional, is_active=has_active_sources)
 
+        # TODO: Remove after the rollout of the new data model that uses "ropeless_buoy_gearset" as the subject_subtype for buoy devices,
+        if subject_subtype == BUOY_DEVICE_SUBJECT_SUBTYPE:
+            subject = cls.find_subject_by_name(subject_name)
+            cls.update_subject(subject, additional=observation_additional)
         event_action = an_observation.get("additional", {}).get("event_action", cls.DEFAULT_EVENT_ACTION)
         observation = {
             "location": location,

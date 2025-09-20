@@ -17,7 +17,7 @@ from rest_framework import status
 
 from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest, fake_get_pool
-from das.buoy.constants import BUOY_SUBJECT_SUBTYPE, TRAP_DEPLOYED, TRAP_RETRIEVED
+from das.buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE, TRAP_DEPLOYED, TRAP_RETRIEVED
 from observations.models import (
     SEX_MALE,
     Observation,
@@ -765,7 +765,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             },
             "recorded_at": "2025-07-30T01:03:35.239Z",
             "source_type": "ropeless_gear",
-            "subject_subtype": BUOY_SUBJECT_SUBTYPE,
+            "subject_subtype": BUOY_GEAR_SUBJECT_SUBTYPE,
             "subject_name": "GearSet_1",
             "manufacturer_id": f"Trap_{iso_timestamp}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
@@ -783,7 +783,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             },
             "recorded_at": "2025-07-30T01:05:35.239Z",
             "source_type": "ropeless_gear",
-            "subject_subtype": BUOY_SUBJECT_SUBTYPE,
+            "subject_subtype": BUOY_GEAR_SUBJECT_SUBTYPE,
             "subject_name": "GearSet_1",
             "manufacturer_id": f"Trap_{iso_timestamp_2}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional_updated"},
@@ -806,12 +806,12 @@ class GenericSensorHandlerTest(BaseAPITest):
         source_2 = Source.objects.get(manufacturer_id=second_observation["manufacturer_id"])
         subject = Subject.objects.get(name="GearSet_1")
 
-        self.assertEqual(subject.subject_subtype.value, BUOY_SUBJECT_SUBTYPE)
+        self.assertEqual(subject.subject_subtype.value, BUOY_GEAR_SUBJECT_SUBTYPE)
         self.assertEqual(subject.additional, {**second_observation["subject_additional"], "display_id": "GearSet_1"})
         self.assertEqual(source_1.additional, first_observation["source_additional"])
         self.assertEqual(source_2.additional, second_observation["source_additional"])
 
-        self.assertIsNotNone(SubjectSubType.objects.get(value=BUOY_SUBJECT_SUBTYPE))
+        self.assertIsNotNone(SubjectSubType.objects.get(value=BUOY_GEAR_SUBJECT_SUBTYPE))
 
         subject_source_1 = SubjectSource.objects.get(subject=subject, source=source_1)
         subject_source_2 = SubjectSource.objects.get(subject=subject, source=source_2)
@@ -838,7 +838,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             },
             "recorded_at": "2025-07-30T01:03:35.239Z",
             "source_type": "ropeless_gear",
-            "subject_subtype": BUOY_SUBJECT_SUBTYPE,
+            "subject_subtype": BUOY_GEAR_SUBJECT_SUBTYPE,
             "subject_name": "GearSet_1",
             "manufacturer_id": f"Trap_{iso_timestamp}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_1_additional"},
@@ -856,7 +856,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             },
             "recorded_at": "2025-07-30T01:05:35.239Z",
             "source_type": "ropeless_gear",
-            "subject_subtype": BUOY_SUBJECT_SUBTYPE,
+            "subject_subtype": BUOY_GEAR_SUBJECT_SUBTYPE,
             "subject_name": "GearSet_2",
             "manufacturer_id": f"Trap_{iso_timestamp_2}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_2_additional"},
@@ -880,12 +880,12 @@ class GenericSensorHandlerTest(BaseAPITest):
         subject_1 = Subject.objects.get(name="GearSet_1")
         subject_2 = Subject.objects.get(name="GearSet_2")
 
-        self.assertEqual(subject_1.subject_subtype.value, BUOY_SUBJECT_SUBTYPE)
+        self.assertEqual(subject_1.subject_subtype.value, BUOY_GEAR_SUBJECT_SUBTYPE)
         self.assertEqual(
             subject_1.additional,
             {**first_observation["subject_additional"], "display_id": first_observation["subject_name"]},
         )
-        self.assertEqual(subject_2.subject_subtype.value, BUOY_SUBJECT_SUBTYPE)
+        self.assertEqual(subject_2.subject_subtype.value, BUOY_GEAR_SUBJECT_SUBTYPE)
         self.assertEqual(
             subject_2.additional,
             {**second_observation["subject_additional"], "display_id": second_observation["subject_name"]},
@@ -893,7 +893,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(source_1.additional, first_observation["source_additional"])
         self.assertEqual(source_2.additional, second_observation["source_additional"])
 
-        self.assertIsNotNone(SubjectSubType.objects.get(value=BUOY_SUBJECT_SUBTYPE))
+        self.assertIsNotNone(SubjectSubType.objects.get(value=BUOY_GEAR_SUBJECT_SUBTYPE))
 
         subject_source_1 = SubjectSource.objects.get(subject=subject_1, source=source_1)
         subject_source_2 = SubjectSource.objects.get(subject=subject_2, source=source_2)
@@ -912,7 +912,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             },
             "recorded_at": "2025-07-30T01:03:35.239Z",
             "source_type": "ropeless_gear",
-            "subject_subtype": BUOY_SUBJECT_SUBTYPE,
+            "subject_subtype": BUOY_GEAR_SUBJECT_SUBTYPE,
             "subject_name": "GearSet_1",
             "manufacturer_id": f"Trap_{iso_timestamp}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
@@ -945,7 +945,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             },
             "recorded_at": "2025-07-30T01:03:35.239Z",
             "source_type": "ropeless_gear",
-            "subject_subtype": BUOY_SUBJECT_SUBTYPE,
+            "subject_subtype": BUOY_GEAR_SUBJECT_SUBTYPE,
             "subject_name": "GearSet_1",
             "manufacturer_id": f"Trap_{iso_timestamp}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
@@ -981,7 +981,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             },
             "recorded_at": "2025-07-30T01:03:35.239Z",
             "source_type": "ropeless_gear",
-            "subject_subtype": BUOY_SUBJECT_SUBTYPE,
+            "subject_subtype": BUOY_GEAR_SUBJECT_SUBTYPE,
             "subject_name": "GearSet_1",
             "manufacturer_id": f"Trap_{iso_timestamp}",
             "subject_additional": {"any_information_related_to_the_trawl": "subject_additional"},
@@ -1002,3 +1002,131 @@ class GenericSensorHandlerTest(BaseAPITest):
             f"'{TRAP_DEPLOYED}' or '{TRAP_RETRIEVED}'.",
             [str(error) for error in response.data],
         )
+
+    def test_find_subject_by_name_transfers_assignments_from_duplicates(self):
+        """Test that when multiple subjects have the same name,
+        SubjectSource assignments are transferred to the first one."""
+        from observations.models import DEFAULT_ASSIGNED_RANGE, DateTimeTZRange
+        from sensors.handlers import GenericSensorHandler
+
+        # Create test sources
+        source1 = Source.objects.create(manufacturer_id="source1", provider=self.provider_obj)
+        source2 = Source.objects.create(manufacturer_id="source2", provider=self.provider_obj)
+
+        # Create duplicate subjects with same name but different creation times
+        duplicate_name = "duplicate_subject_test"
+
+        # First subject (should be kept)
+        first_subject = Subject.objects.create(name=duplicate_name, subject_subtype_id="ranger")
+
+        # Second subject (duplicate, created later)
+        second_subject = Subject.objects.create(name=duplicate_name, subject_subtype_id="ranger")
+
+        # Third subject (another duplicate, created even later)
+        third_subject = Subject.objects.create(name=duplicate_name, subject_subtype_id="ranger")
+
+        # Create SubjectSource assignments for each duplicate subject
+        SubjectSource.objects.create(
+            subject=first_subject,
+            source=source1,
+            assigned_range=DateTimeTZRange(
+                lower=datetime.datetime(2023, 1, 1, tzinfo=pytz.utc),
+                upper=datetime.datetime(2023, 6, 1, tzinfo=pytz.utc),
+            ),
+        )
+
+        SubjectSource.objects.create(
+            subject=second_subject,
+            source=source2,
+            assigned_range=DateTimeTZRange(
+                lower=datetime.datetime(2023, 2, 1, tzinfo=pytz.utc),
+                upper=datetime.datetime(2023, 7, 1, tzinfo=pytz.utc),
+            ),
+        )
+
+        SubjectSource.objects.create(
+            subject=third_subject,
+            source=source1,  # Same source as first assignment but different time range
+            assigned_range=DateTimeTZRange(
+                lower=datetime.datetime(2023, 8, 1, tzinfo=pytz.utc), upper=DEFAULT_ASSIGNED_RANGE[1]  # Open-ended
+            ),
+        )
+
+        # Verify initial state
+        self.assertEqual(SubjectSource.objects.filter(subject=first_subject).count(), 1)
+        self.assertEqual(SubjectSource.objects.filter(subject=second_subject).count(), 1)
+        self.assertEqual(SubjectSource.objects.filter(subject=third_subject).count(), 1)
+
+        # Call find_subject_by_name which should trigger the assignment transfer
+        result_subject = GenericSensorHandler.find_subject_by_name(duplicate_name)
+
+        # Verify the first subject is returned
+        self.assertEqual(result_subject.id, first_subject.id)
+
+        # Verify all assignments are now associated with the first subject
+        first_subject_assignments = SubjectSource.objects.filter(subject=first_subject)
+        second_subject_assignments = SubjectSource.objects.filter(subject=second_subject)
+        third_subject_assignments = SubjectSource.objects.filter(subject=third_subject)
+
+        # First subject should have all 3 assignments now
+        self.assertEqual(first_subject_assignments.count(), 3)
+        # Duplicate subjects should have no assignments left
+        self.assertEqual(second_subject_assignments.count(), 0)
+        self.assertEqual(third_subject_assignments.count(), 0)
+
+        # Verify the sources are correctly assigned
+        assigned_sources = list(first_subject_assignments.values_list("source_id", flat=True))
+        expected_sources = [source1.id, source2.id, source1.id]  # source1 appears twice
+        self.assertEqual(sorted(assigned_sources), sorted(expected_sources))
+
+    def test_find_subject_by_name_handles_overlapping_assignments(self):
+        """Test that overlapping assignments are properly merged when transferring from duplicates."""
+        from observations.models import DateTimeTZRange
+        from sensors.handlers import GenericSensorHandler
+
+        # Create test source
+        source = Source.objects.create(manufacturer_id="test_source", provider=self.provider_obj)
+
+        duplicate_name = "overlapping_test_subject"
+
+        # First subject with an assignment
+        first_subject = Subject.objects.create(name=duplicate_name, subject_subtype_id="ranger")
+
+        # Second subject with overlapping assignment
+        second_subject = Subject.objects.create(name=duplicate_name, subject_subtype_id="ranger")
+
+        # Create overlapping assignments for the same source
+        SubjectSource.objects.create(
+            subject=first_subject,
+            source=source,
+            assigned_range=DateTimeTZRange(
+                lower=datetime.datetime(2023, 3, 1, tzinfo=pytz.utc),
+                upper=datetime.datetime(2023, 8, 1, tzinfo=pytz.utc),
+            ),
+        )
+        SubjectSource.objects.create(
+            subject=second_subject,
+            source=source,
+            assigned_range=DateTimeTZRange(
+                lower=datetime.datetime(2023, 1, 1, tzinfo=pytz.utc),  # Earlier start
+                upper=datetime.datetime(2023, 6, 1, tzinfo=pytz.utc),
+            ),
+        )
+        # Call find_subject_by_name
+        result_subject = GenericSensorHandler.find_subject_by_name(duplicate_name)
+
+        # Verify the result
+        self.assertEqual(result_subject.id, first_subject.id)
+
+        # Should have only one assignment for the source now (merged)
+        assignments = SubjectSource.objects.filter(subject=first_subject, source=source)
+        self.assertEqual(assignments.count(), 1)
+
+        # The assignment should have the earlier start time from ss2
+        merged_assignment = assignments.first()
+        self.assertEqual(merged_assignment.assigned_range.lower, datetime.datetime(2023, 1, 1, tzinfo=pytz.utc))
+        # And the later end time from ss1
+        self.assertEqual(merged_assignment.assigned_range.upper, datetime.datetime(2023, 8, 1, tzinfo=pytz.utc))
+
+        # Second subject should have no assignments
+        self.assertEqual(SubjectSource.objects.filter(subject=second_subject).count(), 0)
