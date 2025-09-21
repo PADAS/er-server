@@ -48,6 +48,7 @@ class TestSpatialFeatureVectorTiles:
         factory = RequestFactory()
         request = factory.get("/tiles/10/327/791.pbf")
         request.META["HTTP_AUTHORIZATION"] = "Bearer testtoken1"
+        request.user = type("User", (), {"das_tenant_id": "tenant1"})()
 
         view = SpatialFeatureTileView()
 
@@ -69,6 +70,7 @@ class TestSpatialFeatureVectorTiles:
         factory = RequestFactory()
         request = factory.get("/tiles/10/327/791.pbf")
         request.META["HTTP_AUTHORIZATION"] = "Bearer testtoken2"
+        request.user = type("User", (), {"das_tenant_id": "tenant1"})()
 
         view = SpatialFeatureTileView()
         cache.clear()
@@ -88,6 +90,7 @@ class TestSpatialFeatureVectorTiles:
         factory = RequestFactory()
         request = factory.get("/tiles/10/327/791.pbf")
         request.META["HTTP_AUTHORIZATION"] = "Bearer testtoken3"
+        request.user = type("User", (), {"das_tenant_id": "tenant1"})()
 
         view = SpatialFeatureTileView()
         cache.clear()
