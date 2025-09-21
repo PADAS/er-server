@@ -29,9 +29,11 @@ def update_existing_tilelayer_conf(unused, schema_editor):
         try:
             with TenantContextManager(tenant.domain):
                 # find all the old Google Satellite records with "accessToken", for service type google_map
-                for google_layer in TileLayer.objects.filter(attributes__type="google_map"):
+                google_layers = list(TileLayer.objects.filter(attributes__type="google_map"))
+                for google_layer in google_layers:
                     google_layer.attributes = Google_satellite_conf
-                    google_layer.save()
+                if google_layers:
+                    TileLayer.objects.bulk_update(google_layers, ["attributes", "updated_at"])
 
         except TenantNotFoundException:
             logger.warning(
