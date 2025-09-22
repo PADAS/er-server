@@ -3,6 +3,7 @@ import glob
 import logging
 import os
 import uuid
+from typing import List
 
 import tagulous.settings
 from django_multitenant.fields import TenantForeignKey
@@ -638,7 +639,7 @@ class SpatialFeatureGroupStaticFeatures(TenantThroughModel):
 
 
 class SpatialFeatureGroupStaticQuerySet(models.QuerySet):
-    def by_spatial_type(self, spatial_type: str, exclusive: bool = True):
+    def by_spatial_type(self, spatial_types: List[str], exclusive: bool = True):
         ALL_FEATURE_TYPES = (
             GEO_TYPE_POINT,
             GEO_TYPE_LINESTRING,
@@ -650,10 +651,10 @@ class SpatialFeatureGroupStaticQuerySet(models.QuerySet):
         queryset = self
         if exclusive:
             excludes = Q()
-            for exclude in [type for type in ALL_FEATURE_TYPES if type != spatial_type]:
+            for exclude in [type for type in ALL_FEATURE_TYPES if type not in spatial_types]:
                 excludes &= ~Q(features__feature_geometry__type=exclude)
-            queryset = queryset.filter(excludes)
-        return queryset.filter(features__feature_geometry__type=spatial_type).distinct()
+            return queryset.filter(excludes)
+        return queryset.filter(features__feature_geometry__type__in=spatial_types).distinct()
 
 
 class SpatialFeatureGroupStaticManager(
