@@ -14,6 +14,7 @@ from tagulous.models import TagModel
 from django.conf import settings
 from django.contrib.gis import geos
 from django.contrib.gis.db import models
+from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.db.models import Index, Q, UniqueConstraint
@@ -949,7 +950,6 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
 
     def _bump_cache_version(self):
         """Increment the vector tile cache version to invalidate cached tiles."""
-        from django.core.cache import cache
 
         cache_key = "vector_tile_data_version"
         try:
