@@ -1010,8 +1010,8 @@ class GenericSensorHandlerTest(BaseAPITest):
         from sensors.handlers import GenericSensorHandler
 
         # Create test sources
-        source1 = Source.objects.create(manufacturer_id="source1", provider=self.provider_obj)
-        source2 = Source.objects.create(manufacturer_id="source2", provider=self.provider_obj)
+        source1 = Source.objects.create(manufacturer_id="source1", provider=self.test_sourceprovider)
+        source2 = Source.objects.create(manufacturer_id="source2", provider=self.test_sourceprovider)
 
         # Create duplicate subjects with same name but different creation times
         duplicate_name = "duplicate_subject_test"
@@ -1085,7 +1085,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         from sensors.handlers import GenericSensorHandler
 
         # Create test source
-        source = Source.objects.create(manufacturer_id="test_source", provider=self.provider_obj)
+        source = Source.objects.create(manufacturer_id="test_source", provider=self.test_sourceprovider)
 
         duplicate_name = "overlapping_test_subject"
 
