@@ -126,19 +126,6 @@ class RequestLoggingMiddleware(object):
             if error_message:
                 extra["error_message"] = error_message
 
-            request_info = "{0} {1} {2}".format(method, path, protocol)
-            method = '%s %s %s [] "%s" %s %s "%s" "%s" (%.02f seconds)' % (
-                remote_addr,
-                logname,
-                user_id,
-                request_info,
-                status_code,
-                content_length,
-                referer,
-                user_agent,
-                req_time,
-            )
-
             self.logger.info("request", extra=extra)
             stats.histogram(
                 "api_request_time",
