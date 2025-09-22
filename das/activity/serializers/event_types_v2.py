@@ -1,10 +1,13 @@
 import logging
+from typing import List
 
 from rest_framework import serializers
 
+from accounts.serializers import get_user_display
 from activity.models import EventCategory, EventType
 from activity.schemas.eventtype_meta_schemas import main_event_type_schema
 from activity.serializers.fields.json_schema import JSONSchemaField
+from revision.manager import ACTION_ADDED
 
 logger = logging.getLogger(__name__)
 
@@ -81,3 +84,31 @@ class EventTypeV2Serializer(serializers.ModelSerializer):
             representation.pop("schema", None)
 
         return representation
+
+
+class EventTypeRevisionSerializer(serializers.Serializer):
+    """Serializer for EventType revision history."""
+
+    time = serializers.SerializerMethodField()
+    action = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
+    updated_fields = serializers.SerializerMethodField()
+    sequence = serializers.IntegerField()
+
+    def get_time(self, obj) -> str:
+        return obj.revision_at.isoformat()
+
+    def get_action(self, obj) -> str:
+        return obj.get_action_display()
+
+    def get_user(self, obj) -> str:
+        """Get the user representation for this revision."""
+        if not obj.user:
+            return "System"
+        return get_user_display(obj.user)
+
+    def get_updated_fields(self, obj) -> List[str]:
+        """Get the fields that have been updated in this revision."""
+        if obj.action != ACTION_ADDED and isinstance(obj.data, dict):
+            return list(obj.data.keys())
+        return []

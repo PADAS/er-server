@@ -21,7 +21,10 @@ from activity.filters import EventTypeFilterSet
 from activity.models import Event, EventType
 from activity.permissions import EventCategoryPermissions
 from activity.schemas.eventtype_service import EventTypeSchemaService
-from activity.serializers.events_v2 import EventTypeV2Serializer
+from activity.serializers.event_types_v2 import (
+    EventTypeRevisionSerializer,
+    EventTypeV2Serializer,
+)
 from activity.views.events.utils import AllowedCategoriesMixin
 from core.utils import is_uuid
 from schemas.view_mixins import DynamicSchemaDataMixin
@@ -194,9 +197,23 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         else:
             schema_result = schema_service.get_raw_schema(event_type)
 
-        # TODO: Propose a change to the shape of the response, to be more in line with the list_schemas response
         if schema_result.status != "failure":
             return Response(schema_result.schema, status=status.HTTP_200_OK)
         return Response(
             {"errors": [err.to_dict() for err in schema_result.errors]}, status=status.HTTP_422_UNPROCESSABLE_ENTITY
         )
+
+    @action(
+        methods=["get"],
+        detail=True,
+        url_path="updates",
+        serializer_class=EventTypeRevisionSerializer,
+    )
+    def retrieve_updates(self, request: Request, **kwargs) -> Response:
+        """
+        Returns the updates for the specified event type.
+        """
+        event_type = self.get_object()
+        revisions = event_type.revision.all().order_by("-sequence")
+        result = EventTypeRevisionSerializer(revisions, many=True).data
+        return Response(result)
