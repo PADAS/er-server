@@ -143,7 +143,7 @@ class RequestLoggingMiddleware(object):
             stats.histogram(
                 "api_request_time",
                 req_time,
-                tags=[f"path:{path_for_metrics}", f"method:{method}", f"status:{status_code}"],
+                tags=[f"http_path:{path_for_metrics}", f"http_method:{method}", f"http_status:{status_code}"],
             )
 
             span = trace.get_current_span()
