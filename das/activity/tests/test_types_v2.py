@@ -9,7 +9,8 @@ from rest_framework import status
 
 from activity.constants import PRI_IMPORTANT, PRI_URGENT
 from activity.models import AlertRule, Event, EventType
-from activity.serializers.events_v2 import EventTypeV2Serializer
+from activity.serializers.event_types_v2 import EventTypeV2Serializer
+from activity.tests.helpers.schema_test_utils import V2SchemaBuilder
 
 
 @pytest.mark.django_db
@@ -1050,6 +1051,113 @@ class TestEventTypesV2SchemaRendering:
         assert "properties" in rendered_schema
         assert "$ref" in rendered_schema["properties"]["subject"]
         assert "oneOf" not in rendered_schema["properties"]["subject"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestEventTypesV2Updates:
+    """Tests for the EventType updates endpoint (revision history)."""
+
+    def test_retrieve_updates_returns_revisions(self, superuser_client, cat1_fire_v2_event_type):
+        """Test that the endpoint returns revisions for an EventType."""
+        url = reverse("v2-eventtype-retrieve-updates", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert isinstance(response.data, list)
+        assert len(response.data) == 1  # Only creation revision
+
+        revision = response.data[0]
+        expected_fields = ["time", "action", "user", "updated_fields", "sequence"]
+        for field in expected_fields:
+            assert field in revision
+            assert revision[field] is not None
+
+        # Verify field types
+        assert isinstance(revision["time"], str)
+        assert isinstance(revision["action"], str)
+        assert isinstance(revision["user"], str)
+        assert isinstance(revision["updated_fields"], list)
+        assert isinstance(revision["sequence"], int)
+
+    def test_retrieve_updates_after_schema_change(self, superuser_client, cat1_fire_v2_event_type):
+        """Test revisions after schema field updates."""
+
+        # Update schema
+        new_schema = V2SchemaBuilder.simple_field("new_field", "string")
+        cat1_fire_v2_event_type.schema = json.dumps(new_schema)
+        cat1_fire_v2_event_type.save()
+
+        # Verify new revision was created
+        url = reverse("v2-eventtype-retrieve-updates", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 2
+
+        # Find the schema update revision
+        latest_revision = response.data[0]  # Should be newest first
+        assert latest_revision["action"] == "Updated"
+        assert "schema" in latest_revision["updated_fields"]
+
+    def test_retrieve_updates_multiple_changes(self, superuser_client, cat1_fire_v2_event_type):
+        """Test multiple sequential updates create proper revision history."""
+        url = reverse("v2-eventtype-retrieve-updates", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        # Make multiple changes
+        changes = [
+            {"field": "schema", "value": json.dumps(V2SchemaBuilder.simple_field("notes", "string"))},
+            {"field": "display", "value": "Updated Display Name"},
+            {"field": "default_priority", "value": Event.PRI_URGENT},
+            {"field": "readonly", "value": True},  # Change from is_active to readonly to avoid filtering issues
+        ]
+
+        for change in changes:
+            setattr(cat1_fire_v2_event_type, change["field"], change["value"])
+            cat1_fire_v2_event_type.save()
+
+        # Verify all revisions were created
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 1 + len(changes)
+
+        # Verify each change created a revision with the correct field
+        recent_revisions = response.data[: len(changes)]  # Get the most recent revisions
+        updated_fields_from_revisions = []
+        for revision in recent_revisions:
+            assert revision["action"] == "Updated"
+            updated_fields_from_revisions.extend(revision["updated_fields"])
+
+        # Verify all changed fields appear in the revisions
+        expected_fields = [change["field"] for change in changes]
+        for field in expected_fields:
+            assert field in updated_fields_from_revisions
+
+    def test_retrieve_updates_nonexistent_eventtype(self, superuser_client):
+        """Test 404 response for non-existent EventType."""
+        url = reverse("v2-eventtype-retrieve-updates", kwargs={"eventtype_value": "nonexistent_type"})
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert "No EventType matches the given query" in str(response.data)
+
+    def test_retrieve_updates_invalid_http_methods(self, superuser_client, cat1_fire_v2_event_type):
+        """Test that only GET method is allowed on updates endpoint."""
+        url = reverse("v2-eventtype-retrieve-updates", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        # Test unsupported methods
+        methods_to_test = [
+            (superuser_client.post, {"test": "data"}),
+            (superuser_client.put, {"test": "data"}),
+            (superuser_client.patch, {"test": "data"}),
+            (superuser_client.delete, None),
+        ]
+
+        for method, data in methods_to_test:
+            if data:
+                response = method(url, data, format="json")
+            else:
+                response = method(url)
+            assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
 
 @pytest.mark.django_db
