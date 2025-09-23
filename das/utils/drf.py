@@ -12,7 +12,7 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import InvalidPage, Paginator
 from django.db import OperationalError, connection, transaction
 from django.db.models.query import QuerySet
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.http.request import QueryDict
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
@@ -334,3 +334,23 @@ class CycleDetectedException(exceptions.APIException):
     status_code = 508
     default_detail = "Cyclic SubjectGroup found"
     default_code = "loop_detected"
+
+
+def create_json_response(content, content_type="application/json"):
+    """
+    Create an HttpResponse with proper Content-Length header.
+
+    Args:
+        content: The content to return (string or bytes)
+        content_type: The content type (default: application/json)
+
+    Returns:
+        HttpResponse with Content-Length header set
+    """
+
+    if isinstance(content, str):
+        content = content.encode("utf-8")
+
+    response = HttpResponse(content, content_type=content_type)
+    response["Content-Length"] = str(len(content))
+    return response
