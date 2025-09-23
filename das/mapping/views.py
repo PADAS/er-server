@@ -299,6 +299,7 @@ def tilejson(request, name, catalog=None):
         tilejson = json.dumps(tilejson)
         if callback:
             tilejson = "%s(%s);" % (callback, tilejson)
+        tilejson = tilejson.encode("utf-8")
         return create_json_response(tilejson, content_type="application/javascript; charset=utf8")
     except MBTilesNotFoundError as e:
         logger.warning(e)
