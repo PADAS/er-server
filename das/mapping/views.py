@@ -275,7 +275,7 @@ def grid(request, name, z, x, y, catalog=None):
     callback = request.GET.get("callback", None)
     try:
         mbtiles = MBTiles(name, catalog)
-        grid_content = mbtiles.grid(z, x, y, callback).encode("utf-8")
+        grid_content = mbtiles.grid(z, x, y, callback)
         return create_json_response(grid_content, content_type="application/javascript; charset=utf8")
     except MBTilesNotFoundError as e:
         logger.warning(e)
