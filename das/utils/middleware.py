@@ -93,6 +93,8 @@ class RequestLoggingMiddleware(object):
             user_agent = request.META.get("HTTP_USER_AGENT", "")
             status_code = response.status_code
             path = request.get_full_path()
+            # Strip query parameters for cleaner metrics
+            path_for_metrics = request.path
             host = request.get_host()
             method = request.method
             protocol = request.META.get("SERVER_PROTOCOL", "")
@@ -124,24 +126,11 @@ class RequestLoggingMiddleware(object):
             if error_message:
                 extra["error_message"] = error_message
 
-            request_info = "{0} {1} {2}".format(method, path, protocol)
-            method = '%s %s %s [] "%s" %s %s "%s" "%s" (%.02f seconds)' % (
-                remote_addr,
-                logname,
-                user_id,
-                request_info,
-                status_code,
-                content_length,
-                referer,
-                user_agent,
-                req_time,
-            )
-
             self.logger.info("request", extra=extra)
             stats.histogram(
                 "api_request_time",
                 req_time,
-                tags=[f"path:{path}", f"method:{method}" f"satus:{status_code}"],
+                tags=[f"http_path:{path_for_metrics}", f"http_method:{method}", f"http_status:{status_code}"],
             )
 
             span = trace.get_current_span()

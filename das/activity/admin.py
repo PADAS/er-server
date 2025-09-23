@@ -173,7 +173,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
     def resolve_event(self, request, queryset):
         queryset.update(state=models.Event.SC_RESOLVED)
 
-    resolve_event.short_description = "Resolve Selected Events(Reports)"
+    resolve_event.short_description = "Resolve Selected Events"
 
     def _created_at(self, o):
         return o.created_at

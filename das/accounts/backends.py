@@ -105,8 +105,29 @@ class PriorityOAuth2SessionAuthentication(SessionAuthentication):
     def enforce_csrf(self, request):
         """
         Here we may choose to not enforce CSRF validation for session based authentication.
-        We had disabled that previously, but let's see if we still need that behavior.
+        We disabled it, because when we login using admin, the CSRF token is set,
+        but then we re-redirect to web UI to show the EULA confirmation page.
+        And the CSRF token is not set in the web UI.
+
+        We only skip CSRF enforcement when:
+        1. No OAuth2 token is present (falling back to session auth)
+        2. Request has a valid Django session
         """
+        # Check if there's a Bearer token in the Authorization header
+        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+        has_bearer_token = auth_header.startswith(self.keyword + " ")
+
+        # If there's a Bearer token, enforce CSRF as normal (OAuth2 should handle auth)
+        if has_bearer_token:
+            return super().enforce_csrf(request)
+
+        # If no Bearer token, check if we have a Django session with an authenticated user
+        # This handles the admin login -> EULA redirect -> API call scenario
+        # We avoid calling request.user to prevent recursion during authentication
+        if hasattr(request, "session") and request.session and "_auth_user_id" in request.session:
+            return
+
+        # Default case: enforce CSRF
         return super().enforce_csrf(request)
 
     def authenticate_header(self, request):
