@@ -18,7 +18,12 @@ from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from rest_framework import exceptions, status
 from rest_framework.pagination import CursorPagination, PageNumberPagination
-from rest_framework.permissions import SAFE_METHODS, BasePermission
+from rest_framework.permissions import (
+    SAFE_METHODS,
+    BasePermission,
+    DjangoModelPermissions,
+    DjangoObjectPermissions,
+)
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.settings import api_settings
@@ -334,3 +339,75 @@ class CycleDetectedException(exceptions.APIException):
     status_code = 508
     default_detail = "Cyclic SubjectGroup found"
     default_code = "loop_detected"
+
+
+class StandardObjectPermissions(DjangoObjectPermissions):
+    view_perms = ["%(app_label)s.view_%(model_name)s"]
+
+    perms_map = {
+        "GET": view_perms,
+        "OPTIONS": view_perms,
+        "HEAD": view_perms,
+        "POST": ["%(app_label)s.add_%(model_name)s"],
+        "PUT": ["%(app_label)s.change_%(model_name)s"],
+        "PATCH": ["%(app_label)s.change_%(model_name)s"],
+        "DELETE": ["%(app_label)s.delete_%(model_name)s"],
+    }
+
+
+class ModelPermissions(DjangoModelPermissions):
+    view_perms = ["%(app_label)s.view_%(model_name)s"]
+
+    perms_map = {
+        "GET": view_perms,
+        "OPTIONS": view_perms,
+        "HEAD": view_perms,
+        "POST": ["%(app_label)s.add_%(model_name)s"],
+        "PUT": ["%(app_label)s.change_%(model_name)s"],
+        "PATCH": ["%(app_label)s.change_%(model_name)s"],
+        "DELETE": ["%(app_label)s.delete_%(model_name)s"],
+    }
+
+
+class ModelPermissionsAnyOfView(DjangoModelPermissions):
+    view_perms_any = ("%(app_label)s.view_%(model_name)s",)
+
+    # Let our override handle safe methods; use normal map for writes.
+    perms_map = {
+        "GET": [],
+        "HEAD": [],
+        "OPTIONS": [],
+        "POST": ["%(app_label)s.add_%(model_name)s"],
+        "PUT": ["%(app_label)s.change_%(model_name)s"],
+        "PATCH": ["%(app_label)s.change_%(model_name)s"],
+        "DELETE": ["%(app_label)s.delete_%(model_name)s"],
+    }
+
+    def has_permission(self, request, view):
+        # Handle read methods with OR logic
+        if request.method in SAFE_METHODS:
+            user = request.user
+            if not (user and user.is_authenticated):
+                return False
+            queryset = self._queryset(view)
+            opts = queryset.model._meta
+            fmt = {"app_label": opts.app_label, "model_name": opts.model_name}
+            required = [perm % fmt for perm in self.view_perms_any]
+            return any(user.has_perm(p) for p in required)
+
+        # Non-safe methods: fall back to standard AND behavior
+        return super().has_permission(request, view)
+
+
+class ModelPermissions(DjangoModelPermissions):
+    view_perms = ["%(app_label)s.view_%(model_name)s"]
+
+    perms_map = {
+        "GET": view_perms,
+        "OPTIONS": view_perms,
+        "HEAD": view_perms,
+        "POST": ["%(app_label)s.add_%(model_name)s"],
+        "PUT": ["%(app_label)s.change_%(model_name)s"],
+        "PATCH": ["%(app_label)s.change_%(model_name)s"],
+        "DELETE": ["%(app_label)s.delete_%(model_name)s"],
+    }

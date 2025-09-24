@@ -173,6 +173,23 @@ def subject_group_empty():
 
 
 @pytest.fixture
+def permissionset_administer_sources(db):
+    ps = PermissionSetFactory(name="Administer Sources")
+
+    perm_specs = [
+        ("add_source", "observations", "source"),
+        ("change_source", "observations", "source"),
+        ("view_source", "observations", "source"),
+        ("delete_source", "observations", "source"),
+        ("view_sourcegroup", "observations", "sourcegroup"),
+    ]
+
+    perms = [Permission.objects.get_by_natural_key(*perm_spec) for perm_spec in perm_specs]
+    ps.permissions.add(*perms)
+    return ps
+
+
+@pytest.fixture
 def two_subject_groups(view_subject_permissions):
     view_sg_a_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
     view_sg_b_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
