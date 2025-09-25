@@ -652,7 +652,7 @@ class SpatialFeatureGroupStaticQuerySet(models.QuerySet):
         if exclusive:
             excludes = Q()
             for exclude in [type for type in ALL_FEATURE_TYPES if type not in spatial_types]:
-                excludes &= ~Q(features__feature_geometry__type=exclude)
+                excludes |= ~Q(features__feature_geometry__type=exclude)
             return queryset.filter(excludes)
         return queryset.filter(features__feature_geometry__type__in=spatial_types).distinct()
 
