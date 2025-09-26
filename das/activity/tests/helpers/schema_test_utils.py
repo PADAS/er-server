@@ -3,6 +3,7 @@ Shared utilities for V1/V2 EventType schema testing.
 """
 
 import json
+from typing import Optional
 
 from django.urls import reverse
 
@@ -66,7 +67,7 @@ class V1SchemaBuilder:
         return {"schema": schema, "definition": [{"key": "test", "htmlClass": "col-lg-6"}] if with_field else []}
 
     @staticmethod
-    def invalid_schema(schema_type="malformed_json") -> str:
+    def invalid_schema(schema_type="malformed_json") -> Optional[str]:
         """Create various invalid schema formats for testing error handling.
         Args:
             schema_type: Type of invalid schema to create
