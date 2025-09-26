@@ -3,7 +3,7 @@ from typing import List
 
 from rest_framework import serializers
 
-from accounts.serializers import get_user_display
+from accounts.serializers import SimpleUserDisplaySerializer
 from activity.models import EventCategory, EventType
 from activity.schemas.eventtype_meta_schemas import main_event_type_schema
 from activity.serializers.fields.json_schema import JSONSchemaField
@@ -91,7 +91,7 @@ class EventTypeRevisionSerializer(serializers.Serializer):
 
     time = serializers.SerializerMethodField()
     action = serializers.SerializerMethodField()
-    user = serializers.SerializerMethodField()
+    user = SimpleUserDisplaySerializer()
     updated_fields = serializers.SerializerMethodField()
     sequence = serializers.IntegerField()
 
@@ -101,14 +101,10 @@ class EventTypeRevisionSerializer(serializers.Serializer):
     def get_action(self, obj) -> str:
         return obj.get_action_display()
 
-    def get_user(self, obj) -> str:
-        """Get the user representation for this revision."""
-        if not obj.user:
-            return "System"
-        return get_user_display(obj.user)
-
     def get_updated_fields(self, obj) -> List[str]:
         """Get the fields that have been updated in this revision."""
+        non_user_fields = ["updated_at", "created_at"]
         if obj.action != ACTION_ADDED and isinstance(obj.data, dict):
-            return list(obj.data.keys())
+            updated_fields = [k for k in list(obj.data.keys()) if k not in non_user_fields]
+            return updated_fields
         return []
