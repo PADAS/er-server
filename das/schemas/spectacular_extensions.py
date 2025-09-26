@@ -19,6 +19,7 @@ from drf_spectacular.utils import (
 from django.contrib.auth.models import AnonymousUser
 from django.http import HttpRequest
 from rest_framework import serializers
+from rest_framework.request import Request
 from rest_framework.views import APIView
 
 from das_server.views import CustomSchema
@@ -201,6 +202,7 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
         request = HttpRequest()
         request.method = "GET"
         request.user = AnonymousUser()
+        request = Request(request)
 
         # Set up ViewSet action for proper decorator recognition
         if hasattr(view_instance, "action_map"):
