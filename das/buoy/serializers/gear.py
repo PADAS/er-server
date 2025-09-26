@@ -1,4 +1,3 @@
-import hashlib
 import logging
 import re
 from datetime import datetime, timezone
@@ -9,44 +8,27 @@ from drf_extra_fields.geo_fields import PointField
 from django.db.models.functions import Lower
 from rest_framework import serializers
 
-from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
+from buoy.constants import (
+    BUOY_GEAR_SUBJECT_SUBTYPE,
+    DEPLOYMENT_TYPE_CHOICES,
+    DEVICE_DEPLOYMENT_STATUS_CHOICES,
+    DEVICES_KEY,
+    DISPLAY_ID_KEY,
+    GEAR_TYPE_SINGLE,
+    GEAR_TYPE_TRAWL,
+    ID_KEY,
+    POSITIONING_TYPE_CHOICES,
+    POSITIONING_TYPE_GPS,
+    RELEASE_TYPE_CHOICES,
+    SOURCE_TYPE,
+    STATUS_KEY,
+    TRAP_DEPLOYED,
+    TRAP_RETRIEVED,
+)
 from observations import models
 from observations.serializers import SubjectRelatedField
 
 logger = logging.getLogger(__name__)
-
-DISPLAY_ID_KEY = "display_id"
-DEVICES_KEY = "devices"
-ID_KEY = "id"
-STATUS_KEY = "status"
-GEAR_TYPE_TRAWL = "trawl"
-GEAR_TYPE_SINGLE = "single"
-SUBJECT_KEY = "subject"
-POSITIONING_TYPE_GPS = "gps"
-POSITIONING_TYPE_ACOUSTIC = "acoustic"
-SOURCE_TYPE = "ropeless_buoy"
-SUBJECT_SUBTYPE = "ropeless_buoy_device"
-GEAR_DEPLOYED_EVENT = "gear_deployed"
-GEAR_RETRIEVED_EVENT = "gear_retrieved"
-
-DEPLOYMENT_TYPE_CHOICES = [("trawl", "trawl"), ("single", "single"), ("surface", "surface")]
-
-DEVICE_DEPLOYMENT_STATUS_CHOICES = [
-    ("deployed", "deployed"),
-    ("hauled", "hauled"),
-    ("lost", "lost"),
-]
-
-RELEASE_TYPE_CHOICES = [
-    ("timed", "timed"),
-    ("acoustic", "acoustic"),
-    ("galvanic", "galvanic"),
-]
-
-POSITIONING_TYPE_CHOICES = [
-    ("gps", "gps"),
-    ("acoustic", "acoustic"),
-]
 
 
 class GearSerializer(serializers.Serializer):
@@ -305,43 +287,24 @@ class GearCreateSerializer(serializers.Serializer):
         return "".join(reversed(result))
 
     def save(self, **kwargs):
-        devices = []
-        for position_idx, device in enumerate(self.validated_data.get("devices", [])):
-            device_data = {
-                "label": self.get_device_label(position_idx + 1),
-                "location": device.pop("location"),
-                "device_id": device.get("device_id") or str(uuid4()),
-                "last_updated": device["device_last_updated_date"],
-                "device_info": device,
-            }
-            devices.append(device_data)
-
-        concatenated_device_ids = "".join(device["device_id"] for device in devices)
-        default_display_id = hashlib.sha256(concatenated_device_ids.encode("utf-8")).hexdigest()[:12]
-        display_id = self.validated_data.get("set_display_id", default_display_id)
-
         observations = []
-        for device in devices:
-            device_info = device.get("device_info", {})
+        gearset_data = self.validated_data
+        for position_idx, device_info in enumerate(self.validated_data.get("devices", [])):
             is_active = device_info.get("device_status") == "deployed"
             observation = {
-                "name": device.get("device_id"),
-                "source": device.get("device_id"),
-                "type": SOURCE_TYPE,
-                "subject_type": SUBJECT_SUBTYPE,
-                "is_active": is_active,
-                "recorded_at": device["last_updated"],
-                "location": {"lat": device["location"]["latitude"], "lon": device["location"]["longitude"]},
+                "source_name": gearset_data.get("set_id") or str(uuid4()),
+                "source": device_info.get("device_id") or str(uuid4()),
+                "subject_type": BUOY_GEAR_SUBJECT_SUBTYPE,
+                "recorded_at": timezone.now().isoformat(),
+                "source_type": SOURCE_TYPE,
+                "location": {"lat": device_info["location"]["latitude"], "lon": device_info["location"]["longitude"]},
                 "additional": {
-                    "subject_name": device.get("device_id"),
-                    "display_id": display_id,
-                    "subject_is_active": is_active,
-                    "event_type": GEAR_DEPLOYED_EVENT if is_active else GEAR_RETRIEVED_EVENT,
-                    "devices": devices,
-                    "user_id": self.context.get("user_id"),
+                    "event_type": TRAP_DEPLOYED if is_active else TRAP_RETRIEVED,
+                    "raw": self.validated_data,
                 },
             }
             observations.append(observation)
+
         return observations
 
     class Meta(GearSerializer.Meta):
