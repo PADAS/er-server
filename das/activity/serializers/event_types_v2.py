@@ -105,6 +105,6 @@ class EventTypeRevisionSerializer(serializers.Serializer):
         """Get the fields that have been updated in this revision."""
         non_user_fields = ["updated_at", "created_at"]
         if obj.action != ACTION_ADDED and isinstance(obj.data, dict):
-            updated_fields = [k for k in list(obj.data.keys()) if k not in non_user_fields]
+            updated_fields = [k for k in obj.data.keys() if k not in non_user_fields]
             return updated_fields
         return []
