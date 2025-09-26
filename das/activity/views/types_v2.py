@@ -28,6 +28,7 @@ from activity.serializers.event_types_v2 import (
 from activity.views.events.utils import AllowedCategoriesMixin
 from core.utils import is_uuid
 from schemas.view_mixins import DynamicSchemaDataMixin
+from utils.drf import StandardResultsSetPagination
 from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer, parse_bool
 from utils.views import EtagListRetrieveModelMixin
 
@@ -208,6 +209,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         detail=True,
         url_path="updates",
         serializer_class=EventTypeRevisionSerializer,
+        pagination_class=StandardResultsSetPagination,
     )
     def retrieve_updates(self, request: Request, **kwargs) -> Response:
         """
@@ -215,5 +217,6 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         """
         event_type = self.get_object()
         revisions = event_type.revision.all().order_by("-sequence")
-        result = EventTypeRevisionSerializer(revisions, many=True).data
-        return Response(result)
+        page = self.paginate_queryset(revisions)
+        serializer = EventTypeRevisionSerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
