@@ -1,6 +1,3 @@
-from datetime import datetime
-from typing import Optional
-
 from psycopg2.extras import DateTimeTZRange
 
 from django.contrib.gis.db import models
@@ -8,58 +5,10 @@ from django.contrib.gis.geos import Polygon
 from django.db.models import Q
 
 from observations.models import LatestObservationSource, Subject, SubjectSource
-from observations.utils import dateparse
 from utils.gis import calculate_bbox
 
 STATIONARY_SUBJECT_VALUE = "stationary-object"
 NAUTICAL_MILE_RADIUS = 5
-
-
-def check_valid_date_string(date_str: Optional[str], parameter_name: str) -> (bool, Optional[datetime]):
-    if not date_str:
-        return False, None
-
-    try:
-        return True, dateparse(date_str)
-    except ValueError:
-        raise ValueError("Invalid value for %s: '%s'" % (parameter_name, date_str))
-
-
-def check_valid_state_string(state_str: Optional[str]):
-    """
-    Check valid state string.
-    Check if the state string is valid.
-    valid values are "deployed" or "hauled".
-
-    :param state_str:
-    :return: str
-    """
-    if not state_str:
-        return True
-
-    state_str = state_str.lower()
-    if state_str not in ["deployed", "hauled"]:
-        raise ValueError("Invalid value for state: '%s'" % state_str)
-    return state_str == "deployed"
-
-
-def check_to_include_inactive_buoys(request, full_queryset):
-    """
-    Check to include inactive/hauled buoys in the query set.
-    Filter the query set based on is_active status.
-
-    :param request:
-    :param full_queryset:
-    :return: queryset of Subjects.
-    """
-    # return only active subjects
-    queryset = full_queryset.filter(subject__is_active=True)
-
-    # return all subjects if parameter is passed and set to true
-    include_inactive = request.GET.get("state", "deployed").lower() == "hauled"
-    if include_inactive:
-        queryset = full_queryset
-    return queryset
 
 
 def filter_by_bbox(
