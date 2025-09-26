@@ -320,15 +320,12 @@ class TestSpatialFeatureListView:
         assert response.status_code == 200
         data = response.json()
 
-        assert isinstance(data, dict)
         assert "data" in data
-        assert "features" in data["data"]
-        assert data["data"]["type"] == "FeatureCollection"
-        features = data["data"]["features"]
-        assert len(features) == 3
+        assert len(data["data"]) == 3
 
         # Check structure of all features
         expected_properties = [
+            "id",
             "name",
             "short_name",
             "description",
@@ -336,27 +333,23 @@ class TestSpatialFeatureListView:
             "feature_class_name",
             "feature_set_id",
             "feature_set_name",
+            "url",
         ]
 
-        for feature in features:
-            assert "id" in feature
-            assert "type" in feature
-            assert feature["type"] == "Feature"
-            assert "geometry" in feature
-            assert "properties" in feature
+        for feature in data["data"]:
             for prop in expected_properties:
-                assert prop in feature["properties"]
+                assert prop in feature
 
     def test_filter_by_feature_class(self, user_client, feature1, feature2, feature3, feature_type1):
         url = reverse("mapping:spatialfeature-list")
         response = user_client.get(url, {"feature_class": str(feature_type1.id)})
         assert response.status_code == 200
         data = response.json()
-        features = data["data"]["features"]
+        features = data["data"]
 
         # Only feature1 and feature2 belong to feature_type1
         assert len(features) == 2
-        names = [f["properties"]["name"] for f in features]
+        names = [f["name"] for f in features]
         assert "Feature One" in names
         assert "Feature Two" in names
 
@@ -367,11 +360,11 @@ class TestSpatialFeatureListView:
         response = user_client.get(url, {"feature_class": str(feature_type1.id) + "," + str(feature_type2.id)})
         assert response.status_code == 200
         data = response.json()
-        features = data["data"]["features"]
+        features = data["data"]
 
         # All features belong to feature_type1 or feature_type2
         assert len(features) == 3
-        names = [f["properties"]["name"] for f in features]
+        names = [f["name"] for f in features]
         assert "Feature One" in names
         assert "Feature Two" in names
         assert "Feature Three" in names
@@ -394,22 +387,22 @@ class TestSpatialFeatureListView:
         response = user_client.get(url, {"feature_set": str(category2.id)})
         assert response.status_code == 200
         data = response.json()
-        features = data["data"]["features"]
+        features = data["data"]
 
         # Only feature3 belongs to category2
         assert len(features) == 1
-        assert features[0]["properties"]["name"] == "Feature Three"
+        assert features[0]["name"] == "Feature Three"
 
     def test_filter_by_multiple_feature_sets(self, user_client, feature1, feature2, feature3, category1, category2):
         url = reverse("mapping:spatialfeature-list")
         response = user_client.get(url, {"feature_set": f"{category1.id},{category2.id}"})
         assert response.status_code == 200
         data = response.json()
-        features = data["data"]["features"]
+        features = data["data"]
 
         # All features belong to category1 or category2
         assert len(features) == 3
-        names = [f["properties"]["name"] for f in features]
+        names = [f["name"] for f in features]
         assert set(names) == {"Feature One", "Feature Two", "Feature Three"}
 
     def test_filter_by_invalid_feature_set(self, user_client, feature3):
