@@ -6,9 +6,10 @@ from dateutil import parser as date_parser
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 
-from das.buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
-from das.buoy.serializers import GearSerializer
-from das.buoy.tests import generate_devices
+from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE, GEAR_DEPLOYED_EVENT, SOURCE_TYPE
+from buoy.serializers import GearCreateSerializer, GearSerializer
+from buoy.tests import generate_devices
+from core.tests import BaseAPITest
 from factories import SubjectTypeFactory
 from observations.models import (
     Observation,
@@ -18,11 +19,6 @@ from observations.models import (
     SubjectSource,
     SubjectSubType,
 )
-from buoy.serializers import GearCreateSerializer, GearsSerializer
-from buoy.serializers.gear import GEAR_DEPLOYED_EVENT, SOURCE_TYPE, SUBJECT_SUBTYPE
-from buoy.tests import generate_devices
-from core.tests import BaseAPITest
-from observations.models import Observation
 from utils.tenant.dataclass import FeatureFlags
 
 

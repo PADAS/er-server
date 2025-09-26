@@ -56,7 +56,7 @@ class GearsView(generics.ListAPIView):
         if self.request.method == "POST":
             return serializers.GearCreateSerializer
         if self.request.method == "GET":
-            return serializers.GearsSerializer
+            return serializers.GearSerializer
         raise ValueError("Unsupported method: {}".format(self.request.method))
 
     def get_queryset(self):
