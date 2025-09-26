@@ -462,3 +462,73 @@ class TestSpatialFeatureTypeListView:
         # Verify they have the correct display categories
         assert str(type_one["feature_set_id"]) == str(category1.id)
         assert str(type_two["feature_set_id"]) == str(category2.id)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestSpatialFeatureGroupListView:
+    """Tests for the new SpatialFeatureGroupListView endpoint."""
+
+    @pytest.fixture
+    def feature_group1(self):
+        """Create a feature group with some features."""
+        group = SpatialFeatureGroupStaticFactory(name="Test Group One", description="First test group")
+        features = [
+            SpatialFeatureFactory(name="Feature A", feature_geometry=Point(-122.1, 47.5)),
+            SpatialFeatureFactory(name="Feature B", feature_geometry=Point(-122.2, 47.6)),
+        ]
+        group.features.add(*features)
+        return group
+
+    @pytest.fixture
+    def feature_group2(self):
+        """Create another feature group with different features."""
+        group = SpatialFeatureGroupStaticFactory(name="Test Group Two", description="Second test group")
+        features = [
+            SpatialFeatureFactory(name="Feature C", feature_geometry=Point(-122.3, 47.7)),
+        ]
+        group.features.add(*features)
+        return group
+
+    def test_list_all_feature_groups(self, user_client, feature_group1, feature_group2):
+        """Test that the list endpoint returns all feature groups with correct structure."""
+        url = reverse("mapping:spatialfeaturegroup-list")
+        response = user_client.get(url)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "data" in data
+        assert len(data["data"]) == 2
+
+        # Check structure of feature groups
+        expected_fields = ["id", "name", "description", "url", "feature_count"]
+        for group in data["data"]:
+            for field in expected_fields:
+                assert field in group
+
+        groups_by_name = {g["name"]: g for g in data["data"]}
+        assert groups_by_name["Test Group One"]["feature_count"] == 2
+        assert groups_by_name["Test Group Two"]["feature_count"] == 1
+
+    def test_feature_group_urls_are_correct(self, user_client, feature_group1):
+        """Test that HyperlinkedIdentityField generates correct URLs."""
+        url = reverse("mapping:spatialfeaturegroup-list")
+        response = user_client.get(url)
+        assert response.status_code == 200
+
+        data = response.json()
+        group = data["data"][0]
+
+        # URL should point to detail endpoint
+        expected_detail_url = f"/api/v1.0/spatialfeaturegroup/{feature_group1.id}"
+        assert expected_detail_url in group["url"]
+
+    def test_empty_list_when_no_groups(self, user_client):
+        """Test that empty list is returned when no feature groups exist."""
+        url = reverse("mapping:spatialfeaturegroup-list")
+        response = user_client.get(url)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "data" in data
+        assert len(data["data"]) == 0
