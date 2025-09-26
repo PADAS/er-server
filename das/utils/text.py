@@ -26,7 +26,7 @@ def replace_template_vars(template: str, replace_with: Union[Callable[[str], str
     if callable(replace_with):
 
         def replacer(match: re.Match) -> str:
-            var_name = match.group(0)[2:-2]  # Extract content between {{ and }}
+            var_name = match.group(0)[2:-2].strip()  # Extract content between {{ and }}
             return replace_with(var_name)
 
         return re.sub(pattern, replacer, template)
