@@ -3,7 +3,7 @@ from typing import List
 
 from rest_framework import serializers
 
-from accounts.serializers import SimpleUserDisplaySerializer
+from accounts.serializers import UserDisplaySerializer
 from activity.models import EventCategory, EventType
 from activity.schemas.eventtype_meta_schemas import main_event_type_schema
 from activity.serializers.fields.json_schema import JSONSchemaField
@@ -91,7 +91,7 @@ class EventTypeRevisionSerializer(serializers.Serializer):
 
     time = serializers.SerializerMethodField()
     action = serializers.SerializerMethodField()
-    user = SimpleUserDisplaySerializer()
+    user = UserDisplaySerializer()
     updated_fields = serializers.SerializerMethodField()
     sequence = serializers.IntegerField()
 
