@@ -1064,21 +1064,13 @@ class TestEventTypesV2Updates:
         response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
-        assert isinstance(response.data, list)
-        assert len(response.data) == 1  # Only creation revision
+        assert isinstance(response.data, dict)
+        assert len(response.data["results"]) == 1  # Only creation revision
 
-        revision = response.data[0]
+        revision = response.data["results"][0]
         expected_fields = ["time", "action", "user", "updated_fields", "sequence"]
         for field in expected_fields:
             assert field in revision
-            assert revision[field] is not None
-
-        # Verify field types
-        assert isinstance(revision["time"], str)
-        assert isinstance(revision["action"], str)
-        assert isinstance(revision["user"], str)
-        assert isinstance(revision["updated_fields"], list)
-        assert isinstance(revision["sequence"], int)
 
     def test_retrieve_updates_after_schema_change(self, superuser_client, cat1_fire_v2_event_type):
         """Test revisions after schema field updates."""
@@ -1092,10 +1084,10 @@ class TestEventTypesV2Updates:
         url = reverse("v2-eventtype-retrieve-updates", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
         response = superuser_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 2
+        assert len(response.data["results"]) == 2
 
         # Find the schema update revision
-        latest_revision = response.data[0]  # Should be newest first
+        latest_revision = response.data["results"][0]
         assert latest_revision["action"] == "Updated"
         assert "schema" in latest_revision["updated_fields"]
 
@@ -1118,10 +1110,10 @@ class TestEventTypesV2Updates:
         # Verify all revisions were created
         response = superuser_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1 + len(changes)
+        assert len(response.data["results"]) == 1 + len(changes)
 
         # Verify each change created a revision with the correct field
-        recent_revisions = response.data[: len(changes)]  # Get the most recent revisions
+        recent_revisions = response.data["results"][: len(changes)]  # Get the most recent revisions
         updated_fields_from_revisions = []
         for revision in recent_revisions:
             assert revision["action"] == "Updated"

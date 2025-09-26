@@ -46,13 +46,6 @@ class UserSerializer(serializers.ModelSerializer):
         return ret
 
 
-class SimpleUserDisplaySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = get_user_model()
-        fields = ("username", "first_name", "last_name")
-        read_only_fields = fields
-
-
 class UserDisplaySerializer(serializers.ModelSerializer):
     content_type = ContentTypeField()
 
