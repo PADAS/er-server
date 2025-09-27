@@ -20,7 +20,7 @@ from activity.serializers import EventJSONSchema, EventSerializer, TrackedBySeri
 from choices.models import Choice
 from das_server.views import CustomSchema
 from utils import add_base_url
-from utils.drf import StandardResultsSetPagination
+from utils.drf import StandardResultsSetPagination, create_json_response
 from utils.etags import get_hash_from_queryset
 from utils.json import loads
 
@@ -121,7 +121,7 @@ class TrackedBySchema(ListCreateAPIView):
     def get(self, request, *args, **kwargs):
         meta = self.metadata_class()
         data = meta.determine_metadata(request, self)
-        return Response(data)
+        return create_json_response(json.dumps(data))
 
     def post(self, request, *args, **kwargs):
         raise MethodNotAllowed("For Schema")
