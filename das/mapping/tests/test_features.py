@@ -151,6 +151,26 @@ class TestFeatures(BaseAPITest):
         data = json.loads(response.content)
         self.assertEqual(len(data["features"]), 0)
 
+        # Test that content-length header matches actual content length
+        content_length = response.get("Content-Length")
+        self.assertIsNotNone(content_length, "Content-Length header should be set")
+        self.assertEqual(int(content_length), len(response.content))
+
+    def test_featureset_with_features_content_length(self):
+        """Test that Content-Length is set correctly when features are present"""
+        request = self.factory.get(self.api_base + "/featureset/")
+        self.force_authenticate(request, self.app_user)
+        response = views.FeatureSetGeoJsonView.as_view()(request, id=str(self.category.id))
+        self.assertIsNotNone(response)
+        self.assertContains(response, "features")
+        data = json.loads(response.content)
+        self.assertGreater(len(data["features"]), 0)
+
+        # Test that content-length header matches actual content length
+        content_length = response.get("Content-Length")
+        self.assertIsNotNone(content_length, "Content-Length header should be set")
+        self.assertEqual(int(content_length), len(response.content))
+
     def test_with_feature_class_is_visible_false_include_hidden_true(self):
         self.feature_class.is_visible = False
         self.feature_class.save()
