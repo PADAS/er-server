@@ -616,6 +616,10 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             # Get all source assignments that overlap with our time range
             source_assignments = SubjectSource.objects.filter(subject=subject, assigned_range__overlap=time_range)
 
+            if not source_assignments:
+                # Short-circuit if there are no source assignments for the given time range.
+                return self.none()
+
             # Build a single query using Q objects to combine conditions
             from django.db.models import Q
 
