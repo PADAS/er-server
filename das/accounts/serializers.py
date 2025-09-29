@@ -1,5 +1,5 @@
-import rest_framework.serializers
 from django.contrib.auth import get_user_model
+from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from accounts.models.eula import EULA, UserAgreement
@@ -8,14 +8,14 @@ from observations.models import Subject
 from utils.tenant import get_tenant_settings
 
 
-class LinkedSubjectSerializer(rest_framework.serializers.ModelSerializer):
+class LinkedSubjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject
         fields = ("id",)
 
 
-class UserSerializer(rest_framework.serializers.ModelSerializer):
-    role = rest_framework.serializers.CharField(source="get_role")
+class UserSerializer(serializers.ModelSerializer):
+    role = serializers.CharField(source="get_role")
     subject = LinkedSubjectSerializer(source="linked_subject", read_only=True)
 
     class Meta:
@@ -46,7 +46,7 @@ class UserSerializer(rest_framework.serializers.ModelSerializer):
         return ret
 
 
-class UserDisplaySerializer(rest_framework.serializers.ModelSerializer):
+class UserDisplaySerializer(serializers.ModelSerializer):
     content_type = ContentTypeField()
 
     class Meta:
@@ -72,7 +72,7 @@ def get_user_display(user):
     return user.get_username()
 
 
-class AcceptEulaSerializer(rest_framework.serializers.ModelSerializer):
+class AcceptEulaSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserAgreement
         read_only_fields = ["id"]
@@ -84,7 +84,7 @@ class AcceptEulaSerializer(rest_framework.serializers.ModelSerializer):
         ]
 
 
-class EulaSerializer(rest_framework.serializers.ModelSerializer):
+class EulaSerializer(serializers.ModelSerializer):
     class Meta:
         model = EULA
         fields = ["id", "version", "eula_url"]
