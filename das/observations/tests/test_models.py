@@ -753,6 +753,27 @@ class TestObservationQuerySet(TestCase):
         # The avoid_unions version should not contain UNION
         self.assertNotIn("UNION", sql_with_avoid.upper())
 
+    def test_get_subject_observations_partitioned_no_source_assignments(self):
+        """Test that method returns empty QuerySet when no source assignments exist."""
+        subject = Subject.objects.create(name="Test Subject")
+
+        # Don't create any SubjectSource objects
+
+        # Test with avoid_unions=True (the path that returns self.none())
+        queryset = Observation.objects.get_subject_observations_partitioned(subject, avoid_unions=True)
+
+        # Should return empty QuerySet
+        self.assertEqual(queryset.count(), 0)
+        # Verify it's the same type as an empty QuerySet
+        self.assertEqual(queryset, Observation.objects.none())
+
+        # Test with avoid_unions=False (default behavior)
+        queryset_default = Observation.objects.get_subject_observations_partitioned(subject, avoid_unions=False)
+
+        # Should also return empty QuerySet
+        self.assertEqual(queryset_default.count(), 0)
+        self.assertEqual(queryset_default, Observation.objects.none())
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
