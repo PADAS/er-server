@@ -4,14 +4,28 @@ from django.contrib.gis.db import models
 from django.utils.translation import gettext as _
 
 from analyzers.models.base import SubjectAnalyzerConfig
-from mapping.lookups import GEO_TYPE_MULTIPOINT
+from mapping.lookups import (
+    GEO_TYPE_LINESTRING,
+    GEO_TYPE_MULTILINESTRING,
+    GEO_TYPE_MULTIPOINT,
+    GEO_TYPE_MULTIPOLYGON,
+    GEO_TYPE_POINT,
+    GEO_TYPE_POLYGON,
+)
 from mapping.models import SpatialFeatureGroupStatic
 from observations.models import SubjectGroup
 
 
 class FeatureProximityAnalyzerConfig(SubjectAnalyzerConfig):
 
-    MULTI_FEATURES_SPATIAL_TYPE = GEO_TYPE_MULTIPOINT
+    MULTI_FEATURES_SPATIAL_TYPE = [
+        GEO_TYPE_MULTIPOINT,
+        GEO_TYPE_MULTILINESTRING,
+        GEO_TYPE_MULTIPOLYGON,
+        GEO_TYPE_POINT,
+        GEO_TYPE_LINESTRING,
+        GEO_TYPE_POLYGON,
+    ]
 
     threshold_time = models.IntegerField(null=False, default=86400)  # 24 hours
     threshold_dist_meters = models.FloatField(
