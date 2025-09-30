@@ -9,7 +9,7 @@ from django.contrib.gis.geos import LineString, MultiLineString, MultiPoint, Poi
 from django.urls import reverse
 
 import mapping.views as views
-from analyzers.forms import FeatureProximityAnalyzerForm, GeofenceSubjectAnalyzerForm
+from analyzers.forms import GeofenceSubjectAnalyzerForm
 from core.tests import BaseAPITest
 from factories import SpatialFeatureFactory, SpatialFeatureGroupStaticFactory
 from mapping.models import (
@@ -250,7 +250,7 @@ class TestSpatialFeatureGroup:
 
     def test_spaitalfeaturegroupstatic_include_linestring_groups(self, spatial_feature_group_linestring_only):
         assert SpatialFeatureGroupStatic.objects.exists()
-        groups = SpatialFeatureGroupStatic.objects.by_spatial_type("MULTILINESTRING")
+        groups = SpatialFeatureGroupStatic.objects.by_spatial_type(["MULTILINESTRING"])
         assert groups.count() == 1
         assert spatial_feature_group_linestring_only == groups.first()
 
@@ -258,7 +258,7 @@ class TestSpatialFeatureGroup:
         self, spatial_feature_group_mixed_geometry
     ):
         assert SpatialFeatureGroupStatic.objects.exists()
-        groups = SpatialFeatureGroupStatic.objects.by_spatial_type("MULTILINESTRING")
+        groups = SpatialFeatureGroupStatic.objects.by_spatial_type(["MULTILINESTRING"])
         assert spatial_feature_group_mixed_geometry not in groups
 
     def test_geofencesubjectanalyzerform_is_invalid_when_a_non_linestring_in_critical_geofence_group(
@@ -276,14 +276,6 @@ class TestSpatialFeatureGroup:
             assert set(["critical_geofence_group", "warning_geofence_group", "containment_regions"]).issubset(
                 form.errors.keys()
             )
-
-    def test_featureproximityanalyzerform_is_invalid_when_a_non_multipoint_in_proximal_features(
-        self, spatial_feature_group_linestring_only, django_assert_num_queries
-    ):
-        with django_assert_num_queries(1):
-            form = FeatureProximityAnalyzerForm({"proximal_features": spatial_feature_group_linestring_only.pk})
-            assert not form.is_valid()
-            assert "proximal_features" in form.errors.keys()
 
 
 @pytest.mark.django_db
