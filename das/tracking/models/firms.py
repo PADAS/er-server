@@ -338,15 +338,24 @@ class FirmsPlugin(TrackingPlugin):
     def fetch(self):
         if self.spatial_feature_group:
             features = self.spatial_feature_group.features.all()
-            geometries = [f.feature_geometry for f in features]
+            geometries = [(f.feature_geometry, f.name) for f in features]
             try:
                 self._geo_filter = self.union_geofilterfeatures(geometries)
             except Exception as ex:
                 logger.info("failed to use union_geofilterfeatures: %s, trying polyunion", ex)
                 try:
-                    polyunion = geometries[0]
-                    for geom in geometries[1:]:
-                        polyunion = polyunion.union(geom)
+                    polyunion = geometries[0][0]
+                    for geom, name in geometries[1:]:
+                        try:
+                            polyunion = polyunion.union(geom)
+                        except GEOSException as gex:
+                            logger.warning(
+                                "failed to union firms group %s with Feature: %s, error: %s",
+                                self.spatial_feature_group.name,
+                                name,
+                                gex,
+                            )
+
                     self._geo_filter = polyunion
                 except GEOSException as gex:
                     raise DasPluginConfigurationError(
