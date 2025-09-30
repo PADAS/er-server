@@ -352,7 +352,7 @@ def create_json_response(content, content_type="application/json"):
         content = content.encode("utf-8")
 
     response = HttpResponse(content, content_type=content_type)
-    response["Content-Length"] = str(len(content))
+    # response["Content-Length"] = str(len(content))
     return response
 
 
