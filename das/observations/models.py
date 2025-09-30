@@ -671,6 +671,10 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             "source_id", "assigned_range"
         )
 
+        # If there are no source assignments, there's nothing to base the filter on
+        if not source_assignments:
+            return self.none()
+
         # Process assignments in batches to avoid recursion issues
         for i in range(0, len(source_assignments), batch_size):
             batch_assignments = source_assignments[i : i + batch_size]
