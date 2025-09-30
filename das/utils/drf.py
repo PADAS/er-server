@@ -338,7 +338,7 @@ class CycleDetectedException(exceptions.APIException):
 
 def create_json_response(content, content_type="application/json"):
     """
-    Create an HttpResponse with proper Content-Length header.
+    Create an HttpResponse
 
     Args:
         content: The content to return (string or bytes)
@@ -352,7 +352,6 @@ def create_json_response(content, content_type="application/json"):
         content = content.encode("utf-8")
 
     response = HttpResponse(content, content_type=content_type)
-    # response["Content-Length"] = str(len(content))
     return response
 
 
