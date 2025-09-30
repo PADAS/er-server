@@ -486,7 +486,7 @@ class TestTrackedBySchemaView:
         response = user_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json()["properties"]["leader"]["enum"] == []
+        assert response.data["properties"]["leader"]["enum"] == []
 
     def test_get_patrols_tracked_by_with_permission(self, user_client, patrol_configuration):
         subject_group = patrol_configuration.subject_groups.first()
@@ -502,7 +502,7 @@ class TestTrackedBySchemaView:
         url = reverse("patrol-segments-schema")
 
         response = user_client.get(url)
-        leaders = response.json()["properties"]["leader"]["enum"]
+        leaders = response.data["properties"]["leader"]["enum"]
         leader_ids = {leader["id"] for leader in leaders}
         subject_data = [leader for leader in leaders if leader["id"] == subject_id][-1]
 
@@ -521,10 +521,10 @@ class TestTrackedBySchemaView:
         url = reverse("patrol-segments-schema")
 
         response = user_client.get(url)
-        leader = response.json()["properties"]["leader"]["enum"][0]
+        leader = response.data["properties"]["leader"]["enum"][0]
 
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.json()["properties"]["leader"]["enum"]) == 1
+        assert len(response.data["properties"]["leader"]["enum"]) == 1
         assert leader["id"] == subject_id
         assert leader["user"]["id"] == user_id
 
@@ -539,14 +539,14 @@ class TestTrackedBySchemaView:
         response = user_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json()["properties"]["leader"]["enum"] == []
+        assert response.data["properties"]["leader"]["enum"] == []
 
     def test_get_patrols_tracked_by_as_superuser(self, superuser_client, patrol_configuration):
         expected_subject_ids = self._get_subject_ids_in_patrol_configuration(patrol_configuration)
         url = reverse("patrol-segments-schema")
 
         response = superuser_client.get(url)
-        leaders = response.json()["properties"]["leader"]["enum"]
+        leaders = response.data["properties"]["leader"]["enum"]
         leader_ids = set((leader["id"] for leader in leaders))
 
         assert response.status_code == status.HTTP_200_OK
