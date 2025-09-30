@@ -101,6 +101,7 @@ MIDDLEWARE = (
     "utils.middleware.EULARedirectMiddleware",
     "utils.middleware.GeographicMiddleware",
     "utils.middleware.ManageAdminEFBTokenMiddleware",
+    "utils.drf.ContentLengthMiddleware",
 )
 
 ROOT_URLCONF = "das_server.urls"

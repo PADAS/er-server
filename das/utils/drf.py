@@ -354,3 +354,35 @@ def create_json_response(content, content_type="application/json"):
     response = HttpResponse(content, content_type=content_type)
     response["Content-Length"] = str(len(content))
     return response
+
+
+class ContentLengthMiddleware:
+    """
+    Middleware that automatically sets Content-Length headers for responses.
+    This should be placed AFTER other middleware that might modify response content.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+
+        # Always recalculate Content-Length to ensure accuracy
+        # This handles cases where other middleware modified the response
+        if response.streaming:
+            pass
+        elif hasattr(response, "content"):
+            # Django HttpResponse - use the final content
+            response["Content-Length"] = str(len(response.content))
+        elif hasattr(response, "data"):
+            # DRF Response - render to get final content
+            try:
+                rendered_content = response.render()
+                response["Content-Length"] = str(len(rendered_content))
+            except Exception:
+                # Fallback: try to get content length from response
+                if hasattr(response, "content"):
+                    response["Content-Length"] = str(len(response.content))
+
+        return response
