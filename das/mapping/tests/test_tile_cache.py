@@ -11,17 +11,38 @@ from mapping.views import SpatialFeatureTileView
 
 
 class DummyUser:
-    def __init__(self, tenant_id=None):
+    def __init__(self, tenant_id=None, user_id="user-1"):
         self.das_tenant_id = tenant_id
+        self.id = user_id
 
 
 @pytest.mark.django_db
-def test_build_tile_cache_key_requires_bearer_token():
+def test_build_tile_cache_key_requires_user_and_tenant():
     rf = RequestFactory()
-    req = rf.get("/api/v1.0/mapping/tiles/10/1/1.pbf")
-    req.user = DummyUser("tenant123")
+    # Missing user entirely
+    req_no_user = rf.get("/api/v1.0/mapping/tiles/10/1/1.pbf")
     with pytest.raises(ValueError):
-        build_tile_cache_key(req, 10, 1, 1, ["spatial_features"])  # missing auth header
+        build_tile_cache_key(req_no_user, 10, 1, 1, ["spatial_features"])  # missing user
+
+    # Missing tenant id
+    class NoTenantUser:
+        def __init__(self):
+            self.id = "user-1"
+
+    req_no_tenant = rf.get("/api/v1.0/mapping/tiles/10/1/1.pbf")
+    req_no_tenant.user = NoTenantUser()
+    with pytest.raises(ValueError):
+        build_tile_cache_key(req_no_tenant, 10, 1, 1, ["spatial_features"])  # missing tenant
+
+    # Missing user id
+    class NoIdUser:
+        def __init__(self):
+            self.das_tenant_id = "tenant123"
+
+    req_no_id = rf.get("/api/v1.0/mapping/tiles/10/1/1.pbf")
+    req_no_id.user = NoIdUser()
+    with pytest.raises(ValueError):
+        build_tile_cache_key(req_no_id, 10, 1, 1, ["spatial_features"])  # missing user id
 
 
 @pytest.mark.django_db
@@ -31,7 +52,7 @@ def test_build_tile_cache_key_basic():
     req.META["HTTP_AUTHORIZATION"] = "Bearer tok_ABC123"
     req.user = DummyUser("tenantXYZ")
     key = build_tile_cache_key(req, 5, 16, 23, ["spatial_features"], cache_version="7")
-    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{token_hash}:{query_hash}
+    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{user_hash}:{query_hash}
     parts = key.split(":")
     assert parts[0] == "vt"
     assert parts[1] == "tenantXYZ"
@@ -40,7 +61,7 @@ def test_build_tile_cache_key_basic():
     assert parts[4] == "5"
     assert parts[5] == "16"
     assert parts[6] == "23"
-    assert len(parts[7]) == 16  # token hash
+    assert len(parts[7]) == 8  # user hash (first 8 of sha256)
     assert len(parts[8]) == 10  # query hash
     assert "tok_ABC123" not in key
 
@@ -66,7 +87,7 @@ def test_build_tile_cache_key_multiple_layers_sorted():
     req_unsorted.user = DummyUser("tenantB")
     key_unsorted = build_tile_cache_key(req_unsorted, 4, 10, 11, ["layerZ", "layerA"], cache_version="3")
     # Expect layers ordered lexicographically in the key
-    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{token_hash}:{query_hash}
+    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{user_hash}:{query_hash}
     parts = key_unsorted.split(":")
     assert parts[0] == "vt"
     assert parts[1] == "tenantB"
@@ -75,7 +96,7 @@ def test_build_tile_cache_key_multiple_layers_sorted():
     assert parts[4] == "4"  # z
     assert parts[5] == "10"  # x
     assert parts[6] == "11"  # y
-    assert len(parts[7]) == 16  # token hash
+    assert len(parts[7]) == 8  # user hash
 
 
 @pytest.mark.django_db
@@ -94,7 +115,7 @@ def test_build_tile_cache_key_include_query_false():
     assert parts[4] == "6"  # z
     assert parts[5] == "20"  # x
     assert parts[6] == "21"  # y
-    assert len(parts[7]) == 16  # token hash
+    assert len(parts[7]) == 8  # user hash
 
 
 @pytest.mark.django_db
@@ -113,22 +134,20 @@ def test_build_tile_cache_key_tenant_variation():
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize(
-    "auth_header",
-    [
-        "",  # missing
-        "Token something",  # wrong scheme
-        "Bearer ",  # empty token
-    ],
-)
-def test_build_tile_cache_key_invalid_auth(auth_header):
+def test_build_tile_cache_key_accepts_missing_or_invalid_auth_header():
     rf = RequestFactory()
-    req = rf.get("/api/v1.0/mapping/tiles/8/40/41.pbf")
-    if auth_header:
-        req.META["HTTP_AUTHORIZATION"] = auth_header
-    req.user = DummyUser("tenantX")
-    with pytest.raises(ValueError):
-        build_tile_cache_key(req, 8, 40, 41, ["spatial_features"], cache_version="2")
+    # Missing Authorization header is acceptable now
+    req_missing = rf.get("/api/v1.0/mapping/tiles/8/40/41.pbf")
+    req_missing.user = DummyUser("tenantX")
+    key_missing = build_tile_cache_key(req_missing, 8, 40, 41, ["spatial_features"], cache_version="2")
+    assert key_missing.startswith("vt:")
+
+    # Invalid scheme is also ignored
+    req_invalid = rf.get("/api/v1.0/mapping/tiles/8/40/41.pbf")
+    req_invalid.META["HTTP_AUTHORIZATION"] = "Token something"
+    req_invalid.user = DummyUser("tenantX")
+    key_invalid = build_tile_cache_key(req_invalid, 8, 40, 41, ["spatial_features"], cache_version="2")
+    assert key_invalid.startswith("vt:")
 
 
 @pytest.mark.django_db

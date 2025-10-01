@@ -26,21 +26,22 @@ def get_effective_cache_version():
     return f"{static_version}-{data_version}"
 
 
-def _hash_token(auth_header: str) -> str:
-    """Return short stable hash fragment for an Authorization header.
+def _get_request_tenant(request: HttpRequest) -> str:
+    user = getattr(request, "user", None)
+    if user is None or getattr(user, "das_tenant_id", None) is None:
+        raise ValueError("Cannot create tenant hash: request.user.das_tenant_id is missing")
+    return str(user.das_tenant_id)
 
-    Raises:
-        ValueError: If header missing / not Bearer / token empty.
-    """
-    if not auth_header or not auth_header.lower().startswith("bearer "):
-        raise ValueError("Missing or invalid bearer token")
-    parts = auth_header.split(None, 1)
-    if len(parts) < 2:
-        raise ValueError("Empty bearer token")
-    token = parts[1].strip()
-    if not token:
-        raise ValueError("Empty bearer token")
-    return hashlib.sha1(token.encode("utf-8")).hexdigest()[:16]
+
+def _hash_user(request: HttpRequest) -> str:
+    user = getattr(request, "user", None)
+    if user is None or getattr(user, "id", None) is None:
+        raise ValueError("Cannot create user hash: request.user.id is missing")
+
+    user_str = str(user.id)
+    return hashlib.sha256(user_str.encode("utf-8")).hexdigest()[
+        :8
+    ]  # Use first 8 chars for a shorter hash; sufficient for UUID uniqueness in this context
 
 
 QueryParams = Union["_QueryDictLike", Mapping[str, Sequence[str]]]
@@ -82,17 +83,13 @@ def build_tile_cache_key(
           ("include_query=False") when higher fanout is undesirable.
 
     Key layout
-        vt:{tenant}:{layers_csv}:{cache_version}:{z}:{x}:{y}:{token_hash}:{query_hash}
+        vt:{tenant}:{layers_csv}:{cache_version}:{z}:{x}:{y}:{user_hash}:{query_hash}
 
     Returns:
         str: Fully-assembled cache key.
     """
-    auth_header = request.META.get("HTTP_AUTHORIZATION") or request.META.get("authorization", "")
-    token_hash = _hash_token(auth_header)
-    user = getattr(request, "user", None)
-    tenant_component = getattr(user, "das_tenant_id", None)
-    if tenant_component is None:
-        raise ValueError("Missing tenant ID - cannot create cache key")
+    tenant_component = _get_request_tenant(request)
+    user_hash = _hash_user(request)
     query_hash = _hash_query_params(request.GET) if include_query else "noquery"
     layers_part = ",".join(sorted(layer_ids)) if layer_ids else "nolayers"
 
@@ -105,7 +102,7 @@ def build_tile_cache_key(
         str(z),
         str(x),
         str(y),
-        str(token_hash),
+        str(user_hash),
         str(query_hash),
     ]
     cache_key = ":".join(components)

@@ -8,8 +8,9 @@ from mapping.cache import build_tile_cache_key
 
 
 class DummyUser:
-    def __init__(self, tenant_id="tenant123"):
+    def __init__(self, tenant_id="tenant123", user_id="user-1"):
         self.das_tenant_id = tenant_id
+        self.id = user_id
 
 
 def _make_request(path="/tiles/", headers=None, params=None, user=None):
@@ -29,7 +30,7 @@ def test_build_tile_cache_key_basic_order_invariance_layers():
     key1 = build_tile_cache_key(request, 5, 10, 12, ["b", "a"])  # unsorted input
     key2 = build_tile_cache_key(request, 5, 10, 12, ["a", "b"])  # already sorted
     assert key1 == key2
-    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{token_hash}:{query_hash}
+    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{user_hash}:{query_hash}
     parts = key1.split(":")
     assert parts[0] == "vt"
     assert parts[1] == "tenant123"  # tenant
@@ -38,7 +39,7 @@ def test_build_tile_cache_key_basic_order_invariance_layers():
     assert parts[4] == "5"  # z
     assert parts[5] == "10"  # x
     assert parts[6] == "12"  # y
-    assert len(parts[7]) == 16  # token hash
+    assert len(parts[7]) == 8  # user hash
 
 
 def test_build_tile_cache_key_query_param_order_invariance():
@@ -58,25 +59,39 @@ def test_build_tile_cache_key_include_query_false_uses_noquery():
     assert key.endswith(":noquery")
 
 
-def test_build_tile_cache_key_token_hash_length():
+def test_build_tile_cache_key_user_hash_length():
     request = _make_request(headers={"Authorization": "Bearer supersecrettokenvalue"})
     key = build_tile_cache_key(request, 9, 1, 1, ["l"])
-    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{token_hash}:{query_hash}
+    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{user_hash}:{query_hash}
     parts = key.split(":")
-    token_hash = parts[7]
-    assert len(token_hash) == 16
+    user_hash = parts[7]
+    assert len(user_hash) == 8
 
 
-def test_build_tile_cache_key_missing_bearer_token_raises_value_error():
-    request = _make_request(headers={"Authorization": "Token something"})  # wrong scheme
+def test_build_tile_cache_key_requires_user_and_tenant():
+    # Missing user id
+    class NoIdUser:
+        def __init__(self):
+            self.das_tenant_id = "tenant123"
+
+    request_no_id = _make_request(user=NoIdUser())
     with pytest.raises(ValueError):
-        build_tile_cache_key(request, 0, 0, 0, ["l"])  # noqa: F841
+        build_tile_cache_key(request_no_id, 0, 0, 0, ["l"])  # noqa: F841
+
+    # Missing tenant id
+    class NoTenantUser:
+        def __init__(self):
+            self.id = "user-1"
+
+    request_no_tenant = _make_request(user=NoTenantUser())
+    with pytest.raises(ValueError):
+        build_tile_cache_key(request_no_tenant, 0, 0, 0, ["l"])  # noqa: F841
 
 
 def test_build_tile_cache_key_empty_layer_list_uses_nolayers():
     request = _make_request(headers={"Authorization": "Bearer abc"})
     key = build_tile_cache_key(request, 1, 1, 1, [])
-    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{token_hash}:{query_hash}
+    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{user_hash}:{query_hash}
     parts = key.split(":")
     assert parts[0] == "vt"
     assert parts[1] == "tenant123"  # tenant
@@ -85,4 +100,4 @@ def test_build_tile_cache_key_empty_layer_list_uses_nolayers():
     assert parts[4] == "1"  # z
     assert parts[5] == "1"  # x
     assert parts[6] == "1"  # y
-    assert len(parts[7]) == 16  # token hash
+    assert len(parts[7]) == 8  # user hash
