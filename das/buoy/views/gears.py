@@ -1,10 +1,8 @@
-from asgiref.sync import async_to_sync
-
 from django.conf import settings
 from drf_spectacular.utils import extend_schema
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
 from buoy import serializers
@@ -15,9 +13,40 @@ from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
 from observations.permissions import StandardObjectPermissions
-from observations.services.gundi import send_observations_to_gundi
+from observations.tasks import send_observations_to_gundi_async
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
+
+
+class GearLocationPermission(BasePermission):
+    """
+    Custom permission to check if user can view gears regardless of location
+    or if lat/lon parameters are provided for location-based filtering.
+    """
+
+    def has_permission(self, request, view):
+        if request.method == "GET":
+            lat = request.query_params.get("lat")
+            lon = request.query_params.get("lon")
+
+            if lat and lon:
+                return True
+
+            return request.user.has_perm("observations.can_view_gear_regardless_location")
+
+        return True
+
+
+class GearSubjectPermission(BasePermission):
+    """
+    Custom permission to check if user can add/change subjects for POST operations.
+    """
+
+    def has_permission(self, request, view):
+        if request.method == "POST":
+            return request.user.has_perm("observations.add_subject")
+
+        return True
 
 
 @extend_schema(parameters=[GearsQueryParamsSerializer])
@@ -48,16 +77,22 @@ class GearsView(generics.ListAPIView):
     schema = GearsViewSchema()
 
     def get_permissions(self):
-        if self.request.method == "POST":
-            return [IsAuthenticated()]
-        return super().get_permissions()
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        """
+        permission_classes = [StandardObjectPermissions]
+
+        if self.request.method == "GET":
+            permission_classes.extend([GearLocationPermission])
+        elif self.request.method == "POST":
+            permission_classes.extend([IsAuthenticated, GearSubjectPermission])
+
+        return [permission() for permission in permission_classes]
 
     def get_serializer_class(self):
         if self.request.method == "POST":
             return serializers.GearCreateSerializer
-        if self.request.method == "GET":
-            return serializers.GearSerializer
-        raise ValueError("Unsupported method: {}".format(self.request.method))
+        return serializers.GearSerializer
 
     def get_queryset(self):
         return SubjectSource.objects.none()
@@ -90,10 +125,13 @@ class GearsView(generics.ListAPIView):
         lon = query_params.get("lon")
         max_nm_range = query_params.get("max_nm_range", NAUTICAL_MILE_RADIUS)
 
-        if lat is not None and lon is not None:
-            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=max_nm_range)
-        elif not self.request.user.has_perm("observations.can_view_gear_regardless_location"):
-            raise ForbiddenAPIException("lat and lon are required query parameters")
+        if lat and lon:
+            lat = float(lat)
+            lon = float(lon)
+            is_lat_lon_valid = check_valid_lat_lon(latitude=lat, longitude=lon)
+            if not is_lat_lon_valid:
+                raise ValueError("lat and lon are invalid values")
+            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=int(max_nm_range))
 
         # Filter queryset by removing subjects where the additional field is the same
         queryset = queryset.order_by("subject__additional__display_id", "subject__name").distinct(
@@ -113,10 +151,14 @@ class GearsView(generics.ListAPIView):
         serializer = self.get_serializer(data=request.data, context={"user_id": request.user.id})
         serializer.is_valid(raise_exception=True)
         observations = serializer.save()
-        result = async_to_sync(send_observations_to_gundi)(
-            observations=observations, integration_id=settings.BUOY_GUNDI_INTEGRATION_ID
+
+        task_result = send_observations_to_gundi_async.apply_async(
+            args=(observations, settings.BUOY_GUNDI_INTEGRATION_ID)
         )
-        return Response({"detail": "Gears sent for processing", "result": result}, status=200)
+
+        return Response(
+            {"detail": "Gears created successfully and queued for processing", "task_id": task_result.id}, status=201
+        )
 
 
 class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
@@ -142,6 +184,11 @@ class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
         mou_date = self.request.user.additional.get("expiry", None)
         mou_date = dateparse(mou_date) if mou_date else None
         queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
+
+        queryset = queryset.prefetch_related(
+            "subjectsources__source__provider", "subjectsources__source__last_observation_sources"
+        )
+
         self._get_two_way_sources(queryset)
         return queryset
 
