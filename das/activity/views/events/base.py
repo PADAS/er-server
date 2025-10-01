@@ -141,7 +141,7 @@ class EventGeometryView(ListAPIView):
     serializer_class = EventGeometryRevisionSerializer
 
     def get_queryset(self):
-        queryset = EventGeometry.objects.filter(event__id=self.kwargs["event_id"]).last()
+        queryset = EventGeometry.objects.filter(event__id=self.kwargs.get("event_id")).last()
         if queryset:
             return queryset.revision.all().order_by("sequence")
         return []
