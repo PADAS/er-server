@@ -63,17 +63,6 @@ class GearSerializer(serializers.Serializer):
             return subject["additional"][DISPLAY_ID_KEY]
         return subject["name"]
 
-    def to_internal_value(self, data):
-        if ID_KEY in data and self.read_only:
-            try:
-                if hasattr(data, "source"):
-                    return models.SubjectSource.objects.get(id=data["id"])
-                else:
-                    return models.Subject.objects.get(id=data["id"])
-            except (models.SubjectSource.DoesNotExist, models.Subject.DoesNotExist):
-                raise serializers.ValidationError(f"Object: {data} does not exist.")
-        return super().to_internal_value(data)
-
     def _idx_to_device_label(self, idx):
         """
         Convert an index to a device label.
@@ -94,9 +83,9 @@ class GearSerializer(serializers.Serializer):
             else:
                 return "unknown"
 
-        if provider_key:
-            if match := re.match(r"^gundi_(.+?)_[0-9a-f-]+$", provider_key):
-                return match.group(1)
+        if match := re.match(r"^gundi_(.+?)_[0-9a-f-]+$", provider_key):
+            return match.group(1)
+
         return provider_key
 
     def to_representation(self, instance):
@@ -141,35 +130,41 @@ class GearSerializer(serializers.Serializer):
             # Note: subjectsources and their sources are prefetched in the view to avoid N+1 queries
             devices = []
             minimum_active_lower_bound = datetime.min.replace(tzinfo=now.tzinfo)
+
+            # Build base query for related subject sources
+            related_subject_sources_query = (
+                models.SubjectSource.objects.filter(subject__name=subject["name"])
+                .annotate(lower=Lower("assigned_range"))
+                .exclude(
+                    lower=minimum_active_lower_bound
+                )  # This prevents including sources that didn't have the lower bound set i.e. deployed
+                .select_related("source", "source__provider")
+            )
+
             if subject["is_active"]:
-                related_subject_sources = (
-                    models.SubjectSource.objects.filter(subject__name=subject["name"])
-                    .annotate(lower=Lower("assigned_range"))
-                    .filter(assigned_range__contains=now)
-                    .exclude(
-                        lower=minimum_active_lower_bound
-                    )  # This prevents including sources that didn't had the lower bound set i.e. deployed
-                    .select_related("source", "source__provider")
-                )
+                # For ACTIVE subjects: Get only currently deployed sources (within current time range)
+                related_subject_sources = related_subject_sources_query.filter(assigned_range__contains=now)
             else:
-                related_subject_sources = (
-                    models.SubjectSource.objects.filter(subject__name=subject["name"])
-                    .annotate(lower=Lower("assigned_range"))
-                    .exclude(
-                        lower=minimum_active_lower_bound
-                    )  # This prevents including sources that didn't had the lower bound set i.e. deployed
-                    .select_related("source", "source__provider")
-                )
+                # For INACTIVE subjects: Get all historical sources (regardless of time range)
+                related_subject_sources = related_subject_sources_query
+
             for idx, subject_source in enumerate(related_subject_sources):
                 if subject_source.source:
                     device_id = subject_source.source.manufacturer_id
-                    observation = models.LatestObservationSource.objects.get_latest_for_source(subject_source.source)
-                    additional = subject_source.source.additional or {}
+                    # Use prefetched LatestObservationSource data instead of making individual queries
+                    # This prevents N+1 query problem when serializing multiple gears
+                    latest_obs_source = subject_source.source.last_observation_sources.first()
+                    if latest_obs_source and latest_obs_source.observation:
+                        observation = latest_obs_source.observation
+                        location = {"latitude": observation.location.y, "longitude": observation.location.x}
+                    else:
+                        location = {"latitude": None, "longitude": None}
+
                     device = {
                         "device_id": device_id,
                         "source_id": str(subject_source.source.id),
                         "label": self._idx_to_device_label(idx),
-                        "location": {"latitude": observation.location.y, "longitude": observation.location.x},
+                        "location": location,
                         "last_updated": subject_source.source.updated_at,
                         "last_deployed": subject_source.assigned_range.lower,
                     }
@@ -208,6 +203,18 @@ class GeoLocationSerializer(serializers.Serializer):
         required=True,
     )
 
+    def validate_latitude(self, value):
+        """Validate latitude is within valid range."""
+        if not -90 <= value <= 90:
+            raise serializers.ValidationError("Latitude must be between -90 and 90 degrees")
+        return value
+
+    def validate_longitude(self, value):
+        """Validate longitude is within valid range."""
+        if not -180 <= value <= 180:
+            raise serializers.ValidationError("Longitude must be between -180 and 180 degrees")
+        return value
+
 
 class GearDeviceCreateSerializer(serializers.Serializer):
     device_id = serializers.CharField(max_length=255, required=False)
@@ -239,6 +246,46 @@ class GearDeviceCreateSerializer(serializers.Serializer):
     device_pgn_data = serializers.JSONField(
         required=False,
     )
+
+    def validate_mfr_device_id(self, value):
+        """Validate manufacturer device ID is not empty."""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Manufacturer device ID cannot be empty")
+        return value.strip()
+
+    def validate_mfr_id(self, value):
+        """Validate manufacturer ID is not empty."""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Manufacturer ID cannot be empty")
+        return value.strip()
+
+    def validate_device_initial_deploy_date(self, value):
+        if value:
+            now = timezone.now()
+            if value > now:
+                raise serializers.ValidationError("Device deployment date cannot be in the future")
+
+        return value
+
+    def validate_device_last_updated_date(self, value):
+        """Validate device last updated date."""
+        if value:
+            now = timezone.now()
+            if value > now:
+                raise serializers.ValidationError("Device last updated date cannot be in the future")
+
+        return value
+
+    def validate(self, attrs):
+        deploy_date = attrs.get("device_initial_deploy_date")
+        updated_date = attrs.get("device_last_updated_date")
+
+        if deploy_date and updated_date and updated_date < deploy_date:
+            raise serializers.ValidationError(
+                {"device_last_updated_date": "Last updated date cannot be before deployment date"}
+            )
+
+        return super().validate(attrs)
 
 
 class GearCreateSerializer(serializers.Serializer):
@@ -273,8 +320,53 @@ class GearCreateSerializer(serializers.Serializer):
         required=True,
     )
 
+    def validate_owner_id(self, value):
+        """Validate owner_id is not empty and has valid format."""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Owner ID cannot be empty")
+        return value.strip()
+
+    def validate_devices_in_set(self, value):
+        """Validate devices_in_set is a positive integer."""
+        if value is not None and value <= 0:
+            raise serializers.ValidationError("devices_in_set must be a positive integer")
+        return value
+
+    def validate_initial_deployment_date(self, value):
+        """Validate deployment date is not too far in the past or future."""
+        if value:
+            now = timezone.now()
+            if value > now:
+                raise serializers.ValidationError("Initial deployment date cannot be in the future")
+        return value
+
     def validate(self, attrs):
-        # TODO: Add validation logic for the gear creation e.g. devices status, devices_in_set geq devices count, etc.
+        """
+        Cross-field validation for gear creation.
+        """
+        devices = attrs.get("devices", [])
+        devices_in_set = attrs.get("devices_in_set")
+
+        if devices_in_set is not None and len(devices) != devices_in_set:
+            raise serializers.ValidationError(
+                {
+                    "devices_in_set": (
+                        f"devices_in_set ({devices_in_set}) must match the actual number of devices ({len(devices)})"
+                    )
+                }
+            )
+
+        if not devices:
+            raise serializers.ValidationError({"devices": "At least one device must be provided"})
+
+        deployed_devices = [d for d in devices if d.get("device_status") == "deployed"]
+        hauled_devices = [d for d in devices if d.get("device_status") == "hauled"]
+
+        if deployed_devices and hauled_devices:
+            raise serializers.ValidationError(
+                {"devices": "All devices in a gear set should have the same deployment status"}
+            )
+
         return super().validate(attrs)
 
     def get_device_label(self, position_index: int):
