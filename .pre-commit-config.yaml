@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0 # Use the ref you want to point at
+    rev: v5.0.0 # Use the ref you want to point at
     hooks:
       - id: check-merge-conflict
       - id: debug-statements
@@ -26,7 +26,7 @@ repos:
           - "./pyproject.toml"
           - --fast
   - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v3.2.0
+    rev: v4.2.0
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]

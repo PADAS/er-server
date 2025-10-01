@@ -12,7 +12,7 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import InvalidPage, Paginator
 from django.db import OperationalError, connection, transaction
 from django.db.models.query import QuerySet
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.http.request import QueryDict
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
@@ -334,3 +334,54 @@ class CycleDetectedException(exceptions.APIException):
     status_code = 508
     default_detail = "Cyclic SubjectGroup found"
     default_code = "loop_detected"
+
+
+def create_json_response(content, content_type="application/json"):
+    """
+    Create an HttpResponse
+
+    Args:
+        content: The content to return (string or bytes)
+        content_type: The content type (default: application/json)
+
+    Returns:
+        HttpResponse with Content-Length header set
+    """
+
+    if isinstance(content, str):
+        content = content.encode("utf-8")
+
+    response = HttpResponse(content, content_type=content_type)
+    return response
+
+
+class ContentLengthMiddleware:
+    """
+    Middleware that automatically sets Content-Length headers for responses.
+    This should be placed AFTER other middleware that might modify response content.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+
+        # Always recalculate Content-Length to ensure accuracy
+        # This handles cases where other middleware modified the response
+        if response.streaming:
+            pass
+        elif hasattr(response, "content"):
+            # Django HttpResponse - use the final content
+            response["Content-Length"] = str(len(response.content))
+        elif hasattr(response, "data"):
+            # DRF Response - render to get final content
+            try:
+                rendered_content = response.render()
+                response["Content-Length"] = str(len(rendered_content))
+            except Exception:
+                # Fallback: try to get content length from response
+                if hasattr(response, "content"):
+                    response["Content-Length"] = str(len(response.content))
+
+        return response

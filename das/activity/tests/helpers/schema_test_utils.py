@@ -2,13 +2,15 @@
 Shared utilities for V1/V2 EventType schema testing.
 """
 
-from business_rules import export_rule_data
+import json
+from typing import Optional
 
 from django.urls import reverse
 
 from activity.alerting.businessrules import (
     EventActions,
     _generate_aggregate_event_variables_class,
+    export_rule_data,
 )
 
 
@@ -16,7 +18,7 @@ class V1SchemaBuilder:
     """Builder for V1 EventType JSON schemas using DRY patterns."""
 
     @staticmethod
-    def simple_field(field_name: str, field_type: str = "string", **kwargs):
+    def simple_field(field_name: str, field_type: str = "string", **kwargs) -> dict:
         """Create V1 schema with a single field."""
         field_props = {
             "type": field_type,
@@ -41,9 +43,47 @@ class V1SchemaBuilder:
         }
 
     @staticmethod
-    def choice_field(field_name: str, choices: dict, **kwargs):
+    def choice_field(field_name: str, choices: dict, **kwargs) -> dict:
         """Create V1 schema with choice field using enumNames."""
         return V1SchemaBuilder.simple_field(field_name, "string", enumNames=choices, **kwargs)
+
+    @staticmethod
+    def readonly_schema(readonly_value=True, with_field=True) -> dict:
+        """Create V1 schema with readonly property set.
+        Args:
+            readonly_value: The value for readonly (can be bool, string, number, etc.)
+            with_field: Whether to include a test field in the schema
+        """
+        schema = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "title": "Test Schema",
+            "type": "object",
+            "readonly": readonly_value,
+        }
+        if with_field:
+            schema["properties"] = {"test": {"type": "string", "title": "Test"}}
+        else:
+            schema["properties"] = {}
+        return {"schema": schema, "definition": [{"key": "test", "htmlClass": "col-lg-6"}] if with_field else []}
+
+    @staticmethod
+    def invalid_schema(schema_type="malformed_json") -> Optional[str]:
+        """Create various invalid schema formats for testing error handling.
+        Args:
+            schema_type: Type of invalid schema to create
+        """
+        if schema_type == "malformed_json":
+            return '{"schema": {"readonly": true, "invalid": }'
+        elif schema_type == "no_schema_key":
+            return json.dumps({"definition": []})
+        elif schema_type == "empty_string":
+            return ""
+        elif schema_type == "none":
+            return None
+        elif schema_type == "missing_schema_wrapper":
+            return json.dumps({"properties": {"field": {"type": "string"}}, "readonly": True})
+        else:
+            raise ValueError(f"Unknown invalid schema type: {schema_type}")
 
     @staticmethod
     def multi_field(fields: dict):
@@ -72,53 +112,55 @@ class V2SchemaBuilder:
     """Builder for V2 EventType schemas with fluent interface."""
 
     @staticmethod
-    def simple_field(field_name: str, field_type: str = "string", **kwargs):
+    def simple_field(field_name: str, field_type: str = "string", **kwargs) -> dict:
         """Create V2 schema with a single field."""
+        field_config = {
+            "deprecated": False,
+            "description": "",
+            "title": field_name.replace("_", " ").title(),
+            "type": field_type,
+            **kwargs,
+        }
         return {
             "json": {
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "additionalProperties": False,
                 "type": "object",
                 "properties": {
-                    field_name: {
-                        "deprecated": False,
-                        "description": "",
-                        "title": field_name.replace("_", " ").title(),
-                        "type": field_type,
-                        **kwargs,
-                    }
+                    field_name: field_config,
                 },
                 "required": [],
             },
-            "ui": V2SchemaBuilder._ui_section(field_name, field_type),
+            "ui": V2SchemaBuilder._ui_section(field_name, field_config),
         }
 
     @staticmethod
-    def choice_field(field_name: str, choices: dict, **kwargs):
+    def choice_field(field_name: str, choices: dict, **kwargs) -> dict:
         """Create V2 schema with oneOf choice structure."""
         one_of_choices = [{"const": key, "title": value} for key, value in choices.items()]
+        field_config = {
+            "deprecated": False,
+            "description": "",
+            "title": field_name.replace("_", " ").title(),
+            "type": "string",
+            "anyOf": [{"oneOf": one_of_choices}],
+            **kwargs,
+        }
         return {
             "json": {
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "additionalProperties": False,
                 "type": "object",
                 "properties": {
-                    field_name: {
-                        "deprecated": False,
-                        "description": "",
-                        "title": field_name.replace("_", " ").title(),
-                        "type": "string",
-                        "anyOf": [{"oneOf": one_of_choices}],
-                        **kwargs,
-                    }
+                    field_name: field_config,
                 },
                 "required": [],
             },
-            "ui": V2SchemaBuilder._ui_section(field_name, "choice"),
+            "ui": V2SchemaBuilder._ui_section(field_name, field_config),
         }
 
     @staticmethod
-    def multi_field(fields: dict):
+    def multi_field(fields: dict) -> dict:
         """Create V2 schema with multiple fields.
 
         Args:
@@ -135,17 +177,18 @@ class V2SchemaBuilder:
                 "description": "",
                 "title": field_config.get("title", field_name.replace("_", " ").title()),
                 "type": field_type,
-                **{k: v for k, v in field_config.items() if k not in ["type", "title", "choices"]},
+                **V2SchemaBuilder._clear_field_config(field_config),
             }
             if "choices" in field_config:
                 properties[field_name]["anyOf"] = [
                     {"oneOf": [{"const": k, "title": v} for k, v in field_config["choices"].items()]}
                 ]
             if "existing_choices" in field_config:
-                properties[field_name]["anyOf"] = [
-                    {"$ref": f"{reverse('schemas:choices')}?field={field_config['existing_choices']}"}
-                ]
-            ui_fields[field_name] = V2SchemaBuilder._field_ui_config(field_name, field_type)
+                existing_choices = field_config["existing_choices"]
+                if isinstance(existing_choices, list):
+                    existing_choices = ",".join(existing_choices)
+                properties[field_name]["anyOf"] = [{"$ref": f"{reverse('schemas:choices')}?field={existing_choices}"}]
+            ui_fields[field_name] = V2SchemaBuilder._field_ui_config(field_name, field_config)
             left_column.append({"name": field_name, "type": "field"})
 
         return {
@@ -173,10 +216,14 @@ class V2SchemaBuilder:
         }
 
     @staticmethod
-    def _ui_section(field_name: str, field_type: str):
+    def _clear_field_config(field_config: dict):
+        return {k: v for k, v in field_config.items() if k not in ["type", "choices", "existing_choices"]}
+
+    @staticmethod
+    def _ui_section(field_name: str, field_config: dict):
         """Create UI section for a single field."""
         return {
-            "fields": {field_name: V2SchemaBuilder._field_ui_config(field_name, field_type)},
+            "fields": {field_name: V2SchemaBuilder._field_ui_config(field_name, field_config)},
             "headers": {},
             "order": ["section-1"],
             "sections": {
@@ -191,28 +238,32 @@ class V2SchemaBuilder:
         }
 
     @staticmethod
-    def _field_ui_config(field_name: str, field_type: str):
+    def _field_ui_config(field_name: str, field_config: dict):
         """Generate UI config for a field based on type."""
-        if field_type == "choice":
+        field_type = field_config.get("type", "string")
+
+        if "existing_choices" in field_config:
+            existing_choices = field_config["existing_choices"]
+            if isinstance(existing_choices, str):
+                existing_choices = [existing_choices]
             return {
                 "choices": {
                     "eventTypeCategories": [],
-                    "existingChoiceList": [],
+                    "existingChoiceList": existing_choices,
                     "featureCategories": [],
                     "myDataType": "",
                     "subjectGroups": [],
                     "subjectSubtypes": [],
                     "type": "EXISTING_CHOICE_LIST",
                 },
-                "fieldType": "choice",
-                "control": "select",
+                "inputType": "DROPDOWN",
                 "placeholder": "",
                 "type": "CHOICE_LIST",
                 "parent": "section-1",
             }
         elif field_type == "number":
             return {"inputType": "NUMBER", "placeholder": "", "type": "NUMBER", "parent": "section-1"}
-        else:  # default to text
+        else:
             return {"inputType": "TEXT", "placeholder": "", "type": "TEXT", "parent": "section-1"}
 
 

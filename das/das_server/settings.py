@@ -102,6 +102,7 @@ MIDDLEWARE = (
     "utils.middleware.EULARedirectMiddleware",
     "utils.middleware.GeographicMiddleware",
     "utils.middleware.ManageAdminEFBTokenMiddleware",
+    "utils.drf.ContentLengthMiddleware",
 )
 
 ROOT_URLCONF = "das_server.urls"
@@ -175,9 +176,8 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ),
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "accounts.backends.NoLoginOAuth2Authentication",
+        "accounts.backends.PriorityOAuth2SessionAuthentication",
         "utils.authentication.BearerTokenInUrlAuthentication",
-        "utils.authentication.SuperUserSessionAuthentication",
     ),
     # 'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
     "DEFAULT_RENDERER_CLASSES": (

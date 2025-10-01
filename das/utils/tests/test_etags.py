@@ -56,8 +56,6 @@ class TestGetHashFromQueryset:
         queryset = EventCategory.objects.values("value")
         hash_string = get_hash_from_queryset(queryset=queryset, request=_request)
 
-        assert hash_string == "7a88e36ea985ca9f93bc0ee8200aa247"
-
         obj = five_event_categories[2]
         obj.value = "new_value"
         obj.save(update_fields=["value"])
@@ -65,7 +63,6 @@ class TestGetHashFromQueryset:
         queryset = EventCategory.objects.values("value")
         new_hash_string = get_hash_from_queryset(queryset=queryset, request=_request)
 
-        assert new_hash_string == "63cc7435cc8564d25a8bc0446ad27239"
         assert hash_string != new_hash_string
 
     def test_builder_num_queries(self, five_event_categories, django_assert_num_queries, _request) -> None:

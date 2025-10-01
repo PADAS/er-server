@@ -50,6 +50,10 @@ def subjectsource_report_for_tenant(self, usernames=None, **kwargs):
         return
 
     for user, report_context in generate_user_reports(recipients):
+        if not user.is_active:
+            logger.info("Skipping Subject Source Report for inactive user: %s, email: %s", user.username, user.email)
+            continue
+
         logger.info("Generating Subject Source Report for username: %s, email: %s", user.username, user.email)
 
         email_body = render_to_string("subjectsourcereport.html", report_context)

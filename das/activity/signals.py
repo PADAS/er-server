@@ -94,7 +94,9 @@ imagefile_rendered.connect(send_event_thumbnail_update)
 def patrol_post_save(sender, instance, created, **kwargs):
     logger.debug("saved patrol {}, created={}".format(instance.pk, str(created)))
     patrol_action = "das.patrol.new" if created else "das.patrol.update"
-    transaction.on_commit(lambda: pubsub.publish({"patrol_id": str(instance.pk)}, patrol_action))
+    patrol_id = instance.id
+    transaction.on_commit(lambda: pubsub.publish({"patrol_id": str(patrol_id)}, patrol_action))
+    transaction.on_commit(lambda: check_and_update_patrol_open_state(patrol_id=patrol_id))
 
 
 @receiver(post_delete, sender=Patrol)
@@ -154,22 +156,22 @@ def set_eta(instance):
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         upper_bound = instance.time_range.upper
         if upper_bound and upper_bound > now:
-            if features.tms.is_on():
-                celery.app.send_task(
-                    "activity.tasks.maintain_patrol_state",
-                    eta=upper_bound,
-                    kwargs={"domain": get_tenant_settings().domain},
-                )
-            else:
-                celery.app.send_task("activity.tasks.maintain_patrol_state", eta=upper_bound)
+            celery.app.send_task(
+                "activity.tasks.maintain_patrol_state",
+                eta=upper_bound,
+                kwargs={"domain": get_tenant_settings().domain},
+            )
 
 
-@receiver(pre_save, sender=Patrol)
-def update_patrolstate(sender, instance, **kwargs):
-    # Transition patrol state from done to open.
-    for o in instance.patrol_segments.all():
-        if o.time_range and all([o.time_range.upper is None, instance.state == PC_DONE]):
-            instance.state = PC_OPEN
+def check_and_update_patrol_open_state(patrol_id):
+    try:
+        patrol = Patrol.objects.prefetch_related("patrol_segments").get(id=patrol_id)
+        for o in patrol.patrol_segments.all():
+            if o.time_range and all([o.time_range.upper is None, patrol.state == PC_DONE]):
+                patrol.state = PC_OPEN
+                patrol.save()
+    except Patrol.DoesNotExist:
+        pass
 
 
 # EventCategory signals

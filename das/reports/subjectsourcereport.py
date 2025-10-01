@@ -200,6 +200,10 @@ def generate_user_reports(userlist):
     tenant_settings = get_tenant_settings()
 
     for user in userlist:
+        if not user.is_active:
+            logger.info("Skipping Subject Source Report for inactive user: %s, email: %s", user.username, user.email)
+            continue
+
         user_filtered_records = filter_by_user(report_records, user)
 
         group_list = groupify_report_data(user_filtered_records)

@@ -63,8 +63,8 @@ def get_remaining_alert_count(user: User) -> int:
 
 
 def update_stats():
-    stats.update_gauge("alert_rate_limit", alerts_storage.get_set_size(KEY_ALERT_90_PERCENT), tags=[f"limit:90pct"])
-    stats.update_gauge("alert_rate_limit", alerts_storage.get_set_size(KEY_ALERT_100_PERCENT), tags=[f"limit:100pct"])
+    stats.update_gauge("alert_rate_limit", alerts_storage.get_set_size(KEY_ALERT_90_PERCENT), tags=["limit:90pct"])
+    stats.update_gauge("alert_rate_limit", alerts_storage.get_set_size(KEY_ALERT_100_PERCENT), tags=["limit:100pct"])
 
 
 def publish_user_alert_quota_percentage(user: User, counter: int) -> None:

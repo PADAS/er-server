@@ -3,14 +3,11 @@ import uuid
 from typing import Optional
 
 import simplejson as json
-from rest_framework_gis.serializers import GeoFeatureModelSerializer
 
 from django.core.serializers import serialize
-from django.urls import reverse
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
-import utils
 from choices.models import Choice
 from core.serializers import BaseSerializer
 from mapping.models import (
@@ -127,16 +124,15 @@ class SpatialFeatureTypeSerializer(serializers.ModelSerializer):
 # )
 
 
-class SpatialFeatureListSerializer(GeoFeatureModelSerializer):
+class SpatialFeatureListSerializer(serializers.ModelSerializer):
     feature_class_name = serializers.SerializerMethodField()
     feature_class_id = serializers.SerializerMethodField()
     feature_set_name = serializers.SerializerMethodField()
     feature_set_id = serializers.SerializerMethodField()
+    url = serializers.HyperlinkedIdentityField(view_name="mapping:spatialfeature-detail", lookup_field="id")
 
     class Meta:
         model = SpatialFeature
-        geo_field = "feature_geometry"
-
         fields = (
             "id",
             "name",
@@ -146,6 +142,7 @@ class SpatialFeatureListSerializer(GeoFeatureModelSerializer):
             "feature_class_id",
             "feature_set_name",
             "feature_set_id",
+            "url",
         )
 
     def get_feature_class_name(self, obj: SpatialFeature) -> str:
@@ -186,25 +183,32 @@ class SpatialFeatureSerializer(serializers.ModelSerializer):
         )
 
 
-class SpatialFeatureGroupStaticSerializer(serializers.ModelSerializer):
-    features = SpatialFeatureSerializer(many=True)
+class SpatialFeatureGroupListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for list endpoints - excludes expensive features field."""
+
+    url = serializers.HyperlinkedIdentityField(view_name="mapping:spatialfeaturegroup-detail", lookup_field="id")
+    feature_count = serializers.SerializerMethodField()
 
     class Meta:
         model = SpatialFeatureGroupStatic
-        fields = ("name", "features", "description")
+        fields = ("id", "name", "description", "url", "feature_count")
 
-    def to_representation(self, instance):
-        rep = super().to_representation(instance)
+    def get_feature_count(self, obj):
+        """Return annotated feature count from database - no additional queries."""
+        return getattr(obj, "feature_count", obj.features.count())
 
-        if "request" in self.context:
-            rep["url"] = utils.add_base_url(
-                self.context["request"],
-                reverse(
-                    "mapping:spatialfeaturegroup-view",
-                    args=[
-                        instance.id,
-                    ],
-                ),
-            )
 
-        return rep
+class SpatialFeatureGroupDetailSerializer(serializers.ModelSerializer):
+    """Detailed serializer for detail endpoints - includes full feature data."""
+
+    url = serializers.HyperlinkedIdentityField(view_name="mapping:spatialfeaturegroup-detail", lookup_field="id")
+    features = SpatialFeatureSerializer(many=True)
+    feature_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SpatialFeatureGroupStatic
+        fields = ("id", "name", "description", "url", "features", "feature_count", "created_at", "updated_at")
+
+    def get_feature_count(self, obj):
+        """Return annotated feature count from database - no additional queries."""
+        return getattr(obj, "feature_count", obj.features.count())

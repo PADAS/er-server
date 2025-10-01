@@ -3,6 +3,7 @@ import glob
 import logging
 import os
 import uuid
+from typing import List
 
 import tagulous.settings
 from django_multitenant.fields import TenantForeignKey
@@ -15,6 +16,7 @@ from django.conf import settings
 from django.contrib.gis import geos
 from django.contrib.gis.db import models
 from django.core.cache import cache
+from django.contrib.gis.db.models import GeometryField
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.db.models import Index, Q, UniqueConstraint
@@ -31,6 +33,7 @@ from mapping.lookups import (
     GEO_TYPE_MULTIPOLYGON,
     GEO_TYPE_POINT,
     GEO_TYPE_POLYGON,
+    GeometryTypeLookup,
 )
 from mapping.mbtiles import (
     ExtractionError,
@@ -47,6 +50,9 @@ from utils.tenant.models import TenantThroughModel
 from utils.tenant.thread import get_tenant_settings
 
 logger = logging.getLogger(__name__)
+
+# Ensure the custom lookup is registered
+GeometryField.register_lookup(GeometryTypeLookup)
 
 FILE_TYPES = (
     ("shapefile", "Shapefile"),
@@ -639,7 +645,7 @@ class SpatialFeatureGroupStaticFeatures(TenantThroughModel):
 
 
 class SpatialFeatureGroupStaticQuerySet(models.QuerySet):
-    def by_spatial_type(self, spatial_type: str, exclusive: bool = True):
+    def by_spatial_type(self, spatial_types: List[str], exclusive: bool = True):
         ALL_FEATURE_TYPES = (
             GEO_TYPE_POINT,
             GEO_TYPE_LINESTRING,
@@ -650,11 +656,37 @@ class SpatialFeatureGroupStaticQuerySet(models.QuerySet):
         )
         queryset = self
         if exclusive:
-            excludes = Q()
-            for exclude in [type for type in ALL_FEATURE_TYPES if type != spatial_type]:
-                excludes &= ~Q(features__feature_geometry__type=exclude)
-            queryset = queryset.filter(excludes)
-        return queryset.filter(features__feature_geometry__type=spatial_type).distinct()
+            # For exclusive mode, we want groups that:
+            # 1. Have at least one feature with a desired spatial type
+            # 2. Have NO features with unwanted spatial types
+            # django doesn't support feature_geometry__type__in, so we have to use Q objects
+            unwanted_types = [type for type in ALL_FEATURE_TYPES if type not in spatial_types]
+
+            # Build Q objects for desired types (OR conditions)
+            desired_q = Q()
+            for spatial_type in spatial_types:
+                desired_q |= Q(features__feature_geometry__type=spatial_type)
+
+            # Build Q objects for unwanted types (OR conditions)
+            unwanted_q = Q()
+            for unwanted_type in unwanted_types:
+                unwanted_q |= Q(features__feature_geometry__type=unwanted_type)
+
+            # First, get groups that have at least one feature with desired types
+            queryset_with_desired = queryset.filter(desired_q).distinct()
+
+            # Then exclude groups that have any unwanted types
+            if unwanted_types:
+                queryset_with_desired = queryset_with_desired.exclude(unwanted_q)
+
+            return queryset_with_desired.distinct()
+
+        # For non-exclusive mode, just filter by desired types using Q objects
+        desired_q = Q()
+        for spatial_type in spatial_types:
+            desired_q |= Q(features__feature_geometry__type=spatial_type)
+
+        return queryset.filter(desired_q).distinct()
 
 
 class SpatialFeatureGroupStaticManager(

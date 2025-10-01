@@ -1,4 +1,5 @@
 import copy
+import json
 import logging
 import traceback
 from collections import OrderedDict
@@ -19,6 +20,7 @@ from django.db.models import OuterRef, Subquery
 from django.db.models.functions import JSONObject
 from django.db.utils import IntegrityError
 from django.urls import reverse
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request
 from rest_framework.serializers import (
     LIST_SERIALIZER_KWARGS,
@@ -81,6 +83,7 @@ from utils.schema_utils import (
     get_schema_renderer_method,
     validate_rendered_schema_is_wellformed,
 )
+from utils.text import replace_template_vars
 
 from .base import FileSerializerMixin
 from .event_details import EventDetailsSerializer
@@ -279,14 +282,23 @@ class EventTypeSerializer(ModelSerializer):
 
     @staticmethod
     def is_schema_readonly(obj) -> bool:
+        """
+        Check if a V1 EventType schema has the readonly property set to true.
+        Note: The readonly property is only used in V1 EventType schemas, not V2.
+        V2 schemas have a different structure with "json"/"ui" sections.
+        """
         try:
-            rendered_schema = get_schema_renderer_method(empty=True)(obj.schema)
+            cleaned_schema = replace_template_vars(obj.schema.strip(), "[]")
+            cleaned_schema = json.loads(cleaned_schema)
+            if not isinstance(cleaned_schema, dict):
+                return False
+
         except Exception as exc:
-            logger.error("Failed to render schema for event type %s: %s", obj.value, exc)
+            logger.error("Failed to get readonly prop for event type schema %s: %s", obj.value, exc)
+            return False
         else:
-            _schema = rendered_schema.get("schema", {})
+            _schema = cleaned_schema.get("schema", {})
             return parse_bool(_schema.get("readonly"))
-        return False
 
     def to_representation(self, obj):
         rep = super().to_representation(obj)
@@ -350,6 +362,10 @@ class EventNoteSerializer(ModelSerializer):
         return "{0}: {1}".format(get_user_display(note.created_by_user), note.text)
 
     def render_updates(self, note):
+
+        if not self.context.get("include_updates", True):
+            return []
+
         def get_action(revision):
             if revision.action in (ACTION_ADDED, ACTION_UPDATED):
                 field_mapping = {"text": "Note Text"}
@@ -462,7 +478,7 @@ class EventSerializerMixin:
         update_fields = []
 
         patrol_segments = validated_data.pop("patrol_segments", None)
-        if patrol_segments:
+        if patrol_segments is not None:
             logger.info("setting patrol segments. with %s", patrol_segments)
             # update_fields.append('patrol_segments')
             instance.patrol_segments.set(patrol_segments)
@@ -1191,6 +1207,34 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
     def _is_event_source_duplicated(self, event_source: EventSource, external_event_id: str) -> bool:
         return EventsourceEvent.objects.filter(eventsource=event_source, external_event_id=external_event_id).exists()
 
+    def validate_patrol_segments(self, value):
+        """
+        Validate patrol_segments field changes.
+        Check if user has permission to remove events from patrol segments.
+        """
+        request = self.context.get("request")
+
+        if self.instance and request:
+            current_ids = set(str(ps.id) for ps in self.instance.patrol_segments.all())
+
+            new_ids = set()
+            for item in value:
+                if hasattr(item, "id"):
+                    new_ids.add(str(item.id))
+                else:
+                    new_ids.add(str(item))
+
+            removed_ids = current_ids - new_ids
+
+            if removed_ids:
+                if not request.user.has_perm("activity.delete_event_related_segments"):
+                    raise PermissionDenied(
+                        "You do not have permission to remove events from patrol segments. "
+                        "Permission 'activity.delete_event_related_segments' is required."
+                    )
+
+        return value
+
 
 class EventStateSerializer(ModelSerializer):
     class Meta:
@@ -1239,6 +1283,9 @@ class EventPhotoSerializer(ModelSerializer):
         return rep
 
     def render_updates(self, photo):
+        if not self.context.get("include_updates", True):
+            return []
+            
         def get_action(revision):
             return revision.get_action_display()
 
