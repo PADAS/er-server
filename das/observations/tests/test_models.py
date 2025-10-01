@@ -753,6 +753,48 @@ class TestObservationQuerySet(TestCase):
         # The avoid_unions version should not contain UNION
         self.assertNotIn("UNION", sql_with_avoid.upper())
 
+    def test_get_subject_observations_partitioned_no_source_assignments(self):
+        """Test that method returns empty QuerySet when no source assignments exist."""
+        present_time = timezone.now()
+
+        # Create an expired source assignment
+        subject_1 = Subject.objects.create(name="Test Subject 1")
+        source_1 = Source.objects.create(provider_id=1)
+        SubjectSource.objects.create(
+            subject=subject_1,
+            source=source_1,
+            assigned_range=(present_time - timedelta(days=10), present_time - timedelta(days=1)),
+        )
+
+        # Create an active source assignment for a second subject
+        subject_2 = Subject.objects.create(name="Test Subject 2")
+        source_2 = Source.objects.create(provider_id=2)
+        SubjectSource.objects.create(
+            subject=subject_2,
+            source=source_2,
+            assigned_range=(present_time - timedelta(days=10), present_time + timedelta(days=1)),
+        )
+
+        Observation.objects.create(
+            source=source_2, recorded_at=present_time - timedelta(hours=1), location="POINT(1.0 1.0)"
+        )
+
+        # Test with avoid_unions=True (the path that returns self.none())
+        queryset = Observation.objects.get_subject_observations_partitioned(
+            subject_1, avoid_unions=True, since=present_time - timedelta(hours=12)
+        )
+
+        # Should return empty QuerySet
+        self.assertEqual(queryset.count(), 0)
+
+        # Test with avoid_unions=False (default behavior)
+        queryset_default = Observation.objects.get_subject_observations_partitioned(
+            subject_1, avoid_unions=False, since=present_time - timedelta(hours=12)
+        )
+
+        # Should also return empty QuerySet
+        self.assertEqual(queryset_default.count(), 0)
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")

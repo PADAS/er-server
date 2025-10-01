@@ -616,6 +616,10 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             # Get all source assignments that overlap with our time range
             source_assignments = SubjectSource.objects.filter(subject=subject, assigned_range__overlap=time_range)
 
+            if not source_assignments:
+                # Short-circuit if there are no source assignments for the given time range.
+                return self.none()
+
             # Build a single query using Q objects to combine conditions
             from django.db.models import Q
 
@@ -667,6 +671,10 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         source_assignments = SubjectSource.objects.filter(subject=subject, assigned_range__overlap=time_range).values(
             "source_id", "assigned_range"
         )
+
+        # If there are no source assignments, there's nothing to base the filter on
+        if not source_assignments:
+            return self.none()
 
         # Process assignments in batches to avoid recursion issues
         for i in range(0, len(source_assignments), batch_size):
@@ -1849,6 +1857,10 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
             ("access_ends_1", "Can view tracks no less than 1 day old"),
             ("access_ends_3", "Can view tracks no less than 3 days old"),
             ("access_ends_7", "Can view tracks no less than 7 days old"),
+            (
+                "can_view_gear_regardless_location",
+                "Can view gear/subject regardless of location restriction (lat/lon not required).",
+            ),
         )
         constraints = [
             UniqueConstraint(

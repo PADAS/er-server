@@ -33,6 +33,7 @@ from mapping.models import (
 )
 from mapping.permissions import LayerObjectPermissions
 from mapping.vector_layers import SpatialFeatureLayer
+from utils.drf import create_json_response
 from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
@@ -76,7 +77,7 @@ class FeatureListJsonView(APIView):
                     "geojson_url": reverse("mapping:mapping-feature-geojson", args=[feature.id.hex]),
                 }
             )
-        return HttpResponse(json.dumps(response_data).encode("utf-8"), content_type="application/json")
+        return create_json_response(json.dumps(response_data))
 
 
 class FeatureGeoJsonView(APIView):
@@ -94,7 +95,7 @@ class FeatureGeoJsonView(APIView):
             properties={"name": "title", "default_presentation": "presentation"},
             geometry_field="feature_geometry",
         )
-        return HttpResponse(feature.encode("utf-8"), content_type="application/json")
+        return create_json_response(feature)
 
 
 class FeatureSetListJsonView(APIView):
@@ -161,7 +162,7 @@ class FeatureSetListJsonView(APIView):
                     "geojson_url": reverse("mapping:mapping-featureset-geojson", args=[featureset.id.hex]),
                 }
             )
-        return HttpResponse(json.dumps(response_data).encode("utf-8"), content_type="application/json")
+        return create_json_response(json.dumps(response_data))
 
 
 def calculate_featureset_etag(view_instance, view_method, request, args, kwargs):
@@ -217,7 +218,7 @@ class FeatureSetGeoJsonView(APIView):
             geometry_field="feature_geometry",
         )
 
-        return HttpResponse(feature.encode("utf-8"), content_type="application/json")
+        return create_json_response(feature)
 
     def post(self, request, format=None):
         pass
@@ -388,8 +389,8 @@ def grid(request, name, z, x, y, catalog=None):
     callback = request.GET.get("callback", None)
     try:
         mbtiles = MBTiles(name, catalog)
-        grid_content = mbtiles.grid(z, x, y, callback).encode("utf-8")
-        return HttpResponse(grid_content, content_type="application/javascript; charset=utf8")
+        grid_content = mbtiles.grid(z, x, y, callback)
+        return create_json_response(grid_content, content_type="application/javascript; charset=utf8")
     except MBTilesNotFoundError as e:
         logger.warning(e)
     except MissingTileError:
@@ -412,7 +413,7 @@ def tilejson(request, name, catalog=None):
         tilejson = json.dumps(tilejson)
         if callback:
             tilejson = "%s(%s);" % (callback, tilejson)
-        return HttpResponse(tilejson.encode("utf-8"), content_type="application/javascript; charset=utf8")
+        return create_json_response(tilejson)
     except MBTilesNotFoundError as e:
         logger.warning(e)
     raise Http404

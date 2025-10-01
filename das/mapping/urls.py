@@ -1,10 +1,11 @@
 from django.urls import re_path
 
 from mapping.spatialviews import (
-    SpatialFeatureGroupView,
+    SpatialFeatureDetailView,
+    SpatialFeatureGroupDetailView,
+    SpatialFeatureGroupListView,
     SpatialFeatureListView,
     SpatialFeatureTypeListView,
-    SpatialFeatureView,
 )
 from mapping.views import (
     FeatureGeoJsonView,
@@ -39,15 +40,22 @@ urlpatterns = (
     re_path(r"^layers/?$", LayerListJsonView.as_view()),
     re_path(rf"^layer/(?P<id>{regex.UUID})/?$", LayerJsonView.as_view()),
     re_path(
-        rf"^spatialfeaturegroup/(?P<id>{regex.UUID})/?$",
-        SpatialFeatureGroupView.as_view(),
-        name="spatialfeaturegroup-view",
-    ),
-    re_path(
         r"^featureclass/?$",
         SpatialFeatureTypeListView.as_view(),
         name="spatialfeaturetype-list",
     ),
+    # Spatial feature group endpoints
+    re_path(
+        r"^spatialfeaturegroup/?$",
+        SpatialFeatureGroupListView.as_view(),
+        name="spatialfeaturegroup-list",
+    ),
+    re_path(
+        rf"^spatialfeaturegroup/(?P<id>{regex.UUID})/?$",
+        SpatialFeatureGroupDetailView.as_view(),
+        name="spatialfeaturegroup-detail",
+    ),
+    # Spatial feature endpoints
     re_path(
         r"^spatialfeature/?$",
         SpatialFeatureListView.as_view(),
@@ -55,7 +63,7 @@ urlpatterns = (
     ),
     re_path(
         rf"^spatialfeature/(?P<id>{regex.UUID})/?$",
-        SpatialFeatureView.as_view(),
+        SpatialFeatureDetailView.as_view(),
         name="spatialfeature-detail",
     ),
     # Vector tile endpoint for spatial features

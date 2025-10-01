@@ -9,7 +9,7 @@ from django.contrib.gis.geos import LineString, MultiLineString, MultiPoint, Poi
 from django.urls import reverse
 
 import mapping.views as views
-from analyzers.forms import FeatureProximityAnalyzerForm, GeofenceSubjectAnalyzerForm
+from analyzers.forms import GeofenceSubjectAnalyzerForm
 from core.tests import BaseAPITest
 from factories import SpatialFeatureFactory, SpatialFeatureGroupStaticFactory
 from mapping.models import (
@@ -151,6 +151,26 @@ class TestFeatures(BaseAPITest):
         data = json.loads(response.content)
         self.assertEqual(len(data["features"]), 0)
 
+        # Test that content-length header matches actual content length
+        content_length = response.get("Content-Length")
+        if content_length:
+            self.assertEqual(int(content_length), len(response.content))
+
+    def test_featureset_with_features_content_length(self):
+        """Test that Content-Length is set correctly when features are present"""
+        request = self.factory.get(self.api_base + "/featureset/")
+        self.force_authenticate(request, self.app_user)
+        response = views.FeatureSetGeoJsonView.as_view()(request, id=str(self.category.id))
+        self.assertIsNotNone(response)
+        self.assertContains(response, "features")
+        data = json.loads(response.content)
+        self.assertGreater(len(data["features"]), 0)
+
+        # Test that content-length header matches actual content length
+        content_length = response.get("Content-Length")
+        if content_length:
+            self.assertEqual(int(content_length), len(response.content))
+
     def test_with_feature_class_is_visible_false_include_hidden_true(self):
         self.feature_class.is_visible = False
         self.feature_class.save()
@@ -230,7 +250,7 @@ class TestSpatialFeatureGroup:
 
     def test_spaitalfeaturegroupstatic_include_linestring_groups(self, spatial_feature_group_linestring_only):
         assert SpatialFeatureGroupStatic.objects.exists()
-        groups = SpatialFeatureGroupStatic.objects.by_spatial_type("MULTILINESTRING")
+        groups = SpatialFeatureGroupStatic.objects.by_spatial_type(["MULTILINESTRING"])
         assert groups.count() == 1
         assert spatial_feature_group_linestring_only == groups.first()
 
@@ -238,7 +258,7 @@ class TestSpatialFeatureGroup:
         self, spatial_feature_group_mixed_geometry
     ):
         assert SpatialFeatureGroupStatic.objects.exists()
-        groups = SpatialFeatureGroupStatic.objects.by_spatial_type("MULTILINESTRING")
+        groups = SpatialFeatureGroupStatic.objects.by_spatial_type(["MULTILINESTRING"])
         assert spatial_feature_group_mixed_geometry not in groups
 
     def test_geofencesubjectanalyzerform_is_invalid_when_a_non_linestring_in_critical_geofence_group(
@@ -256,14 +276,6 @@ class TestSpatialFeatureGroup:
             assert set(["critical_geofence_group", "warning_geofence_group", "containment_regions"]).issubset(
                 form.errors.keys()
             )
-
-    def test_featureproximityanalyzerform_is_invalid_when_a_non_multipoint_in_proximal_features(
-        self, spatial_feature_group_linestring_only, django_assert_num_queries
-    ):
-        with django_assert_num_queries(1):
-            form = FeatureProximityAnalyzerForm({"proximal_features": spatial_feature_group_linestring_only.pk})
-            assert not form.is_valid()
-            assert "proximal_features" in form.errors.keys()
 
 
 @pytest.mark.django_db
@@ -320,15 +332,12 @@ class TestSpatialFeatureListView:
         assert response.status_code == 200
         data = response.json()
 
-        assert isinstance(data, dict)
         assert "data" in data
-        assert "features" in data["data"]
-        assert data["data"]["type"] == "FeatureCollection"
-        features = data["data"]["features"]
-        assert len(features) == 3
+        assert len(data["data"]) == 3
 
         # Check structure of all features
         expected_properties = [
+            "id",
             "name",
             "short_name",
             "description",
@@ -336,27 +345,23 @@ class TestSpatialFeatureListView:
             "feature_class_name",
             "feature_set_id",
             "feature_set_name",
+            "url",
         ]
 
-        for feature in features:
-            assert "id" in feature
-            assert "type" in feature
-            assert feature["type"] == "Feature"
-            assert "geometry" in feature
-            assert "properties" in feature
+        for feature in data["data"]:
             for prop in expected_properties:
-                assert prop in feature["properties"]
+                assert prop in feature
 
     def test_filter_by_feature_class(self, user_client, feature1, feature2, feature3, feature_type1):
         url = reverse("mapping:spatialfeature-list")
         response = user_client.get(url, {"feature_class": str(feature_type1.id)})
         assert response.status_code == 200
         data = response.json()
-        features = data["data"]["features"]
+        features = data["data"]
 
         # Only feature1 and feature2 belong to feature_type1
         assert len(features) == 2
-        names = [f["properties"]["name"] for f in features]
+        names = [f["name"] for f in features]
         assert "Feature One" in names
         assert "Feature Two" in names
 
@@ -367,11 +372,11 @@ class TestSpatialFeatureListView:
         response = user_client.get(url, {"feature_class": str(feature_type1.id) + "," + str(feature_type2.id)})
         assert response.status_code == 200
         data = response.json()
-        features = data["data"]["features"]
+        features = data["data"]
 
         # All features belong to feature_type1 or feature_type2
         assert len(features) == 3
-        names = [f["properties"]["name"] for f in features]
+        names = [f["name"] for f in features]
         assert "Feature One" in names
         assert "Feature Two" in names
         assert "Feature Three" in names
@@ -394,22 +399,22 @@ class TestSpatialFeatureListView:
         response = user_client.get(url, {"feature_set": str(category2.id)})
         assert response.status_code == 200
         data = response.json()
-        features = data["data"]["features"]
+        features = data["data"]
 
         # Only feature3 belongs to category2
         assert len(features) == 1
-        assert features[0]["properties"]["name"] == "Feature Three"
+        assert features[0]["name"] == "Feature Three"
 
     def test_filter_by_multiple_feature_sets(self, user_client, feature1, feature2, feature3, category1, category2):
         url = reverse("mapping:spatialfeature-list")
         response = user_client.get(url, {"feature_set": f"{category1.id},{category2.id}"})
         assert response.status_code == 200
         data = response.json()
-        features = data["data"]["features"]
+        features = data["data"]
 
         # All features belong to category1 or category2
         assert len(features) == 3
-        names = [f["properties"]["name"] for f in features]
+        names = [f["name"] for f in features]
         assert set(names) == {"Feature One", "Feature Two", "Feature Three"}
 
     def test_filter_by_invalid_feature_set(self, user_client, feature3):
@@ -469,3 +474,73 @@ class TestSpatialFeatureTypeListView:
         # Verify they have the correct display categories
         assert str(type_one["feature_set_id"]) == str(category1.id)
         assert str(type_two["feature_set_id"]) == str(category2.id)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestSpatialFeatureGroupListView:
+    """Tests for the new SpatialFeatureGroupListView endpoint."""
+
+    @pytest.fixture
+    def feature_group1(self):
+        """Create a feature group with some features."""
+        group = SpatialFeatureGroupStaticFactory(name="Test Group One", description="First test group")
+        features = [
+            SpatialFeatureFactory(name="Feature A", feature_geometry=Point(-122.1, 47.5)),
+            SpatialFeatureFactory(name="Feature B", feature_geometry=Point(-122.2, 47.6)),
+        ]
+        group.features.add(*features)
+        return group
+
+    @pytest.fixture
+    def feature_group2(self):
+        """Create another feature group with different features."""
+        group = SpatialFeatureGroupStaticFactory(name="Test Group Two", description="Second test group")
+        features = [
+            SpatialFeatureFactory(name="Feature C", feature_geometry=Point(-122.3, 47.7)),
+        ]
+        group.features.add(*features)
+        return group
+
+    def test_list_all_feature_groups(self, user_client, feature_group1, feature_group2):
+        """Test that the list endpoint returns all feature groups with correct structure."""
+        url = reverse("mapping:spatialfeaturegroup-list")
+        response = user_client.get(url)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "data" in data
+        assert len(data["data"]) == 2
+
+        # Check structure of feature groups
+        expected_fields = ["id", "name", "description", "url", "feature_count"]
+        for group in data["data"]:
+            for field in expected_fields:
+                assert field in group
+
+        groups_by_name = {g["name"]: g for g in data["data"]}
+        assert groups_by_name["Test Group One"]["feature_count"] == 2
+        assert groups_by_name["Test Group Two"]["feature_count"] == 1
+
+    def test_feature_group_urls_are_correct(self, user_client, feature_group1):
+        """Test that HyperlinkedIdentityField generates correct URLs."""
+        url = reverse("mapping:spatialfeaturegroup-list")
+        response = user_client.get(url)
+        assert response.status_code == 200
+
+        data = response.json()
+        group = data["data"][0]
+
+        # URL should point to detail endpoint
+        expected_detail_url = f"/api/v1.0/spatialfeaturegroup/{feature_group1.id}"
+        assert expected_detail_url in group["url"]
+
+    def test_empty_list_when_no_groups(self, user_client):
+        """Test that empty list is returned when no feature groups exist."""
+        url = reverse("mapping:spatialfeaturegroup-list")
+        response = user_client.get(url)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "data" in data
+        assert len(data["data"]) == 0

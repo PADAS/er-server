@@ -5,6 +5,7 @@ from smtplib import SMTPServerDisconnected
 import django.contrib.auth
 from django.contrib.contenttypes.models import ContentType
 from django.core.mail import EmailMultiAlternatives
+from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
 
 import accounts
@@ -34,7 +35,7 @@ def send_report(subject="", to_email=None, text_content="", from_email=None, htm
     msg.send()
 
 
-def get_users_for_permission(permission_codename: str, usernames: list = None):
+def get_users_for_permission(permission_codename: str, usernames: list = None) -> QuerySet[User]:
     queryset = User.objects.filter(is_active=True, permission_sets__permissions__codename=permission_codename)
 
     if usernames:

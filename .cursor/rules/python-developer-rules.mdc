@@ -21,6 +21,7 @@ Django/Python
 - Follow the MVT (Model-View-Template) pattern strictly for clear separation of concerns.
 - Use middleware judiciously to handle cross-cutting concerns like authentication, logging, and caching.
 - we prefer pytest. Fixtures can be found in conftest.py and run pytest from the project root to use the pytest.ini
+- always use logging and not print
 - Use test driven design principles. When fixing bugs, write the assertion unittest that exposes the bug, then fix the code to pass the test.
 - pre-commit handles application of Pep rules including import sorting and pruning, so don't waste time on managing whitespace and other code formatting.
 

@@ -4,6 +4,7 @@ import pytest
 
 from activity.factories import EventFactory, EventSourceEventFactory, EventSourceFactory
 from activity.models import EventType
+from activity.tests.helpers.schema_test_utils import V2SchemaBuilder
 from factories import EventTypeFactory
 
 
@@ -26,6 +27,59 @@ def event_with_event_source_event(base_event):
 @pytest.fixture
 def event_source():
     return EventSourceFactory.create()
+
+
+@pytest.fixture
+def collection_event_type(five_event_categories):
+    security_category = [
+        event_category for event_category in five_event_categories if event_category.value == "security"
+    ][0]
+
+    schema = V2SchemaBuilder.multi_field(
+        {
+            "conservancy": {"existing_choices": ["conservancy"], "title": "Conservancy (Incident Field)"},
+            "station": {"existing_choices": ["station"], "title": "Reporting Station (Incident Field)"},
+            "reportingtime": {"format": "date-time", "title": "Reporting Time (Incident Field)"},
+        }
+    )
+    return EventTypeFactory.create(
+        category=security_category,
+        is_collection=True,
+        schema=json.dumps(schema),
+        value="incident_collection",
+        display="Incident Collection",
+        version=EventType.VersionChoices.VERSION_2,
+    )
+
+
+@pytest.fixture
+def logistics_event_type(five_event_categories):
+    security_category = [
+        event_category for event_category in five_event_categories if event_category.value == "security"
+    ][0]
+    return EventTypeFactory.create(
+        category=security_category,
+        value="logistics",
+        display="Logistics",
+    )
+
+
+@pytest.fixture
+def monitoring_event_type(five_event_categories):
+    monitoring_category = [
+        event_category for event_category in five_event_categories if event_category.value == "monitoring"
+    ][0]
+    return EventTypeFactory.create(
+        category=monitoring_category,
+        value="monitoring",
+        display="Monitoring",
+    )
+
+
+@pytest.fixture
+def base_event_types(collection_event_type, logistics_event_type, monitoring_event_type):
+    """Fixture for base event types."""
+    return collection_event_type, logistics_event_type, monitoring_event_type
 
 
 @pytest.fixture
