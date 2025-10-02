@@ -412,6 +412,9 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
         # double render as in the base class rendering is where the filters are applied
         # and the queryset is populated with filters
         response = super().changelist_view(request, extra_context)
+        if isinstance(response, HttpResponseRedirect) or not hasattr(response, "context_data"):
+            return response
+
         queryset = response.context_data["cl"].result_list
         extra_context = extra_context or {}
 
