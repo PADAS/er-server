@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import List, Tuple
 
 from django.contrib import admin, messages
 
@@ -13,9 +13,9 @@ from analyzers.forms import (
     LowSpeedWilcoxSubjectAnalyzerForm,
     SubjectProximityAnalyzerForm,
 )
+from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
 from core.admin import BaseModelAdminMixin
 from core.openlayers import OSMGeoExtendedAdmin
-from mapping.lookups import GEO_TYPE_MULTILINESTRING, GEO_TYPE_MULTIPOINT
 
 
 @admin.register(models.ImmobilityAnalyzerConfig)
@@ -73,12 +73,15 @@ private key and paste it's contents in this form (be sure to use the JSON format
 """
 
 
-def check_geofence_groups_have_only_one_type_feature(request, obj, field_names: Tuple[str, ...], geo_type: str) -> None:
+def check_geofence_groups_have_only_one_type_feature(
+    request, obj, field_names: Tuple[str, ...], geo_types: List[str]
+) -> None:
     if not request.POST:
+        lower_geo_types = [geo_type.lower() for geo_type in geo_types]
         for field_name in field_names:
             field = getattr(obj, field_name, None)
             if field and not all(
-                feature.feature_geometry.geom_type.lower() == geo_type.lower() for feature in field.features.all()
+                feature.feature_geometry.geom_type.lower() in lower_geo_types for feature in field.features.all()
             ):
                 messages.add_message(
                     request=request,
@@ -203,7 +206,7 @@ class FeatureProximityAnalyzerAdmin(BaseModelAdminMixin):
             request=request,
             obj=obj,
             field_names=("proximal_features",),
-            geo_type=GEO_TYPE_MULTIPOINT,
+            geo_types=FeatureProximityAnalyzerConfig.MULTI_FEATURES_SPATIAL_TYPE,
         )
         return super().get_form(request, obj, **kwargs)
 
@@ -328,7 +331,7 @@ class GeofenceSubjectAnalyzerAdmin(BaseModelAdminMixin):
                 "critical_geofence_group",
                 "warning_geofence_group",
             ),
-            geo_type=GEO_TYPE_MULTILINESTRING,
+            geo_types=GeofenceAnalyzerConfig.GEOFENCE_SPATIAL_TYPE,
         )
         return super().get_form(request, obj, **kwargs)
 
