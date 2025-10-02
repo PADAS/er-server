@@ -74,8 +74,8 @@ class EventTypesView(EventTypeQuerysetMixin, ListCreateAPIView):
     schema = EventTypeViewSchema()
 
     @etag(etag_func=build_event_types_etag_header)
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
     def get_serializer_context(self):
         qparams = self.request.query_params

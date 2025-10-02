@@ -13,6 +13,7 @@ from rest_framework import status
 
 from activity.models import PRI_URGENT, SC_RESOLVED, Event, EventCategory, EventType
 from activity.tests import schema_examples
+from activity.tests.helpers.schema_test_utils import V1SchemaBuilder
 from activity.views import EventTypesView, EventTypeView
 from client_http import HTTPClient
 from core.utils import DirectoryIconFinder
@@ -173,6 +174,107 @@ def test_readonly_eventtype(
     assert response.status_code == 201
     assert response_detail.status_code == 200
     assert response_detail.data["readonly"]
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.parametrize(
+    "schema_builder_method,schema_args,expected_readonly",
+    [
+        # Valid V1 schemas with readonly=true
+        ("readonly_schema", {"readonly_value": True}, True),
+        ("readonly_schema", {"readonly_value": "true"}, True),
+        ("readonly_schema", {"readonly_value": "1"}, True),
+        ("readonly_schema", {"readonly_value": "yes"}, True),
+        # Valid V1 schemas with readonly=false
+        ("readonly_schema", {"readonly_value": False}, False),
+        ("readonly_schema", {"readonly_value": "false"}, False),
+        ("readonly_schema", {"readonly_value": "no"}, False),
+        # Schema without readonly property
+        ("simple_field", {"field_name": "test", "field_type": "string"}, False),
+        # Invalid schema formats
+        ("invalid_schema", {"schema_type": "malformed_json"}, False),
+        ("invalid_schema", {"schema_type": "no_schema_key"}, False),
+        ("invalid_schema", {"schema_type": "empty_string"}, False),
+        ("invalid_schema", {"schema_type": "missing_schema_wrapper"}, False),
+    ],
+    ids=[
+        # Valid V1 schemas with readonly=true
+        "readonly_true_bool",
+        "readonly_true_string",
+        "readonly_1_string",
+        "readonly_yes_string",
+        # Valid V1 schemas with readonly=false
+        "readonly_false_bool",
+        "readonly_false_string",
+        "readonly_no_string",
+        # Schema without readonly property
+        "no_readonly_property",
+        # Invalid schema formats
+        "malformed_json",
+        "no_schema_key",
+        "empty_string",
+        "missing_schema_wrapper",
+    ],
+)
+def test_rendering_readonly_does_not_break_endpoints(
+    superuser_client,
+    five_event_categories,
+    schema_builder_method,
+    schema_args,
+    expected_readonly,
+):
+    """Test that various V1 schema formats including malformed ones don't break the event types list endpoint.
+
+    The readonly property is only used in V1 EventType schemas, not V2.
+    This test ensures the is_schema_readonly method handles all V1 schema variations gracefully.
+    """
+    schema_builder = getattr(V1SchemaBuilder, schema_builder_method)
+    schema_data = schema_builder(**schema_args)
+    if isinstance(schema_data, dict):
+        schema_data = json.dumps(schema_data)
+
+    event_type = EventTypeFactory.create(
+        category=five_event_categories[0],
+        version=EventType.VersionChoices.VERSION_1,
+        schema=schema_data,
+        value=f"test_event_{expected_readonly}_{id(schema_args)}",
+        display="Test V1 Event Type with Readonly",
+    )
+
+    # Test the list endpoint - this should not raise any exceptions
+    url = reverse("eventtypes")
+    response = superuser_client.get(url)
+    assert response.status_code == 200
+
+    # Find the created event type in the response
+    event_type_data = None
+    # response.data is a ReturnList for this endpoint (not paginated)
+    for item in response.data:
+        if item.get("id") == str(event_type.id):
+            event_type_data = item
+            break
+
+    assert event_type_data is not None, "Event type not found in list response"
+
+    # Check if readonly is set correctly based on schema
+    if expected_readonly:
+        assert event_type_data.get("readonly") is True
+    else:
+        # If readonly is false or not set, the field should not be in the response
+        # or should be false (check implementation specifics)
+        assert event_type_data.get("readonly") is None or event_type_data.get("readonly") is False
+
+    # Test the detail endpoint as well
+    detail_url = reverse("eventtype", kwargs={"eventtype_id": event_type.id})
+    detail_response = superuser_client.get(detail_url)
+
+    assert detail_response.status_code == 200
+
+    # Check readonly in detail response
+    if expected_readonly:
+        assert detail_response.data.get("readonly") is True
+    else:
+        assert detail_response.data.get("readonly") is None or detail_response.data.get("readonly") is False
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
