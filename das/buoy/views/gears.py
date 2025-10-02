@@ -1,23 +1,21 @@
+from drf_spectacular.utils import extend_schema
+
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework.response import Response
 
 from buoy import serializers
-from buoy.views.helpers import (
-    NAUTICAL_MILE_RADIUS,
-    check_valid_date_string,
-    check_valid_state_string,
-    filter_by_bbox,
-)
+from buoy.serializers.query_params import GearsQueryParamsSerializer
+from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
 from observations.permissions import StandardObjectPermissions
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
-from utils.gis import check_valid_lat_lon
 
 
+@extend_schema(parameters=[GearsQueryParamsSerializer])
 class GearsView(generics.ListAPIView):
     __doc__ = """
     Returns all gears.
@@ -48,45 +46,31 @@ class GearsView(generics.ListAPIView):
         return SubjectSource.objects.none()
 
     def list(self, request, *args, **kwargs):
-        # NOTE:
-        # Code extracted from `get_queryset` method and placed here to preserve operations performed on the
-        # original method, requires further analisys from buoy team, for checking business logic.
+        # Validate query parameters using serializer
+        query_serializer = GearsQueryParamsSerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        query_params = query_serializer.validated_data
 
-        query_params = self.request.query_params
-        # TODO: Look into using allowed users - need to add subjects to SG in unit tests
-        # allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
+        # First get subject-sources with related data
+        queryset = SubjectSource.objects.all().select_related("source", "subject")
+        queryset = queryset.order_by("id")  # Stable sort for pagination
 
-        # First get subject-sources.
-        queryset = SubjectSource.objects.all().select_related("source").select_related("subject")
+        # Apply filters based on validated parameters
+        if query_params.get("updated_since"):
+            queryset = queryset.by_updated_since(query_params["updated_since"])
 
-        # need a stable sort for pagination.
-        queryset = queryset.order_by("id")
+        # Filter by state (deployed/hauled)
+        queryset = queryset.filter(subject__is_active=(query_params.get("state") == "deployed"))
 
-        updated_since = query_params.get("updated_since")
-        is_updated_since_valid, updated_since = check_valid_date_string(updated_since, "updated_since")
-        if updated_since and is_updated_since_valid:
-            queryset = queryset.by_updated_since(updated_since)
-        elif updated_since and not is_updated_since_valid:
-            raise ValueError("updated_since must be a valid date")
-
-        is_active = check_valid_state_string(query_params.get("state"))
-        queryset = queryset.filter(subject__is_active=is_active)
-
-        # Validate max_nm_range using schema helper
-        max_nm_range = self.schema.validate_query_params(query_params) or NAUTICAL_MILE_RADIUS
+        # Apply location filtering if coordinates provided
         lat = query_params.get("lat")
         lon = query_params.get("lon")
+        max_nm_range = query_params.get("max_nm_range", NAUTICAL_MILE_RADIUS)
 
-        if lat and lon:
-            lat = float(lat)
-            lon = float(lon)
-            is_lat_lon_valid = check_valid_lat_lon(latitude=lat, longitude=lon)
-            if not is_lat_lon_valid:
-                raise ValueError("lat and lon are invalid values")
-            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=int(max_nm_range))
-        else:
-            if not self.request.user.has_perm("observations.can_view_gear_regardless_location"):
-                raise ForbiddenAPIException("lat and lon are required query parameters")
+        if lat is not None and lon is not None:
+            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=max_nm_range)
+        elif not self.request.user.has_perm("observations.can_view_gear_regardless_location"):
+            raise ForbiddenAPIException("lat and lon are required query parameters")
 
         # Filter queryset by removing subjects where the additional field is the same
         queryset = queryset.order_by("subject__additional__display_id", "subject__name").distinct(
