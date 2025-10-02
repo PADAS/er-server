@@ -329,6 +329,12 @@ GEOS_LIBRARY_PATH = env.str("GEOS_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu/libg
 GDAL_LIBRARY_PATH = env.str("GDAL_LIBRARY_PATH", "/usr/lib/libgdal.so")
 
 SHARED_CACHE_ALIAS = "shared"
+VECTOR_TILE_CACHE_ALIAS = "vector_tiles"
+
+# Vector tiles cache Redis location (dedicated in deployed contexts)
+_vt_redis_host = env.str("REDIS_HOST_VT", env.str("REDIS_HOST", "redis"))
+_vt_redis_port = env.int("REDIS_SERVICE_PORT", env.int("REDIS_PORT", 6379))
+_vt_redis_server = f"redis://{_vt_redis_host}:{_vt_redis_port}"
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
@@ -339,6 +345,12 @@ CACHES = {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "shared-cache",
         "KEY_PREFIX": "shared",
+    },
+    VECTOR_TILE_CACHE_ALIAS: {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": _vt_redis_server,
+        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+        "KEY_PREFIX": "vector-tiles",
     },
 }
 
@@ -370,8 +382,9 @@ PUBSUB_BROKER_URL = f"{REDIS_SERVER}/1"
 PUBSUB_BROKER_OPTIONS = {"max_connections": 200}
 
 # Celery Settings
-CELERY_BROKER_URL = REDIS_SERVER
-CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+# Keep Celery broker independent from general Redis server; allow env override
+CELERY_BROKER_URL = env.str("CELERY_BROKER_URL", REDIS_SERVER)
+CELERY_RESULT_BACKEND = env.str("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
 CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"

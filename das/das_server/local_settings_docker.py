@@ -9,15 +9,21 @@ from .settings import *
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": CELERY_BROKER_URL,
+        "LOCATION": REDIS_SERVER,
         "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
         "KEY_FUNCTION": "utils.tenant.cache.make_cache_key",
     },
     SHARED_CACHE_ALIAS: {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": CELERY_BROKER_URL,
+        "LOCATION": REDIS_SERVER,
         "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
         "KEY_PREFIX": "shared",
+    },
+    VECTOR_TILE_CACHE_ALIAS: {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_SERVER,
+        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+        "KEY_PREFIX": "vector-tiles",
     },
 }
 
