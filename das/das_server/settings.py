@@ -82,6 +82,7 @@ INSTALLED_APPS = (
 )
 
 MIDDLEWARE = (
+    "utils.drf.ContentLengthMiddleware",
     "core.middleware.MaintenanceMiddleware",
     "utils.middleware.RequestDataMiddleware",
     "utils.middleware.TenantSettingsMiddleware",
@@ -101,7 +102,6 @@ MIDDLEWARE = (
     "utils.middleware.EULARedirectMiddleware",
     "utils.middleware.GeographicMiddleware",
     "utils.middleware.ManageAdminEFBTokenMiddleware",
-    "utils.drf.ContentLengthMiddleware",
 )
 
 ROOT_URLCONF = "das_server.urls"
