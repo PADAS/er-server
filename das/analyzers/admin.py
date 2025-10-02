@@ -86,7 +86,7 @@ def check_geofence_groups_have_only_one_type_feature(
                 messages.add_message(
                     request=request,
                     level=messages.WARNING,
-                    message=f"The field '{field_name}' contains invalid geometries. Please ensure all features in this group are of type '{geo_type}'.",
+                    message=f"The field '{field_name}' contains invalid geometries. Please ensure all features in this group are of type(s) '{geo_types}'.",
                 )
 
 
