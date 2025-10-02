@@ -1,4 +1,5 @@
 import copy
+import json
 import logging
 import traceback
 from collections import OrderedDict
@@ -82,6 +83,7 @@ from utils.schema_utils import (
     get_schema_renderer_method,
     validate_rendered_schema_is_wellformed,
 )
+from utils.text import replace_template_vars
 
 from .base import FileSerializerMixin
 from .event_details import EventDetailsSerializer
@@ -280,14 +282,23 @@ class EventTypeSerializer(ModelSerializer):
 
     @staticmethod
     def is_schema_readonly(obj) -> bool:
+        """
+        Check if a V1 EventType schema has the readonly property set to true.
+        Note: The readonly property is only used in V1 EventType schemas, not V2.
+        V2 schemas have a different structure with "json"/"ui" sections.
+        """
         try:
-            rendered_schema = get_schema_renderer_method(empty=True)(obj.schema)
+            cleaned_schema = replace_template_vars(obj.schema.strip(), "[]")
+            cleaned_schema = json.loads(cleaned_schema)
+            if not isinstance(cleaned_schema, dict):
+                return False
+
         except Exception as exc:
-            logger.error("Failed to render schema for event type %s: %s", obj.value, exc)
+            logger.error("Failed to get readonly prop for event type schema %s: %s", obj.value, exc)
+            return False
         else:
-            _schema = rendered_schema.get("schema", {})
+            _schema = cleaned_schema.get("schema", {})
             return parse_bool(_schema.get("readonly"))
-        return False
 
     def to_representation(self, obj):
         rep = super().to_representation(obj)

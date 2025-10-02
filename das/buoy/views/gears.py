@@ -1,14 +1,12 @@
+from drf_spectacular.utils import extend_schema
+
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework.response import Response
 
 from buoy import serializers
-from buoy.views.helpers import (
-    NAUTICAL_MILE_RADIUS,
-    check_valid_date_string,
-    check_valid_state_string,
-    filter_by_bbox,
-)
+from buoy.serializers.query_params import GearsQueryParamsSerializer
+from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
@@ -21,6 +19,7 @@ from utils.drf import (
 from utils.gis import check_valid_lat_lon
 
 
+@extend_schema(parameters=[GearsQueryParamsSerializer])
 class GearsView(generics.ListAPIView):
     __doc__ = """
     Returns all gears.
@@ -51,16 +50,18 @@ class GearsView(generics.ListAPIView):
         return SubjectSource.objects.none()
 
     def list(self, request, *args, **kwargs):
-        # NOTE:
-        # Code extracted from `get_queryset` method and placed here to preserve operations performed on the
-        # original method, requires further analisys from buoy team, for checking business logic.
+        # Validate query parameters using serializer
+        query_serializer = GearsQueryParamsSerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        query_params = query_serializer.validated_data
 
-        query_params = self.request.query_params
-        # TODO: Look into using allowed users - need to add subjects to SG in unit tests
-        # allowed = Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True)
+        # First get subject-sources with related data
+        queryset = SubjectSource.objects.all().select_related("source", "subject")
+        queryset = queryset.order_by("id")  # Stable sort for pagination
 
-        # First get subject-sources.
-        queryset = SubjectSource.objects.all().select_related("source").select_related("subject")
+        # Apply filters based on validated parameters
+        if query_params.get("updated_since"):
+            queryset = queryset.by_updated_since(query_params["updated_since"])
 
         # Filter queryset by removing subjects where the additional field is the same        
         latest_observations = Observation.objects.filter(
