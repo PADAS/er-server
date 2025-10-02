@@ -10,11 +10,11 @@ from rest_framework.response import Response
 from das_server.views import CustomSchema
 from observations.filters import ObservationsFilter
 from observations.models import Observation, Subject
-from observations.permissions import StandardObjectPermissions
 from observations.serializers import FlattenObservationSerializer, ObservationSerializer
 from observations.utils import VIEW_OBSERVATION_PERMS, VIEW_SUBJECT_PERMS, dateparse
 from utils.drf import (
     ForbiddenAPIException,
+    StandardObjectPermissions,
     StandardResultsSetCursorPagination,
     StandardResultsSetPagination,
     return_409_response,

@@ -708,7 +708,8 @@ class SubjectTrackSerializer(serializers.Serializer):
         subject_linked_sources = self.context.get("subject_linked_sources")
         linked_sources = []
         if isinstance(subject_linked_sources, dict):
-            if source_id := subject_linked_sources.get(subject.id, {}).get("latest_source"):
+            subject_data = subject_linked_sources.get(subject.id) or {}
+            if source_id := subject_data.get("latest_source"):
                 linked_sources.append(source_id)
         elif subject_linked_sources:
             linked_sources = [source.id for source in subject_linked_sources]
