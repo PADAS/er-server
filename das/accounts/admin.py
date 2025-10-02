@@ -408,13 +408,12 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
 
     def changelist_view(self, request, extra_context=None):
         """Override changelist_view to add alert rules data for JavaScript"""
-        extra_context = extra_context or {}
 
-        # Get all users that will be displayed in the list
-        if hasattr(self, "get_queryset"):
-            queryset = self.get_queryset(request)
-        else:
-            queryset = self.model.objects.all()
+        # double render as in the base class rendering is where the filters are applied
+        # and the queryset is populated with filters
+        response = super().changelist_view(request, extra_context)
+        queryset = response.context_data["cl"].result_list
+        extra_context = extra_context or {}
 
         # Get alert rules data for each user and create form index mapping
         user_alert_rules = {}
@@ -430,9 +429,12 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
             # Check if user has alert rules (just boolean, no details needed)
             if user.id in user_ids_with_alerts:
                 user_alert_rules[str(user.id)] = {"has_alerts": True}
+            else:
+                user_alert_rules[str(user.id)] = {"has_alerts": False}
 
         extra_context["user_alert_rules"] = json.dumps(user_alert_rules)
         extra_context["form_index_to_user_id"] = json.dumps(form_index_to_user_id)
+
         return super().changelist_view(request, extra_context)
 
 
