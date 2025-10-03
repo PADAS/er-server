@@ -56,6 +56,7 @@ class CeleryConfigurationTests(TestCase):
             "observations.tasks.process_gpxdata_api",
             "observations.tasks.process_gpxtrack_file",
             "observations.tasks.refresh_patrols_view",
+            "observations.tasks.send_observations_to_gundi_async",
             "reports.observationlagnotification.check_sources_threshold",
             "reports.tasks.alert_lag_delay",
             "reports.tasks.run_check_sources_threshold",
