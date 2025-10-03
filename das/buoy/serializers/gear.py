@@ -261,7 +261,7 @@ class GearDeviceCreateSerializer(serializers.Serializer):
 
     def validate_device_initial_deploy_date(self, value):
         if value:
-            now = timezone.now()
+            now = datetime.now(timezone.utc)
             if value > now:
                 raise serializers.ValidationError("Device deployment date cannot be in the future")
 
@@ -270,7 +270,7 @@ class GearDeviceCreateSerializer(serializers.Serializer):
     def validate_device_last_updated_date(self, value):
         """Validate device last updated date."""
         if value:
-            now = timezone.now()
+            now = datetime.now(timezone.utc)
             if value > now:
                 raise serializers.ValidationError("Device last updated date cannot be in the future")
 
@@ -335,7 +335,7 @@ class GearCreateSerializer(serializers.Serializer):
     def validate_initial_deployment_date(self, value):
         """Validate deployment date is not too far in the past or future."""
         if value:
-            now = timezone.now()
+            now = datetime.now(timezone.utc)
             if value > now:
                 raise serializers.ValidationError("Initial deployment date cannot be in the future")
         return value
@@ -381,13 +381,14 @@ class GearCreateSerializer(serializers.Serializer):
     def save(self, **kwargs):
         observations = []
         gearset_data = self.validated_data
+        gearset_id = gearset_data.get("set_id") or str(uuid4())
         for position_idx, device_info in enumerate(self.validated_data.get("devices", [])):
             is_active = device_info.get("device_status") == "deployed"
             observation = {
-                "source_name": gearset_data.get("set_id") or str(uuid4()),
+                "source_name": gearset_id,
                 "source": device_info.get("device_id") or str(uuid4()),
                 "subject_type": BUOY_GEAR_SUBJECT_SUBTYPE,
-                "recorded_at": timezone.now().isoformat(),
+                "recorded_at": datetime.now(timezone.utc).isoformat(),
                 "source_type": SOURCE_TYPE,
                 "location": {"lat": device_info["location"]["latitude"], "lon": device_info["location"]["longitude"]},
                 "additional": {

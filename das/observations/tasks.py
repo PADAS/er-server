@@ -5,6 +5,7 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 
 import xmltodict
+from asgiref.sync import async_to_sync
 from celery_once import QueueOnce
 from google.api_core import exceptions
 from google.cloud import storage
@@ -397,9 +398,9 @@ def run_partition_table_check() -> None:
     retry_backoff=30,
     retry_backoff_max=10 * 60,
 )
-async def send_observations_to_gundi_async(self, observations, integration_id, **kwargs):
+def send_observations_to_gundi_async(self, observations, integration_id, **kwargs):
     """
-    Send observations to Gundi asynchronously using native async Celery task.
+    Send observations to Gundi asynchronously using Celery task.
     This provides retry logic and doesn't block the API endpoint.
 
     :param observations: List of observation dictionaries to send to Gundi
@@ -411,8 +412,8 @@ async def send_observations_to_gundi_async(self, observations, integration_id, *
 
         logger.info("Sending %d observations to Gundi with integration_id: %s", len(observations), integration_id)
 
-        # Use native async - no need for async_to_sync!
-        result = await send_observations_to_gundi(observations=observations, integration_id=integration_id)
+        # Convert async function to sync using async_to_sync
+        result = async_to_sync(send_observations_to_gundi)(observations=observations, integration_id=integration_id)
 
         logger.info("Successfully sent %d observations to Gundi. Result: %s", len(observations), result)
 
@@ -425,4 +426,4 @@ async def send_observations_to_gundi_async(self, observations, integration_id, *
             self.max_retries + 1,
             exc,
         )
-        await self.retry(exc=exc, retry_backoff=True)
+        self.retry(exc=exc, retry_backoff=True)

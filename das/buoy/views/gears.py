@@ -20,6 +20,8 @@ from observations.permissions import StandardObjectPermissions
 from observations.tasks import send_observations_to_gundi_async
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
+from utils.gis import check_valid_lat_lon
+from utils.tenant import get_tenant_settings
 
 
 class GearLocationPermission(BasePermission):
@@ -150,8 +152,9 @@ class GearsView(generics.ListAPIView):
         serializer.is_valid(raise_exception=True)
         observations = serializer.save()
 
+        domain = get_tenant_settings().domain
         task_result = send_observations_to_gundi_async.apply_async(
-            args=(observations, settings.BUOY_GUNDI_INTEGRATION_ID)
+            args=(observations, settings.BUOY_GUNDI_INTEGRATION_ID), kwargs={"domain": domain}
         )
 
         return Response(
