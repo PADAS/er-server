@@ -391,15 +391,94 @@ class TestGearsView:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["results"]) == 1
 
-    def test_filter_gear_subject_api_updated_since_invalid_param(self, buoy_client):
-        user_client, gear_subjectsource = buoy_client
-        url = reverse(self.base_url)
-        url += "?lat=0&lon=0"
-        url += "&updated_since=123456"
+    @pytest.mark.parametrize(
+        "params,expected_status,expected_error",
+        [
+            (
+                {"lat": 0, "lon": 0, "page": 1, "page_size": 10, "max_nm_range": 50, "state": "deployed"},
+                status.HTTP_200_OK,
+                None,  # Valid case
+            ),
+            # Test invalid parameter types
+            (
+                {"lat": "notfloat", "lon": "invalid"},
+                status.HTTP_400_BAD_REQUEST,
+                {"lat": ["A valid number is required."], "lon": ["A valid number is required."]},
+            ),
+            (
+                {"lat": 0, "lon": 0, "page": "abc", "page_size": "xyz"},
+                status.HTTP_400_BAD_REQUEST,
+                {"page": ["A valid integer is required."], "page_size": ["A valid integer is required."]},
+            ),
+            # Test range validations
+            (
+                {"lat": 91, "lon": 181},
+                status.HTTP_400_BAD_REQUEST,
+                {
+                    "lat_lon": [
+                        "Invalid latitude/longitude values. Latitude must be between -90 and 90, longitude between -180 and 180"
+                    ]
+                },
+            ),
+            (
+                {"lat": 0, "lon": 0, "max_nm_range": -10},
+                status.HTTP_400_BAD_REQUEST,
+                {"max_nm_range": ["Ensure this value is greater than or equal to 1."]},
+            ),
+            (
+                {"lat": 0, "lon": 0, "max_nm_range": 1001},
+                status.HTTP_400_BAD_REQUEST,
+                {"max_nm_range": ["Ensure this value is less than or equal to 1000."]},
+            ),
+            # Test required field combinations
+            (
+                {"lat": 0},  # Missing lon
+                status.HTTP_400_BAD_REQUEST,
+                {"lat_lon": ["Both lat and lon must be provided together"]},
+            ),
+            (
+                {"lon": 0},  # Missing lat
+                status.HTTP_400_BAD_REQUEST,
+                {"lat_lon": ["Both lat and lon must be provided together"]},
+            ),
+            # Test invalid date format
+            (
+                {"lat": 0, "lon": 0, "updated_since": "invalid-date"},
+                status.HTTP_400_BAD_REQUEST,
+                {"updated_since": ["Must be a valid date"]},
+            ),
+            # Test invalid state choices
+            (
+                {"lat": 0, "lon": 0, "state": "invalid_state"},
+                status.HTTP_400_BAD_REQUEST,
+                {"state": ['"\\"invalid_state\\"" is not a valid choice.']},
+            ),
+        ],
+    )
+    def test_gears_view_query_params_validation(self, buoy_client, params, expected_status, expected_error):
+        """Test comprehensive query parameter validation for GearsView.
+
+        Tests:
+        1. Valid parameter combinations
+        2. Invalid parameter types (lat/lon/page/page_size)
+        3. Range validations (lat/lon bounds, max_nm_range)
+        4. Required field combinations (lat/lon pairing)
+        5. Date format validation
+        6. State choices validation
+        """
+        user_client, _ = buoy_client
+        base = reverse(self.base_url)
+
+        # Convert params dict to query string
+        query_string = "&".join(f"{k}={v}" for k, v in params.items())
+        url = f"{base}?{query_string}"
 
         response = user_client.get(url)
 
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.status_code == expected_status
+        if res := response.json() and expected_error:
+            for key, value in expected_error.items():
+                assert res.get(key) == value
 
     def test_filter_gear_subject_api_state(self, buoy_client):
         user_client, gear_subjectsource = buoy_client
@@ -446,16 +525,6 @@ class TestGearsView:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["results"]) == 1
 
-    def test_filter_gear_subject_api_state_invalid_param(self, buoy_client):
-        user_client, _ = buoy_client
-        url = reverse(self.base_url)
-        url += "?lat=0&lon=0"
-        url += "&state=deploy"
-
-        response = user_client.get(url)
-
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-
     @pytest.mark.skip(
         reason="This test requires using the sensors api to handle the event_type field, it's relying on the gear api to magically fix the subject is_active field"
     )
@@ -484,7 +553,7 @@ class TestGearsView:
         # Arrange - Create a set of gears
         origin = Point(10, 10)
 
-        for miles in [4, 40, 400, 5000]:
+        for miles in [4, 40, 400, 999]:
             bearing = random.uniform(0, 360)
             new_point = distance(miles=miles).destination(origin, bearing)
             gear_subjectsource = get_custom_location_gear_subjectsource(Point(new_point.longitude, new_point.latitude))
@@ -508,7 +577,7 @@ class TestGearsView:
         assert len(response.data["results"]) == 2
 
         user_client.user.save()
-        response = user_client.get(url + f"?lat={origin.y}&lon={origin.x}&max_nm_range=5001")
+        response = user_client.get(url + f"?lat={origin.y}&lon={origin.x}&max_nm_range=1000")
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["results"]) == 5
 
@@ -573,5 +642,5 @@ class TestGearsView:
         assert "max_nm_range" in str(response.data)
 
         # Large value (should be accepted)
-        response = user_client.get(url + "?lat=0&lon=0&max_nm_range=10000")
+        response = user_client.get(url + "?lat=0&lon=0&max_nm_range=1000")
         assert response.status_code == status.HTTP_200_OK

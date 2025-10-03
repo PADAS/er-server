@@ -373,15 +373,9 @@ class ContentLengthMiddleware:
             pass
         elif hasattr(response, "content"):
             # Django HttpResponse - use the final content
-            response["Content-Length"] = str(len(response.content))
-        elif hasattr(response, "data"):
-            # DRF Response - render to get final content
-            try:
-                rendered_content = response.render()
-                response["Content-Length"] = str(len(rendered_content))
-            except Exception:
-                # Fallback: try to get content length from response
-                if hasattr(response, "content"):
-                    response["Content-Length"] = str(len(response.content))
+            if response.status_code in [status.HTTP_204_NO_CONTENT, status.HTTP_304_NOT_MODIFIED]:
+                response.headers.pop("Content-Length", None)
+            else:
+                response.headers["Content-Length"] = str(len(response.content))
 
         return response
