@@ -3,14 +3,20 @@ import json
 from io import StringIO
 
 import pytest
-from das.factories import ChoiceFactory
 
 from django.urls import reverse
 from rest_framework import status
 
 from accounts.models import PermissionSet
 from activity.models import EventType
-from factories import EventCategoryFactory
+from factories import (
+    ChoiceFactory,
+    EventCategoryFactory,
+    PermissionSetFactory,
+    SubjectFactory,
+    SubjectGroupFactory,
+)
+from observations.models import SubjectSubType
 
 BASE_URL = "https://zoo.com/api/v2.0/schemas"
 
@@ -88,6 +94,13 @@ CARCASS_V2_EVENTTYPE_SCHEMA = {
                 "title": "Animal Groups",
                 "type": "array",
                 "unevaluatedItems": False,
+            },
+            "signed_off_by": {
+                "deprecated": False,
+                "description": "",
+                "title": "Signed Off By",
+                "type": "string",
+                "anyOf": [{"$ref": f"{BASE_URL}/subjects.json?subject_subtypes=ranger"}],
             },
         },
     },
@@ -209,6 +222,21 @@ CARCASS_V2_EVENTTYPE_SCHEMA = {
                 "parent": "animal_groups",
             },
             "number_of_animals_in_group": {"placeholder": "", "type": "NUMERIC", "parent": "animal_groups"},
+            "signed_off_by": {
+                "choices": {
+                    "eventTypeCategories": [],
+                    "existingChoiceList": [],
+                    "featureCategories": [],
+                    "myDataType": "SUBJECTS_FROM_SUBJECT_SUBTYPE",
+                    "subjectGroups": [],
+                    "subjectSubtypes": ["ranger"],
+                    "type": "MY_DATA",
+                },
+                "inputType": "DROPDOWN",
+                "placeholder": "",
+                "type": "CHOICE_LIST",
+                "parent": "section-1",
+            },
         },
         "headers": {},
         "order": ["section-1"],
@@ -224,6 +252,8 @@ CARCASS_V2_EVENTTYPE_SCHEMA = {
                     {"name": "carcassrep_ageofcarcass", "type": "field"},
                     {"name": "carcassrep_trophystatus", "type": "field"},
                     {"name": "carcassrep_causeofdeath", "type": "field"},
+                    {"name": "animal_groups", "type": "field"},
+                    {"name": "signed_off_by", "type": "field"},
                 ],
                 "rightColumn": [],
             }
@@ -237,7 +267,7 @@ CARCASS_V2_EVENTTYPE_SCHEMA = {
 class TestEventExport:
 
     @pytest.fixture(autouse=True)
-    def caracass_v2_eventtype(self, superuser_client, user_client, tenant_settings):
+    def caracass_v2_eventtype(self, superuser_client, user_client, tenant_settings, view_subject_permissions):
 
         ChoiceFactory.create(
             value="elephant", display="Elephant", model="activity.eventtype", field="carcassrep_species"
@@ -278,6 +308,11 @@ class TestEventExport:
         user_client.user.permission_sets.add(export_permission_set)
         security_permission_set = PermissionSet.objects.get(name="View Category 0 Event Permissions")
         user_client.user.permission_sets.add(security_permission_set)
+
+        view_subject_permission_set = PermissionSetFactory.create(permissions=view_subject_permissions)
+        self.subject_group = SubjectGroupFactory.create(permission_sets=[view_subject_permission_set])
+        user_client.user.permission_sets.add(view_subject_permission_set)
+
         self.superuser_client = superuser_client
         self.user_client = user_client
         self.event_display = data["display"]
@@ -382,3 +417,36 @@ class TestEventExport:
         assert target_row.get("Species") == "Bongo"
         assert "Animal_Groups" in target_row.keys()
         assert "cheetah" in target_row.get("Animal_Groups")
+
+    def test_exporting_my_data_events_to_csv_no_uuid(self):
+        ranger_subtype = SubjectSubType.objects.get(value="ranger")
+        ranger = SubjectFactory.create(subject_subtype=ranger_subtype)
+        ranger.groups.add(self.subject_group)
+        my_data_data = {
+            "event_type": "carcass_v2_rep",
+            "priority": 200,
+            "event_details": {"signed_off_by": str(ranger.id)},
+        }
+
+        url = reverse("events")
+
+        response = self.user_client.post(url, my_data_data)
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        url = reverse("events-export")
+
+        response = self.user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+
+        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+
+        target_row = {}
+        for row in rendered_dict:
+            if row.get("Report_Type") == self.event_display:
+                target_row = row
+                break
+
+        assert "Signed_Off_By" in target_row.keys()
+        assert target_row.get("Signed_Off_By") == ranger.name
