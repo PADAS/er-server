@@ -291,6 +291,7 @@ class TestEventExport:
         )
 
         event_category = EventCategoryFactory.create(value="category 0")
+        _ = event_category.auto_permissionset_name
         """Create an EventType with the given schema."""
         url = reverse("v2-eventtype-list")
         data = {
@@ -306,7 +307,7 @@ class TestEventExport:
 
         export_permission_set = PermissionSet.objects.get(name="Can Export Data")
         user_client.user.permission_sets.add(export_permission_set)
-        security_permission_set = PermissionSet.objects.get(name="View Category 0 Event Permissions")
+        security_permission_set = PermissionSet.objects.get(name=event_category.auto_permissionset_name)
         user_client.user.permission_sets.add(security_permission_set)
 
         view_subject_permission_set = PermissionSetFactory.create(permissions=view_subject_permissions)
