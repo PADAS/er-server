@@ -115,9 +115,6 @@ class SerialNumberModelMixin:
                         f"Failed to set serial number after {max_retries} retries: {exc}"
                     )
 
-        # This should never be reached, but just in case
-        if exception:
-            raise exception
 
     def _get_serial_number_field_name(self):
         if hasattr(self, "serial_number_field"):
