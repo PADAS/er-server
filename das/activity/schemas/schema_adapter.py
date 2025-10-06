@@ -51,29 +51,35 @@ class V1SchemaAdapter:
     def __init__(self, schema: str):
         self.schema = schema
         self._renderer = schema_utils.get_schema_renderer_method()
-        self._rendered_schema = self._renderer(schema)
+        self._rendered_schema = None
+
+    @property
+    def rendered_schema(self):
+        if self._rendered_schema is None:
+            self._rendered_schema = self._renderer(self.schema)
+        return self._rendered_schema
 
     def get_properties(self) -> Dict[str, Any]:
         """Get properties from V1 schema structure."""
-        return schema_utils.get_resolved_v1v2_properties(self._rendered_schema)
+        return schema_utils.get_resolved_v1v2_properties(self.rendered_schema)
 
     def get_property_order(self) -> Dict[str, int]:
         """Get property order from V1 schema definition."""
-        return schema_utils.property_keys_order_as_dict(self._rendered_schema)
+        return schema_utils.property_keys_order_as_dict(self.rendered_schema)
 
     def get_column_header_name(self, key: str) -> str:
         """Get column header name using V1 schema logic."""
-        return schema_utils.get_column_header_name(self._rendered_schema, key)
+        return schema_utils.get_column_header_name(self.rendered_schema, key)
 
     def get_display_value_header_for_key(self, key: str) -> str:
         """Get display value header for key using V1 schema logic."""
-        return schema_utils.get_display_value_header_for_key(self._rendered_schema, key)
+        return schema_utils.get_display_value_header_for_key(self.rendered_schema, key)
 
     def get_display_values_for_event_details(self, event_details: Dict[str, Any], event=None) -> Dict[str, Any]:
         """Get display values using V1 schema logic.
         V1 event_details example: {"carcassrep_species": [{'name': 'Elephant', 'value': 'elephant'}, {'name': 'Eland', 'value': 'eland'}]}
         """
-        return schema_utils.get_display_values_for_event_details(event_details, self._rendered_schema, event=event)
+        return schema_utils.get_display_values_for_event_details(event_details, self.rendered_schema, event=event)
 
 
 class V2SchemaAdapter:
