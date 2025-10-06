@@ -1,5 +1,6 @@
-from django.conf import settings
 from drf_spectacular.utils import extend_schema
+
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework.permissions import BasePermission, IsAuthenticated
@@ -16,7 +17,6 @@ from observations.permissions import StandardObjectPermissions
 from observations.tasks import send_observations_to_gundi_async
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
-from utils.gis import check_valid_lat_lon
 from utils.tenant import get_tenant_settings
 
 
