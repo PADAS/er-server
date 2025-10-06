@@ -6,13 +6,8 @@ from rest_framework.response import Response
 
 from buoy import serializers
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
-from buoy.views.helpers import (
-    NAUTICAL_MILE_RADIUS,
-    check_valid_date_string,
-    check_valid_state_string,
-    filter_by_bbox,
-)
 from buoy.serializers.query_params import GearsQueryParamsSerializer
+from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
