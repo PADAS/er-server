@@ -190,7 +190,6 @@ class TestAlerts(BaseAPITest):
         # still considered new.
         time.sleep(1)
 
-        # event updated here
         EventDetails.objects.create(event=event, data={"event_details": {"sex": "Male"}})
         send_event_alert(
             alert_rule_id=self.alert_rule.id, event_id=event.id, notification_method_id=self.notification_method.id
