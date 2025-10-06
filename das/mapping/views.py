@@ -325,6 +325,34 @@ class SpatialFeatureTileView(MVTView):
             cache.set(cache_key, (response.content, response.get("Content-Type")), timeout=self.cache_timeout_seconds)
             response["X-Cache"] = "MISS"
         else:
+            # add error logging here to inspect for our environment
+            content_type = response.get("Content-Type", "")
+            status_code = response.status_code
+            auth_header = request.META.get("HTTP_AUTHORIZATION")
+            log_context = {
+                "path": request.get_full_path(),
+                "method": request.method,
+                "z": z,
+                "x": x,
+                "y": y,
+                "layer_ids": layer_ids,
+                "status_code": status_code,
+                "content_type": content_type,
+                "has_auth": bool(auth_header),
+                "auth_scheme": (auth_header.split()[0] if auth_header else None),
+                "cache_key": cache_key,
+                "cache_version": get_effective_cache_version(),
+            }
+            if status_code >= 500:
+                logger.error(
+                    "Vector tile cache BYPASS due to server error",
+                    extra={"details": log_context},
+                )
+            else:
+                logger.warning(
+                    "Vector tile cache BYPASS",
+                    extra={"details": log_context},
+                )
             response["X-Cache"] = "BYPASS"
         response["Cache-Control"] = (
             "public, max-age="
