@@ -15,14 +15,32 @@ from typing import Iterable, List, Mapping, Protocol, Sequence, Union
 from urllib.parse import urlencode
 
 from django.conf import settings
-from django.core.cache import cache
+from django.core.cache import caches
+from django.core.cache.backends.base import InvalidCacheBackendError
 from django.http import HttpRequest
+
+
+def get_vector_tile_cache():
+    """Return the cache instance configured for vector tiles.
+
+    Uses the alias from settings.VECTOR_TILE_CACHE_ALIAS so we do not
+    accidentally hit the default cache when a dedicated backend is configured.
+    """
+    alias = getattr(settings, "VECTOR_TILE_CACHE_ALIAS", "vector_tiles")
+    try:
+        return caches[alias]
+    except (InvalidCacheBackendError, KeyError, AttributeError):
+        logging.getLogger(__name__).warning(
+            "Vector tile cache alias '%s' is not configured; falling back to default cache",
+            alias,
+        )
+        return caches["default"]
 
 
 def get_effective_cache_version():
     """Get the effective cache version combining static setting with dynamic data version."""
     static_version = getattr(settings, "VECTOR_TILE_CACHE_VERSION", "1")
-    data_version = cache.get("vector_tile_data_version", 0)
+    data_version = get_vector_tile_cache().get("vector_tile_data_version", 0)
     return f"{static_version}-{data_version}"
 
 
@@ -109,4 +127,4 @@ def build_tile_cache_key(
     return cache_key
 
 
-__all__ = ["build_tile_cache_key", "get_effective_cache_version"]
+__all__ = ["build_tile_cache_key", "get_effective_cache_version", "get_vector_tile_cache"]

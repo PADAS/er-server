@@ -2,11 +2,16 @@ from unittest.mock import patch
 
 import pytest
 
-from django.core.cache import cache
+from django.conf import settings
+from django.core.cache import cache, caches
 from django.http import HttpResponse
 from django.test import RequestFactory, override_settings
 
-from mapping.cache import build_tile_cache_key
+from mapping.cache import (
+    build_tile_cache_key,
+    get_effective_cache_version,
+    get_vector_tile_cache,
+)
 from mapping.views import SpatialFeatureTileView
 
 
@@ -202,3 +207,27 @@ def test_tile_view_cache_version_changes_key():
             second = view(req2, z=3, x=4, y=5)
             assert second["X-Cache"] == "MISS"
             assert parent_get2.call_count == 1
+
+
+@pytest.mark.django_db
+def test_get_effective_cache_version_uses_vector_tile_cache_alias():
+    # Ensure different values in default vs vector tile cache; function should use vector tile cache
+    default_cache = caches["default"]
+    try:
+        vt_cache = caches[settings.VECTOR_TILE_CACHE_ALIAS]
+    except Exception:
+        pytest.skip("vector_tiles cache alias not configured in this environment")
+    default_cache.set("vector_tile_data_version", 99)
+    vt_cache.set("vector_tile_data_version", 7)
+
+    with override_settings(VECTOR_TILE_CACHE_VERSION="3"):
+        assert get_effective_cache_version() == "3-7"
+
+
+def test_get_vector_tile_cache_returns_configured_alias():
+    try:
+        expected = caches[settings.VECTOR_TILE_CACHE_ALIAS]
+    except Exception:
+        expected = caches["default"]  # fallback if alias missing
+    vt_cache = get_vector_tile_cache()
+    assert vt_cache is expected
