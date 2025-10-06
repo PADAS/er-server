@@ -49,9 +49,8 @@ class SpatialFeaturesDynamicSchemaView(DynamicSchemaFromSourceView):
     source_view = SpatialFeatureListView
     schema_title = "Spatial Features"
     schema_description = "All spatial features list"
-    default_title_field = "properties.name"
-    default_description_field = "properties.feature_type_name"
-    data_path = "features"
+    default_title_field = "name"
+    default_description_field = "feature_class_name"
 
 
 class EventTypesDynamicSchemaView(DynamicSchemaFromSourceView):

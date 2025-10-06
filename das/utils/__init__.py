@@ -1,6 +1,6 @@
 from enum import Enum
 
-import rest_framework.request
+from rest_framework.request import Request
 
 
 class StrEnum(str, Enum):
@@ -15,7 +15,7 @@ def add_base_url(request, url):
         if not url.startswith("/"):
             url = "/" + url
 
-        if isinstance(request, rest_framework.request.Request):
+        if isinstance(request, Request):
             request = request._request
 
         url = request.build_absolute_uri(url)

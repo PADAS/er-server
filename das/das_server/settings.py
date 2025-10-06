@@ -82,6 +82,7 @@ INSTALLED_APPS = (
 )
 
 MIDDLEWARE = (
+    "utils.drf.ContentLengthMiddleware",
     "core.middleware.MaintenanceMiddleware",
     "utils.middleware.RequestDataMiddleware",
     "utils.middleware.TenantSettingsMiddleware",
