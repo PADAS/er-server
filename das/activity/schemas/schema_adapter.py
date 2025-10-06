@@ -253,17 +253,17 @@ class SchemaAdapterFactory:
         """
         if isinstance(schema, str):
             try:
-                schema = json.loads(schema)
-                if "json" in schema and "ui" in schema:
+                schema_dict = json.loads(schema)
+                if "json" in schema_dict and "ui" in schema_dict:
                     # V2 schema structure
-                    return V2SchemaAdapter(schema, request)
-                elif "schema" in schema and "definition" in schema:
+                    return V2SchemaAdapter(schema_dict, request)
+                elif "schema" in schema_dict and "definition" in schema_dict:
                     # V1 schema structure
                     return V1SchemaAdapter(schema)
                 else:
                     # Default to V2 if we can't determine
                     logger.warning("Could not determine schema version, defaulting to V2")
-                    return V2SchemaAdapter(schema, request)
+                    return V2SchemaAdapter(schema_dict, request)
             except json.JSONDecodeError:
                 return V1SchemaAdapter(schema)
 
