@@ -51,12 +51,10 @@ class V1SchemaAdapter:
     def __init__(self, schema: str):
         self.schema = schema
         self._renderer = schema_utils.get_schema_renderer_method()
-        self._rendered_schema = None
+        self._rendered_schema = self._renderer(schema)
 
     @property
     def rendered_schema(self):
-        if self._rendered_schema is None:
-            self._rendered_schema = self._renderer(self.schema)
         return self._rendered_schema
 
     def get_properties(self) -> Dict[str, Any]:
