@@ -239,6 +239,9 @@ var map = new ol.Map({
     ])
 });
 
+// Assign the map to the module so it can be accessed by other scripts
+{{ module }}.map = map;
+
 // sometimes the map is not properly centered when creating the map view, try centering it again
 map.getView().setCenter(ol.proj.transform([{{default_lon}}, {{default_lat}}], 'EPSG:4326', 'EPSG:4326'));
 

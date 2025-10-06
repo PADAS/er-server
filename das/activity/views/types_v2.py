@@ -25,9 +25,15 @@ from activity.schemas.schema_retrieving import build_dynamic_schemas_registry
 from activity.serializers.events_v2 import EventTypeV2Serializer
 from activity.schemas.eventtype_service import EventTypeSchemaService
 from activity.serializers.events_v2 import EventTypeSerializer
+from activity.schemas.eventtype_service import EventTypeSchemaService
+from activity.serializers.event_types_v2 import (
+    EventTypeRevisionSerializer,
+    EventTypeV2Serializer,
+)
 from activity.views.events.utils import AllowedCategoriesMixin
 from core.utils import is_uuid
 from schemas.view_mixins import DynamicSchemaDataMixin
+from utils.drf import StandardResultsSetPagination
 from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer, parse_bool
 from utils.views import EtagListRetrieveModelMixin
 
@@ -192,9 +198,25 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         else:
             schema_result = schema_service.get_raw_schema(event_type)
 
-        # TODO: Propose a change to the shape of the response, to be more in line with the list_schemas response
         if schema_result.status != "failure":
             return Response(schema_result.schema, status=status.HTTP_200_OK)
         return Response(
             {"errors": [err.to_dict() for err in schema_result.errors]}, status=status.HTTP_422_UNPROCESSABLE_ENTITY
         )
+
+    @action(
+        methods=["get"],
+        detail=True,
+        url_path="updates",
+        serializer_class=EventTypeRevisionSerializer,
+        pagination_class=StandardResultsSetPagination,
+    )
+    def retrieve_updates(self, request: Request, **kwargs) -> Response:
+        """
+        Returns the updates for the specified event type.
+        """
+        event_type = self.get_object()
+        revisions = event_type.revision.all().order_by("-sequence")
+        page = self.paginate_queryset(revisions)
+        serializer = EventTypeRevisionSerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)

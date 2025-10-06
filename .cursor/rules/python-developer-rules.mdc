@@ -24,6 +24,7 @@ Django/Python
 - always use logging and not print
 - Use test driven design principles. When fixing bugs, write the assertion unittest that exposes the bug, then fix the code to pass the test.
 - pre-commit handles application of Pep rules including import sorting and pruning, so don't waste time on managing whitespace and other code formatting.
+- Use python typing Protocol and not ABC for defining abstract classes. Rely on type checker to enforce all required methods are implemented.
 
 Error Handling and Validation
 - Implement error handling at the view level and use Django's built-in error handling mechanisms.

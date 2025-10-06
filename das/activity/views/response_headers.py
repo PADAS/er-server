@@ -105,6 +105,10 @@ def build_event_types_etag_header(request, *args, **kwargs) -> str:
             schemas.append(get_schema_renderer_method(empty=True, as_string=True)(event_type["schema"]))
         except LookupError:
             logger.exception("Missing Choice table in event_type %s", event_type["value"])
+        except Exception:
+            # Handle malformed schemas gracefully - don't break ETag generation
+            logger.exception("Failed to render schema for event_type %s", event_type["value"])
+            schemas.append("")
 
     return get_hash_from_queryset(queryset=queryset, request=request, extra_salt=":".join(schemas))
 
@@ -114,8 +118,13 @@ def build_event_type_etag_header(request, *args, **kwargs) -> str:
     queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
     schema = None
     if event_type := queryset.first():
-        schema = event_type["schema"]
-        schema = get_schema_renderer_method(as_string=True)(schema)
+        try:
+            schema = event_type["schema"]
+            schema = get_schema_renderer_method(as_string=True)(schema)
+        except Exception:
+            # Handle malformed schemas gracefully - don't break ETag generation
+            logger.exception("Failed to render schema for event_type %s", event_type.get("value", "unknown"))
+            schema = ""
     return get_hash_from_queryset(queryset=queryset, request=request, extra_salt=schema)
 
 
