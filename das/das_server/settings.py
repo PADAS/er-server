@@ -331,10 +331,16 @@ GDAL_LIBRARY_PATH = env.str("GDAL_LIBRARY_PATH", "/usr/lib/libgdal.so")
 SHARED_CACHE_ALIAS = "shared"
 VECTOR_TILE_CACHE_ALIAS = "vector_tiles"
 
+# Define Redis port early for use in cache configuration
+# in kubernetes, the environment variable are
+# REDIS_SERVICE_HOST, REDIS_SERVICE_PORT
+REDIS_PORT = env.int("REDIS_SERVICE_PORT", 0)
+if not REDIS_PORT:
+    REDIS_PORT = env.int("REDIS_PORT", 6379)
+
 # Vector tiles cache Redis location (dedicated in deployed contexts)
-_vt_redis_host = env.str("REDIS_HOST_VT", env.str("REDIS_HOST", "redis"))
-_vt_redis_port = env.int("REDIS_SERVICE_PORT", env.int("REDIS_PORT", 6379))
-_vt_redis_server = f"redis://{_vt_redis_host}:{_vt_redis_port}"
+_vt_redis_host = env.str("REDIS_HOST_VT", "redis-vt")
+_vt_redis_server = f"redis://{_vt_redis_host}:{REDIS_PORT}"
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
@@ -367,12 +373,6 @@ MAPPING = {
         "root": r"/tmp",
     }
 }
-
-# in kubernetes, the environment variable are
-# REDIS_SERVICE_HOST, REDIS_SERVICE_PORT
-REDIS_PORT = env.int("REDIS_SERVICE_PORT", 0)
-if not REDIS_PORT:
-    REDIS_PORT = env.int("REDIS_PORT", 6379)
 
 REDIS_HOST = env.str("REDIS_HOST", "redis")
 REDIS_SERVER = f"redis://{REDIS_HOST}:{REDIS_PORT}"
