@@ -293,65 +293,6 @@ class SpatialFeatureTileView(MVTView):
     client_stale_while_revalidate_seconds = 86400  # serve stale up to another 24 hours while revalidating
     client_stale_if_error_seconds = 86400  # serve stale if origin errors for same window
 
-    def _build_bypass_log_context(self, request, response, z, x, y, layer_ids, cache_key):
-        content_type = response.get("Content-Type", "")
-        status_code = response.status_code
-        auth_header = request.META.get("HTTP_AUTHORIZATION")
-
-        try:
-            response_size = len(getattr(response, "content", b""))
-        except Exception:
-            response_size = None
-
-        is_textual = (
-            content_type.startswith("application/json")
-            or content_type.startswith("text/")
-            or content_type.endswith("+json")
-        )
-
-        response_headers = None
-        response_body_snippet = None
-        if 200 <= status_code < 500:
-            try:
-                wanted_headers = (
-                    "Content-Type",
-                    "Content-Encoding",
-                    "Content-Length",
-                    "ETag",
-                    "Last-Modified",
-                    "Cache-Control",
-                    "Vary",
-                    "Allow",
-                )
-                response_headers = {h: response.get(h) for h in wanted_headers if response.get(h) is not None}
-            except Exception:
-                response_headers = None
-
-            if is_textual:
-                try:
-                    raw = getattr(response, "content", b"")
-                    response_body_snippet = raw.decode("utf-8", errors="replace")[:512]
-                except Exception:
-                    response_body_snippet = None
-
-        return {
-            "path": request.get_full_path(),
-            "method": request.method,
-            "z": z,
-            "x": x,
-            "y": y,
-            "layer_ids": layer_ids,
-            "status_code": status_code,
-            "content_type": content_type,
-            "has_auth": bool(auth_header),
-            "auth_scheme": (auth_header.split()[0] if auth_header else None),
-            "cache_key": cache_key,
-            "cache_version": get_effective_cache_version(),
-            "response_size": response_size,
-            "response_headers": response_headers,
-            "response_body_snippet": response_body_snippet,
-        }
-
     def get(self, request, z, x, y):
         layer_ids = [lc.id for lc in self.layer_classes]
         try:
@@ -385,18 +326,6 @@ class SpatialFeatureTileView(MVTView):
             cache.set(cache_key, (response.content, response.get("Content-Type")), timeout=self.cache_timeout_seconds)
             response["X-Cache"] = "MISS"
         else:
-            # add error logging here to inspect for our environment
-            log_context = self._build_bypass_log_context(request, response, z, x, y, layer_ids, cache_key)
-            if response.status_code >= 500:
-                logger.error(
-                    "Vector tile cache BYPASS due to server error",
-                    extra={"details": log_context},
-                )
-            else:
-                logger.warning(
-                    "Vector tile cache BYPASS",
-                    extra={"details": log_context},
-                )
             response["X-Cache"] = "BYPASS"
         response["Cache-Control"] = (
             "public, max-age="
