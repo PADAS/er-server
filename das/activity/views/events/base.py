@@ -352,7 +352,7 @@ class EventsExportView(APIView):
             schema_data = OrderedDict()
             if schema_adapter:
                 for key, order in current_schema_order.items():
-                    item_display_name = schema_adapter.get_column_header_name(key)
+                    item_display_name = schema_adapter.get_display_value_header_for_key(key)
                     schema_data[key] = self.escape_string(details.get(key, ""))
                     column_name = schema_adapter.get_column_header_name(key)
                     schema_data[column_name] = self.escape_string(details.get(item_display_name, ""))
