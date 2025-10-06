@@ -283,6 +283,7 @@ class SpatialFeatureTileView(MVTView):
 
     layer_classes = [SpatialFeatureLayer]
     permission_classes = (LayerObjectPermissions,)
+    content_type = "application/x-protobuf"  # Override vectortiles default content type
 
     # Server-side cache TTL (seconds). Keep a little longer than client max-age so we can
     # usually revalidate from server cache rather than hitting the DB immediately.
@@ -322,11 +323,7 @@ class SpatialFeatureTileView(MVTView):
                     "Vary",
                     "Allow",
                 )
-                response_headers = {
-                    h: response.get(h)
-                    for h in wanted_headers
-                    if response.get(h) is not None
-                }
+                response_headers = {h: response.get(h) for h in wanted_headers if response.get(h) is not None}
             except Exception:
                 response_headers = None
 
@@ -389,9 +386,7 @@ class SpatialFeatureTileView(MVTView):
             response["X-Cache"] = "MISS"
         else:
             # add error logging here to inspect for our environment
-            log_context = self._build_bypass_log_context(
-                request, response, z, x, y, layer_ids, cache_key
-            )
+            log_context = self._build_bypass_log_context(request, response, z, x, y, layer_ids, cache_key)
             if response.status_code >= 500:
                 logger.error(
                     "Vector tile cache BYPASS due to server error",
