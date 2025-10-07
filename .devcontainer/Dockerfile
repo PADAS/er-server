@@ -87,5 +87,5 @@ RUN python3 -m pip install --upgrade pip
 RUN pip3 install setuptools==58.0.4
 
 RUN pip3 --disable-pip-version-check --no-cache-dir install -r \
-  /workspaces/das/dependencies/requirements-dev.txt -r \
-  /workspaces/das/dependencies/requirements-pinned.txt -f /workspaces/das/dependencies/wheelhouse
+    /workspaces/das/dependencies/requirements-dev.txt -r \
+    /workspaces/das/dependencies/requirements-pinned.txt -f /workspaces/das/dependencies/wheelhouse

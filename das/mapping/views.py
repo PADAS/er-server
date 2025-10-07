@@ -4,9 +4,11 @@ from itertools import chain
 
 import simplejson as json
 from rest_framework_extensions.etag.decorators import etag
+from vectortiles.views import MVTView
 
+from django.core.cache import cache
 from django.core.serializers import serialize
-from django.db.models import Count, F
+from django.db.models import Count, F, Prefetch
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -19,6 +21,7 @@ from rest_framework.views import APIView
 
 import mapping.serializers as serializers
 from mapping import app_settings
+from mapping.cache import build_tile_cache_key, get_effective_cache_version
 from mapping.models import (
     DisplayCategory,
     Map,
@@ -29,10 +32,23 @@ from mapping.models import (
     TileLayer,
 )
 from mapping.permissions import LayerObjectPermissions
+from mapping.vector_layers import SpatialFeatureLayer
 from utils.drf import create_json_response
 from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
+
+
+def hashtext_uuid(uuid_value):
+    """
+    Calculate a hashtext value for a UUID that matches PostgreSQL's hashtext function.
+    This is a fallback for when database annotations aren't available.
+    """
+    # Convert UUID to string and encode as UTF-8
+    uuid_str = str(uuid_value).encode("utf-8")
+    # Create a hash similar to PostgreSQL's hashtext function
+    hash_value = int(hashlib.md5(uuid_str).hexdigest(), 16) % (2**31)
+    return hash_value
 
 
 class FeatureListJsonView(APIView):
@@ -88,7 +104,8 @@ class FeatureSetListJsonView(APIView):
     """
 
     def get(self, request):
-        def feature_types(featureset, include_hidden):
+        def feature_types(featureset, include_hidden, summarize_features):
+            # First, get all feature types with their counts
             if include_hidden:
                 feature_types_qs = featureset.spatialfeaturetype_set.annotate(
                     spatialfeature_count=Count("spatialfeature")
@@ -98,10 +115,40 @@ class FeatureSetListJsonView(APIView):
                     spatialfeature_count=Count("spatialfeature")
                 ).filter(is_visible=True)
 
+            # If we need to summarize features, prefetch the related features in a single query
+            if summarize_features:
+                features_qs = SpatialFeature.objects.filter(feature_type__display_category=featureset)
+                if not include_hidden:
+                    features_qs = features_qs.filter(feature_type__is_visible=True)
+
+                feature_types_qs = feature_types_qs.prefetch_related(
+                    Prefetch("spatialfeature_set", queryset=features_qs, to_attr="prefetched_features")
+                )
+
             for t in feature_types_qs:
-                yield dict(name=t.name, id=str(t.id), feature_count=t.spatialfeature_count)
+                featureTypeDict = {
+                    "name": t.name,
+                    "id": str(t.id),
+                    "feature_count": t.spatialfeature_count,
+                }
+
+                if summarize_features:
+                    # Use the prefetched features, which are already filtered to this feature type
+                    features = getattr(t, "prefetched_features", [])
+
+                    featureTypeDict["feature_summaries"] = [
+                        {
+                            "name": f.name,
+                            "id": str(f.id),  # Convert UUID to string for JSON serialization
+                            "bounds": f.feature_geometry.extent if f.feature_geometry else None,
+                        }
+                        for f in features
+                    ]
+
+                yield featureTypeDict
 
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
+        summarize_features = parse_bool(request.GET.get("summarize_features", False))
         response_data = {"features": []}
         featuresets = DisplayCategory.objects.all()
 
@@ -110,7 +157,7 @@ class FeatureSetListJsonView(APIView):
                 {
                     "name": featureset.name,
                     "id": str(featureset.id),
-                    "types": list(feature_types(featureset, include_hidden)),
+                    "types": list(feature_types(featureset, include_hidden, summarize_features)),
                     "description": featureset.description if featureset.description else "",
                     "geojson_url": reverse("mapping:mapping-featureset-geojson", args=[featureset.id.hex]),
                 }
@@ -219,6 +266,74 @@ class LayerJsonView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return TileLayer.objects.all()
+
+
+class SpatialFeatureTileView(MVTView):
+    """
+    Vector tile endpoint for SpatialFeature geometries.
+
+    Returns Mapbox Vector Tiles (MVT) containing spatial features for the given tile coordinates.
+
+    Cache strategy:
+    - Server-side TTL ~ 24 hours (spatial features rarely change once stable)
+    - Client: 3 minutes fresh (max-age), then 3 minutes stale-while-revalidate window
+    - Client: stale-if-error for same 3 minute window to mask transient origin faults
+    - Authorization varied so per-user/tenant isolation is preserved
+    """
+
+    layer_classes = [SpatialFeatureLayer]
+    permission_classes = (LayerObjectPermissions,)
+    content_type = "application/x-protobuf"  # Override vectortiles default content type
+
+    # Server-side cache TTL (seconds). Keep a little longer than client max-age so we can
+    # usually revalidate from server cache rather than hitting the DB immediately.
+    cache_timeout_seconds = 86400  # 1 day server cache
+    # Client cache controls (freshness window + stale-while-revalidate window)
+    client_max_age_seconds = 86400  # 24 hours fresh
+    client_stale_while_revalidate_seconds = 86400  # serve stale up to another 24 hours while revalidating
+    client_stale_if_error_seconds = 86400  # serve stale if origin errors for same window
+
+    def get(self, request, z, x, y):
+        layer_ids = [lc.id for lc in self.layer_classes]
+        try:
+            cache_key = build_tile_cache_key(
+                request,
+                z,
+                x,
+                y,
+                layer_ids,
+                cache_version=get_effective_cache_version(),
+            )
+        except ValueError:
+            return HttpResponse(
+                status=401, headers={"WWW-Authenticate": "Bearer realm=vector-tiles"}
+            )  # Fast reject unauthenticated / malformed token requests
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            # Reconstruct fresh response object to avoid mutating cached instance
+            content, content_type = cached_payload
+            resp = HttpResponse(content, content_type=content_type)
+            resp["Cache-Control"] = (
+                "public, max-age="
+                f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
+                f"stale-if-error={self.client_stale_if_error_seconds}"
+            )
+            resp["X-Cache"] = "HIT"
+            resp["Vary"] = "Authorization"
+            return resp
+        response = super().get(request, z, x, y)
+        if response.status_code == 200 and response.get("Content-Type", "").startswith("application/x-protobuf"):
+            cache.set(cache_key, (response.content, response.get("Content-Type")), timeout=self.cache_timeout_seconds)
+            response["X-Cache"] = "MISS"
+        else:
+            response["X-Cache"] = "BYPASS"
+        response["Cache-Control"] = (
+            "public, max-age="
+            f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
+            f"stale-if-error={self.client_stale_if_error_seconds}"
+        )
+        response["Vary"] = "Authorization"
+        return response
 
 
 #

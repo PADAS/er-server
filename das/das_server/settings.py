@@ -76,6 +76,7 @@ INSTALLED_APPS = (
     "django.contrib.postgres",
     "django.contrib.humanize",
     "django_extensions",
+    "vectortiles",
     "docs",
     "buoy.apps.BuoyConfig",
     "schemas.apps.SchemasConfig",
@@ -224,7 +225,7 @@ DATABASES = {
         "USER": "das",
         "HOST": env.str("DB_HOST", "postgis"),
         "PORT": env.int("DB_PORT", 5432),
-        "PASSWORD": "password",
+        "PASSWORD": env.str("DB_PASSWORD", "password"),
     },
 }
 
@@ -272,7 +273,8 @@ UI_SITE_URL = "http://www.earthranger.com"
 # http://localhost
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = True
-CORS_ORIGIN_WHITELIST = ()
+CORS_ORIGIN_WHITELIST = []
+CORS_ALLOWED_ORIGINS = []
 CORS_ALLOW_HEADERS = default_headers + ("user-profile", "traceparent")
 
 ALLOWED_HOSTS = ["*"]
@@ -327,6 +329,18 @@ GEOS_LIBRARY_PATH = env.str("GEOS_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu/libg
 GDAL_LIBRARY_PATH = env.str("GDAL_LIBRARY_PATH", "/usr/lib/libgdal.so")
 
 SHARED_CACHE_ALIAS = "shared"
+VECTOR_TILE_CACHE_ALIAS = "vector_tiles"
+
+# Define Redis port early for use in cache configuration
+# in kubernetes, the environment variable are
+# REDIS_SERVICE_HOST, REDIS_SERVICE_PORT
+REDIS_PORT = env.int("REDIS_SERVICE_PORT", 0)
+if not REDIS_PORT:
+    REDIS_PORT = env.int("REDIS_PORT", 6379)
+
+# Vector tiles cache Redis location (dedicated in deployed contexts)
+_vt_redis_host = env.str("REDIS_HOST_VT", "redis-vt")
+_vt_redis_server = f"redis://{_vt_redis_host}:{REDIS_PORT}"
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
@@ -337,6 +351,12 @@ CACHES = {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "shared-cache",
         "KEY_PREFIX": "shared",
+    },
+    VECTOR_TILE_CACHE_ALIAS: {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": _vt_redis_server,
+        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+        "KEY_PREFIX": "vector-tiles",
     },
 }
 
@@ -354,12 +374,6 @@ MAPPING = {
     }
 }
 
-# in kubernetes, the environment variable are
-# REDIS_SERVICE_HOST, REDIS_SERVICE_PORT
-REDIS_PORT = env.int("REDIS_SERVICE_PORT", 0)
-if not REDIS_PORT:
-    REDIS_PORT = env.int("REDIS_PORT", 6379)
-
 REDIS_HOST = env.str("REDIS_HOST", "redis")
 REDIS_SERVER = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 REALTIME_BROKER_URL = f"{REDIS_SERVER}/2"
@@ -368,8 +382,9 @@ PUBSUB_BROKER_URL = f"{REDIS_SERVER}/1"
 PUBSUB_BROKER_OPTIONS = {"max_connections": 200}
 
 # Celery Settings
-CELERY_BROKER_URL = REDIS_SERVER
-CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+# Keep Celery broker independent from general Redis server; allow env override
+CELERY_BROKER_URL = env.str("CELERY_BROKER_URL", REDIS_SERVER)
+CELERY_RESULT_BACKEND = env.str("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
 CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
@@ -633,6 +648,9 @@ TABLEAU_DEFAULT_DASHBOARD = "er_standard_analytics/summary"
 # Sensible default domain name.
 SERVER_FQDN = "tempuri.org"
 
+# SERVER_NAMES should be a list for extending with tenant domains
+SERVER_NAMES = env.list("SERVER_NAMES", default=["localhost"])
+
 # Default to re-use the site's domain-name as a folder for daily-report template.
 DAILY_REPORT_TEMPLATE_SUBFOLDER = SERVER_FQDN
 
@@ -701,3 +719,9 @@ elif CLUSTER_NAME == "das-dev":
     PUBSUB_PROJECT_ID = "earthranger-dev"
 else:
     PUBSUB_PROJECT_ID = env.str(var="PUBSUB_PROJECT_ID", default="earthranger-dev")
+
+
+# LD_PRELOAD = "/usr/lib/aarch64-linux-gnu/libgomp.so.1"
+
+# Initialize ALT_SERVER_NAMES as an empty list
+ALT_SERVER_NAMES = []

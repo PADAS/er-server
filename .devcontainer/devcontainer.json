@@ -70,12 +70,15 @@
 
 	// Use 'portsAttributes' to set default properties for specific forwarded ports. More info: https://code.visualstudio.com/docs/remote/devcontainerjson-reference.
 	"portsAttributes": {
-		"8000": {
-			"label": "ER Server",
-			"onAutoForward": "notify"
+		"3000": {
+			"onAutoForward": "ignore"
 		},
 		"5400": {
 			"label": "ER Server 5400",
+			"onAutoForward": "notify"
+		},
+		"8000": {
+			"label": "ER Server",
 			"onAutoForward": "notify"
 		}
 	},
