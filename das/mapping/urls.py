@@ -15,6 +15,7 @@ from mapping.views import (
     LayerJsonView,
     LayerListJsonView,
     MapListJsonView,
+    SpatialFeatureTileView,
 )
 from utils.constants import regex
 
@@ -64,5 +65,11 @@ urlpatterns = (
         rf"^spatialfeature/(?P<id>{regex.UUID})/?$",
         SpatialFeatureDetailView.as_view(),
         name="spatialfeature-detail",
+    ),
+    # Vector tile endpoint for spatial features
+    re_path(
+        r"^spatialfeatures/tiles/(?P<z>\d+)/(?P<x>\d+)/(?P<y>\d+)\.pbf$",
+        SpatialFeatureTileView.as_view(),
+        name="spatialfeature-tiles",
     ),
 )

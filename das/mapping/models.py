@@ -16,6 +16,7 @@ from django.conf import settings
 from django.contrib.gis import geos
 from django.contrib.gis.db import models
 from django.contrib.gis.db.models import GeometryField
+from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.db.models import Index, Q, UniqueConstraint
@@ -978,6 +979,30 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
         ordering = ["name"]
         base_manager_name = "objects"
         default_manager_name = "objects"
+
+    def _bump_cache_version(self):
+        """Increment the vector tile cache version to invalidate cached tiles."""
+
+        cache_key = "vector_tile_data_version"
+        try:
+            # Increment the counter, or initialize to 1 if it doesn't exist
+            cache.add(cache_key, 0)  # Only adds if key doesn't exist
+            cache.incr(cache_key)
+        except Exception:
+            # Fallback in case of cache issues - set to current timestamp
+            import time
+
+            cache.set(cache_key, int(time.time()), timeout=None)
+
+    def save(self, *args, **kwargs):
+        result = super().save(*args, **kwargs)
+        self._bump_cache_version()
+        return result
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        self._bump_cache_version()
+        return result
 
     @property
     def default_presentation(self):
