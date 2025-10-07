@@ -148,6 +148,29 @@ class EventPatrolSegmentInline(admin.TabularInline):
 class EventDetailsInline(admin.TabularInline):
     model = models.EventDetails
     exclude = ("das_tenant",)
+    max_num = 1
+    extra = 1
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        # Only allow adding if no event details exist yet
+        if obj and obj.event_details.exists():
+            return False
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        # Never allow deletion of EventDetails
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        # Allow changes but not deletion
+        return True
+
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        # Set the default value for the desired field
+        formset.form.base_fields["data"].initial = dict()
+        return formset
 
 
 class EventGeometryInline(PropsOSMGeoAdminMixin, admin.StackedInline):
