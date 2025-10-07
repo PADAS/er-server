@@ -5,8 +5,13 @@ from rest_framework import generics
 from rest_framework.response import Response
 
 from buoy import serializers
-from buoy.serializers.query_params import GearsQueryParamsSerializer
-from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
+from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
+from buoy.views.helpers import (
+    NAUTICAL_MILE_RADIUS,
+    check_valid_date_string,
+    check_valid_state_string,
+    filter_by_bbox,
+)
 from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
@@ -38,7 +43,7 @@ class GearsView(generics.ListAPIView):
     )
 
     permission_classes = (StandardObjectPermissions,)
-    serializer_class = serializers.GearsSerializer
+    serializer_class = serializers.GearSerializer
     pagination_class = StandardResultsSetPagination
     schema = GearsViewSchema()
 
@@ -73,6 +78,7 @@ class GearsView(generics.ListAPIView):
             "subject__additional__display_id"
         )
 
+        # Normal ListAPIView.list() code here
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -117,5 +123,6 @@ class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context["two_way_subject_sources"] = self.two_way_subject_sources
+        context["simple_mode"] = True
 
         return context
