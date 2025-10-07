@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional, Union
 
 import pytz
 from dateutil.parser import parse as parse_date
@@ -11,12 +11,20 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.utils import IntegrityError
 from rest_framework import serializers, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from analyzers import gfw_inbound
+from buoy.constants import (
+    BUOY_DEVICE_SUBJECT_SUBTYPE,
+    BUOY_GEAR_SUBJECT_SUBTYPE,
+    TRAP_DEPLOYED,
+    TRAP_RETRIEVED,
+)
 from observations import servicesutils
 from observations.models import (
-    LatestObservationSource,
+    DEFAULT_ASSIGNED_RANGE,
+    DateTimeTZRange,
     Observation,
     Source,
     Subject,
@@ -42,6 +50,9 @@ from utils.tenant import get_tenant_settings
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
+
+# Type alias for trap event types
+TrapEventType = Union[Literal["trap_deployed"], Literal["trap_retrieved"]]
 
 
 class GenericSensorHandler:
@@ -167,6 +178,99 @@ class GenericSensorHandler:
         return Response({}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     @classmethod
+    def find_subject_by_name(cls, name: str):
+        """Find a subject by its name."""
+        try:
+            return Subject.objects.get(name=name)
+        except Subject.DoesNotExist:
+            return None
+        except Subject.MultipleObjectsReturned:
+            # Get all subjects with the same name, ordered by creation date
+            subjects = Subject.objects.filter(name=name).order_by("created_at")
+            first_subject = subjects.first()
+            duplicate_subjects = subjects.exclude(id=first_subject.id)
+
+            # Transfer SubjectSource assignments from duplicates to the first subject
+            cls._transfer_subject_source_assignments(first_subject, duplicate_subjects)
+
+            return first_subject
+
+    @classmethod
+    def _transfer_subject_source_assignments(cls, target_subject: Subject, duplicate_subjects):
+        """Transfer SubjectSource assignments from duplicate subjects to the target subject.
+
+        Args:
+            target_subject (Subject): The subject to receive the assignments
+            duplicate_subjects (QuerySet): The duplicate subjects to transfer assignments from
+        """
+        from django.db import transaction
+
+        with transaction.atomic():
+            for duplicate_subject in duplicate_subjects:
+                # Get all SubjectSource assignments for the duplicate subject
+                assignments = SubjectSource.objects.filter(subject=duplicate_subject)
+                for assignment in assignments:
+                    # Check if target subject already has an assignment with the same source and overlapping range
+                    existing_assignment = SubjectSource.objects.filter(
+                        subject=target_subject,
+                        source=assignment.source,
+                        assigned_range__overlap=assignment.assigned_range,
+                    ).first()
+
+                    if existing_assignment:
+                        if assignment.assigned_range.lower < existing_assignment.assigned_range.lower:
+                            from observations.models import DateTimeTZRange
+
+                            existing_assignment.assigned_range = DateTimeTZRange(
+                                lower=assignment.assigned_range.lower,
+                                upper=max(assignment.assigned_range.upper, existing_assignment.assigned_range.upper),
+                            )
+                            existing_assignment.save()
+                        assignment.delete()
+                    else:
+                        assignment.subject = target_subject
+                        assignment.save()
+                    duplicate_subject.delete()
+
+    @classmethod
+    def update_subject(cls, subject: Subject, additional: Optional[dict] = None, is_active: Optional[bool] = None):
+        """Update a subject with additional fields."""
+        updated_fields = set()
+        if additional:
+            subject.additional = additional
+            updated_fields.add("additional")
+        if is_active is not None:
+            subject.is_active = is_active
+            updated_fields.add("is_active")
+        if updated_fields:
+            updated_fields.add("updated_at")
+        subject.save(update_fields=updated_fields)
+        return subject
+
+    @classmethod
+    def update_subject_source_assigned_range(
+        cls,
+        subject_source: SubjectSource,
+        recorded_at: datetime,
+        event_type: TrapEventType,
+    ):
+        """Update the assigned range of a subject source."""
+        trap_id = subject_source.source.manufacturer_id
+        if event_type == TRAP_DEPLOYED:
+            if subject_source.has_assigned_range and subject_source.is_current:
+                raise ValidationError(f"Cannot deploy a trap ({trap_id}) that is already deployed.")
+            subject_source.assigned_range = DateTimeTZRange(lower=recorded_at, upper=DEFAULT_ASSIGNED_RANGE[1])
+        else:
+            if not subject_source.has_assigned_lower_range:
+                raise ValidationError(f"Cannot retrieve a trap ({trap_id}) that is not deployed.")
+            if subject_source.has_assigned_upper_range:
+                raise ValidationError(f"Cannot retrieve a trap ({trap_id}) that is already retrieved.")
+            current_lower = subject_source.assigned_range.lower
+            subject_source.assigned_range = DateTimeTZRange(lower=current_lower, upper=recorded_at)
+
+        subject_source.save()
+
+    @classmethod
     def process_one_observation(
         cls,
         an_observation: dict,
@@ -194,6 +298,7 @@ class GenericSensorHandler:
         location = an_observation["location"]
         lat = location.get("lat", None)
         lon = location.get("lon", None)
+        now = datetime.now(timezone.utc)
         # location = Point(x=float(lon), y=float(lat))
         location = {"latitude": float(lat), "longitude": float(lon)}
         subject_subtype = an_observation.get("subject_subtype") or cls.DEFAULT_SUBJECT_SUBTYPE
@@ -216,11 +321,20 @@ class GenericSensorHandler:
         if an_observation.get("source_additional") is not None:
             source_info["additional"] = an_observation["source_additional"]
 
-        # Remove in RF-579, when Buoy PUT implemented
-        additional = an_observation.get("additional", {})
-        if subject_subtype == "ropeless_buoy_device":
-            # update_subject_source_from_observation(src, subject_info, additional)
-            subject_info["additional"] = additional
+        observation_additional = an_observation.get("additional", {})
+
+        # Special initial validation for ropeless_buoy_gearset
+        if subject_subtype == BUOY_GEAR_SUBJECT_SUBTYPE:
+            event_type = observation_additional.get("event_type")
+            if event_type not in [TRAP_DEPLOYED, TRAP_RETRIEVED]:
+                raise ValidationError(
+                    f"Ropeless buoy gearset observations must have an additional.event_type of "
+                    f"'{TRAP_DEPLOYED}' or '{TRAP_RETRIEVED}'."
+                )
+            subject_info.setdefault("additional", {})["display_id"] = subject_name
+            subject = cls.find_subject_by_name(subject_name)
+            if subject:
+                subject_info["id"] = subject.id
 
         # Create a cache key from the source parameters
         source_cache_key = (source_type, provider_key, manufacturer_id, model_name, str(subject_info), str(source_info))
@@ -240,48 +354,41 @@ class GenericSensorHandler:
             if source_cache is not None:
                 source_cache[source_cache_key] = src
 
-        if subject_subtype == "ropeless_buoy_device":
-            event_type = additional.get("event_type")
-            subject = src.assigned_subject
+        # For Buoy Subject's, ensure that we have a Subject and SubjectSource set up and define the assigned_range as the deploy/retrieve event dictates
+        if subject_subtype == BUOY_GEAR_SUBJECT_SUBTYPE:
+            subject = cls.find_subject_by_name(subject_name)
+            if not subject:
+                subject = Subject.objects.create_subject(**subject_info)
 
-            subject_is_active = additional.get("subject_is_active")
-            latest_observation = LatestObservationSource.objects.filter(source=src).first()
+            subject_source, created = SubjectSource.objects.get_or_create(
+                source=src, subject=subject, defaults={"assigned_range": DEFAULT_ASSIGNED_RANGE}
+            )
 
-            if event_type == "gear_deployed":
-                subject_is_active = True
-            elif event_type == "gear_retrieved":
-                subject_is_active = False
+            cls.update_subject_source_assigned_range(
+                subject_source=subject_source,
+                recorded_at=recorded_at,
+                event_type=observation_additional.get("event_type"),
+            )
 
-            updated_fields = []
-            if not latest_observation or recorded_at > latest_observation.recorded_at:
-                if subject:
-                    if subject_is_active is not None:
-                        subject.is_active = subject_is_active
-                        updated_fields.append("is_active")
+            has_active_sources = subject.subjectsources.filter(assigned_range__contains=now).exists()
+            cls.update_subject(subject, additional=subject_additional, is_active=has_active_sources)
 
-                    if additional:
-                        subject.additional = additional
-                        updated_fields.append("additional")
-
-                    if updated_fields:
-                        subject.save(update_fields=[*updated_fields, "updated_at"])
-                else:
-                    logger.warning(
-                        "Subject not found for ropeless_buoy_device source %s and recorded_at %s", src.id, recorded_at
-                    )
-
+        # TODO: Remove after the rollout of the new data model that uses "ropeless_buoy_gearset" as the subject_subtype for buoy devices,
+        if subject_subtype == BUOY_DEVICE_SUBJECT_SUBTYPE:
+            subject = cls.find_subject_by_name(subject_name)
+            cls.update_subject(subject, additional=observation_additional)
         event_action = an_observation.get("additional", {}).get("event_action", cls.DEFAULT_EVENT_ACTION)
         observation = {
             "location": location,
             "recorded_at": recorded_at,
             "source": str(src.id),
-            "additional": additional,
+            "additional": observation_additional,
         }
 
         # Get the subject for exclusion checks
         subject = src.assigned_subject if hasattr(src, "assigned_subject") else None
 
-        observation = cls.apply_exclusion_flags(observation, an_observation, location, additional, subject)
+        observation = cls.apply_exclusion_flags(observation, an_observation, location, observation_additional, subject)
 
         obs_key = (str(src.id), recorded_at)
         # Short-circuit if we already have this observation.
@@ -302,7 +409,7 @@ class GenericSensorHandler:
                     existing_observation.source,
                     recorded_at=recorded_at,
                     location=location,
-                    additional={"subject_name": subject_name, **additional},
+                    additional={"subject_name": subject_name, **observation_additional},
                 )
 
             return False
