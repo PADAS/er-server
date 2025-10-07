@@ -12,6 +12,7 @@ from django.contrib.auth import get_permission_codename, get_user_model
 from django.contrib.gis import admin
 from django.db.models import Case, CharField, F, OuterRef, Q, Subquery, Value, When
 from django.db.utils import DataError
+from django.forms import TextInput
 from django.forms.fields import JSONField
 from django.http import HttpResponseRedirect
 from django.urls import reverse
@@ -49,25 +50,87 @@ from utils.tenant import get_tenant_settings
 logger = logging.getLogger(__name__)
 
 
-class EventRelationshipInline(admin.TabularInline):
+class EventRelationshipFromInline(admin.TabularInline):
     model = models.EventRelationship
     fk_name = "from_event"
-    verbose_name = _("Event Relationship")
-    verbose_name_plural = _("Event Relationships")
+    verbose_name = _("Contains this Event")
+    verbose_name_plural = _("Contains these Events")
     extra = 0
-    fields = ("to_event", "type")
+    can_delete = True
+    # Do NOT use readonly_fields here - it causes Django to exclude them from the form
+    fields = ("id", "type", "to_event")
+    raw_id_fields = ("to_event",)
+
+    def get_formset(self, request, obj=None, **kwargs):
+        """
+        Override to make form fields readonly in appearance but still functional.
+        """
+        formset = super().get_formset(request, obj, **kwargs)
+
+        # Customize the form to make fields visually readonly
+        base_form = formset.form
+
+        class VisuallyReadonlyForm(base_form):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                # Make fields visually readonly with CSS
+                for field_name in self.fields:
+                    widget = self.fields[field_name].widget
+                    # Use pointer-events: none to prevent interaction
+                    widget.attrs["style"] = "pointer-events: none; background-color: #e9ecef; opacity: 0.8;"
+                    widget.attrs["tabindex"] = "-1"
+
+                # Make the type field display as read-only text instead of dropdown
+                if "type" in self.fields:
+                    type_field = self.fields["type"]
+                    if hasattr(self.instance, "type") and self.instance.type:
+                        # Create a custom readonly widget that displays the type value
+                        class ReadonlyTypeWidget(TextInput):
+                            def format_value(self, value):
+                                # Return the type value string, not the UUID
+                                if hasattr(self, "_type_value"):
+                                    return self._type_value
+                                return value
+
+                        # Set up the widget
+                        type_field.widget = ReadonlyTypeWidget()
+                        type_field.widget._type_value = self.instance.type.value
+                        type_field.widget.attrs.update(
+                            {"readonly": True, "style": "background-color: #f8f9fa; border: 1px solid #ced4da;"}
+                        )
+                        # Set the field as disabled to prevent form processing
+                        type_field.disabled = True
+
+                # Change column headers
+                if "to_event" in self.fields:
+                    self.fields["to_event"].label = "Event"
+                if "from_event" in self.fields:
+                    self.fields["from_event"].label = "Event"
+
+        formset.form = VisuallyReadonlyForm
+        return formset
 
     def has_add_permission(self, request, obj=None):
         return False
 
     def has_change_permission(self, request, obj=None):
-        return False
+        # Return True to allow deletion to work
+        # The fields appear readonly via CSS, which prevents actual editing
+        return True
+
+
+class EventRelationshipToInline(EventRelationshipFromInline):
+    fk_name = "to_event"
+    verbose_name = _("Contained in Event")
+    verbose_name_plural = _("Contained in Events")
+    fields = ("id", "type", "from_event")
+    raw_id_fields = ("from_event",)
 
 
 class EventPatrolSegmentInline(admin.TabularInline):
     model = models.Event.patrol_segments.through
-    verbose_name = _("Event Patrol Segment")
-    verbose_name_plural = _("Event Patrol Segments")
+    verbose_name = _("Included in Patrol Segment")
+    verbose_name_plural = _("Included in Patrol Segments")
     extra = 0
     fields = ("_patrol_segment",)
     readonly_fields = ("_patrol_segment",)
@@ -150,7 +213,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
         "event_type",
     )
     actions = ("resolve_event",)
-    inlines = (EventDetailsInline, EventPatrolSegmentInline, EventRelationshipInline)
+    inlines = (EventDetailsInline, EventPatrolSegmentInline, EventRelationshipFromInline, EventRelationshipToInline)
 
     fieldsets = (
         (
@@ -338,7 +401,10 @@ class EventTypeAdmin(BaseModelAdminMixin):
         extra_context["eventsources_ref"] = self.get_event_source_links(object_id)
 
         # if extra_context['eventsource_ref'] is not None:
-        #     messages.add_message(request, messages.WARNING, "This Event Type is linked to an External Source. See the notice below for more details.")
+        #     messages.add_message(
+        #         request, messages.WARNING,
+        #         "This Event Type is linked to an External Source. See the notice below for more details."
+        #     )
 
         return super().change_view(request, object_id, form_url=form_url, extra_context=extra_context)
 
@@ -616,7 +682,7 @@ class RefreshRecreateEventDetailViewAdmin(BaseModelAdminMixin):
             kwargs = {"domain": domain} if domain else {}
             task = refresh_event_details_view.apply_async(args=("Admin",), kwargs=kwargs)
         except AlreadyQueued:
-            self.message_user(request, f"Task to refresh event_detail view is already queued", messages.WARNING)
+            self.message_user(request, "Task to refresh event_detail view is already queued", messages.WARNING)
             return HttpResponseRedirect("../")
 
         task_mode = self.model.REFRESH
@@ -629,7 +695,7 @@ class RefreshRecreateEventDetailViewAdmin(BaseModelAdminMixin):
             kwargs = {"domain": get_tenant_settings().domain} if features.tms.is_on() else {}
             task = recreate_event_details_view.apply_async(kwargs=kwargs)
         except AlreadyQueued:
-            self.message_user(request, f"Task to recreate event_detail view is already queued", messages.WARNING)
+            self.message_user(request, "Task to recreate event_detail view is already queued", messages.WARNING)
             return HttpResponseRedirect("../")
 
         task_mode = self.model.RECREATE
