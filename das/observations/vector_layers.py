@@ -341,7 +341,7 @@ class ObservationVectorLayer(VectorLayer):
                 segment_id_counter
             )
             segmented_features.extend(segments)
-            segment_id_counter += len(segments)
+            segment_id_counter += 1
 
         return segmented_features
 
