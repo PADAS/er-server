@@ -331,7 +331,7 @@ class ObservationVectorLayer(VectorLayer):
             # Apply segmentation logic
             segments = self._create_track_segments(subject_features, segment_id_counter)
             segmented_features.extend(segments)
-            segment_id_counter += len(segments)
+            segment_id_counter += 1
 
         return segmented_features
 
