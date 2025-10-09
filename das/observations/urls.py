@@ -18,6 +18,7 @@ from django.urls import path, re_path
 from rest_framework.urlpatterns import format_suffix_patterns
 
 from observations import views
+from observations.views import vector_tiles
 from utils.constants import regex
 
 urlpatterns = [
@@ -138,6 +139,12 @@ urlpatterns = [
         name="subject-sources-list-view",
     ),
     path("flatten-observations/", views.FlattenObservationsView.as_view(), name="flatten-observations"),
+    # Vector tile endpoints
+    re_path(
+        r"^observations/tiles/(?P<z>\d+)/(?P<x>\d+)/(?P<y>\d+)\.pbf/?$",
+        vector_tiles.ObservationTileView.as_view(),
+        name="observations-vector-tiles",
+    ),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

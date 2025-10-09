@@ -1,13 +1,63 @@
+import logging
+
 from django.contrib.gis.geos import Polygon
+from django_filters import rest_framework as filters
+from django_filters.filters import BaseInFilter, UUIDFilter
 from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.filters import BaseFilterBackend
 
-from observations.models import Subject
+from observations.models import Observation, Subject
 from observations.utils import VIEW_SUBJECT_PERMS, check_valid_date_string
 from utils.gis import bbox_from_string
 from utils.json import parse_bool
 
+logger = logging.getLogger(__name__)
 
+
+class ObservationVectorTileFilterSet(filters.FilterSet):
+    """Filter for observation vector tiles with sharding parameters."""
+
+    # Subject filtering
+    subject_id = UUIDFilter(field_name="source__subjectsource__subject_id")
+    subject_ids = BaseInFilter(field_name="source__subjectsource__subject_id", lookup_expr="in")
+
+    # Time filtering
+    since = filters.DateTimeFilter(field_name="recorded_at", lookup_expr="gte")
+    until = filters.DateTimeFilter(field_name="recorded_at", lookup_expr="lte")
+    created_after = filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
+
+    # Exclusion filtering
+    filter = filters.NumberFilter(field_name="exclusion_flags", lookup_expr="exact")
+
+    # Sharding parameters
+    max_time_gap_hours = filters.NumberFilter(
+        method="noop_filter",
+        help_text="Maximum hours between observations for track continuity"
+    )
+    speed_threshold_kmh = filters.NumberFilter(
+        method="noop_filter",
+        help_text="Speed threshold in km/h for track segmentation"
+    )
+
+    class Meta:
+        model = Observation
+        fields = [
+            "subject_id",
+            "subject_ids",
+            "since",
+            "until",
+            "created_after",
+            "filter",
+            "max_time_gap_hours",
+            "speed_threshold_kmh",
+        ]
+
+    def noop_filter(self, queryset, name, value):
+        """No-op filter for parameters that are handled in the layer logic."""
+        return queryset
+
+
+# Legacy filter classes for backward compatibility
 class SubjectObjectPermissionsFilter(BaseFilterBackend):
     """
     Filter the list of subjects to what the user is allowed to view
