@@ -1,4 +1,7 @@
 import logging
+from datetime import datetime
+
+from vectortiles import VectorLayer
 
 from django.contrib.gis.db import models as gis_models
 from django.contrib.gis.db.models.functions import Transform
@@ -14,13 +17,9 @@ from django.db.models import (
 )
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast, Lag, Lead
-from vectortiles import VectorLayer
 
 from observations.filters import ObservationVectorTileFilterSet
 from observations.models import Observation
-
-from datetime import datetime
-
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +46,7 @@ class ObservationVectorLayer(VectorLayer):
     @property
     def presentation_keys(self):
         """Keys for styling the observations in the vector tile."""
-        return [
-            "stroke",
-            "stroke-width",
-            "stroke-opacity"
-        ]
+        return ["stroke", "stroke-width", "stroke-opacity"]
 
     @property
     def tile_fields(self):
@@ -81,66 +76,59 @@ class ObservationVectorLayer(VectorLayer):
         speed_threshold_kmh = self._get_speed_threshold_kmh()
 
         # Base queryset with necessary joins and annotations
-        qs = (
-            self.model.objects
-            .select_related("source", "source__provider")
-            .annotate(
-                # Transform geometry to Web Mercator for vector tiles
-                geom=Transform(Cast(F("location"), gis_models.GeometryField()), 3857),
-
-                # Subject information
-                subject_id=F("source__subjectsource__subject_id"),
-                subject_name=F("source__subjectsource__subject__name"),
-
-                # Source information
-                source_name=F("source__manufacturer_id"),
-
-                # Calculate distances and time gaps for speed calculation
-                distance_preceding=Case(
-                    When(
-                        recorded_at__isnull=False,
-                        then=Window(
-                            expression=Lag("location"),
-                            order_by=F("recorded_at"),
-                        )
+        qs = self.model.objects.select_related("source", "source__provider").annotate(
+            # Transform geometry to Web Mercator for vector tiles
+            geom=Transform(Cast(F("location"), gis_models.GeometryField()), 3857),
+            # Subject information
+            subject_id=F("source__subjectsource__subject_id"),
+            subject_name=F("source__subjectsource__subject__name"),
+            # Source information
+            source_name=F("source__manufacturer_id"),
+            # Calculate distances and time gaps for speed calculation
+            distance_preceding=Case(
+                When(
+                    recorded_at__isnull=False,
+                    then=Window(
+                        expression=Lag("location"),
+                        order_by=F("recorded_at"),
                     ),
-                    default=Value(None),
-                    output_field=gis_models.GeometryField(),
                 ),
-                time_lapse_preceding=Case(
-                    When(
-                        recorded_at__isnull=False,
-                        then=Window(
-                            expression=Lag("recorded_at"),
-                            order_by=F("recorded_at"),
-                        )
+                default=Value(None),
+                output_field=gis_models.GeometryField(),
+            ),
+            time_lapse_preceding=Case(
+                When(
+                    recorded_at__isnull=False,
+                    then=Window(
+                        expression=Lag("recorded_at"),
+                        order_by=F("recorded_at"),
                     ),
-                    default=Value(None),
-                    output_field=CharField(),
                 ),
-                distance_following=Case(
-                    When(
-                        recorded_at__isnull=False,
-                        then=Window(
-                            expression=Lead("location"),
-                            order_by=F("recorded_at"),
-                        )
+                default=Value(None),
+                output_field=CharField(),
+            ),
+            distance_following=Case(
+                When(
+                    recorded_at__isnull=False,
+                    then=Window(
+                        expression=Lead("location"),
+                        order_by=F("recorded_at"),
                     ),
-                    default=Value(None),
-                    output_field=gis_models.GeometryField(),
                 ),
-                time_lapse_following=Case(
-                    When(
-                        recorded_at__isnull=False,
-                        then=Window(
-                            expression=Lead("recorded_at"),
-                            order_by=F("recorded_at"),
-                        )
+                default=Value(None),
+                output_field=gis_models.GeometryField(),
+            ),
+            time_lapse_following=Case(
+                When(
+                    recorded_at__isnull=False,
+                    then=Window(
+                        expression=Lead("recorded_at"),
+                        order_by=F("recorded_at"),
                     ),
-                    default=Value(None),
-                    output_field=CharField(),
                 ),
-            )
+                default=Value(None),
+                output_field=CharField(),
+            ),
         )
 
         # Add track segmentation logic
@@ -153,18 +141,18 @@ class ObservationVectorLayer(VectorLayer):
 
     def _get_max_time_gap_hours(self) -> float:
         """Get max time gap from request parameters."""
-        if hasattr(self, 'request') and self.request:
+        if hasattr(self, "request") and self.request:
             try:
-                return float(self.request.query_params.get('max_time_gap_hours', self.DEFAULT_MAX_TIME_GAP_HOURS))
+                return float(self.request.query_params.get("max_time_gap_hours", self.DEFAULT_MAX_TIME_GAP_HOURS))
             except (ValueError, TypeError):
                 pass
         return self.DEFAULT_MAX_TIME_GAP_HOURS
 
     def _get_speed_threshold_kmh(self) -> float:
         """Get speed threshold from request parameters."""
-        if hasattr(self, 'request') and self.request:
+        if hasattr(self, "request") and self.request:
             try:
-                return float(self.request.query_params.get('speed_threshold_kmh', self.DEFAULT_SPEED_THRESHOLD_KMH))
+                return float(self.request.query_params.get("speed_threshold_kmh", self.DEFAULT_SPEED_THRESHOLD_KMH))
             except (ValueError, TypeError):
                 pass
         return self.DEFAULT_SPEED_THRESHOLD_KMH
@@ -189,7 +177,7 @@ class ObservationVectorLayer(VectorLayer):
         """Add presentation styling annotations."""
         # Extract presentation keys from subject's additional field
         presentation_annotations = self._extract_presentation_json_keys()
-        
+
         # Add image handling similar to spatial features
         image_annotation = Case(
             When(
@@ -203,7 +191,7 @@ class ObservationVectorLayer(VectorLayer):
             default=Value(None),
             output_field=CharField(),
         )
-        
+
         # Add RGB color conversion for stroke color
         stroke_color_annotation = Case(
             When(
@@ -213,17 +201,20 @@ class ObservationVectorLayer(VectorLayer):
             default=Value("#3388ff"),  # Default blue color
             output_field=CharField(),
         )
-        
+
         # Override stroke color if not already set in presentation_annotations
         if "stroke" not in presentation_annotations:
             presentation_annotations["stroke"] = stroke_color_annotation
-        
+
         # Add default values for missing presentation keys
         default_annotations = {
             "stroke-width": Case(
                 When(
                     source__subjectsource__subject__additional__has_key="stroke-width",
-                    then=Cast(KeyTextTransform("stroke-width", F("source__subjectsource__subject__additional")), IntegerField())
+                    then=Cast(
+                        KeyTextTransform("stroke-width", F("source__subjectsource__subject__additional")),
+                        IntegerField(),
+                    ),
                 ),
                 default=Value(2),
                 output_field=IntegerField(),
@@ -231,16 +222,19 @@ class ObservationVectorLayer(VectorLayer):
             "stroke-opacity": Case(
                 When(
                     source__subjectsource__subject__additional__has_key="stroke-opacity",
-                    then=Cast(KeyTextTransform("stroke-opacity", F("source__subjectsource__subject__additional")), FloatField())
+                    then=Cast(
+                        KeyTextTransform("stroke-opacity", F("source__subjectsource__subject__additional")),
+                        FloatField(),
+                    ),
                 ),
                 default=Value(0.8),
                 output_field=FloatField(),
-            )
+            ),
         }
-        
+
         # Merge all annotations, with presentation_annotations taking precedence
         all_annotations = {**default_annotations, **presentation_annotations, "image": image_annotation}
-        
+
         return qs.annotate(**all_annotations)
 
     def _extract_presentation_json_keys(self):
@@ -255,7 +249,9 @@ class ObservationVectorLayer(VectorLayer):
             # Determine output field type
             if key in {"stroke-width"}:
                 output_field = IntegerField()
-                then_value = Cast(KeyTextTransform(key, F("source__subjectsource__subject__additional")), IntegerField())
+                then_value = Cast(
+                    KeyTextTransform(key, F("source__subjectsource__subject__additional")), IntegerField()
+                )
             elif key in {"stroke-opacity"}:
                 output_field = FloatField()
                 then_value = Cast(KeyTextTransform(key, F("source__subjectsource__subject__additional")), FloatField())
@@ -265,10 +261,7 @@ class ObservationVectorLayer(VectorLayer):
 
             # Create Case expression for each presentation key
             annotations[key] = Case(
-                When(
-                    source__subjectsource__subject__additional__has_key=key,
-                    then=then_value
-                ),
+                When(source__subjectsource__subject__additional__has_key=key, then=then_value),
                 default=Value(None),
                 output_field=output_field,
             )
@@ -323,7 +316,7 @@ class ObservationVectorLayer(VectorLayer):
         # Group by subject
         subject_groups = {}
         for feature in features:
-            subject_id = feature.get('properties', {}).get('subject_id')
+            subject_id = feature.get("properties", {}).get("subject_id")
             if subject_id not in subject_groups:
                 subject_groups[subject_id] = []
             subject_groups[subject_id].append(feature)
@@ -333,13 +326,10 @@ class ObservationVectorLayer(VectorLayer):
 
         for subject_id, subject_features in subject_groups.items():
             # Sort by recorded_at
-            subject_features.sort(key=lambda x: x.get('properties', {}).get('recorded_at', ''))
+            subject_features.sort(key=lambda x: x.get("properties", {}).get("recorded_at", ""))
 
             # Apply segmentation logic
-            segments = self._create_track_segments(
-                subject_features,
-                segment_id_counter
-            )
+            segments = self._create_track_segments(subject_features, segment_id_counter)
             segmented_features.extend(segments)
             segment_id_counter += len(segments)
 
@@ -366,10 +356,7 @@ class ObservationVectorLayer(VectorLayer):
             else:
                 # Check if we should break the segment
                 should_break = self._should_break_segment(
-                    current_segment[-1],
-                    feature,
-                    max_time_gap_hours,
-                    speed_threshold_kmh
+                    current_segment[-1], feature, max_time_gap_hours, speed_threshold_kmh
                 )
 
                 if should_break:
@@ -388,13 +375,13 @@ class ObservationVectorLayer(VectorLayer):
 
     def _should_break_segment(self, prev_feature, current_feature, max_time_gap_hours, speed_threshold_kmh):
         """Determine if we should break the track segment."""
-        prev_props = prev_feature.get('properties', {})
-        current_props = current_feature.get('properties', {})
+        prev_props = prev_feature.get("properties", {})
+        current_props = current_feature.get("properties", {})
 
         # Check time gap
         try:
-            prev_time = datetime.fromisoformat(prev_props.get('recorded_at', '').replace('Z', '+00:00'))
-            current_time = datetime.fromisoformat(current_props.get('recorded_at', '').replace('Z', '+00:00'))
+            prev_time = datetime.fromisoformat(prev_props.get("recorded_at", "").replace("Z", "+00:00"))
+            current_time = datetime.fromisoformat(current_props.get("recorded_at", "").replace("Z", "+00:00"))
 
             time_diff = current_time - prev_time
             if time_diff.total_seconds() > max_time_gap_hours * 3600:
@@ -404,7 +391,7 @@ class ObservationVectorLayer(VectorLayer):
 
         # Check speed threshold (simplified - would need proper distance calculation)
         # This is a placeholder - real implementation would calculate actual speed
-        speed = current_props.get('speed_kmh', 0)
+        speed = current_props.get("speed_kmh", 0)
         if speed > speed_threshold_kmh:
             return True
 
@@ -413,10 +400,10 @@ class ObservationVectorLayer(VectorLayer):
     def _finalize_segment(self, segment_features, segment_id):
         """Finalize a track segment by adding segment metadata."""
         for i, feature in enumerate(segment_features):
-            if 'properties' not in feature:
-                feature['properties'] = {}
+            if "properties" not in feature:
+                feature["properties"] = {}
 
-            feature['properties']['track_segment_id'] = segment_id
-            feature['properties']['segment_order'] = i + 1
+            feature["properties"]["track_segment_id"] = segment_id
+            feature["properties"]["segment_order"] = i + 1
 
         return segment_features

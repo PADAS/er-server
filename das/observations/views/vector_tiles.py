@@ -1,11 +1,17 @@
 import logging
 
-from django.http import HttpResponse
 from vectortiles.views import MVTView
 
+from django.http import HttpResponse
+
 from das_server.views import CustomSchema
-from mapping.cache import build_tile_cache_key, get_effective_cache_version, get_vector_tile_cache
+from mapping.cache import (
+    build_tile_cache_key,
+    get_effective_cache_version,
+    get_vector_tile_cache,
+)
 from observations.permissions import StandardObjectPermissions
+from observations.utils import VIEW_OBSERVATION_PERMS
 from observations.vector_layers import ObservationVectorLayer
 
 logger = logging.getLogger(__name__)
@@ -109,10 +115,7 @@ class ObservationTileView(MVTView):
         """Handle GET request for vector tiles."""
         # Check permissions
         if not self._check_observation_permissions(request):
-            return HttpResponse(
-                status=401,
-                headers={"WWW-Authenticate": "Bearer realm=vector-tiles"}
-            )
+            return HttpResponse(status=401, headers={"WWW-Authenticate": "Bearer realm=vector-tiles"})
 
         layer_ids = [lc.id for lc in self.layer_classes]
         try:
@@ -125,10 +128,7 @@ class ObservationTileView(MVTView):
                 cache_version=get_effective_cache_version(),
             )
         except ValueError:
-            return HttpResponse(
-                status=401,
-                headers={"WWW-Authenticate": "Bearer realm=vector-tiles"}
-            )
+            return HttpResponse(status=401, headers={"WWW-Authenticate": "Bearer realm=vector-tiles"})
 
         # Check cache
         vector_tile_cache = get_vector_tile_cache()
@@ -152,9 +152,7 @@ class ObservationTileView(MVTView):
         # Cache successful responses
         if response.status_code == 200 and response.get("Content-Type", "").startswith("application/x-protobuf"):
             vector_tile_cache.set(
-                cache_key,
-                (response.content, response.get("Content-Type")),
-                timeout=self.cache_timeout_seconds
+                cache_key, (response.content, response.get("Content-Type")), timeout=self.cache_timeout_seconds
             )
             response["X-Cache"] = "MISS"
         else:
@@ -172,7 +170,6 @@ class ObservationTileView(MVTView):
     def _check_observation_permissions(self, request):
         """Check if user has permission to view observations."""
         try:
-            from observations.utils import VIEW_OBSERVATION_PERMS
             return request.user.has_any_perms(VIEW_OBSERVATION_PERMS)
         except Exception as e:
             logger.warning(f"Error checking observation permissions: {e}")
