@@ -264,24 +264,6 @@ class ObservationVectorLayer(VectorLayer):
 
         return annotations
 
-    def _convert_rgb_to_hex(self, rgb_string):
-        """Convert RGB string (e.g., '100,150,200') to hex color format."""
-        if not rgb_string:
-            return None
-        try:
-            # Parse RGB string like "100,150,200"
-            parts = rgb_string.split(",")
-            if len(parts) == 3:
-                r, g, b = [int(x.strip()) for x in parts]
-                # Ensure values are in valid range
-                r = max(0, min(255, r))
-                g = max(0, min(255, g))
-                b = max(0, min(255, b))
-                return f"#{r:02x}{g:02x}{b:02x}"
-        except (ValueError, AttributeError):
-            pass
-        return None
-
     def get_tile_data(self, tile, layer_name=None):
         """
         Override to implement custom track segmentation logic.
