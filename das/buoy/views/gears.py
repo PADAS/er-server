@@ -3,11 +3,12 @@ from drf_spectacular.utils import extend_schema
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
-from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from buoy import serializers
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
+from buoy.permissions import GearLocationPermission, GearSubjectPermission
 from buoy.serializers.query_params import GearsQueryParamsSerializer
 from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema
@@ -18,37 +19,6 @@ from observations.tasks import send_observations_to_gundi_async
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
 from utils.tenant import get_tenant_settings
-
-
-class GearLocationPermission(BasePermission):
-    """
-    Custom permission to check if user can view gears regardless of location
-    or if lat/lon parameters are provided for location-based filtering.
-    """
-
-    def has_permission(self, request, view):
-        if request.method == "GET":
-            lat = request.query_params.get("lat")
-            lon = request.query_params.get("lon")
-
-            if lat and lon:
-                return True
-
-            return request.user.has_perm("observations.can_view_gear_regardless_location")
-
-        return True
-
-
-class GearSubjectPermission(BasePermission):
-    """
-    Custom permission to check if user can add/change subjects for POST operations.
-    """
-
-    def has_permission(self, request, view):
-        if request.method == "POST":
-            return request.user.has_perm("observations.add_subject")
-
-        return True
 
 
 @extend_schema(parameters=[GearsQueryParamsSerializer])
@@ -73,23 +43,10 @@ class GearsView(generics.ListAPIView):
         page_size=StandardResultsSetPagination.page_size, max_page_size=StandardResultsSetPagination.max_page_size
     )
 
-    permission_classes = (StandardObjectPermissions,)
+    permission_classes = (StandardObjectPermissions, IsAuthenticated, GearSubjectPermission, GearLocationPermission)
     serializer_class = serializers.GearSerializer
     pagination_class = StandardResultsSetPagination
     schema = GearsViewSchema()
-
-    def get_permissions(self):
-        """
-        Instantiates and returns the list of permissions that this view requires.
-        """
-        permission_classes = [StandardObjectPermissions]
-
-        if self.request.method == "GET":
-            permission_classes.extend([GearLocationPermission])
-        elif self.request.method == "POST":
-            permission_classes.extend([IsAuthenticated, GearSubjectPermission])
-
-        return [permission() for permission in permission_classes]
 
     def get_serializer_class(self):
         if self.request.method == "POST":
