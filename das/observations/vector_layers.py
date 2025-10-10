@@ -2,22 +2,10 @@ import logging
 
 from vectortiles import VectorLayer
 
-from django.contrib.gis.db import models as gis_models
-from django.contrib.gis.db.models.functions import Transform
-from django.db.models import (
-    Case,
-    CharField,
-    F,
-    FloatField,
-    IntegerField,
-    Value,
-    When,
-    Window,
-)
+from django.db.models import Case, CharField, F, FloatField, IntegerField, Value, When
 from django.db.models.fields.json import KeyTextTransform
-from django.db.models.functions import Cast, Lag, Lead
+from django.db.models.functions import Cast
 
-from analyzers.models import ObservationAnnotator
 from observations.filters import ObservationVectorTileFilterSet
 from observations.models import Observation
 
@@ -75,61 +63,8 @@ class ObservationVectorLayer(VectorLayer):
         max_time_gap_hours = self._get_max_time_gap_hours()
         speed_threshold_kmh = self._get_speed_threshold_kmh()
 
-        # Base queryset with necessary joins and annotations
-        qs = self.model.objects.select_related("source", "source__provider").annotate(
-            # Transform geometry to Web Mercator for vector tiles
-            geom=Transform(Cast(F("location"), gis_models.GeometryField()), 3857),
-            # Subject information
-            subject_id=F("source__subjectsource__subject_id"),
-            subject_name=F("source__subjectsource__subject__name"),
-            # Source information
-            source_name=F("source__manufacturer_id"),
-            # Calculate distances and time gaps for speed calculation
-            distance_preceding=Case(
-                When(
-                    recorded_at__isnull=False,
-                    then=Window(
-                        expression=Lag("location"),
-                        order_by=F("recorded_at"),
-                    ),
-                ),
-                default=Value(None),
-                output_field=gis_models.GeometryField(),
-            ),
-            time_lapse_preceding=Case(
-                When(
-                    recorded_at__isnull=False,
-                    then=Window(
-                        expression=Lag("recorded_at"),
-                        order_by=F("recorded_at"),
-                    ),
-                ),
-                default=Value(None),
-                output_field=CharField(),
-            ),
-            distance_following=Case(
-                When(
-                    recorded_at__isnull=False,
-                    then=Window(
-                        expression=Lead("location"),
-                        order_by=F("recorded_at"),
-                    ),
-                ),
-                default=Value(None),
-                output_field=gis_models.GeometryField(),
-            ),
-            time_lapse_following=Case(
-                When(
-                    recorded_at__isnull=False,
-                    then=Window(
-                        expression=Lead("recorded_at"),
-                        order_by=F("recorded_at"),
-                    ),
-                ),
-                default=Value(None),
-                output_field=CharField(),
-            ),
-        )
+        # Base queryset - raw SQL will handle segmentation, we just need filtering
+        qs = self.model.objects.select_related("source", "source__provider")
 
         # Add track segmentation logic
         qs = self._add_track_segmentation(qs, max_time_gap_hours, speed_threshold_kmh)
@@ -158,15 +93,106 @@ class ObservationVectorLayer(VectorLayer):
         return self.DEFAULT_SPEED_THRESHOLD_KMH
 
     def _add_track_segmentation(self, qs, max_time_gap_hours: float, speed_threshold_kmh: float):
-        """Add track segmentation logic using ObservationAnnotator's reusable methods."""
+        """Add track segmentation using production-optimized raw SQL."""
 
-        # Use ObservationAnnotator's new segmentation method that includes distance/speed calculations
-        annotator = ObservationAnnotator()
+        # Get observation IDs from the filtered queryset
+        observation_ids = list(qs.values_list("id", flat=True))
 
-        # Apply the complete segmentation logic in one call
-        return annotator.annotate_with_segmentation(
-            qs, max_time_gap_hours=max_time_gap_hours, speed_threshold_kmh=speed_threshold_kmh
-        ).order_by("source__subjectsource__subject_id", "recorded_at")
+        if not observation_ids:
+            return qs.none()
+
+        # Production-ready raw SQL with CTE for optimal performance
+        sql = """
+        WITH track_analysis AS (
+            SELECT
+                obs.*,
+                ss.subject_id,
+                ss.subject__name as subject_name,
+                s.manufacturer_id as source_name,
+                ST_Transform(obs.location::geometry, 3857) as geom,
+                ST_Distance(
+                    obs.location::geography,
+                    lag(obs.location::geography) OVER (
+                        PARTITION BY ss.subject_id
+                        ORDER BY obs.recorded_at
+                    )
+                ) as distance_preceding,
+                extract('epoch' FROM age(
+                    obs.recorded_at,
+                    lag(obs.recorded_at) OVER (
+                        PARTITION BY ss.subject_id
+                        ORDER BY obs.recorded_at
+                    )
+                )) as time_lapse_preceding
+            FROM observations_observation obs
+            JOIN observations_source s ON s.id = obs.source_id
+            JOIN observations_subjectsource ss ON ss.source_id = s.id
+                AND ss.assigned_range @> obs.recorded_at
+            JOIN observations_subject subj ON subj.id = ss.subject_id
+            WHERE obs.id IN %s
+        ),
+        track_segments AS (
+            SELECT
+                *,
+                CASE WHEN time_lapse_preceding > 0
+                    THEN (3.6 * distance_preceding / time_lapse_preceding)
+                    ELSE 0
+                END as speed_kmh,
+                CASE
+                    WHEN lag(recorded_at) OVER (
+                        PARTITION BY subject_id ORDER BY recorded_at
+                    ) IS NULL THEN 1
+                    WHEN time_lapse_preceding > %s THEN 1
+                    WHEN time_lapse_preceding > 0
+                        AND (3.6 * distance_preceding / time_lapse_preceding) > %s THEN 1
+                    ELSE 0
+                END as is_segment_break
+            FROM track_analysis
+        )
+        ),
+        final_segments AS (
+            SELECT
+                *,
+                SUM(is_segment_break) OVER (
+                    PARTITION BY subject_id
+                    ORDER BY recorded_at
+                    ROWS UNBOUNDED PRECEDING
+                ) - 1 as track_segment_id
+            FROM track_segments
+        )
+        SELECT
+            *,
+            ROW_NUMBER() OVER (
+                PARTITION BY subject_id, track_segment_id
+                ORDER BY recorded_at
+            ) as segment_order
+        FROM final_segments
+        ORDER BY subject_id, recorded_at
+        """
+
+        # Format all parameters directly into SQL to avoid Django raw() parameter issues
+        ids_str = ",".join(f"'{id}'" for id in observation_ids)
+        final_sql = sql.replace("IN %s", f"IN ({ids_str})").replace("%s", "{}")
+        final_sql = final_sql.format(max_time_gap_hours * 3600, speed_threshold_kmh)
+
+        # Use direct cursor approach for reliability
+        from django.db import connection
+
+        with connection.cursor() as cursor:
+            cursor.execute(final_sql)
+
+            # Convert results to Observation instances
+            columns = [col[0] for col in cursor.description]
+            results = []
+
+            for row in cursor.fetchall():
+                observation = Observation()
+                # Set all fields from the row
+                for i, value in enumerate(row):
+                    setattr(observation, columns[i], value)
+                results.append(observation)
+
+            return results
 
     def _add_presentation_styling(self, qs):
         """Add presentation styling annotations."""

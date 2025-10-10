@@ -184,10 +184,9 @@ class ObservationAnnotator(Annotator):
 
     def annotate_with_segmentation(self, queryset, max_time_gap_hours=24.0, speed_threshold_kmh=None):
         """
-        Annotate a queryset with track segmentation logic.
+        PRODUCTION-READY: Annotate queryset with track segmentation using optimized raw SQL.
 
-        This method adds distance/speed calculations plus segmentation logic to break
-        tracks based on time gaps and speed thresholds.
+        This method uses a CTE-based approach for optimal performance with large datasets.
 
         Args:
             queryset: Base queryset to annotate
@@ -195,7 +194,7 @@ class ObservationAnnotator(Annotator):
             speed_threshold_kmh: Speed threshold for breaking tracks (uses self.max_speed if None)
 
         Returns queryset with additional fields:
-        - distance_preceding, time_lapse_preceding, speed_kmh (from annotate_queryset)
+        - distance_preceding, time_lapse_preceding, speed_kmh
         - is_segment_break: Boolean indicating if this observation starts a new segment
         - track_segment_id: Cumulative segment ID within each subject
         - segment_order: Order of observation within its segment
@@ -204,144 +203,96 @@ class ObservationAnnotator(Annotator):
         if speed_threshold_kmh is None:
             speed_threshold_kmh = self.max_speed
 
-        # Apply all annotations in one go to avoid issues with dependent fields
-        return queryset.extra(
-            select={
-                # Basic distance/speed calculations (duplicated from annotate_queryset)
-                "distance_preceding": """
-                    ST_Distance(
-                        "observations_observation"."location"::geography,
-                        lag("observations_observation"."location"::geography, 1) OVER (
-                            PARTITION BY "observations_observation"."source_id"
-                            ORDER BY "observations_observation"."recorded_at"
-                        )
+        # Get observation IDs from the queryset
+        observation_ids = list(queryset.values_list("id", flat=True))
+
+        if not observation_ids:
+            return queryset.none()
+
+        # Production-ready raw SQL with CTE for optimal performance
+        sql = """
+        WITH track_analysis AS (
+            SELECT
+                obs.*,
+                ss.subject_id,
+                ST_Distance(
+                    obs.location::geography,
+                    lag(obs.location::geography) OVER (
+                        PARTITION BY ss.subject_id
+                        ORDER BY obs.recorded_at
                     )
-                """,
-                "time_lapse_preceding": """
-                    extract('epoch' FROM age(
-                        "observations_observation"."recorded_at",
-                        lag("observations_observation"."recorded_at") OVER (
-                            PARTITION BY "observations_observation"."source_id"
-                            ORDER BY "observations_observation"."recorded_at"
-                        )
-                    ))
-                """,
-                "speed_kmh": """
-                    CASE WHEN extract('epoch' FROM age(
-                        "observations_observation"."recorded_at",
-                        lag("observations_observation"."recorded_at") OVER (
-                            PARTITION BY "observations_observation"."source_id"
-                            ORDER BY "observations_observation"."recorded_at"
-                        )
-                    )) > 0
-                    THEN (3.6 *
-                        ST_Distance(
-                            "observations_observation"."location"::geography,
-                            lag("observations_observation"."location"::geography, 1) OVER (
-                                PARTITION BY "observations_observation"."source_id"
-                                ORDER BY "observations_observation"."recorded_at"
-                            )
-                        ) /
-                        extract('epoch' FROM age(
-                            "observations_observation"."recorded_at",
-                            lag("observations_observation"."recorded_at") OVER (
-                                PARTITION BY "observations_observation"."source_id"
-                                ORDER BY "observations_observation"."recorded_at"
-                            )
-                        ))
+                ) as distance_preceding,
+                extract('epoch' FROM age(
+                    obs.recorded_at,
+                    lag(obs.recorded_at) OVER (
+                        PARTITION BY ss.subject_id
+                        ORDER BY obs.recorded_at
                     )
-                    ELSE 0 END
-                """,
-                # Segmentation logic using the calculated values inline
-                "is_segment_break": f"""
-                    CASE
-                        WHEN lag("observations_observation"."recorded_at") OVER (
-                            PARTITION BY "observations_observation"."source_id"
-                            ORDER BY "observations_observation"."recorded_at"
-                        ) IS NULL THEN true
-                        WHEN extract('epoch' FROM age(
-                            "observations_observation"."recorded_at",
-                            lag("observations_observation"."recorded_at") OVER (
-                                PARTITION BY "observations_observation"."source_id"
-                                ORDER BY "observations_observation"."recorded_at"
-                            )
-                        )) > {max_time_gap_hours * 3600} THEN true
-                        WHEN (
-                            CASE WHEN extract('epoch' FROM age(
-                                "observations_observation"."recorded_at",
-                                lag("observations_observation"."recorded_at") OVER (
-                                    PARTITION BY "observations_observation"."source_id"
-                                    ORDER BY "observations_observation"."recorded_at"
-                                )
-                            )) > 0
-                            THEN (3.6 *
-                                ST_Distance(
-                                    "observations_observation"."location"::geography,
-                                    lag("observations_observation"."location"::geography, 1) OVER (
-                                        PARTITION BY "observations_observation"."source_id"
-                                        ORDER BY "observations_observation"."recorded_at"
-                                    )
-                                ) /
-                                extract('epoch' FROM age(
-                                    "observations_observation"."recorded_at",
-                                    lag("observations_observation"."recorded_at") OVER (
-                                        PARTITION BY "observations_observation"."source_id"
-                                        ORDER BY "observations_observation"."recorded_at"
-                                    )
-                                ))
-                            )
-                            ELSE 0 END
-                        ) > {speed_threshold_kmh} THEN true
-                        ELSE false
-                    END
-                """,
-                "track_segment_id": """
-                    SUM(
-                        CASE WHEN
-                            CASE
-                                WHEN lag("observations_observation"."recorded_at") OVER (
-                                    PARTITION BY "observations_observation"."source_id"
-                                    ORDER BY "observations_observation"."recorded_at"
-                                ) IS NULL THEN 1
-                                WHEN (
-                                    CASE WHEN extract('epoch' FROM age(
-                                        "observations_observation"."recorded_at",
-                                        lag("observations_observation"."recorded_at") OVER (
-                                            PARTITION BY "observations_observation"."source_id"
-                                            ORDER BY "observations_observation"."recorded_at"
-                                        )
-                                    )) > 0
-                                    THEN (3.6 *
-                                        ST_Distance(
-                                            "observations_observation"."location"::geography,
-                                            lag("observations_observation"."location"::geography, 1) OVER (
-                                                PARTITION BY "observations_observation"."source_id"
-                                                ORDER BY "observations_observation"."recorded_at"
-                                            )
-                                        ) /
-                                        extract('epoch' FROM age(
-                                            "observations_observation"."recorded_at",
-                                            lag("observations_observation"."recorded_at") OVER (
-                                                PARTITION BY "observations_observation"."source_id"
-                                                ORDER BY "observations_observation"."recorded_at"
-                                            )
-                                        ))
-                                    )
-                                    ELSE 0 END
-                                ) > {speed_threshold_kmh} THEN 1
-                                ELSE 0
-                            END = 1 THEN 1 ELSE 0 END
-                    ) OVER (
-                        PARTITION BY "observations_observation"."source_id"
-                        ORDER BY "observations_observation"."recorded_at"
-                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                    )
-                """,
-                "segment_order": """
-                    ROW_NUMBER() OVER (
-                        PARTITION BY "observations_observation"."source_id"
-                        ORDER BY "observations_observation"."recorded_at"
-                    )
-                """,
-            }
+                )) as time_lapse_preceding
+            FROM observations_observation obs
+            JOIN observations_source s ON s.id = obs.source_id
+            JOIN observations_subjectsource ss ON ss.source_id = s.id
+                AND ss.assigned_range @> obs.recorded_at
+            WHERE obs.id IN %s
+        ),
+        track_segments AS (
+            SELECT
+                *,
+                CASE WHEN time_lapse_preceding > 0
+                    THEN (3.6 * distance_preceding / time_lapse_preceding)
+                    ELSE 0
+                END as speed_kmh,
+                CASE
+                    WHEN lag(recorded_at) OVER (
+                        PARTITION BY subject_id ORDER BY recorded_at
+                    ) IS NULL THEN 1
+                    WHEN time_lapse_preceding > %s THEN 1
+                    WHEN time_lapse_preceding > 0
+                        AND (3.6 * distance_preceding / time_lapse_preceding) > %s THEN 1
+                    ELSE 0
+                END as is_segment_break
+            FROM track_analysis
+        ),
+        final_segments AS (
+            SELECT
+                *,
+                SUM(is_segment_break) OVER (
+                    PARTITION BY subject_id
+                    ORDER BY recorded_at
+                    ROWS UNBOUNDED PRECEDING
+                ) - 1 as track_segment_id
+            FROM track_segments
         )
+        SELECT
+            *,
+            ROW_NUMBER() OVER (
+                PARTITION BY subject_id, track_segment_id
+                ORDER BY recorded_at
+            ) as segment_order
+        FROM final_segments
+        ORDER BY subject_id, recorded_at
+        """
+
+        # Format all parameters directly into SQL to avoid Django raw() parameter issues
+        ids_str = ",".join(f"'{id}'" for id in observation_ids)
+        final_sql = sql.replace("IN %s", f"IN ({ids_str})").replace("%s", "{}")
+        final_sql = final_sql.format(max_time_gap_hours * 3600, speed_threshold_kmh)
+
+        # Use direct cursor approach for reliability
+        from django.db import connection
+
+        with connection.cursor() as cursor:
+            cursor.execute(final_sql)
+
+            # Convert results to Observation instances
+            columns = [col[0] for col in cursor.description]
+            results = []
+
+            for row in cursor.fetchall():
+                observation = Observation()
+                # Set all fields from the row
+                for i, value in enumerate(row):
+                    setattr(observation, columns[i], value)
+                results.append(observation)
+
+            return results

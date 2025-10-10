@@ -198,3 +198,109 @@ class TestObservationAnnotatorNewMethods(TestCase):
 
         self.assertEqual(list(annotated_qs), [])
         self.assertEqual(list(segmented_qs), [])
+
+    def test_segmentation_with_multiple_subjects(self):
+        """Test that segmentation works correctly with multiple subjects."""
+        # This tests the critical PARTITION BY subject_id logic
+        all_subjects_qs = Observation.objects.all().order_by("recorded_at")
+
+        segmented_qs = self.annotator.annotate_with_segmentation(all_subjects_qs)[:50]
+        observations = list(segmented_qs)
+
+        if len(observations) > 1:
+            # Group by subject_id to verify partitioning works
+            subjects = {}
+            for obs in observations:
+                subject_id = obs.subject_id
+                if subject_id not in subjects:
+                    subjects[subject_id] = []
+                subjects[subject_id].append(obs)
+
+            # Each subject should start with segment_id 0 and segment_order 1
+            for subject_id, subject_obs in subjects.items():
+                if subject_obs:
+                    first_obs = min(subject_obs, key=lambda x: x.recorded_at)
+                    self.assertEqual(
+                        first_obs.track_segment_id, 0, f"Subject {subject_id} should start with segment_id 0"
+                    )
+                    self.assertEqual(
+                        first_obs.segment_order, 1, f"Subject {subject_id} should start with segment_order 1"
+                    )
+
+    def test_speed_calculation_accuracy(self):
+        """Test that speed calculations are mathematically correct."""
+        qs = Observation.objects.filter(source__subjectsource__subject=self.subject).order_by("recorded_at")
+
+        annotated_qs = self.annotator.annotate_queryset(qs)[:10]
+        observations = list(annotated_qs)
+
+        # Find consecutive observations with distance/time data
+        for i, obs in enumerate(observations[1:], 1):
+            if (
+                obs.distance_preceding
+                and obs.time_lapse_preceding
+                and obs.distance_preceding > 0
+                and obs.time_lapse_preceding > 0
+            ):
+
+                # Manual speed calculation: (distance_m / time_s) * 3.6 = km/h
+                expected_speed = (obs.distance_preceding / float(obs.time_lapse_preceding)) * 3.6
+
+                # Allow small floating point differences
+                self.assertAlmostEqual(
+                    obs.speed_kmh, expected_speed, places=2, msg=f"Speed calculation incorrect for observation {obs.id}"
+                )
+
+    def test_time_gap_segmentation_logic(self):
+        """Test that time gaps correctly trigger segment breaks."""
+        # Use a very small time gap to force segmentation
+        qs = Observation.objects.filter(source__subjectsource__subject=self.subject).order_by("recorded_at")
+
+        segmented_qs = self.annotator.annotate_with_segmentation(
+            qs, max_time_gap_hours=0.001, speed_threshold_kmh=1000
+        )[
+            :20
+        ]  # 3.6 seconds, high speed threshold)
+        observations = list(segmented_qs)
+
+        if len(observations) > 1:
+            # With such a small time gap, most observations should be segment breaks
+            breaks = sum(1 for obs in observations if obs.is_segment_break)
+            # Should have more than just the first observation as breaks
+            self.assertGreater(breaks, 1, "Small time gap should create multiple segment breaks")
+
+    def test_performance_with_large_dataset(self):
+        """Test that the annotation works efficiently with larger datasets."""
+        # Get a larger dataset to test performance
+        large_qs = Observation.objects.all().order_by("recorded_at")
+
+        import time
+
+        start_time = time.time()
+
+        # This should complete in reasonable time (< 10 seconds for test data)
+        segmented_qs = self.annotator.annotate_with_segmentation(large_qs)[:100]
+        observations = list(segmented_qs)
+
+        end_time = time.time()
+        execution_time = end_time - start_time
+
+        # Should process efficiently
+        self.assertLess(execution_time, 10.0, "Large dataset processing should be efficient")
+        self.assertGreater(len(observations), 0, "Should process observations from large dataset")
+
+    def test_geographical_distance_calculation(self):
+        """Test that PostGIS geography distance calculations work correctly."""
+        qs = Observation.objects.filter(source__subjectsource__subject=self.subject).order_by("recorded_at")
+
+        annotated_qs = self.annotator.annotate_queryset(qs)[:10]
+        observations = list(annotated_qs)
+
+        # Check that distance calculations produce reasonable results
+        for obs in observations:
+            if obs.distance_preceding is not None:
+                # Distance should be non-negative and reasonable (< 500km for test data)
+                self.assertGreaterEqual(obs.distance_preceding, 0, "Distance should be non-negative")
+                self.assertLess(
+                    obs.distance_preceding, 500000, "Distance should be reasonable for test data"  # 500km in meters
+                )
