@@ -113,3 +113,196 @@ class ObservationAnnotator(Annotator):
 
         logger.info("Setting exclusion_flags on these observations: {}".format(flag_these))
         Observation.objects.set_flag(flag_these, Observation.EXCLUDED_AUTOMATICALLY)
+
+    def annotate_queryset(self, queryset):
+        """
+        Annotate a queryset with distance, time, and speed calculations.
+
+        This method adds the proven SQL logic for calculating distances and speeds
+        between consecutive observations, which can be reused by other components.
+
+        Returns queryset with additional fields:
+        - distance_preceding: Distance from previous observation (meters)
+        - time_lapse_preceding: Time gap from previous observation (seconds)
+        - speed_kmh: Speed in km/h based on distance and time
+
+        Note: This is a simplified version that works with Django ORM limitations.
+        For production use, consider using the more complex raw SQL approach.
+        """
+        # constrain complexity to maintain compatibility with
+        #  Django's limitations around .extra().
+        # be careful with table aliases and references.
+
+        return queryset.extra(
+            select={
+                "distance_preceding": """
+                    ST_Distance(
+                        "observations_observation"."location"::geography,
+                        lag("observations_observation"."location"::geography, 1) OVER (
+                            PARTITION BY "observations_observation"."source_id"
+                            ORDER BY "observations_observation"."recorded_at"
+                        )
+                    )
+                """,
+                "time_lapse_preceding": """
+                    extract('epoch' FROM age(
+                        "observations_observation"."recorded_at",
+                        lag("observations_observation"."recorded_at") OVER (
+                            PARTITION BY "observations_observation"."source_id"
+                            ORDER BY "observations_observation"."recorded_at"
+                        )
+                    ))
+                """,
+                "speed_kmh": """
+                    CASE WHEN extract('epoch' FROM age(
+                        "observations_observation"."recorded_at",
+                        lag("observations_observation"."recorded_at") OVER (
+                            PARTITION BY "observations_observation"."source_id"
+                            ORDER BY "observations_observation"."recorded_at"
+                        )
+                    )) > 0
+                    THEN (3.6 *
+                        ST_Distance(
+                            "observations_observation"."location"::geography,
+                            lag("observations_observation"."location"::geography, 1) OVER (
+                                PARTITION BY "observations_observation"."source_id"
+                                ORDER BY "observations_observation"."recorded_at"
+                            )
+                        ) /
+                        extract('epoch' FROM age(
+                            "observations_observation"."recorded_at",
+                            lag("observations_observation"."recorded_at") OVER (
+                                PARTITION BY "observations_observation"."source_id"
+                                ORDER BY "observations_observation"."recorded_at"
+                            )
+                        ))
+                    )
+                    ELSE 0 END
+                """,
+            }
+        )
+
+    def annotate_with_segmentation(self, queryset, max_time_gap_hours=24.0, speed_threshold_kmh=None):
+        """
+        Annotate a queryset with track segmentation logic.
+
+        This method adds distance/speed calculations plus segmentation logic to break
+        tracks based on time gaps and speed thresholds.
+
+        Args:
+            queryset: Base queryset to annotate
+            max_time_gap_hours: Maximum hours between observations before breaking track
+            speed_threshold_kmh: Speed threshold for breaking tracks (uses self.max_speed if None)
+
+        Returns queryset with additional fields:
+        - distance_preceding, time_lapse_preceding, speed_kmh (from annotate_queryset)
+        - is_segment_break: Boolean indicating if this observation starts a new segment
+        - track_segment_id: Cumulative segment ID within each subject
+        - segment_order: Order of observation within its segment
+        """
+        # Use instance's max_speed if no threshold provided
+        if speed_threshold_kmh is None:
+            speed_threshold_kmh = self.max_speed
+
+        # Apply all annotations in one go to avoid issues with dependent fields
+        return queryset.extra(
+            select={
+                # Basic distance/speed calculations (duplicated from annotate_queryset)
+                "distance_preceding": """
+                    ST_Distance(
+                        "observations_observation"."location"::geography,
+                        lag("observations_observation"."location"::geography, 1) OVER (
+                            PARTITION BY "observations_observation"."source_id"
+                            ORDER BY "observations_observation"."recorded_at"
+                        )
+                    )
+                """,
+                "time_lapse_preceding": """
+                    extract('epoch' FROM age(
+                        "observations_observation"."recorded_at",
+                        lag("observations_observation"."recorded_at") OVER (
+                            PARTITION BY "observations_observation"."source_id"
+                            ORDER BY "observations_observation"."recorded_at"
+                        )
+                    ))
+                """,
+                "speed_kmh": """
+                    CASE WHEN extract('epoch' FROM age(
+                        "observations_observation"."recorded_at",
+                        lag("observations_observation"."recorded_at") OVER (
+                            PARTITION BY "observations_observation"."source_id"
+                            ORDER BY "observations_observation"."recorded_at"
+                        )
+                    )) > 0
+                    THEN (3.6 *
+                        ST_Distance(
+                            "observations_observation"."location"::geography,
+                            lag("observations_observation"."location"::geography, 1) OVER (
+                                PARTITION BY "observations_observation"."source_id"
+                                ORDER BY "observations_observation"."recorded_at"
+                            )
+                        ) /
+                        extract('epoch' FROM age(
+                            "observations_observation"."recorded_at",
+                            lag("observations_observation"."recorded_at") OVER (
+                                PARTITION BY "observations_observation"."source_id"
+                                ORDER BY "observations_observation"."recorded_at"
+                            )
+                        ))
+                    )
+                    ELSE 0 END
+                """,
+                # Segmentation logic using the calculated values inline
+                "is_segment_break": f"""
+                    CASE
+                        WHEN lag("observations_observation"."recorded_at") OVER (
+                            PARTITION BY "observations_observation"."source_id"
+                            ORDER BY "observations_observation"."recorded_at"
+                        ) IS NULL THEN true
+                        WHEN extract('epoch' FROM age(
+                            "observations_observation"."recorded_at",
+                            lag("observations_observation"."recorded_at") OVER (
+                                PARTITION BY "observations_observation"."source_id"
+                                ORDER BY "observations_observation"."recorded_at"
+                            )
+                        )) > {max_time_gap_hours * 3600} THEN true
+                        WHEN (
+                            CASE WHEN extract('epoch' FROM age(
+                                "observations_observation"."recorded_at",
+                                lag("observations_observation"."recorded_at") OVER (
+                                    PARTITION BY "observations_observation"."source_id"
+                                    ORDER BY "observations_observation"."recorded_at"
+                                )
+                            )) > 0
+                            THEN (3.6 *
+                                ST_Distance(
+                                    "observations_observation"."location"::geography,
+                                    lag("observations_observation"."location"::geography, 1) OVER (
+                                        PARTITION BY "observations_observation"."source_id"
+                                        ORDER BY "observations_observation"."recorded_at"
+                                    )
+                                ) /
+                                extract('epoch' FROM age(
+                                    "observations_observation"."recorded_at",
+                                    lag("observations_observation"."recorded_at") OVER (
+                                        PARTITION BY "observations_observation"."source_id"
+                                        ORDER BY "observations_observation"."recorded_at"
+                                    )
+                                ))
+                            )
+                            ELSE 0 END
+                        ) > {speed_threshold_kmh} THEN true
+                        ELSE false
+                    END
+                """,
+                "track_segment_id": """
+                    0
+                """,
+                "segment_order": """
+                    ROW_NUMBER() OVER (
+                        PARTITION BY "observations_observation"."source_id"
+                        ORDER BY "observations_observation"."recorded_at"
+                    )
+                """,
+            }
+        )

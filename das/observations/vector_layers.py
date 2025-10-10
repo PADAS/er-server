@@ -18,6 +18,7 @@ from django.db.models import (
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast, Lag, Lead
 
+from analyzers.models import ObservationAnnotator
 from observations.filters import ObservationVectorTileFilterSet
 from observations.models import Observation
 
@@ -158,20 +159,15 @@ class ObservationVectorLayer(VectorLayer):
         return self.DEFAULT_SPEED_THRESHOLD_KMH
 
     def _add_track_segmentation(self, qs, max_time_gap_hours: float, speed_threshold_kmh: float):
-        """Add track segmentation logic to the queryset."""
-        # This is a simplified version - in practice, you'd want to use raw SQL
-        # for complex window functions with distance calculations
+        """Add track segmentation logic using ObservationAnnotator's reusable methods."""
 
-        # For now, we'll add basic annotations and handle segmentation in post-processing
-        # In a production system, you'd want to use raw SQL similar to the pattern in
-        # das/analyzers/models/annotations.py
+        # Use ObservationAnnotator's new segmentation method that includes distance/speed calculations
+        annotator = ObservationAnnotator()
 
-        return qs.annotate(
-            # Basic speed calculation (simplified)
-            speed_kmh=Value(0.0, output_field=FloatField()),
-            track_segment_id=Value(1, output_field=IntegerField()),
-            segment_order=Value(1, output_field=IntegerField()),
-        )
+        # Apply the complete segmentation logic in one call
+        return annotator.annotate_with_segmentation(
+            qs, max_time_gap_hours=max_time_gap_hours, speed_threshold_kmh=speed_threshold_kmh
+        ).order_by("source__subjectsource__subject_id", "recorded_at")
 
     def _add_presentation_styling(self, qs):
         """Add presentation styling annotations."""
