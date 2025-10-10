@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from django.contrib.gis.geos import Point
-from django.db.models import F, Q
+from django.db.models import Q
 from django.forms.models import model_to_dict
 
 from observations.models import Observation, SubjectSource
@@ -32,11 +32,9 @@ class ReadDjangoObservationSource(ReadObservationSourceBase):
         concrete_fields = [field.name for field in Observation._meta.get_fields() if field.concrete]
 
         return (
-            Observation.objects.filter(
-                source__subjectsource=subject_source,
-                source__subjectsource__assigned_range__contains=F("recorded_at"),
-                recorded_at__range=[since, until],
-            )
+            Observation.objects.by_source_id(source_id=source_id)
+            .by_since_until(since, until)
             .exclude(Q(location=EMPTY_POINT))
+            .by_exclusion_flags()
             .values(*concrete_fields)
         )

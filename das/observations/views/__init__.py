@@ -51,7 +51,6 @@ from observations.models import (
     SubjectStatus,
     SubjectSubType,
 )
-from observations.permissions import StandardObjectPermissions
 from observations.serializers import (
     AnnouncementSerializer,
     GPXTrackFileUploadSerializer,
@@ -94,7 +93,11 @@ from observations.views.utils import (
     get_track_days,
 )
 from utils import add_base_url
-from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
+from utils.drf import (
+    ForbiddenAPIException,
+    StandardObjectPermissions,
+    StandardResultsSetPagination,
+)
 from utils.features import features
 from utils.json import parse_bool, zeroout_microseconds
 from utils.tenant import get_tenant_settings
