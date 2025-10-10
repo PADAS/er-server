@@ -239,3 +239,119 @@ def test_sources_schema_accessible_to_authenticated_users(user_client):
     for item in data["oneOf"]:
         assert "const" in item
         assert "title" in item
+
+
+@pytest.mark.django_db
+def test_get_event_types_dynamic_schemas(superuser_client, event_type):
+    """Test event types dynamic schema returns correct structure."""
+    url = reverse("schemas:event_types")
+    response = superuser_client.get(url)
+
+    data = response.json()
+
+    assert response.status_code == 200
+    assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+    assert "oneOf" in data
+    assert len(data["oneOf"]) >= 1
+
+    # Find our test event type in the response
+    event_type_items = [item for item in data["oneOf"] if item["const"] == str(event_type.id)]
+    assert len(event_type_items) == 1
+
+    event_type_item = event_type_items[0]
+    assert event_type_item["const"] == str(event_type.id)
+    assert event_type_item["title"] == event_type.value
+    if event_type.display:
+        assert event_type_item.get("description") == event_type.display
+
+
+@pytest.mark.django_db
+def test_event_types_schema_structure(superuser_client):
+    """Test that event types schema uses correct field mappings."""
+    from factories import EventTypeFactory
+
+    # Create event types with specific values to test field mappings
+    event_type1 = EventTypeFactory.create(value="test_event_type_1", display="Test Event Type 1")
+
+    event_type2 = EventTypeFactory.create(value="test_event_type_2", display="Test Event Type 2")
+
+    url = reverse("schemas:event_types")
+    response = superuser_client.get(url)
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Find each event type and verify field mappings
+    items_by_id = {item["const"]: item for item in data["oneOf"]}
+
+    # Event type 1: check const=id, title=value, description=display
+    event_type1_item = items_by_id[str(event_type1.id)]
+    assert event_type1_item["const"] == str(event_type1.id)
+    assert event_type1_item["title"] == "test_event_type_1"
+    assert event_type1_item["description"] == "Test Event Type 1"
+
+    # Event type 2: check const=id, title=value, description=display
+    event_type2_item = items_by_id[str(event_type2.id)]
+    assert event_type2_item["const"] == str(event_type2.id)
+    assert event_type2_item["title"] == "test_event_type_2"
+    assert event_type2_item["description"] == "Test Event Type 2"
+
+
+@pytest.mark.django_db
+def test_event_types_permissions_and_categories(superuser_client):
+    """Test that event types respect category permissions."""
+    from factories import EventCategoryFactory, EventTypeFactory
+
+    # Create event categories and types
+    category1 = EventCategoryFactory.create(value="category1", is_active=True)
+    category2 = EventCategoryFactory.create(value="category2", is_active=True)
+    inactive_category = EventCategoryFactory.create(value="inactive", is_active=False)
+
+    event_type1 = EventTypeFactory.create(value="event_in_category1", display="Event in Category 1", category=category1)
+
+    event_type2 = EventTypeFactory.create(value="event_in_category2", display="Event in Category 2", category=category2)
+
+    # Event type in inactive category (should be filtered out)
+    event_type_inactive = EventTypeFactory.create(
+        value="event_in_inactive_category", display="Event in Inactive Category", category=inactive_category
+    )
+
+    url = reverse("schemas:event_types")
+    response = superuser_client.get(url)
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Get all const values (event type IDs) from response
+    response_ids = [item["const"] for item in data["oneOf"]]
+
+    # Active category event types should be present (for superuser)
+    assert str(event_type1.id) in response_ids
+    assert str(event_type2.id) in response_ids
+
+    # Inactive category event type should NOT be present
+    assert str(event_type_inactive.id) not in response_ids
+
+
+@pytest.mark.django_db
+def test_event_types_schema_accessible_to_authenticated_users(user_client):
+    """Test that event types dynamic schema is accessible to authenticated users."""
+    from factories import EventTypeFactory
+
+    # Create an event type
+    event_type = EventTypeFactory.create(value="test_event_type", display="Test Event Type")
+
+    url = reverse("schemas:event_types")
+    response = user_client.get(url)
+
+    # Should return 200 for authenticated users
+    assert response.status_code == 200
+    data = response.json()
+    assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+    assert "oneOf" in data
+
+    # Verify structure is correct
+    for item in data["oneOf"]:
+        assert "const" in item
+        assert "title" in item
+        # description is optional but should be present if display field exists
