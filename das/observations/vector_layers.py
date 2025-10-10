@@ -101,7 +101,7 @@ class ObservationVectorLayer(VectorLayer):
         if not observation_ids:
             return qs.none()
 
-        # Production-ready raw SQL with CTE for optimal performance
+        # SQL with CTE for optimal performance
         sql = """
         WITH track_analysis AS (
             SELECT
@@ -149,7 +149,7 @@ class ObservationVectorLayer(VectorLayer):
                 END as is_segment_break
             FROM track_analysis
         )
-        
+
         final_segments AS (
             SELECT
                 *,

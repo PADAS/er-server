@@ -273,16 +273,11 @@ class ObservationAnnotator(Annotator):
         ORDER BY subject_id, recorded_at
         """
 
-        # Format all parameters directly into SQL to avoid Django raw() parameter issues
-        ids_str = ",".join(f"'{id}'" for id in observation_ids)
-        final_sql = sql.replace("IN %s", f"IN ({ids_str})").replace("%s", "{}")
-        final_sql = final_sql.format(max_time_gap_hours * 3600, speed_threshold_kmh)
-
-        # Use direct cursor approach for reliability
+        # Use proper parameterization to avoid SQL injection
         from django.db import connection
 
         with connection.cursor() as cursor:
-            cursor.execute(final_sql)
+            cursor.execute(sql, [observation_ids, max_time_gap_hours * 3600, speed_threshold_kmh])
 
             # Convert results to Observation instances
             columns = [col[0] for col in cursor.description]
