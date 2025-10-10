@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 
 from vectortiles import VectorLayer
 
@@ -270,74 +269,3 @@ class ObservationVectorLayer(VectorLayer):
         Track segmentation is now handled at the database level.
         """
         return super().get_tile_data(tile, layer_name)
-        """
-        Create track segments from a list of features for a single subject.
-        """
-        if not features:
-            return []
-
-        segments = []
-        current_segment = []
-        segment_id = start_segment_id
-
-        max_time_gap_hours = self._get_max_time_gap_hours()
-        speed_threshold_kmh = self._get_speed_threshold_kmh()
-
-        for i, feature in enumerate(features):
-            if not current_segment:
-                # Start new segment
-                current_segment.append(feature)
-            else:
-                # Check if we should break the segment
-                should_break = self._should_break_segment(
-                    current_segment[-1], feature, max_time_gap_hours, speed_threshold_kmh
-                )
-
-                if should_break:
-                    # Finalize current segment and start new one
-                    segments.extend(self._finalize_segment(current_segment, segment_id))
-                    segment_id += 1
-                    current_segment = [feature]
-                else:
-                    current_segment.append(feature)
-
-        # Add the last segment
-        if current_segment:
-            segments.extend(self._finalize_segment(current_segment, segment_id))
-
-        return segments
-
-    def _should_break_segment(self, prev_feature, current_feature, max_time_gap_hours, speed_threshold_kmh):
-        """Determine if we should break the track segment."""
-        prev_props = prev_feature.get("properties", {})
-        current_props = current_feature.get("properties", {})
-
-        # Check time gap
-        try:
-            prev_time = datetime.fromisoformat(prev_props.get("recorded_at", "").replace("Z", "+00:00"))
-            current_time = datetime.fromisoformat(current_props.get("recorded_at", "").replace("Z", "+00:00"))
-
-            time_diff = current_time - prev_time
-            if time_diff.total_seconds() > max_time_gap_hours * 3600:
-                return True
-        except (ValueError, TypeError):
-            pass
-
-        # Check speed threshold (simplified - would need proper distance calculation)
-        # This is a placeholder - real implementation would calculate actual speed
-        speed = current_props.get("speed_kmh", 0)
-        if speed > speed_threshold_kmh:
-            return True
-
-        return False
-
-    def _finalize_segment(self, segment_features, segment_id):
-        """Finalize a track segment by adding segment metadata."""
-        for i, feature in enumerate(segment_features):
-            if "properties" not in feature:
-                feature["properties"] = {}
-
-            feature["properties"]["track_segment_id"] = segment_id
-            feature["properties"]["segment_order"] = i + 1
-
-        return segment_features
