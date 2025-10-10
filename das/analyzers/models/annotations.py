@@ -6,6 +6,7 @@ import pytz
 
 from django.conf import settings
 from django.contrib.gis.db import models
+from django.db import connection
 from django.utils.translation import gettext as _
 
 from analyzers.models.base import Annotator
@@ -274,7 +275,6 @@ class ObservationAnnotator(Annotator):
         """
 
         # Use proper parameterization to avoid SQL injection
-        from django.db import connection
 
         with connection.cursor() as cursor:
             cursor.execute(sql, [observation_ids, max_time_gap_hours * 3600, speed_threshold_kmh])
