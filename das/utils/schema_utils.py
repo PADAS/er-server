@@ -177,6 +177,10 @@ def get_table_choices(field_details, as_string=True):
     return return_val
 
 
+def loads_rendered_schema(rendered_template):
+    return json.loads(rendered_template, object_pairs_hook=OrderedDict)
+
+
 def get_schema_renderer_method(as_string=False, empty=False):
     @memoize
     def memo_enum_choices(enum_choices_identifier):
@@ -214,7 +218,7 @@ def get_schema_renderer_method(as_string=False, empty=False):
     @memoize
     def load_schema(schema):
         rendered_template = render_schema(schema)
-        return json.loads(rendered_template, object_pairs_hook=OrderedDict)
+        return loads_rendered_schema(rendered_template)
 
     @memoize
     def render_empty_schema(schema):
@@ -233,7 +237,7 @@ def get_schema_renderer_method(as_string=False, empty=False):
     @memoize
     def load_empty_schema(schema):
         rendered_template = render_empty_schema(schema)
-        return json.loads(rendered_template, object_pairs_hook=OrderedDict)
+        return loads_rendered_schema(rendered_template)
 
     if empty and as_string:
         return render_empty_schema
@@ -608,7 +612,7 @@ def render_schema_template(schema, parameters):
     if len(parameters) > 0:
         template = Template(schema)
         rendered_template = template.render(Context(parameters, autoescape=False))
-    return json.loads(rendered_template, object_pairs_hook=OrderedDict)
+    return loads_rendered_schema(rendered_template)
 
 
 def format_key_for_title(key):

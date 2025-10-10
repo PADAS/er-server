@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -7,6 +8,7 @@ from typing import Any, Callable, Iterable, Optional
 
 from django.contrib.auth.models import User
 from django.contrib.gis.db.models import Model
+from django.core.cache import cache
 from django.db.models import QuerySet
 from django.http import QueryDict
 
@@ -95,20 +97,42 @@ def build_patrol_types_last_modified_header(*args, **kwargs) -> datetime:
     return get_most_recent_update_datetime_by_queryset(PatrolType.objects)
 
 
-def build_event_types_etag_header(request, *args, **kwargs) -> str:
-    queryset_builder = EventTypeQueryset(request.user, request.GET)
-    queryset = queryset_builder.get_queryset()
-    queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
-    schemas = []
-    for event_type in queryset:
+def get_event_type_schema_hash(request, event_type: dict) -> str:
+
+    schema = event_type["schema"]
+    event_type_value = event_type["value"]
+    schema_cache_key = f"schema_hash:{event_type_value}"
+    schema_hash = cache.get(schema_cache_key)
+
+    if schema_hash is None:
         try:
-            schemas.append(get_schema_renderer_method(empty=True, as_string=True)(event_type["schema"]))
+            # Render schema and compute hash
+            rendered_schema = get_schema_renderer_method(empty=False)(schema)
+            schema_hash = hashlib.md5(json.dumps(rendered_schema).encode("utf-8")).hexdigest()
+            cache.set(schema_cache_key, schema_hash, 3600)
+
+            # Cache rendered schemas on the request for reuse during serialization
+            if not hasattr(request, "_rendered_schema_cache"):
+                request._rendered_schema_cache = {}
+            request._rendered_schema_cache[event_type_value] = rendered_schema
         except LookupError:
             logger.exception("Missing Choice table in event_type %s", event_type["value"])
         except Exception:
             # Handle malformed schemas gracefully - don't break ETag generation
             logger.exception("Failed to render schema for event_type %s", event_type["value"])
-            schemas.append("")
+
+    return schema_hash
+
+
+def build_event_types_etag_header(request, *args, **kwargs) -> str:
+    queryset_builder = EventTypeQueryset(request.user, request.GET)
+    queryset = queryset_builder.get_queryset()
+    queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
+    schemas = []
+
+    for event_type in queryset:
+        if schema_hash := get_event_type_schema_hash(request, event_type):
+            schemas.append(schema_hash)
 
     return get_hash_from_queryset(queryset=queryset, request=request, extra_salt=":".join(schemas))
 
@@ -116,16 +140,12 @@ def build_event_types_etag_header(request, *args, **kwargs) -> str:
 def build_event_type_etag_header(request, *args, **kwargs) -> str:
     queryset = EventType.objects.filter(id=kwargs["eventtype_id"])
     queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
-    schema = None
+    schema_hash = ""
+
     if event_type := queryset.first():
-        try:
-            schema = event_type["schema"]
-            schema = get_schema_renderer_method(as_string=True)(schema)
-        except Exception:
-            # Handle malformed schemas gracefully - don't break ETag generation
-            logger.exception("Failed to render schema for event_type %s", event_type.get("value", "unknown"))
-            schema = ""
-    return get_hash_from_queryset(queryset=queryset, request=request, extra_salt=schema)
+        schema_hash = get_event_type_schema_hash(request, event_type) or ""
+
+    return get_hash_from_queryset(queryset=queryset, request=request, extra_salt=schema_hash)
 
 
 def get_most_recent_update_datetime_by_queryset(queryset: QuerySet) -> Optional[datetime]:
