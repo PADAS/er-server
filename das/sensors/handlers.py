@@ -178,22 +178,34 @@ class GenericSensorHandler:
         return Response({}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     @classmethod
-    def find_subject_by_name(cls, name: str):
-        """Find a subject by its name."""
-        try:
-            return Subject.objects.get(name=name)
-        except Subject.DoesNotExist:
+    def get_or_consolidate_subject_by_name(cls, name: str):
+        """Find and consolidate duplicate subjects with the same name.
+
+        If multiple subjects exist with the same name, this method will:
+        1. Keep the oldest subject (by created_at)
+        2. Transfer all SubjectSource assignments from duplicates to the oldest
+        3. Delete the duplicate subjects
+
+        Args:
+            name (str): The subject name to search for
+
+        Returns:
+            Subject: The consolidated subject, or None if not found
+        """
+        subjects = Subject.objects.filter(name=name).order_by("created_at")
+
+        if not subjects.exists():
             return None
-        except Subject.MultipleObjectsReturned:
-            # Get all subjects with the same name, ordered by creation date
-            subjects = Subject.objects.filter(name=name).order_by("created_at")
-            first_subject = subjects.first()
-            duplicate_subjects = subjects.exclude(id=first_subject.id)
 
-            # Transfer SubjectSource assignments from duplicates to the first subject
-            cls._transfer_subject_source_assignments(first_subject, duplicate_subjects)
+        if subjects.count() == 1:
+            return subjects.first()
 
-            return first_subject
+        first_subject = subjects.first()
+        duplicate_subjects = subjects.exclude(id=first_subject.id)
+
+        cls._transfer_subject_source_assignments(first_subject, duplicate_subjects)
+
+        return first_subject
 
     @transaction.atomic
     @classmethod
@@ -361,7 +373,7 @@ class GenericSensorHandler:
                     f"'{TRAP_DEPLOYED}' or '{TRAP_RETRIEVED}'."
                 )
             subject_info.setdefault("additional", {})["display_id"] = subject_name
-            subject = cls.find_subject_by_name(subject_name)
+            subject = cls.get_or_consolidate_subject_by_name(subject_name)
             if subject:
                 subject_info["id"] = subject.id
 
@@ -385,7 +397,7 @@ class GenericSensorHandler:
 
         # For Buoy Subject's, ensure that we have a Subject and SubjectSource set up and define the assigned_range as the deploy/retrieve event dictates
         if subject_subtype == BUOY_GEAR_SUBJECT_SUBTYPE:
-            subject = cls.find_subject_by_name(subject_name)
+            subject = cls.get_or_consolidate_subject_by_name(subject_name)
             if not subject:
                 subject = Subject.objects.create_subject(**subject_info)
 
@@ -404,7 +416,7 @@ class GenericSensorHandler:
 
         # TODO: Remove after the rollout of the new data model that uses "ropeless_buoy_gearset" as the subject_subtype for buoy devices,
         if subject_subtype == BUOY_DEVICE_SUBJECT_SUBTYPE:
-            subject = cls.find_subject_by_name(subject_name)
+            subject = cls.get_or_consolidate_subject_by_name(subject_name)
             cls.update_subject(subject, additional=observation_additional)
         event_action = an_observation.get("additional", {}).get("event_action", cls.DEFAULT_EVENT_ACTION)
         observation = {

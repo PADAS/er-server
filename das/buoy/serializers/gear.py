@@ -77,9 +77,8 @@ class GearSerializer(serializers.Serializer):
         if hasattr(instance, "source"):
             provider_key = instance.source.provider.provider_key
         else:
-            related_sources = instance.subjectsources.all()
-            if related_sources:
-                provider_key = related_sources[0].source.provider.provider_key
+            if related_sources := instance.subjectsources.first():
+                provider_key = related_sources.source.provider.provider_key
             else:
                 return "unknown"
 
