@@ -3,7 +3,12 @@ import pytest
 from django.urls import reverse
 
 from choices.models import Choice
-from factories import SubjectFactory
+from factories import (
+    EventCategoryFactory,
+    EventTypeFactory,
+    SourceFactory,
+    SubjectFactory,
+)
 from observations.models import SubjectGroup
 
 
@@ -178,7 +183,6 @@ def test_get_sources_dynamic_schemas(superuser_client, source):
 @pytest.mark.django_db
 def test_sources_display_name_logic(superuser_client):
     """Test that sources display name logic works correctly with different field combinations."""
-    from factories import SourceFactory
 
     # Test source with manufacturer_id and model_name
     source1 = SourceFactory.create(manufacturer_id="GPS-COLLAR-123", model_name="Vectronic Aerospace")
@@ -221,7 +225,6 @@ def test_sources_display_name_logic(superuser_client):
 @pytest.mark.django_db
 def test_sources_schema_accessible_to_authenticated_users(user_client):
     """Test that sources dynamic schema is accessible to authenticated users."""
-    from factories import SourceFactory
 
     # Create a source that should be visible to authenticated users
     source = SourceFactory.create(manufacturer_id="TEST-SOURCE")
@@ -268,7 +271,6 @@ def test_get_event_types_dynamic_schemas(superuser_client, event_type):
 @pytest.mark.django_db
 def test_event_types_schema_structure(superuser_client):
     """Test that event types schema uses correct field mappings."""
-    from factories import EventTypeFactory
 
     # Create event types with specific values to test field mappings
     event_type1 = EventTypeFactory.create(value="test_event_type_1", display="Test Event Type 1")
@@ -300,7 +302,6 @@ def test_event_types_schema_structure(superuser_client):
 @pytest.mark.django_db
 def test_event_types_permissions_and_categories(superuser_client):
     """Test that event types respect category permissions."""
-    from factories import EventCategoryFactory, EventTypeFactory
 
     # Create event categories and types
     category1 = EventCategoryFactory.create(value="category1", is_active=True)
@@ -336,7 +337,6 @@ def test_event_types_permissions_and_categories(superuser_client):
 @pytest.mark.django_db
 def test_event_types_schema_accessible_to_authenticated_users(user_client):
     """Test that event types dynamic schema is accessible to authenticated users."""
-    from factories import EventTypeFactory
 
     # Create an event type
     event_type = EventTypeFactory.create(value="test_event_type", display="Test Event Type")
