@@ -8,7 +8,7 @@ from observations.models import SubjectGroup
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("view", ["users", "subjects", "choices", "spatial_features", "event_types"])
+@pytest.mark.parametrize("view", ["users", "sources", "subjects", "choices", "spatial_features", "event_types"])
 def test_get_dynamic_schemas(superuser_client, view):
     url = reverse(f"schemas:{view}")
     response = superuser_client.get(url)
@@ -151,3 +151,91 @@ def test_dynamic_subjects_filtered_by_group_id(superuser_client):
         # assert other created subjects aren't present
         assert item["const"] not in [str(two_subjects[1].id), str(last_subject.id)]
         assert item["title"] not in [str(two_subjects[1].name), str(last_subject.name)]
+
+
+@pytest.mark.django_db
+def test_get_sources_dynamic_schemas(superuser_client, source):
+    """Test sources dynamic schema returns correct structure."""
+    url = reverse("schemas:sources")
+    response = superuser_client.get(url)
+
+    data = response.json()
+
+    assert response.status_code == 200
+    assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+    assert "oneOf" in data
+    assert len(data["oneOf"]) >= 1
+
+    # Find our test source in the response
+    source_items = [item for item in data["oneOf"] if item["const"] == str(source.id)]
+    assert len(source_items) == 1
+
+    source_item = source_items[0]
+    assert source_item["const"] == str(source.id)
+    assert source_item["title"]  # Should have a title (display name)
+
+
+@pytest.mark.django_db
+def test_sources_display_name_logic(superuser_client):
+    """Test that sources display name logic works correctly with different field combinations."""
+    from factories import SourceFactory
+
+    # Test source with manufacturer_id and model_name
+    source1 = SourceFactory.create(manufacturer_id="GPS-COLLAR-123", model_name="Vectronic Aerospace")
+
+    # Test source with only manufacturer_id
+    source2 = SourceFactory.create(manufacturer_id="SENSOR-456", model_name="")
+
+    # Test source with only model_name
+    source3 = SourceFactory.create(manufacturer_id="", model_name="Custom Device")
+
+    # Test source with only source_type
+    source4 = SourceFactory.create(manufacturer_id="", model_name="", source_type="tracking-device")
+
+    url = reverse("schemas:sources")
+    response = superuser_client.get(url)
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Find each source and verify display names
+    items_by_id = {item["const"]: item for item in data["oneOf"]}
+
+    # Source 1: manufacturer_id (model_name)
+    source1_item = items_by_id[str(source1.id)]
+    assert source1_item["title"] == "GPS-COLLAR-123 (Vectronic Aerospace)"
+
+    # Source 2: just manufacturer_id
+    source2_item = items_by_id[str(source2.id)]
+    assert source2_item["title"] == "SENSOR-456"
+
+    # Source 3: just model_name
+    source3_item = items_by_id[str(source3.id)]
+    assert source3_item["title"] == "Custom Device"
+
+    # Source 4: fallback to source_type
+    source4_item = items_by_id[str(source4.id)]
+    assert source4_item["title"] == "tracking-device"
+
+
+@pytest.mark.django_db
+def test_sources_schema_accessible_to_authenticated_users(user_client):
+    """Test that sources dynamic schema is accessible to authenticated users."""
+    from factories import SourceFactory
+
+    # Create a source that should be visible to authenticated users
+    source = SourceFactory.create(manufacturer_id="TEST-SOURCE")
+
+    url = reverse("schemas:sources")
+    response = user_client.get(url)
+
+    # Should return 200 for authenticated users (permission relaxed like choices)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+    assert "oneOf" in data
+
+    # Verify structure is correct
+    for item in data["oneOf"]:
+        assert "const" in item
+        assert "title" in item
