@@ -207,8 +207,8 @@ class GenericSensorHandler:
 
         return first_subject
 
-    @transaction.atomic
     @classmethod
+    @transaction.atomic
     def _transfer_subject_source_assignments(cls, target_subject: Subject, duplicate_subjects):
         """Transfer SubjectSource assignments from duplicate subjects to the target subject.
 
