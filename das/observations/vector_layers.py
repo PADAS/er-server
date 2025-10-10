@@ -149,7 +149,7 @@ class ObservationVectorLayer(VectorLayer):
                 END as is_segment_break
             FROM track_analysis
         )
-        ),
+        
         final_segments AS (
             SELECT
                 *,
