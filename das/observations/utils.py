@@ -43,6 +43,7 @@ VIEW_BEGIN_ORDERED_DESC = sorted(VIEW_BEGIN_WINDOWS, key=lambda _: _[1], reverse
 VIEW_END_ORDERED_ASC = sorted(VIEW_END_WINDOWS, key=lambda _: _[1])
 
 VIEW_SUBJECT_PERMS = ("observations.view_subject",) + VIEW_BEGIN_WINDOWS + VIEW_END_WINDOWS
+VIEW_SOURCE_PERMS = ("observations.view_source",)
 
 VIEW_SUBJECTGROUP_PERMS = ("observations.view_subjectgroup",)
 

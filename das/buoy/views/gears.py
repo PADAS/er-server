@@ -17,11 +17,13 @@ from buoy.views.helpers import (
 from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
-from observations.permissions import StandardObjectPermissions
-from observations.tasks import send_observations_to_gundi_async
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
-from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
-from utils.tenant import get_tenant_settings
+from utils.drf import (
+    ForbiddenAPIException,
+    StandardObjectPermissions,
+    StandardResultsSetPagination,
+)
+from utils.gis import check_valid_lat_lon
 
 
 @extend_schema(parameters=[GearsQueryParamsSerializer])
