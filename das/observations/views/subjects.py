@@ -23,10 +23,10 @@ from rest_framework.generics import (
 )
 from rest_framework.response import Response
 
-from activity.permissions import StandardObjectPermissions
 from observations.filters import create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import SourceGroup, Subject, SubjectGroup, SubjectSource
+from observations.permissions import SubjectModelPermissions
 from observations.serializers import (
     SubjectGeoJsonSerializer,
     SubjectIdSerializer,
@@ -35,6 +35,7 @@ from observations.serializers import (
 )
 from observations.serializers.all_groups import AllGroupsSerializer
 from observations.utils import (
+    VIEW_SOURCE_PERMS,
     VIEW_SUBJECT_PERMS,
     check_to_include_inactive_subjects,
     check_valid_date_string,
@@ -55,6 +56,7 @@ from utils.drf import (
     BadRequestAPIException,
     ForbiddenAPIException,
     OptionalResultsSetPagination,
+    StandardObjectPermissions,
     StandardResultsSetGeoJsonPagination,
     return_409_response,
 )
@@ -183,7 +185,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
     """
 
     serializer_class = SubjectSerializer
-    permission_classes = (StandardObjectPermissions,)
+    permission_classes = (SubjectModelPermissions,)
     pagination_class = OptionalResultsSetPagination
 
     TRACK_QPARAMS = ("tracks_limit",)
@@ -229,7 +231,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
         if self.cached_queryset is not None:
             return self.cached_queryset
 
-        if not user.has_any_perms(VIEW_SUBJECT_PERMS):
+        if not (user.has_any_perms(VIEW_SUBJECT_PERMS) or user.has_any_perms(VIEW_SOURCE_PERMS)):
             if self.linked_exists:
                 return self.queryset_linked_user
             raise ForbiddenAPIException
