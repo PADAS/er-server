@@ -83,15 +83,11 @@ def evaluate_alert_rules(event_id, created, **kwargs) -> None:
 
         already_queued_nids = set()  # accumulator for Notification Methods.
         alert_rules_qs = (
-            AlertRule.objects.filter(id__in=alert_rule_ids).select_related("owner").order_by("ordernum", "title")
+            AlertRule.objects.filter(id__in=alert_rule_ids, owner__is_active=True)
+            .select_related("owner")
+            .order_by("ordernum", "title")
         )
         for alert_rule in alert_rules_qs:
-            # Skip alert rules owned by inactive users (ERA-11874)
-            if alert_rule.owner and not alert_rule.owner.is_active:
-                logger.info(
-                    "Skipping alert rule %s owned by inactive user %s", alert_rule.id, alert_rule.owner.username
-                )
-                continue
             # Verify conditions to only send alerts when the set conditions are met
             evaluate_conditions_for_sending_alerts(event, alert_rule, already_queued_nids, created)
 
