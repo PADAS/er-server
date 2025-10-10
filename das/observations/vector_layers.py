@@ -266,54 +266,10 @@ class ObservationVectorLayer(VectorLayer):
 
     def get_tile_data(self, tile, layer_name=None):
         """
-        Override to implement custom track segmentation logic.
-
-        This method processes the queryset results to create track segments
-        based on time gaps and speed thresholds.
+        Return tile data using the superclass implementation.
+        Track segmentation is now handled at the database level.
         """
-        # Get the base data
-        features = super().get_tile_data(tile, layer_name)
-
-        # Apply track segmentation logic here
-        # This would group observations into track segments based on:
-        # 1. Time gaps between consecutive observations
-        # 2. Speed thresholds for impossible travel
-
-        return self._segment_tracks(features)
-
-    def _segment_tracks(self, features):
-        """
-        Segment observations into tracks based on time gaps and speed thresholds.
-
-        This is a simplified implementation - in practice, you'd want to do this
-        at the database level using raw SQL for better performance.
-        """
-        if not features:
-            return features
-
-        # Group by subject
-        subject_groups = {}
-        for feature in features:
-            subject_id = feature.get("properties", {}).get("subject_id")
-            if subject_id not in subject_groups:
-                subject_groups[subject_id] = []
-            subject_groups[subject_id].append(feature)
-
-        segmented_features = []
-        segment_id_counter = 1
-
-        for subject_id, subject_features in subject_groups.items():
-            # Sort by recorded_at
-            subject_features.sort(key=lambda x: x.get("properties", {}).get("recorded_at", ""))
-
-            # Apply segmentation logic
-            segments = self._create_track_segments(subject_features, segment_id_counter)
-            segmented_features.extend(segments)
-            segment_id_counter += 1
-
-        return segmented_features
-
-    def _create_track_segments(self, features, start_segment_id):
+        return super().get_tile_data(tile, layer_name)
         """
         Create track segments from a list of features for a single subject.
         """
