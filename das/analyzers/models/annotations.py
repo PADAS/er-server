@@ -296,7 +296,46 @@ class ObservationAnnotator(Annotator):
                     END
                 """,
                 "track_segment_id": """
-                    0
+                    SUM(
+                        CASE WHEN
+                            CASE
+                                WHEN lag("observations_observation"."recorded_at") OVER (
+                                    PARTITION BY "observations_observation"."source_id"
+                                    ORDER BY "observations_observation"."recorded_at"
+                                ) IS NULL THEN 1
+                                WHEN (
+                                    CASE WHEN extract('epoch' FROM age(
+                                        "observations_observation"."recorded_at",
+                                        lag("observations_observation"."recorded_at") OVER (
+                                            PARTITION BY "observations_observation"."source_id"
+                                            ORDER BY "observations_observation"."recorded_at"
+                                        )
+                                    )) > 0
+                                    THEN (3.6 *
+                                        ST_Distance(
+                                            "observations_observation"."location"::geography,
+                                            lag("observations_observation"."location"::geography, 1) OVER (
+                                                PARTITION BY "observations_observation"."source_id"
+                                                ORDER BY "observations_observation"."recorded_at"
+                                            )
+                                        ) /
+                                        extract('epoch' FROM age(
+                                            "observations_observation"."recorded_at",
+                                            lag("observations_observation"."recorded_at") OVER (
+                                                PARTITION BY "observations_observation"."source_id"
+                                                ORDER BY "observations_observation"."recorded_at"
+                                            )
+                                        ))
+                                    )
+                                    ELSE 0 END
+                                ) > {speed_threshold_kmh} THEN 1
+                                ELSE 0
+                            END = 1 THEN 1 ELSE 0 END
+                    ) OVER (
+                        PARTITION BY "observations_observation"."source_id"
+                        ORDER BY "observations_observation"."recorded_at"
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                    )
                 """,
                 "segment_order": """
                     ROW_NUMBER() OVER (
