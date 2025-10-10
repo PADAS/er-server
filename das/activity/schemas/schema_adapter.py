@@ -188,7 +188,10 @@ class V2SchemaAdapter:
         if not values:
             return title, "", ""
 
-        # Handle choice list fields - anyOf is directly on the schema item
+        # Handle choice list fields
+        if "items" in schema_item:
+            schema_item = schema_item["items"]
+
         if "anyOf" in schema_item:
             extracted_values = []
             display_values = []

@@ -99,8 +99,9 @@ CARCASS_V2_EVENTTYPE_SCHEMA = {
                 "deprecated": False,
                 "description": "",
                 "title": "Signed Off By",
-                "type": "string",
-                "anyOf": [{"$ref": f"{BASE_URL}/subjects.json?subject_subtypes=ranger"}],
+                "type": "array",
+                "uniqueItems": True,
+                "items": {"type": "string", "anyOf": [{"$ref": f"{BASE_URL}/subjects.json?subject_subtypes=ranger"}]},
             },
         },
     },
@@ -426,7 +427,7 @@ class TestEventExport:
         my_data_data = {
             "event_type": "carcass_v2_rep",
             "priority": 200,
-            "event_details": {"signed_off_by": str(ranger.id)},
+            "event_details": {"signed_off_by": [str(ranger.id)]},
         }
 
         url = reverse("events")
@@ -450,4 +451,4 @@ class TestEventExport:
                 break
 
         assert "Signed_Off_By" in target_row.keys()
-        assert target_row.get("Signed_Off_By") == ranger.name
+        assert ranger.name in target_row.get("Signed_Off_By")
