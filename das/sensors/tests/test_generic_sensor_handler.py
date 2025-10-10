@@ -1057,8 +1057,8 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(SubjectSource.objects.filter(subject=second_subject).count(), 1)
         self.assertEqual(SubjectSource.objects.filter(subject=third_subject).count(), 1)
 
-        # Call find_subject_by_name which should trigger the assignment transfer
-        result_subject = GenericSensorHandler.find_subject_by_name(duplicate_name)
+        # Call get_or_consolidate_subject_by_name which should trigger the assignment transfer
+        result_subject = GenericSensorHandler.get_or_consolidate_subject_by_name(duplicate_name)
 
         # Verify the first subject is returned
         self.assertEqual(result_subject.id, first_subject.id)
@@ -1112,8 +1112,8 @@ class GenericSensorHandlerTest(BaseAPITest):
                 upper=datetime.datetime(2023, 6, 1, tzinfo=pytz.utc),
             ),
         )
-        # Call find_subject_by_name
-        result_subject = GenericSensorHandler.find_subject_by_name(duplicate_name)
+        # Call get_or_consolidate_subject_by_name
+        result_subject = GenericSensorHandler.get_or_consolidate_subject_by_name(duplicate_name)
 
         # Verify the result
         self.assertEqual(result_subject.id, first_subject.id)
