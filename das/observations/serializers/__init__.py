@@ -709,15 +709,23 @@ class SubjectTrackSerializer(serializers.Serializer):
         tracks_until = self.context.get("tracks_until", None)
         tracks_limit = self.context.get("tracks_limit", None)
 
-        subject_linked_sources = self.context.get("subject_linked_sources", None)
+        subject_linked_sources = self.context.get("subject_linked_sources")
+        linked_sources = []
+        if isinstance(subject_linked_sources, dict):
+            subject_data = subject_linked_sources.get(subject.id) or {}
+            source_id = subject_data.get("latest_source")
+            if source_id:
+                linked_sources.append(source_id)
+        elif subject_linked_sources:
+            linked_sources = [source.id for source in subject_linked_sources]
 
-        if subject_linked_sources:
+        if linked_sources:
             coordinates = []
             times = []
             # Fetch Observations only from the linked sources to limit view
             # on a Source level
-            for source in subject_linked_sources:
-                data = get_observation_coordinates_and_times_by_subject_id_and_source_id(subject.id, source.id)
+            for source_id in linked_sources:
+                data = get_observation_coordinates_and_times_by_subject_id_and_source_id(subject.id, source_id)
                 coordinates.extend(data["coordinates"])
                 times.extend(data["times"])
         else:
