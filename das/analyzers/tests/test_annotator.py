@@ -1,18 +1,21 @@
+import time
 from datetime import datetime
 
 import pytest
 import pytz
 
 from django.core.management import call_command
-from django.test import TestCase
 
 from analyzers.models import ObservationAnnotator
+from core.tests import BaseAPITest
 from observations.models import Observation, Subject
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-class TestAnnotator(TestCase):
+class TestAnnotator(BaseAPITest):
     def setUp(self):
+        """Load test data for all tests in this class."""
+        super().setUp()
         call_command(
             "loaddata_with_tenant",
             "test/annotation-junkfix-1.json",
@@ -20,11 +23,10 @@ class TestAnnotator(TestCase):
 
     def test_annotate_junkfix(self):
         sub = Subject.objects.get(id="0fa8ec9a-7e92-4575-9575-df202d5dde25")
-        self.assertTrue(sub is not None)
+        assert sub is not None
 
         observations = sub.observations()
-        self.assertEqual(len(observations), 184, msg="I got a different number of observations that I expected.")
-        # self.assertEqual(actual, expected)
+        assert len(observations) == 184, "Expected 184 observations from test fixture"
 
         annotator = ObservationAnnotator.get_for_subject(sub)
 
@@ -35,15 +37,16 @@ class TestAnnotator(TestCase):
 
         junk_fix = Observation.objects.get(id="e83b863a-b632-4c6c-9cb3-074632510f20")
 
-        self.assertTrue(junk_fix.exclusion_flags > 0)
+        assert junk_fix.exclusion_flags > 0
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-class TestObservationAnnotatorNewMethods(TestCase):
+class TestObservationAnnotatorNewMethods(BaseAPITest):
     """Test annotate_queryset and annotate_with_segmentation methods."""
 
     def setUp(self):
         """Create test data for segmentation testing."""
+        super().setUp()
         call_command(
             "loaddata_with_tenant",
             "test/annotation-junkfix-1.json",
@@ -61,13 +64,13 @@ class TestObservationAnnotatorNewMethods(TestCase):
 
         # Check that we can access the new fields
         observations = list(annotated_qs)
-        self.assertGreater(len(observations), 0, "Should have test observations")
+        assert len(observations) > 0, "Should have test observations"
 
         for obs in observations:
             # Check that the fields exist (they'll be None for first observation)
-            self.assertTrue(hasattr(obs, "distance_preceding"))
-            self.assertTrue(hasattr(obs, "time_lapse_preceding"))
-            self.assertTrue(hasattr(obs, "speed_kmh"))
+            assert hasattr(obs, "distance_preceding")
+            assert hasattr(obs, "time_lapse_preceding")
+            assert hasattr(obs, "speed_kmh")
 
     def test_annotate_queryset_calculates_speed_correctly(self):
         """Test that speed calculations work correctly."""
@@ -83,8 +86,8 @@ class TestObservationAnnotatorNewMethods(TestCase):
         if speed_observations:
             # Check that speed is calculated (positive value)
             for obs in speed_observations[:5]:  # Check first few
-                self.assertGreater(obs.speed_kmh, 0, "Speed should be positive for moving observations")
-                self.assertIsInstance(obs.speed_kmh, (int, float), "Speed should be numeric")
+                assert obs.speed_kmh > 0, "Speed should be positive for moving observations"
+                assert isinstance(obs.speed_kmh, (int, float)), "Speed should be numeric"
 
     def test_annotate_with_segmentation_adds_segment_fields(self):
         """Test that annotate_with_segmentation adds all segmentation fields."""
@@ -97,17 +100,17 @@ class TestObservationAnnotatorNewMethods(TestCase):
         )[:20]
 
         observations = list(segmented_qs)
-        self.assertGreater(len(observations), 0, "Should have test observations")
+        assert len(observations) > 0, "Should have test observations"
 
         for obs in observations:
             # Check that segmentation fields exist
-            self.assertTrue(hasattr(obs, "is_segment_break"))
-            self.assertTrue(hasattr(obs, "track_segment_id"))
-            self.assertTrue(hasattr(obs, "segment_order"))
+            assert hasattr(obs, "is_segment_break")
+            assert hasattr(obs, "track_segment_id")
+            assert hasattr(obs, "segment_order")
             # Also includes the basic fields from annotate_queryset
-            self.assertTrue(hasattr(obs, "distance_preceding"))
-            self.assertTrue(hasattr(obs, "time_lapse_preceding"))
-            self.assertTrue(hasattr(obs, "speed_kmh"))
+            assert hasattr(obs, "distance_preceding")
+            assert hasattr(obs, "time_lapse_preceding")
+            assert hasattr(obs, "speed_kmh")
 
     def test_annotate_with_segmentation_first_observation_is_break(self):
         """Test that the first observation in each subject is marked as a segment break."""
@@ -118,9 +121,9 @@ class TestObservationAnnotatorNewMethods(TestCase):
 
         if observations:
             first_obs = observations[0]
-            self.assertTrue(first_obs.is_segment_break, "First observation should be a segment break")
-            self.assertEqual(first_obs.track_segment_id, 0, "First segment should have ID 0")
-            self.assertEqual(first_obs.segment_order, 1, "First observation should have order 1")
+            assert first_obs.is_segment_break, "First observation should be a segment break"
+            assert first_obs.track_segment_id == 0, "First segment should have ID 0"
+            assert first_obs.segment_order == 1, "First observation should have order 1"
 
     def test_annotate_with_segmentation_segment_ordering(self):
         """Test that segment ordering works correctly."""
@@ -140,9 +143,8 @@ class TestObservationAnnotatorNewMethods(TestCase):
                     current_segment_id = obs.track_segment_id
                     expected_order = 1
 
-                self.assertEqual(
-                    obs.segment_order, expected_order, f"Observation {obs.id} should have order {expected_order}"
-                )
+                assert obs.segment_order == expected_order, \
+                    f"Observation {obs.id} should have order {expected_order}"
                 expected_order += 1
 
     def test_annotate_with_segmentation_uses_default_speed_threshold(self):
@@ -157,7 +159,7 @@ class TestObservationAnnotatorNewMethods(TestCase):
 
         # Should not raise an error and should complete successfully
         observations = list(segmented_qs)
-        self.assertGreater(len(observations), 0, "Should process observations with default speed threshold")
+        assert len(observations) > 0, "Should process observations with default speed threshold"
 
     def test_annotate_with_segmentation_custom_parameters(self):
         """Test that segmentation respects custom time gap and speed threshold parameters."""
@@ -177,7 +179,7 @@ class TestObservationAnnotatorNewMethods(TestCase):
         lenient_obs = list(lenient_segmented_qs)
 
         # Both should process without errors
-        self.assertEqual(len(strict_obs), len(lenient_obs), "Should process same number of observations")
+        assert len(strict_obs) == len(lenient_obs), "Should process same number of observations"
 
         if len(strict_obs) > 1:
             # Strict parameters might create more segment breaks
@@ -185,8 +187,8 @@ class TestObservationAnnotatorNewMethods(TestCase):
             lenient_breaks = sum(1 for obs in lenient_obs if obs.is_segment_break)
 
             # At minimum, both should have the first observation as a break
-            self.assertGreaterEqual(strict_breaks, 1, "Should have at least one segment break")
-            self.assertGreaterEqual(lenient_breaks, 1, "Should have at least one segment break")
+            assert strict_breaks >= 1, "Should have at least one segment break"
+            assert lenient_breaks >= 1, "Should have at least one segment break"
 
     def test_annotate_queryset_empty_queryset(self):
         """Test that annotation methods handle empty querysets gracefully."""
@@ -196,8 +198,8 @@ class TestObservationAnnotatorNewMethods(TestCase):
         annotated_qs = self.annotator.annotate_queryset(empty_qs)
         segmented_qs = self.annotator.annotate_with_segmentation(empty_qs)
 
-        self.assertEqual(list(annotated_qs), [])
-        self.assertEqual(list(segmented_qs), [])
+        assert list(annotated_qs) == []
+        assert list(segmented_qs) == []
 
     def test_segmentation_with_multiple_subjects(self):
         """Test that segmentation works correctly with multiple subjects."""
@@ -220,12 +222,10 @@ class TestObservationAnnotatorNewMethods(TestCase):
             for subject_id, subject_obs in subjects.items():
                 if subject_obs:
                     first_obs = min(subject_obs, key=lambda x: x.recorded_at)
-                    self.assertEqual(
-                        first_obs.track_segment_id, 0, f"Subject {subject_id} should start with segment_id 0"
-                    )
-                    self.assertEqual(
-                        first_obs.segment_order, 1, f"Subject {subject_id} should start with segment_order 1"
-                    )
+                    assert first_obs.track_segment_id == 0, \
+                        f"Subject {subject_id} should start with segment_id 0"
+                    assert first_obs.segment_order == 1, \
+                        f"Subject {subject_id} should start with segment_order 1"
 
     def test_speed_calculation_accuracy(self):
         """Test that speed calculations are mathematically correct."""
@@ -247,9 +247,9 @@ class TestObservationAnnotatorNewMethods(TestCase):
                 expected_speed = (obs.distance_preceding / float(obs.time_lapse_preceding)) * 3.6
 
                 # Allow small floating point differences
-                self.assertAlmostEqual(
-                    obs.speed_kmh, expected_speed, places=2, msg=f"Speed calculation incorrect for observation {obs.id}"
-                )
+                assert abs(obs.speed_kmh - expected_speed) < 0.01, \
+                    f"Speed calculation incorrect for observation {obs.id}. " \
+                    f"Expected: {expected_speed}, Got: {obs.speed_kmh}"
 
     def test_time_gap_segmentation_logic(self):
         """Test that time gaps correctly trigger segment breaks."""
@@ -267,14 +267,12 @@ class TestObservationAnnotatorNewMethods(TestCase):
             # With such a small time gap, most observations should be segment breaks
             breaks = sum(1 for obs in observations if obs.is_segment_break)
             # Should have more than just the first observation as breaks
-            self.assertGreater(breaks, 1, "Small time gap should create multiple segment breaks")
+            assert breaks > 1, "Small time gap should create multiple segment breaks"
 
     def test_performance_with_large_dataset(self):
         """Test that the annotation works efficiently with larger datasets."""
         # Get a larger dataset to test performance
         large_qs = Observation.objects.all().order_by("recorded_at")
-
-        import time
 
         start_time = time.time()
 
@@ -286,8 +284,8 @@ class TestObservationAnnotatorNewMethods(TestCase):
         execution_time = end_time - start_time
 
         # Should process efficiently
-        self.assertLess(execution_time, 10.0, "Large dataset processing should be efficient")
-        self.assertGreater(len(observations), 0, "Should process observations from large dataset")
+        assert execution_time < 10.0, "Large dataset processing should be efficient"
+        assert len(observations) > 0, "Should process observations from large dataset"
 
     def test_geographical_distance_calculation(self):
         """Test that PostGIS geography distance calculations work correctly."""
@@ -300,7 +298,6 @@ class TestObservationAnnotatorNewMethods(TestCase):
         for obs in observations:
             if obs.distance_preceding is not None:
                 # Distance should be non-negative and reasonable (< 500km for test data)
-                self.assertGreaterEqual(obs.distance_preceding, 0, "Distance should be non-negative")
-                self.assertLess(
-                    obs.distance_preceding, 500000, "Distance should be reasonable for test data"  # 500km in meters
-                )
+                assert obs.distance_preceding >= 0, "Distance should be non-negative"
+                assert obs.distance_preceding < 500000, \
+                    "Distance should be reasonable for test data (< 500km)"
