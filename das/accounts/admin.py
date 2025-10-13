@@ -1,4 +1,5 @@
 import copy
+import json
 
 from django_multitenant.utils import get_current_tenant
 from oauth2_provider.models import (
@@ -27,6 +28,7 @@ from django.utils.translation import gettext_lazy as _
 
 from accounts.models import PermissionSet, User
 from accounts.utils import patrol_mgmt_permissions
+from activity.models import AlertRule
 from core.admin import (
     BaseModelAdminMixin,
     CustomM2MChecks,
@@ -398,10 +400,45 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
 
     def _linked_subject_warning(self, instance):
         return mark_safe(
-            f"<i>This user account is being used for the Subject: <b> {instance.linked_subject}</b>, and can not assign any other Subject.</i>"
+            f"<i>This user account is being used for the Subject: <b> {instance.linked_subject}</b>, "
+            f"and can not assign any other Subject.</i>"
         )
 
     _linked_subject_warning.short_description = "Warning"
+
+    def changelist_view(self, request, extra_context=None):
+        """Override changelist_view to add alert rules data for JavaScript"""
+
+        # double render as in the base class rendering is where the filters are applied
+        # and the queryset is populated with filters
+        response = super().changelist_view(request, extra_context)
+        if isinstance(response, HttpResponseRedirect) or not hasattr(response, "context_data"):
+            return response
+
+        queryset = response.context_data["cl"].result_list
+        extra_context = extra_context or {}
+
+        # Get alert rules data for each user and create form index mapping
+        user_alert_rules = {}
+        form_index_to_user_id = {}
+
+        # Get all user IDs that have alert rules in a single query
+        user_ids_with_alerts = set(AlertRule.objects.filter(owner__in=queryset).values_list("owner_id", flat=True))
+
+        for index, user in enumerate(queryset):
+            # Map form index to user ID for JavaScript
+            form_index_to_user_id[str(index)] = str(user.id)
+
+            # Check if user has alert rules (just boolean, no details needed)
+            if user.id in user_ids_with_alerts:
+                user_alert_rules[str(user.id)] = {"has_alerts": True}
+            else:
+                user_alert_rules[str(user.id)] = {"has_alerts": False}
+
+        extra_context["user_alert_rules"] = json.dumps(user_alert_rules)
+        extra_context["form_index_to_user_id"] = json.dumps(form_index_to_user_id)
+
+        return super().changelist_view(request, extra_context)
 
 
 admin.site.register(User, UserAdmin)
