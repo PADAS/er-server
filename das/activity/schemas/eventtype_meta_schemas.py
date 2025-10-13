@@ -340,7 +340,7 @@ ui_choice_schema = {
                     "enum": [
                         "SUBJECTS_FROM_SUBJECT_SUBTYPE",
                         "SUBJECTS_FROM_SUBJECT_GROUP",
-                        "FEATURES_FROM_FEATURE_GROUP",
+                        "FEATURES_FROM_FEATURE_CATEGORY",
                         "EVENT_TYPES_FROM_EVENT_CATEGORY",
                         "USERS",
                         "",
