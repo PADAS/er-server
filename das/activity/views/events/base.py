@@ -34,7 +34,6 @@ from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 from rest_framework.views import APIView
 
-import utils.schema_utils as schema_utils
 from accounts.serializers import UserDisplaySerializer
 from activity.filters import (
     EventListFilter,
@@ -56,6 +55,7 @@ from activity.permissions import (
     EventCategoryPermissions,
     IsOwner,
 )
+from activity.schemas.schema_adapter import SchemaAdapterFactory
 from activity.serializers import (
     EventFactorSerializer,
     EventFilterSerializer,
@@ -219,7 +219,7 @@ class EventView(RetrieveUpdateDestroyAPIView):
             try:
                 event_filter = json.loads(event_filter)
                 return queryset.by_event_filter(event_filter)
-            except:
+            except (json.JSONDecodeError, ValueError):
                 logger.warning("Invalid filter expression %s", event_filter)
 
         queryset = queryset.annotate(patrol_ids=ArrayAgg("patrol_segments__patrol_id"))
@@ -231,8 +231,6 @@ class EventsExportView(APIView):
 
     def get_event_export_list(self):
         event_export_data = []
-
-        renderer = schema_utils.get_schema_renderer_method()
 
         current_event_type_data = {"id": None}
         current_tz = get_current_time_zone()
@@ -315,12 +313,13 @@ class EventsExportView(APIView):
                 }
 
                 try:
-                    current_schema = renderer(event_type["schema"])
-                    current_schema_order = schema_utils.property_keys_order_as_dict(current_schema)
+                    # Create schema adapter to handle both V1 and V2 schemas
+                    schema_adapter = SchemaAdapterFactory.create_adapter(event_type["schema"], self.request)
+                    current_schema_order = schema_adapter.get_property_order()
 
                     for key, order in current_schema_order.items():
                         if not isinstance(key, int):
-                            display_value = schema_utils.get_display_value_header_for_key(current_schema, key)
+                            display_value = schema_adapter.get_display_value_header_for_key(key)
                             current_event_type_data["headers"].append(self.escape_string(key))
                             current_event_type_data["headers"].append(self.escape_string(display_value))
 
@@ -328,33 +327,35 @@ class EventsExportView(APIView):
                                 custom_headers.append(key)
 
                             if self.display_cols:
-                                column_name = schema_utils.get_column_header_name(current_schema, key)
+                                column_name = schema_adapter.get_column_header_name(key)
                                 column_name = self.escape_string(column_name)
                                 if column_name not in custom_headers:
                                     custom_headers.append(column_name)
 
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, ValueError) as e:
                     # Event type does not have schema, which is weird but not
                     # _technically_ invalid
-                    current_schema = None
+                    logger.warning("Failed to process schema for event type %s: %s", event_type["value"], str(e))
+                    schema_adapter = None
                     current_schema_order = {}
 
                 event_export_data.append(current_event_type_data)
             # First, get the event details (schema data) in the correct order
             # for the headers above
-            if event["event_details__data"]:
-                details = schema_utils.get_display_values_for_event_details(
-                    event["event_details__data"].get("event_details", {}), current_schema
+            if event["event_details__data"] and schema_adapter:
+                details = schema_adapter.get_display_values_for_event_details(
+                    event["event_details__data"].get("event_details", {})
                 )
             else:
                 details = {}
 
             schema_data = OrderedDict()
-            for key, order in current_schema_order.items():
-                item_display_name = schema_utils.get_display_value_header_for_key(current_schema, key)
-                schema_data[key] = self.escape_string(details.get(key, ""))
-                column_name = schema_utils.get_column_header_name(current_schema, key)
-                schema_data[column_name] = self.escape_string(details.get(item_display_name, ""))
+            if schema_adapter:
+                for key, order in current_schema_order.items():
+                    item_display_name = schema_adapter.get_display_value_header_for_key(key)
+                    schema_data[key] = self.escape_string(details.get(key, ""))
+                    column_name = schema_adapter.get_column_header_name(key)
+                    schema_data[column_name] = self.escape_string(details.get(item_display_name, ""))
 
             attachments = []
             for file_ref in event.get("file_ids"):
