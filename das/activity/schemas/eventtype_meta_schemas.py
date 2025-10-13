@@ -338,10 +338,11 @@ ui_choice_schema = {
                 "myDataType": {
                     "type": "string",
                     "enum": [
-                        "SUBJECTS_FROM_SUBJECT_SUBTYPE",
-                        "SUBJECTS_FROM_SUBJECT_GROUP",
-                        "FEATURES_FROM_FEATURE_CATEGORY",
                         "EVENT_TYPES_FROM_EVENT_CATEGORY",
+                        "FEATURES_FROM_FEATURE_CATEGORY",
+                        "SOURCES",
+                        "SUBJECTS_FROM_SUBJECT_GROUP",
+                        "SUBJECTS_FROM_SUBJECT_SUBTYPE",
                         "USERS",
                         "",
                     ],
