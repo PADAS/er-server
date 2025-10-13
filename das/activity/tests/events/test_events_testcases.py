@@ -2133,6 +2133,13 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         choice = Choice.objects.create(
             model="activity.event",
+            field="poacherscamp_sighting_action",
+            value="poacherscamp_sighting_action_warnings",
+            display="Warnings given",
+        )
+
+        choice = Choice.objects.create(
+            model="activity.event",
             field="infrustructure",
             value="infrustructure_camp",
             display="Camp",
@@ -2142,7 +2149,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         event_data["event_type"] = event_type.value
         event_data["event_details"] = {
             "details_dt": [{"number": 1, "infrustructure": "infrustructure_camp"}],
-            "poachers_camp_action": ["poacherscamp_sighting_action_arrests"],
+            "poachers_camp_action": ["poacherscamp_sighting_action_arrests", "poacherscamp_sighting_action_warnings"],
             "poacherscamp_sighting_action": ["aircraft_cfz"],
             "percent_cover_in_den": {"id_2107": "100"},  # See ERA-8759, want to see this succeed
         }
