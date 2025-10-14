@@ -199,6 +199,23 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+
+@extend_schema(
+    request=serializers.GearCreateSerializer,
+    responses={201: OpenApiResponse(description="Gears created successfully and queued for processing")},
+    description="Create new gears and send observations to Gundi for processing.",
+)
+class GearsCreateView(generics.CreateAPIView, TwoWaySubjectSourceMixin):
+    """
+    Create new gears and send observations to Gundi for processing.
+    """
+
+    permission_classes = (StandardObjectPermissions, IsAuthenticated)
+    serializer_class = serializers.GearCreateSerializer
+
+    def get_queryset(self):
+        return SubjectSource.objects.none()
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
