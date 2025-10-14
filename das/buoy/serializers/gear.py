@@ -294,30 +294,13 @@ class GearCreateSerializer(serializers.Serializer):
     mfr_set_id = serializers.CharField(max_length=255, required=False)
     owner_id = serializers.CharField(max_length=255, required=True)
     permit_number = serializers.CharField(max_length=255, required=False)
-    deployment_type = serializers.ChoiceField(
-        choices=DEPLOYMENT_TYPE_CHOICES,
-        required=True,
-    )
-    devices_in_set = serializers.IntegerField(
-        required=False,
-    )
-    trawl_path = serializers.ListField(
-        child=GeoLocationSerializer(),
-        required=False,
-    )
-    last_updated_date = serializers.DateTimeField(
-        required=False,
-    )
-    initial_deployment_date = serializers.DateTimeField(
-        required=True,
-    )
-    set_additional_data = serializers.JSONField(
-        required=False,
-    )
-    devices = GearDeviceCreateSerializer(
-        many=True,
-        required=True,
-    )
+    deployment_type = serializers.ChoiceField(choices=DEPLOYMENT_TYPE_CHOICES, required=True)
+    devices_in_set = serializers.IntegerField(required=False)
+    trawl_path = serializers.ListField(child=GeoLocationSerializer(), required=False)
+    last_updated_date = serializers.DateTimeField(required=False)
+    initial_deployment_date = serializers.DateTimeField(required=True)
+    set_additional_data = serializers.JSONField(required=False)
+    devices = GearDeviceCreateSerializer(many=True, required=True)
 
     def validate_owner_id(self, value):
         """Validate owner_id is not empty and has valid format."""
