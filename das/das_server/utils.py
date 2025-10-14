@@ -3,7 +3,7 @@ import logging
 from functools import wraps
 from typing import Union
 
-from utils.features import features
+from utils.tenant.exceptions import TenantNotFoundException
 from utils.tenant.managers import TenantContextManager
 
 logger = logging.getLogger(__name__)
@@ -36,15 +36,17 @@ def wrap_message_processing_with_tenant_context(message_handler):
 
     @wraps(message_handler)
     def wrapper(*args, **kwargs):
-        if not features.tms.is_on():
-            return message_handler(*args, **kwargs)
 
         if "domain" not in args[0]:
             logger.warning("Tenant Domain not found in PubSub message %s %s", str(args), str(kwargs))
             return
 
         domain = args[0].pop("domain")
-        with TenantContextManager(domain):
-            return message_handler(*args, **kwargs)
+
+        try:
+            with TenantContextManager(domain):
+                return message_handler(*args, **kwargs)
+        except TenantNotFoundException as tex:
+            logger.error("Tenant not found (%s) in message handler %s %s", tex.domain, str(args), str(kwargs))
 
     return wrapper
