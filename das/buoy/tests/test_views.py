@@ -327,7 +327,7 @@ class TestGearsView:
         request = client.factory.get(reverse(self.base_url) + "?lat=0&lon=0")
         client.force_authenticate(request, client.app_user)
 
-        response = views.GearsView.as_view()(request)
+        response = views.GearsListView.as_view()(request)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 

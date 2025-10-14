@@ -1,4 +1,4 @@
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 
 from django.conf import settings
 from django.shortcuts import get_object_or_404
@@ -11,7 +11,7 @@ from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
 from buoy.permissions import GearLocationPermission, GearSubjectPermission
 from buoy.serializers.query_params import GearsQueryParamsSerializer
 from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
-from buoy.views.schemas import GearsViewSchema
+from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
 from observations.tasks import send_observations_to_gundi_async
@@ -24,9 +24,17 @@ from utils.drf import (
 from utils.tenant import get_tenant_settings
 
 
-@extend_schema(parameters=[GearsQueryParamsSerializer])
-class GearsView(generics.ListAPIView):
-    __doc__ = """
+@extend_schema(
+    parameters=[GearsQueryParamsSerializer],
+    responses={
+        200: OpenApiResponse(
+            response=gears_list_response_schema,
+            description="A list of gears matching the query parameters.",
+        )
+    },
+)
+class GearsListView(generics.ListAPIView):
+    """
     Returns all gears.
 
     Required query-parameters:
@@ -50,11 +58,6 @@ class GearsView(generics.ListAPIView):
     serializer_class = serializers.GearSerializer
     pagination_class = StandardResultsSetPagination
     schema = GearsViewSchema()
-
-    def get_serializer_class(self):
-        if self.request.method == "POST":
-            return serializers.GearCreateSerializer
-        return serializers.GearSerializer
 
     def get_queryset(self):
         return SubjectSource.objects.none()
@@ -105,6 +108,23 @@ class GearsView(generics.ListAPIView):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+
+@extend_schema(
+    request=serializers.GearCreateSerializer,
+    responses={201: OpenApiResponse(description="Gears created successfully and queued for processing")},
+    description="Create new gears and send observations to Gundi for processing.",
+)
+class GearsCreateView(generics.CreateAPIView, TwoWaySubjectSourceMixin):
+    """
+    Create new gears and send observations to Gundi for processing.
+    """
+
+    permission_classes = (StandardObjectPermissions, IsAuthenticated)
+    serializer_class = serializers.GearCreateSerializer
+
+    def get_queryset(self):
+        return SubjectSource.objects.none()
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data, context={"user_id": request.user.id})
