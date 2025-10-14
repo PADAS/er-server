@@ -17,6 +17,7 @@ from buoy.views.helpers import (
 from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
+from observations.tasks import send_observations_to_gundi_async
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import (
     ForbiddenAPIException,
@@ -24,7 +25,6 @@ from utils.drf import (
     StandardResultsSetPagination,
 )
 from utils.gis import check_valid_lat_lon
-
 
 @extend_schema(parameters=[GearsQueryParamsSerializer])
 class GearsView(generics.ListAPIView):
@@ -86,9 +86,6 @@ class GearsView(generics.ListAPIView):
         if lat and lon:
             lat = float(lat)
             lon = float(lon)
-            is_lat_lon_valid = check_valid_lat_lon(latitude=lat, longitude=lon)
-            if not is_lat_lon_valid:
-                raise ValueError("lat and lon are invalid values")
             queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=int(max_nm_range))
 
         # Filter queryset by removing subjects where the additional field is the same

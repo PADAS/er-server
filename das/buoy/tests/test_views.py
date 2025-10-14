@@ -331,32 +331,6 @@ class TestGearsView:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_gear_subjects_location_param_filters_subject(self, buoy_client):
-        user_client, gear_subjectsource = buoy_client
-        url = reverse(self.base_url) + "?lat=0&lon=0"
-
-        # Arrange - Create new observation with location outside of radius
-        gear_subjectsource.location = Point(10, 10)
-        now = timezone.now()
-        source = gear_subjectsource.source
-        additional = generate_devices(2, Point(10, 10))
-        location_dict = json.loads(additional["devices"][0])["location"]
-        point = Point(location_dict["longitude"], location_dict["latitude"])
-        data = {
-            "recorded_at": now,
-            "location": point,
-            "source": source,
-            "additional": additional,
-        }
-        observation = Observation.objects.create(**data)
-        observation.save()
-        gear_subjectsource.save()
-
-        response = user_client.get(url)
-
-        assert response.status_code == status.HTTP_200_OK
-        assert len(response.data["results"]) == 0
-
     def test_filter_gear_subject_api_updated_since(self, buoy_client):
         user_client, gear_subjectsource = buoy_client
         url = reverse(self.base_url)

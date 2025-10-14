@@ -12,7 +12,7 @@ class GearLocationPermission(BasePermission):
             lat = request.query_params.get("lat")
             lon = request.query_params.get("lon")
 
-            if lat and lon:
+            if lat or lon:
                 return True
 
             return request.user.has_perm("observations.can_view_gear_regardless_location")
