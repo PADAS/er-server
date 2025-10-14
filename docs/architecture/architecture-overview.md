@@ -44,6 +44,13 @@ Currently a Patrol has patrol segments, that are meant to be used to capture spe
 ## Observations
 ### Observation table
 this is the big table. Currently at 2.5 billion records, and growing 4 million rows a day. The table has been partitioned by month. We don't currently have plans to archive any data as we promissed a user can review in real-time all of their subject data using our timeslider. And yes, loading a map with 5 years of data would crowd the map.
+Attributes include
+* Source_id
+* recorded_at
+* location - geometry field lat/lon
+* created_at
+* updated_at
+* additional - json field to store device specific observation data like temp or battery level
 
 **Important Schema Note**: The Observation table does NOT have a direct subject_id field. The relationship to subjects is inferred through the following indirect path:
 - Observation.source → SubjectSource.source_id
@@ -54,7 +61,7 @@ this is the big table. Currently at 2.5 billion records, and growing 4 million r
 A Source has an associated SourceProvder
 Attributes include
 * Display name
-* lag notification threshold
+* lag notification threshold, show we create an event when we haven't seen data for their sources
 * additional: json attributes, letting us store unstructured data per provider
 
 ### Source
@@ -70,15 +77,30 @@ This is the animal, vehicle, person carrying the source.
 Attributes include
 * Subject Type - Wildlife, Vehicle, Person, Stationary Subject
 * Subject subtype - Wildlife: elephant, giraffe, etc. Vehicle: car, truck, etc. Person: Ranger, manager, dog_team
-* Sex
-* additional: json attributes, letting us store unstructured data per provider
+* additional: json attributes, letting us store unstructured data per provider. example: sex, color of track
 * Active - is animal active, shown on map, returned in most api calls
 
 ### SubjectSource
 A Subject carries a Source for a fixed time. The assignment is kept in the SubjectSource table, which as a date range "assigned_range" which is when the subject had the source. We use this daterange as a filter on the observations table so we only get those source and assigned_range observations when we build the track for a Subject
 
+Attributes include
+* Source_id
+* Subject_id
+* location - for camera traps that are stationary, we record their location here over looking at observations
+* assigned_range - time range field, represents when the source was assigned to the subject
+* additional - extra json data for this record
+
 ### SubjectStatus
-The SubjectStatus record for a Subject holds the latest movement and status of the radio that subject is assigned.
+The SubjectStatus record for a Subject holds the latest movement and status of the radio that subject is assigned. This table is basically a cache for the last known
+location of the Subject. Supports delay permissions by creating several of these records for a single subject.
+
+Attributes include
+* subject_id
+* location - last known location of the subject
+* recorded_at - time of last known location
+* addtional - extra attributes, json
+* radio_state - status of the radio at this time
+* delay_hours - to support caching, we can set the delay_hours to 24, and remember where the subject was located 24 hours ago
 
 ### SubjectGroup
 A hierarhical grouping of Subjects. A Subject can exist in more than one group. Groups can be nested as sub groups
