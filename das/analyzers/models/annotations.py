@@ -211,7 +211,9 @@ class ObservationAnnotator(Annotator):
             return queryset.none()
 
         # Production-ready raw SQL with CTE for optimal performance
-        sql = """
+        # Create placeholder string for IN clause to prevent SQL injection
+        placeholders = ",".join(["%s"] * len(observation_ids))
+        sql = f"""
         WITH track_analysis AS (
             SELECT
                 obs.*,
@@ -234,7 +236,7 @@ class ObservationAnnotator(Annotator):
             JOIN observations_source s ON s.id = obs.source_id
             JOIN observations_subjectsource ss ON ss.source_id = s.id
                 AND ss.assigned_range @> obs.recorded_at
-            WHERE obs.id IN %s
+            WHERE obs.id IN ({placeholders})
         ),
         track_segments AS (
             SELECT
@@ -274,20 +276,28 @@ class ObservationAnnotator(Annotator):
         ORDER BY subject_id, recorded_at
         """
 
-        # Use proper parameterization to avoid SQL injection
+        # Use proper parameterization to prevent SQL injection
+        # Prepare parameters: observation_ids + time_gap + speed_threshold
+        params = list(observation_ids) + [max_time_gap_hours * 3600, speed_threshold_kmh]
 
         with connection.cursor() as cursor:
-            cursor.execute(sql, [observation_ids, max_time_gap_hours * 3600, speed_threshold_kmh])
+            cursor.execute(sql, params)
 
-            # Convert results to Observation instances
+            # Convert results to Observation instances using chunked processing
             columns = [col[0] for col in cursor.description]
             results = []
+            chunk_size = 1000  # Process in chunks to avoid memory issues
 
-            for row in cursor.fetchall():
-                observation = Observation()
-                # Set all fields from the row
-                for i, value in enumerate(row):
-                    setattr(observation, columns[i], value)
-                results.append(observation)
+            while True:
+                rows = cursor.fetchmany(chunk_size)
+                if not rows:
+                    break
+
+                for row in rows:
+                    observation = Observation()
+                    # Set all fields from the row
+                    for i, value in enumerate(row):
+                        setattr(observation, columns[i], value)
+                    results.append(observation)
 
             return results
