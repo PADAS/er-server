@@ -3,7 +3,7 @@ import logging
 from vectortiles import VectorLayer
 
 from django.db import connection
-from django.db.models import Case, CharField, F, FloatField, IntegerField, Value, When
+from django.db.models import Case, CharField, F, FloatField, Value, When
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast
 
@@ -236,11 +236,11 @@ class ObservationVectorLayer(VectorLayer):
                     source__subjectsource__subject__additional__has_key="stroke-width",
                     then=Cast(
                         KeyTextTransform("stroke-width", F("source__subjectsource__subject__additional")),
-                        IntegerField(),
+                        FloatField(),
                     ),
                 ),
-                default=Value(2),
-                output_field=IntegerField(),
+                default=Value(2.0),
+                output_field=FloatField(),
             ),
             "stroke-opacity": Case(
                 When(
@@ -271,10 +271,8 @@ class ObservationVectorLayer(VectorLayer):
 
             # Determine output field type
             if key in {"stroke-width"}:
-                output_field = IntegerField()
-                then_value = Cast(
-                    KeyTextTransform(key, F("source__subjectsource__subject__additional")), IntegerField()
-                )
+                output_field = FloatField()
+                then_value = Cast(KeyTextTransform(key, F("source__subjectsource__subject__additional")), FloatField())
             elif key in {"stroke-opacity"}:
                 output_field = FloatField()
                 then_value = Cast(KeyTextTransform(key, F("source__subjectsource__subject__additional")), FloatField())
