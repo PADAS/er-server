@@ -2069,6 +2069,12 @@ class SubjectGroupSubject(TenantModelMixin, UUIDModel):
     class Meta:
         base_manager_name = "objects"
         default_manager_name = "objects"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "subjectgroup", "subject"],
+                name="%(app_label)s_%(class)s_tenant_unique",
+            ),
+        ]
 
     def natural_key(self):
         return (self.subjectgroup, self.subject)
