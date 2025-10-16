@@ -43,7 +43,7 @@ class SourcesDynamicSchemaView(DynamicSchemaFromSourceView):
 
         # Create display name similar to the Source.__str__ method
         if manufacturer_id and model_name:
-            display_name = f"{manufacturer_id} ({model_name})"
+            display_name = f"{model_name} ({manufacturer_id})"
         elif manufacturer_id:
             display_name = manufacturer_id
         elif model_name:
