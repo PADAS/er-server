@@ -13,6 +13,7 @@ WORKDIR /das
 COPY ./dependencies /das/dependencies
 
 RUN python3 -m pip install pip --upgrade
+RUN pip3 install setuptools==58.0.4
 RUN pip install --disable-pip-version-check --no-cache-dir -r /das/dependencies/requirements.txt -r \
   /das/dependencies/requirements-pinned.txt --find-links /das/dependencies/wheelhouse;
 

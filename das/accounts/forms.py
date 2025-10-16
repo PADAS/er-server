@@ -59,7 +59,8 @@ class RelatedFieldWidgetCanAdd(forms.widgets.Select):
         self.related_url = reverse(self.related_url)
         output = [super(RelatedFieldWidgetCanAdd, self).render(name, value, *args, **kwargs)]
         output.append(
-            f'<a href="{self.related_url}?_to_field=id&_popup=1" class="add-another" id="add_id_{name}" onclick="return showAddAnotherPopup(this);"> '
+            f'<a href="{self.related_url}?_to_field=id&_popup=1" class="add-another" '
+            f'id="add_id_{name}" onclick="return showAddAnotherPopup(this);"> '
         )
         output.append(f'<img src="{settings.STATIC_URL}admin/img/icon-addlink.svg" alt="Add Another"/></a>')
         return mark_safe("".join(output))
@@ -184,6 +185,11 @@ class UserAdditionalForm(UserFormValidatorMixin, JSONFieldFormMixin, UserChangeF
         ) + json_fields
 
     json_field = "additional"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Note: Alert rules validation moved to client-side warnings for better UX
+        return cleaned_data
 
 
 class PermissionSetAdminForm(forms.ModelForm):

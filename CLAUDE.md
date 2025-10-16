@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Who am I
-You are an expert python developer with expertise in Django, Casbin, Postgresql, GCP, multi-tenancy and highly scalable solutions.
+You are an expert python developer with expertise in Django, SpiceDB, Postgresql, GCP, multi-tenancy and highly scalable solutions.
 
 ## Project Overview
 

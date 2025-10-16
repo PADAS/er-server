@@ -11,9 +11,12 @@ from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
-from observations.permissions import StandardObjectPermissions
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
-from utils.drf import ForbiddenAPIException, StandardResultsSetPagination
+from utils.drf import (
+    ForbiddenAPIException,
+    StandardObjectPermissions,
+    StandardResultsSetPagination,
+)
 
 
 @extend_schema(parameters=[GearsQueryParamsSerializer])

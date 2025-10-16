@@ -82,7 +82,12 @@ def evaluate_alert_rules(event_id, created, **kwargs) -> None:
         alert_rule_ids = [action["alert_rule_id"] for action in action_list]
 
         already_queued_nids = set()  # accumulator for Notification Methods.
-        for alert_rule in AlertRule.objects.filter(id__in=alert_rule_ids).order_by("ordernum", "title"):
+        alert_rules_qs = (
+            AlertRule.objects.filter(id__in=alert_rule_ids, owner__is_active=True)
+            .select_related("owner")
+            .order_by("ordernum", "title")
+        )
+        for alert_rule in alert_rules_qs:
             # Verify conditions to only send alerts when the set conditions are met
             evaluate_conditions_for_sending_alerts(event, alert_rule, already_queued_nids, created)
 
@@ -153,7 +158,7 @@ class EventDetailViewException(Exception):
 def recreate_event_details_view(self, **kwargs):
     try:
         result = re_create_view()
-        logger.info(f"Recreate data for event_details_view")
+        logger.info("Recreate data for event_details_view")
     except Exception as exc:
         logger.exception("Failed to recreate event_details_view.")
         raise EventDetailViewException(exc)
@@ -164,7 +169,7 @@ def recreate_event_details_view(self, **kwargs):
 @celery.app.task(base=TenantQueueOnceTask, bind=True, ignore_result=False, track_started=True)
 def refresh_event_details_view(self, activity, **kwargs):
     try:
-        logger.info(f"Refresh data for event_details_view")
+        logger.info("Refresh data for event_details_view")
         result = refresh_materialized_view()
     except Exception as e:
         logger.exception("Failed to refresh event_details_view.")
