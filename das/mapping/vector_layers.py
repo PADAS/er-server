@@ -4,7 +4,7 @@ from vectortiles import VectorLayer
 
 from django.contrib.gis.db import models as gis_models
 from django.contrib.gis.db.models.functions import Transform
-from django.db.models import Case, CharField, F, FloatField, IntegerField, Value, When
+from django.db.models import Case, CharField, F, FloatField, Value, When
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast
 
@@ -102,9 +102,9 @@ class SpatialFeatureLayer(VectorLayer):
                 continue
 
             if key in {"stroke-width", "width", "height"}:
-                output_field = IntegerField()
-                then_self = Cast(KeyTextTransform(key, F("presentation")), IntegerField())
-                then_ft = Cast(KeyTextTransform(key, F("feature_type__presentation")), IntegerField())
+                output_field = FloatField()
+                then_self = Cast(KeyTextTransform(key, F("presentation")), FloatField())
+                then_ft = Cast(KeyTextTransform(key, F("feature_type__presentation")), FloatField())
             elif key in {"stroke-opacity", "fill-opacity"}:
                 output_field = FloatField()
                 then_self = Cast(KeyTextTransform(key, F("presentation")), FloatField())
