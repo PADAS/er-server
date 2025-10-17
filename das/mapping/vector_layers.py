@@ -27,6 +27,7 @@ class SpatialFeatureLayer(VectorLayer):
             "stroke",
             "stroke-width",
             "stroke-opacity",
+            "fill",
             "fill-color",
             "fill-opacity",
             "width",
@@ -101,11 +102,7 @@ class SpatialFeatureLayer(VectorLayer):
             if key == "image":
                 continue
 
-            if key in {"stroke-width", "width", "height"}:
-                output_field = FloatField()
-                then_self = Cast(KeyTextTransform(key, F("presentation")), FloatField())
-                then_ft = Cast(KeyTextTransform(key, F("feature_type__presentation")), FloatField())
-            elif key in {"stroke-opacity", "fill-opacity"}:
+            if key in {"stroke-width", "width", "height", "stroke-opacity", "fill-opacity"}:
                 output_field = FloatField()
                 then_self = Cast(KeyTextTransform(key, F("presentation")), FloatField())
                 then_ft = Cast(KeyTextTransform(key, F("feature_type__presentation")), FloatField())
