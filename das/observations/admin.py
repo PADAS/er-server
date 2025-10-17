@@ -1386,7 +1386,7 @@ class SubjectGroupChangeForm(forms.ModelForm):
         widget=FilteredSelectMultiple(verbose_name=_("Subjects"), is_stacked=False),
     )
     inactive_subjects = forms.ModelMultipleChoiceField(
-        queryset=models.Subject.objects.order_by("name").by_is_active(False),
+        queryset=models.Subject.objects.none(),
         required=False,
         widget=FilteredSelectMultiple(verbose_name=_("Inactive Subjects"), is_stacked=False),
     )
@@ -1406,6 +1406,7 @@ class SubjectGroupChangeForm(forms.ModelForm):
         self.fields["permission_sets"].queryset = PermissionSet.objects.filter(~Q(name="View Tracks All Time"))
         self.fields["children"].queryset = models.SubjectGroup.objects.exclude(id__exact=self.instance.id)
         self.fields["active_subjects"].queryset = models.Subject.objects.order_by("name").by_is_active(True)
+        self.fields["inactive_subjects"].queryset = models.Subject.objects.order_by("name").by_is_active(False)
 
     def save(self, commit=True):
         instance = forms.ModelForm.save(self, False)
