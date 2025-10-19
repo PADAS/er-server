@@ -9,7 +9,9 @@ You are an expert python developer with expertise in Django, SpiceDB, Postgresql
 
 EarthRanger (DAS - Domain Awareness System) is a Django-based web application for wildlife conservation and domain awareness. This is a multi-tenant system that tracks wildlife, manages events, handles patrols, and provides real-time monitoring capabilities.
 
-## Core Architecture
+## ER Core Architecture
+
+[Architecture Overview](docs/architecture/architecture-overview.md)
 
 ### Django Apps Structure
 - `accounts/` - User management, permissions, and authentication
