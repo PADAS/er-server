@@ -9,7 +9,9 @@ You are an expert python developer with expertise in Django, SpiceDB, Postgresql
 
 EarthRanger (DAS - Domain Awareness System) is a Django-based web application for wildlife conservation and domain awareness. This is a multi-tenant system that tracks wildlife, manages events, handles patrols, and provides real-time monitoring capabilities.
 
-## Core Architecture
+## ER Core Architecture
+
+[Architecture Overview](docs/architecture/architecture-overview.md)
 
 ### Django Apps Structure
 - `accounts/` - User management, permissions, and authentication
@@ -127,12 +129,69 @@ This system is multi-tenant aware. Most models have a `das_tenant` field that is
 
 ## Testing Considerations
 
+### Django/Python Tests
 - Tests are located in `tests/` directories within each app
 - Uses Django's test framework with pytest
 - Test data often uses factories (see `factories.py` files)
 - Test data uses fixtures found in conftest.py
 - Tenant-aware testing required for multi-tenant features
 - Mock external services (GPS providers, mapping services)
+
+### Playwright End-to-End Tests
+When writing new Django admin code, create corresponding Playwright tests in the companion repository:
+- **Location**: `../er-web-automation-playwright/tests/das-admin/`
+- **Pattern**: Page Object Model (POM)
+- **Structure**:
+  - Page Objects: `tests/das-admin/pageObjects/{AppName}/` (e.g., `Activity/`, `Observations/`)
+  - Test Specs: `tests/das-admin/tests/apps/{AppName}/` (e.g., `Activity/`, `Observations/`)
+  - Fixtures: `tests/das-admin/utils/fixtures/pageObjects.fixtures.js`
+
+#### Playwright Test Pattern
+```javascript
+// Page Object Example (pageObjects/AppName/Feature.page.js)
+export default class FeaturePage {
+  constructor(page) {
+    this.page = page;
+    this.nameInput = page.getByRole('textbox', { name: 'Name:' });
+    this.saveButton = page.getByRole('button', { name: 'Save' });
+    this.successMessage = page.locator('li.success');
+  }
+}
+
+// Test Spec Example (tests/apps/AppName/feature.spec.js)
+import { test, expect } from '../../../utils/fixtures/pageObjects.fixtures';
+import { getFeatureData } from '../../../../das-api/utils/requests/...';
+
+export const featureTestData = () => {
+  test.beforeEach(async ({ loginPage }) => {
+    await loginPage.load();
+  });
+
+  test('create a feature', async ({ homePage, featurePage, request }) => {
+    // Check if data exists via API
+    const existing = await getFeatureData(request, { name: 'Test' });
+    if (existing.length > 0) {
+      test.skip('Feature already exists');
+    }
+
+    // Navigate and fill form
+    await homePage.addFeature.click();
+    await featurePage.nameInput.fill('Test Feature');
+    await featurePage.saveButton.click();
+
+    // Verify success
+    await expect(featurePage.successMessage).toBeVisible();
+  });
+};
+```
+
+#### Key Patterns
+- Use semantic selectors: `getByRole()`, `getByText()`, `getByLabel()`
+- Integrate with DAS API for test data verification
+- Export test functions (not direct test execution)
+- Skip tests if data already exists
+- Add new page objects to `pageObjects.fixtures.js`
+- Run tests: `yarn das:admin` from Playwright project root
 
 ## Key File Locations
 
