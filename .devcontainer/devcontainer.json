@@ -8,22 +8,20 @@
 			"UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv"
 		}
 	},
-	"service": "vscode",
-    "runServices": [
-        "vscode"
-    ],
 	"features": {
 
 	},
 
 	"containerEnv": {
-		"UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv"
+		"UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv",
+		"SHELL": "/bin/bash"
 	},
 	"customizations": {
 		"vscode": {
 
 		// Set *default* container specific settings.json values on container create.
 		"settings": {
+			"terminal.integrated.defaultProfile.linux": "bash",
 			"terminal.integrated.profiles.linux": {
 				"bash": {
 					"path": "/bin/bash"
@@ -39,9 +37,7 @@
 			"python.linting.flake8Path": "/usr/local/py-utils/bin/flake8",
 			"python.linting.mypyPath": "/usr/local/py-utils/bin/mypy",
 			"python.linting.pycodestylePath": "/usr/local/py-utils/bin/pycodestyle",
-			"python.linting.pydocstylePath": "/usr/local/py-utils/bin/pydocstyle",
-			"extensions.autoUpdate": false,
-			"extensions.autoCheckUpdates": false
+			"python.linting.pydocstylePath": "/usr/local/py-utils/bin/pydocstyle"
 		},
 
 		// Add the IDs of extensions you want installed when the container is created.
@@ -49,6 +45,7 @@
 			"ms-python.python",
 			"ms-python.vscode-pylance",
 			"ms-python.flake8",
+			"meta.pyrefly",
 			"eamodio.gitlens",
 			"yzhang.markdown-all-in-one",
 			"njpwerner.autodocstring",
@@ -61,7 +58,8 @@
 			"github.vscode-pull-request-github",
 			"trond-snekvik.simple-rst",
 			"ms-python.black-formatter",
-			"littlefoxteam.vscode-python-test-adapter"
+			"littlefoxteam.vscode-python-test-adapter",
+			"github.vscode-github-actions"
 		]
 		}
 	},
@@ -93,7 +91,7 @@
 	"remoteEnv": {
 		"GITGUARDIAN_DOTENV_PATH": "/workspaces/${localWorkspaceFolderBasename}/das/.env",
 		"UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv",
-		"DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
+//		"DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
 		"ROOT_LOGGING_LEVEL": "INFO",
 		"GDAL_LIBRARY_PATH": "/usr/lib/aarch64-linux-gnu/libgdal.so",
 		"GEOS_LIBRARY_PATH":"/usr/lib/aarch64-linux-gnu/libgeos_c.so.1"

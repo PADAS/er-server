@@ -30,7 +30,9 @@
                 "${input:pytest_path_args}"
             ],
             "cwd": "${workspaceRoot}/das",
-            "env": {},
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "test_scripts.unittest_settings",
+            },
             "redirectOutput": true
         },
         {
@@ -128,7 +130,8 @@
                 "info"
             ],
             "env": {
-                "ROOT_LOGGING_LEVEL": "INFO"
+                "ROOT_LOGGING_LEVEL": "INFO",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
@@ -173,7 +176,8 @@
             ],
             "django": true,
             "env": {
-                "ROOT_LOGGING_LEVEL": "INFO"
+                "ROOT_LOGGING_LEVEL": "INFO",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
@@ -192,6 +196,7 @@
                 "--nothreading"
             ],
             "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             },
             "django": true
         },
@@ -211,6 +216,7 @@
             ],
             "django": true,
             "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
@@ -228,6 +234,7 @@
             "django": true,
             "sudo": true,
             "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
@@ -243,7 +250,8 @@
             ],
             "django": true,
             "env": {
-                "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
@@ -268,7 +276,8 @@
             ],
             "django": true,
             "env": {
-                "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
@@ -287,7 +296,8 @@
             ],
             "django": true,
             "env": {
-                "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
@@ -304,6 +314,7 @@
             "django": true,
             "sudo": true,
             "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
@@ -328,6 +339,7 @@
             ],
             "django": true,
             "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler",
                 "IS_OAUTH2_PROVIDER_MIGRATION": "True"
             }
         },
@@ -345,6 +357,7 @@
             ],
             "django": true,
             "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
     ],

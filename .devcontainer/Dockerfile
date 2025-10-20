@@ -49,6 +49,7 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     gnupg \
     locales locales-all \
     libkrb5-dev \
+    vim \
     && apt-get autoremove
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
