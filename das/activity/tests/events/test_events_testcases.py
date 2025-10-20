@@ -3227,6 +3227,25 @@ class TestEventFilterQueryset:
         assert events.count() >= 1
 
     @pytest.mark.parametrize(
+        "term",
+        [
+            "test (with parentheses)",
+            "test & ampersand",
+            "test | pipe",
+            "test ! exclamation",
+            "test < less",
+            "test > greater",
+            "EWT-Cluster 260792 (318 pts, 1 devices)",  # actual error case from issue
+        ],
+    )
+    def test_by_text_filter_method_escapes_special_characters(self, five_events_with_details, term):
+        """Test that special characters in tsquery syntax are properly escaped."""
+        # This should not raise a PostgreSQL syntax error
+        events = Event.objects.by_text_filter(term)
+        # The query should execute successfully (even if it returns 0 results)
+        assert events.count() >= 0
+
+    @pytest.mark.parametrize(
         "known_location",
         [
             {
