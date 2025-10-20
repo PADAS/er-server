@@ -1,5 +1,5 @@
 """
-Test vector tile functionality for SpatialFeature model.
+Test vector tile functionality for SpatialFeature model, including image URL normalization.
 """
 
 from unittest.mock import patch
@@ -14,6 +14,21 @@ from django.test import RequestFactory
 from mapping.models import DisplayCategory, SpatialFeature, SpatialFeatureType
 from mapping.vector_layers import SpatialFeatureLayer
 from mapping.views import SpatialFeatureTileView
+
+
+class DummyTenant:
+    def __init__(self, url):
+        self.url = url
+
+
+@pytest.fixture(autouse=True)
+def mock_tenant(monkeypatch):
+    """Provide a tenant context for all tests that build vector tile querysets.
+
+    Ensures normalization logic has a base root and prevents RuntimeError.
+    """
+    monkeypatch.setattr("mapping.vector_layers.get_tenant_settings", lambda: DummyTenant("https://tenant.test"))
+    yield
 
 
 class TestSpatialFeatureVectorTiles:
@@ -116,53 +131,91 @@ class TestSpatialFeatureVectorTiles:
             assert "stale-if-error=86400" in cc2
 
     @pytest.mark.django_db
-    def test_image_annotation_precedence(self, django_assert_num_queries):
-        """Verify that image annotation resolves through image -> icon_url -> feature_type fallbacks."""
-        # Create feature type with icon_url only
-        dc = DisplayCategory.objects.create(name="General")
-        ft = SpatialFeatureType.objects.create(
-            name="Camp",
-            presentation={"icon_url": "type_icon.png"},
-            display_category=dc,
-        )
-        # Feature 1: has explicit image
-        f1 = SpatialFeature.objects.create(
+    def test_image_normalization_relative_and_absolute(self):
+        """Single test covering relative (with/without slash) and absolute/data URIs."""
+        dc = DisplayCategory.objects.create(name="ImgCases")
+        ft = SpatialFeatureType.objects.create(name="TypeImg", display_category=dc, presentation={})
+
+        f_rel_slash = SpatialFeature.objects.create(
             feature_type=ft,
-            name="Feat1",
-            presentation={"image": "feat_image.png"},
+            name="RelSlash",
+            presentation={"image": "/static/a.svg"},
             feature_geometry=Point(0, 0),
         )
-        # Feature 2: has icon_url only
-        f2 = SpatialFeature.objects.create(
+        f_rel_no_slash = SpatialFeature.objects.create(
             feature_type=ft,
-            name="Feat2",
-            presentation={"icon_url": "feat_icon.png"},
+            name="RelNoSlash",
+            presentation={"image": "static/b.svg"},
             feature_geometry=Point(1, 1),
         )
-        # Feature 3: no image fields; should inherit feature_type icon_url
-        f3 = SpatialFeature.objects.create(
+        abs_url = "https://cdn.example.com/img/c.svg"
+        f_abs = SpatialFeature.objects.create(
             feature_type=ft,
-            name="Feat3",
-            presentation={},
+            name="Abs",
+            presentation={"image": abs_url},
             feature_geometry=Point(2, 2),
         )
-        # Feature 4: nested image dict pattern
-        f4 = SpatialFeature.objects.create(
+        data_uri = "data:image/png;base64,AAA="
+        f_data = SpatialFeature.objects.create(
             feature_type=ft,
-            name="Feat4",
-            presentation={"image": {"image": "nested_image.png", "width": 20, "height": 20}},
+            name="Data",
+            presentation={"image": data_uri},
             feature_geometry=Point(3, 3),
         )
 
         layer = SpatialFeatureLayer()
-        qs = layer.get_vector_tile_queryset(10, 0, 0).filter(id__in=[f1.id, f2.id, f3.id, f4.id])
-        assert qs.count() == 4
-        results = {r.id: r.image for r in qs}
+        ids = [f_rel_slash.id, f_rel_no_slash.id, f_abs.id, f_data.id]
+        results = {r.id: (r.raw_image, r.image) for r in layer.get_vector_tile_queryset(10, 0, 0).filter(id__in=ids)}
 
-        assert results[f1.id] == "feat_image.png"
-        assert results[f2.id] == "feat_icon.png"
-        assert results[f3.id] == "type_icon.png"
-        assert results[f4.id] == "nested_image.png"
+        assert results[f_rel_slash.id] == ("/static/a.svg", "https://tenant.test/static/a.svg")
+        assert results[f_rel_no_slash.id] == ("static/b.svg", "https://tenant.test/static/b.svg")
+        assert results[f_abs.id] == (abs_url, abs_url)
+        assert results[f_data.id] == (data_uri, data_uri)
+
+    @pytest.mark.django_db
+    def test_image_normalization_nested_and_null(self):
+        """Nested image dict extraction and absence (null) handling."""
+        dc = DisplayCategory.objects.create(name="NestedCat")
+        ft = SpatialFeatureType.objects.create(name="TypeNested", display_category=dc, presentation={})
+        f_nested = SpatialFeature.objects.create(
+            feature_type=ft,
+            name="Nested",
+            presentation={"image": {"image": "nested_icon.svg", "width": 10}},
+            feature_geometry=Point(4, 4),
+        )
+        f_null = SpatialFeature.objects.create(
+            feature_type=ft,
+            name="NullImg",
+            presentation={},
+            feature_geometry=Point(5, 5),
+        )
+        layer = SpatialFeatureLayer()
+        results = {
+            r.id: (r.raw_image, r.image)
+            for r in layer.get_vector_tile_queryset(10, 0, 0).filter(id__in=[f_nested.id, f_null.id])
+        }
+        assert results[f_nested.id] == ("nested_icon.svg", "https://tenant.test/nested_icon.svg")
+        assert results[f_null.id] == (None, None)
+
+    @pytest.mark.django_db
+    def test_image_normalization_requires_tenant(self, monkeypatch):
+        """Missing tenant URL should raise RuntimeError (security)."""
+
+        class BadTenant:
+            url = None
+
+        monkeypatch.setattr("mapping.vector_layers.get_tenant_settings", lambda: BadTenant())
+        dc = DisplayCategory.objects.create(name="NoTenantCat")
+        ft = SpatialFeatureType.objects.create(name="TypeNoTenant", display_category=dc, presentation={})
+        SpatialFeature.objects.create(
+            feature_type=ft,
+            name="FeatNoTenant",
+            presentation={"image": "static/path.svg"},
+            feature_geometry=Point(6, 6),
+        )
+        layer = SpatialFeatureLayer()
+        with pytest.raises(RuntimeError):
+            layer.get_vector_tile_queryset(10, 0, 0)
 
     @pytest.mark.django_db
     def test_extract_presentation_json_keys(self):
