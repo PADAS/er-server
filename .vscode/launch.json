@@ -24,14 +24,13 @@
             "module": "pytest",
             "args": [
                 "-vv",
-                "--reuse-db",
                 "--ds",
                 "test_scripts.unittest_settings",
+                "--reuse-db",
                 "${input:pytest_path_args}"
             ],
             "cwd": "${workspaceRoot}/das",
             "env": {
-                "DJANGO_SETTINGS_MODULE": "test_scripts.unittest_settings",
             },
             "redirectOutput": true
         },
