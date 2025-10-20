@@ -343,3 +343,6 @@ pyrightconfig.json
 
 # GitGuardian
 .cache_ggshield
+
+application_default_credentials.json
+.claude/settings.local.json
