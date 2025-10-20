@@ -95,6 +95,9 @@ STATIONARY_SUBJECT_VALUE = "stationary-object"
 logger = logging.getLogger(__name__)
 GPX_FILES_FOLDER = getattr(settings, "GPX_FILES_FOLDER", "observations/gpxfile")
 
+# Threshold for warning about high SubjectSource assignment counts that may cause deeply nested SQL
+HIGH_ASSIGNMENT_COUNT_THRESHOLD = 10
+
 SOURCE_TYPES = sorted(
     (
         ("tracking-device", "Tracking Device"),
@@ -619,9 +622,16 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                 # Short-circuit if there are no source assignments for the given time range.
                 return self.none()
 
-            # Build a single query using Q objects to combine conditions
-            from django.db.models import Q
+            # Log warning when there are many source assignments (potential for complex SQL with many OR conditions)
+            assignment_count = source_assignments.count()
+            if assignment_count > HIGH_ASSIGNMENT_COUNT_THRESHOLD:
+                logger.warning(
+                    f"High SubjectSource assignment count detected (avoid_unions=True): subject_id={subject.id}, "
+                    f"subject_name='{subject.name}', assignment_count={assignment_count}, time_range={time_range}. "
+                    f"This may result in complex SQL queries with many OR conditions."
+                )
 
+            # Build a single query using Q objects to combine conditions
             source_conditions = Q()
 
             for assignment in source_assignments:
@@ -674,6 +684,15 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         # If there are no source assignments, there's nothing to base the filter on
         if not source_assignments:
             return self.none()
+
+        # Log warning when there are many source assignments (potential for deeply nested SQL)
+        assignment_count = len(source_assignments)
+        if assignment_count > HIGH_ASSIGNMENT_COUNT_THRESHOLD:
+            logger.warning(
+                f"High SubjectSource assignment count detected: subject_id={subject.id}, "
+                f"subject_name='{subject.name}', assignment_count={assignment_count}, time_range={time_range}. "
+                f"This may result in deeply nested SQL queries with multiple UNION operations."
+            )
 
         # Process assignments in batches to avoid recursion issues
         for i in range(0, len(source_assignments), batch_size):

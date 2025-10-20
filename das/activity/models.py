@@ -633,7 +633,15 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         search_text = search_text.strip()
         if not search_text:
             return self
-        ts_query = ":* & ".join(search_text.split()) + ":*"
+        # Escape special characters that have meaning in PostgreSQL tsquery syntax
+        # Special chars: & | ! ( ) < >
+        # Remove or replace these characters to avoid syntax errors
+        escaped_text = re.sub(r"[&|!()<>]", " ", search_text)
+        # Split by whitespace and filter out empty strings
+        words = [word for word in escaped_text.split() if word]
+        if not words:
+            return self
+        ts_query = ":* & ".join(words) + ":*"
         search_query = SearchQuery(ts_query, search_type="raw")
         filter_query = (
             Q(tsvectormodel__tsvector_event=search_query)
