@@ -207,7 +207,7 @@ def test_sources_display_name_logic(superuser_client):
 
     # Source 1: manufacturer_id (model_name)
     source1_item = items_by_id[str(source1.id)]
-    assert source1_item["title"] == "GPS-COLLAR-123 (Vectronic Aerospace)"
+    assert source1_item["title"] == "Vectronic Aerospace (GPS-COLLAR-123)"
 
     # Source 2: just manufacturer_id
     source2_item = items_by_id[str(source2.id)]
