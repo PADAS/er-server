@@ -779,7 +779,7 @@ dependencies = [
     { name = "drf-spectacular" },
     { name = "drf-spectacular-sidecar" },
     { name = "eventlet" },
-    { name = "fastkml" },
+    { name = "fastkml", extra = ["lxml"] },
     { name = "gdal" },
     { name = "geojson" },
     { name = "geopandas" },
@@ -922,7 +922,7 @@ requires-dist = [
     { name = "drf-spectacular", specifier = "==0.28.0" },
     { name = "drf-spectacular-sidecar", specifier = "==2025.6.1" },
     { name = "eventlet", specifier = "==0.40.3" },
-    { name = "fastkml", git = "https://github.com/PADAS/fastkml.git?rev=7922b3f38c4cef4a513a599e899bfb10576d8bd3" },
+    { name = "fastkml", extras = ["lxml"], specifier = "==1.3.0" },
     { name = "gdal", specifier = "==3.9.3" },
     { name = "geojson", specifier = "==3.2.0" },
     { name = "geopandas", specifier = "==1.1.1" },
@@ -961,7 +961,7 @@ requires-dist = [
     { name = "pillow", specifier = "==9.5.0" },
     { name = "psycopg2", specifier = "==2.9.10" },
     { name = "pycryptodome", specifier = "==3.18.0" },
-    { name = "pygeoif", specifier = "==0.6" },
+    { name = "pygeoif", specifier = "==1.5" },
     { name = "pygments", specifier = "==2.16.1" },
     { name = "pymet", path = "dependencies/wheelhouse/pymet-0.1.26-py3-none-any.whl" },
     { name = "pyproj", specifier = "==3.7.0" },
@@ -1733,11 +1733,21 @@ wheels = [
 
 [[package]]
 name = "fastkml"
-version = "0.11"
-source = { git = "https://github.com/PADAS/fastkml.git?rev=7922b3f38c4cef4a513a599e899bfb10576d8bd3#7922b3f38c4cef4a513a599e899bfb10576d8bd3" }
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "arrow" },
     { name = "pygeoif" },
-    { name = "python-dateutil" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/69/df/246012367131e99e36f0ca4c4ee7af9eefac5db1f25ab8cd6da038e27e8d/fastkml-1.3.0.tar.gz", hash = "sha256:fd15e2b8fc47f89c4d2f9548b82322ce62d7492f766bc84247aebe1db32845c8", size = 91358, upload-time = "2025-10-16T11:22:32.5Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/98/38/ca5fffd77635efe35ed9338bb77f323867a84f4f6ba442fe0a93ac401e89/fastkml-1.3.0-py3-none-any.whl", hash = "sha256:97ac8f511192a075634a58b14214b6aaa10178b53eca019c8571f68c7960d1af", size = 114271, upload-time = "2025-10-16T11:22:31.224Z" },
+]
+
+[package.optional-dependencies]
+lxml = [
+    { name = "lxml" },
 ]
 
 [[package]]
@@ -3884,9 +3894,15 @@ wheels = [
 
 [[package]]
 name = "pygeoif"
-version = "0.6"
+version = "1.5.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/be/33/ebda098a7f1f59593d1d5b842c2917a815e9ca09af684738cd8f4b3c151a/pygeoif-0.6.tar.gz", hash = "sha256:4fb9ebe63711b9cfc4d33ecfba62b6331a019d6984e1c917b3e0b0dfc0780cd1", size = 28800, upload-time = "2015-08-04T09:52:37.696Z" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/91/c6/12557ff83a1184478c4630b20678a24e535d75a7eb6c6c0f59e6266ac6e7/pygeoif-1.5.0.tar.gz", hash = "sha256:3ef7c5a98acfea3c5af1e8856184d538f3d216e12f3180fe0c1aa829933f5eb6", size = 41194, upload-time = "2024-05-11T12:45:03.05Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2b/af/a173f5db8a431a23b4f8f52000964f94b6d649a79ae9185762601b958650/pygeoif-1.5.0-py3-none-any.whl", hash = "sha256:d8b4e08f1ce5228286cb92a1c4f8418482d578a9c17eff15dac2af08b65900ee", size = 27724, upload-time = "2024-05-11T12:45:00.115Z" },
+]
 
 [[package]]
 name = "pygments"

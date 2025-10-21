@@ -4,9 +4,9 @@ import zipfile
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
-import fastkml
 import pytest
 import pytz
+from fastkml import kml
 from pytz import timezone, utc
 
 from django.core.management import call_command
@@ -22,7 +22,7 @@ from observations.serializers import ObservationSerializer
 class KmlSubjectViewTest(BaseAPITest):
     def setUp(self):
         super().setUp()
-        call_command("loaddata_with_tenant", "new_permission_sets.yaml")
+        call_command("loaddata_with_tenant", "das/observations/fixtures/new_permission_sets.yaml")
         call_command("loaddata_with_tenant", "subject_types.yaml")
         call_command("loaddata_with_tenant", "test/observations_subject_observation.json")
         user_const = dict(last_name="last", first_name="first")
@@ -61,15 +61,12 @@ class KmlSubjectViewTest(BaseAPITest):
         kml_data = ""
         for name in kmz.namelist():
             kml_data = kmz.read(name)
-        kml_object = fastkml.kml.KML()
-        kml_object.from_string(kml_data)
+        kml_object = kml.KML.from_string(kml_data)
         timestamps = []
-        kml_subject = list(kml_object.features())
-        kml_subject_details = list(kml_subject[0].features())
 
-        observations = list(kml_subject_details[0].features())
+        observations = kml_object.features[0].features[0].features
         for observation in observations:
-            timestamps.append(observation.timeStamp)
+            timestamps.append(observation.time_stamp.dt)
         return timestamps
 
     def test_view_without_filter(self):
