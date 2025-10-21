@@ -277,8 +277,8 @@ class SpatialFeatureTileView(MVTView):
 
     Cache strategy:
     - Server-side TTL ~ 24 hours (spatial features rarely change once stable)
-    - Client: 3 minutes fresh (max-age), then 3 minutes stale-while-revalidate window
-    - Client: stale-if-error for same 3 minute window to mask transient origin faults
+    - Client: 24 hours fresh (max-age), then 3 minutes stale-while-revalidate window
+    - Client: stale-if-error for same 24 hour window to mask transient origin faults
     - Authorization varied so per-user/tenant isolation is preserved
     """
 
