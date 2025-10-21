@@ -284,7 +284,7 @@ class SpatialFeatureTileView(MVTView):
 
     layer_classes = [SpatialFeatureLayer]
     permission_classes = (LayerObjectPermissions,)
-    content_type = "application/x-protobuf"  # Override vectortiles default content type
+    content_type = "application/vnd.mapbox-vector-tile"  # Override vectortiles default content type
 
     # Server-side cache TTL (seconds). Keep a little longer than client max-age so we can
     # usually revalidate from server cache rather than hitting the DB immediately.
