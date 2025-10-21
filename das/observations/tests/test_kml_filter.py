@@ -22,7 +22,7 @@ from observations.serializers import ObservationSerializer
 class KmlSubjectViewTest(BaseAPITest):
     def setUp(self):
         super().setUp()
-        call_command("loaddata_with_tenant", "das/observations/fixtures/new_permission_sets.yaml")
+        call_command("loaddata_with_tenant", "new_permission_sets.yaml")
         call_command("loaddata_with_tenant", "subject_types.yaml")
         call_command("loaddata_with_tenant", "test/observations_subject_observation.json")
         user_const = dict(last_name="last", first_name="first")
