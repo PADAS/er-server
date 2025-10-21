@@ -64,10 +64,13 @@ jobs:
           cd /das
           export PYTHONPATH=/das/test_scripts:$PYTHONPATH
           export DJANGO_SETTINGS_MODULE=unittest_settings
-          python3 -m pip install --upgrade keyrings.alt
-          python3 -m pip install -r /das/dependencies/requirements-dev.txt --find-links /das/dependencies/wheelhouse/ --upgrade
-          IS_OAUTH2_PROVIDER_MIGRATION=true python3 manage.py migrate
-          IS_OAUTH2_PROVIDER_MIGRATION=true pytest --reuse-db --create-db --junitxml=/testresults/result.xml --maxfail=15  core/tests/test_utils.py
+
+          uv sync --group dev --find-links /das/dependencies/wheelhouse
+
+          uv run pip install --upgrade keyrings.alt
+
+          IS_OAUTH2_PROVIDER_MIGRATION=true uv run python3 manage.py migrate
+          IS_OAUTH2_PROVIDER_MIGRATION=true uv run pytest --reuse-db --create-db --junitxml=/testresults/result.xml --maxfail=15  core/tests/test_utils.py
         env:
           DB_HOST: postgis
           DB_NAME: testdb
