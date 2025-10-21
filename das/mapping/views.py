@@ -329,7 +329,6 @@ class SpatialFeatureTileView(MVTView):
                 f"stale-if-error={self.client_stale_if_error_seconds}"
             )
             resp["X-Cache"] = "HIT"
-            resp["Vary"] = "Authorization"
             return resp
         # Instantiate layers only on a cache miss.
         self.layers = [lc() for lc in self.layer_classes]
@@ -344,7 +343,6 @@ class SpatialFeatureTileView(MVTView):
             f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
             f"stale-if-error={self.client_stale_if_error_seconds}"
         )
-        response["Vary"] = "Authorization"
 
         return response
 
