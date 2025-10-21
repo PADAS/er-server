@@ -193,7 +193,11 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         )
 
         return Response(
-            {"detail": "Gears created successfully and queued for processing", "task_id": task_result.id}, status=201
+            {
+                "detail": f"Gears created successfully and queued for processing. {settings.BUOY_GUNDI_INTEGRATION_ID}",
+                "task_id": task_result.id,
+            },
+            status=201,
         )
 
 
