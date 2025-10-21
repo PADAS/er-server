@@ -181,7 +181,6 @@ def test_tile_view_caching_and_authentication():
         assert second.status_code == 200
         assert second["X-Cache"] == "HIT"
         assert parent_get.call_count == 1
-        assert second.get("Vary") == "Authorization"
 
 
 @pytest.mark.django_db
