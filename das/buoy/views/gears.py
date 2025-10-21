@@ -1,4 +1,9 @@
-from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from drf_spectacular.utils import (
+    OpenApiResponse,
+    extend_schema,
+    extend_schema_view,
+    inline_serializer,
+)
 
 from django.conf import settings
 from django.shortcuts import get_object_or_404
@@ -25,18 +30,78 @@ from utils.drf import (
 from utils.tenant import get_tenant_settings
 
 
-@extend_schema(
-    parameters=[],
-    responses={
-        200: OpenApiResponse(
-            response=gears_list_response_schema,
-            description="A list of gears matching the query parameters.",
-        )
-    },
+@extend_schema_view(
+    get=extend_schema(
+        parameters=[],
+        responses={
+            200: OpenApiResponse(
+                response=gears_list_response_schema,
+                description="A list of gears matching the query parameters.",
+            )
+        },
+    ),
+    post=extend_schema(
+        request=serializers.GearCreateSerializer,
+        responses={
+            201: OpenApiResponse(
+                response=inline_serializer(
+                    name="GearCreateResponse",
+                    fields={
+                        "detail": drf_serializers.CharField(),
+                        "task_id": drf_serializers.UUIDField(),
+                    },
+                ),
+            ),
+            400: OpenApiResponse(
+                response=inline_serializer(
+                    name="GearCreateErrorResponse",
+                    fields={"detail": drf_serializers.CharField(help_text="A description of the error that occurred.")},
+                ),
+                description="Bad request due to invalid input data.",
+            ),
+            403: OpenApiResponse(
+                response=inline_serializer(
+                    name="GearCreateForbiddenResponse",
+                    fields={
+                        "detail": drf_serializers.CharField(
+                            help_text="You do not have permission to perform this action."
+                        )
+                    },
+                    required=True,
+                ),
+                description="Forbidden: You do not have permission to perform this action.",
+            ),
+            500: OpenApiResponse(
+                response=inline_serializer(
+                    name="GearCreateServerErrorResponse",
+                    fields={
+                        "detail": drf_serializers.CharField(
+                            help_text="An internal server error occurred. Please try again later."
+                        )
+                    },
+                    required=True,
+                ),
+                description="Internal Server Error: An error occurred on the server.",
+            ),
+            401: OpenApiResponse(
+                response=inline_serializer(
+                    name="GearCreateUnauthorizedResponse",
+                    fields={
+                        "detail": drf_serializers.CharField(
+                            help_text="Authentication credentials were not provided or are invalid."
+                        )
+                    },
+                    required=True,
+                ),
+                description="Unauthorized: Authentication credentials were not provided or are invalid.",
+            ),
+        },
+        description="Create new gears and send observations to Gundi for processing.",
+    ),
 )
-class GearsListView(generics.ListAPIView):
+class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
     """
-    Returns all gears.
+    GET: Returns all gears.
 
     Required query-parameters:
     lat, lon: float
@@ -51,6 +116,8 @@ class GearsListView(generics.ListAPIView):
     page, page number
 
     page_size, (default is {page_size}, max is {max_page_size})
+
+    POST: Create new gears and send observations to Gundi for processing.
     """.format(
         page_size=StandardResultsSetPagination.page_size, max_page_size=StandardResultsSetPagination.max_page_size
     )
@@ -62,6 +129,11 @@ class GearsListView(generics.ListAPIView):
 
     def get_queryset(self):
         return SubjectSource.objects.none()
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return serializers.GearCreateSerializer
+        return serializers.GearSerializer
 
     def list(self, request, *args, **kwargs):
         # Validate query parameters using serializer
@@ -109,74 +181,6 @@ class GearsListView(generics.ListAPIView):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
-
-
-@extend_schema(
-    request=serializers.GearCreateSerializer,
-    responses={
-        201: OpenApiResponse(
-            response=inline_serializer(
-                name="GearCreateResponse",
-                fields={
-                    "detail": drf_serializers.CharField(),
-                    "task_id": drf_serializers.UUIDField(),
-                },
-            ),
-        ),
-        400: OpenApiResponse(
-            response=inline_serializer(
-                name="GearCreateErrorResponse",
-                fields={"detail": drf_serializers.CharField(help_text="A description of the error that occurred.")},
-            ),
-            description="Bad request due to invalid input data.",
-        ),
-        403: OpenApiResponse(
-            response=inline_serializer(
-                name="GearCreateForbiddenResponse",
-                fields={
-                    "detail": drf_serializers.CharField(help_text="You do not have permission to perform this action.")
-                },
-                required=True,
-            ),
-            description="Forbidden: You do not have permission to perform this action.",
-        ),
-        500: OpenApiResponse(
-            response=inline_serializer(
-                name="GearCreateServerErrorResponse",
-                fields={
-                    "detail": drf_serializers.CharField(
-                        help_text="An internal server error occurred. Please try again later."
-                    )
-                },
-                required=True,
-            ),
-            description="Internal Server Error: An error occurred on the server.",
-        ),
-        401: OpenApiResponse(
-            response=inline_serializer(
-                name="GearCreateUnauthorizedResponse",
-                fields={
-                    "detail": drf_serializers.CharField(
-                        help_text="Authentication credentials were not provided or are invalid."
-                    )
-                },
-                required=True,
-            ),
-            description="Unauthorized: Authentication credentials were not provided or are invalid.",
-        ),
-    },
-    description="Create new gears and send observations to Gundi for processing.",
-)
-class GearsCreateView(generics.CreateAPIView, TwoWaySubjectSourceMixin):
-    """
-    Create new gears and send observations to Gundi for processing.
-    """
-
-    permission_classes = (StandardObjectPermissions, IsAuthenticated)
-    serializer_class = serializers.GearCreateSerializer
-
-    def get_queryset(self):
-        return SubjectSource.objects.none()
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data, context={"user_id": request.user.id})
