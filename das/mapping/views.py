@@ -343,6 +343,16 @@ class SpatialFeatureTileView(MVTView):
             f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
             f"stale-if-error={self.client_stale_if_error_seconds}"
         )
+        # Remove Vary: Cookie to allow client-side caching for vector tiles
+        # since we handle user/tenant isolation in server-side cache keys
+        # and vector tile content doesn't vary by cookie data
+        if "Vary" in response:
+            vary_values = [v.strip() for v in response["Vary"].split(",")]
+            vary_values = [v for v in vary_values if v != "Cookie"]
+            if vary_values:
+                response["Vary"] = ", ".join(vary_values)
+            else:
+                del response["Vary"]
         return response
 
 
