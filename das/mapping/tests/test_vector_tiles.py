@@ -1,4 +1,4 @@
-"""Clean test suite for SpatialFeatureLayer and tile endpoint after base_root change."""
+"""Test suite for SpatialFeatureLayer and tile endpoint (no host-based image prefixing)."""
 
 import pytest
 from vectortiles.views import MVTView
@@ -17,7 +17,7 @@ from mapping.views import SpatialFeatureTileView
 @pytest.mark.django_db
 class TestSpatialFeatureLayer:
     def test_basic_config(self):
-        layer = SpatialFeatureLayer(base_root="https://tenant.test")
+        layer = SpatialFeatureLayer()
         assert layer.model.__name__ == "SpatialFeature"
         assert layer.id == "spatial_features"
         assert layer.min_zoom == 3
@@ -53,13 +53,13 @@ class TestSpatialFeatureLayer:
             presentation={"image": data_uri},
             feature_geometry=Point(3, 3),
         )
-        layer = SpatialFeatureLayer(base_root="https://tenant.test")
+        layer = SpatialFeatureLayer()
         qs = layer.get_vector_tile_queryset(10, 0, 0).filter(id__in=[f1.id, f2.id, f3.id, f4.id])
-        got = {r.id: (r.raw_image, r.image) for r in qs}
-        assert got[f1.id] == ("/static/a.svg", "https://tenant.test/static/a.svg")
-        assert got[f2.id] == ("static/b.svg", "https://tenant.test/static/b.svg")
-        assert got[f3.id] == (abs_url, abs_url)
-        assert got[f4.id] == (data_uri, data_uri)
+        got = {r.id: r.image for r in qs}
+        assert got[f1.id] == "/static/a.svg"
+        assert got[f2.id] == "static/b.svg"
+        assert got[f3.id] == abs_url
+        assert got[f4.id] == data_uri
 
     def test_image_normalization_nested_and_null(self):
         dc = DisplayCategory.objects.create(name="Nested")
@@ -73,15 +73,14 @@ class TestSpatialFeatureLayer:
         fnull = SpatialFeature.objects.create(
             feature_type=ft, name="Null", presentation={}, feature_geometry=Point(5, 5)
         )
-        layer = SpatialFeatureLayer(base_root="https://tenant.test")
+        layer = SpatialFeatureLayer()
         qs = layer.get_vector_tile_queryset(10, 0, 0).filter(id__in=[fn.id, fnull.id])
-        got = {r.id: (r.raw_image, r.image) for r in qs}
-        assert got[fn.id] == ("nested_icon.svg", "https://tenant.test/nested_icon.svg")
-        assert got[fnull.id] == (None, None)
+        got = {r.id: r.image for r in qs}
+        assert got[fn.id] == "nested_icon.svg"
+        assert got[fnull.id] is None
 
-    def test_requires_base_root(self):
-        with pytest.raises(RuntimeError):
-            SpatialFeatureLayer(base_root=None)
+    def test_layer_initialization_without_base_root(self):
+        SpatialFeatureLayer()  # should not raise
 
     def test_extract_presentation_keys(self):
         dc = DisplayCategory.objects.create(name="Style")
@@ -97,7 +96,7 @@ class TestSpatialFeatureLayer:
             },
         )
         SpatialFeature.objects.create(feature_type=ft, name="Feature", feature_geometry=Point(6, 6))
-        layer = SpatialFeatureLayer(base_root="https://tenant.test")
+        layer = SpatialFeatureLayer()
         annotations = layer._extract_presentation_json_keys()
         for key in ["stroke", "stroke-width", "fill-color", "fill-opacity"]:
             if key in layer.tile_fields:
@@ -118,7 +117,7 @@ class TestSpatialFeatureLayer:
             },
         )
         feat = SpatialFeature.objects.create(feature_type=ft, name="FeatQ", feature_geometry=Point(7, 7))
-        layer = SpatialFeatureLayer(base_root="https://tenant.test")
+        layer = SpatialFeatureLayer()
         obj = layer.get_vector_tile_queryset(10, 0, 0).filter(id=feat.id).first()
         assert obj.stroke == "#ff0000"
         width_val = getattr(obj, "stroke-width", None) or getattr(obj, "stroke_width", None)
@@ -148,10 +147,8 @@ class TestSpatialFeatureTileEndpoint:
         response = view.get(request, 10, 512, 512)
         assert response.status_code in (200, 204)
         assert hasattr(view, "layers")
-        assert view.layers[0].base_root.endswith("example.org")
+        assert isinstance(view.layers[0], SpatialFeatureLayer)
         view.setup(request)
-
-        # Test that the view has the expected configuration
         assert len(view.layer_classes) == 1
         assert view.layer_classes[0] == SpatialFeatureLayer
 
