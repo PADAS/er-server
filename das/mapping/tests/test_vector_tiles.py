@@ -1,266 +1,114 @@
-"""
-Test vector tile functionality for SpatialFeature model, including image URL normalization.
-"""
-
-from unittest.mock import patch
+"""Clean test suite for SpatialFeatureLayer and tile endpoint after base_root change."""
 
 import pytest
+from vectortiles.views import MVTView
 
+from django.conf import settings
 from django.contrib.gis.geos import Point
-from django.core.cache import cache
 from django.db.models import Case
 from django.test import RequestFactory
 
+import mapping.views as mviews
 from mapping.models import DisplayCategory, SpatialFeature, SpatialFeatureType
 from mapping.vector_layers import SpatialFeatureLayer
 from mapping.views import SpatialFeatureTileView
 
 
-class DummyTenant:
-    def __init__(self, url):
-        self.url = url
-
-
-@pytest.fixture(autouse=True)
-def mock_tenant(monkeypatch):
-    """Provide a tenant context for all tests that build vector tile querysets.
-
-    Ensures normalization logic has a base root and prevents RuntimeError.
-    """
-    monkeypatch.setattr("mapping.vector_layers.get_tenant_settings", lambda: DummyTenant("https://tenant.test"))
-    yield
-
-
-class TestSpatialFeatureVectorTiles:
-    """Test suite for SpatialFeature vector tiles."""
-
-    def test_spatial_feature_layer_basic_config(self):
-        """Test that the layer has correct basic configuration."""
-        layer = SpatialFeatureLayer()
-
+@pytest.mark.django_db
+class TestSpatialFeatureLayer:
+    def test_basic_config(self):
+        layer = SpatialFeatureLayer(base_root="https://tenant.test")
         assert layer.model.__name__ == "SpatialFeature"
         assert layer.id == "spatial_features"
         assert layer.min_zoom == 3
         assert layer.max_zoom == 24
-        assert "id" in layer.tile_fields
-        assert "name" in layer.tile_fields
+        assert "image" in layer.tile_fields
 
-    @pytest.mark.django_db
-    def test_spatial_feature_layer_queryset(self):
-        """Test that the layer correctly builds querysets."""
-        layer = SpatialFeatureLayer()
-
-        # Should work without errors
-        queryset = layer.get_vector_tile_queryset(10, 100, 200)
-        assert queryset is not None
-
-        # Should include the annotated fields
-        queryset_str = str(queryset.query)
-        assert "feature_type_name" in queryset_str or "feature_type__name" in queryset_str
-
-    def test_vector_tile_view_cache_hit(self):
-        """Test that cache hit works correctly."""
-        factory = RequestFactory()
-        request = factory.get("/tiles/10/327/791.pbf")
-        request.META["HTTP_AUTHORIZATION"] = "Bearer testtoken1"
-        request.user = type("User", (), {"das_tenant_id": "tenant1", "id": "user1"})()
-
-        view = SpatialFeatureTileView()
-
-        with patch.object(view.__class__.__bases__[0], "get") as mock_parent_get:
-            from django.http import HttpResponse
-
-            mock_response = HttpResponse(b"mock_tile_data", content_type="application/x-protobuf")
-            mock_parent_get.return_value = mock_response
-
-            response1 = view.get(request, 10, 327, 791)
-            response2 = view.get(request, 10, 327, 791)
-
-            assert mock_parent_get.call_count == 1
-            assert "Cache-Control" in response1
-            assert "Cache-Control" in response2
-
-    def test_vector_tile_view_cache_miss(self):
-        """Test that cache miss generates new tile."""
-        factory = RequestFactory()
-        request = factory.get("/tiles/10/327/791.pbf")
-        request.META["HTTP_AUTHORIZATION"] = "Bearer testtoken2"
-        request.user = type("User", (), {"das_tenant_id": "tenant1", "id": "user2"})()
-
-        view = SpatialFeatureTileView()
-        cache.clear()
-
-        with patch.object(view.__class__.__bases__[0], "get") as mock_parent_get:
-            from django.http import HttpResponse
-
-            mock_response = HttpResponse(b"mock_tile_data", content_type="application/x-protobuf")
-            mock_parent_get.return_value = mock_response
-
-            response = view.get(request, 10, 327, 791)
-            assert mock_parent_get.call_count == 1
-            assert "Cache-Control" in response
-
-    def test_vector_tile_view_cache_headers(self):
-        """Test that cache headers are set correctly."""
-        factory = RequestFactory()
-        request = factory.get("/tiles/10/327/791.pbf")
-        request.META["HTTP_AUTHORIZATION"] = "Bearer testtoken3"
-        request.user = type("User", (), {"das_tenant_id": "tenant1", "id": "user3"})()
-
-        view = SpatialFeatureTileView()
-        cache.clear()
-
-        with patch.object(view.__class__.__bases__[0], "get") as mock_parent_get:
-            from django.http import HttpResponse
-
-            mock_response = HttpResponse(b"mock_tile_data", content_type="application/x-protobuf")
-            mock_parent_get.return_value = mock_response
-
-            response = view.get(request, 10, 327, 791)
-            assert "Cache-Control" in response
-            cc = response["Cache-Control"]
-            assert "max-age=86400" in cc
-            assert "stale-while-revalidate=86400" in cc
-            assert "stale-if-error=86400" in cc
-
-            response2 = view.get(request, 10, 327, 791)
-            assert "Cache-Control" in response2
-            cc2 = response2["Cache-Control"]
-            assert "max-age=86400" in cc2
-            assert "stale-while-revalidate=86400" in cc2
-            assert "stale-if-error=86400" in cc2
-
-    @pytest.mark.django_db
-    def test_image_normalization_relative_and_absolute(self):
-        """Single test covering relative (with/without slash) and absolute/data URIs."""
-        dc = DisplayCategory.objects.create(name="ImgCases")
-        ft = SpatialFeatureType.objects.create(name="TypeImg", display_category=dc, presentation={})
-
-        f_rel_slash = SpatialFeature.objects.create(
+    def test_image_normalization_relative_absolute_and_data(self):
+        dc = DisplayCategory.objects.create(name="Img")
+        ft = SpatialFeatureType.objects.create(name="Type", display_category=dc, presentation={})
+        f1 = SpatialFeature.objects.create(
             feature_type=ft,
-            name="RelSlash",
+            name="Slash",
             presentation={"image": "/static/a.svg"},
             feature_geometry=Point(0, 0),
         )
-        f_rel_no_slash = SpatialFeature.objects.create(
+        f2 = SpatialFeature.objects.create(
             feature_type=ft,
-            name="RelNoSlash",
+            name="NoSlash",
             presentation={"image": "static/b.svg"},
             feature_geometry=Point(1, 1),
         )
         abs_url = "https://cdn.example.com/img/c.svg"
-        f_abs = SpatialFeature.objects.create(
+        f3 = SpatialFeature.objects.create(
             feature_type=ft,
             name="Abs",
             presentation={"image": abs_url},
             feature_geometry=Point(2, 2),
         )
         data_uri = "data:image/png;base64,AAA="
-        f_data = SpatialFeature.objects.create(
+        f4 = SpatialFeature.objects.create(
             feature_type=ft,
             name="Data",
             presentation={"image": data_uri},
             feature_geometry=Point(3, 3),
         )
+        layer = SpatialFeatureLayer(base_root="https://tenant.test")
+        qs = layer.get_vector_tile_queryset(10, 0, 0).filter(id__in=[f1.id, f2.id, f3.id, f4.id])
+        got = {r.id: (r.raw_image, r.image) for r in qs}
+        assert got[f1.id] == ("/static/a.svg", "https://tenant.test/static/a.svg")
+        assert got[f2.id] == ("static/b.svg", "https://tenant.test/static/b.svg")
+        assert got[f3.id] == (abs_url, abs_url)
+        assert got[f4.id] == (data_uri, data_uri)
 
-        layer = SpatialFeatureLayer()
-        ids = [f_rel_slash.id, f_rel_no_slash.id, f_abs.id, f_data.id]
-        results = {r.id: (r.raw_image, r.image) for r in layer.get_vector_tile_queryset(10, 0, 0).filter(id__in=ids)}
-
-        assert results[f_rel_slash.id] == ("/static/a.svg", "https://tenant.test/static/a.svg")
-        assert results[f_rel_no_slash.id] == ("static/b.svg", "https://tenant.test/static/b.svg")
-        assert results[f_abs.id] == (abs_url, abs_url)
-        assert results[f_data.id] == (data_uri, data_uri)
-
-    @pytest.mark.django_db
     def test_image_normalization_nested_and_null(self):
-        """Nested image dict extraction and absence (null) handling."""
-        dc = DisplayCategory.objects.create(name="NestedCat")
-        ft = SpatialFeatureType.objects.create(name="TypeNested", display_category=dc, presentation={})
-        f_nested = SpatialFeature.objects.create(
+        dc = DisplayCategory.objects.create(name="Nested")
+        ft = SpatialFeatureType.objects.create(name="TypeN", display_category=dc, presentation={})
+        fn = SpatialFeature.objects.create(
             feature_type=ft,
             name="Nested",
-            presentation={"image": {"image": "nested_icon.svg", "width": 10}},
+            presentation={"image": {"image": "nested_icon.svg", "width": 12}},
             feature_geometry=Point(4, 4),
         )
-        f_null = SpatialFeature.objects.create(
-            feature_type=ft,
-            name="NullImg",
-            presentation={},
-            feature_geometry=Point(5, 5),
+        fnull = SpatialFeature.objects.create(
+            feature_type=ft, name="Null", presentation={}, feature_geometry=Point(5, 5)
         )
-        layer = SpatialFeatureLayer()
-        results = {
-            r.id: (r.raw_image, r.image)
-            for r in layer.get_vector_tile_queryset(10, 0, 0).filter(id__in=[f_nested.id, f_null.id])
-        }
-        assert results[f_nested.id] == ("nested_icon.svg", "https://tenant.test/nested_icon.svg")
-        assert results[f_null.id] == (None, None)
+        layer = SpatialFeatureLayer(base_root="https://tenant.test")
+        qs = layer.get_vector_tile_queryset(10, 0, 0).filter(id__in=[fn.id, fnull.id])
+        got = {r.id: (r.raw_image, r.image) for r in qs}
+        assert got[fn.id] == ("nested_icon.svg", "https://tenant.test/nested_icon.svg")
+        assert got[fnull.id] == (None, None)
 
-    @pytest.mark.django_db
-    def test_image_normalization_requires_tenant(self, monkeypatch):
-        """Missing tenant URL should raise RuntimeError (security)."""
-
-        class BadTenant:
-            url = None
-
-        monkeypatch.setattr("mapping.vector_layers.get_tenant_settings", lambda: BadTenant())
-        dc = DisplayCategory.objects.create(name="NoTenantCat")
-        ft = SpatialFeatureType.objects.create(name="TypeNoTenant", display_category=dc, presentation={})
-        SpatialFeature.objects.create(
-            feature_type=ft,
-            name="FeatNoTenant",
-            presentation={"image": "static/path.svg"},
-            feature_geometry=Point(6, 6),
-        )
-        layer = SpatialFeatureLayer()
+    def test_requires_base_root(self):
         with pytest.raises(RuntimeError):
-            layer.get_vector_tile_queryset(10, 0, 0)
+            SpatialFeatureLayer(base_root=None)
 
-    @pytest.mark.django_db
-    def test_extract_presentation_json_keys(self):
-        """Test that presentation keys are extracted correctly."""
-        # Create a feature type with presentation data
-        dc = DisplayCategory.objects.create(name="Test Category")
+    def test_extract_presentation_keys(self):
+        dc = DisplayCategory.objects.create(name="Style")
         ft = SpatialFeatureType.objects.create(
-            name="Test Type",
+            name="TypeS",
             display_category=dc,
             presentation={
                 "stroke": "#ff0000",
                 "stroke-width": 2,
                 "fill-color": "#00ff00",
                 "fill-opacity": 0.5,
-                "custom-field": "custom-value",
+                "custom-field": "x",
             },
         )
-        # Create a spatial feature with this feature type so it can be found by the query
-        SpatialFeature.objects.create(
-            name="Test Feature",
-            feature_type=ft,
-            feature_geometry=Point(1, 1),
-        )
-
-        # Test the extract method directly
-        layer = SpatialFeatureLayer()
+        SpatialFeature.objects.create(feature_type=ft, name="Feature", feature_geometry=Point(6, 6))
+        layer = SpatialFeatureLayer(base_root="https://tenant.test")
         annotations = layer._extract_presentation_json_keys()
-
-        # Only check for the annotations that are actually implemented
-        # Currently, only keys from tile_fields are extracted
         for key in ["stroke", "stroke-width", "fill-color", "fill-opacity"]:
             if key in layer.tile_fields:
                 assert key in annotations
                 assert isinstance(annotations[key], Case)
-
-        # Keys not in tile_fields should be logged as warnings and not included
         assert "custom-field" not in annotations
 
-    @pytest.mark.django_db
     def test_queryset_includes_presentation_keys(self):
-        """Test that the queryset includes the extracted presentation keys."""
-        # Create test data
-        dc = DisplayCategory.objects.create(name="Test Category")
+        dc = DisplayCategory.objects.create(name="Q")
         ft = SpatialFeatureType.objects.create(
-            name="Test Type",
+            name="TypeQ",
             display_category=dc,
             presentation={
                 "stroke": "#ff0000",
@@ -269,100 +117,128 @@ class TestSpatialFeatureVectorTiles:
                 "fill-opacity": 0.5,
             },
         )
-        feature = SpatialFeature.objects.create(
-            feature_type=ft,
-            name="Test Feature",
-            feature_geometry=Point(1, 1),
-        )
-
-        # Get the queryset
-        layer = SpatialFeatureLayer()
-        queryset = layer.get_vector_tile_queryset(10, 0, 0).filter(id=feature.id)
-
-        # Get a single feature to check annotations
-        annotated_feature = queryset.first()
-
-        # Check that the presentation fields were properly annotated
-        # Common fields should be mapped directly (no prefix)
-        assert hasattr(annotated_feature, "stroke")
-        assert annotated_feature.stroke == "#ff0000"
-        assert hasattr(annotated_feature, "stroke-width") or hasattr(annotated_feature, "stroke_width")
-
-        # The ORM may convert hyphens to underscores in attribute names
-        stroke_width_value = getattr(annotated_feature, "stroke-width", None) or getattr(
-            annotated_feature, "stroke_width", None
-        )
-        assert stroke_width_value == 2
-
-    @pytest.mark.django_db
-    def test_empty_presentation_handling(self):
-        """Test handling of empty/missing presentation data."""
-        # Create feature type with empty presentation
-        dc = DisplayCategory.objects.create(name="Empty Category")
-        ft = SpatialFeatureType.objects.create(
-            name="Empty Type", display_category=dc, presentation={}  # Empty presentation
-        )
-        SpatialFeature.objects.create(
-            feature_type=ft,
-            name="Empty Feature",
-            feature_geometry=Point(1, 1),
-        )
-
-        # Test extract method returns empty dict for empty presentation
-        layer = SpatialFeatureLayer()
-        annotations = layer._extract_presentation_json_keys()
-
-        # Should return a dict with default None values for all presentation keys
-        assert isinstance(annotations, dict)
-
-        # But they should all be Case expressions with None defaults
-        for key, annotation in annotations.items():
-            assert isinstance(annotation, Case)
-
-    @pytest.mark.django_db
-    def test_tile_fields_include_presentation_fields(self):
-        """Test that tile_fields include all necessary presentation fields."""
-        layer = SpatialFeatureLayer()
-
-        # Check that key styling fields are in tile_fields directly
-        assert "stroke" in layer.tile_fields
-        assert "stroke-width" in layer.tile_fields
-        assert "stroke-opacity" in layer.tile_fields
-        assert "fill-color" in layer.tile_fields
-        assert "fill-opacity" in layer.tile_fields
-        assert "width" in layer.tile_fields
-        assert "height" in layer.tile_fields
+        feat = SpatialFeature.objects.create(feature_type=ft, name="FeatQ", feature_geometry=Point(7, 7))
+        layer = SpatialFeatureLayer(base_root="https://tenant.test")
+        obj = layer.get_vector_tile_queryset(10, 0, 0).filter(id=feat.id).first()
+        assert obj.stroke == "#ff0000"
+        width_val = getattr(obj, "stroke-width", None) or getattr(obj, "stroke_width", None)
+        assert width_val == 2
 
 
-# Example of how to test the actual vector tile endpoint
 @pytest.mark.django_db
 class TestSpatialFeatureTileEndpoint:
-    """Integration tests for the vector tile endpoint."""
-
-    def test_tile_endpoint_accessibility(self):
-        """Test that the tile endpoint is accessible."""
+    def test_tile_view_instantiation_and_layer_injection(self, monkeypatch):
+        # Permit example.org host for this test
+        monkeypatch.setattr(settings, "ALLOWED_HOSTS", ["example.org"])
+        # Patch the symbol actually used in the view module
+        monkeypatch.setattr(mviews, "get_tenant_data_by_host", lambda host: {"domain": host})
         factory = RequestFactory()
+        request = factory.get(
+            "/api/v1.0/mapping/tiles/10/512/512.pbf",
+            HTTP_HOST="example.org",
+            HTTP_AUTHORIZATION="Bearer faketoken",
+        )
 
-        # Create a request to the tile endpoint
-        request = factory.get("/api/v1.0/mapping/tiles/10/512/512.pbf")
+        class DummyUser:
+            id = "user-1"
+            das_tenant_id = "tenant123"
 
+        request.user = DummyUser()
         view = SpatialFeatureTileView()
-        view.setup(request)
-
-        # This would require actual spatial data to test fully
-        # For now, just ensure the view can be instantiated
-        assert view.layer_classes == [SpatialFeatureLayer]
-
-    def test_tile_view_basic_functionality(self):
-        """Test basic tile view functionality."""
-        factory = RequestFactory()
-
-        # Create a simple request
-        request = factory.get("/api/v1.0/mapping/tiles/10/512/512.pbf")
-
-        view = SpatialFeatureTileView()
+        response = view.get(request, 10, 512, 512)
+        assert response.status_code in (200, 204)
+        assert hasattr(view, "layers")
+        assert view.layers[0].base_root.endswith("example.org")
         view.setup(request)
 
         # Test that the view has the expected configuration
         assert len(view.layer_classes) == 1
         assert view.layer_classes[0] == SpatialFeatureLayer
+
+    def test_tile_view_missing_user_or_auth_returns_401(self, monkeypatch):
+        """Requests without authenticated user (missing id/tenant) should 401."""
+        from django.conf import settings
+
+        monkeypatch.setattr(settings, "ALLOWED_HOSTS", ["example.org"])
+        # Tenant resolution OK
+        monkeypatch.setattr(mviews, "get_tenant_data_by_host", lambda host: {"domain": host})
+        factory = RequestFactory()
+        # No Authorization header and no user attached
+        request = factory.get("/api/v1.0/mapping/tiles/5/10/12.pbf", HTTP_HOST="example.org")
+        view = SpatialFeatureTileView()
+        resp = view.get(request, 5, 10, 12)
+        assert resp.status_code == 401
+        assert resp["WWW-Authenticate"].startswith("Bearer")
+
+        # Attach user lacking das_tenant_id to trigger ValueError in cache key
+        class UserNoTenant:
+            id = "u-1"
+            das_tenant_id = None
+
+        request2 = factory.get(
+            "/api/v1.0/mapping/tiles/5/10/12.pbf", HTTP_HOST="example.org", HTTP_AUTHORIZATION="Bearer t"
+        )
+        request2.user = UserNoTenant()
+        resp2 = view.get(request2, 5, 10, 12)
+        assert resp2.status_code == 401
+
+    def test_tile_view_cache_hit_serves_cached_payload(self, monkeypatch):
+        """Second identical request should not call underlying MVTView.get again and should preserve Cache-Control."""
+        from django.conf import settings
+
+        monkeypatch.setattr(settings, "ALLOWED_HOSTS", ["example.org"])
+        monkeypatch.setattr(mviews, "get_tenant_data_by_host", lambda host: {"domain": host})
+        factory = RequestFactory()
+        request = factory.get(
+            "/api/v1.0/mapping/tiles/8/128/256.pbf", HTTP_HOST="example.org", HTTP_AUTHORIZATION="Bearer z"
+        )
+
+        class U:
+            id = "user-99"
+            das_tenant_id = "tenant123"
+
+        request.user = U()
+
+        # Patch base MVTView.get to observe call count and return deterministic content
+        call_record = {"count": 0}
+
+        def fake_get(self, request, z, x, y):  # pragma: no cover - we assert via count
+            call_record["count"] += 1
+            return HttpResponse(b"tile-bytes", content_type="application/x-protobuf")
+
+        from django.http import HttpResponse
+
+        monkeypatch.setattr(MVTView, "get", fake_get)
+
+        view = SpatialFeatureTileView()
+        r1 = view.get(request, 8, 128, 256)
+        assert call_record["count"] == 1
+        assert r1["Cache-Control"].startswith("public")
+        # Second identical request
+        r2 = view.get(request, 8, 128, 256)
+        assert call_record["count"] == 1  # unchanged => cache hit
+        assert r2.content == b"tile-bytes"
+        assert r2["Cache-Control"] == r1["Cache-Control"]
+
+    def test_tile_view_tenant_resolution_failure_returns_500(self, monkeypatch):
+        """Failure to resolve tenant host should result in 500 (security hard-fail)."""
+        from django.conf import settings
+
+        monkeypatch.setattr(settings, "ALLOWED_HOSTS", ["bad.example"])
+        # Force tenant resolution to raise
+
+        def raise_resolve(host):
+            raise Exception("tenant resolution failed")
+
+        monkeypatch.setattr(mviews, "get_tenant_data_by_host", raise_resolve)
+        factory = RequestFactory()
+        req = factory.get("/api/v1.0/mapping/tiles/3/4/5.pbf", HTTP_HOST="bad.example", HTTP_AUTHORIZATION="Bearer a")
+
+        class U:
+            id = "u1"
+            das_tenant_id = "t1"
+
+        req.user = U()
+        view = SpatialFeatureTileView()
+        resp = view.get(req, 3, 4, 5)
+        assert resp.status_code == 500

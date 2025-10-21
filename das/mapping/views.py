@@ -35,6 +35,7 @@ from mapping.permissions import LayerObjectPermissions
 from mapping.vector_layers import SpatialFeatureLayer
 from utils.drf import create_json_response
 from utils.json import parse_bool
+from utils.tenant.providers import get_tenant_data_by_host
 
 logger = logging.getLogger(__name__)
 
@@ -294,7 +295,18 @@ class SpatialFeatureTileView(MVTView):
     client_stale_if_error_seconds = 86400  # serve stale if origin errors for same window
 
     def get(self, request, z, x, y):
-        layer_ids = [lc.id for lc in self.layer_classes]
+        host = request.get_host().split(":")[0]
+        try:
+            tenant_data = get_tenant_data_by_host(host)
+        except Exception:
+            return HttpResponse(status=500)  # security: do not serve tiles without resolvable tenant
+        domain = tenant_data.get("domain")
+        if not domain:
+            return HttpResponse(status=500)
+        base_root = f"{request.scheme}://{domain}".rstrip("/")
+
+        self.layers = [lc(base_root=base_root) for lc in self.layer_classes]
+        layer_ids = [layer.id for layer in self.layers]
         try:
             cache_key = build_tile_cache_key(
                 request,
@@ -308,9 +320,9 @@ class SpatialFeatureTileView(MVTView):
             return HttpResponse(
                 status=401, headers={"WWW-Authenticate": "Bearer realm=vector-tiles"}
             )  # Fast reject unauthenticated / malformed token requests
+
         cached_payload = cache.get(cache_key)
-        if cached_payload is not None:
-            # Reconstruct fresh response object to avoid mutating cached instance
+        if cached_payload is not None:  # Reconstruct fresh response object to avoid mutating cached instance
             content, content_type = cached_payload
             resp = HttpResponse(content, content_type=content_type)
             resp["Cache-Control"] = (
@@ -321,6 +333,7 @@ class SpatialFeatureTileView(MVTView):
             resp["X-Cache"] = "HIT"
             resp["Vary"] = "Authorization"
             return resp
+
         response = super().get(request, z, x, y)
         if response.status_code == 200 and response.get("Content-Type", "").startswith("application/x-protobuf"):
             cache.set(cache_key, (response.content, response.get("Content-Type")), timeout=self.cache_timeout_seconds)
@@ -333,6 +346,7 @@ class SpatialFeatureTileView(MVTView):
             f"stale-if-error={self.client_stale_if_error_seconds}"
         )
         response["Vary"] = "Authorization"
+
         return response
 
 
