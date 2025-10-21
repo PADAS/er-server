@@ -299,14 +299,12 @@ class SpatialFeatureTileView(MVTView):
         try:
             tenant_data = get_tenant_data_by_host(host)
         except Exception:
-            return HttpResponse(status=500)  # security: do not serve tiles without resolvable tenant
-        domain = tenant_data.get("domain")
-        if not domain:
             return HttpResponse(status=500)
-        base_root = f"{request.scheme}://{domain}".rstrip("/")
+        if not tenant_data.get("domain"):
+            return HttpResponse(status=500)
 
-        self.layers = [lc(base_root=base_root) for lc in self.layer_classes]
-        layer_ids = [layer.id for layer in self.layers]
+        # Use class-level ids for cache key so we can avoid instantiating layers on cache hits.
+        layer_ids = [lc.id for lc in self.layer_classes]
         try:
             cache_key = build_tile_cache_key(
                 request,
@@ -333,7 +331,8 @@ class SpatialFeatureTileView(MVTView):
             resp["X-Cache"] = "HIT"
             resp["Vary"] = "Authorization"
             return resp
-
+        # Instantiate layers only on a cache miss.
+        self.layers = [lc() for lc in self.layer_classes]
         response = super().get(request, z, x, y)
         if response.status_code == 200 and response.get("Content-Type", "").startswith("application/x-protobuf"):
             cache.set(cache_key, (response.content, response.get("Content-Type")), timeout=self.cache_timeout_seconds)
