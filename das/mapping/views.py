@@ -343,7 +343,6 @@ class SpatialFeatureTileView(MVTView):
             f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
             f"stale-if-error={self.client_stale_if_error_seconds}"
         )
-
         return response
 
 
