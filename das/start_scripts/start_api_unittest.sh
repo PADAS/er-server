@@ -5,4 +5,4 @@ wait_for $DB_HOST $DB_PORT
 . $(dirname "$0")/django_common_startup.sh
 
 uv sync --group dev --find-links /das/dependencies/wheelhouse
-uv run python3 manage.py test
+uv run python manage.py test

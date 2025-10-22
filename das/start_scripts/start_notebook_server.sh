@@ -21,4 +21,4 @@ echo $JUPYTER_NOTEBOOK_CONFIG > /root/.jupyter/jupyter_notebook_config.json
 . $(dirname "$0")/django_common_startup.sh
 
 export PYTHONPATH=/var/www/app:$PYTHONPATH
-uv run python3 manage.py shell_plus --notebook --settings=das_server.notebook_settings
+uv run python manage.py shell_plus --notebook --settings=das_server.notebook_settings
