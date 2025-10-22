@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import time
 from typing import Iterable, List, Mapping, Protocol, Sequence, Union
 from urllib.parse import urlencode
 
@@ -37,10 +38,26 @@ def get_vector_tile_cache():
         return caches["default"]
 
 
+VECTOR_TILE_DATA_VERSION_KEY = "vector_tile_data_version"
+
+
+def get_vector_tile_data_version() -> int:
+    return get_vector_tile_cache().get(VECTOR_TILE_DATA_VERSION_KEY, 0)
+
+
+def bump_vector_tile_data_version() -> None:
+    cache = get_vector_tile_cache()
+    try:
+        cache.add(VECTOR_TILE_DATA_VERSION_KEY, 0)
+        cache.incr(VECTOR_TILE_DATA_VERSION_KEY)
+    except Exception:  # pragma: no cover - defensive path
+        cache.set(VECTOR_TILE_DATA_VERSION_KEY, int(time.time()), timeout=None)
+
+
 def get_effective_cache_version():
     """Get the effective cache version combining static setting with dynamic data version."""
     static_version = getattr(settings, "VECTOR_TILE_CACHE_VERSION", "1")
-    data_version = get_vector_tile_cache().get("vector_tile_data_version", 0)
+    data_version = get_vector_tile_data_version()
     return f"{static_version}-{data_version}"
 
 
@@ -127,4 +144,11 @@ def build_tile_cache_key(
     return cache_key
 
 
-__all__ = ["build_tile_cache_key", "get_effective_cache_version", "get_vector_tile_cache"]
+__all__ = [
+    "build_tile_cache_key",
+    "get_effective_cache_version",
+    "get_vector_tile_cache",
+    "get_vector_tile_data_version",
+    "bump_vector_tile_data_version",
+    "VECTOR_TILE_DATA_VERSION_KEY",
+]
