@@ -6,7 +6,6 @@ import simplejson as json
 from rest_framework_extensions.etag.decorators import etag
 from vectortiles.views import MVTView
 
-from django.core.cache import cache
 from django.core.serializers import serialize
 from django.db.models import Count, F, Prefetch
 from django.http import Http404, HttpResponse
@@ -21,7 +20,11 @@ from rest_framework.views import APIView
 
 import mapping.serializers as serializers
 from mapping import app_settings
-from mapping.cache import build_tile_cache_key, get_effective_cache_version
+from mapping.cache import (
+    build_tile_cache_key,
+    get_effective_cache_version,
+    get_vector_tile_cache,
+)
 from mapping.models import (
     DisplayCategory,
     Map,
@@ -319,7 +322,8 @@ class SpatialFeatureTileView(MVTView):
                 status=401, headers={"WWW-Authenticate": "Bearer realm=vector-tiles"}
             )  # Fast reject unauthenticated / malformed token requests
 
-        cached_payload = cache.get(cache_key)
+        vt_cache = get_vector_tile_cache()
+        cached_payload = vt_cache.get(cache_key)
         if cached_payload is not None:  # Reconstruct fresh response object to avoid mutating cached instance
             content, content_type = cached_payload
             resp = HttpResponse(content, content_type=content_type)
@@ -334,7 +338,11 @@ class SpatialFeatureTileView(MVTView):
         self.layers = [lc() for lc in self.layer_classes]
         response = super().get(request, z, x, y)
         if response.status_code == 200 and response.get("Content-Type", "").startswith("application/x-protobuf"):
-            cache.set(cache_key, (response.content, response.get("Content-Type")), timeout=self.cache_timeout_seconds)
+            vt_cache.set(
+                cache_key,
+                (response.content, response.get("Content-Type")),
+                timeout=self.cache_timeout_seconds,
+            )
             response["X-Cache"] = "MISS"
         else:
             response["X-Cache"] = "BYPASS"

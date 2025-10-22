@@ -16,7 +16,6 @@ from django.conf import settings
 from django.contrib.gis import geos
 from django.contrib.gis.db import models
 from django.contrib.gis.db.models import GeometryField
-from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.db.models import Index, Q, UniqueConstraint
@@ -26,6 +25,7 @@ from django.utils.translation import gettext_lazy as _
 
 from core.models import DASTenant, TimestampedModel, UUIDModel
 from mapping.app_settings import MBTILES
+from mapping.cache import get_vector_tile_cache
 from mapping.lookups import (
     GEO_TYPE_LINESTRING,
     GEO_TYPE_MULTILINESTRING,
@@ -985,14 +985,16 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
 
         cache_key = "vector_tile_data_version"
         try:
-            # Increment the counter, or initialize to 1 if it doesn't exist
-            cache.add(cache_key, 0)  # Only adds if key doesn't exist
-            cache.incr(cache_key)
+            # Use the same cache alias that tile views read for data version so changes are observed.
+            vt_cache = get_vector_tile_cache()
+            vt_cache.add(cache_key, 0)  # Only adds if key doesn't exist
+            vt_cache.incr(cache_key)
         except Exception:
             # Fallback in case of cache issues - set to current timestamp
             import time
 
-            cache.set(cache_key, int(time.time()), timeout=None)
+            # Set on vector tile cache alias rather than default
+            get_vector_tile_cache().set(cache_key, int(time.time()), timeout=None)
 
     def save(self, *args, **kwargs):
         result = super().save(*args, **kwargs)
