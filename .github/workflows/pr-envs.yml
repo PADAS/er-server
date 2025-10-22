@@ -57,6 +57,7 @@ jobs:
       - name: Build Sphinx docs
         run: |
           pip3 install -r dependencies/requirements-docs.txt
+          cd docs
           make html
       - name: Upload Sphinx docs
         uses: actions/upload-artifact@v4
