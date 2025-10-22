@@ -15,11 +15,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build Sphinx docs
         run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-          uv sync --group docs
-          cd docs
-          uv run sphinx-build -b html . _build/html
+          pip3 install -r dependencies/requirements-docs.txt
+          make html
       - name: Upload Sphinx docs
         uses: actions/upload-artifact@v4
         with:
