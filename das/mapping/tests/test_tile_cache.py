@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from django.conf import settings
-from django.core.cache import cache, caches
+from django.core.cache import caches
 from django.http import HttpResponse
 from django.test import RequestFactory, override_settings
 
@@ -173,7 +173,7 @@ def test_tile_view_caching_and_authentication():
 
     with patch("vectortiles.views.MVTView.get") as parent_get:
         parent_get.return_value = HttpResponse(b"tiledata", content_type="application/x-protobuf")
-        cache.clear()
+        get_vector_tile_cache().clear()
         first = view(auth_request, z=10, x=100, y=200)
         assert first.status_code == 200
         assert first["X-Cache"] == "MISS"
@@ -197,7 +197,7 @@ def test_tile_view_cache_version_changes_key():
     with override_settings(VECTOR_TILE_CACHE_VERSION="1"):
         with patch("vectortiles.views.MVTView.get") as parent_get:
             parent_get.return_value = HttpResponse(b"tile", content_type="application/x-protobuf")
-            cache.clear()
+            get_vector_tile_cache().clear()
             first = view(req1, z=3, x=4, y=5)
             assert first["X-Cache"] == "MISS"
     with override_settings(VECTOR_TILE_CACHE_VERSION="2"):
