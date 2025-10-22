@@ -4,5 +4,5 @@ wait_for $DB_HOST $DB_PORT
 
 . $(dirname "$0")/django_common_startup.sh
 
-pip3 install -r /das/dependencies/requirements-dev.txt -f /das/dependencies/wheelhouse
-python3 manage.py test
+uv sync --group dev --find-links /das/dependencies/wheelhouse
+uv run python3 manage.py test
