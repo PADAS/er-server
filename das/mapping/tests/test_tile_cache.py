@@ -264,3 +264,122 @@ def test_effective_cache_version_reflects_bumps():
     bump_vector_tile_data_version()  # -> 2
     effective = get_effective_cache_version()
     assert effective == "12-2"
+
+
+@pytest.mark.django_db
+def test_tile_view_etag_generation():
+    """Test that ETag headers are generated consistently."""
+    rf = RequestFactory()
+    view = SpatialFeatureTileView.as_view()
+
+    auth_request = rf.get("/api/v1.0/mapping/tiles/10/100/200.pbf")
+    auth_request.META["HTTP_AUTHORIZATION"] = "Bearer mytoken123"
+    auth_request.user = DummyUser("tenantZZ")
+
+    with patch("vectortiles.views.MVTView.get") as parent_get:
+        parent_get.return_value = HttpResponse(b"tiledata", content_type="application/x-protobuf")
+        get_vector_tile_cache().clear()
+
+        # First request should include ETag
+        first = view(auth_request, z=10, x=100, y=200)
+        assert first.status_code == 200
+        assert first["X-Cache"] == "MISS"
+        assert "ETag" in first
+        etag_value = first["ETag"]
+        assert etag_value.startswith('"') and etag_value.endswith('"')
+
+        # Second identical request should have same ETag
+        second = view(auth_request, z=10, x=100, y=200)
+        assert second.status_code == 200
+        assert second["X-Cache"] == "HIT"
+        assert second["ETag"] == etag_value
+
+
+@pytest.mark.django_db
+def test_tile_view_304_not_modified():
+    """Test that 304 Not Modified is returned when client sends matching ETag."""
+    rf = RequestFactory()
+    view = SpatialFeatureTileView.as_view()
+
+    auth_request = rf.get("/api/v1.0/mapping/tiles/10/100/200.pbf")
+    auth_request.META["HTTP_AUTHORIZATION"] = "Bearer mytoken123"
+    auth_request.user = DummyUser("tenantZZ")
+
+    with patch("vectortiles.views.MVTView.get") as parent_get:
+        parent_get.return_value = HttpResponse(b"tiledata", content_type="application/x-protobuf")
+        get_vector_tile_cache().clear()
+
+        # First request to get ETag
+        first = view(auth_request, z=10, x=100, y=200)
+        assert first.status_code == 200
+        etag_value = first["ETag"]
+
+        # Second request with If-None-Match should return 304
+        conditional_request = rf.get("/api/v1.0/mapping/tiles/10/100/200.pbf")
+        conditional_request.META["HTTP_AUTHORIZATION"] = "Bearer mytoken123"
+        conditional_request.META["HTTP_IF_NONE_MATCH"] = etag_value
+        conditional_request.user = DummyUser("tenantZZ")
+
+        second = view(conditional_request, z=10, x=100, y=200)
+        assert second.status_code == 304
+        assert second["ETag"] == etag_value
+        assert "Cache-Control" in second
+        assert len(second.content) == 0  # 304 responses have no body
+
+
+@pytest.mark.django_db
+def test_tile_view_etag_different_for_different_cache_keys():
+    """Test that different cache keys generate different ETags."""
+    rf = RequestFactory()
+
+    # Different tile coordinates - make URL and view call coordinates match
+    req1 = rf.get("/api/v1.0/mapping/tiles/10/100/200.pbf")
+    req1.META["HTTP_AUTHORIZATION"] = "Bearer mytoken123"
+    req1.user = DummyUser("tenantZZ")
+
+    req2 = rf.get("/api/v1.0/mapping/tiles/10/100/201.pbf")  # Different Y coordinate
+    req2.META["HTTP_AUTHORIZATION"] = "Bearer mytoken123"
+    req2.user = DummyUser("tenantZZ")
+
+    with patch("vectortiles.views.MVTView.get") as parent_get:
+        # Return a new HttpResponse object for each call to avoid mutation issues
+        parent_get.side_effect = lambda *args, **kwargs: HttpResponse(
+            b"tiledata", content_type="application/x-protobuf"
+        )
+        get_vector_tile_cache().clear()
+
+        # Create separate view instances to avoid any reuse issues
+        view1 = SpatialFeatureTileView.as_view()
+        view2 = SpatialFeatureTileView.as_view()
+
+        first = view1(req1, z=10, x=100, y=200)
+        second = view2(req2, z=10, x=100, y=201)
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert first["ETag"] != second["ETag"]  # Different tiles should have different ETags
+
+
+@pytest.mark.django_db
+def test_tile_view_304_bypassed_with_different_etag():
+    """Test that requests with non-matching ETags are not returned as 304."""
+    rf = RequestFactory()
+    view = SpatialFeatureTileView.as_view()
+
+    auth_request = rf.get("/api/v1.0/mapping/tiles/10/100/200.pbf")
+    auth_request.META["HTTP_AUTHORIZATION"] = "Bearer mytoken123"
+    auth_request.user = DummyUser("tenantZZ")
+
+    with patch("vectortiles.views.MVTView.get") as parent_get:
+        parent_get.return_value = HttpResponse(b"tiledata", content_type="application/x-protobuf")
+        get_vector_tile_cache().clear()
+
+        # Request with wrong ETag should not return 304
+        wrong_etag_request = rf.get("/api/v1.0/mapping/tiles/10/100/200.pbf")
+        wrong_etag_request.META["HTTP_AUTHORIZATION"] = "Bearer mytoken123"
+        wrong_etag_request.META["HTTP_IF_NONE_MATCH"] = '"wrong-etag-value"'
+        wrong_etag_request.user = DummyUser("tenantZZ")
+
+        response = view(wrong_etag_request, z=10, x=100, y=200)
+        assert response.status_code == 200  # Not 304
+        assert response["X-Cache"] == "MISS"  # Should still process normally
