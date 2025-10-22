@@ -2,9 +2,8 @@
 . $(dirname "$0")/wait_for.sh
 wait_for $DB_HOST $DB_PORT
 
-pip3 install oauth2client
-pip3 install django-extensions
-pip3 install jupyterlab
+# Install notebook-specific dependencies
+uv add oauth2client django-extensions jupyterlab
 
 # This writes a default password `dasdasdas`.
 # TODO: Find a way to make this easily configurable.
@@ -22,4 +21,4 @@ echo $JUPYTER_NOTEBOOK_CONFIG > /root/.jupyter/jupyter_notebook_config.json
 . $(dirname "$0")/django_common_startup.sh
 
 export PYTHONPATH=/var/www/app:$PYTHONPATH
-python3 manage.py shell_plus --notebook --settings=das_server.notebook_settings
+uv run python3 manage.py shell_plus --notebook --settings=das_server.notebook_settings
