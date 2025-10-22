@@ -8,9 +8,12 @@ from django.http import HttpResponse
 from django.test import RequestFactory, override_settings
 
 from mapping.cache import (
+    VECTOR_TILE_DATA_VERSION_KEY,
     build_tile_cache_key,
+    bump_vector_tile_data_version,
     get_effective_cache_version,
     get_vector_tile_cache,
+    get_vector_tile_data_version,
 )
 from mapping.views import SpatialFeatureTileView
 
@@ -230,3 +233,34 @@ def test_get_vector_tile_cache_returns_configured_alias():
         expected = caches["default"]  # fallback if alias missing
     vt_cache = get_vector_tile_cache()
     assert vt_cache is expected
+
+
+@pytest.mark.django_db
+def test_vector_tile_data_version_initial_zero():
+    # Clearing to ensure a clean slate
+    get_vector_tile_cache().clear()
+    assert get_vector_tile_data_version() == 0
+
+
+@pytest.mark.django_db
+def test_bump_vector_tile_data_version_increments():
+    cache = get_vector_tile_cache()
+    cache.delete(VECTOR_TILE_DATA_VERSION_KEY)
+    v0 = get_vector_tile_data_version()
+    bump_vector_tile_data_version()
+    v1 = get_vector_tile_data_version()
+    bump_vector_tile_data_version()
+    v2 = get_vector_tile_data_version()
+    assert v0 == 0
+    assert v1 == 1
+    assert v2 == 2
+
+
+@pytest.mark.django_db
+@override_settings(VECTOR_TILE_CACHE_VERSION="12")
+def test_effective_cache_version_reflects_bumps():
+    get_vector_tile_cache().clear()
+    bump_vector_tile_data_version()  # -> 1
+    bump_vector_tile_data_version()  # -> 2
+    effective = get_effective_cache_version()
+    assert effective == "12-2"
