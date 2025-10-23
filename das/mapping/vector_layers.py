@@ -85,6 +85,7 @@ class SpatialFeatureLayer(VectorLayer):
 
         return (
             self.model.objects.select_related("feature_type", "feature_type__display_category")
+            .filter(feature_type__is_visible=True)
             .filter(feature_type__display_category__isnull=False)
             .annotate(
                 feature_type_name=F("feature_type__name"),
