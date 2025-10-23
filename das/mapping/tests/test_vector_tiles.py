@@ -22,6 +22,9 @@ class TestSpatialFeatureLayer:
         assert layer.id == "spatial_features"
         assert layer.min_zoom == 3
         assert layer.max_zoom == 24
+        # Check essential fields are present
+        assert "id" in layer.tile_fields
+        assert "name" in layer.tile_fields
         assert "image" in layer.tile_fields
 
     def test_image_normalization_relative_absolute_and_data(self):

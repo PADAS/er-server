@@ -41,11 +41,7 @@ class SpatialFeatureLayer(VectorLayer):
             "id",
             "name",
             "short_name",
-            "external_id",
             "description",
-            "feature_type_id",
-            "feature_type_name",
-            "display_category_name",
             "attributes",
             *self.presentation_keys,
         )
