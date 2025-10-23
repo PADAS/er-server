@@ -27,6 +27,7 @@ class SpatialFeatureLayer(VectorLayer):
             "stroke",
             "stroke-width",
             "stroke-opacity",
+            "fill",
             "fill-color",
             "fill-opacity",
             "width",
@@ -53,45 +54,47 @@ class SpatialFeatureLayer(VectorLayer):
         return self._build_base_queryset()
 
     def _build_base_queryset(self):
-        qs = (
+        image_expr = Case(
+            When(
+                presentation__image__has_key="image",
+                then=KeyTextTransform("image", KeyTextTransform("image", F("presentation"))),
+            ),
+            When(
+                presentation__has_key="image",
+                then=KeyTextTransform("image", F("presentation")),
+            ),
+            When(
+                presentation__has_key="icon_url",
+                then=KeyTextTransform("icon_url", F("presentation")),
+            ),
+            When(
+                feature_type__presentation__image__has_key="image",
+                then=KeyTextTransform("image", KeyTextTransform("image", F("feature_type__presentation"))),
+            ),
+            When(
+                feature_type__presentation__has_key="image",
+                then=KeyTextTransform("image", F("feature_type__presentation")),
+            ),
+            When(
+                feature_type__presentation__has_key="icon_url",
+                then=KeyTextTransform("icon_url", F("feature_type__presentation")),
+            ),
+            default=Value(None),
+            output_field=CharField(),
+        )
+
+        return (
             self.model.objects.select_related("feature_type", "feature_type__display_category")
+            .filter(feature_type__is_visible=True)
             .filter(feature_type__display_category__isnull=False)
             .annotate(
                 feature_type_name=F("feature_type__name"),
                 display_category_name=F("feature_type__display_category__name"),
                 geom=Transform(Cast(F("feature_geometry"), gis_models.GeometryField()), 3857),
                 **self._extract_presentation_json_keys(),
-                image=Case(
-                    When(
-                        presentation__image__has_key="image",
-                        then=KeyTextTransform("image", KeyTextTransform("image", F("presentation"))),
-                    ),
-                    When(
-                        presentation__has_key="image",
-                        then=KeyTextTransform("image", F("presentation")),
-                    ),
-                    When(
-                        presentation__has_key="icon_url",
-                        then=KeyTextTransform("icon_url", F("presentation")),
-                    ),
-                    When(
-                        feature_type__presentation__image__has_key="image",
-                        then=KeyTextTransform("image", KeyTextTransform("image", F("feature_type__presentation"))),
-                    ),
-                    When(
-                        feature_type__presentation__has_key="image",
-                        then=KeyTextTransform("image", F("feature_type__presentation")),
-                    ),
-                    When(
-                        feature_type__presentation__has_key="icon_url",
-                        then=KeyTextTransform("icon_url", F("feature_type__presentation")),
-                    ),
-                    default=Value(None),
-                    output_field=CharField(),
-                ),
+                image=image_expr,
             )
         )
-        return qs
 
     def _extract_presentation_json_keys(self):
         annotations = {}
@@ -101,11 +104,7 @@ class SpatialFeatureLayer(VectorLayer):
             if key == "image":
                 continue
 
-            if key in {"stroke-width", "width", "height"}:
-                output_field = FloatField()
-                then_self = Cast(KeyTextTransform(key, F("presentation")), FloatField())
-                then_ft = Cast(KeyTextTransform(key, F("feature_type__presentation")), FloatField())
-            elif key in {"stroke-opacity", "fill-opacity"}:
+            if key in {"stroke-width", "width", "height", "stroke-opacity", "fill-opacity"}:
                 output_field = FloatField()
                 then_self = Cast(KeyTextTransform(key, F("presentation")), FloatField())
                 then_ft = Cast(KeyTextTransform(key, F("feature_type__presentation")), FloatField())
