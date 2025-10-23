@@ -369,6 +369,12 @@ class EventTypeSchemaView(ListCreateAPIView):
         return json.loads(schema)
 
     def _clean_curly_brackets(self, value):
+        # This is used to remove the curly brackets from a tag property enum or enumNames
+        # something like {{enum___field_name___values}}. But some users have been
+        # directly adding full enum lists and enum dicts directly in the schema.
+        # if we detect that here, turn None.
+        if not isinstance(value, str):
+            return None
         return value.replace("{{", "").replace("}}", "")
 
 
