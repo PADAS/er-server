@@ -323,6 +323,24 @@ class SpatialFeatureTileView(MVTView):
             )  # Fast reject unauthenticated / malformed token requests
 
         vt_cache = get_vector_tile_cache()
+        # Generate ETag based on cache key for consistent versioning
+        # Use SHA256 instead of MD5 for better collision resistance
+        etag_hash = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()[:16]
+        etag_value = f'"{etag_hash}"'
+
+        # Check if client has current version
+        client_etag = request.META.get("HTTP_IF_NONE_MATCH")
+        if client_etag == etag_value:
+            # Client has current version, send 304
+            resp = HttpResponse(status=304)
+            resp["ETag"] = etag_value
+            resp["Cache-Control"] = (
+                "public, max-age="
+                f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
+                f"stale-if-error={self.client_stale_if_error_seconds}"
+            )
+            return resp
+
         cached_payload = vt_cache.get(cache_key)
         if cached_payload is not None:  # Reconstruct fresh response object to avoid mutating cached instance
             content, content_type = cached_payload
@@ -332,6 +350,7 @@ class SpatialFeatureTileView(MVTView):
                 f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
                 f"stale-if-error={self.client_stale_if_error_seconds}"
             )
+            resp["ETag"] = etag_value
             resp["X-Cache"] = "HIT"
             return resp
         # Instantiate layers only on a cache miss.
@@ -339,9 +358,7 @@ class SpatialFeatureTileView(MVTView):
         response = super().get(request, z, x, y)
         if response.status_code == 200 and response.get("Content-Type", "").startswith("application/x-protobuf"):
             vt_cache.set(
-                cache_key,
-                (response.content, response.get("Content-Type")),
-                timeout=self.cache_timeout_seconds,
+                cache_key, (response.content, response.get("Content-Type")), timeout=self.cache_timeout_seconds
             )
             response["X-Cache"] = "MISS"
         else:
@@ -351,6 +368,7 @@ class SpatialFeatureTileView(MVTView):
             f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
             f"stale-if-error={self.client_stale_if_error_seconds}"
         )
+        response["ETag"] = etag_value
         return response
 
 
