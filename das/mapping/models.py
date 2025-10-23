@@ -26,6 +26,7 @@ from django.utils.translation import gettext_lazy as _
 
 from core.models import DASTenant, TimestampedModel, UUIDModel
 from mapping.app_settings import MBTILES
+from mapping.cache import bump_vector_tile_data_version
 from mapping.lookups import (
     GEO_TYPE_LINESTRING,
     GEO_TYPE_MULTILINESTRING,
@@ -875,8 +876,18 @@ class SpatialFeatureType(TenantModelMixin, TimestampedModel):
                 self.presentation["stroke-opacity"] = float(self.presentation.get("stroke-opacity"))
         except ValueError as exc:
             logger.warning(exc)
-        finally:
-            super(SpatialFeatureType, self).save(*args, **kwargs)
+
+        super(SpatialFeatureType, self).save(*args, **kwargs)
+        self._bump_cache_version()
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        self._bump_cache_version()
+        return result
+
+    def _bump_cache_version(self):
+        """Increment the vector tile cache version to invalidate cached tiles."""
+        bump_vector_tile_data_version()
 
 
 class SpatialFeatureTypeTags(TenantModelMixin, UUIDModel):
@@ -982,17 +993,7 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
 
     def _bump_cache_version(self):
         """Increment the vector tile cache version to invalidate cached tiles."""
-
-        cache_key = "vector_tile_data_version"
-        try:
-            # Increment the counter, or initialize to 1 if it doesn't exist
-            cache.add(cache_key, 0)  # Only adds if key doesn't exist
-            cache.incr(cache_key)
-        except Exception:
-            # Fallback in case of cache issues - set to current timestamp
-            import time
-
-            cache.set(cache_key, int(time.time()), timeout=None)
+        bump_vector_tile_data_version()
 
     def save(self, *args, **kwargs):
         result = super().save(*args, **kwargs)
