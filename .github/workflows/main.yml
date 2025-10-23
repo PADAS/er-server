@@ -15,8 +15,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build Sphinx docs
         run: |
-          pip3 install -r dependencies/requirements-docs.txt
           cd docs
+          uv venv --python=python3.12
+          uv pip install -r requirements-docs.txt
+          source .venv/bin/activate
           make html
       - name: Upload Sphinx docs
         uses: actions/upload-artifact@v4
