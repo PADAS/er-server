@@ -2,30 +2,32 @@
 Used in our production docker images
 """
 
+import os
+
 from .settings import *
+from .settings import (
+    BASE_DIR,
+    CACHES,
+    DEFAULT_CACHE_ALIAS,
+    REDIS_SERVER,
+    SHARED_CACHE_ALIAS,
+    env,
+)
 
-# Let CACHES depend on settings.CELERY_ configuration.
-
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_SERVER,
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
-        "KEY_FUNCTION": "utils.tenant.cache.make_cache_key",
-    },
-    SHARED_CACHE_ALIAS: {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_SERVER,
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
-        "KEY_PREFIX": "shared",
-    },
-    VECTOR_TILE_CACHE_ALIAS: {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_SERVER,
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
-        "KEY_PREFIX": "vector-tiles",
-    },
+CACHES[DEFAULT_CACHE_ALIAS] = {
+    "BACKEND": "django_redis.cache.RedisCache",
+    "LOCATION": REDIS_SERVER,
+    "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+    "KEY_FUNCTION": "utils.tenant.cache.make_cache_key",
 }
+
+CACHES[SHARED_CACHE_ALIAS] = {
+    "BACKEND": "django_redis.cache.RedisCache",
+    "LOCATION": REDIS_SERVER,
+    "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+    "KEY_PREFIX": "shared",
+}
+
 
 MEDIA_ROOT = "/user-uploads"
 MEDIA_URL = "http://localhost:8000/media/user-uploads/"
