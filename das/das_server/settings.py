@@ -328,37 +328,6 @@ ASYNC_MODE = "eventlet"
 GEOS_LIBRARY_PATH = env.str("GEOS_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu/libgeos_c.so.1")
 GDAL_LIBRARY_PATH = env.str("GDAL_LIBRARY_PATH", "/usr/lib/libgdal.so")
 
-SHARED_CACHE_ALIAS = "shared"
-VECTOR_TILE_CACHE_ALIAS = "vector_tiles"
-
-# Define Redis port early for use in cache configuration
-# in kubernetes, the environment variable are
-# REDIS_SERVICE_HOST, REDIS_SERVICE_PORT
-REDIS_PORT = env.int("REDIS_SERVICE_PORT", 0)
-if not REDIS_PORT:
-    REDIS_PORT = env.int("REDIS_PORT", 6379)
-
-# Vector tiles cache Redis location (dedicated in deployed contexts)
-_vt_redis_host = env.str("REDIS_HOST_VT", "redis-vt")
-_vt_redis_server = f"redis://{_vt_redis_host}:{REDIS_PORT}"
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "unique-snowflake",
-        "KEY_FUNCTION": "utils.tenant.cache.make_cache_key",
-    },
-    SHARED_CACHE_ALIAS: {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "shared-cache",
-        "KEY_PREFIX": "shared",
-    },
-    VECTOR_TILE_CACHE_ALIAS: {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": _vt_redis_server,
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
-        "KEY_PREFIX": "vector-tiles",
-    },
-}
 
 RASTER_WORKDIR = "/tmp/raster"
 
@@ -374,7 +343,12 @@ MAPPING = {
     }
 }
 
-REDIS_HOST = env.str("REDIS_HOST", "redis")
+# In the ST environment variable are
+# REDIS_SERVICE_HOST, REDIS_SERVICE_PORT
+# In the MT environment variables are
+# REDIS_HOST, REDIS_PORT
+REDIS_PORT = env.int("REDIS_SERVICE_PORT", env.int("REDIS_PORT", 6379))
+REDIS_HOST = env.str("REDIS_SERVICE_HOST", env.str("REDIS_HOST", "redis"))
 REDIS_SERVER = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 REALTIME_BROKER_URL = f"{REDIS_SERVER}/2"
 REALTIME_BROKER_OPTIONS = {"max_connections": 200}
@@ -411,6 +385,34 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600, "fanout_prefix": 
 
 # task:
 CELERY_TASK_TRACK_STARTED = True
+
+DEFAULT_CACHE_ALIAS = "default"
+SHARED_CACHE_ALIAS = "shared"
+VECTOR_TILE_CACHE_ALIAS = "vector_tiles"
+
+
+# Vector tiles cache Redis location (dedicated in deployed contexts)
+_vt_redis_host = env.str("REDIS_VT_SERVICE_HOST", env.str("REDIS_HOST_VT", "redis-vt"))
+_vt_redis_server = f"redis://{_vt_redis_host}:{REDIS_PORT}"
+CACHES = {
+    DEFAULT_CACHE_ALIAS: {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake",
+        "KEY_FUNCTION": "utils.tenant.cache.make_cache_key",
+    },
+    SHARED_CACHE_ALIAS: {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "shared-cache",
+        "KEY_PREFIX": "shared",
+    },
+    VECTOR_TILE_CACHE_ALIAS: {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": _vt_redis_server,
+        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+        "KEY_PREFIX": "vector-tiles",
+    },
+}
+
 
 # the address to send notification emails from
 FROM_EMAIL = "notifications@pamdas.org"
