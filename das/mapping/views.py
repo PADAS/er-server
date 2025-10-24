@@ -19,6 +19,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 import mapping.serializers as serializers
+from das_server.views import CustomSchema
 from mapping import app_settings
 from mapping.cache import (
     build_tile_cache_key,
@@ -287,7 +288,8 @@ class SpatialFeatureTileView(MVTView):
 
     layer_classes = [SpatialFeatureLayer]
     permission_classes = (LayerObjectPermissions,)
-    content_type = "application/vnd.mapbox-vector-tile"  # Override vectortiles default content type
+    content_type = "application/vnd.mapbox-vector-tile"
+    schema = CustomSchema()
 
     # Server-side cache TTL (seconds). Keep a little longer than client max-age so we can
     # usually revalidate from server cache rather than hitting the DB immediately.
