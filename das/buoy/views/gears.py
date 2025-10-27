@@ -200,7 +200,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         # )
         try:
 
-            logger.info("Sending %d observations to Gundi with integration_id: %s", len(observations), integration_id)
+            logger.info("Sending %d observations to Gundi with integration_id: %s", len(observations), "integration_id")
 
             # Convert async function to sync using async_to_sync
             result = async_to_sync(send_observations_to_gundi)(
