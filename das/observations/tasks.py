@@ -416,7 +416,7 @@ def send_observations_to_gundi_async(self, observations, integration_id, **kwarg
         result = async_to_sync(send_observations_to_gundi)(
             observations=observations,
             integration_id=integration_id,
-            sensors_api_base_url=kwargs.get("sensors_api_base_url"),
+            sensors_api_base_url="https://sensors.api.stage.gundiservice.org",
         )
 
         logger.info("Successfully sent %d observations to Gundi. Result: %s", len(observations), result)
