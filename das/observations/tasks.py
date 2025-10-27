@@ -10,6 +10,7 @@ from celery_once import QueueOnce
 from google.api_core import exceptions
 from google.cloud import storage
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.db.models import F
@@ -413,7 +414,9 @@ def send_observations_to_gundi_async(self, observations, integration_id, **kwarg
         logger.info("Sending %d observations to Gundi with integration_id: %s", len(observations), integration_id)
 
         # Convert async function to sync using async_to_sync
-        result = async_to_sync(send_observations_to_gundi)(observations=observations, integration_id=integration_id)
+        result = async_to_sync(send_observations_to_gundi)(
+            observations=observations, integration_id=integration_id, sensors_api_base_url=settings.SENSORS_API_BASE_URL
+        )
 
         logger.info("Successfully sent %d observations to Gundi. Result: %s", len(observations), result)
 

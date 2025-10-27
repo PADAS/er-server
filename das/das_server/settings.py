@@ -726,4 +726,6 @@ else:
 # Initialize ALT_SERVER_NAMES as an empty list
 ALT_SERVER_NAMES = []
 
+GUNDI_API_BASE_URL = env.str("GUNDI_API_BASE_URL", "https://api.stage.gundiservice.org")
+SENSORS_API_BASE_URL = env.str("SENSORS_API_BASE_URL", "https://sensors.api.stage.gundiservice.org")
 BUOY_GUNDI_INTEGRATION_ID = env.str("BUOY_GUNDI_INTEGRATION_ID", "9682ac76-e248-405c-a7f3-bff654460bc3")
