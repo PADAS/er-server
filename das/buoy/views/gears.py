@@ -189,12 +189,13 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
         domain = get_tenant_settings().domain
         task_result = send_observations_to_gundi_async.apply_async(
-            args=(observations, settings.BUOY_GUNDI_INTEGRATION_ID), kwargs={"domain": domain}
+            args=(observations, settings.BUOY_GUNDI_INTEGRATION_ID),
+            kwargs={"domain": domain, "sensors_api_base_url": settings.SENSORS_API_BASE_URL},
         )
 
         return Response(
             {
-                "detail": f"Gears created successfully and queued for processing. {settings.SENSORS_API_BASE_URL}",
+                "detail": f"Gears successfully queued for processing. {settings.SENSORS_API_BASE_URL}",
                 "task_id": task_result.id,
             },
             status=201,
