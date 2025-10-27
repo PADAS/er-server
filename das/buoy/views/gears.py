@@ -220,7 +220,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         return Response(
             {
                 "detail": f"Gears queued successfully for processing. {settings.SENSORS_API_BASE_URL}",
-                "task_id": task_result.id,
+                "task_id": None,  # task_result.id,
             },
             status=201,
         )
