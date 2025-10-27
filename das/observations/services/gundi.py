@@ -1,6 +1,9 @@
+import logging
 from typing import List
 
 from gundi_client_v2.client import GundiClient, GundiDataSenderClient
+
+logger = logging.getLogger(__name__)
 
 
 async def _get_gundi_api_key(integration_id):
@@ -8,11 +11,15 @@ async def _get_gundi_api_key(integration_id):
         return await gundi_client.get_integration_api_key(integration_id=integration_id)
 
 
-async def _get_sensors_api_client(integration_id):
+async def _get_sensors_api_client(integration_id, sensors_api_base_url):
     gundi_api_key = await _get_gundi_api_key(integration_id=integration_id)
     if not gundi_api_key:
         raise ValueError(f"Cannot get a valid API Key for integration {integration_id}")
-    sensors_api_client = GundiDataSenderClient(integration_api_key=gundi_api_key)
+    sensors_api_client = GundiDataSenderClient(
+        integration_api_key=gundi_api_key, sensors_api_base_url=sensors_api_base_url
+    )
+
+    logger.info(f"Instantiated GundiDataSenderClient with URL {sensors_api_client.sensors_api_endpoint}")
     return sensors_api_client
 
 
@@ -41,5 +48,7 @@ async def send_observations_to_gundi(observations: List[dict], **kwargs) -> dict
     """
     integration_id = kwargs.get("integration_id")
     assert integration_id, "integration_id is required"
-    sensors_api_client = await _get_sensors_api_client(integration_id=str(integration_id))
+    sensors_api_client = await _get_sensors_api_client(
+        integration_id=str(integration_id), sensors_api_base_url=kwargs.get("sensors_api_base_url")
+    )
     return await sensors_api_client.post_observations(data=observations)
