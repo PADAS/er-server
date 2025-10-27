@@ -10,7 +10,6 @@ from celery_once import QueueOnce
 from google.api_core import exceptions
 from google.cloud import storage
 
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.db.models import F
@@ -413,19 +412,11 @@ def send_observations_to_gundi_async(self, observations, integration_id, **kwarg
 
         logger.info("Sending %d observations to Gundi with integration_id: %s", len(observations), integration_id)
 
-        sensors_api_base_url = kwargs.get("sensors_api_base_url") or settings.SENSORS_API_BASE_URL
-
-        if not sensors_api_base_url:
-            raise ValueError("SENSORS_API_BASE_URL is not configured")
-
-        if not sensors_api_base_url.startswith(("http://", "https://")):
-            raise ValueError(
-                f"SENSORS_API_BASE_URL must start with 'http://' or 'https://'. Got: {sensors_api_base_url}"
-            )
-
         # Convert async function to sync using async_to_sync
         result = async_to_sync(send_observations_to_gundi)(
-            observations=observations, integration_id=integration_id, sensors_api_base_url=sensors_api_base_url
+            observations=observations,
+            integration_id=integration_id,
+            sensors_api_base_url=kwargs.get("sensors_api_base_url"),
         )
 
         logger.info("Successfully sent %d observations to Gundi. Result: %s", len(observations), result)
