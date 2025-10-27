@@ -198,12 +198,16 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         # )
         try:
 
-            logger.info("Sending %d observations to Gundi with integration_id: %s", len(observations), "integration_id")
+            logger.info(
+                "Sending %d observations to Gundi with integration_id: %s",
+                len(observations),
+                "9682ac76-e248-405c-a7f3-bff654460bc3",
+            )
 
             # Convert async function to sync using async_to_sync
             result = async_to_sync(send_observations_to_gundi)(
                 observations=observations,
-                integration_id=integration_id,
+                integration_id="9682ac76-e248-405c-a7f3-bff654460bc3",
                 sensors_api_base_url="https://sensors.api.stage.gundiservice.org",
             )
 
@@ -217,7 +221,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
         return Response(
             {
-                "detail": f"Gears queued successfully for processing. {settings.SENSORS_API_BASE_URL}",
+                "detail": f"Gears successfully queued for processing. {settings.SENSORS_API_BASE_URL}",
                 "task_id": None,  # task_result.id,
             },
             status=201,
