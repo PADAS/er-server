@@ -26,10 +26,10 @@ async def _get_sensors_api_client(integration_id, sensors_api_base_url):
         raise ValueError(f"sensors_api_base_url must start with 'http://' or 'https://'. Got: {sensors_api_base_url}")
 
     sensors_api_client = GundiDataSenderClient(
-        integration_api_key=gundi_api_key, sensors_api_base_url=sensors_api_base_url
+        integration_api_key=gundi_api_key,
+        sensors_api_base_url="https://sensors.api.stage.gundiservice.org",
     )
 
-    logger.info(f"Instantiated GundiDataSenderClient with URL {sensors_api_client.sensors_api_endpoint}")
     return sensors_api_client
 
 
