@@ -1,3 +1,4 @@
+from asgiref.sync import async_to_sync
 from drf_spectacular.utils import (
     OpenApiResponse,
     extend_schema,
@@ -20,14 +21,13 @@ from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
-from observations.tasks import send_observations_to_gundi_async
+from observations.services.gundi import send_observations_to_gundi
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import (
     ForbiddenAPIException,
     StandardObjectPermissions,
     StandardResultsSetPagination,
 )
-from utils.tenant import get_tenant_settings
 
 
 @extend_schema_view(
@@ -187,11 +187,34 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         serializer.is_valid(raise_exception=True)
         observations = serializer.save()
 
-        domain = get_tenant_settings().domain
-        task_result = send_observations_to_gundi_async.apply_async(
-            args=(observations, settings.BUOY_GUNDI_INTEGRATION_ID),
-            kwargs={"domain": domain, "sensors_api_base_url": settings.SENSORS_API_BASE_URL},
-        )
+        # domain = get_tenant_settings().domain
+        # task_result = send_observations_to_gundi_async.apply_async(
+        #     args=(observations, settings.BUOY_GUNDI_INTEGRATION_ID),
+        #     kwargs={"domain": domain, "sensors_api_base_url": settings.SENSORS_API_BASE_URL},
+        # )
+        try:
+
+            logger.info("Sending %d observations to Gundi with integration_id: %s", len(observations), integration_id)
+
+            # Convert async function to sync using async_to_sync
+            result = async_to_sync(send_observations_to_gundi)(
+                observations=observations,
+                integration_id=integration_id,
+                sensors_api_base_url="https://sensors.api.stage.gundiservice.org",
+            )
+
+            logger.info("Successfully sent %d observations to Gundi. Result: %s", len(observations), result)
+
+            return result
+
+        except Exception as exc:
+            logger.error(
+                "Failed to send observations to Gundi (attempt %d/%d): %s",
+                self.request.retries + 1,
+                self.max_retries + 1,
+                exc,
+            )
+            self.retry(exc=exc, retry_backoff=True)
 
         return Response(
             {
