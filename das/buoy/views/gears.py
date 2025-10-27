@@ -188,7 +188,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         observations = serializer.save()
 
         domain = get_tenant_settings().domain
-        task_result = send_observations_to_gundi_async.apply_async(
+        task_result = send_observations_to_gundi_async(
             args=(observations, settings.BUOY_GUNDI_INTEGRATION_ID),
             kwargs={"domain": domain, "sensors_api_base_url": settings.SENSORS_API_BASE_URL},
         )
