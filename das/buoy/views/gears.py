@@ -1,3 +1,5 @@
+import logging
+
 from asgiref.sync import async_to_sync
 from drf_spectacular.utils import (
     OpenApiResponse,
@@ -28,6 +30,8 @@ from utils.drf import (
     StandardObjectPermissions,
     StandardResultsSetPagination,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @extend_schema_view(
@@ -218,7 +222,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
         return Response(
             {
-                "detail": f"Gears successfully queued for processing. {settings.SENSORS_API_BASE_URL}",
+                "detail": f"Gears queued successfully for processing. {settings.SENSORS_API_BASE_URL}",
                 "task_id": task_result.id,
             },
             status=201,
