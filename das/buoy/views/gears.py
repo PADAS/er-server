@@ -209,16 +209,11 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
             logger.info("Successfully sent %d observations to Gundi. Result: %s", len(observations), result)
 
-            return result
-
         except Exception as exc:
             logger.error(
                 "Failed to send observations to Gundi (attempt %d/%d): %s",
-                self.request.retries + 1,
-                self.max_retries + 1,
                 exc,
             )
-            self.retry(exc=exc, retry_backoff=True)
 
         return Response(
             {
