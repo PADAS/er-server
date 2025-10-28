@@ -217,8 +217,15 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
         except Exception as exc:
             logger.error(
-                "Failed to send observations to Gundi (attempt %d/%d): %s",
+                "Failed to send observations to Gundi: %s",
                 exc,
+            )
+            return Response(
+                {
+                    "detail": f"Failed to send observations to Gundi: {exc}",
+                    "traceback": str(exc.__traceback__),
+                },
+                status=500,
             )
 
         return Response(
