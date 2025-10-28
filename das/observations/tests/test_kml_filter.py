@@ -139,7 +139,8 @@ class KmlSubjectViewTest(BaseAPITest):
             end_date = utc.localize(end_date)
             self.assertTrue(any(end_date >= timestamp >= start_date for timestamp in timestamps))
             self.assertTrue(
-                observation.recorded_at in timestamps or observation.recorded_at.astimezone(timezone("US/Pacific"))
+                observation.recorded_at in timestamps
+                or observation.recorded_at.astimezone(timezone("America/Los_Angeles"))
             )
 
     def test_filter_subject_kml_with_timezone_aware_datetimes(self):
