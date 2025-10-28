@@ -193,6 +193,8 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         serializer.is_valid(raise_exception=True)
         observations = serializer.save()
 
+        settings.SENSORS_API_BASE_URL = settings.SENSORS_API_BASE_URL.replace("dev", "stage")
+        settings.GUNDI_API_BASE_URL = settings.GUNDI_API_BASE_URL.replace("dev", "stage")
         # domain = get_tenant_settings().domain
         # task_result = send_observations_to_gundi_async.apply_async(
         #     args=(observations, settings.BUOY_GUNDI_INTEGRATION_ID),
@@ -223,7 +225,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
             )
             return Response(
                 {
-                    "detail": f"Failed to send observations to Gundi: {exc}",
+                    "detail": f"Failed to send observations to Gundi {exc}",
                     "debug": {
                         "integration_id": settings.BUOY_GUNDI_INTEGRATION_ID,
                         "sensors_api_base_url": settings.SENSORS_API_BASE_URL,
