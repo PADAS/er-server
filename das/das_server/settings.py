@@ -729,3 +729,6 @@ ALT_SERVER_NAMES = []
 GUNDI_API_BASE_URL = env.str("GUNDI_API_BASE_URL", "https://api.stage.gundiservice.org")
 SENSORS_API_BASE_URL = env.str("SENSORS_API_BASE_URL", "https://sensors.api.stage.gundiservice.org")
 BUOY_GUNDI_INTEGRATION_ID = env.str("BUOY_GUNDI_INTEGRATION_ID", "9682ac76-e248-405c-a7f3-bff654460bc3")
+KEYCLOAK_ISSUER = env.str("KEYCLOAK_ISSUER", "https://cdip-auth.pamdas.org/auth/realms/cdip-dev")
+KEYCLOAK_CLIENT_ID = env.str("KEYCLOAK_CLIENT_ID", "cdip-integrations")
+KEYCLOAK_CLIENT_SECRET = env.str("KEYCLOAK_CLIENT_SECRET")
