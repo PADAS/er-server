@@ -78,6 +78,8 @@ def _get_gundi_api_key_sync(integration_id: str, gundi_api_base_url: str) -> str
     """
     from gundi_client_v2 import settings as gundi_settings
 
+    gundi_settings.KEYCLOAK_CLIENT_SECRET = "9b201f05-7048-4fe2-82c1-5236c1a0ed23"
+
     # Get OAuth token
     token_url = gundi_settings.OAUTH_TOKEN_URL
     client_id = gundi_settings.KEYCLOAK_CLIENT_ID
