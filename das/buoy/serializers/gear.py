@@ -26,6 +26,7 @@ from buoy.constants import (
     TRAP_RETRIEVED,
 )
 from observations import models
+from observations.models import SubjectSource
 from observations.serializers import SubjectRelatedField
 
 logger = logging.getLogger(__name__)
@@ -360,12 +361,38 @@ class GearCreateSerializer(serializers.Serializer):
             position_index //= 26
         return "".join(reversed(result))
 
+    def _get_gearset_id(self, gearset_data, device_info):
+        """
+        Determine the gearset ID based on provided data.
+        1. If set_id is provided in gearset_data, use that.
+        2. Else, if device_id is provided in device_info, look up the associated
+              SubjectSource to find the subject name.
+        3. If neither is available, generate a new UUID.
+        """
+        set_id = gearset_data.get("set_id")
+        if set_id:
+            return set_id
+
+        device_id = device_info.get("device_id")
+        if device_id:
+            try:
+                subject_source = SubjectSource.objects.select_related("subject", "source").get(
+                    source__manufacturer_id=device_id
+                )
+                if subject_source.subject and subject_source.subject.id:
+                    return str(subject_source.subject.name)
+            except SubjectSource.DoesNotExist:
+                pass
+
+        return str(uuid4())
+
     def save(self, **kwargs):
         observations = []
         gearset_data = self.validated_data
         gearset_id = gearset_data.get("set_id") or str(uuid4())
         for position_idx, device_info in enumerate(self.validated_data.get("devices", [])):
             is_active = device_info.get("device_status") == "deployed"
+            gearset_id = self._get_gearset_id(gearset_data, device_info)
             observation = {
                 "source_name": gearset_id,
                 "source": device_info.get("device_id") or str(uuid4()),
