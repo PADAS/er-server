@@ -732,3 +732,4 @@ BUOY_GUNDI_INTEGRATION_ID = env.str("BUOY_GUNDI_INTEGRATION_ID", "9682ac76-e248-
 KEYCLOAK_ISSUER = env.str("KEYCLOAK_ISSUER", "https://cdip-auth.pamdas.org/auth/realms/cdip-dev")
 KEYCLOAK_CLIENT_ID = env.str("KEYCLOAK_CLIENT_ID", "cdip-integrations")
 KEYCLOAK_CLIENT_SECRET = env.str("KEYCLOAK_CLIENT_SECRET", "9b201f05-7048-4fe2-82c1-5236c1a0ed23")
+KEYCLOAK_AUDIENCE = env.str("KEYCLOAK_AUDIENCE", "cdip-admin-portal")
