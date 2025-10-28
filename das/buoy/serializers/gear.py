@@ -375,14 +375,16 @@ class GearCreateSerializer(serializers.Serializer):
 
         device_id = device_info.get("device_id")
         if device_id:
-            try:
-                subject_source = SubjectSource.objects.select_related("subject", "source").get(
-                    source__manufacturer_id=device_id
-                )
-                if subject_source.subject and subject_source.subject.id:
-                    return str(subject_source.subject.name)
-            except SubjectSource.DoesNotExist:
-                pass
+            subject_source = (
+                SubjectSource.objects.select_related("subject", "source")
+                .filter(source__manufacturer_id=device_id)
+                .order_by("-subject__updated_at")
+                .first()
+            )
+            if not subject_source:
+                return str(uuid4())
+            if subject_source.subject and subject_source.subject.id:
+                return str(subject_source.subject.name)
 
         return str(uuid4())
 
