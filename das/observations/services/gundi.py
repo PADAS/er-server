@@ -76,13 +76,13 @@ def _get_gundi_api_key_sync(integration_id: str, gundi_api_base_url: str) -> str
     :param gundi_api_base_url: Base URL for the Gundi API
     :return: API key string
     """
-    from gundi_client_v2 import settings as gundi_settings
+    from django.conf import settings
 
     # Get OAuth token
-    token_url = gundi_settings.OAUTH_TOKEN_URL
-    client_id = gundi_settings.KEYCLOAK_CLIENT_ID
-    client_secret = gundi_settings.KEYCLOAK_CLIENT_SECRET
-    audience = gundi_settings.KEYCLOAK_AUDIENCE
+    token_url = f"{settings.KEYCLOAK_ISSUER}/protocol/openid-connect/token"
+    client_id = settings.KEYCLOAK_CLIENT_ID
+    client_secret = settings.KEYCLOAK_CLIENT_SECRET
+    audience = settings.KEYCLOAK_AUDIENCE
 
     # Request OAuth token
     token_response = requests.post(
