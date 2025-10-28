@@ -1,6 +1,8 @@
+import json
 import logging
 from typing import List
 
+import requests
 from gundi_client_v2.client import GundiClient, GundiDataSenderClient
 
 logger = logging.getLogger(__name__)
@@ -64,3 +66,92 @@ async def send_observations_to_gundi(observations: List[dict], **kwargs) -> dict
         gundi_api_base_url=kwargs.get("gundi_api_base_url"),
     )
     return await sensors_api_client.post_observations(data=observations)
+
+
+def _get_gundi_api_key_sync(integration_id: str, gundi_api_base_url: str) -> str:
+    """
+    Get API key for a Gundi integration using synchronous HTTP call.
+
+    :param integration_id: UUID of the Gundi integration
+    :param gundi_api_base_url: Base URL for the Gundi API
+    :return: API key string
+    """
+    from gundi_client_v2 import settings as gundi_settings
+
+    # Get OAuth token
+    token_url = gundi_settings.OAUTH_TOKEN_URL
+    client_id = gundi_settings.KEYCLOAK_CLIENT_ID
+    client_secret = gundi_settings.KEYCLOAK_CLIENT_SECRET
+    audience = gundi_settings.KEYCLOAK_AUDIENCE
+
+    # Request OAuth token
+    token_response = requests.post(
+        token_url,
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "audience": audience,
+        },
+        timeout=30,
+    )
+    token_response.raise_for_status()
+    token_data = token_response.json()
+    access_token = token_data.get("access_token")
+    token_type = token_data.get("token_type", "Bearer")
+
+    # Get API key from Gundi
+    api_key_url = f"{gundi_api_base_url}/v2/integrations/{integration_id}/api-key/"
+    headers = {"authorization": f"{token_type} {access_token}"}
+
+    api_key_response = requests.get(api_key_url, headers=headers, timeout=30)
+    api_key_response.raise_for_status()
+
+    return api_key_response.json().get("api_key")
+
+
+def send_observations_to_gundi_sync(
+    observations: List[dict], integration_id: str, sensors_api_base_url: str, gundi_api_base_url: str
+) -> dict:
+    """
+    Send observations to Gundi using synchronous HTTP calls.
+
+    :param observations: A list of observations in the following format:
+    [
+        {
+            "source": "collar-xy123",
+            "type": "tracking-device",
+            "subject_type": "puma",
+            "recorded_at": "2024-01-24 09:03:00-0300",
+            "location": {
+                "lat": -51.748,
+                "lon": -72.720
+            },
+            "additional": {
+                "speed_kmph": 10
+            }
+        },
+        ...
+    ]
+    :param integration_id: UUID of the Gundi integration
+    :param sensors_api_base_url: Base URL for the Sensors API
+    :param gundi_api_base_url: Base URL for the Gundi API
+    :return: Response from the API as a dictionary
+    """
+    # Get API key
+    api_key = _get_gundi_api_key_sync(integration_id, gundi_api_base_url)
+
+    if not api_key:
+        raise ValueError(f"Cannot get a valid API Key for integration {integration_id}")
+
+    # Prepare data
+    clean_batch = [json.loads(json.dumps(obs, default=str)) for obs in observations]
+
+    # Send observations
+    url = f"{sensors_api_base_url}/v2/observations/"
+    headers = {"apikey": api_key}
+
+    response = requests.post(url, json=clean_batch, headers=headers, timeout=120)
+    response.raise_for_status()
+
+    return response.json()

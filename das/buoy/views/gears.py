@@ -1,6 +1,5 @@
 import logging
 
-from asgiref.sync import async_to_sync
 from drf_spectacular.utils import (
     OpenApiResponse,
     extend_schema,
@@ -30,7 +29,7 @@ from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
-from observations.services.gundi import send_observations_to_gundi
+from observations.services.gundi import send_observations_to_gundi_sync
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import (
     ForbiddenAPIException,
@@ -208,8 +207,8 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
                 settings.BUOY_GUNDI_INTEGRATION_ID,
             )
 
-            # Convert async function to sync using async_to_sync
-            result = async_to_sync(send_observations_to_gundi)(
+            # Send observations synchronously
+            result = send_observations_to_gundi_sync(
                 observations=observations,
                 integration_id=settings.BUOY_GUNDI_INTEGRATION_ID,
                 sensors_api_base_url=settings.SENSORS_API_BASE_URL,
@@ -222,6 +221,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
             logger.error(
                 "Failed to send observations to Gundi: %s",
                 exc,
+                exc_info=True,
             )
             return Response(
                 {
@@ -237,8 +237,8 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
         return Response(
             {
-                "detail": f"Gears successfully queued for processing. {settings.SENSORS_API_BASE_URL}",
-                "task_id": None,  # task_result.id,
+                "detail": "Gears successfully processed and sent to Gundi.",
+                "task_id": None,
             },
             status=201,
         )
