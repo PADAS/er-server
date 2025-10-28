@@ -222,7 +222,11 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
             return Response(
                 {
                     "detail": f"Failed to send observations to Gundi: {exc}",
-                    "traceback": str(exc.__traceback__),
+                    "debug": {
+                        "integration_id": settings.BUOY_GUNDI_INTEGRATION_ID,
+                        "sensors_api_base_url": settings.SENSORS_API_BASE_URL,
+                        "gundi_api_base_url": settings.GUNDI_API_BASE_URL,
+                    },
                 },
                 status=500,
             )
