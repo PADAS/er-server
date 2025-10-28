@@ -203,14 +203,15 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
             logger.info(
                 "Sending %d observations to Gundi with integration_id: %s",
                 len(observations),
-                "9682ac76-e248-405c-a7f3-bff654460bc3",
+                settings.BUOY_GUNDI_INTEGRATION_ID,
             )
 
             # Convert async function to sync using async_to_sync
             result = async_to_sync(send_observations_to_gundi)(
                 observations=observations,
-                integration_id="9682ac76-e248-405c-a7f3-bff654460bc3",
-                sensors_api_base_url="https://sensors.api.stage.gundiservice.org",
+                integration_id=settings.BUOY_GUNDI_INTEGRATION_ID,
+                sensors_api_base_url=settings.SENSORS_API_BASE_URL,
+                gundi_api_base_url=settings.GUNDI_API_BASE_URL,
             )
 
             logger.info("Successfully sent %d observations to Gundi. Result: %s", len(observations), result)
