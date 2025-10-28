@@ -29,7 +29,7 @@ from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
-from observations.services.gundi import send_observations_to_gundi_sync
+from observations.tasks import send_observations_to_gundi_sync_task
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import (
     ForbiddenAPIException,
@@ -192,53 +192,30 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         serializer.is_valid(raise_exception=True)
         observations = serializer.save()
 
-        settings.SENSORS_API_BASE_URL = settings.SENSORS_API_BASE_URL.replace("dev", "stage")
-        settings.GUNDI_API_BASE_URL = settings.GUNDI_API_BASE_URL.replace("dev", "stage")
-        # domain = get_tenant_settings().domain
-        # task_result = send_observations_to_gundi_async.apply_async(
-        #     args=(observations, settings.BUOY_GUNDI_INTEGRATION_ID),
-        #     kwargs={"domain": domain, "sensors_api_base_url": settings.SENSORS_API_BASE_URL},
-        # )
-        try:
+        # TODO: Remove after CJ update the envs to point to stage
+        sensors_api_url = settings.SENSORS_API_BASE_URL.replace("dev", "stage")
+        gundi_api_url = settings.GUNDI_API_BASE_URL.replace("dev", "stage")
 
-            logger.info(
-                "Sending %d observations to Gundi with integration_id: %s",
-                len(observations),
+        logger.info(
+            "Queuing %d observations to send to Gundi with integration_id: %s",
+            len(observations),
+            settings.BUOY_GUNDI_INTEGRATION_ID,
+        )
+
+        # Send observations to Gundi using Celery task
+        task_result = send_observations_to_gundi_sync_task.apply_async(
+            args=(
+                observations,
                 settings.BUOY_GUNDI_INTEGRATION_ID,
-            )
-
-            # Send observations synchronously
-            result = send_observations_to_gundi_sync(
-                observations=observations,
-                integration_id=settings.BUOY_GUNDI_INTEGRATION_ID,
-                sensors_api_base_url=settings.SENSORS_API_BASE_URL,
-                gundi_api_base_url=settings.GUNDI_API_BASE_URL,
-            )
-
-            logger.info("Successfully sent %d observations to Gundi. Result: %s", len(observations), result)
-
-        except Exception as exc:
-            logger.error(
-                "Failed to send observations to Gundi: %s",
-                exc,
-                exc_info=True,
-            )
-            return Response(
-                {
-                    "detail": f"Failed to send observations to Gundi {exc}",
-                    "debug": {
-                        "integration_id": settings.BUOY_GUNDI_INTEGRATION_ID,
-                        "sensors_api_base_url": settings.SENSORS_API_BASE_URL,
-                        "gundi_api_base_url": settings.GUNDI_API_BASE_URL,
-                    },
-                },
-                status=500,
-            )
+                sensors_api_url,
+                gundi_api_url,
+            ),
+        )
 
         return Response(
             {
-                "detail": "Gears successfully processed and sent to Gundi.",
-                "task_id": None,
+                "detail": "Gears successfully processed and queued for sending to Gundi.",
+                "task_id": str(task_result.id),
             },
             status=201,
         )
