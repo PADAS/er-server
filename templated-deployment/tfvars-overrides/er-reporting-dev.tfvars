@@ -1,2 +1,2 @@
-time_zone           = "US/Pacific"
+time_zone           = "America/Los_Angeles"
 tableau_enabled     = "True"
