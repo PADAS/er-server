@@ -356,7 +356,7 @@ class SpatialFeatureTileView(MVTView):
         # Instantiate layers only on a cache miss.
         self.layers = [lc() for lc in self.layer_classes]
         response = super().get(request, z, x, y)
-        if response.status_code == 200 and response.get("Content-Type", "").startswith(
+        if response.status_code in (200, 204) and response.get("Content-Type", "").startswith(
             "application/vnd.mapbox-vector-tile"
         ):
             vt_cache.set(
