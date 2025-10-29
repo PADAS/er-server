@@ -367,7 +367,7 @@ class GearCreateSerializer(serializers.Serializer):
         1. If set_id is provided in gearset_data, use that.
         2. Else, if device_id is provided in device_info, look up the associated
               SubjectSource to find the subject name.
-        3. If neither is available, generate a new UUID.
+        3. If neither is available, return None to use the previously generated UUID.
         """
         set_id = gearset_data.get("set_id")
         if set_id:
@@ -381,20 +381,18 @@ class GearCreateSerializer(serializers.Serializer):
                 .order_by("-subject__updated_at")
                 .first()
             )
-            if not subject_source:
-                return str(uuid4())
-            if subject_source.subject and subject_source.subject.id:
+            if subject_source and subject_source.subject:
                 return str(subject_source.subject.name)
 
-        return str(uuid4())
+        return None
 
     def save(self, **kwargs):
         observations = []
         gearset_data = self.validated_data
-        gearset_id = gearset_data.get("set_id") or str(uuid4())
+        random_gear_set_id = str(uuid4())
         for position_idx, device_info in enumerate(self.validated_data.get("devices", [])):
             is_active = device_info.get("device_status") == "deployed"
-            gearset_id = self._get_gearset_id(gearset_data, device_info)
+            gearset_id = self._get_gearset_id(gearset_data, device_info) or random_gear_set_id
             observation = {
                 "source_name": gearset_id,
                 "source": device_info.get("device_id") or str(uuid4()),
