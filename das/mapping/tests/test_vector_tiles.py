@@ -219,7 +219,7 @@ class TestSpatialFeatureTileEndpoint:
 
         def fake_get(self, request, z, x, y):  # pragma: no cover - we assert via count
             call_record["count"] += 1
-            return HttpResponse(b"tile-bytes", content_type="application/x-protobuf")
+            return HttpResponse(b"tile-bytes", content_type="application/vnd.mapbox-vector-tile")
 
         from django.http import HttpResponse
 
