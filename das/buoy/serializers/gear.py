@@ -377,7 +377,7 @@ class GearCreateSerializer(serializers.Serializer):
         if device_id:
             subject_source = (
                 SubjectSource.objects.select_related("subject", "source")
-                .filter(source__manufacturer_id=device_id)
+                .filter(source__manufacturer_id=device_id, subject__is_active=True)
                 .order_by("-subject__updated_at")
                 .first()
             )
