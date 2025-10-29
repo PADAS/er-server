@@ -1,5 +1,6 @@
 import logging
 import re
+from collections import Counter
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -361,38 +362,45 @@ class GearCreateSerializer(serializers.Serializer):
             position_index //= 26
         return "".join(reversed(result))
 
-    def _get_gearset_id(self, gearset_data, device_info):
+    def _get_gearset_id(self, gearset_data, devices_info):
         """
         Determine the gearset ID based on provided data.
         1. If set_id is provided in gearset_data, use that.
-        2. Else, if device_id is provided in device_info, look up the associated
-              SubjectSource to find the subject name.
+        2. Else, find a Subject that is active and has SubjectSource for all device_ids in devices_info.
         3. If neither is available, return None to use the previously generated UUID.
         """
         set_id = gearset_data.get("set_id")
         if set_id:
             return set_id
 
-        device_id = device_info.get("device_id")
-        if device_id:
-            subject_source = (
-                SubjectSource.objects.select_related("subject", "source")
-                .filter(source__manufacturer_id=device_id, subject__is_active=True)
-                .order_by("-subject__updated_at")
-                .first()
+        device_ids = [d.get("device_id") for d in devices_info if d.get("device_id")]
+        if device_ids:
+            # Find Subjects that are active and have SubjectSource for all device_ids
+            subjects_qs = (
+                SubjectSource.objects.filter(source__manufacturer_id__in=device_ids, subject__is_active=True)
+                .select_related("subject")
+                .values("subject_id")
             )
-            if subject_source and subject_source.subject:
-                return str(subject_source.subject.name)
-
+            subject_ids = [s["subject_id"] for s in subjects_qs]
+            # Count how many times each subject_id appears
+            subject_id_counts = Counter(subject_ids)
+            # The subject_id that appears for all device_ids is the gearset
+            for subject_id, count in subject_id_counts.items():
+                if count == len(device_ids):
+                    # Get the subject name
+                    subject = models.Subject.objects.filter(id=subject_id).first()
+                    if subject:
+                        return str(subject.name)
         return None
 
     def save(self, **kwargs):
         observations = []
         gearset_data = self.validated_data
         random_gear_set_id = str(uuid4())
-        for position_idx, device_info in enumerate(self.validated_data.get("devices", [])):
+        devices_info = self.validated_data.get("devices", [])
+        gearset_id = self._get_gearset_id(gearset_data, devices_info) or random_gear_set_id
+        for position_idx, device_info in enumerate(devices_info):
             is_active = device_info.get("device_status") == "deployed"
-            gearset_id = self._get_gearset_id(gearset_data, device_info) or random_gear_set_id
             observation = {
                 "source_name": gearset_id,
                 "source": device_info.get("device_id") or str(uuid4()),
