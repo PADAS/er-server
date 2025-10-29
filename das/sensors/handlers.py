@@ -15,12 +15,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from analyzers import gfw_inbound
-from buoy.constants import (
-    BUOY_DEVICE_SUBJECT_SUBTYPE,
-    BUOY_GEAR_SUBJECT_SUBTYPE,
-    TRAP_DEPLOYED,
-    TRAP_RETRIEVED,
-)
+from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE, TRAP_DEPLOYED, TRAP_RETRIEVED
 from observations import servicesutils
 from observations.models import (
     DEFAULT_ASSIGNED_RANGE,
@@ -294,13 +289,46 @@ class GenericSensorHandler:
         subject_source: SubjectSource,
         recorded_at: datetime,
         event_type: TrapEventType,
+        location: Optional[dict] = None,
     ):
-        """Update the assigned range of a subject source."""
+        """Update the assigned range of a subject source.
+
+        For TRAP_DEPLOYED events we only block a new deploy when the
+        SubjectSource already has an active assigned range for the same
+        location. If the location differs (or the existing assignment has no
+        location), allow the new deploy and set the assigned_range/location
+        accordingly.
+        """
         trap_id = subject_source.source.manufacturer_id
         if event_type == TRAP_DEPLOYED:
             if subject_source.has_assigned_range and subject_source.is_current:
-                raise ValidationError(f"Cannot deploy a trap ({trap_id}) that is already deployed.")
+                existing_loc = getattr(subject_source, "location", None)
+
+                same_location = False
+                if existing_loc and location:
+                    try:
+                        existing_lon = float(existing_loc.x)
+                        existing_lat = float(existing_loc.y)
+                        incoming_lat = float(location.get("latitude"))
+                        incoming_lon = float(location.get("longitude"))
+                        tol = 1e-6
+                        if abs(existing_lat - incoming_lat) <= tol and abs(existing_lon - incoming_lon) <= tol:
+                            same_location = True
+                    except Exception:
+                        same_location = False
+
+                if same_location:
+                    raise ValidationError(f"Cannot deploy a trap ({trap_id}) that is already deployed.")
+
             subject_source.assigned_range = DateTimeTZRange(lower=recorded_at, upper=DEFAULT_ASSIGNED_RANGE[1])
+            if location:
+                try:
+                    from django.contrib.gis.geos import Point
+
+                    subject_source.location = Point(float(location.get("longitude")), float(location.get("latitude")))
+                except Exception:
+                    # If setting location fails, ignore and proceed with range update
+                    pass
         else:
             if not subject_source.has_assigned_lower_range:
                 raise ValidationError(f"Cannot retrieve a trap ({trap_id}) that is not deployed.")
@@ -409,15 +437,12 @@ class GenericSensorHandler:
                 subject_source=subject_source,
                 recorded_at=recorded_at,
                 event_type=observation_additional.get("event_type"),
+                location=location,
             )
 
             has_active_sources = subject.subjectsources.filter(assigned_range__contains=now).exists()
             cls.update_subject(subject, additional=subject_additional, is_active=has_active_sources)
 
-        # TODO: Remove after the rollout of the new data model that uses "ropeless_buoy_gearset" as the subject_subtype for buoy devices,
-        if subject_subtype == BUOY_DEVICE_SUBJECT_SUBTYPE:
-            subject = cls.get_or_consolidate_subject_by_name(subject_name)
-            cls.update_subject(subject, additional=observation_additional)
         event_action = an_observation.get("additional", {}).get("event_action", cls.DEFAULT_EVENT_ACTION)
         observation = {
             "location": location,
