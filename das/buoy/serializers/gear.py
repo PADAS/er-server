@@ -218,9 +218,9 @@ class GeoLocationSerializer(serializers.Serializer):
 
 
 class GearDeviceCreateSerializer(serializers.Serializer):
-    device_id = serializers.CharField(max_length=255, required=False)
-    mfr_device_id = serializers.CharField(max_length=255, required=True)
-    mfr_id = serializers.CharField(max_length=255, required=True)
+    device_id = serializers.CharField(max_length=100, required=False)
+    mfr_device_id = serializers.CharField(max_length=100, required=True)
+    mfr_id = serializers.CharField(max_length=100, required=True)
     device_initial_deploy_date = serializers.DateTimeField(
         required=True,
     )
