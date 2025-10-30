@@ -290,12 +290,12 @@ class GearDeviceCreateSerializer(serializers.Serializer):
 
 
 class GearCreateSerializer(serializers.Serializer):
-    set_id = serializers.CharField(max_length=255, required=False)
-    set_display_id = serializers.CharField(max_length=255, required=False)
-    vessel_id = serializers.CharField(max_length=255, required=False)
-    mfr_set_id = serializers.CharField(max_length=255, required=False)
-    owner_id = serializers.CharField(max_length=255, required=True)
-    permit_number = serializers.CharField(max_length=255, required=False)
+    set_id = serializers.CharField(max_length=100, required=False)
+    set_display_id = serializers.CharField(max_length=100, required=False)
+    vessel_id = serializers.CharField(max_length=100, required=False)
+    mfr_set_id = serializers.CharField(max_length=100, required=False)
+    owner_id = serializers.CharField(max_length=100, required=True)
+    permit_number = serializers.CharField(max_length=100, required=False)
     deployment_type = serializers.ChoiceField(choices=DEPLOYMENT_TYPE_CHOICES, required=True)
     devices_in_set = serializers.IntegerField(required=False)
     trawl_path = serializers.ListField(child=GeoLocationSerializer(), required=False)
