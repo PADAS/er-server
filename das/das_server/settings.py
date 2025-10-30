@@ -347,8 +347,12 @@ MAPPING = {
 # REDIS_SERVICE_HOST, REDIS_SERVICE_PORT
 # In the MT environment variables are
 # REDIS_HOST, REDIS_PORT
-REDIS_PORT = env.int("REDIS_SERVICE_PORT", env.int("REDIS_PORT", 6379))
-REDIS_HOST = env.str("REDIS_SERVICE_HOST", env.str("REDIS_HOST", "redis"))
+REDIS_PORT = env.int("REDIS_SERVICE_PORT", 0)
+if not REDIS_PORT:
+    REDIS_PORT = env.int("REDIS_PORT", 6379)
+REDIS_HOST = env.str("REDIS_SERVICE_HOST", "")
+if not REDIS_HOST:
+    REDIS_HOST = env.str("REDIS_HOST", "redis")
 REDIS_SERVER = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 REALTIME_BROKER_URL = f"{REDIS_SERVER}/2"
 REALTIME_BROKER_OPTIONS = {"max_connections": 200}
@@ -392,7 +396,9 @@ VECTOR_TILE_CACHE_ALIAS = "vector_tiles"
 
 
 # Vector tiles cache Redis location (dedicated in deployed contexts)
-_vt_redis_host = env.str("REDIS_VT_SERVICE_HOST", env.str("REDIS_HOST_VT", "redis-vt"))
+_vt_redis_host = env.str("REDIS_VT_SERVICE_HOST", "")
+if not _vt_redis_host:
+    _vt_redis_host = env.str("REDIS_HOST_VT", "redis-vt")
 _vt_redis_server = f"redis://{_vt_redis_host}:{REDIS_PORT}"
 CACHES = {
     DEFAULT_CACHE_ALIAS: {
