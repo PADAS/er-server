@@ -192,7 +192,7 @@ executors:
 
   docs_executor:
     docker:
-      - image: 'cimg/python:3.10.16'
+      - image: 'cimg/python:3.12.12'
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
@@ -258,8 +258,10 @@ jobs:
           name: "Generate build files"
           command: |
             mkdir sphinx-docs
-            pip3 install -r dependencies/requirements-docs.txt
             cd docs
+            uv venv --python=python3.12
+            uv pip install -r requirements-docs.txt
+            source .venv/bin/activate
             make html
             cp -rf /home/circleci/project/docs/_build/ /home/circleci/project/sphinx-docs
       - persist_to_workspace:
