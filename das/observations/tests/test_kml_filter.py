@@ -4,9 +4,9 @@ import zipfile
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
-import fastkml
 import pytest
 import pytz
+from fastkml import kml
 from pytz import timezone, utc
 
 from django.core.management import call_command
@@ -61,15 +61,12 @@ class KmlSubjectViewTest(BaseAPITest):
         kml_data = ""
         for name in kmz.namelist():
             kml_data = kmz.read(name)
-        kml_object = fastkml.kml.KML()
-        kml_object.from_string(kml_data)
+        kml_object = kml.KML.from_string(kml_data)
         timestamps = []
-        kml_subject = list(kml_object.features())
-        kml_subject_details = list(kml_subject[0].features())
 
-        observations = list(kml_subject_details[0].features())
+        observations = kml_object.features[0].features[0].features
         for observation in observations:
-            timestamps.append(observation.timeStamp)
+            timestamps.append(observation.time_stamp.dt)
         return timestamps
 
     def test_view_without_filter(self):
@@ -142,7 +139,8 @@ class KmlSubjectViewTest(BaseAPITest):
             end_date = utc.localize(end_date)
             self.assertTrue(any(end_date >= timestamp >= start_date for timestamp in timestamps))
             self.assertTrue(
-                observation.recorded_at in timestamps or observation.recorded_at.astimezone(timezone("US/Pacific"))
+                observation.recorded_at in timestamps
+                or observation.recorded_at.astimezone(timezone("America/Los_Angeles"))
             )
 
     def test_filter_subject_kml_with_timezone_aware_datetimes(self):
