@@ -9,7 +9,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 dc
-
+docs/.venv
 # Mac filesystem
 .DS_Store
 

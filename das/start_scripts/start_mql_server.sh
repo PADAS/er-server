@@ -6,4 +6,4 @@ wait_for $API_HOST $API_PORT
 
 # Run the command and filter stderr in real-time
 # Only pass through lines that don't contain common Django warning patterns
-python3 manage.py message_queue_listeners 2> >(grep -v -E "^(RemovedInDjango|DeprecationWarning|UserWarning|RuntimeWarning)" >&2)
+uv run python manage.py message_queue_listeners 2> >(grep -v -E "^(RemovedInDjango|DeprecationWarning|UserWarning|RuntimeWarning)" >&2)
