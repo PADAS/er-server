@@ -199,6 +199,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -211,6 +212,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         except IntegrityError as integrity_error:
             return return_409_response(message=str(integrity_error))
 
+        BuoyService.process_gearset(validated_data)
         return Response(
             {
                 "detail": "Gears successfully processed",
