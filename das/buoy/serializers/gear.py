@@ -449,3 +449,125 @@ class GearCreateSerializer(serializers.Serializer):
             "deployment_type",
             "trawl_path",
         )
+
+
+class GearSerializerV2(serializers.ModelSerializer):
+    """ModelSerializer version that serializes a SubjectSource but returns
+    the same gear representation produced by the original GearSerializer.
+
+    It mirrors the structure:
+
+    {
+        {
+            "id": "uuid",
+            "display_id": "string",
+            "status": "deployed | hauled",
+            "last_updated": "isoformat",
+            "devices": [
+                {
+                    "device_id": "string",
+                    "source_id": "uuid",
+                    "label": "string",
+                    "location": {
+                        "latitude": float,
+                        "longitude": float
+                    },
+                    "last_updated": "isoformat",
+                    "last_deployed": "isoformat"
+                }
+            ],
+            "type": "single. | trawl",
+            "manufacturer": "string"
+        }
+    }
+    """
+
+    id = serializers.UUIDField(source="subject.id")
+    display_id = serializers.SerializerMethodField()
+    last_updated = serializers.DateTimeField(source="subject.updated_at")
+    status = serializers.SerializerMethodField()
+    devices = serializers.SerializerMethodField()
+    type = serializers.SerializerMethodField()
+    manufacturer = serializers.SerializerMethodField()
+
+    def get_display_id(self, obj):
+        if subject := obj.subject:
+            if DISPLAY_ID_KEY in subject.additional:
+                return subject.additional[DISPLAY_ID_KEY]
+            return subject.name
+        raise serializers.ValidationError("Subject is missing for SubjectSource")
+
+    def get_status(self, obj):
+        if subject := obj.subject:
+            return "deployed" if subject.is_active else "hauled"
+        raise serializers.ValidationError("Subject is missing for SubjectSource")
+
+    def get_manufacturer(self, obj):
+        if subject := obj.subject:
+            additional = subject.additional or {}
+            manufacturer = additional.get("manufacturer")
+            if manufacturer:
+                return manufacturer
+
+        provider_key = obj.source.provider.provider_key
+        if match := re.match(r"^gundi_(.+?)_[0-9a-f-]+$", provider_key):
+            return match.group(1)
+        return provider_key
+
+    def get_devices(self, obj):
+        if subject := obj.subject:
+            devices = []
+            now = datetime.now(timezone.utc)
+
+            # Build base query for related subject sources
+            related_subject_sources_query = (
+                models.SubjectSource.objects.filter(subject__name=subject.name)
+                .annotate(lower=Lower("assigned_range"))
+                .exclude(
+                    lower=datetime.min.replace(tzinfo=now.tzinfo)
+                )  # This prevents including sources that didn't have the lower bound set i.e. deployed
+                .select_related("source", "source__provider")
+            )
+
+            if subject.is_active:
+                # For ACTIVE subjects: Get only currently deployed sources (within current time range)
+                related_subject_sources = related_subject_sources_query.filter(assigned_range__contains=now)
+            else:
+                # For INACTIVE subjects: Get all historical sources (regardless of time range)
+                related_subject_sources = related_subject_sources_query
+
+            for idx, subject_source in enumerate(related_subject_sources):
+                if subject_source.source:
+                    device_id = subject_source.source.manufacturer_id
+                    # Use prefetched LatestObservationSource data instead of making individual queries
+                    # This prevents N+1 query problem when serializing multiple gears
+                    latest_obs_source = subject_source.source.last_observation_sources.first()
+                    if latest_obs_source and latest_obs_source.observation:
+                        observation = latest_obs_source.observation
+                        location = {"latitude": observation.location.y, "longitude": observation.location.x}
+                    else:
+                        location = {"latitude": None, "longitude": None}
+
+                    device = {
+                        "device_id": device_id,
+                        "source_id": str(subject_source.source.id),
+                        "label": chr(97 + idx),  # 'a', 'b', 'c', etc.
+                        "location": location,
+                        "last_updated": subject_source.source.updated_at,
+                        "last_deployed": subject_source.assigned_range.lower,
+                    }
+                    devices.append(device)
+
+            return devices
+        raise serializers.ValidationError("Subject is missing for SubjectSource")
+
+    def get_type(self, obj):
+        if subject := obj.subject:
+            additional = subject.additional or {}
+            devices = additional.get(DEVICES_KEY, [])
+            return GEAR_TYPE_TRAWL if len(devices) > 1 else GEAR_TYPE_SINGLE
+        raise serializers.ValidationError("Subject is missing for SubjectSource")
+
+    class Meta:
+        model = models.SubjectSource
+        fields = ("id", "display_id", "status", "devices", "type", "manufacturer", "last_updated")
