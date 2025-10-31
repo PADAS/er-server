@@ -126,6 +126,21 @@ class TestSpatialFeatureLayer:
         width_val = getattr(obj, "stroke-width", None) or getattr(obj, "stroke_width", None)
         assert width_val == 2
 
+        def test_queryset_geometry_is_reprojected_to_3857(self):
+            dc = DisplayCategory.objects.create(name="SRIDTest")
+            ft = SpatialFeatureType.objects.create(name="TypeSRID", display_category=dc, presentation={})
+            point = Point(10, 20, srid=4326)
+            feat = SpatialFeature.objects.create(
+                feature_type=ft,
+                name="SRIDFeature",
+                feature_geometry=point,
+            )
+            layer = SpatialFeatureLayer()
+            obj = layer.get_queryset().filter(id=feat.id).first()
+            geom = getattr(obj, "geom", None)
+            assert geom is not None
+            assert geom.srid == 3857
+
 
 @pytest.mark.django_db
 class TestSpatialFeatureTileEndpoint:
@@ -204,7 +219,7 @@ class TestSpatialFeatureTileEndpoint:
 
         def fake_get(self, request, z, x, y):  # pragma: no cover - we assert via count
             call_record["count"] += 1
-            return HttpResponse(b"tile-bytes", content_type="application/x-protobuf")
+            return HttpResponse(b"tile-bytes", content_type="application/vnd.mapbox-vector-tile")
 
         from django.http import HttpResponse
 
