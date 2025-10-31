@@ -7,7 +7,7 @@ from drf_spectacular.utils import (
     inline_serializer,
 )
 
-from django.conf import settings
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework import serializers as drf_serializers
@@ -25,11 +25,11 @@ from buoy.views.helpers import (
 from buoy.views.schemas import GearsViewSchema
 from buoy.permissions import GearLocationPermission, GearSubjectPermission
 from buoy.serializers.query_params import GearsQueryParamsSerializer
+from buoy.services.buoy_service import BuoyService
 from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
-from observations.tasks import send_observations_to_gundi_sync_task
 from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import (
     ForbiddenAPIException,
@@ -187,35 +187,17 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data, context={"user_id": request.user.id})
         serializer.is_valid(raise_exception=True)
-        observations = serializer.save()
 
-        # TODO: Remove after CJ update the envs to point to stage
-        sensors_api_url = settings.SENSORS_API_BASE_URL.replace("dev", "stage")
-        gundi_api_url = settings.GUNDI_API_BASE_URL.replace("dev", "stage")
+        validated_data = serializer.validated_data
 
-        logger.info(
-            "Queuing %d observations to send to Gundi with integration_id: %s",
-            len(observations),
-            settings.BUOY_GUNDI_INTEGRATION_ID,
-        )
-
-        # Send observations to Gundi using Celery task
-        task_result = send_observations_to_gundi_sync_task.apply_async(
-            args=(
-                observations,
-                settings.BUOY_GUNDI_INTEGRATION_ID,
-                sensors_api_url,
-                gundi_api_url,
-            ),
-        )
-
+        BuoyService.process_gearset(validated_data)
         return Response(
             {
-                "detail": "Gears successfully processed and queued for sending to Gundi.",
-                "task_id": str(task_result.id),
+                "detail": "Gears successfully processed",
             },
             status=201,
         )

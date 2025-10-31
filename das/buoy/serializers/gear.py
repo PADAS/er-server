@@ -7,6 +7,7 @@ from uuid import uuid4
 from drf_extra_fields.geo_fields import PointField
 
 from django.db.models.functions import Lower
+from django.utils import timezone
 from rest_framework import serializers
 
 from buoy.constants import (
@@ -21,10 +22,7 @@ from buoy.constants import (
     POSITIONING_TYPE_CHOICES,
     POSITIONING_TYPE_GPS,
     RELEASE_TYPE_CHOICES,
-    SOURCE_TYPE,
     STATUS_KEY,
-    TRAP_DEPLOYED,
-    TRAP_RETRIEVED,
 )
 from observations import models
 from observations.models import SubjectSource
@@ -123,7 +121,7 @@ class GearSerializer(serializers.Serializer):
         # Handle ropeless_buoy_gearset differently
         if subject.get("subject_subtype") == BUOY_GEAR_SUBJECT_SUBTYPE:
             gear_rep[ID_KEY] = subject[ID_KEY]
-            gear_rep[DISPLAY_ID_KEY] = subject["name"]
+            gear_rep[DISPLAY_ID_KEY] = subject.get("additional", {}).get(DISPLAY_ID_KEY, subject["name"])
             gear_rep[STATUS_KEY] = "deployed" if subject["is_active"] else "hauled"
             gear_rep["last_updated"] = subject["updated_at"]
 
@@ -218,7 +216,6 @@ class GeoLocationSerializer(serializers.Serializer):
 
 
 class GearDeviceCreateSerializer(serializers.Serializer):
-    device_id = serializers.CharField(max_length=100, required=False)
     mfr_device_id = serializers.CharField(max_length=100, required=True)
     mfr_id = serializers.CharField(max_length=100, required=True)
     device_initial_deploy_date = serializers.DateTimeField(
@@ -327,6 +324,8 @@ class GearCreateSerializer(serializers.Serializer):
     def validate(self, attrs):
         """
         Cross-field validation for gear creation.
+        Also, if set_id is not provided, try to infer it from devices using _get_gearset_id
+        and add it to the validated data.
         """
         devices = attrs.get("devices", [])
         devices_in_set = attrs.get("devices_in_set")
@@ -343,24 +342,70 @@ class GearCreateSerializer(serializers.Serializer):
         if not devices:
             raise serializers.ValidationError({"devices": "At least one device must be provided"})
 
-        deployed_devices = [d for d in devices if d.get("device_status") == "deployed"]
-        hauled_devices = [d for d in devices if d.get("device_status") == "hauled"]
+        if not attrs.get("set_id"):
+            inferred_set_id = self._get_gearset_id(attrs, devices)
+            if inferred_set_id:
+                attrs["set_id"] = inferred_set_id
+            else:
+                attrs["set_id"] = str(uuid4())
 
-        if deployed_devices and hauled_devices:
-            raise serializers.ValidationError(
-                {"devices": "All devices in a gear set should have the same deployment status"}
-            )
+        if not attrs.get("set_display_id"):
+            attrs["set_display_id"] = attrs["set_id"]
+
+        # Additional device/subject/source validations moved from the view
+        # Ensure per-device state transitions are valid (deployed <-> hauled)
+        devices = attrs.get("devices", [])
+        set_id = attrs.get("set_id")
+
+        # Try to resolve the Subject if it exists
+        subject = models.Subject.objects.filter(name=set_id).first() if set_id else None
+
+        device_errors = {}
+        for idx, device in enumerate(devices):
+            mfr_id = device.get("mfr_device_id")
+            # Build a Point to compare locations if needed
+            loc = device.get("location") or {}
+            device_location = None
+            if "longitude" in loc and "latitude" in loc:
+                device_location = models.Point(loc["longitude"], loc["latitude"])
+
+            # Try to find an existing Source/SubjectSource for checks. Absence is valid for deployments
+            source = models.Source.objects.filter(manufacturer_id=mfr_id).first()
+            subject_source = None
+            if subject and source:
+                subject_source = SubjectSource.objects.filter(subject=subject, source=source).first()
+
+            # Default assigned range sentinel
+            default_upper = models.DEFAULT_ASSIGNED_RANGE[1]
+
+            # If device is being deployed, ensure we're not redeploying same device at same location
+            if device.get("device_status") == "deployed":
+                if subject_source is not None:
+                    current_assigned_range = subject_source.assigned_range
+                    if current_assigned_range is not None and current_assigned_range.lower is not None:
+                        # If it's already deployed at same location, collect error
+                        if device_location is not None and subject_source.location == device_location:
+                            device_errors.setdefault(idx, []).append(
+                                f"Device {subject_source.source.manufacturer_id} is already deployed at this location."
+                            )
+
+            # If device is being hauled, ensure it's currently deployed
+            else:
+                # If there's an existing subject_source, ensure it hasn't already been hauled
+                if subject_source is not None:
+                    current_assigned_range = subject_source.assigned_range
+                    if current_assigned_range is not None and current_assigned_range.upper != default_upper:
+                        device_errors.setdefault(idx, []).append(
+                            f"Device {subject_source.source.manufacturer_id} is already hauled"
+                        )
+                # If we expect to haul but there's no subject_source (or no subject/source) that's invalid
+                if subject_source is None:
+                    device_errors.setdefault(idx, []).append(f"Device {mfr_id} is not deployed, cannot be hauled.")
+
+        if device_errors:
+            raise serializers.ValidationError({"devices": device_errors})
 
         return super().validate(attrs)
-
-    def get_device_label(self, position_index: int):
-        """Receive the position index and return a label for the device in the format A, B, C, ..., Z, AA, AB ..."""
-        result = []
-        while position_index > 0:
-            position_index -= 1
-            result.append(chr(ord("A") + (position_index % 26)))
-            position_index //= 26
-        return "".join(reversed(result))
 
     def _get_gearset_id(self, gearset_data, devices_info):
         """
@@ -373,7 +418,7 @@ class GearCreateSerializer(serializers.Serializer):
         if set_id:
             return set_id
 
-        device_ids = [d.get("device_id") for d in devices_info if d.get("device_id")]
+        device_ids = [d.get("mfr_device_id") for d in devices_info if d.get("mfr_device_id")]
         if device_ids:
             # Find Subjects that are active and have SubjectSource for all device_ids
             subjects_qs = (
@@ -392,30 +437,6 @@ class GearCreateSerializer(serializers.Serializer):
                     if subject:
                         return str(subject.name)
         return None
-
-    def save(self, **kwargs):
-        observations = []
-        gearset_data = self.validated_data
-        random_gear_set_id = str(uuid4())
-        devices_info = self.validated_data.get("devices", [])
-        gearset_id = self._get_gearset_id(gearset_data, devices_info) or random_gear_set_id
-        for position_idx, device_info in enumerate(devices_info):
-            is_active = device_info.get("device_status") == "deployed"
-            observation = {
-                "source_name": gearset_id,
-                "source": device_info.get("device_id") or str(uuid4()),
-                "subject_type": BUOY_GEAR_SUBJECT_SUBTYPE,
-                "recorded_at": datetime.now(timezone.utc).isoformat(),
-                "source_type": SOURCE_TYPE,
-                "location": {"lat": device_info["location"]["latitude"], "lon": device_info["location"]["longitude"]},
-                "additional": {
-                    "event_type": TRAP_DEPLOYED if is_active else TRAP_RETRIEVED,
-                    "raw": self.validated_data,
-                },
-            }
-            observations.append(observation)
-
-        return observations
 
     class Meta(GearSerializer.Meta):
         fields = (
