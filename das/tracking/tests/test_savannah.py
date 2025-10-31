@@ -19,7 +19,6 @@ from observations.models import (
     SubjectType,
 )
 from tracking.models import SavannahPlugin, SourcePlugin
-from tracking.tasks import run_plugin_class
 
 
 def make_data_download(request_mock, host):
@@ -231,8 +230,13 @@ class SavannahPluginTest(TestCase):
         plugin_class = apps.get_model("tracking", "SavannahPlugin")
 
         # run plugin to fetch observations and alert type data
-        run_plugin_class.apply(args=(plugin_class,))
-
+        for plugin in plugin_class.objects.all():
+            if plugin.run_source_plugins:
+                for sp in plugin.source_plugins.filter(status="enabled"):
+                    if sp.should_run():
+                        sp.execute()
+            else:
+                plugin.execute()
         self.assertEqual(len(self.henry.observations()), 8)
 
         # Check battery values
