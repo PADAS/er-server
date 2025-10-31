@@ -136,7 +136,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
     def get_serializer_class(self):
         if self.request.method == "POST":
             return serializers.GearCreateSerializer
-        return serializers.GearSerializer
+        return serializers.GearSerializerV2
 
     def list(self, request, *args, **kwargs):
         # Validate query parameters using serializer
