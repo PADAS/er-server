@@ -17,7 +17,7 @@ function review_results() {
 
 function run_test_suite_one() {
   echo_b "Running test suite one...";
-  uvu run pytest --reuse-db --junitxml=/testresults/junit/result_suite_one.xml --maxfail=15 accounts/tests mapping/tests reports/tests rt_api/tests tracking/tests
+  uv run pytest --reuse-db --junitxml=/testresults/junit/result_suite_one.xml --maxfail=15 accounts/tests mapping/tests reports/tests rt_api/tests tracking/tests
   review_results
 }
 
