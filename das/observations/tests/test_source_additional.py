@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 import pytz
@@ -92,17 +92,14 @@ class SubjectSourceAdditionalTest(TestCase):
         self.henry = Subject.objects.create(name="Henry")
 
     def test_subjectsource_additional_data(self):
-        start_date = datetime.now() - timedelta(days=200)
-        end_date = datetime.now()
-        date_time_format = "%Y-%m-%d %H:%M:%S %z"
-        start_date = start_date.strftime(format=date_time_format)
-        end_date = end_date.strftime(format=date_time_format)
+        start_date = datetime.now(timezone.utc) - timedelta(days=200)
+        end_date = datetime.now(timezone.utc)
         form_data = {
             "id": uuid.uuid4(),
             "subject": self.henry.id,
             "source": self.source.id,
-            "assigned_range_0": start_date,
-            "assigned_range_1": end_date,
+            "assigned_range_0": start_date.isoformat(),
+            "assigned_range_1": end_date.isoformat(),
             "location": Point(1, 1),
         }
         additional_data = {"data_status": "Activated", "data_stops_reason": "Damaged"}
