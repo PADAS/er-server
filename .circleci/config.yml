@@ -413,12 +413,3 @@ workflows:
             branches:
               only:
                 - "develop"
-  nightly:
-    triggers:
-      - schedule:
-          # Run against your stable branch nightly
-          cron: '0 7 * * *'
-          filters:
-            branches:
-              only:
-                - "develop"
