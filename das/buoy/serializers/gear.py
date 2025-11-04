@@ -376,15 +376,22 @@ class GearCreateSerializer(serializers.Serializer):
                 subject_source = SubjectSource.objects.filter(subject=subject, source=source).first()
 
             # Default assigned range sentinel
-            default_upper = models.DEFAULT_ASSIGNED_RANGE[1]
+            default_lower, default_upper = models.DEFAULT_ASSIGNED_RANGE
 
             # If device is being deployed, ensure we're not redeploying same device at same location
             if device.get("device_status") == "deployed":
                 if subject_source is not None:
                     current_assigned_range = subject_source.assigned_range
-                    if current_assigned_range is not None and current_assigned_range.lower is not None:
+                    if current_assigned_range is not None and current_assigned_range.lower != default_lower:
                         # If it's already deployed at same location, collect error
-                        if device_location is not None and subject_source.location == device_location:
+                        device_latitude = subject_source.location.y if subject_source.location else None
+                        device_longitude = subject_source.location.x if subject_source.location else None
+                        current_latitude = device_location.y if device_location is not None else None
+                        current_longitude = device_location.x if device_location is not None else None
+                        if device_location is not None and (device_latitude, device_longitude) == (
+                            current_latitude,
+                            current_longitude,
+                        ):
                             device_errors.setdefault(idx, []).append(
                                 f"Device {subject_source.source.manufacturer_id} is already deployed at this location."
                             )
