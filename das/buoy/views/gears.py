@@ -192,7 +192,8 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
         validated_data = serializer.validated_data
 
-        BuoyService.process_gearset(validated_data)
+        manufacturer_name = request.user.first_name
+        BuoyService.process_gearset(validated_data, manufacturer=manufacturer_name)
         return Response(
             {
                 "detail": "Gears successfully processed",

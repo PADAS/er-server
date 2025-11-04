@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import List, Optional
 
 from psycopg2.extras import DateTimeTZRange
 
@@ -21,11 +22,12 @@ class BuoyService:
     """
 
     @staticmethod
-    def process_gearset(validated_data):
+    def process_gearset(validated_data: dict, manufacturer: Optional[str] = None) -> List[models.Observation]:
         """Process a validated gearset payload.
 
         Args:
             validated_data (dict): validated serializer data for the gearset
+            manufacturer (str|None): optional manufacturer string to store on the Subject.additional
 
         Returns:
             list: list of created Observation instances
@@ -42,7 +44,14 @@ class BuoyService:
             # If subtype not present, proceed without setting it (maintain backward compatibility)
             subject_subtype = None
 
-        subject_defaults = {"additional": {"display_id": set_display_id}} if set_display_id else {}
+        # Build additional dict for Subject defaults (include manufacturer if provided)
+        additional = {}
+        if set_display_id:
+            additional["display_id"] = set_display_id
+        if manufacturer:
+            additional["manufacturer"] = manufacturer
+
+        subject_defaults = {"additional": additional} if additional else {}
 
         # Create or get Subject for the gearset
         if subject_subtype is not None:
@@ -52,12 +61,18 @@ class BuoyService:
         else:
             subject, _ = models.Subject.objects.get_or_create(name=set_id, defaults=subject_defaults)
 
-        # Ensure display_id is set when provided
-        if set_display_id:
-            additional = subject.additional or {}
-            if additional.get("display_id") != set_display_id:
-                additional["display_id"] = set_display_id
-                subject.additional = additional
+        # Ensure display_id and manufacturer are set/updated when provided
+        if set_display_id or manufacturer:
+            subj_additional = subject.additional or {}
+            changed = False
+            if set_display_id and subj_additional.get("display_id") != set_display_id:
+                subj_additional["display_id"] = set_display_id
+                changed = True
+            if manufacturer and subj_additional.get("manufacturer") != manufacturer:
+                subj_additional["manufacturer"] = manufacturer
+                changed = True
+            if changed:
+                subject.additional = subj_additional
                 subject.save()
 
         # Make a JSON-serializable copy of validated_data for storing in DB JSON fields
