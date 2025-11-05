@@ -69,7 +69,7 @@ echo "Notice GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS}"
 
 gunicorn das_server.wsgi --name das \
     --bind 0.0.0.0:8000 \
-    --limit-request-line 65536 \
+    --limit-request-line 15000 \
     --worker-tmp-dir /dev/shm \
     -c das_server/gunicorn.conf.py \
     --log-level info \
