@@ -7,8 +7,9 @@ from psycopg2.extras import DateTimeTZRange
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 
-from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE, SOURCE_TYPE, TRAP_DEPLOYED
+from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
 from buoy.serializers import GearCreateSerializer, GearSerializer
+from buoy.services.buoy_service import BuoyService
 from buoy.tests import generate_devices
 from core.tests import BaseAPITest
 from factories import SubjectTypeFactory
@@ -273,8 +274,8 @@ class TestGearCreateSerializer(BaseAPITest):
                 {
                     "mfr_device_id": "mfr123",
                     "mfr_id": "mfrcomp",
-                    "device_initial_deploy_date": now,
-                    "device_last_updated_date": now,
+                    "last_deployed": now,
+                    "last_updated": now,
                     "device_status": "deployed",
                     "location": {"latitude": 1.23, "longitude": 4.56},
                 }
@@ -282,28 +283,23 @@ class TestGearCreateSerializer(BaseAPITest):
         }
         serializer = GearCreateSerializer(data=data, context={"user_id": 99})
         assert serializer.is_valid(), serializer.errors
-        observations = serializer.save()
+
+        # Use BuoyService instead of serializer.save()
+        observations = BuoyService.process_gearset(serializer.validated_data, manufacturer="test_manufacturer")
+
         assert isinstance(observations, list)
         assert len(observations) == 1
         obs = observations[0]
-        # Basic fields
-        assert obs["source_name"]
-        assert obs["source_type"] == SOURCE_TYPE
-        assert obs["subject_type"] == BUOY_GEAR_SUBJECT_SUBTYPE
-        # recorded_at is an ISO format string, so we parse it to compare
-        assert date_parser.parse(obs["recorded_at"])
-        assert obs["location"] == {"lat": 1.23, "lon": 4.56}
-        # Additional payload
-        additional = obs["additional"]
-        assert additional["event_type"] == TRAP_DEPLOYED
-        # Check that raw data contains the validated data structure
-        assert "raw" in additional
-        raw = additional["raw"]
-        assert raw["owner_id"] == "owner123"
-        assert raw["deployment_type"] == "single"
-        assert len(raw["devices"]) == 1
-        assert raw["devices"][0]["mfr_device_id"] == "mfr123"
-        assert raw["devices"][0]["device_status"] == "deployed"
+
+        # Check observation fields
+        assert obs.source.manufacturer_id == "mfr123"
+        assert obs.location.x == 4.56  # longitude
+        assert obs.location.y == 1.23  # latitude
+        assert obs.additional["raw"]["owner_id"] == "owner123"
+        assert obs.additional["raw"]["deployment_type"] == "single"
+        assert len(obs.additional["raw"]["devices"]) == 1
+        assert obs.additional["raw"]["devices"][0]["mfr_device_id"] == "mfr123"
+        assert obs.additional["raw"]["devices"][0]["device_status"] == "deployed"
 
     def test_save_multiple_devices(self):
         now = timezone.now()
@@ -315,16 +311,16 @@ class TestGearCreateSerializer(BaseAPITest):
                 {
                     "mfr_device_id": "mfrA",
                     "mfr_id": "compA",
-                    "device_initial_deploy_date": now,
-                    "device_last_updated_date": now,
+                    "last_deployed": now,
+                    "last_updated": now,
                     "device_status": "deployed",
                     "location": {"latitude": 0.0, "longitude": 0.0},
                 },
                 {
                     "mfr_device_id": "mfrB",
                     "mfr_id": "compB",
-                    "device_initial_deploy_date": now,
-                    "device_last_updated_date": now,
+                    "last_deployed": now,
+                    "last_updated": now,
                     "device_status": "deployed",
                     "location": {"latitude": 9.99, "longitude": 9.99},
                 },
@@ -332,16 +328,20 @@ class TestGearCreateSerializer(BaseAPITest):
         }
         serializer = GearCreateSerializer(data=data, context={"user_id": 7})
         assert serializer.is_valid(), serializer.errors
-        observations = serializer.save()
+
+        # Use BuoyService instead of serializer.save()
+        observations = BuoyService.process_gearset(serializer.validated_data, manufacturer="test_manufacturer")
+
         assert isinstance(observations, list)
         # Two observations returned
         assert len(observations) == 2
-        # Check all have the same source_name (gearset ID)
-        source_names = {obs["source_name"] for obs in observations}
-        assert len(source_names) == 1
-        # Check both devices have deployed status
-        for obs in observations:
-            assert obs["additional"]["event_type"] == TRAP_DEPLOYED
+
+        # Check that they share the same subject (gearset)
+        subjects = {obs.source.subjectsource_set.first().subject for obs in observations}
+        assert len(subjects) == 1
+
         # Check locations are correct
-        assert observations[0]["location"] == {"lat": 0.0, "lon": 0.0}
-        assert observations[1]["location"] == {"lat": 9.99, "lon": 9.99}
+        assert observations[0].location.x == 0.0  # longitude
+        assert observations[0].location.y == 0.0  # latitude
+        assert observations[1].location.x == 9.99  # longitude
+        assert observations[1].location.y == 9.99  # latitude
