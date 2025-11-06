@@ -91,11 +91,25 @@ class BuoyService:
 
         observations = []
 
+        # Store last_updated in Subject's additional field if provided
+        if validated_data.get("last_updated"):
+            subj_additional = subject.additional or {}
+            subj_additional["last_updated"] = _make_serializable(validated_data["last_updated"])
+            subject.additional = subj_additional
+            subject.save()
+
         for device_data in devices:
             device_location = models.Point(device_data["location"]["longitude"], device_data["location"]["latitude"])
             recorded_at = device_data.get("recorded_at", timezone.now())
 
             source, _ = models.Source.objects.get_or_create(manufacturer_id=device_data["mfr_device_id"])
+
+            # Store last_updated in Source's additional field if provided
+            if device_data.get("last_updated"):
+                source_additional = source.additional or {}
+                source_additional["last_updated"] = _make_serializable(device_data["last_updated"])
+                source.additional = source_additional
+                source.save()
 
             # Store the validated payload as the raw field for traceability
             observation = models.Observation.objects.create(

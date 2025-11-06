@@ -8,7 +8,6 @@ from drf_spectacular.utils import (
 )
 
 from django.db import transaction
-from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework import serializers as drf_serializers
 from rest_framework.permissions import IsAuthenticated
@@ -136,7 +135,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
     def get_serializer_class(self):
         if self.request.method == "POST":
             return serializers.GearCreateSerializer
-        return serializers.GearSerializerV2
+        return serializers.GearSerializer
 
     def list(self, request, *args, **kwargs):
         # Validate query parameters using serializer
@@ -221,27 +220,46 @@ class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise ForbiddenAPIException
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
-        queryset = Subject.objects.filter(id=subject_id)
+
+        # Return SubjectSource queryset instead of Subject queryset
+        # to work with the new GearSerializer (ModelSerializer)
+        queryset = SubjectSource.objects.filter(subject_id=subject_id)
+
         mou_date = self.request.user.additional.get("expiry", None)
         mou_date = dateparse(mou_date) if mou_date else None
-        queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
 
-        queryset = queryset.prefetch_related(
-            "subjectsources__source__provider", "subjectsources__source__last_observation_sources"
+        # Annotate the subject for status information
+        subject_qs = Subject.objects.filter(id=subject_id).annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24, mou_expiry_date=mou_date
         )
 
-        self._get_two_way_sources(queryset)
+        # Prefetch related data for efficient queries
+        queryset = queryset.select_related("subject", "source", "source__provider")
+        queryset = queryset.prefetch_related("source__last_observation_sources")
+
+        self._get_two_way_sources(subject_qs)
         return queryset
 
     def get_object(self):
         if self.queryset_linked_user.exists():
-            subject_id = self.kwargs.get("id")
-            return get_object_or_404(self.queryset_linked_user, pk=subject_id)
-        return super().get_object()
+            self.kwargs.get("id")
+            # Get the first SubjectSource for this subject
+            subject_source = self.get_queryset().first()
+            if not subject_source:
+                from rest_framework.exceptions import NotFound
+
+                raise NotFound("No SubjectSource found for this subject")
+            return subject_source
+
+        # Get the first SubjectSource from the queryset
+        subject_source = self.get_queryset().first()
+        if not subject_source:
+            from rest_framework.exceptions import NotFound
+
+            raise NotFound("No SubjectSource found for this subject")
+        return subject_source
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context["two_way_subject_sources"] = self.two_way_subject_sources
-        context["simple_mode"] = True
-
         return context

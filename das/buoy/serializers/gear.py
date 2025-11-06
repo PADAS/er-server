@@ -4,194 +4,25 @@ from collections import Counter
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from drf_extra_fields.geo_fields import PointField
-
 from django.db.models.functions import Lower
 from django.utils import timezone
 from rest_framework import serializers
 
 from buoy.constants import (
-    BUOY_GEAR_SUBJECT_SUBTYPE,
     DEPLOYMENT_TYPE_CHOICES,
     DEVICE_DEPLOYMENT_STATUS_CHOICES,
     DEVICES_KEY,
     DISPLAY_ID_KEY,
     GEAR_TYPE_SINGLE,
     GEAR_TYPE_TRAWL,
-    ID_KEY,
     POSITIONING_TYPE_CHOICES,
     POSITIONING_TYPE_GPS,
     RELEASE_TYPE_CHOICES,
-    STATUS_KEY,
 )
 from observations import models
 from observations.models import SubjectSource
-from observations.serializers import SubjectRelatedField
 
 logger = logging.getLogger(__name__)
-
-
-class GearSerializer(serializers.Serializer):
-    id = serializers.UUIDField(
-        required=False,
-    )
-    location = PointField(required=False)
-    subject = SubjectRelatedField()
-
-    additional_fields = ("devices", "additional")
-
-    class Meta:
-        model = models.SubjectSource
-        fields = ("id", "assigned_range", "source", "subject", "additional", "location")
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    @property
-    def simple_mode(self):
-        return self.context.get("simple_mode", False)
-
-    def get_type(self, subject):
-        additional = subject.get("additional", {})
-        if DEVICES_KEY not in additional or len(additional[DEVICES_KEY]) == 0:
-            raise serializers.ValidationError(f"Subject {subject['id']} does not have additional devices information.")
-
-        return GEAR_TYPE_TRAWL if len(subject["additional"][DEVICES_KEY]) > 1 else GEAR_TYPE_SINGLE
-
-    def get_display_id(self, subject):
-        if DISPLAY_ID_KEY in subject.get("additional", {}):
-            return subject["additional"][DISPLAY_ID_KEY]
-        return subject["name"]
-
-    def _idx_to_device_label(self, idx):
-        """
-        Convert an index to a device label.
-        1. a, 2. b, 3. c, etc.
-        """
-        return chr(97 + idx)
-
-    def get_source_provider_standardized_name(self, instance):
-        """
-        Get the standardized name of the source provider.
-        """
-        if hasattr(instance, "source"):
-            provider_key = instance.source.provider.provider_key
-        else:
-            if related_sources := instance.subjectsources.first():
-                provider_key = related_sources.source.provider.provider_key
-            else:
-                return "unknown"
-
-        if match := re.match(r"^gundi_(.+?)_[0-9a-f-]+$", provider_key):
-            return match.group(1)
-
-        return provider_key
-
-    def to_representation(self, instance):
-        if isinstance(instance, models.Subject):
-            subject = {
-                "id": str(instance.id),
-                "name": instance.name,
-                "subject_subtype": instance.subject_subtype.value if instance.subject_subtype else None,
-                "is_active": instance.is_active,
-                "updated_at": instance.updated_at,
-                "additional": instance.additional or {},
-            }
-            if self.simple_mode:
-                return {
-                    "id": subject["id"],
-                    "display_id": subject["name"],
-                    "status": "deployed" if subject["is_active"] else "hauled",
-                    "last_updated": subject["updated_at"],
-                }
-            related_subjectsource = instance.subjectsources.first()
-            if not related_subjectsource:
-                raise serializers.ValidationError("Subject has no associated sources")
-            instance = related_subjectsource
-
-        rep = super(GearSerializer, self).to_representation(instance)
-        subject = rep["subject"]
-        now = datetime.now(timezone.utc)
-
-        if not isinstance(subject, dict):
-            raise serializers.ValidationError("Subject must be a dictionary")
-
-        gear_rep = dict()
-
-        # Handle ropeless_buoy_gearset differently
-        if subject.get("subject_subtype") == BUOY_GEAR_SUBJECT_SUBTYPE:
-            gear_rep[ID_KEY] = subject[ID_KEY]
-            gear_rep[DISPLAY_ID_KEY] = subject.get("additional", {}).get(DISPLAY_ID_KEY, subject["name"])
-            gear_rep[STATUS_KEY] = "deployed" if subject["is_active"] else "hauled"
-            gear_rep["last_updated"] = subject["updated_at"]
-
-            # Get devices from related SubjectSources
-            # Note: subjectsources and their sources are prefetched in the view to avoid N+1 queries
-            devices = []
-            minimum_active_lower_bound = datetime.min.replace(tzinfo=now.tzinfo)
-
-            # Build base query for related subject sources
-            related_subject_sources_query = (
-                models.SubjectSource.objects.filter(subject__name=subject["name"])
-                .annotate(lower=Lower("assigned_range"))
-                .exclude(
-                    lower=minimum_active_lower_bound
-                )  # This prevents including sources that didn't have the lower bound set i.e. deployed
-                .select_related("source", "source__provider")
-            )
-
-            if subject["is_active"]:
-                # For ACTIVE subjects: Get only currently deployed sources (within current time range)
-                related_subject_sources = related_subject_sources_query.filter(assigned_range__contains=now)
-            else:
-                # For INACTIVE subjects: Get all historical sources (regardless of time range)
-                related_subject_sources = related_subject_sources_query
-
-            for idx, subject_source in enumerate(related_subject_sources):
-                if subject_source.source:
-                    device_id = subject_source.source.manufacturer_id
-                    # Use prefetched LatestObservationSource data instead of making individual queries
-                    # This prevents N+1 query problem when serializing multiple gears
-                    latest_obs_source = subject_source.source.last_observation_sources.first()
-                    if latest_obs_source and latest_obs_source.observation:
-                        observation = latest_obs_source.observation
-                        location = {"latitude": observation.location.y, "longitude": observation.location.x}
-                    else:
-                        location = {"latitude": None, "longitude": None}
-
-                    device = {
-                        "device_id": device_id,
-                        "source_id": str(subject_source.source.id),
-                        "label": self._idx_to_device_label(idx),
-                        "location": location,
-                        "last_updated": subject_source.source.updated_at,
-                        "last_deployed": subject_source.assigned_range.lower,
-                    }
-                    devices.append(device)
-
-            gear_rep[DEVICES_KEY] = devices
-            gear_rep["type"] = GEAR_TYPE_TRAWL if len(devices) > 1 else GEAR_TYPE_SINGLE
-            gear_rep["manufacturer"] = self.get_source_provider_standardized_name(instance)
-        else:
-            # Original logic for other subject subtypes
-            gear_rep[ID_KEY] = subject[ID_KEY]
-            gear_rep[STATUS_KEY] = "deployed" if subject["is_active"] else "hauled"
-            gear_rep["last_updated"] = subject["updated_at"]
-            # TODO: add last_change_time
-            additional = subject.get("additional")
-            if additional:
-                gear_rep[DISPLAY_ID_KEY] = self.get_display_id(subject)
-                if DEVICES_KEY in additional:
-                    gear_rep["type"] = self.get_type(subject)
-                    gear_rep[DEVICES_KEY] = subject["additional"][DEVICES_KEY]
-            else:
-                gear_rep[DISPLAY_ID_KEY] = subject["name"]
-                # TODO: return 500 internal server error with this detail
-                gear_rep["type"] = "Error: no device information"
-                gear_rep[DEVICES_KEY] = []
-            gear_rep["manufacturer"] = self.get_source_provider_standardized_name(instance)
-
-        return gear_rep
 
 
 class GeoLocationSerializer(serializers.Serializer):
@@ -218,10 +49,10 @@ class GeoLocationSerializer(serializers.Serializer):
 class GearDeviceCreateSerializer(serializers.Serializer):
     mfr_device_id = serializers.CharField(max_length=100, required=True)
     mfr_id = serializers.CharField(max_length=100, required=True)
-    device_initial_deploy_date = serializers.DateTimeField(
+    last_deployed = serializers.DateTimeField(
         required=True,
     )
-    device_last_updated_date = serializers.DateTimeField(
+    last_updated = serializers.DateTimeField(
         required=True,
     )
     device_status = serializers.ChoiceField(
@@ -257,7 +88,7 @@ class GearDeviceCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Manufacturer ID cannot be empty")
         return value.strip()
 
-    def validate_device_initial_deploy_date(self, value):
+    def validate_last_deployed(self, value):
         if value:
             now = datetime.now(timezone.utc)
             if value > now:
@@ -265,7 +96,7 @@ class GearDeviceCreateSerializer(serializers.Serializer):
 
         return value
 
-    def validate_device_last_updated_date(self, value):
+    def validate_last_updated(self, value):
         """Validate device last updated date."""
         if value:
             now = datetime.now(timezone.utc)
@@ -275,13 +106,11 @@ class GearDeviceCreateSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
-        deploy_date = attrs.get("device_initial_deploy_date")
-        updated_date = attrs.get("device_last_updated_date")
+        deploy_date = attrs.get("last_deployed")
+        updated_date = attrs.get("last_updated")
 
         if deploy_date and updated_date and updated_date < deploy_date:
-            raise serializers.ValidationError(
-                {"device_last_updated_date": "Last updated date cannot be before deployment date"}
-            )
+            raise serializers.ValidationError({"last_updated": "Last updated date cannot be before deployment date"})
 
         return super().validate(attrs)
 
@@ -296,8 +125,8 @@ class GearCreateSerializer(serializers.Serializer):
     deployment_type = serializers.ChoiceField(choices=DEPLOYMENT_TYPE_CHOICES, required=True)
     devices_in_set = serializers.IntegerField(required=False)
     trawl_path = serializers.ListField(child=GeoLocationSerializer(), required=False)
-    last_updated_date = serializers.DateTimeField(required=False)
-    initial_deployment_date = serializers.DateTimeField(required=True)
+    last_updated = serializers.DateTimeField(required=False)
+    initial_deployment_date = serializers.DateTimeField(required=False)  # Conditionally required
     set_additional_data = serializers.JSONField(required=False)
     devices = GearDeviceCreateSerializer(many=True, required=True)
 
@@ -352,13 +181,19 @@ class GearCreateSerializer(serializers.Serializer):
         if not attrs.get("set_display_id"):
             attrs["set_display_id"] = attrs["set_id"]
 
+        # Check if this is a new gear set or an update
+        set_id = attrs.get("set_id")
+        subject = models.Subject.objects.filter(name=set_id).first() if set_id else None
+
+        # initial_deployment_date is required only for new gear sets
+        if not subject and not attrs.get("initial_deployment_date"):
+            raise serializers.ValidationError(
+                {"initial_deployment_date": "This field is required when creating a new gear set"}
+            )
+
         # Additional device/subject/source validations moved from the view
         # Ensure per-device state transitions are valid (deployed <-> hauled)
         devices = attrs.get("devices", [])
-        set_id = attrs.get("set_id")
-
-        # Try to resolve the Subject if it exists
-        subject = models.Subject.objects.filter(name=set_id).first() if set_id else None
 
         device_errors = {}
         for idx, device in enumerate(devices):
@@ -445,57 +280,58 @@ class GearCreateSerializer(serializers.Serializer):
                         return str(subject.name)
         return None
 
-    class Meta(GearSerializer.Meta):
-        fields = (
-            "set_id",
-            "vessel_id",
-            "mfr_set_id",
-            "owner_id",
-            "set_display_id",
-            "permit_number",
-            "deployment_type",
-            "trawl_path",
-        )
 
-
-class GearSerializerV2(serializers.ModelSerializer):
-    """ModelSerializer version that serializes a SubjectSource but returns
-    the same gear representation produced by the original GearSerializer.
+class GearSerializer(serializers.ModelSerializer):
+    """ModelSerializer that serializes a SubjectSource and returns
+    a gear representation.
 
     It mirrors the structure:
 
     {
-        {
-            "id": "uuid",
-            "display_id": "string",
-            "status": "deployed | hauled",
-            "last_updated": "isoformat",
-            "devices": [
-                {
-                    "device_id": "string",
-                    "source_id": "uuid",
-                    "label": "string",
-                    "location": {
-                        "latitude": float,
-                        "longitude": float
-                    },
-                    "last_updated": "isoformat",
-                    "last_deployed": "isoformat"
-                }
-            ],
-            "type": "single. | trawl",
-            "manufacturer": "string"
-        }
+        "id": "uuid",
+        "display_id": "string",
+        "status": "deployed | hauled",
+        "last_updated": "isoformat",
+        "devices": [
+            {
+                "device_id": "string",
+                "source_id": "uuid",
+                "label": "string",
+                "location": {
+                    "latitude": float,
+                    "longitude": float
+                },
+                "last_updated": "isoformat",
+                "last_deployed": "isoformat"
+            }
+        ],
+        "type": "single | trawl",
+        "manufacturer": "string"
     }
     """
 
     id = serializers.UUIDField(source="subject.id")
     display_id = serializers.SerializerMethodField()
-    last_updated = serializers.DateTimeField(source="subject.updated_at")
+    last_updated = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     devices = serializers.SerializerMethodField()
     type = serializers.SerializerMethodField()
     manufacturer = serializers.SerializerMethodField()
+
+    def get_last_updated(self, obj):
+        """Get last_updated from Subject's additional field, fallback to updated_at."""
+        if subject := obj.subject:
+            additional = subject.additional or {}
+            if "last_updated" in additional:
+                # Parse ISO format datetime string from additional field
+                last_updated_str = additional["last_updated"]
+                if isinstance(last_updated_str, str):
+                    from django.utils.dateparse import parse_datetime
+
+                    return parse_datetime(last_updated_str)
+                return last_updated_str
+            return subject.updated_at
+        raise serializers.ValidationError("Subject is missing for SubjectSource")
 
     def get_display_id(self, obj):
         if subject := obj.subject:
@@ -555,12 +391,25 @@ class GearSerializerV2(serializers.ModelSerializer):
                     else:
                         location = {"latitude": None, "longitude": None}
 
+                    # Get last_updated from Source's additional field, fallback to updated_at
+                    source_additional = subject_source.source.additional or {}
+                    if "last_updated" in source_additional:
+                        last_updated_str = source_additional["last_updated"]
+                        if isinstance(last_updated_str, str):
+                            from django.utils.dateparse import parse_datetime
+
+                            device_last_updated = parse_datetime(last_updated_str)
+                        else:
+                            device_last_updated = last_updated_str
+                    else:
+                        device_last_updated = subject_source.source.updated_at
+
                     device = {
                         "device_id": device_id,
                         "source_id": str(subject_source.source.id),
                         "label": chr(97 + idx),  # 'a', 'b', 'c', etc.
                         "location": location,
-                        "last_updated": subject_source.source.updated_at,
+                        "last_updated": device_last_updated,
                         "last_deployed": subject_source.assigned_range.lower,
                     }
                     devices.append(device)
