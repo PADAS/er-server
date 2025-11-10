@@ -1015,7 +1015,7 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
 
             return simplified
         except Exception as e:
-            logger.warning(f"Failed to generate Web Mercator geometry for SpatialFeature {self.id}: {e}")
+            logger.warning("Failed to generate Web Mercator geometry for SpatialFeature %s: %s", self.id, e)
             return None
 
     def save(self, *args, **kwargs):
