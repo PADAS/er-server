@@ -6,7 +6,7 @@ from django.contrib.gis.db import models as gis_models
 from django.contrib.gis.geos import GEOSGeometry
 from django.db.models import Case, CharField, F, FloatField, Value, When
 from django.db.models.fields.json import KeyTextTransform
-from django.db.models.functions import Cast
+from django.db.models.functions import Cast, Coalesce
 
 from mapping.filters import SpatialFeatureFilterSet
 from mapping.models import SpatialFeature
@@ -87,30 +87,39 @@ class SpatialFeatureLayer(VectorLayer):
             .annotate(
                 feature_type_name=F("feature_type__name"),
                 display_category_name=F("feature_type__display_category__name"),
-                geom=Cast(F("feature_geometry"), gis_models.GeometryField(srid=4326)),
+                geom=self._get_geometry_field(),
                 **self._extract_presentation_json_keys(),
                 image=image_expr,
             )
+        )
+
+    def _get_geometry_field(self):
+        """
+        Returns the geometry field for vector tiles.
+        Uses Web Mercator field with fallback for null values.
+        """
+        # Use the webmercator field, fall back to transformed original if null
+        return Coalesce(
+            "feature_geometry_webmercator", Cast(F("feature_geometry"), gis_models.GeometryField(srid=4326))
         )
 
     def get_queryset(self):  # pragma: no cover - compatibility shim
         """
         Return queryset with geometries transformed to 3857 in Python.
         This avoids PostGIS / PROJ transform limitations entirely.
-
         """
         qs = self._build_base_queryset()
+
         for obj in qs:
+            # Transform the annotated geometry if it's not already in Web Mercator
             geom = getattr(obj, "geom", None)
-            if geom and isinstance(geom, GEOSGeometry):
+            if geom and isinstance(geom, GEOSGeometry) and geom.srid != 3857:
                 try:
-                    geom.transform(3857)  # local reprojection (GEOS)
-                    obj.geom = geom
-                except Exception:
-                    logger.exception(
-                        "Failed to transform geometry for SpatialFeature id=%s",
-                        getattr(obj, "id", None),
-                    )
+                    geom.transform(3857)
+                    obj.geom = geom  # Assign the transformed geometry back
+                except Exception as e:
+                    logger.warning("Failed to transform geometry for SpatialFeature id=%s: %s", obj.id, str(e))
+
         return qs
 
     def _extract_presentation_json_keys(self):

@@ -141,6 +141,93 @@ class TestSpatialFeatureLayer:
             assert geom is not None
             assert geom.srid == 3857
 
+    def test_webmercator_geometry_fallback_when_null(self):
+        """Test that system falls back to runtime transformation when webmercator field is null"""
+        dc = DisplayCategory.objects.create(name="Fallback")
+        ft = SpatialFeatureType.objects.create(name="FallbackType", display_category=dc)
+        feature = SpatialFeature.objects.create(
+            feature_type=ft,
+            name="TestFallback",
+            feature_geometry=Point(1, 1),
+            feature_geometry_webmercator=None,  # Explicitly null
+        )
+
+        layer = SpatialFeatureLayer()
+        # This should trigger the fallback path
+        qs = layer.get_vector_tile_queryset(10, 0, 0).filter(id=feature.id)
+        obj = list(qs)[0]
+
+        # Should have geometry (from fallback transformation)
+        geom = getattr(obj, "geom", None)
+        assert geom is not None
+        assert geom.srid == 3857
+
+    def test_webmercator_geometry_used_when_populated(self):
+        """Test that pre-computed webmercator geometry is used when available"""
+        dc = DisplayCategory.objects.create(name="Optimized")
+        ft = SpatialFeatureType.objects.create(name="OptimizedType", display_category=dc)
+
+        # Create feature and let save() populate webmercator field
+        feature = SpatialFeature.objects.create(feature_type=ft, name="TestOptimized", feature_geometry=Point(2, 2))
+
+        # Verify webmercator field was populated
+        feature.refresh_from_db()
+        assert feature.feature_geometry_webmercator is not None
+
+        layer = SpatialFeatureLayer()
+        # This should use the pre-computed geometry
+        qs = layer.get_vector_tile_queryset(10, 0, 0).filter(id=feature.id)
+        obj = list(qs)[0]
+
+        # Should have geometry from pre-computed field
+        geom = getattr(obj, "geom", None)
+        assert geom is not None
+        assert geom.srid == 3857
+
+    def test_generate_webmercator_geometry_basic_correctness(self):
+        """Test that geometry generation produces correctly transformed and simplified geometries"""
+        dc = DisplayCategory.objects.create(name="Generation")
+        ft = SpatialFeatureType.objects.create(name="GenerationType", display_category=dc)
+
+        # Test with a simple point
+        feature = SpatialFeature.objects.create(
+            feature_type=ft, name="TestPoint", feature_geometry=Point(0, 0)  # WGS84 origin
+        )
+
+        # Check that webmercator geometry was generated
+        feature.refresh_from_db()
+        webmerc_geom = feature.feature_geometry_webmercator
+        assert webmerc_geom is not None
+        assert webmerc_geom.srid == 3857
+
+        # Basic sanity check - should be near Web Mercator origin
+        # (0,0 in WGS84 transforms to roughly (0,0) in Web Mercator)
+        assert abs(webmerc_geom.x) < 1000  # Within 1km of origin
+        assert abs(webmerc_geom.y) < 1000
+
+    def test_spatialfeature_save_populates_webmercator(self):
+        """Test that saving a SpatialFeature auto-generates webmercator geometry"""
+        dc = DisplayCategory.objects.create(name="AutoGen")
+        ft = SpatialFeatureType.objects.create(name="AutoGenType", display_category=dc)
+
+        # Create without webmercator field
+        feature = SpatialFeature(feature_type=ft, name="TestAutoGen", feature_geometry=Point(3, 3))
+        assert feature.feature_geometry_webmercator is None
+
+        # Save should auto-generate webmercator field
+        feature.save()
+        assert feature.feature_geometry_webmercator is not None
+        assert feature.feature_geometry_webmercator.srid == 3857
+
+        # Update geometry and save again
+        feature.feature_geometry = Point(4, 4)
+        feature.save()
+
+        # Should regenerate webmercator field
+        feature.refresh_from_db()
+        assert feature.feature_geometry_webmercator is not None
+        assert feature.feature_geometry_webmercator.srid == 3857
+
 
 @pytest.mark.django_db
 class TestSpatialFeatureTileEndpoint:
