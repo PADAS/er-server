@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Literal, Optional, Union
+from typing import Optional
 
 import pytz
 from dateutil.parser import parse as parse_date
@@ -11,15 +11,11 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.utils import IntegrityError
 from rest_framework import serializers, status
-from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from analyzers import gfw_inbound
-from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE, TRAP_DEPLOYED, TRAP_RETRIEVED
 from observations import servicesutils
 from observations.models import (
-    DEFAULT_ASSIGNED_RANGE,
-    DateTimeTZRange,
     Observation,
     Source,
     Subject,
@@ -45,9 +41,6 @@ from utils.tenant import get_tenant_settings
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
-
-# Type alias for trap event types
-TrapEventType = Union[Literal["trap_deployed"], Literal["trap_retrieved"]]
 
 
 class GenericSensorHandler:
@@ -173,102 +166,6 @@ class GenericSensorHandler:
         return Response({}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     @classmethod
-    def get_or_consolidate_subject_by_name(cls, name: str):
-        """Find and consolidate duplicate subjects with the same name.
-
-        If multiple subjects exist with the same name, this method will:
-        1. Keep the oldest subject (by created_at)
-        2. Transfer all SubjectSource assignments from duplicates to the oldest
-        3. Delete the duplicate subjects
-
-        Args:
-            name (str): The subject name to search for
-
-        Returns:
-            Subject: The consolidated subject, or None if not found
-        """
-        subjects = Subject.objects.filter(name=name).order_by("created_at")
-
-        if not subjects.exists():
-            return None
-
-        if subjects.count() == 1:
-            return subjects.first()
-
-        first_subject = subjects.first()
-        duplicate_subjects = subjects.exclude(id=first_subject.id)
-
-        cls._transfer_subject_source_assignments(first_subject, duplicate_subjects)
-
-        return first_subject
-
-    @classmethod
-    @transaction.atomic
-    def _transfer_subject_source_assignments(cls, target_subject: Subject, duplicate_subjects):
-        """Transfer SubjectSource assignments from duplicate subjects to the target subject.
-
-        Args:
-            target_subject (Subject): The subject to receive the assignments
-            duplicate_subjects (QuerySet): The duplicate subjects to transfer assignments from
-        """
-        duplicate_subject_ids = list(duplicate_subjects.values_list("id", flat=True))
-
-        if not duplicate_subject_ids:
-            return
-
-        all_assignments = SubjectSource.objects.filter(subject_id__in=duplicate_subject_ids).select_related("source")
-
-        target_assignments = SubjectSource.objects.filter(subject=target_subject).select_related("source")
-
-        target_assignments_by_source = {}
-        for target_assignment in target_assignments:
-            source_id = target_assignment.source_id
-            if source_id not in target_assignments_by_source:
-                target_assignments_by_source[source_id] = []
-            target_assignments_by_source[source_id].append(target_assignment)
-
-        assignments_to_transfer = []
-        assignments_to_delete = []
-        target_assignments_to_update = []
-
-        for assignment in all_assignments:
-            source_id = assignment.source_id
-            existing_assignments = target_assignments_by_source.get(source_id, [])
-
-            overlapping_assignment = None
-            for existing_assignment in existing_assignments:
-                if not (
-                    assignment.assigned_range.upper <= existing_assignment.assigned_range.lower
-                    or existing_assignment.assigned_range.upper <= assignment.assigned_range.lower
-                ):
-                    overlapping_assignment = existing_assignment
-                    break
-
-            if overlapping_assignment:
-                if assignment.assigned_range.lower < overlapping_assignment.assigned_range.lower:
-                    overlapping_assignment.assigned_range = DateTimeTZRange(
-                        lower=assignment.assigned_range.lower,
-                        upper=max(assignment.assigned_range.upper, overlapping_assignment.assigned_range.upper),
-                    )
-                    target_assignments_to_update.append(overlapping_assignment)
-                assignments_to_delete.append(assignment)
-            else:
-                assignment.subject = target_subject
-                assignments_to_transfer.append(assignment)
-
-        if target_assignments_to_update:
-            SubjectSource.objects.bulk_update(target_assignments_to_update, ["assigned_range"], batch_size=100)
-
-        if assignments_to_transfer:
-            SubjectSource.objects.bulk_update(assignments_to_transfer, ["subject"], batch_size=100)
-
-        if assignments_to_delete:
-            assignment_ids_to_delete = [a.id for a in assignments_to_delete]
-            SubjectSource.objects.filter(id__in=assignment_ids_to_delete).delete()
-
-        duplicate_subjects.delete()
-
-    @classmethod
     def update_subject(cls, subject: Subject, additional: Optional[dict] = None, is_active: Optional[bool] = None):
         """Update a subject with additional fields."""
         updated_fields = set()
@@ -282,62 +179,6 @@ class GenericSensorHandler:
             updated_fields.add("updated_at")
         subject.save(update_fields=updated_fields)
         return subject
-
-    @classmethod
-    def update_subject_source_assigned_range(
-        cls,
-        subject_source: SubjectSource,
-        recorded_at: datetime,
-        event_type: TrapEventType,
-        location: Optional[dict] = None,
-    ):
-        """Update the assigned range of a subject source.
-
-        For TRAP_DEPLOYED events we only block a new deploy when the
-        SubjectSource already has an active assigned range for the same
-        location. If the location differs (or the existing assignment has no
-        location), allow the new deploy and set the assigned_range/location
-        accordingly.
-        """
-        trap_id = subject_source.source.manufacturer_id
-        if event_type == TRAP_DEPLOYED:
-            if subject_source.has_assigned_range and subject_source.is_current:
-                existing_loc = getattr(subject_source, "location", None)
-
-                same_location = False
-                if existing_loc and location:
-                    try:
-                        existing_lon = float(existing_loc.x)
-                        existing_lat = float(existing_loc.y)
-                        incoming_lat = float(location.get("latitude"))
-                        incoming_lon = float(location.get("longitude"))
-                        tol = 1e-6
-                        if abs(existing_lat - incoming_lat) <= tol and abs(existing_lon - incoming_lon) <= tol:
-                            same_location = True
-                    except Exception:
-                        same_location = False
-
-                if same_location:
-                    raise ValidationError(f"Cannot deploy a trap ({trap_id}) that is already deployed.")
-
-            subject_source.assigned_range = DateTimeTZRange(lower=recorded_at, upper=DEFAULT_ASSIGNED_RANGE[1])
-            if location:
-                try:
-                    from django.contrib.gis.geos import Point
-
-                    subject_source.location = Point(float(location.get("longitude")), float(location.get("latitude")))
-                except Exception:
-                    # If setting location fails, ignore and proceed with range update
-                    pass
-        else:
-            if not subject_source.has_assigned_lower_range:
-                raise ValidationError(f"Cannot retrieve a trap ({trap_id}) that is not deployed.")
-            if subject_source.has_assigned_upper_range:
-                raise ValidationError(f"Cannot retrieve a trap ({trap_id}) that is already retrieved.")
-            current_lower = subject_source.assigned_range.lower
-            subject_source.assigned_range = DateTimeTZRange(lower=current_lower, upper=recorded_at)
-
-        subject_source.save()
 
     @classmethod
     def process_one_observation(
@@ -367,7 +208,7 @@ class GenericSensorHandler:
         location = an_observation["location"]
         lat = location.get("lat", None)
         lon = location.get("lon", None)
-        now = datetime.now(timezone.utc)
+        datetime.now(timezone.utc)
         # location = Point(x=float(lon), y=float(lat))
         location = {"latitude": float(lat), "longitude": float(lon)}
         subject_subtype = an_observation.get("subject_subtype") or cls.DEFAULT_SUBJECT_SUBTYPE
@@ -392,19 +233,6 @@ class GenericSensorHandler:
 
         observation_additional = an_observation.get("additional", {})
 
-        # Special initial validation for ropeless_buoy_gearset
-        if subject_subtype == BUOY_GEAR_SUBJECT_SUBTYPE:
-            event_type = observation_additional.get("event_type")
-            if event_type not in [TRAP_DEPLOYED, TRAP_RETRIEVED]:
-                raise ValidationError(
-                    f"Ropeless buoy gearset observations must have an additional.event_type of "
-                    f"'{TRAP_DEPLOYED}' or '{TRAP_RETRIEVED}'."
-                )
-            subject_info.setdefault("additional", {})["display_id"] = subject_name
-            subject = cls.get_or_consolidate_subject_by_name(subject_name)
-            if subject:
-                subject_info["id"] = subject.id
-
         # Create a cache key from the source parameters
         source_cache_key = (source_type, provider_key, manufacturer_id, model_name, str(subject_info), str(source_info))
 
@@ -422,26 +250,6 @@ class GenericSensorHandler:
             )
             if source_cache is not None:
                 source_cache[source_cache_key] = src
-
-        # For Buoy Subject's, ensure that we have a Subject and SubjectSource set up and define the assigned_range as the deploy/retrieve event dictates
-        if subject_subtype == BUOY_GEAR_SUBJECT_SUBTYPE:
-            subject = cls.get_or_consolidate_subject_by_name(subject_name)
-            if not subject:
-                subject = Subject.objects.create_subject(**subject_info)
-
-            subject_source, created = SubjectSource.objects.get_or_create(
-                source=src, subject=subject, defaults={"assigned_range": DEFAULT_ASSIGNED_RANGE}
-            )
-
-            cls.update_subject_source_assigned_range(
-                subject_source=subject_source,
-                recorded_at=recorded_at,
-                event_type=observation_additional.get("event_type"),
-                location=location,
-            )
-
-            has_active_sources = subject.subjectsources.filter(assigned_range__contains=now).exists()
-            cls.update_subject(subject, additional=subject_additional, is_active=has_active_sources)
 
         event_action = an_observation.get("additional", {}).get("event_action", cls.DEFAULT_EVENT_ACTION)
         observation = {

@@ -5,13 +5,11 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from django.db.models.functions import Lower
-from django.utils import timezone
 from rest_framework import serializers
 
 from buoy.constants import (
     DEPLOYMENT_TYPE_CHOICES,
     DEVICE_DEPLOYMENT_STATUS_CHOICES,
-    DEVICES_KEY,
     DISPLAY_ID_KEY,
     GEAR_TYPE_SINGLE,
     GEAR_TYPE_TRAWL,
@@ -328,9 +326,15 @@ class GearSerializer(serializers.ModelSerializer):
                 if isinstance(last_updated_str, str):
                     from django.utils.dateparse import parse_datetime
 
-                    return parse_datetime(last_updated_str)
-                return last_updated_str
-            return subject.updated_at
+                    last_updated = parse_datetime(last_updated_str)
+                else:
+                    last_updated = last_updated_str
+            else:
+                last_updated = subject.updated_at
+
+            if hasattr(last_updated, "isoformat"):
+                return last_updated.isoformat()
+            return last_updated
         raise serializers.ValidationError("Subject is missing for SubjectSource")
 
     def get_display_id(self, obj):
@@ -404,13 +408,22 @@ class GearSerializer(serializers.ModelSerializer):
                     else:
                         device_last_updated = subject_source.source.updated_at
 
+                    # Convert to ISO format string
+                    if hasattr(device_last_updated, "isoformat"):
+                        device_last_updated = device_last_updated.isoformat()
+
+                    # Convert last_deployed to ISO format string
+                    last_deployed = subject_source.assigned_range.lower
+                    if hasattr(last_deployed, "isoformat"):
+                        last_deployed = last_deployed.isoformat()
+
                     device = {
                         "device_id": device_id,
                         "source_id": str(subject_source.source.id),
                         "label": chr(97 + idx),  # 'a', 'b', 'c', etc.
                         "location": location,
                         "last_updated": device_last_updated,
-                        "last_deployed": subject_source.assigned_range.lower,
+                        "last_deployed": last_deployed,
                     }
                     devices.append(device)
 
@@ -418,11 +431,8 @@ class GearSerializer(serializers.ModelSerializer):
         raise serializers.ValidationError("Subject is missing for SubjectSource")
 
     def get_type(self, obj):
-        if subject := obj.subject:
-            additional = subject.additional or {}
-            devices = additional.get(DEVICES_KEY, [])
-            return GEAR_TYPE_TRAWL if len(devices) > 1 else GEAR_TYPE_SINGLE
-        raise serializers.ValidationError("Subject is missing for SubjectSource")
+        devices = self.get_devices(obj)
+        return GEAR_TYPE_TRAWL if len(devices) > 1 else GEAR_TYPE_SINGLE
 
     class Meta:
         model = models.SubjectSource

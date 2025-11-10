@@ -168,8 +168,6 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         max_nm_range = query_params.get("max_nm_range", NAUTICAL_MILE_RADIUS)
 
         if lat and lon:
-            lat = float(lat)
-            lon = float(lon)
             queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=int(max_nm_range))
 
         # Filter queryset by removing subjects where the additional field is the same
