@@ -290,9 +290,9 @@ def gear_subjectsource():
 def gear_subjectsource_with_observations():
     gear_subjectsource = GearFactory.create()
 
-    subject_type = SubjectTypeFactory(value="gear")
+    subject_type, _ = SubjectTypeFactory._meta.model.objects.get_or_create(value="gear", defaults={"display": "Gear"})
     subject_subtype, _ = SubjectSubType.objects.get_or_create(
-        value="ropeless_buoy_device", defaults={"display": "Ropeless Buoy Device", "subject_type": subject_type}
+        value="ropeless_buoy_device", subject_type=subject_type, defaults={"display": "Ropeless Buoy Device"}
     )
     gear_subjectsource.subject.subject_subtype = subject_subtype
     gear_subjectsource.subject.is_active = True

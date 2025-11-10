@@ -5,7 +5,6 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 
 import xmltodict
-from asgiref.sync import async_to_sync
 from celery_once import QueueOnce
 from google.api_core import exceptions
 from google.cloud import storage
@@ -387,96 +386,3 @@ def run_partition_table_check() -> None:
     schema = "public"
     logger.info(f"Running partition table check for '{schema}.{table_name}'")
     utils_db_task_helpers.run_partition_table_check(schema=schema, table_name=table_name, logger=logger)
-
-
-@celery.app.task(
-    base=TenantQueueOnceTask,
-    bind=True,
-    once={"graceful": True},
-    max_retries=5,
-    default_retry_delay=60,
-    retry_backoff=30,
-    retry_backoff_max=10 * 60,
-)
-def send_observations_to_gundi_async(self, observations, integration_id, **kwargs):
-    """
-    Send observations to Gundi asynchronously using Celery task.
-    This provides retry logic and doesn't block the API endpoint.
-
-    :param observations: List of observation dictionaries to send to Gundi
-    :param integration_id: UUID of the Gundi integration
-    :param kwargs: Additional parameters
-    """
-    try:
-        from observations.services.gundi import send_observations_to_gundi
-
-        logger.info("Sending %d observations to Gundi with integration_id: %s", len(observations), integration_id)
-
-        # Convert async function to sync using async_to_sync
-        result = async_to_sync(send_observations_to_gundi)(
-            observations=observations,
-            integration_id=integration_id,
-            sensors_api_base_url="https://sensors.api.stage.gundiservice.org",
-        )
-
-        logger.info("Successfully sent %d observations to Gundi. Result: %s", len(observations), result)
-
-        return result
-
-    except Exception as exc:
-        logger.error(
-            "Failed to send observations to Gundi (attempt %d/%d): %s",
-            self.request.retries + 1,
-            self.max_retries + 1,
-            exc,
-        )
-        self.retry(exc=exc, retry_backoff=True)
-
-
-@celery.app.task(
-    base=TenantQueueOnceTask,
-    bind=True,
-    once={"graceful": True},
-    max_retries=5,
-    default_retry_delay=60,
-    retry_backoff=30,
-    retry_backoff_max=10 * 60,
-)
-def send_observations_to_gundi_sync_task(
-    self, observations, integration_id, sensors_api_base_url, gundi_api_base_url, **kwargs
-):
-    """
-    Send observations to Gundi synchronously using Celery task.
-    This provides retry logic and doesn't block the API endpoint.
-
-    :param observations: List of observation dictionaries to send to Gundi
-    :param integration_id: UUID of the Gundi integration
-    :param sensors_api_base_url: Base URL for the Sensors API
-    :param gundi_api_base_url: Base URL for the Gundi API
-    :param kwargs: Additional parameters
-    """
-    try:
-        from observations.services.gundi import send_observations_to_gundi_sync
-
-        logger.info("Sending %d observations to Gundi with integration_id: %s", len(observations), integration_id)
-
-        # Send observations synchronously
-        result = send_observations_to_gundi_sync(
-            observations=observations,
-            integration_id=integration_id,
-            sensors_api_base_url=sensors_api_base_url,
-            gundi_api_base_url=gundi_api_base_url,
-        )
-
-        logger.info("Successfully sent %d observations to Gundi. Result: %s", len(observations), result)
-
-        return result
-
-    except Exception as exc:
-        logger.error(
-            "Failed to send observations to Gundi (attempt %d/%d): %s",
-            self.request.retries + 1,
-            self.max_retries + 1,
-            exc,
-        )
-        self.retry(exc=exc, retry_backoff=True)

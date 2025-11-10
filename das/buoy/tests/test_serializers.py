@@ -1,5 +1,3 @@
-import json
-
 import pytest
 from dateutil import parser as date_parser
 from psycopg2.extras import DateTimeTZRange
@@ -10,7 +8,6 @@ from django.utils import timezone
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
 from buoy.serializers import GearCreateSerializer, GearSerializer
 from buoy.services.buoy_service import BuoyService
-from buoy.tests import generate_devices
 from core.tests import BaseAPITest
 from factories import SubjectTypeFactory
 from observations.models import (
@@ -30,40 +27,53 @@ class TestGearSerializer:
         gear_subjectsource.subject.is_active = True
         gear_subjectsource.save()
 
-        source = gear_subjectsource.source
+        subject = gear_subjectsource.subject
         provider = gear_subjectsource.source.provider
         provider.save()
         now = timezone.now()
-        additional = generate_devices(2)
-        location_dict = json.loads(additional["devices"][0])["location"]
-        point = Point(location_dict["longitude"], location_dict["latitude"])
-        data = {
-            "recorded_at": now,
-            "location": point,
-            "source": source,
-            "additional": additional,
-        }
 
-        observation = Observation.objects.create(**data)
-        observation.save()
+        # Create a second source and SubjectSource for the same subject to make it a trawl
+        source2 = Source.objects.create(manufacturer_id="device_002", provider=provider)
 
-        # Update subject additional data to include display_id and devices
-        gear_subjectsource.subject.additional = additional
-        gear_subjectsource.subject.save()
+        # Create observations for both sources
+        location1 = Point(-24.43071, 31.19239)
+        location2 = Point(-24.44071, 31.20239)
+
+        Observation.objects.create(recorded_at=now, location=location1, source=gear_subjectsource.source)
+        Observation.objects.create(recorded_at=now, location=location2, source=source2)
+
+        # Create time range for deployment
+        time_range = DateTimeTZRange(now, None)
+
+        # Update existing SubjectSource with time range
+        gear_subjectsource.assigned_range = time_range
+        gear_subjectsource.save()
+
+        # Create second SubjectSource
+        SubjectSource.objects.create(subject=subject, source=source2, assigned_range=time_range)
+
+        # Set display_id in subject additional
+        subject.additional = {"display_id": "Test_Gear_1"}
+        subject.save()
 
         serialized_gear = GearSerializer(gear_subjectsource).data
 
-        assert serialized_gear["id"] == str(gear_subjectsource.subject.id)
-        assert serialized_gear["display_id"] == additional["display_id"]
+        assert serialized_gear["id"] == str(subject.id)
+        assert serialized_gear["display_id"] == "Test_Gear_1"
         assert serialized_gear["status"] == "deployed"
         assert date_parser.parse(serialized_gear["last_updated"])
         assert serialized_gear["type"] == "trawl"
-        assert serialized_gear["devices"] == observation.additional["devices"]
         assert len(serialized_gear["devices"]) == 2
 
+        # Check device structure
+        devices = serialized_gear["devices"]
+        device_ids = [device["device_id"] for device in devices]
+        assert gear_subjectsource.source.manufacturer_id in device_ids
+        assert "device_002" in device_ids
+
         # Test hauled status
-        gear_subjectsource.subject.is_active = False
-        gear_subjectsource.subject.save()
+        subject.is_active = False
+        subject.save()
         serialized_gear = GearSerializer(gear_subjectsource).data
         assert serialized_gear["status"] == "hauled"
 
@@ -71,40 +81,44 @@ class TestGearSerializer:
         gear_subjectsource.subject.is_active = True
         gear_subjectsource.save()
 
+        subject = gear_subjectsource.subject
         source = gear_subjectsource.source
-        provider = gear_subjectsource.source.provider
+        provider = source.provider
         provider.save()
         now = timezone.now()
-        additional = generate_devices(1)
-        location_dict = json.loads(additional["devices"][0])["location"]
-        point = Point(location_dict["longitude"], location_dict["latitude"])
-        data = {
-            "recorded_at": now,
-            "location": point,
-            "source": source,
-            "additional": additional,
-        }
 
-        observation = Observation.objects.create(**data)
-        observation.save()
+        # Create observation for the source
+        location = Point(-24.43071, 31.19239)
 
-        # Update subject additional data to include display_id and devices
-        gear_subjectsource.subject.additional = additional
-        gear_subjectsource.subject.save()
+        Observation.objects.create(recorded_at=now, location=location, source=source)
+
+        # Create time range for deployment
+        time_range = DateTimeTZRange(now, None)
+
+        # Update SubjectSource with time range
+        gear_subjectsource.assigned_range = time_range
+        gear_subjectsource.save()
+
+        # Set display_id in subject additional
+        subject.additional = {"display_id": "Test_Gear_Single"}
+        subject.save()
 
         serialized_gear = GearSerializer(gear_subjectsource).data
 
-        assert serialized_gear["id"] == str(gear_subjectsource.subject.id)
-        assert serialized_gear["display_id"] == additional["display_id"]
+        assert serialized_gear["id"] == str(subject.id)
+        assert serialized_gear["display_id"] == "Test_Gear_Single"
         assert serialized_gear["status"] == "deployed"
         assert date_parser.parse(serialized_gear["last_updated"])
         assert serialized_gear["type"] == "single"
-        assert serialized_gear["devices"] == observation.additional["devices"]
         assert len(serialized_gear["devices"]) == 1
 
+        # Check device structure
+        device = serialized_gear["devices"][0]
+        assert device["device_id"] == source.manufacturer_id
+
         # Test hauled status
-        gear_subjectsource.subject.is_active = False
-        gear_subjectsource.subject.save()
+        subject.is_active = False
+        subject.save()
         serialized_gear = GearSerializer(gear_subjectsource).data
         assert serialized_gear["status"] == "hauled"
 
@@ -236,7 +250,7 @@ class TestGearSerializer:
         subject_source1 = SubjectSource.objects.create(subject=subject1, source=source1, assigned_range=time_range)
         subject_source2 = SubjectSource.objects.create(subject=subject2, source=source2, assigned_range=time_range)
         # Add third source to subject2
-        subject_source3 = SubjectSource.objects.create(subject=subject2, source=source3, assigned_range=time_range)
+        SubjectSource.objects.create(subject=subject2, source=source3, assigned_range=time_range)
 
         # Act - serialize using subject1, but should get devices from both subjects with same name
         serialized_gear = GearSerializer(subject_source1).data
