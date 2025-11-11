@@ -151,6 +151,9 @@ class TestSpatialFeatureLayer:
             feature_geometry=Point(1, 1),
             feature_geometry_webmercator=None,  # Explicitly null
         )
+        # Bypass save() logic to ensure webmercator field is null
+        SpatialFeature.objects.filter(id=feature.id).update(feature_geometry_webmercator=None)
+        feature.refresh_from_db()
 
         layer = SpatialFeatureLayer()
         # This should trigger the fallback path
