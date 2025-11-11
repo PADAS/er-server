@@ -37,7 +37,7 @@ class Command(TenantCommandMixin, BaseCommand):
         self._print_final_summary(processed, failed)
 
         # Bump vector tile cache version if we processed any features
-        if processed > 0 and not dry_run:
+        if not dry_run:
             bump_vector_tile_data_version()
             self.stdout.write(self.style.SUCCESS("Vector tile cache version bumped."))
 
