@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
+from mapping.cache import bump_vector_tile_data_version
 from mapping.models import SpatialFeature
 from utils.tenant.commands import TenantCommandMixin
 
@@ -38,6 +39,11 @@ class Command(TenantCommandMixin, BaseCommand):
         self._print_initial_status(total_count, dry_run)
         processed, failed = self._process_batches(queryset, batch_size, dry_run)
         self._print_final_summary(processed, failed)
+
+        # Bump vector tile cache version if we processed any features
+        if processed > 0 and not dry_run:
+            bump_vector_tile_data_version()
+            self.stdout.write(self.style.SUCCESS("Vector tile cache version bumped."))
 
     def _build_queryset(self, start_id=None):
         """Build the queryset of features that need processing."""
