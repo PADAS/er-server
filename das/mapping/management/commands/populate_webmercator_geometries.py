@@ -19,17 +19,13 @@ class Command(TenantCommandMixin, BaseCommand):
             "--batch-size", type=int, default=1000, help="Number of records to process per batch (default: 1000)"
         )
         parser.add_argument(
-            "--start-id", type=str, default=None, help="UUID to start processing from (for resuming interrupted runs)"
-        )
-        parser.add_argument(
             "--dry-run", action="store_true", help="Show what would be processed without making changes"
         )
 
     def handle(self, *args, **options):
         batch_size = options["batch_size"]
-        start_id = options["start_id"]
         dry_run = options["dry_run"]
-        queryset = self._build_queryset(start_id)
+        queryset = self._build_queryset()
         total_count = queryset.count()
 
         if total_count == 0:
@@ -45,16 +41,11 @@ class Command(TenantCommandMixin, BaseCommand):
             bump_vector_tile_data_version()
             self.stdout.write(self.style.SUCCESS("Vector tile cache version bumped."))
 
-    def _build_queryset(self, start_id=None):
+    def _build_queryset(self):
         """Build the queryset of features that need processing."""
-        queryset = SpatialFeature.objects.filter(
+        return SpatialFeature.objects.filter(
             feature_geometry__isnull=False, feature_geometry_webmercator__isnull=True
         ).order_by("id")
-
-        if start_id:
-            queryset = queryset.filter(id__gte=start_id)
-
-        return queryset
 
     def _print_initial_status(self, total_count, dry_run):
         """Print initial processing status."""
