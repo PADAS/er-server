@@ -105,8 +105,9 @@ class SpatialFeatureLayer(VectorLayer):
 
     def get_queryset(self):  # pragma: no cover - compatibility shim
         """
-        Return queryset with geometries transformed to 3857 in Python.
-        This avoids PostGIS / PROJ transform limitations entirely.
+        Return queryset with geometries in Web Mercator (EPSG:3857).
+        Uses pre-computed Web Mercator geometries when available; otherwise,
+        performs a fallback transformation in Python for features without pre-computed geometries.
         """
         qs = self._build_base_queryset()
 
