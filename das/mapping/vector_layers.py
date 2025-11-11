@@ -5,7 +5,6 @@ from vectortiles import VectorLayer
 from django.contrib.gis.db import models as gis_models
 from django.contrib.gis.geos import GEOSGeometry
 from django.db.models import Case, CharField, F, FloatField, Value, When
-from django.db.models.expressions import RawSQL
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast
 
@@ -47,17 +46,24 @@ class SpatialFeatureLayer(VectorLayer):
             *self.presentation_keys,
         )
 
-    def _build_base_queryset(self, zoom=None):
+    def _build_base_queryset(self):
         """
         Build the base queryset for vector tiles.
+        - Geography field is lightly cast to GeometryField (SRID 4326) so Django can work with it as a GEOSGeometry.
         """
         image_expr = Case(
             When(
                 presentation__image__has_key="image",
                 then=KeyTextTransform("image", KeyTextTransform("image", F("presentation"))),
             ),
-            When(presentation__has_key="image", then=KeyTextTransform("image", F("presentation"))),
-            When(presentation__has_key="icon_url", then=KeyTextTransform("icon_url", F("presentation"))),
+            When(
+                presentation__has_key="image",
+                then=KeyTextTransform("image", F("presentation")),
+            ),
+            When(
+                presentation__has_key="icon_url",
+                then=KeyTextTransform("icon_url", F("presentation")),
+            ),
             When(
                 feature_type__presentation__image__has_key="image",
                 then=KeyTextTransform("image", KeyTextTransform("image", F("feature_type__presentation"))),
@@ -74,8 +80,6 @@ class SpatialFeatureLayer(VectorLayer):
             output_field=CharField(),
         )
 
-        tolerance = self._zoom_tolerance(zoom)
-
         return (
             self.model.objects.select_related("feature_type", "feature_type__display_category")
             .filter(feature_type__is_visible=True)
@@ -83,14 +87,7 @@ class SpatialFeatureLayer(VectorLayer):
             .annotate(
                 feature_type_name=F("feature_type__name"),
                 display_category_name=F("feature_type__display_category__name"),
-                # Simplify at DB level in native SRID 4326
-                geom=RawSQL(
-                    """
-                    ST_SimplifyPreserveTopology(feature_geometry::geometry, %s)
-                    """,
-                    (tolerance,),
-                    output_field=gis_models.GeometryField(srid=4326),
-                ),
+                geom=Cast(F("feature_geometry"), gis_models.GeometryField(srid=4326)),
                 **self._extract_presentation_json_keys(),
                 image=image_expr,
             )
@@ -141,8 +138,3 @@ class SpatialFeatureLayer(VectorLayer):
             )
 
         return annotations
-
-    def _zoom_tolerance(self, zoom):  # Returns a simplification tolerance in degrees (EPSG:4326).
-        if zoom is None:
-            return 0
-        return max(0.00001, 0.1 * (2 ** (3 - zoom)))
