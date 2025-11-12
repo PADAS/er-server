@@ -348,7 +348,7 @@ class BusinessRulesTestCase(BaseAPITest):
         }
 
         self.tenant_mock = MagicMock()
-        self.tenant_mock.time_zone = "US/Pacific"
+        self.tenant_mock.time_zone = "America/Los_Angeles"
         self.tenant_mock.default_from_email = "er@pamdas.org"
 
     def create_notification_method(self):
