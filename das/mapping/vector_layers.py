@@ -96,7 +96,10 @@ class SpatialFeatureLayer(VectorLayer):
     def _get_geometry_field(self):
         """
         Returns the geometry field for vector tiles.
-        Uses Web Mercator field with fallback for null values.
+
+        Uses the pre-computed Web Mercator field (SRID 3857) when available.
+        If the Web Mercator field is null, falls back to the original geometry (SRID 4326).
+        The fallback geometry will be transformed to Web Mercator (SRID 3857) by get_queryset().
         """
         # Use the webmercator field, fall back to transformed original if null
         return Coalesce(
