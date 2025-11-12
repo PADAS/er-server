@@ -3,7 +3,7 @@
 wait_for $API_HOST $API_PORT
 
 . $(dirname "$0")/django_common_startup.sh
- 
+
 WORKERS=10
 
-celery --app das_server worker -Q realtime_p1,realtime_p2,realtime_p3,analyzers,default,maintenance -l info -c $WORKERS --without-gossip -n all-in-one 
+uv run celery --app das_server worker -Q realtime_p1,realtime_p2,realtime_p3,analyzers,default,maintenance -l info -c $WORKERS --without-gossip -n all-in-one

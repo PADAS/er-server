@@ -78,16 +78,16 @@ class InreachKMLClient(object):
 
     def gen_placemarks(self, xmlstring):
         k = kml.KML()
-        k.from_string(xmlstring)
+        k = kml.KML.from_string(xmlstring)
 
-        features = [x for x in k.features()]
+        features = [x for x in k.features]
 
-        featureFolders = [x for x in features[0].features()]
+        featureFolders = [x for x in features[0].features]
 
         if len(featureFolders) > 0:
             f = featureFolders[0]
 
-            for pm in f.features():
+            for pm in f.features:
                 if hasattr(pm.extended_data, "elements"):
                     yield dict(safe_map(p1.name, p1.value) for p1 in pm.extended_data.elements)
 

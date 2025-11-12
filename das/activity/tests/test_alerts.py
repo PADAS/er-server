@@ -141,7 +141,7 @@ class TestAlerts(BaseAPITest):
         self.alert_rule.event_types.add(self.event_type)
 
         self.tenant_mock = MagicMock()
-        self.tenant_mock.time_zone = "US/Pacific"
+        self.tenant_mock.time_zone = "America/Los_Angeles"
         self.tenant_mock.default_from_email = "er@pamdas.org"
 
     def test_alert_coerces_to_the_right_state_val(self):

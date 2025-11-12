@@ -14,4 +14,4 @@ export GUNICORN_CMD_ARGS
 
 echo "Notice GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS}"
 
-gunicorn das_server.rt_wsgi --name das_rt --worker-tmp-dir /dev/shm --bind 0.0.0.0:8000 
+uv run gunicorn das_server.rt_wsgi --name das_rt --worker-tmp-dir /dev/shm --bind 0.0.0.0:8000

@@ -1,6 +1,6 @@
 import copy
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from drf_extra_fields.geo_fields import PointField
@@ -62,7 +62,7 @@ migration_doc = [
 class TestManageEvent(TestCase):
     event_data = dict(
         message="Something worth recording happened",
-        time=DateTimeField().to_representation(datetime.now()),
+        time=DateTimeField().to_representation(datetime.now(timezone.utc)),
         provenance=Event.PC_SYSTEM,
         event_type="other",
         priority=Event.PRI_REFERENCE,
