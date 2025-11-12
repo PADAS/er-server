@@ -38,6 +38,7 @@ SECRET_KEY = "j(h&tc(u_#z-tf)u(9+3n39gmk92#6-v-he_p0ae+1rs*+2j@b"
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 # running in development mode
+ENABLE_SILK = False  # Added to prevent AttributeError if Silk profiling is not enabled
 DEV = False
 
 # Application definition
@@ -703,7 +704,7 @@ TENANT_DOCUMENT_CACHE = {
     "DATABASE": 0,
 }
 
-DISABLE_STATSD = env.bool("DISABLE_STATSD", True)
+DISABLE_STATSD = True
 
 if not env.bool("IS_OAUTH2_PROVIDER_MIGRATION", False):
     # Django oauth custom models
