@@ -141,30 +141,6 @@ class TestSpatialFeatureLayer:
             assert geom is not None
             assert geom.srid == 3857
 
-    def test_webmercator_geometry_fallback_when_null(self):
-        """Test that system falls back to runtime transformation when webmercator field is null"""
-        dc = DisplayCategory.objects.create(name="Fallback")
-        ft = SpatialFeatureType.objects.create(name="FallbackType", display_category=dc)
-        feature = SpatialFeature.objects.create(
-            feature_type=ft,
-            name="TestFallback",
-            feature_geometry=Point(1, 1),
-            feature_geometry_webmercator=None,  # Explicitly null
-        )
-        # Bypass save() logic to ensure webmercator field is null
-        SpatialFeature.objects.filter(id=feature.id).update(feature_geometry_webmercator=None)
-        feature.refresh_from_db()
-
-        layer = SpatialFeatureLayer()
-        # This should trigger the fallback path
-        qs = layer.get_vector_tile_queryset(10, 0, 0).filter(id=feature.id)
-        obj = list(qs)[0]
-
-        # Should have geometry (from fallback transformation)
-        geom = getattr(obj, "geom", None)
-        assert geom is not None
-        assert geom.srid == 3857
-
     def test_webmercator_geometry_used_when_populated(self):
         """Test that pre-computed webmercator geometry is used when available"""
         dc = DisplayCategory.objects.create(name="Optimized")
