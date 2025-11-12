@@ -14,7 +14,7 @@ from .settings import *
 DEV = True
 DEBUG = True
 TEMPLATE_DEBUG = True
-TIME_ZONE = "US/Pacific"
+TIME_ZONE = "America/Los_Angeles"
 
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases

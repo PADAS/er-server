@@ -2342,6 +2342,13 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         choice = Choice.objects.create(
             model="activity.event",
+            field="poacherscamp_sighting_action",
+            value="poacherscamp_sighting_action_warnings",
+            display="Warnings given",
+        )
+
+        choice = Choice.objects.create(
+            model="activity.event",
             field="infrustructure",
             value="infrustructure_camp",
             display="Camp",
@@ -2351,7 +2358,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         event_data["event_type"] = event_type.value
         event_data["event_details"] = {
             "details_dt": [{"number": 1, "infrustructure": "infrustructure_camp"}],
-            "poachers_camp_action": ["poacherscamp_sighting_action_arrests"],
+            "poachers_camp_action": ["poacherscamp_sighting_action_arrests", "poacherscamp_sighting_action_warnings"],
             "poacherscamp_sighting_action": ["aircraft_cfz"],
             "percent_cover_in_den": {"id_2107": "100"},  # See ERA-8759, want to see this succeed
         }
@@ -3497,6 +3504,25 @@ class TestEventFilterQueryset:
         events = Event.objects.by_text_filter(term)
 
         assert events.count() >= 1
+
+    @pytest.mark.parametrize(
+        "term",
+        [
+            "test (with parentheses)",
+            "test & ampersand",
+            "test | pipe",
+            "test ! exclamation",
+            "test < less",
+            "test > greater",
+            "EWT-Cluster 260792 (318 pts, 1 devices)",  # actual error case from issue
+        ],
+    )
+    def test_by_text_filter_method_escapes_special_characters(self, five_events_with_details, term):
+        """Test that special characters in tsquery syntax are properly escaped."""
+        # This should not raise a PostgreSQL syntax error
+        events = Event.objects.by_text_filter(term)
+        # The query should execute successfully (even if it returns 0 results)
+        assert events.count() >= 0
 
     @pytest.mark.parametrize(
         "known_location",

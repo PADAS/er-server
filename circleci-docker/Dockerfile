@@ -1,20 +1,28 @@
 # gdal image: ghcr.io/osgeo/gdal:ubuntu-small-3.4.3
 # Ubuntu 20.04.4 LTS
 # python 3.8.10
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.4.3
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.9.3
 LABEL org.opencontainers.image.description maintainer="EarthRanger Developers developers@earthranger.com"
 
-RUN apt-get update; apt-get install -y pip git libmagic-dev postgresql-client libpq-dev libkrb5-dev; \
-  apt-get clean autoclean; \
-  apt-get autoremove --yes;\
-  rm -rf /var/lib/{apt,dpkg,cache,log}
+
+
+RUN apt-get update; apt-get install -y --no-install-recommends \
+  git \
+  libpq-dev \
+  libmagic-dev \
+  build-essential \
+  libkrb5-dev \
+  && apt-get autoremove --yes \
+  && rm -rf /var/lib/{apt,dpkg,cache,log}
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /das
-COPY ./dependencies /das/dependencies
+ADD ./dependencies /das/dependencies
+ADD ./pyproject.toml /das/
+ADD ./uv.lock /das/
 
-RUN python3 -m pip install pip --upgrade
-RUN pip install --disable-pip-version-check --no-cache-dir -r /das/dependencies/requirements.txt -r \
-  /das/dependencies/requirements-pinned.txt --find-links /das/dependencies/wheelhouse;
+RUN uv sync --group dev
 
 ARG built_version=""
 
@@ -29,11 +37,15 @@ ENV BUILT_VERSION=${built_version}
 
 ENV DJANGO_SETTINGS_MODULE=das_server.local_settings_docker
 
+ARG ARCH=x86_64
+ENV GDAL_LIBRARY_PATH=/lib/${ARCH}-linux-gnu/libgdal.so
+ENV GEOS_LIBRARY_PATH=/lib/${ARCH}-linux-gnu/libgeos_c.so.1
+
 # Default service name
 ENV SERVICE_NAME=api_server
 ADD ./das /das
 
 # Collect static files (using a stub database)
-RUN python3 manage.py collectstatic --noinput --settings=das_server.local_settings_nodb
+RUN uv run python manage.py collectstatic --noinput --settings=das_server.local_settings_nodb
 
 CMD ["/das/start_scripts/start.sh"]

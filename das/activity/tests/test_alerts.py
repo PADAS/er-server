@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -45,10 +46,12 @@ from activity.models import (
     EventType,
     NotificationMethod,
 )
+from activity.serializers import EventSerializer
 from activity.signals import event_post_save
 from activity.tasks import execute_evaluate_alert_rules
 from choices.models import DynamicChoice
 from core.tests import BaseAPITest
+from core.utils import NonHttpRequest
 from factories import PermissionSetFactory
 from observations.models import SEX_FEMALE, Subject, SubjectSubType, SubjectType
 from utils.tenant import Tenant
@@ -138,7 +141,7 @@ class TestAlerts(BaseAPITest):
         self.alert_rule.event_types.add(self.event_type)
 
         self.tenant_mock = MagicMock()
-        self.tenant_mock.time_zone = "US/Pacific"
+        self.tenant_mock.time_zone = "America/Los_Angeles"
         self.tenant_mock.default_from_email = "er@pamdas.org"
 
     def test_alert_coerces_to_the_right_state_val(self):
@@ -190,8 +193,7 @@ class TestAlerts(BaseAPITest):
         # still considered new.
         time.sleep(1)
 
-        # event updated here
-        event_details = EventDetails.objects.create(event=event, data={"event_details": {"sex": "Male"}})
+        EventDetails.objects.create(event=event, data={"event_details": {"sex": "Male"}})
         send_event_alert(
             alert_rule_id=self.alert_rule.id, event_id=event.id, notification_method_id=self.notification_method.id
         )
@@ -237,6 +239,53 @@ class TestAlerts(BaseAPITest):
         whatsapp_content = render_to_whatsapp_content(report_context)
         assert "lnglat" in whatsapp_content["7"]
 
+    def test_sending_notification_for_new_event_delay_on_event_details_add(self):
+        with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
+            notification_method = NotificationMethod.objects.create(
+                owner=self.owner, title="Email", method="email", value="test@test.com"
+            )
+
+            AlertRule.objects.all().delete()
+
+            alert_rule = AlertRule.objects.create(
+                owner=self.owner,
+                title="State is one of resolved",
+                conditions={
+                    "all": [{"name": "state", "value": ["new"], "operator": "shares_at_least_one_element_with"}]
+                },
+                schedule={"timezone": "Europe/Warsaw"},
+            )
+
+            alert_rule.notification_methods.add(notification_method)
+            alert_rule.event_types.add(self.event_type)
+
+            request = NonHttpRequest()
+            request.user = self.owner
+            ser = EventSerializer(
+                data={
+                    "title": "test event",
+                    "event_type": self.event_type.value,
+                    "created_by_user": self.owner.id,
+                    "state": "new",
+                    "event_time": datetime.now(tz=timezone.utc),
+                    "event_details": {"sex": "Male"},
+                },
+                context={"request": request},
+            )
+
+            assert ser.is_valid()
+
+            event = ser.create(ser.validated_data)
+            event = Event.objects.get(id=event.id)
+            event_details = EventDetails.objects.get(event=event)
+            revision = event_details.revision.all().latest("revision_at")
+            revision.revision_at = revision.revision_at + timedelta(seconds=2)
+            revision.save()
+
+            execute_evaluate_alert_rules(event.id, created=True, domain="zoo.com")
+
+            self.assertEqual(len(mail.outbox), 1)
+
     def test_only_sending_notifications_when_the_condition_value_changes(self):
         with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
             notification_method = NotificationMethod.objects.create(
@@ -251,6 +300,7 @@ class TestAlerts(BaseAPITest):
                         {"name": "state", "value": ["resolved", "new"], "operator": "shares_at_least_one_element_with"}
                     ]
                 },
+                schedule={"timezone": "Europe/Warsaw"},
             )
 
             alert_rule.notification_methods.add(notification_method)
@@ -333,6 +383,77 @@ class TestAlerts(BaseAPITest):
 
         # details sent to email as titles rather than guids, checkbox title returned
         self.assertDictEqual(expected_detail, details_sent_to_mail)
+
+    def test_alert_rules_owned_by_inactive_users_are_skipped(self):
+        """Test that alert rules owned by inactive users are not processed (ERA-11874)"""
+        # Clear existing alert rules to avoid interference
+        AlertRule.objects.all().delete()
+
+        # Create an inactive user
+        inactive_user = User.objects.create_user(
+            username="inactive_user", password="asdfo9823sfdsdsiu23$", email="inactive@tempuri.org", is_active=False
+        )
+        inactive_user.permission_sets.add(self.alerts_permissionset)
+
+        # Create alert rule owned by inactive user
+        inactive_alert_rule = AlertRule.objects.create(
+            owner=inactive_user,
+            title="Inactive User Alert",
+            conditions={"all": [{"name": "sex", "value": "Male", "operator": "equal_to"}]},
+            schedule={"timezone": "Africa/Nairobi"},
+        )
+        inactive_alert_rule.notification_methods.add(self.notification_method)
+        inactive_alert_rule.event_types.add(self.event_type)
+
+        # Create event that would trigger the alert
+        event = Event.objects.create(
+            title="test event", event_type=self.event_type, created_by_user=self.owner, state="new"
+        )
+        EventDetails.objects.create(event=event, data={"event_details": {"sex": "Male"}})
+
+        # Execute alert evaluation
+        with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
+            execute_evaluate_alert_rules(event.id, created=True, domain="zoo.com")
+
+        # No email should be sent because the alert rule owner is inactive
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_alert_rules_owned_by_active_users_are_processed(self):
+        """Test that alert rules owned by active users are still processed normally"""
+        # Create an active user
+        active_user = User.objects.create_user(
+            username="active_user", password="asdfo9823sfdsdsiu23$", email="active@tempuri.org", is_active=True
+        )
+        active_user.permission_sets.add(self.alerts_permissionset)
+
+        # Create notification method for active user
+        active_notification_method = NotificationMethod.objects.create(
+            owner=active_user, title="Active Email", method="email", value="active@test.com"
+        )
+
+        # Create alert rule owned by active user
+        active_alert_rule = AlertRule.objects.create(
+            owner=active_user,
+            title="Active User Alert",
+            conditions={"all": [{"name": "sex", "value": "Female", "operator": "equal_to"}]},
+            schedule={"timezone": "Africa/Nairobi"},
+        )
+        active_alert_rule.notification_methods.add(active_notification_method)
+        active_alert_rule.event_types.add(self.event_type)
+
+        # Create event that would trigger the alert
+        event = Event.objects.create(
+            title="test event", event_type=self.event_type, created_by_user=self.owner, state="new"
+        )
+        EventDetails.objects.create(event=event, data={"event_details": {"sex": "Female"}})
+
+        # Execute alert evaluation
+        with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
+            execute_evaluate_alert_rules(event.id, created=True, domain="zoo.com")
+
+        # Email should be sent because the alert rule owner is active
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["active@test.com"])
 
 
 @pytest.mark.django_db

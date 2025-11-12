@@ -54,10 +54,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
       - name: Build Sphinx docs
         run: |
-          pip3 install -r dependencies/requirements-docs.txt
           cd docs
+          uv venv --python=python3.12
+          uv pip install -r requirements-docs.txt
+          source .venv/bin/activate
           make html
       - name: Upload Sphinx docs
         uses: actions/upload-artifact@v4
@@ -82,13 +86,13 @@ jobs:
     with:
       image: "europe-west3-docker.pkg.dev/padas-app/er-mt/das-server:${{ github.event.pull_request.head.sha }}"
       command: |
-        pytest --reuse-db --junitxml=/testresults/junit/result_suite_one.xml --maxfail=15 accounts/tests mapping/tests reports/tests rt_api/tests tracking/tests
-        pytest --reuse-db --junitxml=/testresults/junit/result_suite_three.xml --maxfail=15 analyzers/tests utils/tests
-        pytest --reuse-db --junitxml=/testresults/junit/result_suite_four.xml --maxfail=15 choices/tests das_server/tests observations/tests core/tests schemas/tests
+        uv run pytest --reuse-db --junitxml=/testresults/junit/result_suite_one.xml --maxfail=15 accounts/tests mapping/tests reports/tests rt_api/tests tracking/tests
+        uv run pytest --reuse-db --junitxml=/testresults/junit/result_suite_three.xml --maxfail=15 analyzers/tests utils/tests
+        uv run pytest --reuse-db --junitxml=/testresults/junit/result_suite_four.xml --maxfail=15 choices/tests das_server/tests observations/tests core/tests schemas/tests
 
   unit-test2:
     uses: ./.github/workflows/_unit-tests.yml
     needs: build
     with:
       image: "europe-west3-docker.pkg.dev/padas-app/er-mt/das-server:${{ github.event.pull_request.head.sha }}"
-      command: pytest --reuse-db --junitxml=/testresults/junit/result_suite_two.xml --maxfail=15 activity/tests sensors/tests revision/test
+      command: uv run pytest --reuse-db --junitxml=/testresults/junit/result_suite_two.xml --maxfail=15 activity/tests sensors/tests revision/test

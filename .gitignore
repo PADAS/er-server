@@ -9,7 +9,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 dc
-
+docs/.venv
 # Mac filesystem
 .DS_Store
 
@@ -343,3 +343,6 @@ pyrightconfig.json
 
 # GitGuardian
 .cache_ggshield
+
+application_default_credentials.json
+.claude/settings.local.json

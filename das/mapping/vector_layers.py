@@ -3,8 +3,8 @@ import logging
 from vectortiles import VectorLayer
 
 from django.contrib.gis.db import models as gis_models
-from django.contrib.gis.db.models.functions import Transform
-from django.db.models import Case, CharField, F, FloatField, IntegerField, Value, When
+from django.contrib.gis.geos import GEOSGeometry
+from django.db.models import Case, CharField, F, FloatField, Value, When
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast
 
@@ -27,6 +27,7 @@ class SpatialFeatureLayer(VectorLayer):
             "stroke",
             "stroke-width",
             "stroke-opacity",
+            "fill",
             "fill-color",
             "fill-opacity",
             "width",
@@ -40,57 +41,76 @@ class SpatialFeatureLayer(VectorLayer):
             "id",
             "name",
             "short_name",
-            "external_id",
             "description",
-            "feature_type_id",
-            "feature_type_name",
-            "display_category_name",
             "attributes",
             *self.presentation_keys,
         )
 
-    def get_queryset(self):  # pragma: no cover - compatibility shim
-        return self._build_base_queryset()
-
     def _build_base_queryset(self):
-        qs = (
+        """
+        Build the base queryset for vector tiles.
+        - Geography field is lightly cast to GeometryField (SRID 4326) so Django can work with it as a GEOSGeometry.
+        """
+        image_expr = Case(
+            When(
+                presentation__image__has_key="image",
+                then=KeyTextTransform("image", KeyTextTransform("image", F("presentation"))),
+            ),
+            When(
+                presentation__has_key="image",
+                then=KeyTextTransform("image", F("presentation")),
+            ),
+            When(
+                presentation__has_key="icon_url",
+                then=KeyTextTransform("icon_url", F("presentation")),
+            ),
+            When(
+                feature_type__presentation__image__has_key="image",
+                then=KeyTextTransform("image", KeyTextTransform("image", F("feature_type__presentation"))),
+            ),
+            When(
+                feature_type__presentation__has_key="image",
+                then=KeyTextTransform("image", F("feature_type__presentation")),
+            ),
+            When(
+                feature_type__presentation__has_key="icon_url",
+                then=KeyTextTransform("icon_url", F("feature_type__presentation")),
+            ),
+            default=Value(None),
+            output_field=CharField(),
+        )
+
+        return (
             self.model.objects.select_related("feature_type", "feature_type__display_category")
+            .filter(feature_type__is_visible=True)
             .filter(feature_type__display_category__isnull=False)
             .annotate(
                 feature_type_name=F("feature_type__name"),
                 display_category_name=F("feature_type__display_category__name"),
-                geom=Transform(Cast(F("feature_geometry"), gis_models.GeometryField()), 3857),
+                geom=Cast(F("feature_geometry"), gis_models.GeometryField(srid=4326)),
                 **self._extract_presentation_json_keys(),
-                image=Case(
-                    When(
-                        presentation__image__has_key="image",
-                        then=KeyTextTransform("image", KeyTextTransform("image", F("presentation"))),
-                    ),
-                    When(
-                        presentation__has_key="image",
-                        then=KeyTextTransform("image", F("presentation")),
-                    ),
-                    When(
-                        presentation__has_key="icon_url",
-                        then=KeyTextTransform("icon_url", F("presentation")),
-                    ),
-                    When(
-                        feature_type__presentation__image__has_key="image",
-                        then=KeyTextTransform("image", KeyTextTransform("image", F("feature_type__presentation"))),
-                    ),
-                    When(
-                        feature_type__presentation__has_key="image",
-                        then=KeyTextTransform("image", F("feature_type__presentation")),
-                    ),
-                    When(
-                        feature_type__presentation__has_key="icon_url",
-                        then=KeyTextTransform("icon_url", F("feature_type__presentation")),
-                    ),
-                    default=Value(None),
-                    output_field=CharField(),
-                ),
+                image=image_expr,
             )
         )
+
+    def get_queryset(self):  # pragma: no cover - compatibility shim
+        """
+        Return queryset with geometries transformed to 3857 in Python.
+        This avoids PostGIS / PROJ transform limitations entirely.
+
+        """
+        qs = self._build_base_queryset()
+        for obj in qs:
+            geom = getattr(obj, "geom", None)
+            if geom and isinstance(geom, GEOSGeometry):
+                try:
+                    geom.transform(3857)  # local reprojection (GEOS)
+                    obj.geom = geom
+                except Exception:
+                    logger.exception(
+                        "Failed to transform geometry for SpatialFeature id=%s",
+                        getattr(obj, "id", None),
+                    )
         return qs
 
     def _extract_presentation_json_keys(self):
@@ -101,11 +121,7 @@ class SpatialFeatureLayer(VectorLayer):
             if key == "image":
                 continue
 
-            if key in {"stroke-width", "width", "height"}:
-                output_field = IntegerField()
-                then_self = Cast(KeyTextTransform(key, F("presentation")), IntegerField())
-                then_ft = Cast(KeyTextTransform(key, F("feature_type__presentation")), IntegerField())
-            elif key in {"stroke-opacity", "fill-opacity"}:
+            if key in {"stroke-width", "width", "height", "stroke-opacity", "fill-opacity"}:
                 output_field = FloatField()
                 then_self = Cast(KeyTextTransform(key, F("presentation")), FloatField())
                 then_ft = Cast(KeyTextTransform(key, F("feature_type__presentation")), FloatField())
@@ -114,7 +130,6 @@ class SpatialFeatureLayer(VectorLayer):
                 then_self = KeyTextTransform(key, F("presentation"))
                 then_ft = KeyTextTransform(key, F("feature_type__presentation"))
 
-            # Return a Case expression directly (tests assert isinstance(..., Case))
             annotations[key] = Case(
                 When(presentation__has_key=key, then=then_self),
                 When(feature_type__presentation__has_key=key, then=then_ft),

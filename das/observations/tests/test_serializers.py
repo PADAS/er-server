@@ -41,7 +41,7 @@ class TestSubjectSourceSerializer:
             "data_starts_source": "starts_source",
             "date_off_or_removed": "off_or_remove",
         }
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         subject_source.assigned_range = [now - timedelta(hours=1), now]
         subject_source.location = Point(-103.313486, 20.420935)
         subject_source.save()
@@ -83,7 +83,7 @@ class TestSubjectSourceSerializer:
             "data_starts_source": "starts_source",
             "date_off_or_removed": "off_or_remove",
         }
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         subject_source.assigned_range = [now - timedelta(hours=1), now]
         subject_source.location = Point(-103.313486, 20.420935)
         subject_source.save()
@@ -317,14 +317,14 @@ class TestSourceSerializer:
     def test_creating_a_source_with_subject(self, source):
         source.subject = SubjectFactory()
         source.subject.save()
-        
+
         data = {
             "manufacturer_id": "111111",
             "provider": source.provider.provider_key,
             "source_type": "tracking-device",
             "additional": {"collar_id": "1234"},
             "model_name": faker.name(),
-            "subject": {"name": source.subject.name, "id": str(source.subject.id)}
+            "subject": {"name": source.subject.name, "id": str(source.subject.id)},
         }
 
         serializer = SourceSerializer(source, data=data, partial=True)
