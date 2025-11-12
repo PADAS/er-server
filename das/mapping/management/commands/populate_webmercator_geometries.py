@@ -33,7 +33,7 @@ class Command(TenantCommandMixin, BaseCommand):
             return
 
         self._print_initial_status(total_count, dry_run)
-        processed, failed = self._process_batches(queryset, batch_size, dry_run)
+        processed, failed = self._process_batches(queryset, batch_size, dry_run, total_count)
         self._print_final_summary(processed, failed)
 
         # Bump vector tile cache version if we processed any features
@@ -54,12 +54,11 @@ class Command(TenantCommandMixin, BaseCommand):
         if dry_run:
             self.stdout.write(self.style.WARNING("DRY RUN - No changes will be made"))
 
-    def _process_batches(self, queryset, batch_size, dry_run):
+    def _process_batches(self, queryset, batch_size, dry_run, total_count):
         """Process features in batches and return (processed_count, failed_count)."""
         processed = 0
         failed = 0
         batch_num = 0
-        total_count = queryset.count()
 
         while True:
             batch_num += 1
