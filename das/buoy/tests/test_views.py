@@ -375,6 +375,12 @@ class TestGearsView:
     @pytest.mark.parametrize(
         "params,expected_status,expected_error",
         [
+            # Test inexistent parameters
+            (
+                {"invalid": 0, "inexistant": 1},
+                status.HTTP_400_BAD_REQUEST,
+                {"invalid": ["Unknown parameter"], "inexistant": ["Unknown parameter"]},
+            ),
             (
                 {"lat": 0, "lon": 0, "page": 1, "page_size": 10, "max_nm_range": 50, "state": "deployed"},
                 status.HTTP_200_OK,

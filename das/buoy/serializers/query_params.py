@@ -16,6 +16,12 @@ class GearsQueryParamsSerializer(serializers.Serializer):
 
     def validate(self, data):
         """Validate query parameters."""
+        allowed_fields = set(self.fields.keys())
+        received_fields = set(self.initial_data.keys())
+        extra_fields = received_fields - allowed_fields
+        if extra_fields:
+            raise serializers.ValidationError({field: "Unknown parameter" for field in extra_fields})
+
         # Validate updated_since if provided
         if "updated_since" in data:
             try:

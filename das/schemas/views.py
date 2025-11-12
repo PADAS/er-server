@@ -8,7 +8,7 @@ from accounts.views import UsersView
 from activity.views.types_v2 import EventTypesViewSet
 from choices.views import ChoicesView
 from mapping.spatialviews import SpatialFeatureListView
-from observations.views import SubjectsView
+from observations.views import SourcesView, SubjectsView
 from schemas.view_mixins import DynamicSchemaDataMixin, DynamicSchemaFromSourceView
 
 
@@ -21,6 +21,38 @@ class UsersDynamicSchemaView(DynamicSchemaFromSourceView):
     def get_display_name_from_item(self, item: dict) -> str:
         display_name = f"{item.get('first_name')} {item.get('last_name')}".strip()
         return display_name or item.get("username") or item.get("email")
+
+
+class SourcesDynamicSchemaView(DynamicSchemaFromSourceView):
+    source_view = SourcesView
+    schema_title = "Sources"
+    schema_description = "All data sources list"
+    default_const_field = "id"
+    default_title_field = "display_name"
+
+    def get_source_view(self, request: Request) -> Type[APIView]:
+        class PermissionsFreeSourcesView(SourcesView, DynamicSchemaDataMixin):
+            permission_classes = [IsAuthenticated]
+
+        return PermissionsFreeSourcesView
+
+    def get_display_name_from_item(self, item: dict) -> str:
+        # Combine manufacturer_id and model_name for a meaningful display name
+        manufacturer_id = item.get("manufacturer_id", "")
+        model_name = item.get("model_name", "")
+
+        # Create display name similar to the Source.__str__ method
+        if manufacturer_id and model_name:
+            display_name = f"{model_name} ({manufacturer_id})"
+        elif manufacturer_id:
+            display_name = manufacturer_id
+        elif model_name:
+            display_name = model_name
+        else:
+            # Fallback to source type or ID
+            display_name = item.get("source_type") or f"Source {item.get('id', '')}"
+
+        return display_name
 
 
 class SubjectsDynamicSchemaView(DynamicSchemaFromSourceView):

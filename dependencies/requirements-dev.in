@@ -19,7 +19,7 @@ isort==5.13.2
 mimesis==11.0.0
 mockredispy==2.9.3
 pep8==1.7.1
-pip-tools==7.4.1
+pip-tools==7.5.1
 pre-commit==3.5.0
 ptvsd==4.3.2
 pycodestyle==2.12.1
