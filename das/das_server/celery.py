@@ -106,9 +106,6 @@ app.conf.task_routes = {
     "reports.tasks.alert_lag_delay": {
         "queue": "realtime_p3",
     },
-    "observations.tasks.send_observations_to_gundi_async": {
-        "queue": "realtime_p3",
-    },
     "observations.tasks.maintain_subjectstatus_for_subject": {
         "queue": "maintenance",
     },
