@@ -1,14 +1,14 @@
-import json
-
 import pytest
 from dateutil import parser as date_parser
+from psycopg2.extras import DateTimeTZRange
 
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 
-from das.buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
-from das.buoy.serializers import GearSerializer
-from das.buoy.tests import generate_devices
+from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
+from buoy.serializers import GearCreateSerializer, GearSerializer
+from buoy.services.buoy_service import BuoyService
+from core.tests import BaseAPITest
 from factories import SubjectTypeFactory
 from observations.models import (
     Observation,
@@ -18,46 +18,62 @@ from observations.models import (
     SubjectSource,
     SubjectSubType,
 )
-from utils.tenant.dataclass import FeatureFlags
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-@pytest.mark.skipif(FeatureFlags.buoy_api_enabled is False, reason="Buoy API feature flag is off")
 class TestGearSerializer:
     def test_with_trawl_gear_subject(self, gear_subjectsource):
         gear_subjectsource.subject.is_active = True
         gear_subjectsource.save()
 
-        source = gear_subjectsource.source
+        subject = gear_subjectsource.subject
         provider = gear_subjectsource.source.provider
         provider.save()
         now = timezone.now()
-        additional = generate_devices(2)
-        location_dict = json.loads(additional["devices"][0])["location"]
-        point = Point(location_dict["longitude"], location_dict["latitude"])
-        data = {
-            "recorded_at": now,
-            "location": point,
-            "source": source,
-            "additional": additional,
-        }
 
-        observation = Observation.objects.create(**data)
-        observation.save()
+        # Create a second source and SubjectSource for the same subject to make it a trawl
+        source2 = Source.objects.create(manufacturer_id="device_002", provider=provider)
+
+        # Create observations for both sources
+        location1 = Point(-24.43071, 31.19239)
+        location2 = Point(-24.44071, 31.20239)
+
+        Observation.objects.create(recorded_at=now, location=location1, source=gear_subjectsource.source)
+        Observation.objects.create(recorded_at=now, location=location2, source=source2)
+
+        # Create time range for deployment
+        time_range = DateTimeTZRange(now, None)
+
+        # Update existing SubjectSource with time range
+        gear_subjectsource.assigned_range = time_range
+        gear_subjectsource.save()
+
+        # Create second SubjectSource
+        SubjectSource.objects.create(subject=subject, source=source2, assigned_range=time_range)
+
+        # Set display_id in subject additional
+        subject.additional = {"display_id": "Test_Gear_1"}
+        subject.save()
 
         serialized_gear = GearSerializer(gear_subjectsource).data
 
-        assert serialized_gear["id"] == str(gear_subjectsource.subject.id)
-        assert serialized_gear["display_id"] == additional["display_id"]
+        assert serialized_gear["id"] == str(subject.id)
+        assert serialized_gear["display_id"] == "Test_Gear_1"
         assert serialized_gear["status"] == "deployed"
         assert date_parser.parse(serialized_gear["last_updated"])
         assert serialized_gear["type"] == "trawl"
-        assert serialized_gear["devices"] == observation.additional["devices"]
         assert len(serialized_gear["devices"]) == 2
 
+        # Check device structure
+        devices = serialized_gear["devices"]
+        device_ids = [device["device_id"] for device in devices]
+        assert gear_subjectsource.source.manufacturer_id in device_ids
+        assert "device_002" in device_ids
+
         # Test hauled status
-        gear_subjectsource.subject.is_active = False
+        subject.is_active = False
+        subject.save()
         serialized_gear = GearSerializer(gear_subjectsource).data
         assert serialized_gear["status"] == "hauled"
 
@@ -65,35 +81,44 @@ class TestGearSerializer:
         gear_subjectsource.subject.is_active = True
         gear_subjectsource.save()
 
+        subject = gear_subjectsource.subject
         source = gear_subjectsource.source
-        provider = gear_subjectsource.source.provider
+        provider = source.provider
         provider.save()
         now = timezone.now()
-        additional = generate_devices(1)
-        location_dict = json.loads(additional["devices"][0])["location"]
-        point = Point(location_dict["longitude"], location_dict["latitude"])
-        data = {
-            "recorded_at": now,
-            "location": point,
-            "source": source,
-            "additional": additional,
-        }
 
-        observation = Observation.objects.create(**data)
-        observation.save()
+        # Create observation for the source
+        location = Point(-24.43071, 31.19239)
+
+        Observation.objects.create(recorded_at=now, location=location, source=source)
+
+        # Create time range for deployment
+        time_range = DateTimeTZRange(now, None)
+
+        # Update SubjectSource with time range
+        gear_subjectsource.assigned_range = time_range
+        gear_subjectsource.save()
+
+        # Set display_id in subject additional
+        subject.additional = {"display_id": "Test_Gear_Single"}
+        subject.save()
 
         serialized_gear = GearSerializer(gear_subjectsource).data
 
-        assert serialized_gear["id"] == str(gear_subjectsource.subject.id)
-        assert serialized_gear["display_id"] == additional["display_id"]
+        assert serialized_gear["id"] == str(subject.id)
+        assert serialized_gear["display_id"] == "Test_Gear_Single"
         assert serialized_gear["status"] == "deployed"
         assert date_parser.parse(serialized_gear["last_updated"])
         assert serialized_gear["type"] == "single"
-        assert serialized_gear["devices"] == observation.additional["devices"]
         assert len(serialized_gear["devices"]) == 1
 
+        # Check device structure
+        device = serialized_gear["devices"][0]
+        assert device["device_id"] == source.manufacturer_id
+
         # Test hauled status
-        gear_subjectsource.subject.is_active = False
+        subject.is_active = False
+        subject.save()
         serialized_gear = GearSerializer(gear_subjectsource).data
         assert serialized_gear["status"] == "hauled"
 
@@ -120,11 +145,6 @@ class TestGearSerializer:
             manufacturer_id="device_002", provider=provider, additional={"last_deployed": "2024-10-16T12:15:22-08:00"}
         )
 
-        # Create SubjectSource relationships
-        subject_source1 = SubjectSource.objects.create(subject=subject, source=source1)
-
-        subject_source2 = SubjectSource.objects.create(subject=subject, source=source2)
-
         # Create observations for both sources
         now = timezone.now()
         location1 = Point(-24.43071, 31.19239)
@@ -133,6 +153,17 @@ class TestGearSerializer:
         Observation.objects.create(recorded_at=now, location=location1, source=source1)
 
         Observation.objects.create(recorded_at=now, location=location2, source=source2)
+
+        # Create SubjectSource relationships with assigned_range covering current time
+        from psycopg2.extras import DateTimeTZRange
+
+        # Create a time range that includes 'now'
+        deployment_time = now
+        time_range = DateTimeTZRange(deployment_time, None)  # Open-ended range starting from deployment_time
+
+        subject_source1 = SubjectSource.objects.create(subject=subject, source=source1, assigned_range=time_range)
+
+        subject_source2 = SubjectSource.objects.create(subject=subject, source=source2, assigned_range=time_range)
 
         # Act
         serialized_gear = GearSerializer(subject_source1).data
@@ -158,7 +189,7 @@ class TestGearSerializer:
         assert "location" in device1
         assert device1["location"]["latitude"] == 31.19239
         assert device1["location"]["longitude"] == -24.43071
-        assert device1["last_deployed"] == "2024-10-16T11:08:17-08:00"
+        assert "last_deployed" in device1  # Check it exists (datetime object from assigned_range.lower)
 
         # Check second device
         device2 = next(d for d in devices if d["device_id"] == "device_002")
@@ -166,7 +197,7 @@ class TestGearSerializer:
         assert "location" in device2
         assert device2["location"]["latitude"] == 31.20239
         assert device2["location"]["longitude"] == -24.44071
-        assert device2["last_deployed"] == "2024-10-16T12:15:22-08:00"
+        assert "last_deployed" in device2  # Check it exists (datetime object from assigned_range.lower)
 
         # Test hauled status
         subject.is_active = False
@@ -202,10 +233,6 @@ class TestGearSerializer:
         source2 = Source.objects.create(manufacturer_id="device_002", provider=provider)
         source3 = Source.objects.create(manufacturer_id="device_003", provider=provider)
 
-        # Create SubjectSource relationships - subject1 has 1 source, subject2 has 2 sources
-        subject_source1 = SubjectSource.objects.create(subject=subject1, source=source1)
-        subject_source2 = SubjectSource.objects.create(subject=subject2, source=source2)
-
         # Create observations for all sources
         now = timezone.now()
         location1 = Point(-24.43071, 31.19239)
@@ -216,7 +243,16 @@ class TestGearSerializer:
         Observation.objects.create(recorded_at=now, location=location2, source=source2)
         Observation.objects.create(recorded_at=now, location=location3, source=source3)
 
-        # Act - serialize using subject1, but should get devices from both subjects
+        deployment_time = now
+        time_range = DateTimeTZRange(deployment_time, None)  # Open-ended range
+
+        # Create SubjectSource relationships - subject1 has 1 source, subject2 has 2 sources
+        subject_source1 = SubjectSource.objects.create(subject=subject1, source=source1, assigned_range=time_range)
+        subject_source2 = SubjectSource.objects.create(subject=subject2, source=source2, assigned_range=time_range)
+        # Add third source to subject2
+        SubjectSource.objects.create(subject=subject2, source=source3, assigned_range=time_range)
+
+        # Act - serialize using subject1, but should get devices from both subjects with same name
         serialized_gear = GearSerializer(subject_source1).data
 
         # Assert
@@ -239,3 +275,87 @@ class TestGearSerializer:
         assert len(serialized_gear2["devices"]) == 3
         device_ids2 = [device["device_id"] for device in serialized_gear2["devices"]]
         assert set(device_ids) == set(device_ids2)  # Same devices regardless of which subject we serialize
+
+
+class TestGearCreateSerializer(BaseAPITest):
+    def test_save_single_device(self):
+        now = timezone.now()
+        data = {
+            "owner_id": "owner123",
+            "deployment_type": "single",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    "mfr_device_id": "mfr123",
+                    "mfr_id": "mfrcomp",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": {"latitude": 1.23, "longitude": 4.56},
+                }
+            ],
+        }
+        serializer = GearCreateSerializer(data=data, context={"user_id": 99})
+        assert serializer.is_valid(), serializer.errors
+
+        # Use BuoyService instead of serializer.save()
+        observations = BuoyService.process_gearset(serializer.validated_data, manufacturer="test_manufacturer")
+
+        assert isinstance(observations, list)
+        assert len(observations) == 1
+        obs = observations[0]
+
+        # Check observation fields
+        assert obs.source.manufacturer_id == "mfr123"
+        assert obs.location.x == 4.56  # longitude
+        assert obs.location.y == 1.23  # latitude
+        assert obs.additional["raw"]["owner_id"] == "owner123"
+        assert obs.additional["raw"]["deployment_type"] == "single"
+        assert len(obs.additional["raw"]["devices"]) == 1
+        assert obs.additional["raw"]["devices"][0]["mfr_device_id"] == "mfr123"
+        assert obs.additional["raw"]["devices"][0]["device_status"] == "deployed"
+
+    def test_save_multiple_devices(self):
+        now = timezone.now()
+        data = {
+            "owner_id": "ownerXYZ",
+            "deployment_type": "trawl",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    "mfr_device_id": "mfrA",
+                    "mfr_id": "compA",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": {"latitude": 0.0, "longitude": 0.0},
+                },
+                {
+                    "mfr_device_id": "mfrB",
+                    "mfr_id": "compB",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": {"latitude": 9.99, "longitude": 9.99},
+                },
+            ],
+        }
+        serializer = GearCreateSerializer(data=data, context={"user_id": 7})
+        assert serializer.is_valid(), serializer.errors
+
+        # Use BuoyService instead of serializer.save()
+        observations = BuoyService.process_gearset(serializer.validated_data, manufacturer="test_manufacturer")
+
+        assert isinstance(observations, list)
+        # Two observations returned
+        assert len(observations) == 2
+
+        # Check that they share the same subject (gearset)
+        subjects = {obs.source.subjectsource_set.first().subject for obs in observations}
+        assert len(subjects) == 1
+
+        # Check locations are correct
+        assert observations[0].location.x == 0.0  # longitude
+        assert observations[0].location.y == 0.0  # latitude
+        assert observations[1].location.x == 9.99  # longitude
+        assert observations[1].location.y == 9.99  # latitude

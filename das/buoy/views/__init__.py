@@ -1,3 +1,6 @@
-from buoy.views.gears import GearsView, GearView
+from buoy.views.gears import GearsListCreateView, GearView
 
-__all__ = ("GearsView", "GearView")
+__all__ = (
+    "GearsListCreateView",
+    "GearView",
+)
