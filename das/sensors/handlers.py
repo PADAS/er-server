@@ -208,7 +208,7 @@ class GenericSensorHandler:
         location = an_observation["location"]
         lat = location.get("lat", None)
         lon = location.get("lon", None)
-        datetime.now(timezone.utc)
+
         # location = Point(x=float(lon), y=float(lat))
         location = {"latitude": float(lat), "longitude": float(lon)}
         subject_subtype = an_observation.get("subject_subtype") or cls.DEFAULT_SUBJECT_SUBTYPE
