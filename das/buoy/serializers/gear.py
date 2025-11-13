@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from django.db.models.functions import Lower
+from django.utils.dateparse import parse_datetime
 from rest_framework import serializers
 
 from buoy.constants import (
@@ -324,7 +325,6 @@ class GearSerializer(serializers.ModelSerializer):
                 # Parse ISO format datetime string from additional field
                 last_updated_str = additional["last_updated"]
                 if isinstance(last_updated_str, str):
-                    from django.utils.dateparse import parse_datetime
 
                     last_updated = parse_datetime(last_updated_str)
                 else:

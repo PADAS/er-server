@@ -10,6 +10,7 @@ from drf_spectacular.utils import (
 from django.db import transaction
 from rest_framework import generics
 from rest_framework import serializers as drf_serializers
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -22,7 +23,7 @@ from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
-from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
+from observations.utils import VIEW_SUBJECT_PERMS
 from utils.drf import (
     ForbiddenAPIException,
     StandardObjectPermissions,
@@ -199,7 +200,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         )
 
 
-class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
+class GearView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.GearSerializer
     lookup_field = "id"
@@ -217,47 +218,20 @@ class GearView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
         subject = generics.get_object_or_404(Subject.objects.all(), pk=subject_id)
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise ForbiddenAPIException
-        min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
         # Return SubjectSource queryset instead of Subject queryset
         # to work with the new GearSerializer (ModelSerializer)
         queryset = SubjectSource.objects.filter(subject_id=subject_id)
 
-        mou_date = self.request.user.additional.get("expiry", None)
-        mou_date = dateparse(mou_date) if mou_date else None
-
-        # Annotate the subject for status information
-        subject_qs = Subject.objects.filter(id=subject_id).annotate_with_subjectstatus(
-            delay_hours=min_age_days * 24, mou_expiry_date=mou_date
-        )
-
         # Prefetch related data for efficient queries
         queryset = queryset.select_related("subject", "source", "source__provider")
         queryset = queryset.prefetch_related("source__last_observation_sources")
 
-        self._get_two_way_sources(subject_qs)
         return queryset
 
     def get_object(self):
-        if self.queryset_linked_user.exists():
-            self.kwargs.get("id")
-            # Get the first SubjectSource for this subject
-            subject_source = self.get_queryset().first()
-            if not subject_source:
-                from rest_framework.exceptions import NotFound
-
-                raise NotFound("No SubjectSource found for this subject")
-            return subject_source
-
         # Get the first SubjectSource from the queryset
         subject_source = self.get_queryset().first()
         if not subject_source:
-            from rest_framework.exceptions import NotFound
-
             raise NotFound("No SubjectSource found for this subject")
         return subject_source
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["two_way_subject_sources"] = self.two_way_subject_sources
-        return context
