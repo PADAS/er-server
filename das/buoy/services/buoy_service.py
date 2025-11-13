@@ -1,14 +1,15 @@
-from datetime import date, datetime
+import logging
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
 
 from psycopg2.extras import DateTimeTZRange
 
-from django.utils import timezone
-
-from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
+from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE, DEVICE_STATUS_DEPLOYED
 from observations import models
 from observations.models import DEFAULT_ASSIGNED_RANGE
+
+logger = logging.getLogger(__name__)
 
 
 class BuoyService:
@@ -103,7 +104,7 @@ class BuoyService:
 
         for device_data in devices:
             device_location = models.Point(device_data["location"]["longitude"], device_data["location"]["latitude"])
-            recorded_at = device_data.get("recorded_at", timezone.now())
+            recorded_at = device_data.get("recorded_at", datetime.now(timezone.utc))
 
             source, _ = models.Source.objects.get_or_create(manufacturer_id=device_data["mfr_device_id"])
 
@@ -123,12 +124,18 @@ class BuoyService:
             )
             observations.append(observation)
 
-            subject_source, _ = models.SubjectSource.objects.get_or_create(subject=subject, source=source)
+            subject_source, subject_source_created = models.SubjectSource.objects.get_or_create(
+                subject=subject, source=source
+            )
 
-            if device_data.get("device_status") == "deployed":
+            if device_data.get("device_status") == DEVICE_STATUS_DEPLOYED:
                 assigned_range = DateTimeTZRange(lower=recorded_at, upper=DEFAULT_ASSIGNED_RANGE[1])
             else:
                 # For haul events we expect subject_source to have a lower bound already set
+                if subject_source_created:
+                    logger.warning(
+                        f"SubjectSource created for {subject.name} and {source.manufacturer_id} but device status is {device_data.get('device_status')}, the assigned_range lower bound will be the default min time"
+                    )
                 assigned_range = DateTimeTZRange(lower=subject_source.assigned_range.lower, upper=recorded_at)
 
             subject_source.location = device_location
@@ -136,7 +143,10 @@ class BuoyService:
             subject_source.save()
 
         # If all SubjectSource for the Subject are hauled, set Subject is_active to False
-        all_hauled = all(ss.is_expired for ss in models.SubjectSource.objects.filter(subject=subject))
+        # Optimize by pulling "assigned_range" directly and check is_expired in Python
+        now = datetime.now(timezone.utc)
+        assigned_ranges = models.SubjectSource.objects.filter(subject=subject).values_list("assigned_range", flat=True)
+        all_hauled = all(now not in assigned_range for assigned_range in assigned_ranges)
         if all_hauled:
             subject.is_active = False
             subject.save()
