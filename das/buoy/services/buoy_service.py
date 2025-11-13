@@ -62,18 +62,18 @@ class BuoyService:
             subject, _ = models.Subject.objects.get_or_create(name=set_id, defaults=subject_defaults)
 
         # Ensure display_id and manufacturer are set/updated when provided
+        subject_changed = False
         if set_display_id or manufacturer:
             subj_additional = subject.additional or {}
-            changed = False
+
             if set_display_id and subj_additional.get("display_id") != set_display_id:
                 subj_additional["display_id"] = set_display_id
-                changed = True
+                subject_changed = True
             if manufacturer and subj_additional.get("manufacturer") != manufacturer:
                 subj_additional["manufacturer"] = manufacturer
-                changed = True
-            if changed:
+                subject_changed = True
+            if subject_changed:
                 subject.additional = subj_additional
-                subject.save()
 
         # Make a JSON-serializable copy of validated_data for storing in DB JSON fields
         def _make_serializable(obj):
@@ -96,6 +96,9 @@ class BuoyService:
             subj_additional = subject.additional or {}
             subj_additional["last_updated"] = _make_serializable(validated_data["last_updated"])
             subject.additional = subj_additional
+            subject_changed = True
+
+        if subject_changed:
             subject.save()
 
         for device_data in devices:
