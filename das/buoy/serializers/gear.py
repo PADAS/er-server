@@ -101,6 +101,46 @@ class GearDeviceCreateSerializer(serializers.Serializer):
 
         return super().validate(attrs)
 
+    def validate_mfr_device_id(self, value):
+        """Validate manufacturer device ID is not empty."""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Manufacturer device ID cannot be empty")
+        return value.strip()
+
+    def validate_mfr_id(self, value):
+        """Validate manufacturer ID is not empty."""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Manufacturer ID cannot be empty")
+        return value.strip()
+
+    def validate_device_initial_deploy_date(self, value):
+        if value:
+            now = timezone.now()
+            if value > now:
+                raise serializers.ValidationError("Device deployment date cannot be in the future")
+
+        return value
+
+    def validate_device_last_updated_date(self, value):
+        """Validate device last updated date."""
+        if value:
+            now = timezone.now()
+            if value > now:
+                raise serializers.ValidationError("Device last updated date cannot be in the future")
+
+        return value
+
+    def validate(self, attrs):
+        deploy_date = attrs.get("device_initial_deploy_date")
+        updated_date = attrs.get("device_last_updated_date")
+
+        if deploy_date and updated_date and updated_date < deploy_date:
+            raise serializers.ValidationError(
+                {"device_last_updated_date": "Last updated date cannot be before deployment date"}
+            )
+
+        return super().validate(attrs)
+
 
 class GearCreateSerializer(serializers.Serializer):
     set_id = serializers.UUIDField(required=False)
@@ -176,6 +216,26 @@ class GearCreateSerializer(serializers.Serializer):
         """Validate deployment date is not too far in the past or future."""
         if value:
             now = datetime.now(timezone.utc)
+            if value > now:
+                raise serializers.ValidationError("Initial deployment date cannot be in the future")
+        return value
+
+    def validate_owner_id(self, value):
+        """Validate owner_id is not empty and has valid format."""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Owner ID cannot be empty")
+        return value.strip()
+
+    def validate_devices_in_set(self, value):
+        """Validate devices_in_set is a positive integer."""
+        if value is not None and value <= 0:
+            raise serializers.ValidationError("devices_in_set must be a positive integer")
+        return value
+
+    def validate_initial_deployment_date(self, value):
+        """Validate deployment date is not too far in the past or future."""
+        if value:
+            now = timezone.now()
             if value > now:
                 raise serializers.ValidationError("Initial deployment date cannot be in the future")
         return value

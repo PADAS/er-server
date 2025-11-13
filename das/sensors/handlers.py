@@ -180,23 +180,36 @@ class GenericSensorHandler:
         return Response({}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     @classmethod
-    def find_subject_by_name(cls, name: str):
-        """Find a subject by its name."""
-        try:
-            return Subject.objects.get(name=name)
-        except Subject.DoesNotExist:
+    def get_or_consolidate_subject_by_name(cls, name: str):
+        """Find and consolidate duplicate subjects with the same name.
+
+        If multiple subjects exist with the same name, this method will:
+        1. Keep the oldest subject (by created_at)
+        2. Transfer all SubjectSource assignments from duplicates to the oldest
+        3. Delete the duplicate subjects
+
+        Args:
+            name (str): The subject name to search for
+
+        Returns:
+            Subject: The consolidated subject, or None if not found
+        """
+        subjects = Subject.objects.filter(name=name).order_by("created_at")
+
+        if not subjects.exists():
             return None
-        except Subject.MultipleObjectsReturned:
-            # Get all subjects with the same name, ordered by creation date
-            subjects = Subject.objects.filter(name=name).order_by("created_at")
-            first_subject = subjects.first()
-            duplicate_subjects = subjects.exclude(id=first_subject.id)
 
-            # Transfer SubjectSource assignments from duplicates to the first subject
-            cls._transfer_subject_source_assignments(first_subject, duplicate_subjects)
+        if subjects.count() == 1:
+            return subjects.first()
 
-            return first_subject
+        first_subject = subjects.first()
+        duplicate_subjects = subjects.exclude(id=first_subject.id)
 
+        cls._transfer_subject_source_assignments(first_subject, duplicate_subjects)
+
+        return first_subject
+
+    @transaction.atomic
     @classmethod
     def _transfer_subject_source_assignments(cls, target_subject: Subject, duplicate_subjects):
         """Transfer SubjectSource assignments from duplicate subjects to the target subject.
@@ -205,34 +218,62 @@ class GenericSensorHandler:
             target_subject (Subject): The subject to receive the assignments
             duplicate_subjects (QuerySet): The duplicate subjects to transfer assignments from
         """
-        from django.db import transaction
+        duplicate_subject_ids = list(duplicate_subjects.values_list("id", flat=True))
 
-        with transaction.atomic():
-            for duplicate_subject in duplicate_subjects:
-                # Get all SubjectSource assignments for the duplicate subject
-                assignments = SubjectSource.objects.filter(subject=duplicate_subject)
-                for assignment in assignments:
-                    # Check if target subject already has an assignment with the same source and overlapping range
-                    existing_assignment = SubjectSource.objects.filter(
-                        subject=target_subject,
-                        source=assignment.source,
-                        assigned_range__overlap=assignment.assigned_range,
-                    ).first()
+        if not duplicate_subject_ids:
+            return
 
-                    if existing_assignment:
-                        if assignment.assigned_range.lower < existing_assignment.assigned_range.lower:
-                            from observations.models import DateTimeTZRange
+        all_assignments = SubjectSource.objects.filter(subject_id__in=duplicate_subject_ids).select_related("source")
 
-                            existing_assignment.assigned_range = DateTimeTZRange(
-                                lower=assignment.assigned_range.lower,
-                                upper=max(assignment.assigned_range.upper, existing_assignment.assigned_range.upper),
-                            )
-                            existing_assignment.save()
-                        assignment.delete()
-                    else:
-                        assignment.subject = target_subject
-                        assignment.save()
-                    duplicate_subject.delete()
+        target_assignments = SubjectSource.objects.filter(subject=target_subject).select_related("source")
+
+        target_assignments_by_source = {}
+        for target_assignment in target_assignments:
+            source_id = target_assignment.source_id
+            if source_id not in target_assignments_by_source:
+                target_assignments_by_source[source_id] = []
+            target_assignments_by_source[source_id].append(target_assignment)
+
+        assignments_to_transfer = []
+        assignments_to_delete = []
+        target_assignments_to_update = []
+
+        for assignment in all_assignments:
+            source_id = assignment.source_id
+            existing_assignments = target_assignments_by_source.get(source_id, [])
+
+            overlapping_assignment = None
+            for existing_assignment in existing_assignments:
+                if not (
+                    assignment.assigned_range.upper <= existing_assignment.assigned_range.lower
+                    or existing_assignment.assigned_range.upper <= assignment.assigned_range.lower
+                ):
+                    overlapping_assignment = existing_assignment
+                    break
+
+            if overlapping_assignment:
+                if assignment.assigned_range.lower < overlapping_assignment.assigned_range.lower:
+                    overlapping_assignment.assigned_range = DateTimeTZRange(
+                        lower=assignment.assigned_range.lower,
+                        upper=max(assignment.assigned_range.upper, overlapping_assignment.assigned_range.upper),
+                    )
+                    target_assignments_to_update.append(overlapping_assignment)
+                assignments_to_delete.append(assignment)
+            else:
+                assignment.subject = target_subject
+                assignments_to_transfer.append(assignment)
+
+        if target_assignments_to_update:
+            SubjectSource.objects.bulk_update(target_assignments_to_update, ["assigned_range"], batch_size=100)
+
+        if assignments_to_transfer:
+            SubjectSource.objects.bulk_update(assignments_to_transfer, ["subject"], batch_size=100)
+
+        if assignments_to_delete:
+            assignment_ids_to_delete = [a.id for a in assignments_to_delete]
+            SubjectSource.objects.filter(id__in=assignment_ids_to_delete).delete()
+
+        duplicate_subjects.delete()
 
     @classmethod
     def update_subject(cls, subject: Subject, additional: Optional[dict] = None, is_active: Optional[bool] = None):
@@ -334,7 +375,7 @@ class GenericSensorHandler:
                     f"'{TRAP_DEPLOYED}' or '{TRAP_RETRIEVED}'."
                 )
             subject_info.setdefault("additional", {})["display_id"] = subject_name
-            subject = cls.find_subject_by_name(subject_name)
+            subject = cls.get_or_consolidate_subject_by_name(subject_name)
             if subject:
                 subject_info["id"] = subject.id
 
@@ -358,7 +399,7 @@ class GenericSensorHandler:
 
         # For Buoy Subject's, ensure that we have a Subject and SubjectSource set up and define the assigned_range as the deploy/retrieve event dictates
         if subject_subtype == BUOY_GEAR_SUBJECT_SUBTYPE:
-            subject = cls.find_subject_by_name(subject_name)
+            subject = cls.get_or_consolidate_subject_by_name(subject_name)
             if not subject:
                 subject = Subject.objects.create_subject(**subject_info)
 
@@ -377,7 +418,7 @@ class GenericSensorHandler:
 
         # TODO: Remove after the rollout of the new data model that uses "ropeless_buoy_gearset" as the subject_subtype for buoy devices,
         if subject_subtype == BUOY_DEVICE_SUBJECT_SUBTYPE:
-            subject = cls.find_subject_by_name(subject_name)
+            subject = cls.get_or_consolidate_subject_by_name(subject_name)
             cls.update_subject(subject, additional=observation_additional)
         event_action = an_observation.get("additional", {}).get("event_action", cls.DEFAULT_EVENT_ACTION)
         observation = {

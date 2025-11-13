@@ -386,3 +386,43 @@ def run_partition_table_check() -> None:
     schema = "public"
     logger.info(f"Running partition table check for '{schema}.{table_name}'")
     utils_db_task_helpers.run_partition_table_check(schema=schema, table_name=table_name, logger=logger)
+
+
+@celery.app.task(
+    base=TenantQueueOnceTask,
+    bind=True,
+    once={"graceful": True},
+    max_retries=5,
+    default_retry_delay=60,
+    retry_backoff=30,
+    retry_backoff_max=10 * 60,
+)
+async def send_observations_to_gundi_async(self, observations, integration_id, **kwargs):
+    """
+    Send observations to Gundi asynchronously using native async Celery task.
+    This provides retry logic and doesn't block the API endpoint.
+
+    :param observations: List of observation dictionaries to send to Gundi
+    :param integration_id: UUID of the Gundi integration
+    :param kwargs: Additional parameters
+    """
+    try:
+        from observations.services.gundi import send_observations_to_gundi
+
+        logger.info("Sending %d observations to Gundi with integration_id: %s", len(observations), integration_id)
+
+        # Use native async - no need for async_to_sync!
+        result = await send_observations_to_gundi(observations=observations, integration_id=integration_id)
+
+        logger.info("Successfully sent %d observations to Gundi. Result: %s", len(observations), result)
+
+        return result
+
+    except Exception as exc:
+        logger.error(
+            "Failed to send observations to Gundi (attempt %d/%d): %s",
+            self.request.retries + 1,
+            self.max_retries + 1,
+            exc,
+        )
+        await self.retry(exc=exc, retry_backoff=True)
