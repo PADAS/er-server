@@ -203,6 +203,6 @@ GEO_PERMISSION_SPEED_KM_H = env.int("GEO_PERMISSION_SPEED_KM_H", 75)
 GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN = env.int("GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN", 10)
 
 # disable metrics on development pipelines
-DISABLE_STATSD = True
+DISABLE_STATSD = SERVER_FQDN.lower().startswith("das-") or SERVER_FQDN.lower().startswith("era-")
 
 ALERTS_RATE_LIMIT = env.int("ALERTS_RATE_LIMIT", 20)
