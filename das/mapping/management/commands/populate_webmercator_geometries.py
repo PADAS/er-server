@@ -76,8 +76,7 @@ class Command(TenantCommandMixin, BaseCommand):
             failed += batch_failed
 
             # Track processed IDs for exclusion in next batch
-            if not dry_run:
-                processed_ids.update(feature.id for feature in batch)
+            processed_ids.update(feature.id for feature in batch)
 
             self._print_progress(processed, failed, total_count)
 
