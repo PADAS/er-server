@@ -2,7 +2,7 @@ from das_server.local_settings_docker import *  # noqa
 
 SHOW_TRACK_DAYS = 16
 
-TIME_ZONE = "US/Pacific"
+TIME_ZONE = "America/Los_Angeles"
 
 PATROL_ENABLED = True
 
