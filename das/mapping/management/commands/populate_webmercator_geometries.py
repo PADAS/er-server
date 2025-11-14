@@ -100,10 +100,10 @@ class Command(TenantCommandMixin, BaseCommand):
                         successful_updates.append((feature.id, webmerc_geom))
                         batch_processed += 1
                     else:
-                        logger.warning("Failed to generate geometry for SpatialFeature %s", feature.id)
+                        logger.error("Failed to generate geometry for SpatialFeature %s", feature.id)
                         batch_failed += 1
                 except Exception as e:
-                    logger.error("Error processing SpatialFeature %s: %s", feature.id, e)
+                    logger.exception("Error processing SpatialFeature %s: %s", feature.id, e)
                     batch_failed += 1
 
             # Bulk update all successful geometries in one transaction
