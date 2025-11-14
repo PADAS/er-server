@@ -1010,7 +1010,7 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
             webmerc_geom = self.feature_geometry.transform(3857, clone=True)
 
             # Only simplify for appropriate geometry types
-            if webmerc_geom.geom_type in ['LineString', 'Polygon', 'MultiLineString', 'MultiPolygon']:
+            if webmerc_geom.geom_type in ["LineString", "Polygon", "MultiLineString", "MultiPolygon"]:
                 # Apply 2.5m simplification tolerance - good balance of performance and detail
                 # Preserves details visible at zoom 16+ while removing micro-features
                 simplified = webmerc_geom.simplify(tolerance=2.5, preserve_topology=True)
@@ -1018,12 +1018,12 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
             else:
                 return webmerc_geom
         except Exception as e:
-            logger.warning("Failed to generate Web Mercator geometry for SpatialFeature %s: %s", self.id, e)
+            logger.exception("Failed to generate Web Mercator geometry for SpatialFeature %s: %s", self.id, e)
             return None
+
     def save(self, *args, **kwargs):
         # Generate optimized Web Mercator geometry on save
-        if self.feature_geometry:
-            self.feature_geometry_webmercator = self._generate_webmercator_geometry()
+        self.feature_geometry_webmercator = self._generate_webmercator_geometry()
 
         result = super().save(*args, **kwargs)
         self._bump_cache_version()
