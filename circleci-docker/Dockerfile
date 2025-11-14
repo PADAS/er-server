@@ -19,10 +19,9 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /das
 ADD ./dependencies /das/dependencies
-ADD ./pyproject.toml /das/
 ADD ./uv.lock /das/
 
-RUN uv sync --group dev
+RUN uv sync --no-dev
 
 ARG built_version=""
 
