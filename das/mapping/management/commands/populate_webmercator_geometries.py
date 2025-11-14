@@ -91,13 +91,14 @@ class Command(TenantCommandMixin, BaseCommand):
 
         if not dry_run:
             # Process all features in batch, collect successful updates
-            successful_updates = []
+            features_to_update = []
 
             for feature in batch:
                 try:
                     webmerc_geom = feature._generate_webmercator_geometry()
                     if webmerc_geom:
-                        successful_updates.append((feature.id, webmerc_geom))
+                        feature.feature_geometry_webmercator = webmerc_geom
+                        features_to_update.append(feature)
                         batch_processed += 1
                     else:
                         logger.error("Failed to generate geometry for SpatialFeature %s", feature.id)
@@ -107,8 +108,8 @@ class Command(TenantCommandMixin, BaseCommand):
                     batch_failed += 1
 
             # Bulk update all successful geometries in one transaction
-            if successful_updates:
-                self._bulk_update_geometries(successful_updates)
+            if features_to_update:
+                self._bulk_update_geometries(features_to_update)
         else:
             # Dry run - just count what we would process
             batch_processed = len(batch)
@@ -125,23 +126,14 @@ class Command(TenantCommandMixin, BaseCommand):
 
         return batch_processed, batch_failed
 
-    def _bulk_update_geometries(self, updates):
+    def _bulk_update_geometries(self, features_to_update):
         """Bulk update geometries using Django's bulk_update for better performance."""
-        if not updates:
+        if not features_to_update:
             return
-
-        # Create list of features to update
-        features_to_update = []
-        for feature_id, geometry in updates:
-            feature = SpatialFeature(id=feature_id)
-            feature.feature_geometry_webmercator = geometry
-            features_to_update.append(feature)
 
         # Bulk update in a single query
         with transaction.atomic():
-            SpatialFeature.objects.bulk_update(
-                features_to_update, ["feature_geometry_webmercator", "updated_at"], batch_size=1000
-            )
+            SpatialFeature.objects.bulk_update(features_to_update, ["feature_geometry_webmercator", "updated_at"])
 
     def _print_progress(self, processed, failed, total_count):
         """Print current progress status."""
