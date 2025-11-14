@@ -139,7 +139,9 @@ class Command(TenantCommandMixin, BaseCommand):
 
         # Bulk update in a single query
         with transaction.atomic():
-            SpatialFeature.objects.bulk_update(features_to_update, ["feature_geometry_webmercator"], batch_size=1000)
+            SpatialFeature.objects.bulk_update(
+                features_to_update, ["feature_geometry_webmercator", "updated_at"], batch_size=1000
+            )
 
     def _print_progress(self, processed, failed, total_count):
         """Print current progress status."""
