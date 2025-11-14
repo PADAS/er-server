@@ -57,6 +57,13 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis-vt:
+        image: redis:7.2
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Setup
