@@ -230,8 +230,6 @@ collection_field_schema = {
             "additionalProperties": False,
             "properties": {
                 "additionalProperties": {"type": "boolean", "const": False},
-                "type": {"type": "string", "const": "object"},
-                "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": True},
                 "properties": {
                     "type": "object",
                     "patternProperties": {
@@ -251,7 +249,15 @@ collection_field_schema = {
                         }
                     },
                 },
+                "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": True},
+                "type": {"type": "string", "const": "object"},
+                "unevaluatedProperties": {"type": "boolean", "const": False},
             },
+            "required": ["properties", "required", "type"],
+            "oneOf": [
+                { "required": ["additionalProperties"] },
+                { "required": ["unevaluatedProperties"] }
+            ],
         },
         "unevaluatedItems": {"type": "boolean", "const": False},
         "maxItems": {"type": "integer"},
@@ -511,8 +517,13 @@ json_field_schema = {
         },
         "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": True},
         "type": {"type": "string", "const": "object"},
+        "unevaluatedProperties": {"type": "boolean", "const": False},
     },
-    "required": ["$schema", "properties"],
+    "required": ["$schema", "properties", "required", "type"],
+     "oneOf": [
+        { "required": ["additionalProperties"] },
+        { "required": ["unevaluatedProperties"] }
+    ],
 }
 
 
