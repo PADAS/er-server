@@ -12,6 +12,7 @@ RUN apt-get update; apt-get install -y --no-install-recommends \
   libmagic-dev \
   build-essential \
   libkrb5-dev \
+  postgresql-client \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}
 
