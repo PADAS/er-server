@@ -59,10 +59,13 @@ class Command(TenantCommandMixin, BaseCommand):
         processed = 0
         failed = 0
         batch_num = 0
+        processed_ids = set()
 
         while True:
             batch_num += 1
-            batch = list(queryset[:batch_size])
+            # Get next batch, excluding already processed IDs
+            current_queryset = queryset.exclude(id__in=processed_ids) if processed_ids else queryset
+            batch = list(current_queryset[:batch_size])
 
             if not batch:
                 break
@@ -72,10 +75,9 @@ class Command(TenantCommandMixin, BaseCommand):
             processed += batch_processed
             failed += batch_failed
 
-            # Update queryset for next batch
-            if batch:
-                last_id = batch[-1].id
-                queryset = queryset.filter(id__gt=last_id)
+            # Track processed IDs for exclusion in next batch
+            if not dry_run:
+                processed_ids.update(feature.id for feature in batch)
 
             self._print_progress(processed, failed, total_count)
 
