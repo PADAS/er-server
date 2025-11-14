@@ -703,7 +703,7 @@ TENANT_DOCUMENT_CACHE = {
     "DATABASE": 0,
 }
 
-DISABLE_STATSD = True
+DISABLE_STATSD = env.bool("DISABLE_STATSD", True)
 
 if not env.bool("IS_OAUTH2_PROVIDER_MIGRATION", False):
     # Django oauth custom models
