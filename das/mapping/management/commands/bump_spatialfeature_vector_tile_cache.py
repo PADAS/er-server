@@ -20,6 +20,6 @@ class Command(TenantCommandMixin, BaseCommand):
                 )
             )
         except Exception as e:
-            logger.error("Failed to bump vector tile cache version: %s", e)
+            logger.exception("Failed to bump vector tile cache version: %s")
             self.stdout.write(self.style.ERROR(f"Failed to bump vector tile cache version: {e}"))
             raise
