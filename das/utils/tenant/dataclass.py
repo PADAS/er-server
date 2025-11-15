@@ -58,6 +58,10 @@ class FeatureFlags:
     tableau_enabled: Optional[bool] = field(metadata=config(field_name="tableauEnabled"), default=False)
     tableau_site_id: Optional[bool] = field(metadata=config(field_name="tableauSiteId"), default=False)
     track_length: Optional[bool] = field(metadata=config(field_name="trackLength"), default=False)
+    events_enabled: Optional[bool] = field(metadata=config(field_name="eventsEnabled"), default=True)
+    subjects_enabled: Optional[bool] = field(metadata=config(field_name="subjectsEnabled"), default=True)
+    spatial_features_enabled: Optional[bool] = field(metadata=config(field_name="spatialFeaturesEnabled"), default=True)
+    analyzers_enabled: Optional[bool] = field(metadata=config(field_name="analyzersEnabled"), default=True)
 
 
 @dataclass_json

@@ -9,6 +9,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
+            "python": "/home/vscode/.venv/bin/python",
             "purpose": [
                 "debug-test"
             ],
@@ -19,6 +20,7 @@
             "name": "PyTest",
             "type": "debugpy",
             "request": "launch",
+            "python": "/home/vscode/.venv/bin/python",
             "stopOnEntry": false,
             "justMyCode": false,
             "module": "pytest",
@@ -38,6 +40,7 @@
             "name": "PyTest --createdb",
             "type": "debugpy",
             "request": "launch",
+            "python": "/home/vscode/.venv/bin/python",
             "stopOnEntry": false,
             "module": "pytest",
             "args": [
@@ -57,6 +60,7 @@
             "name": "Django:Run",
             "type": "debugpy",
             "request": "launch",
+            "python": "/home/vscode/.venv/bin/python",
             "program": "manage.py",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
@@ -344,8 +348,9 @@
         },
         {
             "name": "Django make migrations",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
+            "python": "/home/vscode/.venv/bin/python",
             "justMyCode": false,
             "program": "${workspaceFolder}/das/manage.py",
             "console": "integratedTerminal",

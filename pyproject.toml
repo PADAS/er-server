@@ -6,7 +6,7 @@ readme = "readme.md"
 authors = [
     { name="EarthRanger Developers", email="developers@earthranger.com" }
 ]
-license = { file="LICENSE" }
+license = "Apache-2.0"
 dependencies = [
     "arcgis==2.4.1.3",
     "arcgis2geojson",
@@ -120,7 +120,6 @@ keywords = ["django", "python", "gis", "rest", "api"]
 classifiers = [
     "Framework :: Django",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Topic :: Internet",
     "Programming Language :: Python :: 3.8"
