@@ -895,7 +895,7 @@ requires-dist = [
     { name = "cryptography", specifier = "==41.0.1" },
     { name = "cython", specifier = "==0.29.35" },
     { name = "dataclasses-json", specifier = "==0.6.7" },
-    { name = "datadog", specifier = "==0.52.1" },
+    { name = "datadog", specifier = "==0.36.0" },
     { name = "django", specifier = "==3.2.25" },
     { name = "django-bitfield", specifier = "==2.2.0" },
     { name = "django-cors-headers", specifier = "==4.4.0" },
@@ -1080,14 +1080,15 @@ wheels = [
 
 [[package]]
 name = "datadog"
-version = "0.52.1"
+version = "0.36.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "decorator" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a9/e6/ec5e4b4dbecd63cecae94009ef6dde9ab421d7d0022e6027586cc3776921/datadog-0.52.1.tar.gz", hash = "sha256:44c6deb563c4522dba206fba2e2bb93d3b04113c40191851ba3a241d82b5fd0b", size = 368037, upload-time = "2025-07-31T15:49:43.425Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b8/0e/7f0a2db402d85395e5bcfd3080379eeb14c39e168702dcad141aa69cafa0/datadog-0.36.0.tar.gz", hash = "sha256:3fe197587db49d808ba88e40f431fb2d256be3c428419ac2984609d67fd66bce", size = 559163, upload-time = "2020-05-05T16:33:10.599Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/90/19/e0e39f10169ca3e37fa6b5be2f6d1c729c92d677f1bd21ad6d448df8bec8/datadog-0.52.1-py2.py3-none-any.whl", hash = "sha256:b8c92cd761618ee062f114171067e4c400d48c9f0dad16cb285042439d9d5d4e", size = 129952, upload-time = "2025-07-31T15:49:41.8Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/ee/e2060d9b14131b23eeccffeb82f0ad6bbefb54eaaeaae10e992d314a4353/datadog-0.36.0-py2.py3-none-any.whl", hash = "sha256:398c612f8fb8e1988be897fda920ffb3b8a1ec70d430730e3b71a269df31b486", size = 104694, upload-time = "2020-05-05T16:33:08.833Z" },
 ]
 
 [[package]]
@@ -2218,6 +2219,8 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/7f/91/ae2eb6b7979e2f9b035a9f612cf70f1bf54aad4e1d125129bef1eae96f19/greenlet-3.2.4-cp310-cp310-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:c2ca18a03a8cfb5b25bc1cbe20f3d9a4c80d8c3b13ba3df49ac3961af0b1018d", size = 584358, upload-time = "2025-08-07T13:18:23.708Z" },
     { url = "https://files.pythonhosted.org/packages/f7/85/433de0c9c0252b22b16d413c9407e6cb3b41df7389afc366ca204dbc1393/greenlet-3.2.4-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:9fe0a28a7b952a21e2c062cd5756d34354117796c6d9215a87f55e38d15402c5", size = 1113550, upload-time = "2025-08-07T13:42:37.467Z" },
     { url = "https://files.pythonhosted.org/packages/a1/8d/88f3ebd2bc96bf7747093696f4335a0a8a4c5acfcf1b757717c0d2474ba3/greenlet-3.2.4-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:8854167e06950ca75b898b104b63cc646573aa5fef1353d4508ecdd1ee76254f", size = 1137126, upload-time = "2025-08-07T13:18:20.239Z" },
+    { url = "https://files.pythonhosted.org/packages/f1/29/74242b7d72385e29bcc5563fba67dad94943d7cd03552bac320d597f29b2/greenlet-3.2.4-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:f47617f698838ba98f4ff4189aef02e7343952df3a615f847bb575c3feb177a7", size = 1544904, upload-time = "2025-11-04T12:42:04.763Z" },
+    { url = "https://files.pythonhosted.org/packages/c8/e2/1572b8eeab0f77df5f6729d6ab6b141e4a84ee8eb9bc8c1e7918f94eda6d/greenlet-3.2.4-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:af41be48a4f60429d5cad9d22175217805098a9ef7c40bfef44f7669fb9d74d8", size = 1611228, upload-time = "2025-11-04T12:42:08.423Z" },
     { url = "https://files.pythonhosted.org/packages/d6/6f/b60b0291d9623c496638c582297ead61f43c4b72eef5e9c926ef4565ec13/greenlet-3.2.4-cp310-cp310-win_amd64.whl", hash = "sha256:73f49b5368b5359d04e18d15828eecc1806033db5233397748f4ca813ff1056c", size = 298654, upload-time = "2025-08-07T13:50:00.469Z" },
 ]
 
