@@ -12,6 +12,7 @@ RUN apt-get update; apt-get install -y --no-install-recommends \
   libmagic-dev \
   build-essential \
   libkrb5-dev \
+  postgresql-client \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}
 
@@ -22,7 +23,7 @@ ADD ./dependencies /das/dependencies
 ADD ./pyproject.toml /das/
 ADD ./uv.lock /das/
 
-RUN uv sync --group dev
+RUN uv sync --no-dev
 
 ARG built_version=""
 
