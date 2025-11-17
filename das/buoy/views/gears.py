@@ -120,7 +120,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
     page_size, (default is {page_size}, max is {max_page_size})
 
-    POST: Create new gears and send observations to Gundi for processing.
+    POST: This API allows users to submit a single trawl with either single or multiple devices.
     """.format(
         page_size=StandardResultsSetPagination.page_size, max_page_size=StandardResultsSetPagination.max_page_size
     )

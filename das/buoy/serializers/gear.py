@@ -47,7 +47,7 @@ class GeoLocationSerializer(serializers.Serializer):
 
 class GearDeviceCreateSerializer(serializers.Serializer):
     mfr_device_id = serializers.CharField(max_length=100, required=True)
-    mfr_id = serializers.CharField(max_length=100, required=True)
+    mfr_id = serializers.UUIDField(max_length=100, required=True)
     last_deployed = serializers.DateTimeField(
         required=True,
     )
@@ -115,15 +115,16 @@ class GearDeviceCreateSerializer(serializers.Serializer):
 
 
 class GearCreateSerializer(serializers.Serializer):
-    set_id = serializers.CharField(max_length=100, required=False)
-    set_display_id = serializers.CharField(max_length=100, required=False)
-    vessel_id = serializers.CharField(max_length=100, required=False)
+    set_id = serializers.UUIDField(required=False)
     mfr_set_id = serializers.CharField(max_length=100, required=False)
-    owner_id = serializers.CharField(max_length=100, required=True)
+    set_display_id = serializers.CharField(max_length=100, required=False)
+    owner_id = serializers.CharField(max_length=100, required=False)
+    vessel_id = serializers.CharField(max_length=100, required=False)
     permit_number = serializers.CharField(max_length=100, required=False)
     deployment_type = serializers.ChoiceField(choices=DEPLOYMENT_TYPE_CHOICES, required=True)
     devices_in_set = serializers.IntegerField(required=False)
-    trawl_path = serializers.ListField(child=GeoLocationSerializer(), required=False)
+    # Disable trawl_path for now, as it's not defined in the mi
+    # trawl_path = serializers.ListField(child=GeoLocationSerializer(), required=False)
     last_updated = serializers.DateTimeField(required=False)
     initial_deployment_date = serializers.DateTimeField(required=False)  # Conditionally required
     set_additional_data = serializers.JSONField(required=False)
