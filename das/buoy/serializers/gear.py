@@ -46,8 +46,8 @@ class GeoLocationSerializer(serializers.Serializer):
 
 
 class GearDeviceCreateSerializer(serializers.Serializer):
-    mfr_device_id = serializers.CharField(max_length=100, required=True)
-    mfr_id = serializers.UUIDField(max_length=100, required=True)
+    device_id = serializers.UUIDField(required=True)
+    mfr_device_id = serializers.CharField(max_length=100, required=False)
     last_deployed = serializers.DateTimeField(
         required=True,
     )
@@ -74,18 +74,6 @@ class GearDeviceCreateSerializer(serializers.Serializer):
     device_pgn_data = serializers.JSONField(
         required=False,
     )
-
-    def validate_mfr_device_id(self, value):
-        """Validate manufacturer device ID is not empty."""
-        if not value or not value.strip():
-            raise serializers.ValidationError("Manufacturer device ID cannot be empty")
-        return value.strip()
-
-    def validate_mfr_id(self, value):
-        """Validate manufacturer ID is not empty."""
-        if not value or not value.strip():
-            raise serializers.ValidationError("Manufacturer ID cannot be empty")
-        return value.strip()
 
     def validate_last_deployed(self, value):
         if value:
@@ -197,7 +185,7 @@ class GearCreateSerializer(serializers.Serializer):
 
         device_errors = {}
         for idx, device in enumerate(devices):
-            mfr_id = device.get("mfr_device_id")
+            device_id = str(device.get("device_id"))
             # Build a Point to compare locations if needed
             loc = device.get("location") or {}
             device_location = None
@@ -205,7 +193,7 @@ class GearCreateSerializer(serializers.Serializer):
                 device_location = models.Point(loc["longitude"], loc["latitude"])
 
             # Try to find an existing Source/SubjectSource for checks. Absence is valid for deployments
-            source = models.Source.objects.filter(manufacturer_id=mfr_id).first()
+            source = models.Source.objects.filter(manufacturer_id=device_id).first()
             subject_source = None
             if subject and source:
                 subject_source = SubjectSource.objects.filter(subject=subject, source=source).first()
@@ -242,7 +230,7 @@ class GearCreateSerializer(serializers.Serializer):
                         )
                 # If we expect to haul but there's no subject_source (or no subject/source) that's invalid
                 if subject_source is None:
-                    device_errors.setdefault(idx, []).append(f"Device {mfr_id} is not deployed, cannot be hauled.")
+                    device_errors.setdefault(idx, []).append(f"Device {device_id} is not deployed, cannot be hauled.")
 
         if device_errors:
             raise serializers.ValidationError({"devices": device_errors})
@@ -260,7 +248,7 @@ class GearCreateSerializer(serializers.Serializer):
         if set_id:
             return set_id
 
-        device_ids = [d.get("mfr_device_id") for d in devices_info if d.get("mfr_device_id")]
+        device_ids = [str(d.get("device_id")) for d in devices_info if d.get("device_id")]
         if device_ids:
             # Find Subjects that are active and have SubjectSource for all device_ids
             subjects_qs = (
