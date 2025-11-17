@@ -46,7 +46,7 @@ class GeoLocationSerializer(serializers.Serializer):
 
 
 class GearDeviceCreateSerializer(serializers.Serializer):
-    device_id = serializers.UUIDField(required=False)
+    device_id = serializers.UUIDField(required=True)
     mfr_device_id = serializers.CharField(max_length=100, required=False)
     last_deployed = serializers.DateTimeField(
         required=True,
@@ -93,21 +93,9 @@ class GearDeviceCreateSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
-        # Try to infer device_id from existing Source with matching manufacturer_id
-        if not attrs.get("device_id") and attrs.get("mfr_device_id"):
-            mfr_device_id = attrs["mfr_device_id"]
-            # Look for a Source with this manufacturer_id
-            source = models.Source.objects.filter(manufacturer_id=mfr_device_id).first()
-            if source:
-                attrs["device_id"] = source.id
-
-        # Generate device_id if still not provided
-        if not attrs.get("device_id"):
-            attrs["device_id"] = uuid4()
-
-        # Generate mfr_device_id if not provided
+        # Use device_id as mfr_device_id if not provided
         if not attrs.get("mfr_device_id"):
-            attrs["mfr_device_id"] = str(uuid4())
+            attrs["mfr_device_id"] = str(attrs.get("device_id"))
 
         deploy_date = attrs.get("last_deployed")
         updated_date = attrs.get("last_updated")
