@@ -359,3 +359,44 @@ class TestGearCreateSerializer(BaseAPITest):
         assert observations[0].location.y == 0.0  # latitude
         assert observations[1].location.x == 9.99  # longitude
         assert observations[1].location.y == 9.99  # latitude
+
+    def test_save_device_without_device_id(self):
+        """Test that device_id is auto-generated when not provided."""
+        now = timezone.now()
+        data = {
+            "owner_id": "owner456",
+            "deployment_type": "single",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    # No device_id provided - should be auto-generated
+                    "mfr_device_id": "mfr456",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": {"latitude": 2.34, "longitude": 5.67},
+                }
+            ],
+        }
+        serializer = GearCreateSerializer(data=data, context={"user_id": 100})
+        assert serializer.is_valid(), serializer.errors
+
+        # Verify that device_id was auto-generated
+        validated_data = serializer.validated_data
+        assert "device_id" in validated_data["devices"][0]
+        device_id = validated_data["devices"][0]["device_id"]
+        from uuid import UUID
+
+        assert isinstance(device_id, UUID)
+
+        # Use BuoyService to process and verify it works
+        subject, observations = BuoyService.process_gearset(validated_data, manufacturer="test_manufacturer")
+
+        assert isinstance(observations, list)
+        assert len(observations) == 1
+        obs = observations[0]
+
+        # Check that the source was created with the auto-generated device_id
+        assert obs.source.manufacturer_id == str(device_id)
+        assert obs.location.x == 5.67  # longitude
+        assert obs.location.y == 2.34  # latitude
