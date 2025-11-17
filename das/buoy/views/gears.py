@@ -8,6 +8,7 @@ from drf_spectacular.utils import (
 )
 
 from django.db import transaction
+from django.urls import reverse
 from rest_framework import generics
 from rest_framework import serializers as drf_serializers
 from rest_framework.exceptions import NotFound
@@ -200,6 +201,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
                 "set_id": str(subject.id),
             },
             status=201,
+            headers={"Location": reverse("gear-view", args=[str(subject.id)])},
         )
 
 

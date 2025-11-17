@@ -1,14 +1,15 @@
 import logging
 from datetime import date, datetime, timezone
 from decimal import Decimal
+import json
 from typing import List, Optional, Tuple
-from uuid import UUID
 
 from psycopg2.extras import DateTimeTZRange
 
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE, DEVICE_STATUS_DEPLOYED
 from observations import models
 from observations.models import DEFAULT_ASSIGNED_RANGE
+from utils.json import ExtendedJSONEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,11 @@ class BuoyService:
     - create/update SubjectSource assigned ranges and locations
     - update Subject active state when all devices are hauled
     """
+
+    @staticmethod
+    def _make_serializable(data):
+        """Convert data to a JSON-serializable format using ExtendedJSONEncoder."""
+        return json.loads(json.dumps(data, cls=ExtendedJSONEncoder))
 
     @staticmethod
     def process_gearset(
@@ -80,27 +86,14 @@ class BuoyService:
                 subject.additional = subj_additional
 
         # Make a JSON-serializable copy of validated_data for storing in DB JSON fields
-        def _make_serializable(obj):
-            if isinstance(obj, (datetime, date)):
-                return obj.isoformat()
-            if isinstance(obj, Decimal):
-                return str(obj)
-            if isinstance(obj, UUID):
-                return str(obj)
-            if isinstance(obj, dict):
-                return {k: _make_serializable(v) for k, v in obj.items()}
-            if isinstance(obj, (list, tuple)):
-                return [_make_serializable(v) for v in obj]
-            return obj
-
-        serializable_validated = _make_serializable(validated_data)
+        serializable_validated = BuoyService._make_serializable(validated_data)
 
         observations = []
 
         # Store last_updated in Subject's additional field if provided
         if validated_data.get("last_updated"):
             subj_additional = subject.additional or {}
-            subj_additional["last_updated"] = _make_serializable(validated_data["last_updated"])
+            subj_additional["last_updated"] = BuoyService._make_serializable(validated_data["last_updated"])
             subject.additional = subj_additional
             subject_changed = True
 
@@ -111,23 +104,24 @@ class BuoyService:
             device_location = models.Point(device_data["location"]["longitude"], device_data["location"]["latitude"])
             recorded_at = device_data.get("recorded_at", datetime.now(timezone.utc))
 
-            # Use device_id as manufacturer_id for Source
+            # Use device_id as Source.id and mfr_device_id as manufacturer_id
             device_id = str(device_data["device_id"])
-            source, _ = models.Source.objects.get_or_create(manufacturer_id=device_id)
+            mfr_device_id = device_data.get("mfr_device_id")
 
-            # Store mfr_device_id and last_updated in Source's additional field if provided
-            source_additional = source.additional or {}
-            changed = False
+            # Get or create Source using device_id as the primary key
+            source, created = models.Source.objects.get_or_create(
+                id=device_id, defaults={"manufacturer_id": mfr_device_id} if mfr_device_id else {}
+            )
 
-            if device_data.get("mfr_device_id"):
-                source_additional["mfr_device_id"] = device_data["mfr_device_id"]
-                changed = True
+            # Update manufacturer_id if it was provided and source already exists
+            if not created and mfr_device_id and source.manufacturer_id != mfr_device_id:
+                source.manufacturer_id = mfr_device_id
+                source.save()
 
+            # Store last_updated in Source's additional field if provided
             if device_data.get("last_updated"):
-                source_additional["last_updated"] = _make_serializable(device_data["last_updated"])
-                changed = True
-
-            if changed:
+                source_additional = source.additional or {}
+                source_additional["last_updated"] = BuoyService._make_serializable(device_data["last_updated"])
                 source.additional = source_additional
                 source.save()
 

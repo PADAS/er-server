@@ -93,9 +93,21 @@ class GearDeviceCreateSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
-        # Generate device_id if not provided
+        # Try to infer device_id from existing Source with matching manufacturer_id
+        if not attrs.get("device_id") and attrs.get("mfr_device_id"):
+            mfr_device_id = attrs["mfr_device_id"]
+            # Look for a Source with this manufacturer_id
+            source = models.Source.objects.filter(manufacturer_id=mfr_device_id).first()
+            if source:
+                attrs["device_id"] = source.id
+
+        # Generate device_id if still not provided
         if not attrs.get("device_id"):
             attrs["device_id"] = uuid4()
+
+        # Generate mfr_device_id if not provided
+        if not attrs.get("mfr_device_id"):
+            attrs["mfr_device_id"] = str(uuid4())
 
         deploy_date = attrs.get("last_deployed")
         updated_date = attrs.get("last_updated")
@@ -197,7 +209,7 @@ class GearCreateSerializer(serializers.Serializer):
                 device_location = models.Point(loc["longitude"], loc["latitude"])
 
             # Try to find an existing Source/SubjectSource for checks. Absence is valid for deployments
-            source = models.Source.objects.filter(manufacturer_id=device_id).first()
+            source = models.Source.objects.filter(id=device_id).first()
             subject_source = None
             if subject and source:
                 subject_source = SubjectSource.objects.filter(subject=subject, source=source).first()
@@ -254,9 +266,9 @@ class GearCreateSerializer(serializers.Serializer):
 
         device_ids = [str(d.get("device_id")) for d in devices_info if d.get("device_id")]
         if device_ids:
-            # Find Subjects that are active and have SubjectSource for all device_ids
+            # Find Subjects that are active and have SubjectSource for all device_ids (Source.id)
             subjects_qs = (
-                SubjectSource.objects.filter(source__manufacturer_id__in=device_ids, subject__is_active=True)
+                SubjectSource.objects.filter(source__id__in=device_ids, subject__is_active=True)
                 .select_related("subject")
                 .values("subject_id")
             )
@@ -378,7 +390,8 @@ class GearSerializer(serializers.ModelSerializer):
 
             for idx, subject_source in enumerate(related_subject_sources):
                 if subject_source.source:
-                    device_id = subject_source.source.manufacturer_id
+                    device_id = str(subject_source.source.id)
+                    mfr_device_id = subject_source.source.manufacturer_id
                     # Use prefetched LatestObservationSource data instead of making individual queries
                     # This prevents N+1 query problem when serializing multiple gears
                     latest_obs_source = subject_source.source.last_observation_sources.first()
@@ -412,6 +425,7 @@ class GearSerializer(serializers.ModelSerializer):
 
                     device = {
                         "device_id": device_id,
+                        "mfr_device_id": mfr_device_id,
                         "source_id": str(subject_source.source.id),
                         "label": chr(97 + idx),  # 'a', 'b', 'c', etc.
                         "location": location,
