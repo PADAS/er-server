@@ -381,16 +381,18 @@ class TestGearCreateSerializer(BaseAPITest):
         assert observations[1].location.x == 9.99  # longitude
         assert observations[1].location.y == 9.99  # latitude
 
-    def test_save_device_without_device_id(self):
-        """Test that device_id and mfr_device_id are auto-generated when not provided."""
+    def test_save_device_without_mfr_device_id(self):
+        """Test that mfr_device_id defaults to device_id when not provided."""
         now = timezone.now()
+        device_id = "523e4567-e89b-12d3-a456-426614174000"
         data = {
             "owner_id": "owner456",
             "deployment_type": "single",
             "initial_deployment_date": now,
             "devices": [
                 {
-                    # No device_id or mfr_device_id provided - both should be auto-generated
+                    "device_id": device_id,
+                    # No mfr_device_id provided - should default to device_id
                     "last_deployed": now,
                     "last_updated": now,
                     "device_status": "deployed",
@@ -401,16 +403,12 @@ class TestGearCreateSerializer(BaseAPITest):
         serializer = GearCreateSerializer(data=data, context={"user_id": 100})
         assert serializer.is_valid(), serializer.errors
 
-        # Verify that device_id and mfr_device_id were auto-generated
+        # Verify that mfr_device_id was set to device_id
         validated_data = serializer.validated_data
-        assert "device_id" in validated_data["devices"][0]
         assert "mfr_device_id" in validated_data["devices"][0]
-        device_id = validated_data["devices"][0]["device_id"]
         mfr_device_id = validated_data["devices"][0]["mfr_device_id"]
-        from uuid import UUID
 
-        assert isinstance(device_id, UUID)
-        assert isinstance(mfr_device_id, str)
+        assert mfr_device_id == device_id
 
         # Use BuoyService to process and verify it works
         subject, observations = BuoyService.process_gearset(validated_data, manufacturer="test_manufacturer")
@@ -419,12 +417,34 @@ class TestGearCreateSerializer(BaseAPITest):
         assert len(observations) == 1
         obs = observations[0]
 
-        # Check that the source was created with the auto-generated IDs
-        # device_id is Source.id, mfr_device_id is Source.manufacturer_id
-        assert str(obs.source.id) == str(device_id)
-        assert obs.source.manufacturer_id == mfr_device_id
+        # Check that the source was created with device_id as both Source.id and manufacturer_id
+        assert str(obs.source.id) == device_id
+        assert obs.source.manufacturer_id == device_id
         assert obs.location.x == 5.67  # longitude
         assert obs.location.y == 2.34  # latitude
+
+    def test_device_id_required(self):
+        """Test that device_id is required."""
+        now = timezone.now()
+        data = {
+            "owner_id": "owner789",
+            "deployment_type": "single",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    # No device_id provided - should fail validation
+                    "mfr_device_id": "mfr789",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": {"latitude": 3.45, "longitude": 6.78},
+                }
+            ],
+        }
+        serializer = GearCreateSerializer(data=data, context={"user_id": 101})
+        assert not serializer.is_valid()
+        assert "device_id" in json.dumps(serializer.errors)
+        assert "required" in json.dumps(serializer.errors).lower()
 
 
 @pytest.mark.django_db
@@ -450,6 +470,7 @@ def test_gear_device_create_serializer_date_validations():
     future = now + timedelta(days=1)
 
     payload = {
+        "device_id": "123e4567-e89b-12d3-a456-426614174000",
         "mfr_device_id": "dev1",
         "last_deployed": future.isoformat(),
         "last_updated": future.isoformat(),
@@ -465,6 +486,7 @@ def test_gear_device_create_serializer_date_validations():
     # Last updated before deploy
     past = now - timedelta(days=2)
     payload = {
+        "device_id": "223e4567-e89b-12d3-a456-426614174000",
         "mfr_device_id": "dev1",
         "last_deployed": now.isoformat(),
         "last_updated": past.isoformat(),
@@ -487,6 +509,7 @@ def test_gear_create_devices_in_set_and_haul_validation():
         "devices_in_set": 2,
         "devices": [
             {
+                "device_id": "123e4567-e89b-12d3-a456-426614174000",
                 "mfr_device_id": "mfr1",
                 "last_deployed": now.isoformat(),
                 "last_updated": now.isoformat(),
@@ -506,6 +529,7 @@ def test_gear_create_devices_in_set_and_haul_validation():
         "initial_deployment_date": now.isoformat(),
         "devices": [
             {
+                "device_id": "223e4567-e89b-12d3-a456-426614174000",
                 "mfr_device_id": "mfr-not-exist",
                 "last_deployed": now.isoformat(),
                 "last_updated": now.isoformat(),
