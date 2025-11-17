@@ -286,8 +286,8 @@ class TestGearCreateSerializer(BaseAPITest):
             "initial_deployment_date": now,
             "devices": [
                 {
+                    "device_id": "123e4567-e89b-12d3-a456-426614174000",
                     "mfr_device_id": "mfr123",
-                    "mfr_id": "mfrcomp",
                     "last_deployed": now,
                     "last_updated": now,
                     "device_status": "deployed",
@@ -299,20 +299,20 @@ class TestGearCreateSerializer(BaseAPITest):
         assert serializer.is_valid(), serializer.errors
 
         # Use BuoyService instead of serializer.save()
-        observations = BuoyService.process_gearset(serializer.validated_data, manufacturer="test_manufacturer")
+        subject, observations = BuoyService.process_gearset(serializer.validated_data, manufacturer="test_manufacturer")
 
         assert isinstance(observations, list)
         assert len(observations) == 1
         obs = observations[0]
 
         # Check observation fields
-        assert obs.source.manufacturer_id == "mfr123"
+        assert obs.source.manufacturer_id == "123e4567-e89b-12d3-a456-426614174000"
         assert obs.location.x == 4.56  # longitude
         assert obs.location.y == 1.23  # latitude
         assert obs.additional["raw"]["owner_id"] == "owner123"
         assert obs.additional["raw"]["deployment_type"] == "single"
         assert len(obs.additional["raw"]["devices"]) == 1
-        assert obs.additional["raw"]["devices"][0]["mfr_device_id"] == "mfr123"
+        assert obs.additional["raw"]["devices"][0]["device_id"] == "123e4567-e89b-12d3-a456-426614174000"
         assert obs.additional["raw"]["devices"][0]["device_status"] == "deployed"
 
     def test_save_multiple_devices(self):
@@ -323,16 +323,16 @@ class TestGearCreateSerializer(BaseAPITest):
             "initial_deployment_date": now,
             "devices": [
                 {
+                    "device_id": "223e4567-e89b-12d3-a456-426614174000",
                     "mfr_device_id": "mfrA",
-                    "mfr_id": "compA",
                     "last_deployed": now,
                     "last_updated": now,
                     "device_status": "deployed",
                     "location": {"latitude": 0.0, "longitude": 0.0},
                 },
                 {
+                    "device_id": "323e4567-e89b-12d3-a456-426614174000",
                     "mfr_device_id": "mfrB",
-                    "mfr_id": "compB",
                     "last_deployed": now,
                     "last_updated": now,
                     "device_status": "deployed",
@@ -344,7 +344,7 @@ class TestGearCreateSerializer(BaseAPITest):
         assert serializer.is_valid(), serializer.errors
 
         # Use BuoyService instead of serializer.save()
-        observations = BuoyService.process_gearset(serializer.validated_data, manufacturer="test_manufacturer")
+        subject, observations = BuoyService.process_gearset(serializer.validated_data, manufacturer="test_manufacturer")
 
         assert isinstance(observations, list)
         # Two observations returned

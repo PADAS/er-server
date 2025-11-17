@@ -59,7 +59,7 @@ logger = logging.getLogger(__name__)
                     name="GearCreateResponse",
                     fields={
                         "detail": drf_serializers.CharField(),
-                        "task_id": drf_serializers.UUIDField(),
+                        "set_id": drf_serializers.UUIDField(),
                     },
                 ),
             ),
@@ -193,10 +193,11 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         validated_data = serializer.validated_data
 
         manufacturer_name = request.user.first_name
-        BuoyService.process_gearset(validated_data, manufacturer=manufacturer_name)
+        subject, observations = BuoyService.process_gearset(validated_data, manufacturer=manufacturer_name)
         return Response(
             {
                 "detail": "Gears successfully processed",
+                "set_id": str(subject.id),
             },
             status=201,
         )

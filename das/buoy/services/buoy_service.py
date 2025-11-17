@@ -1,7 +1,8 @@
 import logging
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, Tuple
+from uuid import UUID
 
 from psycopg2.extras import DateTimeTZRange
 
@@ -23,7 +24,9 @@ class BuoyService:
     """
 
     @staticmethod
-    def process_gearset(validated_data: dict, manufacturer: Optional[str] = None) -> List[models.Observation]:
+    def process_gearset(
+        validated_data: dict, manufacturer: Optional[str] = None
+    ) -> Tuple[models.Subject, List[models.Observation]]:
         """Process a validated gearset payload.
 
         Args:
@@ -31,7 +34,7 @@ class BuoyService:
             manufacturer (str|None): optional manufacturer string to store on the Subject.additional
 
         Returns:
-            list: list of created Observation instances
+            tuple: (Subject instance, list of created Observation instances)
         """
         set_id = validated_data.get("set_id")
         set_display_id = validated_data.get("set_display_id")
@@ -82,6 +85,8 @@ class BuoyService:
                 return obj.isoformat()
             if isinstance(obj, Decimal):
                 return str(obj)
+            if isinstance(obj, UUID):
+                return str(obj)
             if isinstance(obj, dict):
                 return {k: _make_serializable(v) for k, v in obj.items()}
             if isinstance(obj, (list, tuple)):
@@ -106,12 +111,23 @@ class BuoyService:
             device_location = models.Point(device_data["location"]["longitude"], device_data["location"]["latitude"])
             recorded_at = device_data.get("recorded_at", datetime.now(timezone.utc))
 
-            source, _ = models.Source.objects.get_or_create(manufacturer_id=device_data["mfr_device_id"])
+            # Use device_id as manufacturer_id for Source
+            device_id = str(device_data["device_id"])
+            source, _ = models.Source.objects.get_or_create(manufacturer_id=device_id)
 
-            # Store last_updated in Source's additional field if provided
+            # Store mfr_device_id and last_updated in Source's additional field if provided
+            source_additional = source.additional or {}
+            changed = False
+
+            if device_data.get("mfr_device_id"):
+                source_additional["mfr_device_id"] = device_data["mfr_device_id"]
+                changed = True
+
             if device_data.get("last_updated"):
-                source_additional = source.additional or {}
                 source_additional["last_updated"] = _make_serializable(device_data["last_updated"])
+                changed = True
+
+            if changed:
                 source.additional = source_additional
                 source.save()
 
@@ -151,4 +167,4 @@ class BuoyService:
             subject.is_active = False
             subject.save()
 
-        return observations
+        return subject, observations
