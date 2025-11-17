@@ -115,7 +115,7 @@ class GearCreateSerializer(serializers.Serializer):
     permit_number = serializers.CharField(max_length=100, required=False)
     deployment_type = serializers.ChoiceField(choices=DEPLOYMENT_TYPE_CHOICES, required=True)
     devices_in_set = serializers.IntegerField(required=False)
-    # Disable trawl_path for now, as it's not defined in the mi
+    # Disable trawl_path for now, until the requirements are clearer
     # trawl_path = serializers.ListField(child=GeoLocationSerializer(), required=False)
     last_updated = serializers.DateTimeField(required=False)
     initial_deployment_date = serializers.DateTimeField(required=False)  # Conditionally required
