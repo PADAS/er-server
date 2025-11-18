@@ -61,7 +61,6 @@ WORKDIR /workspaces/${WORKSPACE_FOLDERNAME}
 ADD ./dependencies /workspaces/${WORKSPACE_FOLDERNAME}/dependencies
 ADD ./pyproject.toml /workspaces/${WORKSPACE_FOLDERNAME}/
 ADD ./uv.lock /workspaces/${WORKSPACE_FOLDERNAME}/
-RUN chown -R ${USER_UID}:${USER_GID} /workspaces/${WORKSPACE_FOLDERNAME}
 
 USER vscode
 
