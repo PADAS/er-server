@@ -287,7 +287,7 @@ class GearSerializer(serializers.ModelSerializer):
         "devices": [
             {
                 "device_id": "string",
-                "source_id": "uuid",
+                "mfr_device_id": "string",
                 "label": "string",
                 "location": {
                     "latitude": float,
@@ -414,7 +414,6 @@ class GearSerializer(serializers.ModelSerializer):
                     device = {
                         "device_id": device_id,
                         "mfr_device_id": mfr_device_id,
-                        "source_id": str(subject_source.source.id),
                         "label": chr(97 + idx),  # 'a', 'b', 'c', etc.
                         "location": location,
                         "last_updated": device_last_updated,
