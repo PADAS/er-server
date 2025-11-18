@@ -1,7 +1,6 @@
-import logging
-from datetime import date, datetime, timezone
-from decimal import Decimal
 import json
+import logging
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from psycopg2.extras import DateTimeTZRange
@@ -42,8 +41,8 @@ class BuoyService:
         Returns:
             tuple: (Subject instance, list of created Observation instances)
         """
-        set_id = validated_data.get("set_id")
-        set_display_id = validated_data.get("set_display_id")
+        set_id = str(validated_data.get("set_id"))
+        set_display_id = str(validated_data.get("set_display_id"))
         devices = validated_data.get("devices", [])
 
         # Ensure subject subtype exists for buoy gear
@@ -60,6 +59,8 @@ class BuoyService:
             additional["display_id"] = set_display_id
         if manufacturer:
             additional["manufacturer"] = manufacturer
+
+        additional = BuoyService._make_serializable(additional)
 
         subject_defaults = {"additional": additional} if additional else {}
 
