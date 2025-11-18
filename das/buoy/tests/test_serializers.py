@@ -566,7 +566,7 @@ def test_get_gearset_id_finds_existing_subject():
     serializer = GearCreateSerializer()
     # device_id is now Source.id
     set_id = serializer._get_gearset_id({}, [{"device_id": str(source_id_1)}, {"device_id": str(source_id_2)}])
-    assert set_id == str(subject.name)
+    assert set_id == subject.id
 
 
 @pytest.mark.django_db
