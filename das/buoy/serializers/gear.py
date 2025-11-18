@@ -168,14 +168,19 @@ class GearCreateSerializer(serializers.Serializer):
             if inferred_set_id:
                 attrs["set_id"] = inferred_set_id
             else:
-                attrs["set_id"] = str(uuid4())
+                attrs["set_id"] = uuid4()
 
+        # mfr_set_id defaults to set_id
+        if not attrs.get("mfr_set_id"):
+            attrs["mfr_set_id"] = str(attrs["set_id"])
+
+        # set_display_id defaults to mfr_set_id
         if not attrs.get("set_display_id"):
-            attrs["set_display_id"] = attrs["set_id"]
+            attrs["set_display_id"] = attrs["mfr_set_id"]
 
         # Check if this is a new gear set or an update
         set_id = attrs.get("set_id")
-        subject = models.Subject.objects.filter(name=set_id).first() if set_id else None
+        subject = models.Subject.objects.filter(id=set_id).first() if set_id else None
 
         # initial_deployment_date is required only for new gear sets
         if not subject and not attrs.get("initial_deployment_date"):
@@ -266,10 +271,7 @@ class GearCreateSerializer(serializers.Serializer):
             # The subject_id that appears for all device_ids is the gearset
             for subject_id, count in subject_id_counts.items():
                 if count == len(device_ids):
-                    # Get the subject name
-                    subject = models.Subject.objects.filter(id=subject_id).first()
-                    if subject:
-                        return str(subject.name)
+                    return subject_id
         return None
 
 
@@ -361,7 +363,7 @@ class GearSerializer(serializers.ModelSerializer):
 
             # Build base query for related subject sources
             related_subject_sources_query = (
-                models.SubjectSource.objects.filter(subject__name=subject.name)
+                models.SubjectSource.objects.filter(subject__id=subject.id)
                 .annotate(lower=Lower("assigned_range"))
                 .exclude(
                     lower=datetime.min.replace(tzinfo=now.tzinfo)

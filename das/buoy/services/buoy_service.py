@@ -41,8 +41,10 @@ class BuoyService:
         Returns:
             tuple: (Subject instance, list of created Observation instances)
         """
-        set_id = str(validated_data.get("set_id"))
+        set_id = validated_data.get("set_id")  # This is now a UUID
+        mfr_set_id = str(validated_data.get("mfr_set_id"))
         set_display_id = str(validated_data.get("set_display_id"))
+        set_additional_data = validated_data.get("set_additional_data", {})
         devices = validated_data.get("devices", [])
 
         # Ensure subject subtype exists for buoy gear
@@ -53,8 +55,10 @@ class BuoyService:
             # If subtype not present, proceed without setting it (maintain backward compatibility)
             subject_subtype = None
 
-        # Build additional dict for Subject defaults (include manufacturer if provided)
-        additional = {}
+        # Build additional dict for Subject from set_additional_data
+        additional = set_additional_data.copy() if set_additional_data else {}
+
+        # Set display_id and manufacturer in additional
         if set_display_id:
             additional["display_id"] = set_display_id
         if manufacturer:
@@ -62,20 +66,33 @@ class BuoyService:
 
         additional = BuoyService._make_serializable(additional)
 
-        subject_defaults = {"additional": additional} if additional else {}
+        # Build defaults with name (mfr_set_id) and additional
+        subject_defaults = {"name": mfr_set_id, "additional": additional} if additional else {"name": mfr_set_id}
 
-        # Create or get Subject for the gearset
+        # Create or get Subject using set_id as the primary key
         if subject_subtype is not None:
             subject, _ = models.Subject.objects.get_or_create(
-                name=set_id, subject_subtype=subject_subtype, defaults=subject_defaults
+                id=set_id, subject_subtype=subject_subtype, defaults=subject_defaults
             )
         else:
-            subject, _ = models.Subject.objects.get_or_create(name=set_id, defaults=subject_defaults)
+            subject, _ = models.Subject.objects.get_or_create(id=set_id, defaults=subject_defaults)
 
-        # Ensure display_id and manufacturer are set/updated when provided
+        # Ensure name, display_id and manufacturer are set/updated when provided
         subject_changed = False
-        if set_display_id or manufacturer:
+
+        # Update name (mfr_set_id) if it's different
+        if mfr_set_id and subject.name != mfr_set_id:
+            subject.name = mfr_set_id
+            subject_changed = True
+
+        # Update additional fields
+        if set_display_id or manufacturer or set_additional_data:
             subj_additional = subject.additional or {}
+
+            # Merge set_additional_data first
+            if set_additional_data:
+                subj_additional.update(set_additional_data)
+                subject_changed = True
 
             if set_display_id and subj_additional.get("display_id") != set_display_id:
                 subj_additional["display_id"] = set_display_id
