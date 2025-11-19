@@ -17,6 +17,26 @@ from mapping.cache import (
 )
 from mapping.views import SpatialFeatureTileView
 
+# Apply tenant fixture to all tests in this module that need it
+pytestmark = [pytest.mark.usefixtures("das_tenant_monkeypatch")]
+
+
+@pytest.fixture(autouse=True)
+def mock_tile_view_dependencies(monkeypatch):
+    """
+    Auto-applied fixture to mock dependencies needed for tile view tests.
+    """
+
+    # Mock tenant data resolution to return valid tenant data for any hostname
+    def mock_get_tenant_data_by_host(hostname):
+        return {"domain": "localhost", "id": "test-tenant-id", "name": "Test Tenant"}
+
+    monkeypatch.setattr("utils.tenant.providers.get_tenant_data_by_host", mock_get_tenant_data_by_host)
+    monkeypatch.setattr("mapping.views.get_tenant_data_by_host", mock_get_tenant_data_by_host)
+
+    # Mock the vector tile cache to use default cache
+    monkeypatch.setattr("mapping.cache.get_vector_tile_cache", lambda: caches["default"])
+
 
 class DummyUser:
     def __init__(self, tenant_id=None, user_id="user-1"):
@@ -162,9 +182,7 @@ def test_build_tile_cache_key_accepts_missing_or_invalid_auth_header():
 @override_settings(VECTOR_TILE_CACHE_VERSION="9")
 def test_tile_view_caching_and_authentication():
     rf = RequestFactory()
-    view = SpatialFeatureTileView.as_view()
-
-    # Missing token -> 401
+    view = SpatialFeatureTileView.as_view()  # Missing token -> 401
     request_unauth = rf.get("/api/v1.0/mapping/tiles/10/100/200.pbf")
     response = view(request_unauth, z=10, x=100, y=200)
     assert response.status_code == 401
@@ -226,6 +244,7 @@ def test_get_effective_cache_version_uses_vector_tile_cache_alias():
         assert get_effective_cache_version() == "3-7"
 
 
+@pytest.mark.django_db
 def test_get_vector_tile_cache_returns_configured_alias():
     try:
         expected = caches[settings.VECTOR_TILE_CACHE_ALIAS]
