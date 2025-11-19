@@ -224,7 +224,11 @@ class TestGearSerializer:
         assert len(serialized_gear["devices"]) == 1
 
     def test_with_multiple_subjects_same_name(self):
-        """Test that devices from all subjects with the same name are included."""
+        """Test that each subject is serialized independently, even when subjects share the same name.
+
+        Since the serializer now uses subject.id for filtering (not name), subjects with the same name
+        are treated as separate gearsets. This test validates that behavior.
+        """
         # Arrange
         # Create a subject subtype for ropeless_buoy_gearset
         subject_type = SubjectTypeFactory(value="gear")
@@ -261,31 +265,42 @@ class TestGearSerializer:
         subject_source1 = SubjectSource.objects.create(subject=subject1, source=source1, assigned_range=time_range)
         subject_source2 = SubjectSource.objects.create(subject=subject2, source=source2, assigned_range=time_range)
         # Add third source to subject2
-        SubjectSource.objects.create(subject=subject2, source=source3, assigned_range=time_range)
+        subject_source3 = SubjectSource.objects.create(subject=subject2, source=source3, assigned_range=time_range)
 
-        # Act - serialize using subject1, but should get devices from both subjects with same name
-        serialized_gear = GearSerializer(subject_source1).data
+        # Act - serialize subject1 (should only include its own device)
+        serialized_gear1 = GearSerializer(subject_source1).data
 
-        # Assert
-        assert serialized_gear["id"] == str(subject1.id)
-        assert serialized_gear["display_id"] == "Same_Name_Gearset"
-        assert serialized_gear["status"] == "deployed"
-        assert serialized_gear["type"] == "trawl"  # Should be trawl since > 1 device (3 total)
-        assert "devices" in serialized_gear
-        assert len(serialized_gear["devices"]) == 3  # Should include devices from both subjects
+        # Assert for subject1 - only has 1 device
+        assert serialized_gear1["id"] == str(subject1.id)
+        assert serialized_gear1["display_id"] == "Same_Name_Gearset"
+        assert serialized_gear1["status"] == "deployed"
+        assert serialized_gear1["type"] == "single"  # Only 1 device for subject1
+        assert "devices" in serialized_gear1
+        assert len(serialized_gear1["devices"]) == 1  # Only subject1's device
 
-        # Check all device IDs are present
-        devices = serialized_gear["devices"]
-        device_ids = [device["device_id"] for device in devices]
-        assert str(source1.id) in device_ids
-        assert str(source2.id) in device_ids
-        assert str(source3.id) in device_ids
+        # Check device ID
+        devices1 = serialized_gear1["devices"]
+        device_ids1 = [device["device_id"] for device in devices1]
+        assert str(source1.id) in device_ids1
 
-        # Test with subject2 as well - should return the same devices
+        # Act - serialize subject2 (should include its 2 devices)
         serialized_gear2 = GearSerializer(subject_source2).data
-        assert len(serialized_gear2["devices"]) == 3
-        device_ids2 = [device["device_id"] for device in serialized_gear2["devices"]]
-        assert set(device_ids) == set(device_ids2)  # Same devices regardless of which subject we serialize
+
+        # Assert for subject2 - has 2 devices
+        assert serialized_gear2["id"] == str(subject2.id)
+        assert serialized_gear2["display_id"] == "Same_Name_Gearset"
+        assert serialized_gear2["status"] == "deployed"
+        assert serialized_gear2["type"] == "trawl"  # Has 2 devices for subject2
+        assert "devices" in serialized_gear2
+        assert len(serialized_gear2["devices"]) == 2  # Both of subject2's devices
+
+        # Check device IDs for subject2
+        devices2 = serialized_gear2["devices"]
+        device_ids2 = [device["device_id"] for device in devices2]
+        assert str(source2.id) in device_ids2
+        assert str(source3.id) in device_ids2
+        # subject1's device should NOT be in subject2's serialization
+        assert str(source1.id) not in device_ids2
 
 
 class TestGearCreateSerializer(BaseAPITest):
@@ -294,6 +309,7 @@ class TestGearCreateSerializer(BaseAPITest):
         device_id = "123e4567-e89b-12d3-a456-426614174000"
         data = {
             "owner_id": "owner123",
+            "mfr_set_id": "SET123",
             "deployment_type": "single",
             "initial_deployment_date": now,
             "devices": [
@@ -335,6 +351,7 @@ class TestGearCreateSerializer(BaseAPITest):
         device_id_2 = "323e4567-e89b-12d3-a456-426614174000"
         data = {
             "owner_id": "ownerXYZ",
+            "mfr_set_id": "SET_TRAWL_001",
             "deployment_type": "trawl",
             "initial_deployment_date": now,
             "devices": [
@@ -387,6 +404,7 @@ class TestGearCreateSerializer(BaseAPITest):
         device_id = "523e4567-e89b-12d3-a456-426614174000"
         data = {
             "owner_id": "owner456",
+            "mfr_set_id": "SET456",
             "deployment_type": "single",
             "initial_deployment_date": now,
             "devices": [
@@ -423,6 +441,69 @@ class TestGearCreateSerializer(BaseAPITest):
         assert obs.location.x == 5.67  # longitude
         assert obs.location.y == 2.34  # latitude
 
+    def test_set_level_defaults(self):
+        """Test that mfr_set_id defaults to set_id and set_display_id defaults to mfr_set_id."""
+        now = timezone.now()
+        device_id = "623e4567-e89b-12d3-a456-426614174000"
+
+        # Case 1: mfr_set_id provided but not set_display_id - both should be set correctly
+        data = {
+            "owner_id": "owner999",
+            "mfr_set_id": "CUSTOM_MFR_999",
+            "deployment_type": "single",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    "device_id": device_id,
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": {"latitude": 3.45, "longitude": 6.78},
+                }
+            ],
+        }
+        serializer = GearCreateSerializer(data=data, context={"user_id": 102})
+        assert serializer.is_valid(), serializer.errors
+
+        validated_data = serializer.validated_data
+        set_id = validated_data["set_id"]
+
+        # set_id should be generated
+        assert set_id is not None
+
+        # mfr_set_id should be the provided value
+        assert validated_data["mfr_set_id"] == "CUSTOM_MFR_999"
+
+        # set_display_id should default to mfr_set_id
+        assert validated_data["set_display_id"] == "CUSTOM_MFR_999"
+
+        # Case 2: Both mfr_set_id and set_display_id provided
+        custom_set_display_id = "DISPLAY_456"
+        data_with_both = {
+            "owner_id": "owner997",
+            "deployment_type": "single",
+            "initial_deployment_date": now,
+            "mfr_set_id": "CUSTOM_MFR_997",
+            "set_display_id": custom_set_display_id,
+            "devices": [
+                {
+                    "device_id": device_id,
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": {"latitude": 5.67, "longitude": 8.90},
+                }
+            ],
+        }
+        serializer2 = GearCreateSerializer(data=data_with_both, context={"user_id": 104})
+        assert serializer2.is_valid(), serializer2.errors
+
+        validated_data2 = serializer2.validated_data
+
+        # Both should retain their provided values
+        assert validated_data2["mfr_set_id"] == "CUSTOM_MFR_997"
+        assert validated_data2["set_display_id"] == custom_set_display_id
+
     def test_device_id_required(self):
         """Test that device_id is required."""
         now = timezone.now()
@@ -445,6 +526,87 @@ class TestGearCreateSerializer(BaseAPITest):
         assert not serializer.is_valid()
         assert "device_id" in json.dumps(serializer.errors)
         assert "required" in json.dumps(serializer.errors).lower()
+
+    def test_set_id_required_without_mfr_set_id(self):
+        """Test that set_id cannot be determined without mfr_set_id or set_id."""
+        now = timezone.now()
+        device_id = "723e4567-e89b-12d3-a456-426614174000"
+        data = {
+            "owner_id": "owner888",
+            "deployment_type": "single",
+            "initial_deployment_date": now,
+            # No set_id and no mfr_set_id provided
+            "devices": [
+                {
+                    "device_id": device_id,
+                    "mfr_device_id": "mfr888",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": {"latitude": 6.78, "longitude": 9.01},
+                }
+            ],
+        }
+        serializer = GearCreateSerializer(data=data, context={"user_id": 105})
+        assert not serializer.is_valid()
+        assert "set_id" in serializer.errors
+        assert "Cannot determine set_id" in str(serializer.errors["set_id"])
+
+    def test_mfr_set_id_lookup_finds_existing_subject(self):
+        """Test that providing mfr_set_id finds existing Subject by name."""
+        now = timezone.now()
+
+        # First, create a subject with a specific mfr_set_id
+        device_id_1 = "823e4567-e89b-12d3-a456-426614174000"
+        mfr_set_id = "LOOKUP_TEST_SET"
+        data = {
+            "owner_id": "owner777",
+            "mfr_set_id": mfr_set_id,
+            "deployment_type": "single",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    "device_id": device_id_1,
+                    "mfr_device_id": "mfr_lookup_1",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": {"latitude": 7.89, "longitude": 10.11},
+                }
+            ],
+        }
+        serializer1 = GearCreateSerializer(data=data, context={"user_id": 106})
+        assert serializer1.is_valid(), serializer1.errors
+
+        # Create the subject
+        subject1, observations1 = BuoyService.process_gearset(
+            serializer1.validated_data, manufacturer="test_manufacturer"
+        )
+        first_set_id = subject1.id
+
+        # Now POST again with the same mfr_set_id (but different device)
+        device_id_2 = "923e4567-e89b-12d3-a456-426614174000"
+        data2 = {
+            "owner_id": "owner777",
+            "mfr_set_id": mfr_set_id,  # Same mfr_set_id
+            "deployment_type": "single",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    "device_id": device_id_2,
+                    "mfr_device_id": "mfr_lookup_2",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": {"latitude": 8.90, "longitude": 11.12},
+                }
+            ],
+        }
+        serializer2 = GearCreateSerializer(data=data2, context={"user_id": 107})
+        assert serializer2.is_valid(), serializer2.errors
+
+        # The set_id should be the same as the first one (found by mfr_set_id)
+        assert serializer2.validated_data["set_id"] == first_set_id
 
 
 @pytest.mark.django_db
@@ -504,6 +666,7 @@ def test_gear_create_devices_in_set_and_haul_validation():
     # devices_in_set mismatch
     payload = {
         "owner_id": "owner123",
+        "mfr_set_id": "SET_MISMATCH",
         "deployment_type": "single",
         "initial_deployment_date": now.isoformat(),
         "devices_in_set": 2,
@@ -525,6 +688,7 @@ def test_gear_create_devices_in_set_and_haul_validation():
     # Hauling a device that's not deployed should error
     payload = {
         "owner_id": "owner123",
+        "mfr_set_id": "SET_HAUL_TEST",
         "deployment_type": "single",
         "initial_deployment_date": now.isoformat(),
         "devices": [
