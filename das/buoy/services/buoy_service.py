@@ -55,7 +55,7 @@ class BuoyService:
             # If subtype not present, proceed without setting it (maintain backward compatibility)
             subject_subtype = None
 
-        # Build additional dict for Subject from set_additional_data
+        # Build additional dict for Subject, starting with set_additional_data
         additional = set_additional_data.copy() if set_additional_data else {}
 
         # Set display_id and manufacturer in additional
@@ -89,10 +89,12 @@ class BuoyService:
         if set_display_id or manufacturer or set_additional_data:
             subj_additional = subject.additional or {}
 
-            # Merge set_additional_data first
+            # Merge set_additional_data first - only if non-empty and introduces changes
             if set_additional_data:
-                subj_additional.update(set_additional_data)
-                subject_changed = True
+                changes = any(subj_additional.get(k) != v for k, v in set_additional_data.items())
+                if changes:
+                    subj_additional.update(set_additional_data)
+                    subject_changed = True
 
             if set_display_id and subj_additional.get("display_id") != set_display_id:
                 subj_additional["display_id"] = set_display_id
@@ -126,15 +128,16 @@ class BuoyService:
             device_id = str(device_data["device_id"])
             mfr_device_id = device_data.get("mfr_device_id")
 
-            # Get or create Source using device_id as the primary key
-            source, created = models.Source.objects.get_or_create(
-                id=device_id, defaults={"manufacturer_id": mfr_device_id} if mfr_device_id else {}
-            )
+            # Get or use default provider
+            provider = models.SourceProvider.objects.get(id=models.get_default_source_provider_id())
 
-            # Update manufacturer_id if it was provided and source already exists
-            if not created and mfr_device_id and source.manufacturer_id != mfr_device_id:
-                source.manufacturer_id = mfr_device_id
-                source.save()
+            # Get or create Source using the unique constraint fields (provider, manufacturer_id)
+            # The unique constraint is on (das_tenant, provider, manufacturer_id), not on id.
+            # If a Source with this manufacturer_id already exists, reuse it (even if device_id differs).
+            # Pass id in defaults so it's only set when creating a new Source.
+            source, created = models.Source.objects.get_or_create(
+                provider=provider, manufacturer_id=mfr_device_id, defaults={"id": device_id}
+            )
 
             # Store last_updated in Source's additional field if provided
             if device_data.get("last_updated"):

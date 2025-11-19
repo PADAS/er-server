@@ -165,10 +165,11 @@ class GearCreateSerializer(serializers.Serializer):
 
         if not attrs.get("set_id"):
             inferred_set_id = self._get_gearset_id(attrs, devices)
-            if inferred_set_id:
-                attrs["set_id"] = inferred_set_id
-            else:
-                attrs["set_id"] = uuid4()
+            if not inferred_set_id:
+                raise serializers.ValidationError(
+                    {"set_id": "Cannot determine set_id. Please provide either set_id or mfr_set_id."}
+                )
+            attrs["set_id"] = inferred_set_id
 
         # mfr_set_id defaults to set_id
         if not attrs.get("mfr_set_id"):
@@ -250,13 +251,24 @@ class GearCreateSerializer(serializers.Serializer):
         """
         Determine the gearset ID based on provided data.
         1. If set_id is provided in gearset_data, use that.
-        2. Else, find a Subject that is active and has SubjectSource for all device_ids in devices_info.
-        3. If neither is available, return None to use the previously generated UUID.
+        2. Else if mfr_set_id is provided, look up Subject by name (Subject.name == mfr_set_id).
+        3. Else, find a Subject that is active and has SubjectSource for all device_ids in devices_info.
+        4. If none of the above work and mfr_set_id is provided, generate a new UUID (new subject will be created).
+        5. Otherwise, return None (will trigger validation error).
         """
         set_id = gearset_data.get("set_id")
         if set_id:
             return set_id
 
+        mfr_set_id = gearset_data.get("mfr_set_id")
+
+        # Try to find existing Subject by mfr_set_id (stored as Subject.name)
+        if mfr_set_id:
+            subject = models.Subject.objects.filter(name=mfr_set_id).first()
+            if subject:
+                return subject.id
+
+        # Try to find Subject by device_ids
         device_ids = [str(d.get("device_id")) for d in devices_info if d.get("device_id")]
         if device_ids:
             # Find Subjects that are active and have SubjectSource for all device_ids (Source.id)
@@ -272,6 +284,12 @@ class GearCreateSerializer(serializers.Serializer):
             for subject_id, count in subject_id_counts.items():
                 if count == len(device_ids):
                     return subject_id
+
+        # If we have mfr_set_id but didn't find existing subject, generate new UUID for creation
+        if mfr_set_id:
+            return uuid4()
+
+        # No way to determine set_id
         return None
 
 
