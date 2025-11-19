@@ -46,11 +46,24 @@ class SpatialFeatureLayer(VectorLayer):
             *self.presentation_keys,
         )
 
-    def _build_base_queryset(self):
+    def _get_geometry_field(self):
         """
-        Build the base queryset for vector tiles.
-        - Geography field is lightly cast to GeometryField (SRID 4326) so Django can work with it as a GEOSGeometry.
+        Use pre-computed Web Mercator field (SRID 3857) when available.
+        Fall back to transforming the original geography to SRID 3857,
+        or Null if no geometry is present.
         """
+        return Case(
+            When(feature_geometry_webmercator__isnull=False, then=F("feature_geometry_webmercator")),
+            When(
+                feature_geometry__isnull=False,
+                then=Transform(Cast(F("feature_geometry"), gis_models.GeometryField(srid=4326)), 3857),
+            ),
+            default=Value(None),
+            output_field=gis_models.GeometryField(srid=3857),
+        )
+
+    def get_queryset(self):
+        """Build the base queryset for vector tiles."""
         image_expr = Case(
             When(
                 presentation__image__has_key="image",
@@ -92,25 +105,6 @@ class SpatialFeatureLayer(VectorLayer):
                 image=image_expr,
             )
         )
-
-    def _get_geometry_field(self):
-        """
-        Use pre-computed Web Mercator field (SRID 3857) when available.
-        Fall back to transforming the original geography to SRID 3857,
-        or Null if no geometry is present.
-        """
-        return Case(
-            When(feature_geometry_webmercator__isnull=False, then=F("feature_geometry_webmercator")),
-            When(
-                feature_geometry__isnull=False,
-                then=Transform(Cast(F("feature_geometry"), gis_models.GeometryField(srid=4326)), 3857),
-            ),
-            default=Value(None),
-            output_field=gis_models.GeometryField(srid=3857),
-        )
-
-    def get_queryset(self):  # pragma: no cover - compatibility shim
-        return self._build_base_queryset()
 
     def _extract_presentation_json_keys(self):
         annotations = {}
