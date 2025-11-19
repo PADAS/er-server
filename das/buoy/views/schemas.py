@@ -1,6 +1,3 @@
-from drf_spectacular.utils import inline_serializer
-
-from rest_framework import serializers as drf_serializers
 from rest_framework.exceptions import ValidationError
 
 from observations.views import CustomSchema
@@ -64,34 +61,3 @@ class GearsViewSchema(CustomSchema):
         if max_nm_range <= 0:
             raise ValidationError({"max_nm_range": "max_nm_range must be a positive integer."})
         return max_nm_range
-
-
-gears_list_response_schema = inline_serializer(
-    name="GearsListResponse",
-    fields={
-        "id": drf_serializers.UUIDField(),
-        "status": drf_serializers.ChoiceField(
-            choices=["deployed", "hauled"], help_text="The deployment status of the gear."
-        ),
-        "last_updated": drf_serializers.DateTimeField(),
-        "display_id": drf_serializers.CharField(),
-        "type": drf_serializers.ChoiceField(choices=["trawl", "single"], help_text="The type of the gear."),
-        "devices": drf_serializers.ListField(
-            child=inline_serializer(
-                name="DeviceItem",
-                fields={
-                    "label": drf_serializers.CharField(),
-                    "location": inline_serializer(
-                        name="DeviceLocation",
-                        fields={"latitude": drf_serializers.FloatField(), "longitude": drf_serializers.FloatField()},
-                    ),
-                    "device_id": drf_serializers.CharField(),
-                    "last_updated": drf_serializers.DateTimeField(),
-                    "last_deployed": drf_serializers.DateTimeField(),
-                },
-            ),
-            help_text="List of devices associated with the gear.",
-        ),
-        "manufacturer": drf_serializers.CharField(help_text="The manufacturer of the gear."),
-    },
-)
