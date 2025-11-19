@@ -1,24 +1,15 @@
 import logging
 import re
-from collections import Counter
 from datetime import datetime, timezone
-from uuid import uuid4
+
+from drf_extra_fields.geo_fields import PointField
 
 from django.utils.dateparse import parse_datetime
 from rest_framework import serializers
 
-from buoy.constants import (
-    DEPLOYMENT_TYPE_CHOICES,
-    DEVICE_DEPLOYMENT_STATUS_CHOICES,
-    DISPLAY_ID_KEY,
-    GEAR_TYPE_SINGLE,
-    GEAR_TYPE_TRAWL,
-    POSITIONING_TYPE_CHOICES,
-    POSITIONING_TYPE_GPS,
-    RELEASE_TYPE_CHOICES,
-)
+from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
 from observations import models
-from observations.models import SubjectSource
+from observations.serializers import SubjectRelatedField
 
 logger = logging.getLogger(__name__)
 
