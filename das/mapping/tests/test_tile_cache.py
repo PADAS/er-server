@@ -244,6 +244,7 @@ def test_get_effective_cache_version_uses_vector_tile_cache_alias():
         assert get_effective_cache_version() == "3-7"
 
 
+@pytest.mark.django_db
 def test_get_vector_tile_cache_returns_configured_alias():
     try:
         expected = caches[settings.VECTOR_TILE_CACHE_ALIAS]
