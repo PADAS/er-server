@@ -48,5 +48,7 @@ ADD ./das /das
 
 # Collect static files (using a stub database)
 RUN uv run python manage.py collectstatic --noinput --settings=das_server.local_settings_nodb
+ENV VIRTUAL_ENV=/das/.venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 CMD ["/das/start_scripts/start.sh"]
