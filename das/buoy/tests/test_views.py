@@ -30,45 +30,42 @@ class TestGearView:
     @pytest.fixture
     def _get_superuser_client(self, gear_subjectsource, superuser, superuser_client):
         url = reverse(self.base_url, kwargs={"id": gear_subjectsource.subject.id})
-        gear_subjectsource.subject.linked_user = superuser
-        gear_subjectsource.subject.save()
+        # Configure the SourceProvider with the user's ID in additional.buoy_post_user_id
+        provider = gear_subjectsource.source.provider
+        provider.additional = {"buoy_post_user_id": str(superuser.id)}
+        provider.save()
         return superuser_client.get(url), superuser
 
     @pytest.fixture
     def _get_client(self, gear_subjectsource):
         client = HTTPClient()
-        gear_subjectsource.subject.linked_user = client.app_user
-        gear_subjectsource.subject.save()
+        # Configure the SourceProvider with the user's ID in additional.buoy_post_user_id
+        provider = gear_subjectsource.source.provider
+        provider.additional = {"buoy_post_user_id": str(client.app_user.id)}
+        provider.save()
         url = reverse(self.base_url, kwargs={"id": gear_subjectsource.subject.id})
         request = client.factory.get(url)
         client.force_authenticate(request, client.app_user)
 
         return views.GearView.as_view()(request, id=str(gear_subjectsource.subject.id)), client.app_user
 
-    def test_subject_view_with_linked_user(self, _get_superuser_client):
+    def test_subject_view_with_matching_source_provider(self, _get_superuser_client):
         response, user = _get_superuser_client
         # GearSerializer returns SubjectSource, so id comes from subject.id
-        assert response.data["id"] == str(user.linked_subject.id)
-        assert response.data["display_id"] == user.linked_subject.name
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"]
         assert response.data["status"] == "deployed"
         assert response.data["last_updated"]
 
-    def test_subject_view_with_linked_user_and_not_subject_permission(self, _get_client):
+    def test_subject_view_with_matching_source_provider_regular_user(self, _get_client):
         response, user = _get_client
-        # If permission is denied, response won't have data
-        if response.status_code == 200:
-            # GearSerializer returns SubjectSource, so id comes from subject.id
-            assert response.data["id"] == str(user.linked_subject.id)
-        else:
-            # Permission denied
-            assert response.status_code == 403
+        # Should have access since SourceProvider.additional.buoy_post_user_id matches user.id
+        assert response.status_code == 200
+        assert response.data["id"]
 
-    def test_subject_view_without_linked_user(self, _get_superuser_client):
-        response, _ = _get_superuser_client
-        assert not hasattr(response.data, "user")
-
-    def test_subject_view_with_not_linked_user_or_subject_permission(self, gear_subjectsource):
+    def test_subject_view_without_matching_source_provider(self, gear_subjectsource):
         client = HTTPClient()
+        # Don't configure the SourceProvider with the user's ID - permission should be denied
         url = reverse(self.base_url, kwargs={"id": gear_subjectsource.subject.id})
         request = client.factory.get(url)
         client.force_authenticate(request, client.app_user)
@@ -77,17 +74,44 @@ class TestGearView:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def _test_subject_view_with_linked_user_ask_for_random_subject(self, five_gears, superuser_client, superuser):
-        subject1 = five_gears[0]
-        subject2 = five_gears[1]
-        url = reverse(self.base_url, kwargs={"id": subject2.id})
-        subject1.linked_user = superuser
-        subject1.save()
-        response = superuser_client.get(url)
+    def test_subject_view_with_not_matching_source_provider(self, gear_subjectsource):
+        client = HTTPClient()
+        # Configure the SourceProvider with a different user's ID
+        provider = gear_subjectsource.source.provider
+        provider.additional = {"buoy_post_user_id": "different-user-id"}
+        provider.save()
 
-        assert response.status_code == status.HTTP_200_OK
+        url = reverse(self.base_url, kwargs={"id": gear_subjectsource.subject.id})
+        request = client.factory.get(url)
+        client.force_authenticate(request, client.app_user)
 
-        assert response.data["id"] == str(subject2.id)
+        response = views.GearView.as_view()(request, id=str(gear_subjectsource.subject.id))
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_subject_view_different_subject_with_different_provider(self, five_gears, user_client, django_user_model):
+        # Create a regular user (not superuser)
+        user = django_user_model.objects.create_user(username="regular_user", password="testpass")
+
+        subject1_source = five_gears[0]
+        subject2_source = five_gears[1]
+
+        # Configure provider for subject1 with user's ID
+        provider1 = subject1_source.source.provider
+        provider1.additional = {"buoy_post_user_id": str(user.id)}
+        provider1.save()
+
+        # Configure provider for subject2 with a different ID
+        provider2 = subject2_source.source.provider
+        provider2.additional = {"buoy_post_user_id": "different-user-id"}
+        provider2.save()
+
+        # Try to access subject2 - should be denied
+        url = reverse(self.base_url, kwargs={"id": subject2_source.subject.id})
+        user_client.force_authenticate(user=user)
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
 @pytest.mark.django_db
@@ -98,13 +122,18 @@ class TestGearsView:
 
     @pytest.fixture
     def buoy_superuser_client(self, gear_subjectsource_with_observations, superuser_client):
-        gear_subjectsource_with_observations.linked_user = superuser_client.user
-        gear_subjectsource_with_observations.save()
+        # Configure the SourceProvider with the superuser's ID
+        provider = gear_subjectsource_with_observations.source.provider
+        provider.additional = {"buoy_post_user_id": str(superuser_client.user.id)}
+        provider.save()
         return superuser_client, gear_subjectsource_with_observations
 
     @pytest.fixture
     def buoy_client(self, gear_subjectsource_with_observations, user_client):
-        gear_subjectsource_with_observations.linked_user = user_client.user
+        # Configure the SourceProvider with the user's ID
+        provider = gear_subjectsource_with_observations.source.provider
+        provider.additional = {"buoy_post_user_id": str(user_client.user.id)}
+        provider.save()
 
         # Create Subject-Group & have only one subject & give permission to view subject-source.
         parent_group = SubjectGroup.objects.create(name="SG Group")

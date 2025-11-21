@@ -1,7 +1,7 @@
 import json
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from psycopg2.extras import DateTimeTZRange
 
@@ -29,14 +29,12 @@ class BuoyService:
         return json.loads(json.dumps(data, cls=ExtendedJSONEncoder))
 
     @staticmethod
-    def process_gearset(
-        validated_data: dict, manufacturer: Optional[str] = None
-    ) -> Tuple[models.Subject, List[models.Observation]]:
+    def process_gearset(validated_data: dict, user=None) -> Tuple[models.Subject, List[models.Observation]]:
         """Process a validated gearset payload.
 
         Args:
             validated_data (dict): validated serializer data for the gearset
-            manufacturer (str|None): optional manufacturer string to store on the Subject.additional
+            user: optional User instance to link to the Subject
 
         Returns:
             tuple: (Subject instance, list of created Observation instances)
@@ -46,6 +44,14 @@ class BuoyService:
         set_display_id = str(validated_data.get("set_display_id"))
         set_additional_data = validated_data.get("set_additional_data", {})
         devices = validated_data.get("devices", [])
+
+        # Get SourceProvider for that user
+        try:
+            provider = models.SourceProvider.objects.get(additional__buoy_post_user_id=str(user.id))
+        except models.SourceProvider.DoesNotExist:
+            provider = models.SourceProvider.objects.get(id=models.get_default_source_provider_id())
+
+        manufacturer = provider.provider_key
 
         # Ensure subject subtype exists for buoy gear
         subject_subtype = None
@@ -61,8 +67,9 @@ class BuoyService:
         # Set display_id and manufacturer in additional
         if set_display_id:
             additional["display_id"] = set_display_id
-        if manufacturer:
-            additional["manufacturer"] = manufacturer
+
+        # Set manufacturer in additional based on the SourceProvider provider_key
+        additional["manufacturer"] = manufacturer
 
         additional = BuoyService._make_serializable(additional)
 
@@ -127,9 +134,6 @@ class BuoyService:
             # Use device_id as Source.id and mfr_device_id as manufacturer_id
             device_id = str(device_data["device_id"])
             mfr_device_id = device_data.get("mfr_device_id")
-
-            # Get or use default provider
-            provider = models.SourceProvider.objects.get(id=models.get_default_source_provider_id())
 
             # Get or create Source using the unique constraint fields (provider, manufacturer_id)
             # The unique constraint is on (das_tenant, provider, manufacturer_id), not on id.

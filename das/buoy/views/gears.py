@@ -17,19 +17,18 @@ from rest_framework.response import Response
 
 from buoy import serializers
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
-from buoy.permissions import GearLocationPermission, GearSubjectPermission
+from buoy.permissions import (
+    GearLocationPermission,
+    GearSourceProviderPermission,
+    GearSubjectPermission,
+)
 from buoy.serializers.query_params import GearsQueryParamsSerializer
 from buoy.services.buoy_service import BuoyService
 from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import Subject, SubjectSource
-from observations.utils import VIEW_SUBJECT_PERMS
-from utils.drf import (
-    ForbiddenAPIException,
-    StandardObjectPermissions,
-    StandardResultsSetPagination,
-)
+from observations.models import SubjectSource
+from utils.drf import StandardObjectPermissions, StandardResultsSetPagination
 
 logger = logging.getLogger(__name__)
 
@@ -191,8 +190,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
         validated_data = serializer.validated_data
 
-        manufacturer_name = request.user.first_name
-        subject, observations = BuoyService.process_gearset(validated_data, manufacturer=manufacturer_name)
+        subject, observations = BuoyService.process_gearset(validated_data, user=request.user)
         return Response(
             {
                 "detail": "Gears successfully processed",
@@ -204,23 +202,12 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
 
 class GearView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = (StandardObjectPermissions,)
+    permission_classes = (IsAuthenticated, GearSourceProviderPermission)
     serializer_class = serializers.GearSerializer
     lookup_field = "id"
 
-    def check_permissions(self, request):
-        subject_id = self.kwargs.get("id")
-        self.queryset_linked_user = Subject.objects.filter(linked_user=request.user, id=subject_id)
-        if not self.queryset_linked_user.exists():
-            for permission in self.get_permissions():
-                if not permission.has_permission(request, self):
-                    self.permission_denied(request)
-
     def get_queryset(self):
         subject_id = self.kwargs.get("id")
-        subject = generics.get_object_or_404(Subject.objects.all(), pk=subject_id)
-        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
-            raise ForbiddenAPIException
 
         # Return SubjectSource queryset instead of Subject queryset
         # to work with the new GearSerializer (ModelSerializer)
