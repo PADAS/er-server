@@ -50,7 +50,6 @@ class RevisionMiddleware(object):
             # This ensures we get the user AFTER DRF authentication has run
             # (important when Bearer tokens are used instead of session auth)
             request_context.request = request
-            logger.debug(f"Storing request for {request.path} - user will be accessed lazily during save")
         else:
             request_context.request = None
 
