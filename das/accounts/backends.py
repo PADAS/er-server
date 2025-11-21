@@ -143,20 +143,35 @@ class PriorityOAuth2SessionAuthentication(SessionAuthentication):
         auth_header = request.META.get("HTTP_AUTHORIZATION", "")
         has_bearer_token = auth_header.startswith(self.keyword + " ")
 
+        # DEBUG: Log what we're seeing
+        request_method = getattr(request, "method", "UNKNOWN")
+        request_path = getattr(request, "path", "UNKNOWN")
+        has_session = hasattr(request, "session") and request.session and "_auth_user_id" in request.session
+        logger.info(
+            f"PriorityOAuth2SessionAuthentication.authenticate - "
+            f"Method: {request_method}, Path: {request_path}, "
+            f"Has Bearer: {has_bearer_token}, Has Session: {has_session}, "
+            f"Auth Header: {auth_header[:20] if auth_header else 'None'}..."
+        )
+
         try:
             oauth2_result = self.oauth2_auth.authenticate(request)
         except exceptions.AuthenticationFailed:
             # Re-raise AuthenticationFailed exceptions to get 401 status
+            logger.info("OAuth2 authentication failed with AuthenticationFailed exception")
             raise
 
         if oauth2_result:
             # OAuth2 token found and valid, use it
+            username = oauth2_result[0].username if oauth2_result[0] else "None"
+            logger.info(f"OAuth2 authentication SUCCESS - User: {username}")
             return oauth2_result
 
         # Check if there was an OAuth2 error (e.g., expired token)
         oauth2_error = getattr(request, "oauth2_error", {})
         if oauth2_error and has_bearer_token:
             # If there's an OAuth2 error and we have a Bearer token, raise AuthenticationFailed
+            logger.info(f"OAuth2 error with Bearer token present: {oauth2_error}")
             raise exceptions.AuthenticationFailed("Token is invalid or expired")
 
         # If a Bearer token was provided but OAuth2 authentication didn't succeed,
@@ -165,18 +180,28 @@ class PriorityOAuth2SessionAuthentication(SessionAuthentication):
         if has_bearer_token:
             # Bearer token was provided but authentication failed
             # Don't fall back to session, return None to try next auth class
+            logger.info("Bearer token present but OAuth2 auth returned None - NOT falling back to session")
             return None
 
         # Fall back to session authentication only if no Bearer token was provided
         # Handle both DRF request objects and Django WSGIRequest objects
+        logger.info("No Bearer token - attempting session authentication fallback")
         if hasattr(request, "_request"):
             # This is a DRF request object, use parent's authenticate method
-            return super().authenticate(request)
+            session_result = super().authenticate(request)
+            if session_result:
+                username = session_result[0].username if session_result[0] else "None"
+                logger.info(f"Session authentication SUCCESS - User: {username}")
+            else:
+                logger.info("Session authentication returned None")
+            return session_result
         else:
             # This is a Django WSGIRequest object, check for session user directly
             user = getattr(request, "user", None)
             if user and user.is_authenticated and user.is_active:
+                logger.info(f"Django session user found - User: {user.username}")
                 return (user, None)
+            logger.info("No authenticated Django session user")
             return None
 
 
