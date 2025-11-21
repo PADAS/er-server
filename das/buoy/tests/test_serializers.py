@@ -305,6 +305,15 @@ class TestGearSerializer:
 
 class TestGearCreateSerializer(BaseAPITest):
     def test_save_single_device(self):
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        user = User.objects.create_user(username="testuser", password="testpass")
+        # Create SourceProvider for the user
+        provider = SourceProvider.objects.create(
+            display_name="Test Provider", provider_key="test_provider", additional={"buoy_post_user_id": str(user.id)}
+        )
+
         now = timezone.now()
         device_id = "123e4567-e89b-12d3-a456-426614174000"
         data = {
@@ -323,11 +332,11 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer = GearCreateSerializer(data=data, context={"user_id": 99})
+        serializer = GearCreateSerializer(data=data, context={"user_id": user.id})
         assert serializer.is_valid(), serializer.errors
 
         # Use BuoyService instead of serializer.save()
-        subject, observations = BuoyService.process_gearset(serializer.validated_data, manufacturer="test_manufacturer")
+        subject, observations = BuoyService.process_gearset(serializer.validated_data, user=user)
 
         assert isinstance(observations, list)
         assert len(observations) == 1
@@ -346,6 +355,17 @@ class TestGearCreateSerializer(BaseAPITest):
         assert obs.additional["raw"]["devices"][0]["device_status"] == "deployed"
 
     def test_save_multiple_devices(self):
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        user = User.objects.create_user(username="testuser2", password="testpass")
+        # Create SourceProvider for the user
+        provider = SourceProvider.objects.create(
+            display_name="Test Provider 2",
+            provider_key="test_provider_2",
+            additional={"buoy_post_user_id": str(user.id)},
+        )
+
         now = timezone.now()
         device_id_1 = "223e4567-e89b-12d3-a456-426614174000"
         device_id_2 = "323e4567-e89b-12d3-a456-426614174000"
@@ -373,11 +393,11 @@ class TestGearCreateSerializer(BaseAPITest):
                 },
             ],
         }
-        serializer = GearCreateSerializer(data=data, context={"user_id": 7})
+        serializer = GearCreateSerializer(data=data, context={"user_id": user.id})
         assert serializer.is_valid(), serializer.errors
 
         # Use BuoyService instead of serializer.save()
-        subject, observations = BuoyService.process_gearset(serializer.validated_data, manufacturer="test_manufacturer")
+        subject, observations = BuoyService.process_gearset(serializer.validated_data, user=user)
 
         assert isinstance(observations, list)
         # Two observations returned
@@ -400,6 +420,17 @@ class TestGearCreateSerializer(BaseAPITest):
 
     def test_save_device_without_mfr_device_id(self):
         """Test that mfr_device_id defaults to device_id when not provided."""
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        user = User.objects.create_user(username="testuser3", password="testpass")
+        # Create SourceProvider for the user
+        provider = SourceProvider.objects.create(
+            display_name="Test Provider 3",
+            provider_key="test_provider_3",
+            additional={"buoy_post_user_id": str(user.id)},
+        )
+
         now = timezone.now()
         device_id = "523e4567-e89b-12d3-a456-426614174000"
         data = {
@@ -418,7 +449,7 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer = GearCreateSerializer(data=data, context={"user_id": 100})
+        serializer = GearCreateSerializer(data=data, context={"user_id": user.id})
         assert serializer.is_valid(), serializer.errors
 
         # Verify that mfr_device_id was set to device_id
@@ -429,7 +460,7 @@ class TestGearCreateSerializer(BaseAPITest):
         assert mfr_device_id == device_id
 
         # Use BuoyService to process and verify it works
-        subject, observations = BuoyService.process_gearset(validated_data, manufacturer="test_manufacturer")
+        subject, observations = BuoyService.process_gearset(validated_data, user=user)
 
         assert isinstance(observations, list)
         assert len(observations) == 1
@@ -554,6 +585,17 @@ class TestGearCreateSerializer(BaseAPITest):
 
     def test_mfr_set_id_lookup_finds_existing_subject(self):
         """Test that providing mfr_set_id finds existing Subject by name."""
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        user = User.objects.create_user(username="testuser_lookup", password="testpass")
+        # Create SourceProvider for the user
+        provider = SourceProvider.objects.create(
+            display_name="Test Provider Lookup",
+            provider_key="test_provider_lookup",
+            additional={"buoy_post_user_id": str(user.id)},
+        )
+
         now = timezone.now()
 
         # First, create a subject with a specific mfr_set_id
@@ -575,13 +617,11 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer1 = GearCreateSerializer(data=data, context={"user_id": 106})
+        serializer1 = GearCreateSerializer(data=data, context={"user_id": user.id})
         assert serializer1.is_valid(), serializer1.errors
 
         # Create the subject
-        subject1, observations1 = BuoyService.process_gearset(
-            serializer1.validated_data, manufacturer="test_manufacturer"
-        )
+        subject1, observations1 = BuoyService.process_gearset(serializer1.validated_data, user=user)
         first_set_id = subject1.id
 
         # Now POST again with the same mfr_set_id (but different device)
@@ -759,3 +799,98 @@ def test_gear_serializer_devices_and_manufacturer():
     assert dev["device_id"] == str(src.id)  # device_id is Source.id
     assert dev["mfr_device_id"] == "mfr_dev1"  # mfr_device_id is Source.manufacturer_id
     assert dev["location"]["latitude"] == pytest.approx(31.19)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_sets_source_provider_from_user(superuser):
+    """Test that process_gearset uses SourceProvider with matching buoy_post_user_id."""
+    now = timezone.now()
+    device_id = "123e4567-e89b-12d3-a456-426614174000"
+
+    # Create a SourceProvider with the user's ID
+    provider = SourceProvider.objects.create(
+        display_name="Test Provider", provider_key="test_provider", additional={"buoy_post_user_id": str(superuser.id)}
+    )
+
+    data = {
+        "owner_id": "owner123",
+        "mfr_set_id": "TEST_SET_123",  # Need to provide mfr_set_id
+        "deployment_type": "single",
+        "initial_deployment_date": now,
+        "devices": [
+            {
+                "device_id": device_id,
+                "mfr_device_id": "mfr123",
+                "last_deployed": now,
+                "last_updated": now,
+                "device_status": "deployed",
+                "location": {"latitude": 1.23, "longitude": 4.56},
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=data, context={"user_id": superuser.id})
+    assert serializer.is_valid(), serializer.errors
+
+    # Process gearset with user parameter
+    subject, observations = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Verify that the Source's provider has the matching buoy_post_user_id
+    source = observations[0].source
+    assert source.provider.additional.get("buoy_post_user_id") == str(superuser.id)
+
+    # Verify we can find the subject through the SourceProvider
+    subject_sources = SubjectSource.objects.filter(
+        subject=subject, source__provider__additional__buoy_post_user_id=str(superuser.id)
+    )
+    assert subject_sources.exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_updates_existing_subject_preserves_provider(superuser):
+    """Test that process_gearset preserves SourceProvider when updating existing subject."""
+    now = timezone.now()
+    device_id = "223e4567-e89b-12d3-a456-426614174000"
+
+    # Create a SourceProvider with the user's ID
+    provider = SourceProvider.objects.create(
+        display_name="Test Provider", provider_key="test_provider", additional={"buoy_post_user_id": str(superuser.id)}
+    )
+
+    # Create a subject
+    subject_subtype = SubjectSubType.objects.get_or_create(value=BUOY_GEAR_SUBJECT_SUBTYPE)[0]
+    existing_subject = Subject.objects.create(
+        name="existing_gear", subject_subtype=subject_subtype, additional={"display_id": "existing_gear"}
+    )
+
+    data = {
+        "set_id": str(existing_subject.id),
+        "owner_id": "owner123",
+        "deployment_type": "single",
+        "initial_deployment_date": now,
+        "devices": [
+            {
+                "device_id": device_id,
+                "mfr_device_id": "mfr456",
+                "last_deployed": now,
+                "last_updated": now,
+                "device_status": "deployed",
+                "location": {"latitude": 2.34, "longitude": 5.67},
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=data, context={"user_id": superuser.id})
+    assert serializer.is_valid(), serializer.errors
+
+    # Process gearset with user parameter
+    subject, observations = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Verify the existing subject is returned
+    assert subject.id == existing_subject.id
+
+    # Verify the Source's provider has the matching buoy_post_user_id
+    source = observations[0].source
+    assert source.provider.additional.get("buoy_post_user_id") == str(superuser.id)
