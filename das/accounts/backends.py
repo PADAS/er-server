@@ -104,22 +104,27 @@ class PriorityOAuth2SessionAuthentication(SessionAuthentication):
 
     def enforce_csrf(self, request):
         """
-        Here we may choose to not enforce CSRF validation for session based authentication.
-        We disabled it, because when we login using admin, the CSRF token is set,
-        but then we re-redirect to web UI to show the EULA confirmation page.
-        And the CSRF token is not set in the web UI.
+        CSRF enforcement logic for mixed authentication.
 
-        We only skip CSRF enforcement when:
-        1. No OAuth2 token is present (falling back to session auth)
-        2. Request has a valid Django session
+        CSRF protection is only needed for cookie-based authentication (sessions).
+        Bearer tokens in headers are NOT vulnerable to CSRF attacks, so we skip
+        CSRF validation when a Bearer token is present.
+
+        We skip CSRF enforcement when:
+        1. A Bearer/OAuth2 token is present (not vulnerable to CSRF)
+        2. Session-only auth with a valid Django session (for admin->EULA flow)
+
+        We enforce CSRF only when:
+        - No authentication credentials present at all
         """
         # Check if there's a Bearer token in the Authorization header
         auth_header = request.META.get("HTTP_AUTHORIZATION", "")
         has_bearer_token = auth_header.startswith(self.keyword + " ")
 
-        # If there's a Bearer token, enforce CSRF as normal (OAuth2 should handle auth)
+        # If there's a Bearer token, skip CSRF validation
+        # Bearer tokens are not vulnerable to CSRF attacks
         if has_bearer_token:
-            return super().enforce_csrf(request)
+            return
 
         # If no Bearer token, check if we have a Django session with an authenticated user
         # This handles the admin login -> EULA redirect -> API call scenario
@@ -127,7 +132,7 @@ class PriorityOAuth2SessionAuthentication(SessionAuthentication):
         if hasattr(request, "session") and request.session and "_auth_user_id" in request.session:
             return
 
-        # Default case: enforce CSRF
+        # Default case: enforce CSRF for requests with no auth credentials
         return super().enforce_csrf(request)
 
     def authenticate_header(self, request):
@@ -135,6 +140,8 @@ class PriorityOAuth2SessionAuthentication(SessionAuthentication):
 
     def authenticate(self, request):
         # First, try OAuth2 token authentication
+        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+        has_bearer_token = auth_header.startswith(self.keyword + " ")
 
         try:
             oauth2_result = self.oauth2_auth.authenticate(request)
@@ -148,12 +155,19 @@ class PriorityOAuth2SessionAuthentication(SessionAuthentication):
 
         # Check if there was an OAuth2 error (e.g., expired token)
         oauth2_error = getattr(request, "oauth2_error", {})
-        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
-        if oauth2_error and auth_header.startswith(self.keyword + " "):
+        if oauth2_error and has_bearer_token:
             # If there's an OAuth2 error and we have a Bearer token, raise AuthenticationFailed
             raise exceptions.AuthenticationFailed("Token is invalid or expired")
 
-        # Fall back to session authentication if no valid OAuth2 token
+        # If a Bearer token was provided but OAuth2 authentication didn't succeed,
+        # do NOT fall back to session authentication. This ensures Bearer tokens
+        # take absolute priority over session cookies.
+        if has_bearer_token:
+            # Bearer token was provided but authentication failed
+            # Don't fall back to session, return None to try next auth class
+            return None
+
+        # Fall back to session authentication only if no Bearer token was provided
         # Handle both DRF request objects and Django WSGIRequest objects
         if hasattr(request, "_request"):
             # This is a DRF request object, use parent's authenticate method
