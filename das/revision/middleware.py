@@ -11,6 +11,7 @@ request_context.user = None
 
 
 def attach_revision_user_to_instance(sender, instance, **kwargs):
+    logger.debug("attach_revision_user_to_instance called for %s instance %s", sender.__name__, instance.id)
     if issubclass(sender, RevisionMixin):
         setattr(instance, "revision_user", request_context.user)
         logger.debug("Setting revision user to '%s'", request_context.user)
@@ -40,6 +41,9 @@ class RevisionMiddleware(object):
         if request.method not in ("GET", "HEAD", "OPTIONS", "TRACE"):
             if hasattr(request, "user") and request.user.is_authenticated:
                 request_context.user = request.user
+                logger.debug(
+                    f"Setting thread request_context.user to '{request.user.username}' for request {request.path}"
+                )
             else:
                 request_context.user = None
 
