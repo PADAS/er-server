@@ -165,6 +165,11 @@ class TestAllowedPermissions:
         [
             {"perm": "test", "codename": "test", "tenant_id": None},
             {
+                "perm": "+hkFNWsARFKKsTGccwgrYA:Aplicação_da_lei_por_create",
+                "codename": "Aplicação_da_lei_por_create",
+                "tenant_id": uuid.UUID("fa190535-6b00-4452-8ab1-319c73082b60"),
+            },
+            {
                 "perm": "+hkFNWsARFKKsTGccwgrYA:change_hello_category_gd",
                 "codename": "change_hello_category_gd",
                 "tenant_id": uuid.UUID("fa190535-6b00-4452-8ab1-319c73082b60"),
