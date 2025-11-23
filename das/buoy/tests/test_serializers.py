@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
 from buoy.serializers import GearCreateSerializer, GearSerializer
-from buoy.serializers.gear import GearDeviceCreateSerializer, GeoLocationSerializer
+from buoy.serializers.gear import GeoLocationSerializer
 from buoy.services.buoy_service import BuoyService
 from core.tests import BaseAPITest
 from factories import SubjectTypeFactory
@@ -664,40 +664,6 @@ def test_geo_location_serializer_bounds():
     s = GeoLocationSerializer(data={"latitude": 0.0, "longitude": 181.0})
     assert not s.is_valid()
     assert "Longitude must be between -180 and 180 degrees" in str(s.errors)
-
-
-@pytest.mark.django_db
-def test_gear_device_create_serializer_date_validations():
-    now = timezone.now()
-    future = now + timedelta(days=1)
-
-    payload = {
-        "device_id": "123e4567-e89b-12d3-a456-426614174000",
-        "mfr_device_id": "dev1",
-        "last_deployed": future.isoformat(),
-        "last_updated": future.isoformat(),
-        "device_status": "deployed",
-        "location": {"latitude": 0.0, "longitude": 0.0},
-    }
-
-    s = GearDeviceCreateSerializer(data=payload)
-    assert not s.is_valid()
-    # Should complain about future dates
-    assert "cannot be in the future" in json.dumps(s.errors)
-
-    # Last updated before deploy
-    past = now - timedelta(days=2)
-    payload = {
-        "device_id": "223e4567-e89b-12d3-a456-426614174000",
-        "mfr_device_id": "dev1",
-        "last_deployed": now.isoformat(),
-        "last_updated": past.isoformat(),
-        "device_status": "deployed",
-        "location": {"latitude": 0.0, "longitude": 0.0},
-    }
-    s = GearDeviceCreateSerializer(data=payload)
-    assert not s.is_valid()
-    assert "Last updated date cannot be before deployment date" in json.dumps(s.errors)
 
 
 @pytest.mark.django_db

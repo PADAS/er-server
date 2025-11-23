@@ -97,9 +97,6 @@ class GearDeviceCreateSerializer(serializers.Serializer):
         if not attrs.get("mfr_device_id"):
             attrs["mfr_device_id"] = str(attrs.get("device_id"))
 
-        attrs.get("last_deployed")
-        attrs.get("last_updated")
-
         return super().validate(attrs)
 
 
