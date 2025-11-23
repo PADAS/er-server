@@ -97,11 +97,8 @@ class GearDeviceCreateSerializer(serializers.Serializer):
         if not attrs.get("mfr_device_id"):
             attrs["mfr_device_id"] = str(attrs.get("device_id"))
 
-        deploy_date = attrs.get("last_deployed")
-        updated_date = attrs.get("last_updated")
-
-        if deploy_date and updated_date and updated_date < deploy_date:
-            raise serializers.ValidationError({"last_updated": "Last updated date cannot be before deployment date"})
+        attrs.get("last_deployed")
+        attrs.get("last_updated")
 
         return super().validate(attrs)
 
