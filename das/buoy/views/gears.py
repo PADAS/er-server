@@ -202,7 +202,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
 
 class GearView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = (IsAuthenticated, GearSourceProviderPermission)
+    permission_classes = (GearSourceProviderPermission,)
     serializer_class = serializers.GearSerializer
     lookup_field = "id"
 
@@ -224,4 +224,8 @@ class GearView(generics.RetrieveUpdateDestroyAPIView):
         subject_source = self.get_queryset().first()
         if not subject_source:
             raise NotFound("No SubjectSource found for this subject")
+
+        # Check object-level permissions
+        self.check_object_permissions(self.request, subject_source)
+
         return subject_source
