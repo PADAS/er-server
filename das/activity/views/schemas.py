@@ -37,7 +37,7 @@ class PatrolSchema(CustomSchema):
                     "name": "filter",
                     "in": "query",
                     "required": False,
-                    "description": 'example: {"date_range":{"lower":"2020-09-16T00:00:00.000Z"}}',
+                    "description": 'Advanced filtering using a JSON object. Example: {"date_range":{"lower":"2020-09-16T00:00:00.000Z"}, "text":"search text"}',
                 },
                 {
                     "name": "exclude_empty_patrols",
@@ -66,12 +66,12 @@ class EventsViewSchema(CustomSchema):
                 {
                     "name": "is_collection",
                     "in": "query",
-                    "description": "true/false whether to include only events that are a collection",
+                    "description": "true/false whether to include only events that are a collection/incident",
                 },
                 {
                     "name": "exclude_contained",
                     "in": "query",
-                    "description": "true/false whether to filter out events that are included in a collection",
+                    "description": "true/false whether to filter out events that are included in a collection/incident",
                 },
                 {"name": "updated_since", "in": "query", "description": "date-string to limit on updated_at"},
                 {
@@ -88,20 +88,112 @@ class EventsViewSchema(CustomSchema):
                 {
                     "name": "event_type",
                     "in": "query",
-                    "description": "filter to only events with this event type id",
+                    "description": "include only events with this event type id",
                 },
                 {
                     "name": "bbox",
                     "in": "query",
-                    "description": "bounding box including four coordinate values, comma-separated."
+                    "description": "bounding box of the form (west-longitude, south-latitude, east-longitude, north-latitude)."
                     " Ex. bbox=-122.4,48.4,-122.95,49.0 (west, south, east, north).",
                 },
-                {"name": "include_updates", "in": "query", "description": "Boolean value"},
-                {"name": "include_files", "in": "query", "description": "Boolean value"},
-                {"name": "include_details", "in": "query", "description": "Boolean value"},
-                {"name": "include_notes", "in": "query", "description": "Boolean value"},
-                {"name": "include_related_events", "in": "query", "description": "Boolean value"},
-                {"name": "state", "in": "query", "description": "event states to filter on, ex: new, active, resolved"},
+                {"name": "include_updates", "in": "query", "description": "Include the event history. Boolean value"},
+                {"name": "include_files", "in": "query", "description": "Include the event files list. Boolean value"},
+                {
+                    "name": "include_details",
+                    "in": "query",
+                    "description": "Include the event details, the event type specific data. Boolean value",
+                },
+                {"name": "include_notes", "in": "query", "description": "Include the event notes. Boolean value"},
+                {
+                    "name": "include_related_events",
+                    "in": "query",
+                    "description": "Include the related events, which are events that are linked to this event by a relationship. Boolean value",
+                },
+                {
+                    "name": "state",
+                    "in": "query",
+                    "description": "only include events in this state(s). ex: new, active, resolved",
+                },
+                {
+                    "name": "filter",
+                    "in": "query",
+                    "required": False,
+                    "description": (
+                        "Advanced filtering using a JSON-encoded object. "
+                        "Supports date ranges, text search, and custom filter values."
+                    ),
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "description": "Filter as a JSON object with various filter criteria",
+                                "properties": {
+                                    "date_range": {
+                                        "type": "object",
+                                        "properties": {
+                                            "lower": {"type": "string", "format": "date-time"},
+                                            "upper": {"type": "string", "format": "date-time"},
+                                        },
+                                        "description": "Filter on the event time",
+                                    },
+                                    "update_date": {
+                                        "type": "object",
+                                        "properties": {
+                                            "lower": {"type": "string", "format": "date-time"},
+                                            "upper": {"type": "string", "format": "date-time"},
+                                        },
+                                        "description": "Filter on the updated time for the event",
+                                    },
+                                    "text": {"type": "string", "description": "Search text in the event"},
+                                    "duration": {
+                                        "type": "string",
+                                        "description": "Filter on the duration of the event",
+                                    },
+                                    "priority": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "enum": ["gray", "green", "amber", "red"],
+                                        },
+                                        "description": "Filter on the priority of the event",
+                                    },
+                                    "state": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "enum": ["new", "active", "resolved"],
+                                        },
+                                        "description": "Filter on the state of the event",
+                                    },
+                                    "event_category": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                        "description": "Filter on the event category id, an array of EventCategory IDs",
+                                    },
+                                    "event_type": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                        "description": "Filter on the event type id, an array of EventType IDs",
+                                    },
+                                    "reported_by": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                        "description": "Filter on the reported by id, an array of ReportedBy IDs",
+                                    },
+                                    "create_date": {
+                                        "type": "object",
+                                        "properties": {
+                                            "lower": {"type": "string", "format": "date-time"},
+                                            "upper": {"type": "string", "format": "date-time"},
+                                        },
+                                        "description": "Filter on the create time for the event",
+                                    },
+                                },
+                                "example": {"date_range": {"lower": "2025-09-16T00:00:00.000Z"}, "text": "search text"},
+                            }
+                        }
+                    },
+                },
             ]
             operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)
