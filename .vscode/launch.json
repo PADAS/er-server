@@ -24,13 +24,14 @@
             "module": "pytest",
             "args": [
                 "-vv",
-                "--reuse-db",
                 "--ds",
                 "test_scripts.unittest_settings",
+                "--reuse-db",
                 "${input:pytest_path_args}"
             ],
             "cwd": "${workspaceRoot}/das",
-            "env": {},
+            "env": {
+            },
             "redirectOutput": true
         },
         {
@@ -56,12 +57,11 @@
             "name": "Django:Run",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/das/manage.py",
+            "program": "manage.py",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "env": {
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler",
-                "ROOT_LOGGING_LEVEL": "INFO",
                 "PYTHONWARNINGS": "default"
             },
             "args": [
@@ -75,7 +75,7 @@
             "name": "Django:Gunicorn",
             "type": "debugpy",
             "request": "launch",
-            "program": "/usr/local/bin/gunicorn",
+            "program": "gunicorn",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "env": {
@@ -104,7 +104,7 @@
             "name": "Django:GunicornRT",
             "type": "debugpy",
             "request": "launch",
-            "program": "/usr/local/bin/gunicorn",
+            "program": "gunicorn",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "gevent": true,
@@ -129,15 +129,15 @@
                 "info"
             ],
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
-                "ROOT_LOGGING_LEVEL": "INFO"
+                "ROOT_LOGGING_LEVEL": "INFO",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
             "name": "ER Workers",
             "type": "debugpy",
             "request": "launch",
-            "program": "/usr/local/bin/celery",
+            "program": "celery",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "args": [
@@ -160,15 +160,14 @@
             //"postDebugTask": "killdebugger",
             "env": {
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler",
-                "GEVENT_SUPPORT": "True",
-                "ROOT_LOGGING_LEVEL": "INFO"
+                "GEVENT_SUPPORT": "True"
             }
         },
         {
             "name": "Django:MQL",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/das/manage.py",
+            "program": "manage.py",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "args": [
@@ -176,15 +175,15 @@
             ],
             "django": true,
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
-                "ROOT_LOGGING_LEVEL": "INFO"
+                "ROOT_LOGGING_LEVEL": "INFO",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
             "name": "Django:RunRT",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/das/async_manage.py",
+            "program": "async_manage.py",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "gevent": true,
@@ -196,7 +195,7 @@
                 "--nothreading"
             ],
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             },
             "django": true
         },
@@ -205,7 +204,7 @@
             "type": "debugpy",
             "request": "launch",
             "justMyCode": false,
-            "program": "${workspaceFolder}/das/manage.py",
+            "program": "manage.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/das",
             "args": [
@@ -216,7 +215,7 @@
             ],
             "django": true,
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
@@ -224,7 +223,7 @@
             "type": "debugpy",
             "request": "launch",
             "justMyCode": false,
-            "program": "${workspaceFolder}/das/manage.py",
+            "program": "manage.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/das",
             "args": [
@@ -234,7 +233,7 @@
             "django": true,
             "sudo": true,
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
@@ -242,7 +241,7 @@
             "type": "debugpy",
             "request": "launch",
             "justMyCode": false,
-            "program": "${workspaceFolder}/das/manage.py",
+            "program": "manage.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/das",
             "args": [
@@ -250,9 +249,8 @@
             ],
             "django": true,
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
                 "IS_OAUTH2_PROVIDER_MIGRATION": "True",
-                "ROOT_LOGGING_LEVEL": "INFO"
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
@@ -260,7 +258,7 @@
             "type": "debugpy",
             "request": "launch",
             "justMyCode": false,
-            "program": "${workspaceFolder}/das/manage.py",
+            "program": "manage.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/das",
             "args": [
@@ -277,8 +275,8 @@
             ],
             "django": true,
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
-                "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
@@ -286,7 +284,7 @@
             "type": "debugpy",
             "request": "launch",
             "justMyCode": false,
-            "program": "${workspaceFolder}/das/manage.py",
+            "program": "manage.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/das",
             "args": [
@@ -297,8 +295,8 @@
             ],
             "django": true,
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
-                "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
@@ -306,7 +304,7 @@
             "type": "debugpy",
             "request": "launch",
             "justMyCode": false,
-            "program": "${workspaceFolder}/das/manage.py",
+            "program": "manage.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/das",
             "args": [
@@ -315,7 +313,7 @@
             "django": true,
             "sudo": true,
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
         {
@@ -340,7 +338,7 @@
             ],
             "django": true,
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler",
                 "IS_OAUTH2_PROVIDER_MIGRATION": "True"
             }
         },
@@ -358,7 +356,7 @@
             ],
             "django": true,
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker"
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
             }
         },
     ],

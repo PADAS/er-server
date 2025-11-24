@@ -175,7 +175,7 @@ def test_tile_view_caching_and_authentication():
     auth_request.user = DummyUser("tenantZZ")
 
     with patch("vectortiles.views.MVTView.get") as parent_get:
-        parent_get.return_value = HttpResponse(b"tiledata", content_type="application/x-protobuf")
+        parent_get.return_value = HttpResponse(b"tiledata", content_type="application/vnd.mapbox-vector-tile")
         get_vector_tile_cache().clear()
         first = view(auth_request, z=10, x=100, y=200)
         assert first.status_code == 200
@@ -199,13 +199,13 @@ def test_tile_view_cache_version_changes_key():
 
     with override_settings(VECTOR_TILE_CACHE_VERSION="1"):
         with patch("vectortiles.views.MVTView.get") as parent_get:
-            parent_get.return_value = HttpResponse(b"tile", content_type="application/x-protobuf")
+            parent_get.return_value = HttpResponse(b"tile", content_type="application/vnd.mapbox-vector-tile")
             get_vector_tile_cache().clear()
             first = view(req1, z=3, x=4, y=5)
             assert first["X-Cache"] == "MISS"
     with override_settings(VECTOR_TILE_CACHE_VERSION="2"):
         with patch("vectortiles.views.MVTView.get") as parent_get2:
-            parent_get2.return_value = HttpResponse(b"tile", content_type="application/x-protobuf")
+            parent_get2.return_value = HttpResponse(b"tile", content_type="application/vnd.mapbox-vector-tile")
             second = view(req2, z=3, x=4, y=5)
             assert second["X-Cache"] == "MISS"
             assert parent_get2.call_count == 1
@@ -277,7 +277,7 @@ def test_tile_view_etag_generation():
     auth_request.user = DummyUser("tenantZZ")
 
     with patch("vectortiles.views.MVTView.get") as parent_get:
-        parent_get.return_value = HttpResponse(b"tiledata", content_type="application/x-protobuf")
+        parent_get.return_value = HttpResponse(b"tiledata", content_type="application/vnd.mapbox-vector-tile")
         get_vector_tile_cache().clear()
 
         # First request should include ETag
@@ -306,7 +306,7 @@ def test_tile_view_304_not_modified():
     auth_request.user = DummyUser("tenantZZ")
 
     with patch("vectortiles.views.MVTView.get") as parent_get:
-        parent_get.return_value = HttpResponse(b"tiledata", content_type="application/x-protobuf")
+        parent_get.return_value = HttpResponse(b"tiledata", content_type="application/vnd.mapbox-vector-tile")
         get_vector_tile_cache().clear()
 
         # First request to get ETag
@@ -344,7 +344,7 @@ def test_tile_view_etag_different_for_different_cache_keys():
     with patch("vectortiles.views.MVTView.get") as parent_get:
         # Return a new HttpResponse object for each call to avoid mutation issues
         parent_get.side_effect = lambda *args, **kwargs: HttpResponse(
-            b"tiledata", content_type="application/x-protobuf"
+            b"tiledata", content_type="application/vnd.mapbox-vector-tile"
         )
         get_vector_tile_cache().clear()
 
@@ -371,7 +371,7 @@ def test_tile_view_304_bypassed_with_different_etag():
     auth_request.user = DummyUser("tenantZZ")
 
     with patch("vectortiles.views.MVTView.get") as parent_get:
-        parent_get.return_value = HttpResponse(b"tiledata", content_type="application/x-protobuf")
+        parent_get.return_value = HttpResponse(b"tiledata", content_type="application/vnd.mapbox-vector-tile")
         get_vector_tile_cache().clear()
 
         # Request with wrong ETag should not return 304

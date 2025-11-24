@@ -7,4 +7,4 @@ wait_for $API_HOST $API_PORT
 WORKERS=2
 
 # Redirect stderr to stdout to keep the log level info in gcp cloud logging
-celery --app das_server worker -Q realtime_p1,realtime_p2,realtime_p3,default,maintenance -l info -c $WORKERS --without-gossip -n default 2>&1
+uv run celery --app das_server worker -Q realtime_p1,realtime_p2,realtime_p3,default,maintenance -l info -c $WORKERS --without-gossip -n default 2>&1

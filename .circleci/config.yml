@@ -192,20 +192,13 @@ executors:
 
   docs_executor:
     docker:
-      - image: 'cimg/python:3.10.16'
+      - image: 'cimg/python:3.12.12'
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
 
 jobs:
-  relyance:
 
-    machine:
-      image: default
-    steps:
-      - checkout
-      # TODO: Add "RELYANCE_TOKEN" as circleCI environment variable. The token is available in Step 2 on the "Source Code Integration" tab in the platform.
-      - run: docker pull gcr.io/relyance-ext/compliance_inspector:release && docker run --rm -v $(pwd):/repo --env API_KEY="$RELYANCE_TOKEN_V2" gcr.io/relyance-ext/compliance_inspector:release
   check_for_abandoned_workspaces:
     executor: circleci_executor
     steps:
@@ -260,8 +253,10 @@ jobs:
           name: "Generate build files"
           command: |
             mkdir sphinx-docs
-            pip3 install -r dependencies/requirements-docs.txt
             cd docs
+            uv venv --python=python3.12
+            uv pip install -r requirements-docs.txt
+            source .venv/bin/activate
             make html
             cp -rf /home/circleci/project/docs/_build/ /home/circleci/project/sphinx-docs
       - persist_to_workspace:
@@ -418,16 +413,3 @@ workflows:
             branches:
               only:
                 - "develop"
-  nightly:
-    triggers:
-      - schedule:
-          # Run against your stable branch nightly
-          cron: '0 7 * * *'
-          filters:
-            branches:
-              only:
-                - "develop"
-    jobs:
-      - relyance:
-          context:
-            - relyance

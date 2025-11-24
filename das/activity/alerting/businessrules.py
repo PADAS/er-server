@@ -12,6 +12,7 @@ from activity.permissions import EventCategoryPermissions
 from activity.serializers import EventSerializer
 from core.utils import NonHttpRequest
 from observations.models import Subject, SubjectGroup
+from revision.manager import ACTION_ADDED
 
 VIEW_SUBJECTGROUP_PERMS = ("observations.view_subjectgroup",)
 
@@ -448,6 +449,13 @@ def resolve_event_revisions(event):
         details_revision = event.event_details.latest("updated_at").revision.all_user().latest("revision_at")
     except (AttributeError, EventDetails.DoesNotExist):
         return revision, None
+
+    # If the revision and details revision are both added, return the revisions.
+    # because of the db transaction and contention in the save, have seen the
+    # the difference between the revision.revision_at and details_revision.revision_at
+    # be greater than 1 second.
+    if revision.action == ACTION_ADDED and details_revision.action == ACTION_ADDED:
+        return revision, details_revision
 
     diff = (revision.revision_at - details_revision.revision_at).total_seconds()
 

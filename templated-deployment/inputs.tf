@@ -20,7 +20,7 @@ variable "site_ip_address" {
 
 variable "time_zone" {
   type    = string
-  default = "US/Pacific"
+  default = "America/Los_Angeles"
 }
 
 variable "INGRESS_VERSION" {
