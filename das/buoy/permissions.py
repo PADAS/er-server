@@ -1,7 +1,5 @@
 from rest_framework.permissions import BasePermission
 
-from observations.models import SubjectSource
-
 
 class GearLocationPermission(BasePermission):
     """
@@ -38,24 +36,47 @@ class GearSourceProviderPermission(BasePermission):
     """
     Custom permission to check if the user making the request has access to the gear
     based on the SourceProvider's buoy_post_user_id matching the requesting user's ID.
+
+    This permission implements both has_permission() for early request-level checks
+    and has_object_permission() for object-level checks that align with queryset filtering.
     """
 
     def has_permission(self, request, view):
-        # Get the subject_id from the URL kwargs
-        if not request.user or not request.user.is_authenticated:
+        # Basic authentication check
+        if not request.user.is_authenticated:
             return False
 
         # Superusers have all permissions
         if request.user.is_superuser:
             return True
 
+        # For request-level check, we allow the request to proceed if subject_id is present
+        # The actual permission check happens in has_object_permission()
         subject_id = view.kwargs.get("id")
         if not subject_id:
             return False
 
-        # Check if any SubjectSource exists for this subject with a SourceProvider
-        # that has buoy_post_user_id matching the requesting user's ID
+        return True
+
+    def has_object_permission(self, request, view, obj):
+        """
+        Check object-level permission based on the SubjectSource object.
+        This ensures permission logic aligns with queryset filtering.
+        """
+        # Superusers have all permissions
+        if request.user.is_superuser:
+            return True
+
+        # obj is a SubjectSource instance from get_object()
+        # Check if this specific SubjectSource has a SourceProvider with matching buoy_post_user_id
+        if not hasattr(obj, "source") or not obj.source:
+            return False
+
+        provider = obj.source.provider
+        if not provider or not hasattr(provider, "additional") or not provider.additional:
+            return False
+
         user_id_str = str(request.user.id)
-        return SubjectSource.objects.filter(
-            subject_id=subject_id, source__provider__additional__buoy_post_user_id=user_id_str
-        ).exists()
+        buoy_post_user_id = provider.additional.get("buoy_post_user_id")
+
+        return buoy_post_user_id == user_id_str

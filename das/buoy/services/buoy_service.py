@@ -29,12 +29,12 @@ class BuoyService:
         return json.loads(json.dumps(data, cls=ExtendedJSONEncoder))
 
     @staticmethod
-    def process_gearset(validated_data: dict, user=None) -> Tuple[models.Subject, List[models.Observation]]:
+    def process_gearset(validated_data: dict, user) -> Tuple[models.Subject, List[models.Observation]]:
         """Process a validated gearset payload.
 
         Args:
             validated_data (dict): validated serializer data for the gearset
-            user: optional User instance to link to the Subject
+            user: User instance used to determine the SourceProvider for the gearset
 
         Returns:
             tuple: (Subject instance, list of created Observation instances)
@@ -49,6 +49,7 @@ class BuoyService:
         try:
             provider = models.SourceProvider.objects.get(additional__buoy_post_user_id=str(user.id))
         except models.SourceProvider.DoesNotExist:
+            logger.warning(f"No SourceProvider found for user {user.id}, falling back to default provider")
             provider = models.SourceProvider.objects.get(id=models.get_default_source_provider_id())
 
         manufacturer = provider.provider_key

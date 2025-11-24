@@ -310,7 +310,7 @@ class TestGearCreateSerializer(BaseAPITest):
         User = get_user_model()
         user = User.objects.create_user(username="testuser", password="testpass")
         # Create SourceProvider for the user
-        provider = SourceProvider.objects.create(
+        SourceProvider.objects.create(
             display_name="Test Provider", provider_key="test_provider", additional={"buoy_post_user_id": str(user.id)}
         )
 
@@ -360,7 +360,7 @@ class TestGearCreateSerializer(BaseAPITest):
         User = get_user_model()
         user = User.objects.create_user(username="testuser2", password="testpass")
         # Create SourceProvider for the user
-        provider = SourceProvider.objects.create(
+        SourceProvider.objects.create(
             display_name="Test Provider 2",
             provider_key="test_provider_2",
             additional={"buoy_post_user_id": str(user.id)},
@@ -425,7 +425,7 @@ class TestGearCreateSerializer(BaseAPITest):
         User = get_user_model()
         user = User.objects.create_user(username="testuser3", password="testpass")
         # Create SourceProvider for the user
-        provider = SourceProvider.objects.create(
+        SourceProvider.objects.create(
             display_name="Test Provider 3",
             provider_key="test_provider_3",
             additional={"buoy_post_user_id": str(user.id)},
@@ -590,7 +590,7 @@ class TestGearCreateSerializer(BaseAPITest):
         User = get_user_model()
         user = User.objects.create_user(username="testuser_lookup", password="testpass")
         # Create SourceProvider for the user
-        provider = SourceProvider.objects.create(
+        SourceProvider.objects.create(
             display_name="Test Provider Lookup",
             provider_key="test_provider_lookup",
             additional={"buoy_post_user_id": str(user.id)},
@@ -775,7 +775,7 @@ def test_process_gearset_sets_source_provider_from_user(superuser):
     device_id = "123e4567-e89b-12d3-a456-426614174000"
 
     # Create a SourceProvider with the user's ID
-    provider = SourceProvider.objects.create(
+    SourceProvider.objects.create(
         display_name="Test Provider", provider_key="test_provider", additional={"buoy_post_user_id": str(superuser.id)}
     )
 
@@ -821,7 +821,7 @@ def test_process_gearset_updates_existing_subject_preserves_provider(superuser):
     device_id = "223e4567-e89b-12d3-a456-426614174000"
 
     # Create a SourceProvider with the user's ID
-    provider = SourceProvider.objects.create(
+    SourceProvider.objects.create(
         display_name="Test Provider", provider_key="test_provider", additional={"buoy_post_user_id": str(superuser.id)}
     )
 

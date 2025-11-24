@@ -19,7 +19,7 @@ from das.buoy.tests import (
     generate_fake_display_id,
     get_custom_location_gear_subjectsource,
 )
-from observations.models import Observation, SubjectGroup, SubjectSource
+from observations.models import Observation, SourceProvider, SubjectGroup, SubjectSource
 
 
 @pytest.mark.django_db
@@ -96,16 +96,25 @@ class TestGearView:
         subject1_source = five_gears[0]
         subject2_source = five_gears[1]
 
-        # Configure provider for subject1 with user's ID
-        provider1 = subject1_source.source.provider
-        provider1.additional = {"buoy_post_user_id": str(user.id)}
-        provider1.save()
+        # Create and assign distinct providers for each subject to ensure isolation
+        provider1 = SourceProvider.objects.create(
+            display_name="Provider 1",
+            provider_key=f"provider_1_{subject1_source.subject.id}",
+            additional={"buoy_post_user_id": str(user.id)},
+        )
+        subject1_source.source.provider = provider1
+        subject1_source.source.save()
 
-        # Configure provider for subject2 with a different ID
-        provider2 = subject2_source.source.provider
-        provider2.additional = {"buoy_post_user_id": "different-user-id"}
-        provider2.save()
+        provider2 = SourceProvider.objects.create(
+            display_name="Provider 2",
+            provider_key=f"provider_2_{subject2_source.subject.id}",
+            additional={"buoy_post_user_id": "different-user-id"},
+        )
+        subject2_source.source.provider = provider2
+        subject2_source.source.save()
 
+        # Assert providers are different to catch fixture misconfiguration
+        assert provider1.id != provider2.id, "Test requires different providers for subjects"
         # Try to access subject2 - should be denied
         url = reverse(self.base_url, kwargs={"id": subject2_source.subject.id})
         user_client.force_authenticate(user=user)
