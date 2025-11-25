@@ -58,9 +58,6 @@ DAILY_REPORT_TEMPLATE_SUBFOLDER = SERVER_FQDN
 # old partner subdomains.
 SERVER_NAMES = [
     SERVER_FQDN,
-    SERVER_FQDN.replace("pamdas.org", "apn.pamdas.org"),
-    SERVER_FQDN.replace("pamdas.org", "wps.pamdas.org"),
-    SERVER_FQDN.replace("pamdas.org", "fzs.pamdas.org"),
     "localhost:9000",
 ]
 
@@ -85,10 +82,13 @@ CORS_ORIGIN_WHITELIST = CORS_ALLOWED_ORIGINS
 SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", True)
 CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", True)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-CSRF_TRUSTED_ORIGINS = [
-    "localhost:9000",
-    SERVER_FQDN,
-]  # TODO: test with CORS_ALLOWED_ORIGINS, see https://docs.djangoproject.com/en/4.2/ref/settings/#csrf-trusted-origins
+
+# CSRF_TRUSTED_ORIGINS format differs between Django versions:
+# - Django 3.2 and earlier: expects domains WITHOUT schemes (e.g., "example.com")
+# - Django 4.0+: requires full URLs WITH schemes (e.g., "https://example.com")
+# Since we're on Django 3.2, use SERVER_NAMES directly (domains without schemes)
+CSRF_TRUSTED_ORIGINS = list(SERVER_NAMES)
+
 
 STATIC_ROOT = env.str("STATIC_ROOT", "/var/www/static/")
 
