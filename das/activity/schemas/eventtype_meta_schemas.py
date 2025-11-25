@@ -229,7 +229,7 @@ collection_field_schema = {
             "type": "object",
             "additionalProperties": False,
             "properties": {
-                "additionalProperties": {"type": "boolean", "const": False},
+                "type": {"type": "string", "const": "object"},
                 "properties": {
                     "type": "object",
                     "patternProperties": {
@@ -250,13 +250,13 @@ collection_field_schema = {
                     },
                 },
                 "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": True},
-                "type": {"type": "string", "const": "object"},
+                "additionalProperties": {"type": "boolean", "const": False},
                 "unevaluatedProperties": {"type": "boolean", "const": False},
             },
             "required": ["properties", "required", "type"],
             "oneOf": [
-                { "required": ["additionalProperties"] },
-                { "required": ["unevaluatedProperties"] }
+                {"required": ["additionalProperties"]},
+                {"required": ["unevaluatedProperties"]},
             ],
         },
         "unevaluatedItems": {"type": "boolean", "const": False},
@@ -494,7 +494,7 @@ json_field_schema = {
     "title": "Json schema for EventTypeV2 Builder",
     "properties": {
         "$schema": {"type": "string", "const": "https://json-schema.org/draft/2020-12/schema"},
-        "additionalProperties": {"type": "boolean", "const": False},
+        "type": {"type": "string", "const": "object"},
         "properties": {
             "type": "object",
             "additionalProperties": False,
@@ -516,13 +516,13 @@ json_field_schema = {
             },
         },
         "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": True},
-        "type": {"type": "string", "const": "object"},
+        "additionalProperties": {"type": "boolean", "const": False},
         "unevaluatedProperties": {"type": "boolean", "const": False},
     },
     "required": ["$schema", "properties", "required", "type"],
-     "oneOf": [
-        { "required": ["additionalProperties"] },
-        { "required": ["unevaluatedProperties"] }
+    "oneOf": [
+        {"required": ["additionalProperties"]},
+        {"required": ["unevaluatedProperties"]},
     ],
 }
 

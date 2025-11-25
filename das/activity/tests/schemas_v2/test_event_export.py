@@ -25,6 +25,7 @@ CARCASS_V2_EVENTTYPE_SCHEMA = {
     "json": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": False,
+        "type": "object",
         "properties": {
             "carcassrep_species": {
                 "deprecated": False,
@@ -104,6 +105,7 @@ CARCASS_V2_EVENTTYPE_SCHEMA = {
                 "items": {"type": "string", "anyOf": [{"$ref": f"{BASE_URL}/subjects.json?subject_subtypes=ranger"}]},
             },
         },
+        "required": [],
     },
     "ui": {
         "fields": {
