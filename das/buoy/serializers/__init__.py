@@ -1,3 +1,3 @@
-from buoy.serializers.gear import GearCreateSerializer, GearSerializer
+from buoy.serializers.gear import GearSerializer
 
-__all__ = ("GearSerializer", "GearCreateSerializer")
+__all__ = ("GearSerializer",)
