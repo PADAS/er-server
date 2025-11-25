@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 
@@ -10,7 +11,10 @@ from rest_framework import status
 from activity.constants import PRI_IMPORTANT, PRI_URGENT
 from activity.models import AlertRule, Event, EventType
 from activity.serializers.event_types_v2 import EventTypeV2Serializer
-from activity.tests.helpers.schema_test_utils import V2SchemaBuilder
+from activity.tests.helpers.schema_test_utils import (
+    V2SchemaBuilder,
+    minimal_event_type_schema,
+)
 
 
 @pytest.mark.django_db
@@ -44,15 +48,7 @@ class TestEventTypesV2:
     @pytest.fixture
     def valid_schema(self):
         """Valid event type schema structure for tests."""
-        return {
-            "json": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "type": "object",
-                "properties": {},
-                "required": [],
-            },
-            "ui": {"fields": {}, "headers": {}, "order": [], "sections": {}},
-        }
+        return copy.deepcopy(minimal_event_type_schema)
 
     @pytest.fixture
     def base_post_data(self, valid_schema, cat1_cat2_categories):
