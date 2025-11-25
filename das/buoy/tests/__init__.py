@@ -8,14 +8,20 @@ from geopy.distance import distance
 from django.contrib.gis.geos import Point
 
 from factories import GearFactory
-from observations.models import Observation
+from observations.models import Observation, SubjectSubType, SubjectType
 
 TEST_LOCATION = Point(0, 0)
 
 
 def get_custom_location_gear_subjectsource(location: Point = TEST_LOCATION):
     gear_subjectsource = GearFactory.create()
-    gear_subjectsource.save()
+
+    subject_type, _ = SubjectType.objects.get_or_create(value="gear", defaults={"display": "Gear"})
+    subject_subtype, _ = SubjectSubType.objects.get_or_create(
+        value="ropeless_buoy_device", defaults={"display": "Ropeless Buoy Device", "subject_type": subject_type}
+    )
+    gear_subjectsource.subject.subject_subtype = subject_subtype
+    gear_subjectsource.subject.is_active = True
 
     source = gear_subjectsource.source
     now = datetime.now(tz=timezone.utc)
@@ -29,6 +35,9 @@ def get_custom_location_gear_subjectsource(location: Point = TEST_LOCATION):
 
     observation = Observation.objects.create(**data)
     observation.save()
+
+    gear_subjectsource.subject.additional = additional
+    gear_subjectsource.subject.save()
 
     return gear_subjectsource
 
