@@ -1,6 +1,7 @@
 {
     "json": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
         "additionalProperties": false,
         "properties": {
             "what_is_the_response?": {
@@ -16,7 +17,7 @@
                 "opposition_casualties"
             ]
         },
-        "type": "object"
+        "required": []
     },
     "ui": {
         "fields": {
