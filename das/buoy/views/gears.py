@@ -19,7 +19,7 @@ from buoy import serializers
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
 from buoy.permissions import (
     GearLocationPermission,
-    GearSourceProviderPermission,
+    HasManufacturerSubjectGroupPermission,
     GearSubjectPermission,
 )
 from buoy.serializers.query_params import GearsQueryParamsSerializer
@@ -202,7 +202,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
 
 class GearView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = (GearSourceProviderPermission,)
+    permission_classes = (HasManufacturerSubjectGroupPermission,)
     serializer_class = serializers.GearSerializer
     lookup_field = "id"
 
