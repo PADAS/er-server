@@ -107,8 +107,9 @@ class HasManufacturerSubjectGroupPermission(BasePermission):
         effective_subject_group_ids = set()
         for subject_group in allowed_subject_groups:
             effective_subject_group_ids.add(subject_group.id)
-            # get_descendants() returns a queryset, use values_list to get IDs only
-            effective_subject_group_ids.update(subject_group.get_descendants().values_list("id", flat=True))
+            # get_descendants() returns a generator, convert to list then extract IDs
+            descendants = list(subject_group.get_descendants())
+            effective_subject_group_ids.update(desc.id for desc in descendants)
 
         # Check if subject is in any of the allowed groups
         # Use values_list to get IDs only, avoiding loading full SubjectGroup objects
