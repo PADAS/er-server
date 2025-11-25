@@ -494,3 +494,150 @@ class TestMetaSchemaPropertyConstraints:
 
         error_message = str(exc_info.value)
         assert "False was expected at json.unevaluatedProperties" in error_message
+
+
+class TestCollectionFieldMetaSchemaConstraints:
+    """
+    Tests for the meta-schema constraints on collection fields.
+
+    Collection fields have their own oneOf constraint at the items level,
+    requiring either additionalProperties or unevaluatedProperties.
+    """
+
+    def _build_collection_schema(self, items_overrides=None):
+        """Build a valid schema with a collection field."""
+        schema = {
+            "json": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                    "test_collection": {
+                        "type": "array",
+                        "title": "Test Collection",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                # Must match text_field_schema: requires deprecated, description, title, type
+                                "name": {
+                                    "type": "string",
+                                    "title": "Name",
+                                    "description": "",
+                                    "deprecated": False,
+                                },
+                            },
+                            "required": [],
+                            "additionalProperties": False,
+                        },
+                        "unevaluatedItems": False,
+                    }
+                },
+                "required": [],
+                "unevaluatedProperties": False,
+            },
+            "ui": copy.deepcopy(minimal_ui_schema),
+        }
+        if items_overrides:
+            schema["json"]["properties"]["test_collection"]["items"].update(items_overrides)
+        return schema
+
+    def _remove_items_key(self, schema, key):
+        """Remove a key from the items section of the collection field."""
+        items = schema["json"]["properties"]["test_collection"]["items"]
+        if key in items:
+            del items[key]
+        return schema
+
+    # --- Valid Collection Schemas (oneOf constraint) ---
+
+    def test_valid_collection_with_additional_properties(self):
+        """Collection items with additionalProperties: false should be valid."""
+        schema = self._build_collection_schema()
+        # Default already has additionalProperties
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        result = field.to_internal_value(schema)
+        assert result is not None
+
+    def test_valid_collection_with_unevaluated_properties(self):
+        """Collection items with unevaluatedProperties: false should be valid."""
+        schema = self._build_collection_schema()
+        self._remove_items_key(schema, "additionalProperties")
+        schema["json"]["properties"]["test_collection"]["items"]["unevaluatedProperties"] = False
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        result = field.to_internal_value(schema)
+        assert result is not None
+
+    # --- Invalid Collection Schemas (oneOf constraint violations) ---
+
+    def test_invalid_collection_with_both_properties(self):
+        """Collection items with BOTH properties should fail oneOf."""
+        schema = self._build_collection_schema()
+        schema["json"]["properties"]["test_collection"]["items"]["additionalProperties"] = False
+        schema["json"]["properties"]["test_collection"]["items"]["unevaluatedProperties"] = False
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        # oneOf fails when schema matches BOTH branches - wrapped in anyOf error
+        assert "is not valid under any of the given schemas" in error_message
+        assert "test_collection" in error_message
+
+    def test_invalid_collection_with_neither_property(self):
+        """Collection items with NEITHER property should fail oneOf."""
+        schema = self._build_collection_schema()
+        self._remove_items_key(schema, "additionalProperties")
+        self._remove_items_key(schema, "unevaluatedProperties")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "is not valid under any of the given schemas" in error_message
+
+    # --- Required properties in collection items ---
+
+    def test_invalid_collection_missing_type(self):
+        """Collection items missing 'type' should fail."""
+        schema = self._build_collection_schema()
+        self._remove_items_key(schema, "type")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        # Validation error is wrapped in anyOf at the collection field level
+        assert "is not valid under any of the given schemas" in error_message
+        assert "test_collection" in error_message
+
+    def test_invalid_collection_missing_required_array(self):
+        """Collection items missing 'required' array should fail."""
+        schema = self._build_collection_schema()
+        self._remove_items_key(schema, "required")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        # Validation error is wrapped in anyOf at the collection field level
+        assert "is not valid under any of the given schemas" in error_message
+        assert "test_collection" in error_message
+
+    def test_invalid_collection_missing_properties(self):
+        """Collection items missing 'properties' should fail."""
+        schema = self._build_collection_schema()
+        self._remove_items_key(schema, "properties")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        # Validation error is wrapped in anyOf at the collection field level
+        assert "is not valid under any of the given schemas" in error_message
+        assert "test_collection" in error_message
