@@ -114,7 +114,9 @@ class TestAdminCSRFBehavior:
 
         # Get login page
         response = client.get(login_url)
-        csrf_token = response.cookies.get("csrftoken").value
+        csrf_token_cookie = response.cookies.get("csrftoken")
+        assert csrf_token_cookie is not None, "CSRF token should be set in cookies"
+        csrf_token = csrf_token_cookie.value
 
         # Login
         response = client.post(
@@ -145,7 +147,9 @@ class TestAdminCSRFBehavior:
 
         # Get CSRF token
         response = client.get(login_url)
-        csrf_token = response.cookies.get("csrftoken").value
+        csrf_token_cookie = response.cookies.get("csrftoken")
+        assert csrf_token_cookie is not None, "CSRF token should be set in cookies"
+        csrf_token = csrf_token_cookie.value
 
         # Try to login with a mismatched Origin header
         # The Origin header must be present and not match CSRF_TRUSTED_ORIGINS

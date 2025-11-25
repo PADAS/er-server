@@ -6,6 +6,7 @@ import pytest
 from oauth2_provider.models import get_access_token_model
 
 from django.test import RequestFactory
+from rest_framework import exceptions
 
 from accounts.backends import PriorityOAuth2SessionAuthentication
 from accounts.models import User
@@ -81,7 +82,7 @@ class TestAuthenticationPriority:
         auth = PriorityOAuth2SessionAuthentication()
 
         # Should raise AuthenticationFailed when invalid token is provided
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(exceptions.AuthenticationFailed) as exc_info:
             auth.authenticate(request)
 
         # Should be an AuthenticationFailed exception
@@ -118,7 +119,7 @@ class TestAuthenticationPriority:
         auth = PriorityOAuth2SessionAuthentication()
 
         # Should raise AuthenticationFailed (not fall back to session user)
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(exceptions.AuthenticationFailed) as exc_info:
             auth.authenticate(request)
 
         # Should be an AuthenticationFailed exception
