@@ -19,8 +19,8 @@ from buoy import serializers
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
 from buoy.permissions import (
     GearLocationPermission,
-    HasManufacturerSubjectGroupPermission,
     GearSubjectPermission,
+    HasManufacturerSubjectGroupPermission,
 )
 from buoy.serializers.query_params import GearsQueryParamsSerializer
 from buoy.services.buoy_service import BuoyService
@@ -150,7 +150,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
                 subject__subject_subtype__in=["ropeless_buoy_device", BUOY_GEAR_SUBJECT_SUBTYPE]
             )
             .select_related("source", "subject")
-            .prefetch_related("source__last_observation_sources")
+            .prefetch_related("source__last_observation_sources", "subject__groups")
         )
         queryset = queryset.order_by("id")  # Stable sort for pagination
 
@@ -185,7 +185,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data, context={"user_id": request.user.id})
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data
@@ -215,7 +215,7 @@ class GearView(generics.RetrieveUpdateDestroyAPIView):
 
         # Prefetch related data for efficient queries
         queryset = queryset.select_related("subject", "source", "source__provider")
-        queryset = queryset.prefetch_related("source__last_observation_sources")
+        queryset = queryset.prefetch_related("source__last_observation_sources", "subject__groups")
 
         return queryset
 

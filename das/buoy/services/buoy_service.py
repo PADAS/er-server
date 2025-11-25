@@ -93,7 +93,7 @@ class BuoyService:
             subject, created = models.Subject.objects.get_or_create(id=set_id, defaults=subject_defaults)
 
         # Add subject to the SubjectGroup if not already a member
-        if subject_group not in subject.groups.all():
+        if not subject.groups.filter(id=subject_group.id).exists():
             subject.groups.add(subject_group)
 
         # Ensure name, display_id and manufacturer are set/updated when provided
