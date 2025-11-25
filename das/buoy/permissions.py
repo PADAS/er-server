@@ -1,4 +1,7 @@
+from django.core.exceptions import ImproperlyConfigured
 from rest_framework.permissions import BasePermission
+
+from observations.models import SubjectGroup
 
 
 class GearLocationPermission(BasePermission):
@@ -58,7 +61,14 @@ class HasManufacturerSubjectGroupPermission(BasePermission):
         if request.method == "GET":
             subject_id = view.kwargs.get("id")
             if not subject_id:
-                return False
+                # This permission class is designed for detail views only (retrieve operations).
+                # It should NOT be used with list views as it requires a specific object ID
+                # to perform SubjectGroup-based access control checks.
+                raise ImproperlyConfigured(
+                    "HasManufacturerSubjectGroupPermission should not be used with list views. "
+                    "This permission requires an 'id' in the URL kwargs to check object-level "
+                    "SubjectGroup membership. Use a different permission class for list operations."
+                )
             return True
 
         # For other methods (POST, PUT, DELETE), allow if authenticated
@@ -85,18 +95,22 @@ class HasManufacturerSubjectGroupPermission(BasePermission):
             request.user.get_all_permission_sets() if hasattr(request.user, "get_all_permission_sets") else []
         )
 
-        # Import here to avoid circular dependency
-        from observations.models import SubjectGroup
+        # If user has no permission sets, they can't access any SubjectGroups
+        if not user_permission_sets:
+            return False
 
         allowed_subject_groups = SubjectGroup.objects.filter(permission_sets__in=user_permission_sets)
 
         # Check if the subject belongs to any of the user's allowed SubjectGroups
         # Including descendants of allowed groups
-        effective_subject_group_set = set()
+        # Use values_list to fetch only IDs, avoiding N+1 queries
+        effective_subject_group_ids = set()
         for subject_group in allowed_subject_groups:
-            effective_subject_group_set.add(subject_group)
-            effective_subject_group_set.update(subject_group.get_descendants())
+            effective_subject_group_ids.add(subject_group.id)
+            # get_descendants() returns a queryset, use values_list to get IDs only
+            effective_subject_group_ids.update(subject_group.get_descendants().values_list("id", flat=True))
 
         # Check if subject is in any of the allowed groups
-        subject_groups = set(subject.groups.all())
-        return bool(subject_groups.intersection(effective_subject_group_set))
+        # Use values_list to get IDs only, avoiding loading full SubjectGroup objects
+        subject_group_ids = set(subject.groups.values_list("id", flat=True))
+        return bool(subject_group_ids.intersection(effective_subject_group_ids))

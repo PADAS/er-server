@@ -1,5 +1,6 @@
 import json
 from datetime import timedelta
+from unittest.mock import Mock
 
 import pytest
 from dateutil import parser as date_parser
@@ -24,6 +25,13 @@ from observations.models import (
     SubjectSource,
     SubjectSubType,
 )
+
+
+def _create_mock_request(user):
+    """Helper to create a mock request with a user for serializer context."""
+    request = Mock()
+    request.user = user
+    return request
 
 
 @pytest.mark.django_db
@@ -337,7 +345,7 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer = GearCreateSerializer(data=data, context={"user_id": user.id})
+        serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(user)})
         assert serializer.is_valid(), serializer.errors
 
         # Use BuoyService instead of serializer.save()
@@ -399,7 +407,7 @@ class TestGearCreateSerializer(BaseAPITest):
                 },
             ],
         }
-        serializer = GearCreateSerializer(data=data, context={"user_id": user.id})
+        serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(user)})
         assert serializer.is_valid(), serializer.errors
 
         # Use BuoyService instead of serializer.save()
@@ -456,7 +464,7 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer = GearCreateSerializer(data=data, context={"user_id": user.id})
+        serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(user)})
         assert serializer.is_valid(), serializer.errors
 
         # Verify that mfr_device_id was set to device_id
@@ -512,7 +520,7 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer = GearCreateSerializer(data=data, context={"user_id": user.id})
+        serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(user)})
         assert serializer.is_valid(), serializer.errors
 
         validated_data = serializer.validated_data
@@ -546,7 +554,7 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer2 = GearCreateSerializer(data=data_with_both, context={"user_id": user.id})
+        serializer2 = GearCreateSerializer(data=data_with_both, context={"request": _create_mock_request(user)})
         assert serializer2.is_valid(), serializer2.errors
 
         validated_data2 = serializer2.validated_data
@@ -585,7 +593,7 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer = GearCreateSerializer(data=data, context={"user_id": user.id})
+        serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(user)})
         assert not serializer.is_valid()
         assert "device_id" in json.dumps(serializer.errors)
         assert "required" in json.dumps(serializer.errors).lower()
@@ -622,7 +630,7 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer = GearCreateSerializer(data=data, context={"user_id": user.id})
+        serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(user)})
         assert not serializer.is_valid()
         assert "set_id" in serializer.errors
         assert "Cannot determine set_id" in str(serializer.errors["set_id"])
@@ -662,7 +670,7 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer1 = GearCreateSerializer(data=data, context={"user_id": user.id})
+        serializer1 = GearCreateSerializer(data=data, context={"request": _create_mock_request(user)})
         assert serializer1.is_valid(), serializer1.errors
 
         # Create the subject
@@ -688,7 +696,7 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer2 = GearCreateSerializer(data=data2, context={"user_id": user.id})
+        serializer2 = GearCreateSerializer(data=data2, context={"request": _create_mock_request(user)})
         assert serializer2.is_valid(), serializer2.errors
 
         # The set_id should be the same as the first one (found by mfr_set_id)
@@ -745,7 +753,7 @@ def test_gear_create_devices_in_set_and_haul_validation():
             }
         ],
     }
-    s = GearCreateSerializer(data=payload, context={"user_id": user.id})
+    s = GearCreateSerializer(data=payload, context={"request": _create_mock_request(user)})
     assert not s.is_valid()
     assert "devices_in_set" in json.dumps(s.errors)
 
@@ -767,7 +775,7 @@ def test_gear_create_devices_in_set_and_haul_validation():
             }
         ],
     }
-    s = GearCreateSerializer(data=payload, context={"user_id": user.id})
+    s = GearCreateSerializer(data=payload, context={"request": _create_mock_request(user)})
     assert not s.is_valid()
     assert "not deployed" in json.dumps(s.errors)
 
@@ -857,7 +865,7 @@ def test_process_gearset_adds_subject_to_subjectgroup(superuser):
         ],
     }
 
-    serializer = GearCreateSerializer(data=data, context={"user_id": superuser.id})
+    serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(superuser)})
     assert serializer.is_valid(), serializer.errors
 
     # Process gearset with user parameter
@@ -907,7 +915,7 @@ def test_process_gearset_updates_existing_subject_keeps_subjectgroup(superuser):
         ],
     }
 
-    serializer = GearCreateSerializer(data=data, context={"user_id": superuser.id})
+    serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(superuser)})
     assert serializer.is_valid(), serializer.errors
 
     # Process gearset with user parameter

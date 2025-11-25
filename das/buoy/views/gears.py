@@ -188,7 +188,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data, context={"user_id": request.user.id})
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data
@@ -218,7 +218,7 @@ class GearView(generics.RetrieveUpdateDestroyAPIView):
 
         # Prefetch related data for efficient queries
         queryset = queryset.select_related("subject", "source", "source__provider")
-        queryset = queryset.prefetch_related("source__last_observation_sources")
+        queryset = queryset.prefetch_related("source__last_observation_sources", "subject__groups")
 
         return queryset
 

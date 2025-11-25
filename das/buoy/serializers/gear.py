@@ -134,38 +134,27 @@ class GearCreateSerializer(serializers.Serializer):
             )
 
         # Check if user has permission to add subjects to this SubjectGroup
-        # User is passed via context
-        user = self.context.get("request")
-        if not user:
-            # Try to get user from user_id in context (for backward compatibility)
-            from django.contrib.auth import get_user_model
+        # Get user from request context (standard DRF pattern)
+        request = self.context.get("request")
+        if not request:
+            raise serializers.ValidationError(
+                "Request context is required for validation. "
+                "Ensure the serializer is called with request in context."
+            )
 
-            user_id = self.context.get("user_id")
-            if user_id:
-                User = get_user_model()
-                try:
-                    user = User.objects.get(id=user_id)
-                except User.DoesNotExist:
-                    raise serializers.ValidationError("Invalid user")
+        user = request.user
 
-        if user:
-            # Extract user from request object if needed
-            if hasattr(user, "user"):
-                user = user.user
+        # Superusers can create gears in any SubjectGroup
+        if not user.is_superuser:
+            # Check if user has permission to this SubjectGroup
+            user_permission_sets = user.get_all_permission_sets() if hasattr(user, "get_all_permission_sets") else []
+            allowed_subject_groups = models.SubjectGroup.objects.filter(permission_sets__in=user_permission_sets)
 
-            # Superusers can create gears in any SubjectGroup
-            if not user.is_superuser:
-                # Check if user has permission to this SubjectGroup
-                user_permission_sets = (
-                    user.get_all_permission_sets() if hasattr(user, "get_all_permission_sets") else []
+            if subject_group not in allowed_subject_groups:
+                raise serializers.ValidationError(
+                    f"You do not have permission to create gears in SubjectGroup '{value}'. "
+                    "Please contact your administrator to request access."
                 )
-                allowed_subject_groups = models.SubjectGroup.objects.filter(permission_sets__in=user_permission_sets)
-
-                if subject_group not in allowed_subject_groups:
-                    raise serializers.ValidationError(
-                        f"You do not have permission to create gears in SubjectGroup '{value}'. "
-                        "Please contact your administrator to request access."
-                    )
 
         return value
 
