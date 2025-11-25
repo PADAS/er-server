@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 
@@ -7,21 +8,10 @@ from rest_framework.serializers import ValidationError
 
 from activity.schemas.eventtype_meta_schemas import main_event_type_schema
 from activity.serializers.fields.json_schema import VALID_DRAFT, JSONSchemaField
-
-minimal_schema_json = {
-    "$schema": VALID_DRAFT,
-    "properties": {},
-    "type": "object",
-    "required": [],
-    "unevaluatedProperties": False,
-}
-
-minimal_schema_ui = {
-    "sections": {},
-    "headers": {},
-    "fields": {},
-    "order": [],
-}
+from activity.tests.helpers.schema_test_utils import (
+    minimal_json_schema,
+    minimal_ui_schema,
+)
 
 
 class TestJsonSchemaField:
@@ -104,7 +94,7 @@ class TestJsonSchemaField:
         [
             (
                 # Missing 'json' at root
-                {"ui": minimal_schema_ui},
+                {"ui": minimal_ui_schema},
                 "Invalid JSON Schema: 'json' is a required property at ",
             ),
             (
@@ -114,41 +104,41 @@ class TestJsonSchemaField:
             ),
             (
                 # Missing 'ui' at root
-                {"json": minimal_schema_json},
+                {"json": minimal_json_schema},
                 "Invalid JSON Schema: 'ui' is a required property at ",
             ),
             (
                 # Missing 'properties' under 'json'
                 {
                     "json": {"$schema": f"{VALID_DRAFT}"},
-                    "ui": minimal_schema_ui,
+                    "ui": minimal_ui_schema,
                 },
                 "Invalid JSON Schema: 'properties' is a required property at json",
             ),
             (
                 {
-                    "json": minimal_schema_json,
+                    "json": minimal_json_schema,
                     "ui": {"headers": {}, "order": [], "sections": {}},
                 },
                 "Invalid JSON Schema: 'fields' is a required property at ui",
             ),
             (
                 {
-                    "json": minimal_schema_json,
+                    "json": minimal_json_schema,
                     "ui": {"fields": {}, "order": [], "sections": {}},
                 },
                 "Invalid JSON Schema: 'headers' is a required property at ui",
             ),
             (
                 {
-                    "json": minimal_schema_json,
+                    "json": minimal_json_schema,
                     "ui": {"fields": {}, "headers": {}, "sections": {}},
                 },
                 "Invalid JSON Schema: 'order' is a required property at ui",
             ),
             (
                 {
-                    "json": minimal_schema_json,
+                    "json": minimal_json_schema,
                     "ui": {"fields": {}, "headers": {}, "order": []},
                 },
                 "Invalid JSON Schema: 'sections' is a required property at ui",
@@ -251,21 +241,9 @@ class TestJsonSchemaField:
 
     def _get_base_schema_for_section_tests(self):
         """Helper to create a MINIMALLY valid base schema for section validation tests."""
-        # Minimal valid 'json' object structure
         return {
-            "json": {
-                "$schema": VALID_DRAFT,
-                "properties": {},
-                "type": "object",
-                "required": [],
-                "unevaluatedProperties": False,
-            },
-            "ui": {
-                "sections": {},  # Tests will populate this
-                "headers": {},  # Tests will populate this
-                "fields": {},  # Minimal valid 'ui.fields'
-                "order": [],  # Tests will populate this
-            },
+            "json": copy.deepcopy(minimal_json_schema),
+            "ui": copy.deepcopy(minimal_ui_schema),
         }
 
     # --- Tests for _validate_parent_references --- #
