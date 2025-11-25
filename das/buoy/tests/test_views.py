@@ -19,7 +19,7 @@ from das.buoy.tests import (
     generate_fake_display_id,
     get_custom_location_gear_subjectsource,
 )
-from observations.models import Observation, SourceProvider, SubjectGroup, SubjectSource
+from observations.models import Observation, SubjectGroup, SubjectSource
 
 
 @pytest.mark.django_db
@@ -30,19 +30,29 @@ class TestGearView:
     @pytest.fixture
     def _get_superuser_client(self, gear_subjectsource, superuser, superuser_client):
         url = reverse(self.base_url, kwargs={"id": gear_subjectsource.subject.id})
-        # Configure the SourceProvider with the user's ID in additional.buoy_post_user_id
-        provider = gear_subjectsource.source.provider
-        provider.additional = {"buoy_post_user_id": str(superuser.id)}
-        provider.save()
+        # Create SubjectGroup and add subject to it
+        subject_group = SubjectGroup.objects.create(name="SuperUserManufacturer")
+        gear_subjectsource.subject.groups.add(subject_group)
+
+        # Assign permission to superuser
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser.permission_sets.add(permission_set)
+
         return superuser_client.get(url), superuser
 
     @pytest.fixture
     def _get_client(self, gear_subjectsource):
         client = HTTPClient()
-        # Configure the SourceProvider with the user's ID in additional.buoy_post_user_id
-        provider = gear_subjectsource.source.provider
-        provider.additional = {"buoy_post_user_id": str(client.app_user.id)}
-        provider.save()
+        # Create SubjectGroup and add subject to it
+        subject_group = SubjectGroup.objects.create(name="RegularUserManufacturer")
+        gear_subjectsource.subject.groups.add(subject_group)
+
+        # Assign permission to user
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        client.app_user.permission_sets.add(permission_set)
+
         url = reverse(self.base_url, kwargs={"id": gear_subjectsource.subject.id})
         request = client.factory.get(url)
         client.force_authenticate(request, client.app_user)
@@ -59,13 +69,13 @@ class TestGearView:
 
     def test_subject_view_with_matching_source_provider_regular_user(self, _get_client):
         response, user = _get_client
-        # Should have access since SourceProvider.additional.buoy_post_user_id matches user.id
+        # Should have access since user has permission to the SubjectGroup
         assert response.status_code == 200
         assert response.data["id"]
 
     def test_subject_view_without_matching_source_provider(self, gear_subjectsource):
         client = HTTPClient()
-        # Don't configure the SourceProvider with the user's ID - permission should be denied
+        # Don't add subject to any SubjectGroup that user has access to - permission should be denied
         url = reverse(self.base_url, kwargs={"id": gear_subjectsource.subject.id})
         request = client.factory.get(url)
         client.force_authenticate(request, client.app_user)
@@ -76,10 +86,9 @@ class TestGearView:
 
     def test_subject_view_with_not_matching_source_provider(self, gear_subjectsource):
         client = HTTPClient()
-        # Configure the SourceProvider with a different user's ID
-        provider = gear_subjectsource.source.provider
-        provider.additional = {"buoy_post_user_id": "different-user-id"}
-        provider.save()
+        # Create SubjectGroup but don't assign permission to user
+        subject_group = SubjectGroup.objects.create(name="OtherManufacturer")
+        gear_subjectsource.subject.groups.add(subject_group)
 
         url = reverse(self.base_url, kwargs={"id": gear_subjectsource.subject.id})
         request = client.factory.get(url)
@@ -96,25 +105,20 @@ class TestGearView:
         subject1_source = five_gears[0]
         subject2_source = five_gears[1]
 
-        # Create and assign distinct providers for each subject to ensure isolation
-        provider1 = SourceProvider.objects.create(
-            display_name="Provider 1",
-            provider_key=f"provider_1_{subject1_source.subject.id}",
-            additional={"buoy_post_user_id": str(user.id)},
-        )
-        subject1_source.source.provider = provider1
-        subject1_source.source.save()
+        # Create and assign distinct SubjectGroups for each subject to ensure isolation
+        subject_group1 = SubjectGroup.objects.create(name="Manufacturer1")
+        subject1_source.subject.groups.add(subject_group1)
+        permission_set1, _ = PermissionSet.objects.get_or_create(name=subject_group1.auto_permissionset_name)
+        subject_group1.permission_sets.add(permission_set1)
+        user.permission_sets.add(permission_set1)
 
-        provider2 = SourceProvider.objects.create(
-            display_name="Provider 2",
-            provider_key=f"provider_2_{subject2_source.subject.id}",
-            additional={"buoy_post_user_id": "different-user-id"},
-        )
-        subject2_source.source.provider = provider2
-        subject2_source.source.save()
+        subject_group2 = SubjectGroup.objects.create(name="Manufacturer2")
+        subject2_source.subject.groups.add(subject_group2)
+        # Don't give user access to subject_group2
 
-        # Assert providers are different to catch fixture misconfiguration
-        assert provider1.id != provider2.id, "Test requires different providers for subjects"
+        # Assert SubjectGroups are different to catch fixture misconfiguration
+        assert subject_group1.id != subject_group2.id, "Test requires different SubjectGroups for subjects"
+
         # Try to access subject2 - should be denied
         url = reverse(self.base_url, kwargs={"id": subject2_source.subject.id})
         user_client.force_authenticate(user=user)
@@ -131,18 +135,27 @@ class TestGearsView:
 
     @pytest.fixture
     def buoy_superuser_client(self, gear_subjectsource_with_observations, superuser_client):
-        # Configure the SourceProvider with the superuser's ID
-        provider = gear_subjectsource_with_observations.source.provider
-        provider.additional = {"buoy_post_user_id": str(superuser_client.user.id)}
-        provider.save()
+        # Create SubjectGroup and add subject to it
+        subject_group = SubjectGroup.objects.create(name="SuperUserTestManufacturer")
+        gear_subjectsource_with_observations.subject.groups.add(subject_group)
+
+        # Assign permission to superuser
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser_client.user.permission_sets.add(permission_set)
+
         return superuser_client, gear_subjectsource_with_observations
 
     @pytest.fixture
     def buoy_client(self, gear_subjectsource_with_observations, user_client):
-        # Configure the SourceProvider with the user's ID
-        provider = gear_subjectsource_with_observations.source.provider
-        provider.additional = {"buoy_post_user_id": str(user_client.user.id)}
-        provider.save()
+        # Create SubjectGroup and add subject to it
+        subject_group = SubjectGroup.objects.create(name="UserTestManufacturer")
+        gear_subjectsource_with_observations.subject.groups.add(subject_group)
+
+        # Assign permission to user
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        user_client.user.permission_sets.add(permission_set)
 
         # Create Subject-Group & have only one subject & give permission to view subject-source.
         parent_group = SubjectGroup.objects.create(name="SG Group")
