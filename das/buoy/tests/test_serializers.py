@@ -8,6 +8,7 @@ from psycopg2.extras import DateTimeTZRange
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 
+from accounts.models import PermissionSet
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
 from buoy.serializers import GearCreateSerializer, GearSerializer
 from buoy.serializers.gear import GeoLocationSerializer
@@ -19,6 +20,7 @@ from observations.models import (
     Source,
     SourceProvider,
     Subject,
+    SubjectGroup,
     SubjectSource,
     SubjectSubType,
 )
@@ -309,14 +311,17 @@ class TestGearCreateSerializer(BaseAPITest):
 
         User = get_user_model()
         user = User.objects.create_user(username="testuser", password="testpass")
-        # Create SourceProvider for the user
-        SourceProvider.objects.create(
-            display_name="Test Provider", provider_key="test_provider", additional={"buoy_post_user_id": str(user.id)}
-        )
+
+        # Create SubjectGroup and assign permission to user
+        subject_group = SubjectGroup.objects.create(name="TestManufacturer")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        user.permission_sets.add(permission_set)
 
         now = timezone.now()
         device_id = "123e4567-e89b-12d3-a456-426614174000"
         data = {
+            "manufacturer_name": "TestManufacturer",
             "owner_id": "owner123",
             "mfr_set_id": "SET123",
             "deployment_type": "single",
@@ -359,17 +364,18 @@ class TestGearCreateSerializer(BaseAPITest):
 
         User = get_user_model()
         user = User.objects.create_user(username="testuser2", password="testpass")
-        # Create SourceProvider for the user
-        SourceProvider.objects.create(
-            display_name="Test Provider 2",
-            provider_key="test_provider_2",
-            additional={"buoy_post_user_id": str(user.id)},
-        )
+
+        # Create SubjectGroup and assign permission to user
+        subject_group = SubjectGroup.objects.create(name="TestManufacturer2")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        user.permission_sets.add(permission_set)
 
         now = timezone.now()
         device_id_1 = "223e4567-e89b-12d3-a456-426614174000"
         device_id_2 = "323e4567-e89b-12d3-a456-426614174000"
         data = {
+            "manufacturer_name": "TestManufacturer2",
             "owner_id": "ownerXYZ",
             "mfr_set_id": "SET_TRAWL_001",
             "deployment_type": "trawl",
@@ -424,16 +430,17 @@ class TestGearCreateSerializer(BaseAPITest):
 
         User = get_user_model()
         user = User.objects.create_user(username="testuser3", password="testpass")
-        # Create SourceProvider for the user
-        SourceProvider.objects.create(
-            display_name="Test Provider 3",
-            provider_key="test_provider_3",
-            additional={"buoy_post_user_id": str(user.id)},
-        )
+
+        # Create SubjectGroup and assign permission to user
+        subject_group = SubjectGroup.objects.create(name="TestManufacturer3")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        user.permission_sets.add(permission_set)
 
         now = timezone.now()
         device_id = "523e4567-e89b-12d3-a456-426614174000"
         data = {
+            "manufacturer_name": "TestManufacturer3",
             "owner_id": "owner456",
             "mfr_set_id": "SET456",
             "deployment_type": "single",
@@ -474,11 +481,23 @@ class TestGearCreateSerializer(BaseAPITest):
 
     def test_set_level_defaults(self):
         """Test that mfr_set_id defaults to set_id and set_display_id defaults to mfr_set_id."""
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        user = User.objects.create_user(username="testuser4", password="testpass")
+
+        # Create SubjectGroup and assign permission to user
+        subject_group = SubjectGroup.objects.create(name="TestManufacturer4")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        user.permission_sets.add(permission_set)
+
         now = timezone.now()
         device_id = "623e4567-e89b-12d3-a456-426614174000"
 
         # Case 1: mfr_set_id provided but not set_display_id - both should be set correctly
         data = {
+            "manufacturer_name": "TestManufacturer4",
             "owner_id": "owner999",
             "mfr_set_id": "CUSTOM_MFR_999",
             "deployment_type": "single",
@@ -493,7 +512,7 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer = GearCreateSerializer(data=data, context={"user_id": 102})
+        serializer = GearCreateSerializer(data=data, context={"user_id": user.id})
         assert serializer.is_valid(), serializer.errors
 
         validated_data = serializer.validated_data
@@ -511,6 +530,7 @@ class TestGearCreateSerializer(BaseAPITest):
         # Case 2: Both mfr_set_id and set_display_id provided
         custom_set_display_id = "DISPLAY_456"
         data_with_both = {
+            "manufacturer_name": "TestManufacturer4",
             "owner_id": "owner997",
             "deployment_type": "single",
             "initial_deployment_date": now,
@@ -526,7 +546,7 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer2 = GearCreateSerializer(data=data_with_both, context={"user_id": 104})
+        serializer2 = GearCreateSerializer(data=data_with_both, context={"user_id": user.id})
         assert serializer2.is_valid(), serializer2.errors
 
         validated_data2 = serializer2.validated_data
@@ -537,8 +557,20 @@ class TestGearCreateSerializer(BaseAPITest):
 
     def test_device_id_required(self):
         """Test that device_id is required."""
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        user = User.objects.create_user(username="testuser5", password="testpass")
+
+        # Create SubjectGroup and assign permission to user
+        subject_group = SubjectGroup.objects.create(name="TestManufacturer5")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        user.permission_sets.add(permission_set)
+
         now = timezone.now()
         data = {
+            "manufacturer_name": "TestManufacturer5",
             "owner_id": "owner789",
             "deployment_type": "single",
             "initial_deployment_date": now,
@@ -553,16 +585,28 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer = GearCreateSerializer(data=data, context={"user_id": 101})
+        serializer = GearCreateSerializer(data=data, context={"user_id": user.id})
         assert not serializer.is_valid()
         assert "device_id" in json.dumps(serializer.errors)
         assert "required" in json.dumps(serializer.errors).lower()
 
     def test_set_id_required_without_mfr_set_id(self):
         """Test that set_id cannot be determined without mfr_set_id or set_id."""
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        user = User.objects.create_user(username="testuser6", password="testpass")
+
+        # Create SubjectGroup and assign permission to user
+        subject_group = SubjectGroup.objects.create(name="TestManufacturer6")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        user.permission_sets.add(permission_set)
+
         now = timezone.now()
         device_id = "723e4567-e89b-12d3-a456-426614174000"
         data = {
+            "manufacturer_name": "TestManufacturer6",
             "owner_id": "owner888",
             "deployment_type": "single",
             "initial_deployment_date": now,
@@ -578,7 +622,7 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer = GearCreateSerializer(data=data, context={"user_id": 105})
+        serializer = GearCreateSerializer(data=data, context={"user_id": user.id})
         assert not serializer.is_valid()
         assert "set_id" in serializer.errors
         assert "Cannot determine set_id" in str(serializer.errors["set_id"])
@@ -589,12 +633,12 @@ class TestGearCreateSerializer(BaseAPITest):
 
         User = get_user_model()
         user = User.objects.create_user(username="testuser_lookup", password="testpass")
-        # Create SourceProvider for the user
-        SourceProvider.objects.create(
-            display_name="Test Provider Lookup",
-            provider_key="test_provider_lookup",
-            additional={"buoy_post_user_id": str(user.id)},
-        )
+
+        # Create SubjectGroup and assign permission to user
+        subject_group = SubjectGroup.objects.create(name="TestManufacturerLookup")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        user.permission_sets.add(permission_set)
 
         now = timezone.now()
 
@@ -602,6 +646,7 @@ class TestGearCreateSerializer(BaseAPITest):
         device_id_1 = "823e4567-e89b-12d3-a456-426614174000"
         mfr_set_id = "LOOKUP_TEST_SET"
         data = {
+            "manufacturer_name": "TestManufacturerLookup",
             "owner_id": "owner777",
             "mfr_set_id": mfr_set_id,
             "deployment_type": "single",
@@ -627,6 +672,7 @@ class TestGearCreateSerializer(BaseAPITest):
         # Now POST again with the same mfr_set_id (but different device)
         device_id_2 = "923e4567-e89b-12d3-a456-426614174000"
         data2 = {
+            "manufacturer_name": "TestManufacturerLookup",
             "owner_id": "owner777",
             "mfr_set_id": mfr_set_id,  # Same mfr_set_id
             "deployment_type": "single",
@@ -642,7 +688,7 @@ class TestGearCreateSerializer(BaseAPITest):
                 }
             ],
         }
-        serializer2 = GearCreateSerializer(data=data2, context={"user_id": 107})
+        serializer2 = GearCreateSerializer(data=data2, context={"user_id": user.id})
         assert serializer2.is_valid(), serializer2.errors
 
         # The set_id should be the same as the first one (found by mfr_set_id)
@@ -668,9 +714,21 @@ def test_geo_location_serializer_bounds():
 
 @pytest.mark.django_db
 def test_gear_create_devices_in_set_and_haul_validation():
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.create_user(username="testuser_validation", password="testpass")
+
+    # Create SubjectGroup and assign permission to user
+    subject_group = SubjectGroup.objects.create(name="TestManufacturerValidation")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    user.permission_sets.add(permission_set)
+
     now = timezone.now()
     # devices_in_set mismatch
     payload = {
+        "manufacturer_name": "TestManufacturerValidation",
         "owner_id": "owner123",
         "mfr_set_id": "SET_MISMATCH",
         "deployment_type": "single",
@@ -687,12 +745,13 @@ def test_gear_create_devices_in_set_and_haul_validation():
             }
         ],
     }
-    s = GearCreateSerializer(data=payload, context={"user_id": 1})
+    s = GearCreateSerializer(data=payload, context={"user_id": user.id})
     assert not s.is_valid()
     assert "devices_in_set" in json.dumps(s.errors)
 
     # Hauling a device that's not deployed should error
     payload = {
+        "manufacturer_name": "TestManufacturerValidation",
         "owner_id": "owner123",
         "mfr_set_id": "SET_HAUL_TEST",
         "deployment_type": "single",
@@ -708,7 +767,7 @@ def test_gear_create_devices_in_set_and_haul_validation():
             }
         ],
     }
-    s = GearCreateSerializer(data=payload, context={"user_id": 1})
+    s = GearCreateSerializer(data=payload, context={"user_id": user.id})
     assert not s.is_valid()
     assert "not deployed" in json.dumps(s.errors)
 
@@ -769,19 +828,21 @@ def test_gear_serializer_devices_and_manufacturer():
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_process_gearset_sets_source_provider_from_user(superuser):
-    """Test that process_gearset uses SourceProvider with matching buoy_post_user_id."""
+def test_process_gearset_adds_subject_to_subjectgroup(superuser):
+    """Test that process_gearset adds the subject to the correct SubjectGroup."""
+    # Create SubjectGroup and assign permission to superuser
+    subject_group = SubjectGroup.objects.create(name="TestProcessManufacturer")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
     now = timezone.now()
     device_id = "123e4567-e89b-12d3-a456-426614174000"
 
-    # Create a SourceProvider with the user's ID
-    SourceProvider.objects.create(
-        display_name="Test Provider", provider_key="test_provider", additional={"buoy_post_user_id": str(superuser.id)}
-    )
-
     data = {
+        "manufacturer_name": "TestProcessManufacturer",
         "owner_id": "owner123",
-        "mfr_set_id": "TEST_SET_123",  # Need to provide mfr_set_id
+        "mfr_set_id": "TEST_SET_123",
         "deployment_type": "single",
         "initial_deployment_date": now,
         "devices": [
@@ -802,28 +863,25 @@ def test_process_gearset_sets_source_provider_from_user(superuser):
     # Process gearset with user parameter
     subject, observations = BuoyService.process_gearset(serializer.validated_data, user=superuser)
 
-    # Verify that the Source's provider has the matching buoy_post_user_id
-    source = observations[0].source
-    assert source.provider.additional.get("buoy_post_user_id") == str(superuser.id)
+    # Verify that the subject was added to the SubjectGroup
+    assert subject_group in subject.groups.all()
 
-    # Verify we can find the subject through the SourceProvider
-    subject_sources = SubjectSource.objects.filter(
-        subject=subject, source__provider__additional__buoy_post_user_id=str(superuser.id)
-    )
-    assert subject_sources.exists()
+    # Verify the subject has the correct manufacturer in additional
+    assert subject.additional.get("manufacturer") == "TestProcessManufacturer"
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_process_gearset_updates_existing_subject_preserves_provider(superuser):
-    """Test that process_gearset preserves SourceProvider when updating existing subject."""
+def test_process_gearset_updates_existing_subject_keeps_subjectgroup(superuser):
+    """Test that process_gearset maintains SubjectGroup membership when updating existing subject."""
+    # Create SubjectGroup and assign permission to superuser
+    subject_group = SubjectGroup.objects.create(name="TestUpdateManufacturer")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
     now = timezone.now()
     device_id = "223e4567-e89b-12d3-a456-426614174000"
-
-    # Create a SourceProvider with the user's ID
-    SourceProvider.objects.create(
-        display_name="Test Provider", provider_key="test_provider", additional={"buoy_post_user_id": str(superuser.id)}
-    )
 
     # Create a subject
     subject_subtype = SubjectSubType.objects.get_or_create(value=BUOY_GEAR_SUBJECT_SUBTYPE)[0]
@@ -832,6 +890,7 @@ def test_process_gearset_updates_existing_subject_preserves_provider(superuser):
     )
 
     data = {
+        "manufacturer_name": "TestUpdateManufacturer",
         "set_id": str(existing_subject.id),
         "owner_id": "owner123",
         "deployment_type": "single",
@@ -857,6 +916,8 @@ def test_process_gearset_updates_existing_subject_preserves_provider(superuser):
     # Verify the existing subject is returned
     assert subject.id == existing_subject.id
 
-    # Verify the Source's provider has the matching buoy_post_user_id
-    source = observations[0].source
-    assert source.provider.additional.get("buoy_post_user_id") == str(superuser.id)
+    # Verify that the subject was added to the SubjectGroup
+    assert subject_group in subject.groups.all()
+
+    # Verify the subject has the correct manufacturer in additional
+    assert subject.additional.get("manufacturer") == "TestUpdateManufacturer"

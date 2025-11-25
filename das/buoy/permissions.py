@@ -34,11 +34,14 @@ class GearSubjectPermission(BasePermission):
 
 class GearSourceProviderPermission(BasePermission):
     """
-    Custom permission to check if the user making the request has access to the gear
-    based on the SourceProvider's buoy_post_user_id matching the requesting user's ID.
+    Custom permission to check if the user making the request has access to the gear.
 
-    This permission implements both has_permission() for early request-level checks
-    and has_object_permission() for object-level checks that align with queryset filtering.
+    For GET requests (viewing gears):
+    - This checks if the gear's SubjectGroup is accessible to the user based on their permissions.
+    - This ensures users can only view gears from SubjectGroups they have access to.
+
+    This permission is NOT used for POST requests, as SubjectGroup validation
+    is handled in the serializer and service layer.
     """
 
     def has_permission(self, request, view):
@@ -50,33 +53,50 @@ class GearSourceProviderPermission(BasePermission):
         if request.user.is_superuser:
             return True
 
-        # For request-level check, we allow the request to proceed if subject_id is present
-        # The actual permission check happens in has_object_permission()
-        subject_id = view.kwargs.get("id")
-        if not subject_id:
-            return False
+        # For GET requests, we allow the request to proceed to has_object_permission
+        # where we'll check SubjectGroup membership
+        if request.method == "GET":
+            subject_id = view.kwargs.get("id")
+            if not subject_id:
+                return False
+            return True
 
+        # For other methods (POST, PUT, DELETE), allow if authenticated
+        # (additional validation happens in the serializer/service)
         return True
 
     def has_object_permission(self, request, view, obj):
         """
-        Check object-level permission based on the SubjectSource object.
-        This ensures permission logic aligns with queryset filtering.
+        Check object-level permission based on SubjectGroup membership.
+        This ensures users can only view gears from SubjectGroups they have access to.
         """
         # Superusers have all permissions
         if request.user.is_superuser:
             return True
 
         # obj is a SubjectSource instance from get_object()
-        # Check if this specific SubjectSource has a SourceProvider with matching buoy_post_user_id
-        if not hasattr(obj, "source") or not obj.source:
+        if not hasattr(obj, "subject") or not obj.subject:
             return False
 
-        provider = obj.source.provider
-        if not provider or not hasattr(provider, "additional") or not provider.additional:
-            return False
+        subject = obj.subject
 
-        user_id_str = str(request.user.id)
-        buoy_post_user_id = provider.additional.get("buoy_post_user_id")
+        # Get user's allowed SubjectGroups based on their permission sets
+        user_permission_sets = (
+            request.user.get_all_permission_sets() if hasattr(request.user, "get_all_permission_sets") else []
+        )
 
-        return buoy_post_user_id == user_id_str
+        # Import here to avoid circular dependency
+        from observations.models import SubjectGroup
+
+        allowed_subject_groups = SubjectGroup.objects.filter(permission_sets__in=user_permission_sets)
+
+        # Check if the subject belongs to any of the user's allowed SubjectGroups
+        # Including descendants of allowed groups
+        effective_subject_group_set = set()
+        for subject_group in allowed_subject_groups:
+            effective_subject_group_set.add(subject_group)
+            effective_subject_group_set.update(subject_group.get_descendants())
+
+        # Check if subject is in any of the allowed groups
+        subject_groups = set(subject.groups.all())
+        return bool(subject_groups.intersection(effective_subject_group_set))

@@ -104,6 +104,7 @@ class GearCreateSerializer(serializers.Serializer):
     set_id = serializers.UUIDField(required=False)
     mfr_set_id = serializers.CharField(max_length=100, required=False)
     set_display_id = serializers.CharField(max_length=100, required=False)
+    manufacturer_name = serializers.CharField(max_length=100, required=True)
     owner_id = serializers.CharField(max_length=100, required=False)
     vessel_id = serializers.CharField(max_length=100, required=False)
     permit_number = serializers.CharField(max_length=100, required=False)
@@ -115,6 +116,58 @@ class GearCreateSerializer(serializers.Serializer):
     initial_deployment_date = serializers.DateTimeField(required=False)  # Conditionally required
     set_additional_data = serializers.JSONField(required=False)
     devices = GearDeviceCreateSerializer(many=True, required=True)
+
+    def validate_manufacturer_name(self, value):
+        """Validate manufacturer_name corresponds to an existing SubjectGroup."""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Manufacturer name cannot be empty")
+
+        value = value.strip()
+
+        # Check if SubjectGroup exists
+        try:
+            subject_group = models.SubjectGroup.objects.get(name=value)
+        except models.SubjectGroup.DoesNotExist:
+            raise serializers.ValidationError(
+                f"SubjectGroup with name '{value}' does not exist. "
+                "Please contact your administrator to create this manufacturer group."
+            )
+
+        # Check if user has permission to add subjects to this SubjectGroup
+        # User is passed via context
+        user = self.context.get("request")
+        if not user:
+            # Try to get user from user_id in context (for backward compatibility)
+            from django.contrib.auth import get_user_model
+
+            user_id = self.context.get("user_id")
+            if user_id:
+                User = get_user_model()
+                try:
+                    user = User.objects.get(id=user_id)
+                except User.DoesNotExist:
+                    raise serializers.ValidationError("Invalid user")
+
+        if user:
+            # Extract user from request object if needed
+            if hasattr(user, "user"):
+                user = user.user
+
+            # Superusers can create gears in any SubjectGroup
+            if not user.is_superuser:
+                # Check if user has permission to this SubjectGroup
+                user_permission_sets = (
+                    user.get_all_permission_sets() if hasattr(user, "get_all_permission_sets") else []
+                )
+                allowed_subject_groups = models.SubjectGroup.objects.filter(permission_sets__in=user_permission_sets)
+
+                if subject_group not in allowed_subject_groups:
+                    raise serializers.ValidationError(
+                        f"You do not have permission to create gears in SubjectGroup '{value}'. "
+                        "Please contact your administrator to request access."
+                    )
+
+        return value
 
     def validate_owner_id(self, value):
         """Validate owner_id is not empty and has valid format."""
@@ -358,15 +411,26 @@ class GearSerializer(serializers.ModelSerializer):
 
     def get_manufacturer(self, obj):
         if subject := obj.subject:
+            # First, try to get manufacturer from Subject's additional field (new approach)
             additional = subject.additional or {}
             manufacturer = additional.get("manufacturer")
             if manufacturer:
                 return manufacturer
 
-        provider_key = obj.source.provider.provider_key
-        if match := re.match(r"^gundi_(.+?)_[0-9a-f-]+$", provider_key):
-            return match.group(1)
-        return provider_key
+            # Second, try to get from SubjectGroup name
+            # Get the first SubjectGroup the subject belongs to (assuming one SubjectGroup per manufacturer)
+            subject_groups = subject.groups.all()
+            if subject_groups.exists():
+                return subject_groups.first().name
+
+        # Fallback to provider_key for backward compatibility
+        if obj.source and obj.source.provider:
+            provider_key = obj.source.provider.provider_key
+            if match := re.match(r"^gundi_(.+?)_[0-9a-f-]+$", provider_key):
+                return match.group(1)
+            return provider_key
+
+        return "unknown"
 
     def get_devices(self, obj):
         if subject := obj.subject:
