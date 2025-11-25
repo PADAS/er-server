@@ -13,6 +13,45 @@ from activity.alerting.businessrules import (
     export_rule_data,
 )
 
+# =============================================================================
+# Constants
+# =============================================================================
+
+# JSON Schema draft versions
+V1_DRAFT = "http://json-schema.org/draft-07/schema#"
+V2_DRAFT = "https://json-schema.org/draft/2020-12/schema"
+VALID_DRAFT = V2_DRAFT  # Alias for backward compatibility
+
+# Test choice data constants
+standard_choices = {"active": "Active", "inactive": "Inactive", "pending": "Pending"}
+simple_choices = {"option1": "Option 1", "option2": "Option 2"}
+
+# Minimal valid V2 schema structures
+minimal_json_schema = {
+    "$schema": V2_DRAFT,
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "unevaluatedProperties": False,
+}
+
+minimal_ui_schema = {
+    "sections": {},
+    "headers": {},
+    "fields": {},
+    "order": [],
+}
+
+minimal_event_type_schema = {
+    "json": minimal_json_schema,
+    "ui": minimal_ui_schema,
+}
+
+
+# =============================================================================
+# Schema Builders
+# =============================================================================
+
 
 class V1SchemaBuilder:
     """Builder for V1 EventType JSON schemas using DRY patterns."""
@@ -34,7 +73,7 @@ class V1SchemaBuilder:
 
         return {
             "schema": {
-                "$schema": "http://json-schema.org/draft-07/schema#",
+                "$schema": V1_DRAFT,
                 "title": "Test Schema",
                 "type": "object",
                 "properties": {field_name: field_props},
@@ -55,7 +94,7 @@ class V1SchemaBuilder:
             with_field: Whether to include a test field in the schema
         """
         schema = {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$schema": V1_DRAFT,
             "title": "Test Schema",
             "type": "object",
             "readonly": readonly_value,
@@ -99,7 +138,7 @@ class V1SchemaBuilder:
 
         return {
             "schema": {
-                "$schema": "http://json-schema.org/draft-07/schema#",
+                "$schema": V1_DRAFT,
                 "title": "Multi-Field Test Schema",
                 "type": "object",
                 "properties": properties,
@@ -123,7 +162,7 @@ class V2SchemaBuilder:
         }
         return {
             "json": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$schema": V2_DRAFT,
                 "additionalProperties": False,
                 "type": "object",
                 "properties": {
@@ -148,7 +187,7 @@ class V2SchemaBuilder:
         }
         return {
             "json": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$schema": V2_DRAFT,
                 "additionalProperties": False,
                 "type": "object",
                 "properties": {
@@ -193,7 +232,7 @@ class V2SchemaBuilder:
 
         return {
             "json": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$schema": V2_DRAFT,
                 "additionalProperties": False,
                 "type": "object",
                 "properties": properties,
@@ -293,9 +332,3 @@ class EventTypeTestHelpers:
             option_values = [opt["name"] for opt in choice_var["options"]]
             for choice in expected_choices:
                 assert choice in option_values, f"Expected choice '{choice}' not found in {option_values}"
-
-
-# Test Data Constants (for easy reuse across tests)
-standard_choices = {"active": "Active", "inactive": "Inactive", "pending": "Pending"}
-
-simple_choices = {"option1": "Option 1", "option2": "Option 2"}

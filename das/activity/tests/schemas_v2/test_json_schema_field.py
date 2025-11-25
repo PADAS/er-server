@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 
@@ -7,6 +8,10 @@ from rest_framework.serializers import ValidationError
 
 from activity.schemas.eventtype_meta_schemas import main_event_type_schema
 from activity.serializers.fields.json_schema import VALID_DRAFT, JSONSchemaField
+from activity.tests.helpers.schema_test_utils import (
+    minimal_json_schema,
+    minimal_ui_schema,
+)
 
 
 class TestJsonSchemaField:
@@ -89,7 +94,7 @@ class TestJsonSchemaField:
         [
             (
                 # Missing 'json' at root
-                {"ui": {"fields": {}, "headers": {}, "order": [], "sections": {}}},
+                {"ui": minimal_ui_schema},
                 "Invalid JSON Schema: 'json' is a required property at ",
             ),
             (
@@ -99,41 +104,41 @@ class TestJsonSchemaField:
             ),
             (
                 # Missing 'ui' at root
-                {"json": {"$schema": f"{VALID_DRAFT}", "properties": {}}},
+                {"json": minimal_json_schema},
                 "Invalid JSON Schema: 'ui' is a required property at ",
             ),
             (
                 # Missing 'properties' under 'json'
                 {
                     "json": {"$schema": f"{VALID_DRAFT}"},
-                    "ui": {"fields": {}, "headers": {}, "order": [], "sections": {}},
+                    "ui": minimal_ui_schema,
                 },
                 "Invalid JSON Schema: 'properties' is a required property at json",
             ),
             (
                 {
-                    "json": {"$schema": f"{VALID_DRAFT}", "properties": {}},
+                    "json": minimal_json_schema,
                     "ui": {"headers": {}, "order": [], "sections": {}},
                 },
                 "Invalid JSON Schema: 'fields' is a required property at ui",
             ),
             (
                 {
-                    "json": {"$schema": f"{VALID_DRAFT}", "properties": {}},
+                    "json": minimal_json_schema,
                     "ui": {"fields": {}, "order": [], "sections": {}},
                 },
                 "Invalid JSON Schema: 'headers' is a required property at ui",
             ),
             (
                 {
-                    "json": {"$schema": f"{VALID_DRAFT}", "properties": {}},
+                    "json": minimal_json_schema,
                     "ui": {"fields": {}, "headers": {}, "sections": {}},
                 },
                 "Invalid JSON Schema: 'order' is a required property at ui",
             ),
             (
                 {
-                    "json": {"$schema": f"{VALID_DRAFT}", "properties": {}},
+                    "json": minimal_json_schema,
                     "ui": {"fields": {}, "headers": {}, "order": []},
                 },
                 "Invalid JSON Schema: 'sections' is a required property at ui",
@@ -237,13 +242,8 @@ class TestJsonSchemaField:
     def _get_base_schema_for_section_tests(self):
         """Helper to create a MINIMALLY valid base schema for section validation tests."""
         return {
-            "json": {"$schema": VALID_DRAFT, "properties": {}},  # Minimal valid 'json' object structure
-            "ui": {
-                "sections": {},  # Tests will populate this
-                "headers": {},  # Tests will populate this
-                "fields": {},  # Minimal valid 'ui.fields'
-                "order": [],  # Tests will populate this
-            },
+            "json": copy.deepcopy(minimal_json_schema),
+            "ui": copy.deepcopy(minimal_ui_schema),
         }
 
     # --- Tests for _validate_parent_references --- #
@@ -339,3 +339,305 @@ class TestJsonSchemaField:
             # No validation error should occur at all when section validation is off
             # and the base schema is otherwise valid.
             pytest.fail(f"Validation failed unexpectedly even when section validation was disabled: {e}")
+
+
+class TestMetaSchemaPropertyConstraints:
+    """
+    Tests for the meta-schema constraints on EventType V2 schemas.
+
+    These tests verify the oneOf constraint requiring either additionalProperties
+    or unevaluatedProperties, plus mandatory type and required properties.
+    """
+
+    def _build_schema(self, json_overrides=None):
+        """Build a valid schema with optional overrides to the json section."""
+        schema = {
+            "json": copy.deepcopy(minimal_json_schema),
+            "ui": copy.deepcopy(minimal_ui_schema),
+        }
+        if json_overrides:
+            schema["json"].update(json_overrides)
+        return schema
+
+    def _remove_json_key(self, schema, key):
+        """Remove a key from the json section of the schema."""
+        if key in schema["json"]:
+            del schema["json"][key]
+        return schema
+
+    # --- Valid Schemas (oneOf constraint) ---
+
+    def test_valid_schema_with_unevaluated_properties(self):
+        """Schema with unevaluatedProperties: false should be valid."""
+        schema = self._build_schema()
+        # Ensure only unevaluatedProperties is present
+        self._remove_json_key(schema, "additionalProperties")
+        schema["json"]["unevaluatedProperties"] = False
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        result = field.to_internal_value(schema)
+        assert result is not None
+
+    def test_valid_schema_with_additional_properties(self):
+        """Schema with additionalProperties: false should be valid."""
+        schema = self._build_schema()
+        # Ensure only additionalProperties is present
+        self._remove_json_key(schema, "unevaluatedProperties")
+        schema["json"]["additionalProperties"] = False
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        result = field.to_internal_value(schema)
+        assert result is not None
+
+    # --- Invalid Schemas (oneOf constraint violations) ---
+
+    def test_invalid_schema_with_both_properties(self):
+        """Schema with BOTH additionalProperties AND unevaluatedProperties should fail oneOf."""
+        schema = self._build_schema()
+        schema["json"]["additionalProperties"] = False
+        schema["json"]["unevaluatedProperties"] = False
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        # oneOf fails when schema matches BOTH branches
+        assert "is valid under each of" in error_message
+
+    def test_invalid_schema_with_neither_property(self):
+        """Schema with NEITHER additionalProperties NOR unevaluatedProperties should fail."""
+        schema = self._build_schema()
+        self._remove_json_key(schema, "additionalProperties")
+        self._remove_json_key(schema, "unevaluatedProperties")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "is not valid under any of the given schemas" in error_message
+
+    # --- Required properties tests ---
+
+    def test_invalid_schema_missing_type(self):
+        """Schema missing 'type: object' should fail."""
+        schema = self._build_schema()
+        self._remove_json_key(schema, "type")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "'type' is a required property" in error_message
+
+    def test_invalid_schema_missing_required_array(self):
+        """Schema missing 'required' array should fail."""
+        schema = self._build_schema()
+        self._remove_json_key(schema, "required")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "'required' is a required property" in error_message
+
+    def test_invalid_schema_missing_properties(self):
+        """Schema missing 'properties' object should fail."""
+        schema = self._build_schema()
+        self._remove_json_key(schema, "properties")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "'properties' is a required property" in error_message
+
+    # --- Property value constraints ---
+
+    def test_invalid_type_value(self):
+        """Schema with type != 'object' should fail."""
+        schema = self._build_schema({"type": "array"})
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "'object' was expected at json.type" in error_message
+
+    def test_invalid_additional_properties_value(self):
+        """Schema with additionalProperties: true should fail (must be false)."""
+        schema = self._build_schema()
+        self._remove_json_key(schema, "unevaluatedProperties")
+        schema["json"]["additionalProperties"] = True
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "False was expected at json.additionalProperties" in error_message
+
+    def test_invalid_unevaluated_properties_value(self):
+        """Schema with unevaluatedProperties: true should fail (must be false)."""
+        schema = self._build_schema()
+        self._remove_json_key(schema, "additionalProperties")
+        schema["json"]["unevaluatedProperties"] = True
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "False was expected at json.unevaluatedProperties" in error_message
+
+
+class TestCollectionFieldMetaSchemaConstraints:
+    """
+    Tests for the meta-schema constraints on collection fields.
+
+    Collection fields have their own oneOf constraint at the items level,
+    requiring either additionalProperties or unevaluatedProperties.
+    """
+
+    def _build_collection_schema(self, items_overrides=None):
+        """Build a valid schema with a collection field."""
+        schema = {
+            "json": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                    "test_collection": {
+                        "type": "array",
+                        "title": "Test Collection",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                # Must match text_field_schema: requires deprecated, description, title, type
+                                "name": {
+                                    "type": "string",
+                                    "title": "Name",
+                                    "description": "",
+                                    "deprecated": False,
+                                },
+                            },
+                            "required": [],
+                            "additionalProperties": False,
+                        },
+                        "unevaluatedItems": False,
+                    }
+                },
+                "required": [],
+                "unevaluatedProperties": False,
+            },
+            "ui": copy.deepcopy(minimal_ui_schema),
+        }
+        if items_overrides:
+            schema["json"]["properties"]["test_collection"]["items"].update(items_overrides)
+        return schema
+
+    def _remove_items_key(self, schema, key):
+        """Remove a key from the items section of the collection field."""
+        items = schema["json"]["properties"]["test_collection"]["items"]
+        if key in items:
+            del items[key]
+        return schema
+
+    # --- Valid Collection Schemas (oneOf constraint) ---
+
+    def test_valid_collection_with_additional_properties(self):
+        """Collection items with additionalProperties: false should be valid."""
+        schema = self._build_collection_schema()
+        # Default already has additionalProperties
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        result = field.to_internal_value(schema)
+        assert result is not None
+
+    def test_valid_collection_with_unevaluated_properties(self):
+        """Collection items with unevaluatedProperties: false should be valid."""
+        schema = self._build_collection_schema()
+        self._remove_items_key(schema, "additionalProperties")
+        schema["json"]["properties"]["test_collection"]["items"]["unevaluatedProperties"] = False
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        result = field.to_internal_value(schema)
+        assert result is not None
+
+    # --- Invalid Collection Schemas (oneOf constraint violations) ---
+
+    def test_invalid_collection_with_both_properties(self):
+        """Collection items with BOTH properties should fail oneOf."""
+        schema = self._build_collection_schema()
+        schema["json"]["properties"]["test_collection"]["items"]["additionalProperties"] = False
+        schema["json"]["properties"]["test_collection"]["items"]["unevaluatedProperties"] = False
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        # oneOf fails when schema matches BOTH branches - wrapped in anyOf error
+        assert "is not valid under any of the given schemas" in error_message
+        assert "test_collection" in error_message
+
+    def test_invalid_collection_with_neither_property(self):
+        """Collection items with NEITHER property should fail oneOf."""
+        schema = self._build_collection_schema()
+        self._remove_items_key(schema, "additionalProperties")
+        self._remove_items_key(schema, "unevaluatedProperties")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "is not valid under any of the given schemas" in error_message
+
+    # --- Required properties in collection items ---
+
+    def test_invalid_collection_missing_type(self):
+        """Collection items missing 'type' should fail."""
+        schema = self._build_collection_schema()
+        self._remove_items_key(schema, "type")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        # Validation error is wrapped in anyOf at the collection field level
+        assert "is not valid under any of the given schemas" in error_message
+        assert "test_collection" in error_message
+
+    def test_invalid_collection_missing_required_array(self):
+        """Collection items missing 'required' array should fail."""
+        schema = self._build_collection_schema()
+        self._remove_items_key(schema, "required")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        # Validation error is wrapped in anyOf at the collection field level
+        assert "is not valid under any of the given schemas" in error_message
+        assert "test_collection" in error_message
+
+    def test_invalid_collection_missing_properties(self):
+        """Collection items missing 'properties' should fail."""
+        schema = self._build_collection_schema()
+        self._remove_items_key(schema, "properties")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        # Validation error is wrapped in anyOf at the collection field level
+        assert "is not valid under any of the given schemas" in error_message
+        assert "test_collection" in error_message
