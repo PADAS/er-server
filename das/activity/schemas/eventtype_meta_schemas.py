@@ -1,15 +1,15 @@
 text_field_schema = {
     "type": "object",
-    "title": "Text schema for EventType Builder",
+    "title": "Text field schema for EventType Builder",
     "properties": {
         "default": {"type": "string"},
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
-        "title": {"type": "string"},
+        "title": {"type": "string", "maxLength": 100},
         "type": {"const": "string"},
     },
     "additionalProperties": False,
-    "required": ["deprecated", "description", "title", "type"],
+    "required": ["deprecated", "title", "type"],
 }
 
 attachment_field_schema = {
@@ -18,10 +18,10 @@ attachment_field_schema = {
     "properties": {
         "deprecated": {"type": "boolean"},
         "format": {"const": "uri"},
-        "title": {"type": "string"},
+        "title": {"type": "string", "maxLength": 100},
         "type": {"const": "string"},
     },
-    "required": ["deprecated", "title", "type", "format"],
+    "required": ["deprecated", "format", "title", "type"],
     "additionalProperties": False,
 }
 
@@ -32,12 +32,11 @@ date_time_field_schema = {
     "properties": {
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
-        "format": {"type": "string", "enum": ["date-time", "date", "time"]},
-        "default": {"type": "string"},
-        "title": {"type": "string"},
-        "type": {"type": "string", "const": "string"},
+        "format": {"enum": ["date-time", "date", "time"]},
+        "title": {"type": "string", "maxLength": 100},
+        "type": {"const": "string"},
     },
-    "required": ["deprecated", "format"],
+    "required": ["deprecated", "format", "title", "type"],
     "additionalProperties": False,
 }
 
@@ -47,35 +46,37 @@ location_field_schema = {
     "properties": {
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
-        "title": {"type": "string"},
-        "type": {"type": "string", "const": "object"},
         "properties": {
             "type": "object",
             "properties": {
                 "latitude": {
                     "type": "object",
                     "properties": {
-                        "type": {"type": "string", "const": "number"},
-                        "minimum": {"type": "number", "const": -90},
-                        "maximum": {"type": "number", "const": 90},
+                        "maximum": {"const": 90},
+                        "minimum": {"const": -90},
+                        "type": {"const": "number"},
                     },
+                    "required": ["maximum", "minimum", "type"],
                     "additionalProperties": False,
                 },
                 "longitude": {
                     "type": "object",
                     "properties": {
-                        "type": {"type": "string", "const": "number"},
-                        "minimum": {"type": "number", "const": -180},
-                        "maximum": {"type": "number", "const": 180},
+                        "maximum": {"const": 180},
+                        "minimum": {"const": -180},
+                        "type": {"const": "number"},
                     },
+                    "required": ["maximum", "minimum", "type"],
                     "additionalProperties": False,
                 },
             },
             "required": ["latitude", "longitude"],
             "additionalProperties": False,
         },
+        "title": {"type": "string", "maxLength": 100},
+        "type": {"const": "object"},
     },
-    "required": ["deprecated", "description", "title", "type", "properties"],
+    "required": ["deprecated", "properties", "title", "type"],
     "additionalProperties": False,
 }
 
@@ -86,12 +87,12 @@ numeric_field_schema = {
         "default": {"type": "number"},
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
-        "title": {"type": "string"},
-        "type": {"type": "string", "const": "number"},
         "maximum": {"type": "number"},
         "minimum": {"type": "number"},
+        "title": {"type": "string", "maxLength": 100},
+        "type": {"const": "number"},
     },
-    "required": ["deprecated", "description", "title", "type"],
+    "required": ["deprecated", "title", "type"],
     "additionalProperties": False,
 }
 
@@ -99,7 +100,9 @@ reference_choice_object_schema_in_anyOf = {
     "type": "array",
     "items": {
         "type": "object",
-        "properties": {"$ref": {"type": "string", "format": "uri"}},
+        "properties": {
+            "$ref": {"type": "string", "format": "uri"}
+        },
         "required": ["$ref"],
     },
     "minItems": 1,
@@ -109,13 +112,13 @@ choice_field_schema = {
     "type": "object",
     "title": "Choice field schema for EventType Builder",
     "properties": {
-        "type": {"type": "string"},
-        "title": {"type": "string"},
-        "description": {"type": "string"},
-        "deprecated": {"type": "boolean"},
         "anyOf": reference_choice_object_schema_in_anyOf,
+        "deprecated": {"type": "boolean"},
+        "description": {"type": "string"},
+        "title": {"type": "string", "maxLength": 100},
+        "type": {"const": "string"},
     },
-    "required": ["deprecated", "description", "title", "type", "anyOf"],
+    "required": ["anyOf", "deprecated", "title", "type"],
     "additionalProperties": False,
 }
 
@@ -123,21 +126,22 @@ choice_list_field_schema = {
     "type": "object",
     "title": "Choice list field schema for EventType Builder",
     "properties": {
-        "type": {"type": "string", "const": "array"},
-        "title": {"type": "string"},
-        "description": {"type": "string"},
         "deprecated": {"type": "boolean"},
+        "description": {"type": "string"},
         "items": {
             "type": "object",
             "properties": {
                 "anyOf": reference_choice_object_schema_in_anyOf,
-                "type": {"type": "string"},
+                "type": {"const": "string"},
             },
+            "required": ["anyOf", "type"],
             "additionalItems": False,
         },
-        "uniqueItems": {"type": "boolean"},
+        "title": {"type": "string", "maxLength": 100},
+        "type": {"const": "array"},
+        "uniqueItems": {"const": True},
     },
-    "required": ["deprecated", "description", "title", "type", "items"],
+    "required": ["deprecated", "items", "title", "type", "uniqueItems"],
     "additionalProperties": False,
 }
 
@@ -221,15 +225,12 @@ collection_field_schema = {
     "type": "object",
     "title": "Collection field schema for EventType Builder",
     "properties": {
-        "type": {"type": "string", "const": "array"},
-        "title": {"type": "string"},
-        "description": {"type": "string"},
         "deprecated": {"type": "boolean"},
+        "description": {"type": "string"},
         "items": {
             "type": "object",
-            "additionalProperties": False,
             "properties": {
-                "type": {"type": "string", "const": "object"},
+                "additionalProperties": {"const": False},
                 "properties": {
                     "type": "object",
                     "patternProperties": {
@@ -249,9 +250,13 @@ collection_field_schema = {
                         }
                     },
                 },
-                "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": True},
-                "additionalProperties": {"type": "boolean", "const": False},
-                "unevaluatedProperties": {"type": "boolean", "const": False},
+                "required": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "uniqueItems": {"const": True},
+                },
+                "type": {"const": "object"},
+                "unevaluatedProperties": {"const": False},
             },
             "required": ["properties", "required", "type"],
             "oneOf": [
@@ -259,9 +264,11 @@ collection_field_schema = {
                 {"required": ["unevaluatedProperties"]},
             ],
         },
-        "unevaluatedItems": {"type": "boolean", "const": False},
         "maxItems": {"type": "integer"},
         "minItems": {"type": "integer"},
+        "title": {"type": "string", "maxLength": 100},
+        "type": {"const": "array"},
+        "unevaluatedItems": {"const": False},
     },
     "$defs": {
         "textField": text_field_schema,
@@ -285,13 +292,17 @@ ui_text_schema = {
     "type": "object",
     "title": "UI Text schema for EventType Builder",
     "properties": {
-        "inputType": {"type": "string", "enum": ["SHORT_TEXT", "LONG_TEXT"]},
+        "conditionalDependents": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": {"const": True},
+        },
+        "inputType": {"enum": ["SHORT_TEXT", "LONG_TEXT"]},
         "parent": {"type": "string"},
         "placeholder": {"type": "string"},
         "type": {"const": "TEXT"},
-        "additionalProperties": False,
     },
-    "required": ["inputType", "parent", "placeholder", "type"],
+    "required": ["inputType", "parent", "type"],
 }
 
 ui_attachment_schema = {
@@ -301,11 +312,15 @@ ui_attachment_schema = {
     "properties": {
         "allowableFileTypes": {
             "type": "array",
-            "items": {"type": "string", "enum": ["video", "document", "audio", "image"]},
+            "items": {"enum": ["video", "document", "audio", "image"]},
+        },
+        "conditionalDependents": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": {"const": True},
         },
         "parent": {"type": "string"},
         "type": {"const": "ATTACHMENT"},
-        "additionalProperties": False,
     },
     "required": ["allowableFileTypes", "parent", "type"],
 }
@@ -316,16 +331,28 @@ ui_collection_schema = {
     "title": "UI Collection schema for EventType Builder",
     "properties": {
         "buttonText": {"type": "string"},
-        "columns": {"type": "number", "enum": [1, 2]},
+        "columns": {"enum": [1, 2]},
+        "conditionalDependents": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": {"const": True},
+        },
         "itemIdentifier": {"type": "string"},
         "itemName": {"type": "string"},
-        "leftColumn": {"type": "array", "items": {"type": "string"}},
-        "rightColumn": {"type": "array", "items": {"type": "string"}},
+        "leftColumn": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": {"const": True},
+        },
         "parent": {"type": "string"},
+        "rightColumn": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": {"const": True},
+        },
         "type": {"const": "COLLECTION"},
-        "additionalProperties": False,
     },
-    "required": ["parent", "type"],
+    "required": ["columns", "itemName", "leftColumn", "parent", "rightColumn", "type"],
 }
 
 ui_choice_schema = {
@@ -336,13 +363,27 @@ ui_choice_schema = {
         "choices": {
             "type": "object",
             "properties": {
-                "eventTypeCategories": {"type": "array", "items": {"type": "string", "format": "uuid"}},
-                "existingChoiceList": {"type": "array", "items": {"type": "string", "format": "uuid"}},
-                "featureCategories": {"type": "array", "items": {"type": "string", "format": "uuid"}},
-                "subjectGroups": {"type": "array", "items": {"type": "string", "format": "uuid"}},
-                "subjectSubtypes": {"type": "array", "items": {"type": "string", "format": "uuid"}},
+                "eventTypeCategories": {
+                    "type": "array",
+                    "items": {"type": "string", "format": "uuid"}
+                },
+                "existingChoiceList": {
+                    "type": "array",
+                    "items": {"type": "string", "format": "uuid"},
+                },
+                "featureCategories": {
+                    "type": "array",
+                    "items": {"type": "string", "format": "uuid"},
+                },
+                "subjectGroups": {
+                    "type": "array",
+                    "items": {"type": "string", "format": "uuid"},
+                },
+                "subjectSubtypes": {
+                    "type": "array",
+                    "items": {"type": "string", "format": "uuid"},
+                },
                 "myDataType": {
-                    "type": "string",
                     "enum": [
                         "EVENT_TYPES_FROM_EVENT_CATEGORY",
                         "FEATURES_FROM_FEATURE_CATEGORY",
@@ -350,20 +391,23 @@ ui_choice_schema = {
                         "SUBJECTS_FROM_SUBJECT_GROUP",
                         "SUBJECTS_FROM_SUBJECT_SUBTYPE",
                         "USERS",
-                        "",
                     ],
                 },
-                "type": {"type": "string", "enum": ["EXISTING_CHOICE_LIST", "MY_DATA", "CHOICE_LIST"]},
+                "type": {"enum": ["EXISTING_CHOICE_LIST", "MY_DATA"]},
             },
             "additionalProperties": False,
         },
-        "inputType": {"type": "string", "enum": ["DROPDOWN", "LIST"]},
+        "conditionalDependents": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": {"const": True},
+        },
+        "inputType": {"enum": ["DROPDOWN", "LIST"]},
         "placeholder": {"type": "string"},
         "parent": {"type": "string"},
         "type": {"const": "CHOICE_LIST"},
-        "additionalProperties": False,
     },
-    "required": ["parent", "type"],
+    "required": ["choices", "inputType", "parent", "type"],
 }
 
 ui_date_time_schema = {
@@ -371,9 +415,13 @@ ui_date_time_schema = {
     "type": "object",
     "title": "UI Date Time schema for EventType Builder",
     "properties": {
+        "conditionalDependents": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": {"const": True},
+        },
         "parent": {"type": "string"},
         "type": {"const": "DATE_TIME"},
-        "additionalProperties": False,
     },
     "required": ["parent", "type"],
 }
@@ -383,9 +431,13 @@ ui_location_schema = {
     "type": "object",
     "title": "UI Location schema for EventType Builder",
     "properties": {
+        "conditionalDependents": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": {"const": True},
+        },
         "parent": {"type": "string"},
         "type": {"const": "LOCATION"},
-        "additionalProperties": False,
     },
     "required": ["parent", "type"],
 }
@@ -395,12 +447,16 @@ ui_numeric_schema = {
     "type": "object",
     "title": "UI Numeric schema for EventType Builder",
     "properties": {
+        "conditionalDependents": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": {"const": True},
+        },
         "placeholder": {"type": "string"},
         "parent": {"type": "string"},
         "type": {"const": "NUMERIC"},
-        "additionalProperties": False,
     },
-    "required": ["parent", "type", "placeholder"],
+    "required": ["parent", "type"],
 }
 
 ui_headers_schema = {
@@ -410,8 +466,7 @@ ui_headers_schema = {
     "properties": {
         "label": {"type": "string"},
         "section": {"type": "string"},
-        "size": {"type": "string", "enum": ["SMALL", "MEDIUM", "LARGE"]},
-        "additionalProperties": False,
+        "size": {"enum": ["SMALL", "MEDIUM", "LARGE"]},
     },
     "required": ["label", "section", "size"],
 }
@@ -420,7 +475,10 @@ ui_section_columns = {
     "type": "array",
     "items": {
         "type": "object",
-        "properties": {"name": {"type": "string"}, "type": {"type": "string", "enum": ["field", "header"]}},
+        "properties": {
+            "name": {"type": "string"},
+            "type": {"enum": ["field", "header"]}
+        },
         "additionalProperties": False,
     },
 }
@@ -430,16 +488,350 @@ ui_sections_schema = {
     "type": "object",
     "title": "UI Sections schema for EventType Builder",
     "properties": {
-        "columns": {"type": "number", "enum": [1, 2]},
+        "columns": {"enum": [1, 2]},
+        "conditions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "field": {"type": "string"},
+                    "operator": {"enum": ["INPUT_IS_EXACTLY", "HAS_INPUT", "DOES_NOT_HAVE_INPUT", "CONTAINS"]},
+                    "value": {"type": "string"},
+                },
+                "required": ["field", "operator"],
+                "additionalProperties": False,
+            },
+        },
         "isActive": {"type": "boolean"},
         "label": {"type": "string"},
         "leftColumn": ui_section_columns,
         "rightColumn": ui_section_columns,
-        "parent": {"type": "string"},
-        "type": {"const": "SECTIONS"},
-        "additionalProperties": False,
     },
-    "required": ["columns", "isActive", "label", "leftColumn", "rightColumn"],
+    "required": ["columns", "isActive", "leftColumn", "rightColumn"],
+}
+
+contains_condition_schema = {
+    "type": "object",
+    "title": "Contains condition schema for EventType Builder",
+    "properties": {
+        "properties": {
+            "type": "object",
+            "patternProperties": {
+                ".*": {
+                    "type": "object",
+                    "properties": {
+                        "pattern": {"type": "string"},
+                        "type": {"const": "string"},
+                    },
+                    "required": ["pattern", "type"],
+                    "additionalProperties": False,
+                }
+            },
+            "minProperties": 1,
+            "maxProperties": 1,
+            "additionalProperties": False,
+        },
+        "required": {
+            "type": "array",
+            "items": {"type": "string"},
+            "maxItems": 1,
+            "minItems": 1,
+        },
+    },
+    "required": ["properties", "required"],
+    "additionalProperties": False,
+}
+
+does_not_have_input_condition_schema = {
+    "type": "object",
+    "title": "Does Not Have Input condition schema for EventType Builder",
+    "properties": {
+        "anyOf": {
+            "type": "array",
+            "prefixItems": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "not": {
+                            "type": "object",
+                            "properties": {
+                                "required": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "minItems": 1,
+                                    "maxItems": 1
+                                }
+                            },
+                            "required": ["required"],
+                            "additionalProperties": False
+                        }
+                    },
+                    "required": ["not"],
+                    "additionalProperties": False
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "properties": {
+                            "type": "object",
+                            "minProperties": 1,
+                            "maxProperties": 1,
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {"const": "array"},
+                                        "maxItems": {"const": 0}
+                                    },
+                                    "required": ["type", "maxItems"],
+                                    "additionalProperties": False
+                                }
+                            },
+                            "additionalProperties": False
+                        },
+                        "required": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "minItems": 1,
+                            "maxItems": 1
+                        }
+                    },
+                    "required": ["properties", "required"],
+                    "additionalProperties": False
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "properties": {
+                            "type": "object",
+                            "minProperties": 1,
+                            "maxProperties": 1,
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {"const": "object"},
+                                        "maxProperties": {"const": 0}
+                                    },
+                                    "required": ["type", "maxProperties"],
+                                    "additionalProperties": False
+                                }
+                            },
+                            "additionalProperties": False
+                        },
+                        "required": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "minItems": 1,
+                            "maxItems": 1
+                        }
+                    },
+                    "required": ["properties", "required"],
+                    "additionalProperties": False
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "properties": {
+                            "type": "object",
+                            "minProperties": 1,
+                            "maxProperties": 1,
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {"const": "string"},
+                                        "maxLength": {"const": 0}
+                                    },
+                                    "required": ["type", "maxLength"],
+                                    "additionalProperties": False
+                                }
+                            },
+                            "additionalProperties": False
+                        },
+                        "required": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "minItems": 1,
+                            "maxItems": 1
+                        }
+                    },
+                    "required": ["properties", "required"],
+                    "additionalProperties": False
+                }
+            ],
+            "items": False
+        }
+    },
+    "required": ["anyOf"],
+    "additionalProperties": False
+}
+
+has_input_condition_schema = {
+    "type": "object",
+    "title": "Has Input condition schema for EventType Builder",
+    "properties": {
+        "properties": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 1,
+            "patternProperties": {
+                ".*": {
+                    "type": "object",
+                    "properties": {
+                        "allOf": {
+                            "type": "array",
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "prefixItems": [
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "not": {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {"const": "null"}
+                                            },
+                                            "required": ["type"],
+                                            "additionalProperties": False
+                                        }
+                                    },
+                                    "required": ["not"],
+                                    "additionalProperties": False
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "anyOf": {
+                                            "type": "array",
+                                            "minItems": 5,
+                                            "maxItems": 5,
+                                            "prefixItems": [
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "type": {"const": "array"},
+                                                        "minItems": {"const": 1}
+                                                    },
+                                                    "required": ["type", "minItems"],
+                                                    "additionalProperties": False
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "type": {"const": "boolean"}
+                                                    },
+                                                    "required": ["type"],
+                                                    "additionalProperties": False
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "type": {"const": "number"}
+                                                    },
+                                                    "required": ["type"],
+                                                    "additionalProperties": False
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "type": {"const": "object"},
+                                                        "minProperties": {"const": 1}
+                                                    },
+                                                    "required": ["type", "minProperties"],
+                                                    "additionalProperties": False
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "type": {"const": "string"},
+                                                        "minLength": {"const": 1}
+                                                    },
+                                                    "required": ["type", "minLength"],
+                                                    "additionalProperties": False
+                                                }
+                                            ],
+                                            "items": False
+                                        }
+                                    },
+                                    "required": ["anyOf"],
+                                    "additionalProperties": False
+                                }
+                            ],
+                            "items": False
+                        }
+                    },
+                    "required": ["allOf"],
+                    "additionalProperties": False
+                }
+            },
+            "additionalProperties": False,
+        },
+        "required": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 1,
+            "maxItems": 1
+        }
+    },
+    "required": ["properties", "required"],
+    "additionalProperties": False
+}
+
+input_is_exactly_condition_schema = {
+    "type": "object",
+    "title": "Input Is Exactly condition schema for EventType Builder",
+    "properties": {
+        "properties": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 1,
+            "patternProperties": {
+                ".*": {
+                    "type": "object",
+                    "properties": {
+                        "anyOf": {
+                            "type": "array",
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "prefixItems": [
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "const": {"type": ["number", "null"]},
+                                        "type": {"const": "number"}
+                                    },
+                                    "required": ["const", "type"],
+                                    "additionalProperties": false
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "const": {"type": "string"},
+                                        "type": {"const": "string"}
+                                    },
+                                    "required": ["const", "type"],
+                                    "additionalProperties": false
+                                }
+                            ],
+                            "items": False
+                        }
+                    },
+                    "required": ["anyOf"],
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false
+        },
+        "required": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1,
+            "maxItems": 1
+        }
+    },
+    "required": ["properties", "required"],
+    "additionalProperties": false
 }
 
 ui_schema = {
@@ -493,8 +885,69 @@ json_field_schema = {
     "type": "object",
     "title": "Json schema for EventTypeV2 Builder",
     "properties": {
-        "$schema": {"type": "string", "const": "https://json-schema.org/draft/2020-12/schema"},
-        "type": {"type": "string", "const": "object"},
+        "$schema": {"const": "https://json-schema.org/draft/2020-12/schema"},
+        "additionalProperties": {"const": False},
+        "allOf": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "if": {
+                        "type": "object"
+                        "properties": {
+                            "allOf": {
+                                "type": "array",
+                                "items": {
+                                    "anyOf": [
+                                        {"$ref": "#/$defs/containsCondition"},
+                                        {"$ref": "#/$defs/doesNotHaveInputCondition"},
+                                        {"$ref": "#/$defs/hasInputCondition"},
+                                        {"$ref": "#/$defs/inputIsExactlyCondition"},
+                                    ]
+                                },
+                            }
+                        },
+                        "required": ["allOf"],
+                        "additionalProperties": False,
+                    },
+                    "then": {
+                        "type": "object",
+                        "properties": {
+                            "properties": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "patternProperties": {
+                                    ".*": {
+                                        "anyOf": [
+                                            {"$ref": "#/$defs/textField"},
+                                            {"$ref": "#/$defs/numericField"},
+                                            {"$ref": "#/$defs/attachmentField"},
+                                            {"$ref": "#/$defs/collectionField"},
+                                            {"$ref": "#/$defs/dateTimeField"},
+                                            {"$ref": "#/$defs/locationField"},
+                                            {"$ref": "#/$defs/choiceField"},
+                                            {"$ref": "#/$defs/choiceListField"},
+                                            {"$ref": "#/$defs/renderedChoiceField"},
+                                            {"$ref": "#/$defs/renderedChoiceListField"},
+                                        ]
+                                    }
+                                },
+                            },
+                            "required": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "uniqueItems": True
+                            },
+                        },
+                        "required": ["properties", "required"],
+                        "additionalProperties": False,
+                    },
+                    "x-section": {"type": "string"},
+                },
+                "required": ["if", "then", "x-section"],
+                "additionalProperties": False,
+            },
+        },
         "properties": {
             "type": "object",
             "additionalProperties": False,
@@ -515,9 +968,13 @@ json_field_schema = {
                 }
             },
         },
-        "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": True},
-        "additionalProperties": {"type": "boolean", "const": False},
-        "unevaluatedProperties": {"type": "boolean", "const": False},
+        "required": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": True
+        },
+        "type": {"const": "object"},
+        "unevaluatedProperties": {"const": False},
     },
     "required": ["$schema", "properties", "required", "type"],
     "oneOf": [
@@ -558,5 +1015,9 @@ main_event_type_schema = {
         "uiNumericSchema": ui_numeric_schema,
         "uiHeadersSchema": ui_headers_schema,
         "uiSectionsSchema": ui_sections_schema,
+        "containsCondition": contains_condition_schema,
+        "doesNotHaveInputCondition": does_not_have_input_condition_schema,
+        "hasInputCondition": has_input_condition_schema,
+        "inputIsExactlyCondition": input_is_exactly_condition_schema,
     },
 }
