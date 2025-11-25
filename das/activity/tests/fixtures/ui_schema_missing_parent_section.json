@@ -1,7 +1,7 @@
 {
     "json": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "additionalProperties": false,
+        "type": "object",
         "properties": {
             "size_of_the_poaching_group": {
                 "deprecated": false,
@@ -10,7 +10,9 @@
                 "title": "Size of the Poaching Group",
                 "type": "number"
             }
-        }
+        },
+        "required": [],
+        "unevaluatedProperties": false
     },
     "ui": {
         "fields": {
