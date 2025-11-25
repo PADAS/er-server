@@ -32,3 +32,7 @@ class VersionSerializer(rest_framework.serializers.Serializer):
     track_length = rest_framework.serializers.IntegerField(read_only=True)
     default_event_filter_from_days = rest_framework.serializers.IntegerField(read_only=True)
     default_patrol_filter_from_days = rest_framework.serializers.IntegerField(read_only=True)
+    events_enabled = rest_framework.serializers.BooleanField(read_only=True)
+    subjects_enabled = rest_framework.serializers.BooleanField(read_only=True)
+    spatial_features_enabled = rest_framework.serializers.BooleanField(read_only=True)
+    analyzers_enabled = rest_framework.serializers.BooleanField(read_only=True)

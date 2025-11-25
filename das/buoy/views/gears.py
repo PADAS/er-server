@@ -1,4 +1,4 @@
-import logging
+from drf_spectacular.utils import extend_schema
 
 from drf_spectacular.utils import (
     OpenApiResponse,
@@ -10,9 +10,6 @@ from drf_spectacular.utils import (
 from django.db import transaction
 from django.urls import reverse
 from rest_framework import generics
-from rest_framework import serializers as drf_serializers
-from rest_framework.exceptions import NotFound
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from buoy import serializers
@@ -26,12 +23,11 @@ from buoy.views.helpers import (
 from buoy.views.schemas import GearsViewSchema
 from buoy.permissions import GearLocationPermission, GearSubjectPermission
 from buoy.serializers.query_params import GearsQueryParamsSerializer
-from buoy.services.buoy_service import BuoyService
 from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
-from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
+from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Subject, SubjectSource
-from observations.utils import VIEW_SUBJECT_PERMS
+from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
 from utils.drf import (
     ForbiddenAPIException,
     StandardObjectPermissions,
@@ -39,7 +35,6 @@ from utils.drf import (
 )
 from utils.gis import check_valid_lat_lon
 
-logger = logging.getLogger(__name__)
 
 
 @extend_schema_view(
@@ -134,18 +129,13 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         page_size=StandardResultsSetPagination.page_size, max_page_size=StandardResultsSetPagination.max_page_size
     )
 
-    permission_classes = (StandardObjectPermissions, IsAuthenticated, GearSubjectPermission, GearLocationPermission)
+    permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.GearSerializer
     pagination_class = StandardResultsSetPagination
     schema = GearsViewSchema()
 
     def get_queryset(self):
         return SubjectSource.objects.none()
-
-    def get_serializer_class(self):
-        if self.request.method == "POST":
-            return serializers.GearCreateSerializer
-        return serializers.GearSerializer
 
     def list(self, request, *args, **kwargs):
         # Validate query parameters using serializer
@@ -169,8 +159,10 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         lon = query_params.get("lon")
         max_nm_range = query_params.get("max_nm_range", NAUTICAL_MILE_RADIUS)
 
-        if lat and lon:
-            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=int(max_nm_range))
+        if lat is not None and lon is not None:
+            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=max_nm_range)
+        elif not self.request.user.has_perm("observations.can_view_gear_regardless_location"):
+            raise ForbiddenAPIException("lat and lon are required query parameters")
 
         # Filter queryset by removing subjects where the additional field is the same
         queryset = queryset.order_by("subject__additional__display_id", "subject__name").distinct(
@@ -186,10 +178,6 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @transaction.atomic
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data, context={"user_id": request.user.id})
-        serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data
 
@@ -223,20 +211,23 @@ class GearView(generics.RetrieveUpdateDestroyAPIView):
         subject = generics.get_object_or_404(Subject.objects.all(), pk=subject_id)
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise ForbiddenAPIException
-
-        # Return SubjectSource queryset instead of Subject queryset
-        # to work with the new GearSerializer (ModelSerializer)
-        queryset = SubjectSource.objects.filter(subject_id=subject_id)
-
-        # Prefetch related data for efficient queries
-        queryset = queryset.select_related("subject", "source", "source__provider")
-        queryset = queryset.prefetch_related("source__last_observation_sources")
-
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+        queryset = Subject.objects.filter(id=subject_id)
+        mou_date = self.request.user.additional.get("expiry", None)
+        mou_date = dateparse(mou_date) if mou_date else None
+        queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
+        self._get_two_way_sources(queryset)
         return queryset
 
     def get_object(self):
-        # Get the first SubjectSource from the queryset
-        subject_source = self.get_queryset().first()
-        if not subject_source:
-            raise NotFound("No SubjectSource found for this subject")
-        return subject_source
+        if self.queryset_linked_user.exists():
+            subject_id = self.kwargs.get("id")
+            return get_object_or_404(self.queryset_linked_user, pk=subject_id)
+        return super().get_object()
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["two_way_subject_sources"] = self.two_way_subject_sources
+        context["simple_mode"] = True
+
+        return context
