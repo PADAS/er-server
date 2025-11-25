@@ -205,7 +205,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
 
 class GearView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = (GearSourceProviderPermission,)
+    permission_classes = (HasManufacturerSubjectGroupPermission,)
     serializer_class = serializers.GearSerializer
     lookup_field = "id"
 

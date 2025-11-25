@@ -32,7 +32,7 @@ class GearSubjectPermission(BasePermission):
         return True
 
 
-class GearSourceProviderPermission(BasePermission):
+class HasManufacturerSubjectGroupPermission(BasePermission):
     """
     Custom permission to check if the user making the request has access to the gear.
 
