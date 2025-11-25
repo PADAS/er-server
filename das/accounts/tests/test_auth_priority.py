@@ -6,6 +6,7 @@ import pytest
 from oauth2_provider.models import get_access_token_model
 
 from django.test import RequestFactory
+from rest_framework import exceptions
 
 from accounts.backends import PriorityOAuth2SessionAuthentication
 from accounts.models import User
@@ -81,7 +82,44 @@ class TestAuthenticationPriority:
         auth = PriorityOAuth2SessionAuthentication()
 
         # Should raise AuthenticationFailed when invalid token is provided
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(exceptions.AuthenticationFailed) as exc_info:
+            auth.authenticate(request)
+
+        # Should be an AuthenticationFailed exception
+        assert "AuthenticationFailed" in str(type(exc_info.value))
+        assert "Token is invalid or expired" in str(exc_info.value)
+
+    def test_bearer_token_prevents_session_fallback(self, user):
+        """Test that presence of Bearer token prevents fallback to session auth.
+
+        This is a critical test for the scenario where:
+        1. User is logged into Django admin (has session cookie)
+        2. API call includes Bearer token that doesn't authenticate
+        3. System should NOT fall back to session user, should raise AuthenticationFailed
+
+        This simulates Django's AuthenticationMiddleware having already set
+        request.user from session before DRF authentication runs.
+        """
+        # Create a different user for session simulation
+        session_user = User.objects.create_user(
+            username="adminuser", email="admin@example.com", password="adminpass123"
+        )
+
+        # Create request with Bearer token that won't authenticate
+        factory = RequestFactory()
+        request = factory.get("/api/test/")
+        request.META["HTTP_AUTHORIZATION"] = "Bearer some_bearer_token_that_doesnt_match"
+
+        # Simulate Django AuthenticationMiddleware having set request.user from session
+        request.user = session_user
+        # Mark this as a DRF request (has _request attribute)
+        request._request = request
+
+        # Test authentication
+        auth = PriorityOAuth2SessionAuthentication()
+
+        # Should raise AuthenticationFailed (not fall back to session user)
+        with pytest.raises(exceptions.AuthenticationFailed) as exc_info:
             auth.authenticate(request)
 
         # Should be an AuthenticationFailed exception
@@ -102,8 +140,12 @@ class TestAuthenticationPriority:
         # Should return None
         assert result is None
 
-    def test_csrf_enforced_with_oauth2_token(self, user, access_token):
-        """Test that CSRF is enforced when OAuth2 token is present."""
+    def test_csrf_skipped_with_oauth2_token(self, user, access_token):
+        """Test that CSRF is SKIPPED when OAuth2 token is present.
+
+        Bearer tokens are not vulnerable to CSRF attacks, so CSRF validation
+        should be skipped when a valid Bearer token is in the request.
+        """
         # Create request with OAuth2 token
         factory = RequestFactory()
         request = factory.post("/api/test/", {"test": "data"})
@@ -114,17 +156,10 @@ class TestAuthenticationPriority:
 
         # Test CSRF enforcement
         auth = PriorityOAuth2SessionAuthentication()
+        result = auth.enforce_csrf(request)
 
-        # This should call super().enforce_csrf() which would normally raise an exception
-        # We can't easily test the actual CSRF failure here without mocking Django's CSRF middleware
-        # But we can verify the method doesn't return None (which would skip CSRF)
-        try:
-            auth.enforce_csrf(request)
-            # If enforce_csrf doesn't raise an exception, it should return None or raise
-            # The important thing is it doesn't return early (skip CSRF)
-        except Exception:
-            # This is expected - CSRF should be enforced and may fail
-            pass
+        # Should return None (skip CSRF enforcement) for Bearer tokens
+        assert result is None
 
     def test_csrf_skipped_with_session_only(self, user):
         """Test that CSRF is skipped when only session authentication is used (no Bearer token)."""
