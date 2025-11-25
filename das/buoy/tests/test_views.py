@@ -586,7 +586,10 @@ class TestGearsView:
         assert gear_subjectsource.subject.is_active is True
 
     def test_filter_gear_subject_api_max_nm_range_provided(self, buoy_client):
-        user_client, _ = buoy_client
+        user_client, gear_subjectsource = buoy_client
+
+        # Get the SubjectGroup that the user has access to
+        subject_group = SubjectGroup.objects.get(name="UserTestManufacturer")
 
         # Arrange - Create a set of gears
         origin = Point(10, 10)
@@ -594,9 +597,13 @@ class TestGearsView:
         for miles in [4, 40, 400, 999]:
             bearing = random.uniform(0, 360)
             new_point = distance(miles=miles).destination(origin, bearing)
-            gear_subjectsource = get_custom_location_gear_subjectsource(Point(new_point.longitude, new_point.latitude))
-            gear_subjectsource.subject.additional["display_id"] = generate_fake_display_id()
-            gear_subjectsource.subject.save()
+            gear_subjectsource_new = get_custom_location_gear_subjectsource(
+                Point(new_point.longitude, new_point.latitude)
+            )
+            gear_subjectsource_new.subject.additional["display_id"] = generate_fake_display_id()
+            gear_subjectsource_new.subject.save()
+            # Add the gear to the SubjectGroup so the user can see it
+            gear_subjectsource_new.subject.groups.add(subject_group)
 
         url = reverse(self.base_url)
 
