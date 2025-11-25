@@ -339,3 +339,158 @@ class TestJsonSchemaField:
             # No validation error should occur at all when section validation is off
             # and the base schema is otherwise valid.
             pytest.fail(f"Validation failed unexpectedly even when section validation was disabled: {e}")
+
+
+class TestMetaSchemaPropertyConstraints:
+    """
+    Tests for the meta-schema constraints on EventType V2 schemas.
+
+    These tests verify the oneOf constraint requiring either additionalProperties
+    or unevaluatedProperties, plus mandatory type and required properties.
+    """
+
+    def _build_schema(self, json_overrides=None):
+        """Build a valid schema with optional overrides to the json section."""
+        schema = {
+            "json": copy.deepcopy(minimal_json_schema),
+            "ui": copy.deepcopy(minimal_ui_schema),
+        }
+        if json_overrides:
+            schema["json"].update(json_overrides)
+        return schema
+
+    def _remove_json_key(self, schema, key):
+        """Remove a key from the json section of the schema."""
+        if key in schema["json"]:
+            del schema["json"][key]
+        return schema
+
+    # --- Valid Schemas (oneOf constraint) ---
+
+    def test_valid_schema_with_unevaluated_properties(self):
+        """Schema with unevaluatedProperties: false should be valid."""
+        schema = self._build_schema()
+        # Ensure only unevaluatedProperties is present
+        self._remove_json_key(schema, "additionalProperties")
+        schema["json"]["unevaluatedProperties"] = False
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        result = field.to_internal_value(schema)
+        assert result is not None
+
+    def test_valid_schema_with_additional_properties(self):
+        """Schema with additionalProperties: false should be valid."""
+        schema = self._build_schema()
+        # Ensure only additionalProperties is present
+        self._remove_json_key(schema, "unevaluatedProperties")
+        schema["json"]["additionalProperties"] = False
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        result = field.to_internal_value(schema)
+        assert result is not None
+
+    # --- Invalid Schemas (oneOf constraint violations) ---
+
+    def test_invalid_schema_with_both_properties(self):
+        """Schema with BOTH additionalProperties AND unevaluatedProperties should fail oneOf."""
+        schema = self._build_schema()
+        schema["json"]["additionalProperties"] = False
+        schema["json"]["unevaluatedProperties"] = False
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        # oneOf fails when schema matches BOTH branches
+        assert "is valid under each of" in error_message
+
+    def test_invalid_schema_with_neither_property(self):
+        """Schema with NEITHER additionalProperties NOR unevaluatedProperties should fail."""
+        schema = self._build_schema()
+        self._remove_json_key(schema, "additionalProperties")
+        self._remove_json_key(schema, "unevaluatedProperties")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "is not valid under any of the given schemas" in error_message
+
+    # --- Required properties tests ---
+
+    def test_invalid_schema_missing_type(self):
+        """Schema missing 'type: object' should fail."""
+        schema = self._build_schema()
+        self._remove_json_key(schema, "type")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "'type' is a required property" in error_message
+
+    def test_invalid_schema_missing_required_array(self):
+        """Schema missing 'required' array should fail."""
+        schema = self._build_schema()
+        self._remove_json_key(schema, "required")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "'required' is a required property" in error_message
+
+    def test_invalid_schema_missing_properties(self):
+        """Schema missing 'properties' object should fail."""
+        schema = self._build_schema()
+        self._remove_json_key(schema, "properties")
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "'properties' is a required property" in error_message
+
+    # --- Property value constraints ---
+
+    def test_invalid_type_value(self):
+        """Schema with type != 'object' should fail."""
+        schema = self._build_schema({"type": "array"})
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "'object' was expected at json.type" in error_message
+
+    def test_invalid_additional_properties_value(self):
+        """Schema with additionalProperties: true should fail (must be false)."""
+        schema = self._build_schema()
+        self._remove_json_key(schema, "unevaluatedProperties")
+        schema["json"]["additionalProperties"] = True
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "False was expected at json.additionalProperties" in error_message
+
+    def test_invalid_unevaluated_properties_value(self):
+        """Schema with unevaluatedProperties: true should fail (must be false)."""
+        schema = self._build_schema()
+        self._remove_json_key(schema, "additionalProperties")
+        schema["json"]["unevaluatedProperties"] = True
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "False was expected at json.unevaluatedProperties" in error_message
