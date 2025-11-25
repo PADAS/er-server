@@ -23,22 +23,21 @@ def act_as_user_in_request(user, request):
         logged_in_user = user
         profile_pk = uuid.UUID(profile_header)
         if profile_pk == logged_in_user.pk:
-            message = "User Profile %s is the same as logged in user %s" % (profile_pk, logged_in_user.pk)
-            logger.info(message)
+            logger.debug("User Profile %s is the same as logged in user %s", profile_pk, logged_in_user.pk)
             return user
 
         if 1 != logged_in_user.act_as_profiles.all().filter(pk=profile_pk).count():
             message = "User Profile %s not found in act_as_profiles list for user %s" % (profile_pk, logged_in_user.pk)
-            logger.info(message)
+            logger.warning(message)
             raise exceptions.PermissionDenied(message)
 
         profile_user = User.objects.get(pk=profile_pk)
         if profile_user.is_staff or profile_user.is_superuser:
             message = "User Profile %s is staff or superuser" % (profile_user.pk,)
-            logger.info(message)
+            logger.warning(message)
             raise exceptions.PermissionDenied(message)
 
-        logger.info("User %s is acting as user %s.", logged_in_user.pk, profile_user.pk)
+        logger.debug("User %s is acting as user %s.", logged_in_user.pk, profile_user.pk)
         user = profile_user
     return user
 
@@ -118,8 +117,8 @@ class PriorityOAuth2SessionAuthentication(SessionAuthentication):
         - No authentication credentials present at all
         """
         # Check if there's a Bearer token in the Authorization header
-        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
-        has_bearer_token = auth_header.startswith(self.keyword + " ")
+
+        has_bearer_token = self._has_bearer_token(request)
 
         # If there's a Bearer token, skip CSRF validation
         # Bearer tokens are not vulnerable to CSRF attacks
@@ -138,40 +137,23 @@ class PriorityOAuth2SessionAuthentication(SessionAuthentication):
     def authenticate_header(self, request):
         return self.keyword
 
+    def _has_bearer_token(self, request):
+        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+        return auth_header.startswith(self.keyword + " ")
+
     def authenticate(self, request):
         # First, try OAuth2 token authentication
-        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
-        has_bearer_token = auth_header.startswith(self.keyword + " ")
+        has_bearer_token = self._has_bearer_token(request)
 
-        # DEBUG: Log what we're seeing
-        request_method = getattr(request, "method", "UNKNOWN")
-        request_path = getattr(request, "path", "UNKNOWN")
-        has_session = hasattr(request, "session") and request.session and "_auth_user_id" in request.session
-        logger.info(
-            f"PriorityOAuth2SessionAuthentication.authenticate - "
-            f"Method: {request_method}, Path: {request_path}, "
-            f"Has Bearer: {has_bearer_token}, Has Session: {has_session}, "
-            f"Auth Header: {auth_header[:20] if auth_header else 'None'}..."
-        )
-
-        try:
-            oauth2_result = self.oauth2_auth.authenticate(request)
-        except exceptions.AuthenticationFailed:
-            # Re-raise AuthenticationFailed exceptions to get 401 status
-            logger.info("OAuth2 authentication failed with AuthenticationFailed exception")
-            raise
+        oauth2_result = self.oauth2_auth.authenticate(request)
 
         if oauth2_result:
-            # OAuth2 token found and valid, use it
-            username = oauth2_result[0].username if oauth2_result[0] else "None"
-            logger.info(f"OAuth2 authentication SUCCESS - User: {username}")
             return oauth2_result
 
         # Check if there was an OAuth2 error (e.g., expired token)
         oauth2_error = getattr(request, "oauth2_error", {})
         if oauth2_error and has_bearer_token:
             # If there's an OAuth2 error and we have a Bearer token, raise AuthenticationFailed
-            logger.info(f"OAuth2 error with Bearer token present: {oauth2_error}")
             raise exceptions.AuthenticationFailed("Token is invalid or expired")
 
         # If a Bearer token was provided but OAuth2 authentication didn't succeed,
@@ -180,29 +162,24 @@ class PriorityOAuth2SessionAuthentication(SessionAuthentication):
         if has_bearer_token:
             # Bearer token was provided but authentication failed
             # Don't fall back to session, return None to try next auth class
-            logger.info("Bearer token present but OAuth2 auth returned None - NOT falling back to session")
             return None
 
         # Fall back to session authentication only if no Bearer token was provided
         # Handle both DRF request objects and Django WSGIRequest objects
-        logger.info("No Bearer token - attempting session authentication fallback")
         if hasattr(request, "_request"):
             # This is a DRF request object, use parent's authenticate method
             session_result = super().authenticate(request)
-            if session_result:
-                username = session_result[0].username if session_result[0] else "None"
-                logger.info(f"Session authentication SUCCESS - User: {username}")
-            else:
-                logger.info("Session authentication returned None")
             return session_result
         else:
             # This is a Django WSGIRequest object, check for session user directly
+            # see super().authenticate(request) for more details
             user = getattr(request, "user", None)
-            if user and user.is_authenticated and user.is_active:
-                logger.info(f"Django session user found - User: {user.username}")
-                return (user, None)
-            logger.info("No authenticated Django session user")
-            return None
+            if not user or not user.is_authenticated or not user.is_active:
+                return None
+
+            self.enforce_csrf(request)
+
+            return (user, None)
 
 
 class AccountsModelBackend(ModelBackend):
