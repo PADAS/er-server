@@ -76,6 +76,10 @@ class StatusView(generics.RetrieveAPIView):
         resp["show_track_days"] = tenant.env_settings.show_track_days
         resp["tableau_enabled"] = self.request.user.is_superuser and tenant.feature_flags.tableau_enabled
         resp["track_length"] = tenant.env_settings.track_length
+        resp["events_enabled"] = tenant.feature_flags.events_enabled
+        resp["subjects_enabled"] = tenant.feature_flags.subjects_enabled
+        resp["spatial_features_enabled"] = tenant.feature_flags.spatial_features_enabled
+        resp["analyzers_enabled"] = tenant.feature_flags.analyzers_enabled
 
         default_event_filter_from_days = tenant.env_settings.default_event_filter_from_days
         if default_event_filter_from_days and default_event_filter_from_days >= 0:

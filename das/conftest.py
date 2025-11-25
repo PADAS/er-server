@@ -288,8 +288,8 @@ def gear_subjectsource():
 
 @pytest.fixture
 def gear_subjectsource_with_observations():
-    gear_subjectsource = GearFactory.create()
 
+    gear_subjectsource = GearFactory.create()
     subject_type, _ = SubjectTypeFactory._meta.model.objects.get_or_create(value="gear", defaults={"display": "Gear"})
     subject_subtype, _ = SubjectSubType.objects.get_or_create(
         value="ropeless_buoy_device", subject_type=subject_type, defaults={"display": "Ropeless Buoy Device"}
