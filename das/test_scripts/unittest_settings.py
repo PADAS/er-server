@@ -11,6 +11,7 @@ DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
 
 # django testrunner already uses this backend
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+VECTOR_TILE_CACHE_ALIAS = "vector_tiles"
 
 
 SERVER_FQDN = "zoo.com"

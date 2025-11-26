@@ -1,6 +1,3 @@
-from drf_spectacular.utils import inline_serializer
-
-from rest_framework import serializers as drf_serializers
 from rest_framework.exceptions import ValidationError
 
 from observations.views import CustomSchema
@@ -85,7 +82,8 @@ gears_list_response_schema = inline_serializer(
                         name="DeviceLocation",
                         fields={"latitude": drf_serializers.FloatField(), "longitude": drf_serializers.FloatField()},
                     ),
-                    "device_id": drf_serializers.CharField(),
+                    "device_id": drf_serializers.UUIDField(),
+                    "mfr_device_id": drf_serializers.CharField(),
                     "last_updated": drf_serializers.DateTimeField(),
                     "last_deployed": drf_serializers.DateTimeField(),
                 },

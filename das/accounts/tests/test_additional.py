@@ -3,6 +3,7 @@ from datetime import datetime
 import pytest
 import pytz
 
+from django.conf import settings
 from django.core.management import call_command
 from django.test import TestCase
 
@@ -18,9 +19,8 @@ class AdditionalTestCase(TestCase):
 
     def convert_datestring_to_datetime(self, date_string):
         datetime_object = datetime.strptime(date_string, "%m/%d/%Y")
-        from das_server.local_settings_template import TIME_ZONE
 
-        datetime_object = datetime_object.astimezone(pytz.timezone(TIME_ZONE))
+        datetime_object = datetime_object.astimezone(pytz.timezone(settings.TIME_ZONE))
         return datetime_object
 
     def test_additional_data_fields(self):
