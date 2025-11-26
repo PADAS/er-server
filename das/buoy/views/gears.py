@@ -1,4 +1,4 @@
-import logging
+from drf_spectacular.utils import extend_schema
 
 from drf_spectacular.utils import (
     OpenApiResponse,
@@ -11,9 +11,6 @@ from django.db import transaction
 from django.db.utils import IntegrityError
 from django.urls import reverse
 from rest_framework import generics
-from rest_framework import serializers as drf_serializers
-from rest_framework.exceptions import NotFound
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from buoy import serializers
@@ -24,9 +21,8 @@ from buoy.permissions import (
     HasManufacturerSubjectGroupPermission,
 )
 from buoy.serializers.query_params import GearsQueryParamsSerializer
-from buoy.services.buoy_service import BuoyService
 from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
-from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
+from buoy.views.schemas import GearsViewSchema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import SubjectSource
 from utils.drf import (
@@ -35,7 +31,6 @@ from utils.drf import (
     return_409_response,
 )
 
-logger = logging.getLogger(__name__)
 
 
 @extend_schema_view(
@@ -132,7 +127,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         page_size=StandardResultsSetPagination.page_size, max_page_size=StandardResultsSetPagination.max_page_size
     )
 
-    permission_classes = (StandardObjectPermissions, IsAuthenticated, GearSubjectPermission, GearLocationPermission)
+    permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.GearSerializer
     pagination_class = StandardResultsSetPagination
     schema = GearsViewSchema()
@@ -182,8 +177,10 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         lon = query_params.get("lon")
         max_nm_range = query_params.get("max_nm_range", NAUTICAL_MILE_RADIUS)
 
-        if lat and lon:
-            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=int(max_nm_range))
+        if lat is not None and lon is not None:
+            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=max_nm_range)
+        elif not self.request.user.has_perm("observations.can_view_gear_regardless_location"):
+            raise ForbiddenAPIException("lat and lon are required query parameters")
 
         # Filter queryset by removing subjects where the additional field is the same
         queryset = queryset.order_by("subject__additional__display_id", "subject__name").distinct(
