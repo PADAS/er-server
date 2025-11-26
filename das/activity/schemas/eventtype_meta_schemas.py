@@ -486,7 +486,7 @@ ui_sections_schema = {
                     "operator": {"enum": ["INPUT_IS_EXACTLY", "HAS_INPUT", "DOES_NOT_HAVE_INPUT", "CONTAINS"]},
                     "value": {"type": ["string", "null"]},
                 },
-                "required": ["field", "operator"],
+                "required": ["field", "id", "operator"],
                 "additionalProperties": False,
             },
         },
