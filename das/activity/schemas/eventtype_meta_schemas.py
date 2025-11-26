@@ -460,7 +460,7 @@ ui_headers_schema = {
     "title": "UI Headers schema for EventType Builder",
     "properties": {
         "label": {"type": "string"},
-        "section": {"type": "string"},
+        "section": {"type": "string", "pattern": "^section-.*"},
         "size": {"enum": ["SMALL", "MEDIUM", "LARGE"]},
     },
     "required": ["label", "section", "size"],
@@ -470,7 +470,18 @@ ui_section_columns = {
     "type": "array",
     "items": {
         "type": "object",
-        "properties": {"name": {"type": "string"}, "type": {"enum": ["field", "header"]}},
+        "properties": {
+            "anyOf": [
+                {
+                    "name": {"type": "string"},
+                    "type": {"const": "field"}
+                },
+                {
+                    "name": {"type": "string", "pattern": "^header-.*"},
+                    "type": {"const": "header"}
+                },
+            ],
+        },
         "additionalProperties": False,
     },
 }
@@ -487,6 +498,7 @@ ui_sections_schema = {
                 "type": "object",
                 "properties": {
                     "field": {"type": "string"},
+                    "id": {"type": "string", "pattern": "^condition-.*"},
                     "operator": {"enum": ["INPUT_IS_EXACTLY", "HAS_INPUT", "DOES_NOT_HAVE_INPUT", "CONTAINS"]},
                     "value": {"type": ["string", "null"]},
                 },
@@ -806,7 +818,7 @@ ui_schema = {
         },
         "order": {
             "type": "array",
-            "items": {"type": "string"},
+            "items": {"type": "string", "pattern": "^section-.*"},
             "uniqueItems": True,
         },
         "sections": {
