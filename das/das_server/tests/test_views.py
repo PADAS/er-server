@@ -5,33 +5,24 @@ import pytest
 from django.urls import reverse
 from rest_framework import status
 
-from utils.features import features
 from utils.tenant import Tenant
 
 
 @pytest.mark.django_db
 class TestStatusView:
-    @pytest.mark.skipif(features.tms.is_on(), reason="TMS feature flag is on")
-    def test_get_status_from_view_when_tms_is_turned_off(self, superuser_client, tenant_settings):
-        tenant_settings.feature_flags.alerts_enabled = True
-        tenant_settings.feature_flags.kml_export = True
-        tenant_settings.env_settings.show_stationary_subjects_on_map = True
-        url = reverse("api-status")
-
-        response = superuser_client.get(url)
-
-        self._assert_feature_flags_response_match(response)
-
     @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-    @pytest.mark.skipif(not features.tms.is_on(), reason="TMS feature flag is off")
     def test_get_status_from_view_when_tms_is_turned_on(
         self, monkeypatch, superuser_client, tenant_response, tenant_document_cache_client_mock
     ):
         tenant_settings = Tenant.from_dict(tenant_response)
         tenant_settings.feature_flags.alerts_enabled = True
-        tenant_settings.feature_flags.patrol_enabled = True
         tenant_settings.feature_flags.kml_export = True
-        tenant_settings.feature_flags.show_stationary_subjects_on_map = True
+        tenant_settings.feature_flags.events_enabled = True
+        tenant_settings.feature_flags.subjects_enabled = True
+        tenant_settings.feature_flags.spatial_features_enabled = True
+        tenant_settings.feature_flags.analyzers_enabled = True
+        tenant_settings.env_settings.patrol_enabled = True
+        tenant_settings.env_settings.show_stationary_subjects_on_map = True
         monkeypatch.setattr("das_server.views.get_tenant_settings", MagicMock(return_value=tenant_settings))
         url = reverse("api-status")
 
@@ -114,3 +105,7 @@ class TestStatusView:
         assert response.data["alerts_enabled"] is True
         assert response.data["tableau_enabled"] is False
         assert response.data["eula_enabled"] is False
+        assert response.data["events_enabled"] is True
+        assert response.data["subjects_enabled"] is True
+        assert response.data["spatial_features_enabled"] is True
+        assert response.data["analyzers_enabled"] is True
