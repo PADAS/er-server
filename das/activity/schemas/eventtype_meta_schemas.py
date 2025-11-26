@@ -285,16 +285,18 @@ collection_field_schema = {
     },
 }
 
+conditional_dependents_schema = {
+    "type": "array",
+    "items": {"type": "string", "pattern": "^section-.*"},
+    "uniqueItems": {"const": True},
+}
+
 ui_text_schema = {
     "additionalProperties": False,
     "type": "object",
     "title": "UI Text schema for EventType Builder",
     "properties": {
-        "conditionalDependents": {
-            "type": "array",
-            "items": {"type": "string"},
-            "uniqueItems": {"const": True},
-        },
+        "conditionalDependents": conditional_dependents_schema,
         "inputType": {"enum": ["SHORT_TEXT", "LONG_TEXT"]},
         "parent": {"type": "string"},
         "placeholder": {"type": "string"},
@@ -312,11 +314,7 @@ ui_attachment_schema = {
             "type": "array",
             "items": {"enum": ["video", "document", "audio", "image"]},
         },
-        "conditionalDependents": {
-            "type": "array",
-            "items": {"type": "string"},
-            "uniqueItems": {"const": True},
-        },
+        "conditionalDependents": conditional_dependents_schema,
         "parent": {"type": "string"},
         "type": {"const": "ATTACHMENT"},
     },
@@ -330,11 +328,7 @@ ui_collection_schema = {
     "properties": {
         "buttonText": {"type": "string"},
         "columns": {"enum": [1, 2]},
-        "conditionalDependents": {
-            "type": "array",
-            "items": {"type": "string"},
-            "uniqueItems": {"const": True},
-        },
+        "conditionalDependents": conditional_dependents_schema,
         "itemIdentifier": {"type": "string"},
         "itemName": {"type": "string"},
         "leftColumn": {
@@ -392,11 +386,7 @@ ui_choice_schema = {
             },
             "additionalProperties": False,
         },
-        "conditionalDependents": {
-            "type": "array",
-            "items": {"type": "string"},
-            "uniqueItems": {"const": True},
-        },
+        "conditionalDependents": conditional_dependents_schema,
         "inputType": {"enum": ["DROPDOWN", "LIST"]},
         "placeholder": {"type": "string"},
         "parent": {"type": "string"},
@@ -410,11 +400,7 @@ ui_date_time_schema = {
     "type": "object",
     "title": "UI Date Time schema for EventType Builder",
     "properties": {
-        "conditionalDependents": {
-            "type": "array",
-            "items": {"type": "string"},
-            "uniqueItems": {"const": True},
-        },
+        "conditionalDependents": conditional_dependents_schema,
         "parent": {"type": "string"},
         "type": {"const": "DATE_TIME"},
     },
@@ -426,11 +412,7 @@ ui_location_schema = {
     "type": "object",
     "title": "UI Location schema for EventType Builder",
     "properties": {
-        "conditionalDependents": {
-            "type": "array",
-            "items": {"type": "string"},
-            "uniqueItems": {"const": True},
-        },
+        "conditionalDependents": conditional_dependents_schema,
         "parent": {"type": "string"},
         "type": {"const": "LOCATION"},
     },
@@ -442,11 +424,7 @@ ui_numeric_schema = {
     "type": "object",
     "title": "UI Numeric schema for EventType Builder",
     "properties": {
-        "conditionalDependents": {
-            "type": "array",
-            "items": {"type": "string"},
-            "uniqueItems": {"const": True},
-        },
+        "conditionalDependents": conditional_dependents_schema,
         "placeholder": {"type": "string"},
         "parent": {"type": "string"},
         "type": {"const": "NUMERIC"},
