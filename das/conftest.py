@@ -60,12 +60,11 @@ from factories import (
     SubjectGroupFactory,
     SubjectSourceFactory,
     SubjectSubTypeFactory,
-    SubjectTypeFactory,
     TenantFactory,
     TwoWayMessageSubjectFactory,
     UserFactory,
 )
-from observations.models import Observation, SubjectStatus, SubjectSubType
+from observations.models import Observation, SubjectStatus
 from utils.features import features
 from utils.tenant import Tenant
 from utils.tenant.managers import TenantContextManager
@@ -315,9 +314,6 @@ def gear_subjectsource_with_observations():
 
     observation = Observation.objects.create(**data)
     observation.save()
-
-    gear_subjectsource.subject.additional = additional
-    gear_subjectsource.subject.save()
 
     return gear_subjectsource
 
