@@ -469,20 +469,26 @@ ui_headers_schema = {
 ui_section_columns = {
     "type": "array",
     "items": {
-        "type": "object",
-        "properties": {
-            "anyOf": [
-                {
+        "anyOf": [
+            {
+                "type": "object",
+                "properties": {
                     "name": {"type": "string"},
                     "type": {"const": "field"}
                 },
-                {
+                "required": ["name", "type"],
+                "additionalProperties": False,
+            },
+            {
+                "type": "object",
+                "properties": {
                     "name": {"type": "string", "pattern": "^header-.*"},
                     "type": {"const": "header"}
                 },
-            ],
-        },
-        "additionalProperties": False,
+                "required": ["name", "type"],
+                "additionalProperties": False,
+            },
+        ],
     },
 }
 
