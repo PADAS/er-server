@@ -37,7 +37,7 @@ SECRET_KEY = "j(h&tc(u_#z-tf)u(9+3n39gmk92#6-v-he_p0ae+1rs*+2j@b"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
-# running in development mode
+ENABLE_SILK = env.bool("ENABLE_SILK", False)
 DEV = False
 
 # Application definition
@@ -279,8 +279,22 @@ CORS_ALLOW_HEADERS = default_headers + ("user-profile", "traceparent")
 
 ALLOWED_HOSTS = ["*"]
 
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+# Session and CSRF cookie security settings
+SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", True)
+CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", True)
+
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False  # Must be False so JavaScript can read it for AJAX requests
+SESSION_COOKIE_SAMESITE = "Lax"  # Lax allows cookies on top-level navigation (redirects)
+CSRF_COOKIE_SAMESITE = "Lax"
+
+# CSRF_TRUSTED_ORIGINS needs to be set in local settings with proper schemes
+CSRF_TRUSTED_ORIGINS = []
+
+# Store CSRF token in session instead of cookie to avoid cookie-related issues
+# This can prevent intermittent CSRF errors when cookies aren't set/sent properly
+# Set to False by default, but can be enabled via env var if cookie issues persist
+CSRF_USE_SESSIONS = env.bool("CSRF_USE_SESSIONS", False)
 
 
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000

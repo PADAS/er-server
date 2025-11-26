@@ -46,7 +46,11 @@
     "mappingFeaturesV2": true,
     "tableauEnabled": false,
     "tableauSiteId": false,
-    "trackLength": false
+    "trackLength": false,
+    "eventsEnabled": true,
+    "subjectsEnabled": true,
+    "spatialFeaturesEnabled": true,
+    "analyzersEnabled": true
   },
   "services": {
     "auth": {

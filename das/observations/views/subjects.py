@@ -1,7 +1,6 @@
 import logging
 
 from drf_spectacular.utils import (
-    OpenApiExample,
     OpenApiParameter,
     OpenApiTypes,
     extend_schema,
@@ -95,25 +94,23 @@ SUBJECTS_LIST_PARAMS = [
         location=OpenApiParameter.QUERY,
         description=(
             "Include subjects having track data within this bounding box defined "
-            "as west,south,east,north (comma-separated)."
+            "as west,south,east,north (comma-separated). "
+            "Example: -77.2,-12.3,-76.7,-11.9"
         ),
         type=OpenApiTypes.STR,
         required=False,
-        examples=[OpenApiExample("Lima-ish", value="-77.2,-12.3,-76.7,-11.9")],
     ),
     OpenApiParameter(
         name="subject_group",
         location=OpenApiParameter.QUERY,
         description=(
             "Single UUID or comma-separated UUIDs. "
-            "Returns subjects that belong to ANY listed group."
-            "If the subject group ID is one UUID only, it will return subjects of nested groups of the group."
+            "Returns subjects that belong to ANY listed group. "
+            "If the subject group ID is one UUID only, it will return subjects of nested groups of the group. "
+            "Examples: 123e4567-e89b-12d3-a456-426614174000 or "
+            "123e4567-e89b-12d3-a456-426614174000,987e6543-e21b-54d3-a654-426614174999"
         ),
         type=OpenApiTypes.STR,  # no `schema=` here
-        examples=[
-            OpenApiExample("One UUID", value="123e4567-e89b-12d3-a456-426614174000"),
-            OpenApiExample("Many", value="123e4567-e89b-12d3-a456-426614174000,987e6543-e21b-54d3-a654-426614174999"),
-        ],
         style="form",
         explode=False,
     ),
@@ -155,10 +152,9 @@ SUBJECTS_LIST_PARAMS = [
     OpenApiParameter(
         name="id",
         location=OpenApiParameter.QUERY,
-        description="Comma-delimited list of Subject IDs.",
+        description="Comma-delimited list of Subject IDs. Example: 42,43,44",
         type=OpenApiTypes.STR,
         required=False,
-        examples=[OpenApiExample("Multiple IDs", value="42,43,44")],
     ),
     OpenApiParameter(
         name="subject_subtypes",

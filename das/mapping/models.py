@@ -16,6 +16,7 @@ from django.conf import settings
 from django.contrib.gis import geos
 from django.contrib.gis.db import models
 from django.contrib.gis.db.models import GeometryField
+from django.contrib.postgres.indexes import GistIndex
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.db.models import Index, Q, UniqueConstraint
@@ -977,6 +978,12 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
     attributes = models.JSONField(default=dict, blank=True)
     provenance = models.JSONField(default=dict, blank=True)
     feature_geometry = models.GeometryField(geography=True, srid=4326)
+    feature_geometry_webmercator = models.GeometryField(
+        srid=3857,
+        null=True,
+        blank=True,
+        help_text="Simplified Web Mercator geometry for vector tile serving (2.5m tolerance)",
+    )
     spatialfile = TenantForeignKey(to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
     arcgis_item = TenantForeignKey(to="ArcgisItem", null=True, blank=True, on_delete=models.CASCADE)
     revision = Revision()
@@ -989,12 +996,57 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
         ordering = ["name"]
         base_manager_name = "objects"
         default_manager_name = "objects"
+        indexes = [
+            GistIndex(
+                fields=["das_tenant_id", "feature_geometry_webmercator"],
+                name="map_spatialfeat_webmerc_gist",
+            ),
+            # GiST index on main feature_geometry with tenant for spatial queries
+            GistIndex(
+                fields=["das_tenant_id", "feature_geometry"],
+                name="map_spatialfeat_geom_gist",
+            ),
+            # B-tree index on feature_type foreign key with tenant for filtering by type
+            Index(
+                fields=["das_tenant_id", "feature_type"],
+                name="map_spatialfeat_type_idx",
+            ),
+            # B-tree index on spatialfile foreign key with tenant for file-based queries
+            Index(
+                fields=["das_tenant_id", "spatialfile"],
+                name="map_spatialfeat_file_idx",
+            ),
+        ]
 
     def _bump_cache_version(self):
         """Increment the vector tile cache version to invalidate cached tiles."""
         bump_vector_tile_data_version()
 
+    def _generate_webmercator_geometry(self):
+        """Generate simplified Web Mercator geometry from the source geometry."""
+        if not self.feature_geometry:
+            return None
+
+        try:
+            # Transform to Web Mercator
+            webmerc_geom = self.feature_geometry.transform(3857, clone=True)
+
+            # Only simplify for appropriate geometry types
+            if webmerc_geom.geom_type in ["LineString", "Polygon", "MultiLineString", "MultiPolygon"]:
+                # Apply 2.5m simplification tolerance - good balance of performance and detail
+                # Preserves details visible at zoom 16+ while removing micro-features
+                simplified = webmerc_geom.simplify(tolerance=2.5, preserve_topology=True)
+                return simplified
+            else:
+                return webmerc_geom
+        except Exception as e:
+            logger.exception("Failed to generate Web Mercator geometry for SpatialFeature %s: %s", self.id, e)
+            return None
+
     def save(self, *args, **kwargs):
+        # Generate optimized Web Mercator geometry on save
+        self.feature_geometry_webmercator = self._generate_webmercator_geometry()
+
         result = super().save(*args, **kwargs)
         self._bump_cache_version()
         return result

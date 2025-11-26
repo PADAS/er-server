@@ -20,6 +20,8 @@ from django.core.cache import caches
 from django.core.cache.backends.base import InvalidCacheBackendError
 from django.http import HttpRequest
 
+logger = logging.getLogger(__name__)
+
 
 def get_vector_tile_cache():
     """Return the cache instance configured for vector tiles.
@@ -31,7 +33,7 @@ def get_vector_tile_cache():
     try:
         return caches[alias]
     except (InvalidCacheBackendError, KeyError, AttributeError):
-        logging.getLogger(__name__).warning(
+        logger.exception(
             "Vector tile cache alias '%s' is not configured; falling back to default cache",
             alias,
         )
@@ -128,7 +130,6 @@ def build_tile_cache_key(
     query_hash = _hash_query_params(request.GET) if include_query else "noquery"
     layers_part = ",".join(sorted(layer_ids)) if layer_ids else "nolayers"
 
-    logging.getLogger(__name__)
     components = [
         "vt",
         str(tenant_component),
