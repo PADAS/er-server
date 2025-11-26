@@ -1,7 +1,7 @@
 import json
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from psycopg2.extras import DateTimeTZRange
 
@@ -29,14 +29,12 @@ class BuoyService:
         return json.loads(json.dumps(data, cls=ExtendedJSONEncoder))
 
     @staticmethod
-    def process_gearset(
-        validated_data: dict, manufacturer: Optional[str] = None
-    ) -> Tuple[models.Subject, List[models.Observation]]:
+    def process_gearset(validated_data: dict, user) -> Tuple[models.Subject, List[models.Observation]]:
         """Process a validated gearset payload.
 
         Args:
             validated_data (dict): validated serializer data for the gearset
-            manufacturer (str|None): optional manufacturer string to store on the Subject.additional
+            user: User instance used to determine which SubjectGroup the gear belongs to
 
         Returns:
             tuple: (Subject instance, list of created Observation instances)
@@ -45,7 +43,23 @@ class BuoyService:
         mfr_set_id = str(validated_data.get("mfr_set_id"))
         set_display_id = str(validated_data.get("set_display_id"))
         set_additional_data = validated_data.get("set_additional_data", {})
+        manufacturer_name = validated_data.get("manufacturer_name")
         devices = validated_data.get("devices", [])
+
+        # Find SubjectGroup by manufacturer_name
+        # Note: manufacturer_name should already be validated in the serializer
+        try:
+            subject_group = models.SubjectGroup.objects.get(name=manufacturer_name)
+        except models.SubjectGroup.DoesNotExist:
+            # This should not happen if serializer validation passed, but handle it anyway
+            raise ValueError(f"SubjectGroup with name '{manufacturer_name}' does not exist")
+
+        # Get default SourceProvider for Source creation
+        try:
+            provider = models.SourceProvider.objects.get(id=models.get_default_source_provider_id())
+        except models.SourceProvider.DoesNotExist:
+            logger.warning(f"Default SourceProvider not found, creating sources without provider reference")
+            provider = None
 
         # Ensure subject subtype exists for buoy gear
         subject_subtype = None
@@ -58,11 +72,12 @@ class BuoyService:
         # Build additional dict for Subject, starting with set_additional_data
         additional = set_additional_data.copy() if set_additional_data else {}
 
-        # Set display_id and manufacturer in additional
+        # Set display_id and manufacturer_name in additional
         if set_display_id:
             additional["display_id"] = set_display_id
-        if manufacturer:
-            additional["manufacturer"] = manufacturer
+
+        # Store manufacturer_name in additional for backward compatibility
+        additional["manufacturer"] = manufacturer_name
 
         additional = BuoyService._make_serializable(additional)
 
@@ -71,11 +86,15 @@ class BuoyService:
 
         # Create or get Subject using set_id as the primary key
         if subject_subtype is not None:
-            subject, _ = models.Subject.objects.get_or_create(
+            subject, created = models.Subject.objects.get_or_create(
                 id=set_id, subject_subtype=subject_subtype, defaults=subject_defaults
             )
         else:
-            subject, _ = models.Subject.objects.get_or_create(id=set_id, defaults=subject_defaults)
+            subject, created = models.Subject.objects.get_or_create(id=set_id, defaults=subject_defaults)
+
+        # Add subject to the SubjectGroup if not already a member
+        if not subject.groups.filter(id=subject_group.id).exists():
+            subject.groups.add(subject_group)
 
         # Ensure name, display_id and manufacturer are set/updated when provided
         subject_changed = False
@@ -86,7 +105,7 @@ class BuoyService:
             subject_changed = True
 
         # Update additional fields
-        if set_display_id or manufacturer or set_additional_data:
+        if set_display_id or manufacturer_name or set_additional_data:
             subj_additional = subject.additional or {}
 
             # Merge set_additional_data first - only if non-empty and introduces changes
@@ -99,8 +118,8 @@ class BuoyService:
             if set_display_id and subj_additional.get("display_id") != set_display_id:
                 subj_additional["display_id"] = set_display_id
                 subject_changed = True
-            if manufacturer and subj_additional.get("manufacturer") != manufacturer:
-                subj_additional["manufacturer"] = manufacturer
+            if manufacturer_name and subj_additional.get("manufacturer") != manufacturer_name:
+                subj_additional["manufacturer"] = manufacturer_name
                 subject_changed = True
             if subject_changed:
                 subject.additional = subj_additional
@@ -128,16 +147,19 @@ class BuoyService:
             device_id = str(device_data["device_id"])
             mfr_device_id = device_data.get("mfr_device_id")
 
-            # Get or use default provider
-            provider = models.SourceProvider.objects.get(id=models.get_default_source_provider_id())
-
             # Get or create Source using the unique constraint fields (provider, manufacturer_id)
             # The unique constraint is on (das_tenant, provider, manufacturer_id), not on id.
             # If a Source with this manufacturer_id already exists, reuse it (even if device_id differs).
             # Pass id in defaults so it's only set when creating a new Source.
-            source, created = models.Source.objects.get_or_create(
-                provider=provider, manufacturer_id=mfr_device_id, defaults={"id": device_id}
-            )
+            if provider:
+                source, created = models.Source.objects.get_or_create(
+                    provider=provider, manufacturer_id=mfr_device_id, defaults={"id": device_id}
+                )
+            else:
+                # Fallback: create source without provider reference
+                source, created = models.Source.objects.get_or_create(
+                    manufacturer_id=mfr_device_id, defaults={"id": device_id}
+                )
 
             # Store last_updated in Source's additional field if provided
             if device_data.get("last_updated"):
