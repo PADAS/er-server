@@ -30,45 +30,52 @@ class TestGearView:
     @pytest.fixture
     def _get_superuser_client(self, gear_subjectsource, superuser, superuser_client):
         url = reverse(self.base_url, kwargs={"id": gear_subjectsource.subject.id})
-        gear_subjectsource.subject.linked_user = superuser
-        gear_subjectsource.subject.save()
+        # Create SubjectGroup and add subject to it
+        subject_group = SubjectGroup.objects.create(name="SuperUserManufacturer")
+        gear_subjectsource.subject.groups.add(subject_group)
+
+        # Assign permission to superuser
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser.permission_sets.add(permission_set)
+
         return superuser_client.get(url), superuser
 
     @pytest.fixture
     def _get_client(self, gear_subjectsource):
         client = HTTPClient()
-        gear_subjectsource.subject.linked_user = client.app_user
-        gear_subjectsource.subject.save()
+        # Create SubjectGroup and add subject to it
+        subject_group = SubjectGroup.objects.create(name="RegularUserManufacturer")
+        gear_subjectsource.subject.groups.add(subject_group)
+
+        # Assign permission to user
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        client.app_user.permission_sets.add(permission_set)
+
         url = reverse(self.base_url, kwargs={"id": gear_subjectsource.subject.id})
         request = client.factory.get(url)
         client.force_authenticate(request, client.app_user)
 
         return views.GearView.as_view()(request, id=str(gear_subjectsource.subject.id)), client.app_user
 
-    def test_subject_view_with_linked_user(self, _get_superuser_client):
+    def test_subject_view_with_matching_source_provider(self, _get_superuser_client):
         response, user = _get_superuser_client
         # GearSerializer returns SubjectSource, so id comes from subject.id
-        assert response.data["id"] == str(user.linked_subject.id)
-        assert response.data["display_id"] == user.linked_subject.name
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"]
         assert response.data["status"] == "deployed"
         assert response.data["last_updated"]
 
-    def test_subject_view_with_linked_user_and_not_subject_permission(self, _get_client):
+    def test_subject_view_with_matching_source_provider_regular_user(self, _get_client):
         response, user = _get_client
-        # If permission is denied, response won't have data
-        if response.status_code == 200:
-            # GearSerializer returns SubjectSource, so id comes from subject.id
-            assert response.data["id"] == str(user.linked_subject.id)
-        else:
-            # Permission denied
-            assert response.status_code == 403
+        # Should have access since user has permission to the SubjectGroup
+        assert response.status_code == 200
+        assert response.data["id"]
 
-    def test_subject_view_without_linked_user(self, _get_superuser_client):
-        response, _ = _get_superuser_client
-        assert not hasattr(response.data, "user")
-
-    def test_subject_view_with_not_linked_user_or_subject_permission(self, gear_subjectsource):
+    def test_subject_view_without_matching_source_provider(self, gear_subjectsource):
         client = HTTPClient()
+        # Don't add subject to any SubjectGroup that user has access to - permission should be denied
         url = reverse(self.base_url, kwargs={"id": gear_subjectsource.subject.id})
         request = client.factory.get(url)
         client.force_authenticate(request, client.app_user)
@@ -77,17 +84,47 @@ class TestGearView:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def _test_subject_view_with_linked_user_ask_for_random_subject(self, five_gears, superuser_client, superuser):
-        subject1 = five_gears[0]
-        subject2 = five_gears[1]
-        url = reverse(self.base_url, kwargs={"id": subject2.id})
-        subject1.linked_user = superuser
-        subject1.save()
-        response = superuser_client.get(url)
+    def test_subject_view_with_not_matching_source_provider(self, gear_subjectsource):
+        client = HTTPClient()
+        # Create SubjectGroup but don't assign permission to user
+        subject_group = SubjectGroup.objects.create(name="OtherManufacturer")
+        gear_subjectsource.subject.groups.add(subject_group)
 
-        assert response.status_code == status.HTTP_200_OK
+        url = reverse(self.base_url, kwargs={"id": gear_subjectsource.subject.id})
+        request = client.factory.get(url)
+        client.force_authenticate(request, client.app_user)
 
-        assert response.data["id"] == str(subject2.id)
+        response = views.GearView.as_view()(request, id=str(gear_subjectsource.subject.id))
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_subject_view_different_subject_with_different_provider(self, five_gears, user_client, django_user_model):
+        # Create a regular user (not superuser)
+        user = django_user_model.objects.create_user(username="regular_user", password="testpass")
+
+        subject1_source = five_gears[0]
+        subject2_source = five_gears[1]
+
+        # Create and assign distinct SubjectGroups for each subject to ensure isolation
+        subject_group1 = SubjectGroup.objects.create(name="Manufacturer1")
+        subject1_source.subject.groups.add(subject_group1)
+        permission_set1, _ = PermissionSet.objects.get_or_create(name=subject_group1.auto_permissionset_name)
+        subject_group1.permission_sets.add(permission_set1)
+        user.permission_sets.add(permission_set1)
+
+        subject_group2 = SubjectGroup.objects.create(name="Manufacturer2")
+        subject2_source.subject.groups.add(subject_group2)
+        # Don't give user access to subject_group2
+
+        # Assert SubjectGroups are different to catch fixture misconfiguration
+        assert subject_group1.id != subject_group2.id, "Test requires different SubjectGroups for subjects"
+
+        # Try to access subject2 - should be denied
+        url = reverse(self.base_url, kwargs={"id": subject2_source.subject.id})
+        user_client.force_authenticate(user=user)
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
 @pytest.mark.django_db
@@ -98,13 +135,27 @@ class TestGearsView:
 
     @pytest.fixture
     def buoy_superuser_client(self, gear_subjectsource_with_observations, superuser_client):
-        gear_subjectsource_with_observations.linked_user = superuser_client.user
-        gear_subjectsource_with_observations.save()
+        # Create SubjectGroup and add subject to it
+        subject_group = SubjectGroup.objects.create(name="SuperUserTestManufacturer")
+        gear_subjectsource_with_observations.subject.groups.add(subject_group)
+
+        # Assign permission to superuser
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser_client.user.permission_sets.add(permission_set)
+
         return superuser_client, gear_subjectsource_with_observations
 
     @pytest.fixture
     def buoy_client(self, gear_subjectsource_with_observations, user_client):
-        gear_subjectsource_with_observations.linked_user = user_client.user
+        # Create SubjectGroup and add subject to it
+        subject_group = SubjectGroup.objects.create(name="UserTestManufacturer")
+        gear_subjectsource_with_observations.subject.groups.add(subject_group)
+
+        # Assign permission to user
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        user_client.user.permission_sets.add(permission_set)
 
         # Create Subject-Group & have only one subject & give permission to view subject-source.
         parent_group = SubjectGroup.objects.create(name="SG Group")
@@ -535,7 +586,10 @@ class TestGearsView:
         assert gear_subjectsource.subject.is_active is True
 
     def test_filter_gear_subject_api_max_nm_range_provided(self, buoy_client):
-        user_client, _ = buoy_client
+        user_client, gear_subjectsource = buoy_client
+
+        # Get the SubjectGroup that the user has access to
+        subject_group = SubjectGroup.objects.get(name="UserTestManufacturer")
 
         # Arrange - Create a set of gears
         origin = Point(10, 10)
@@ -543,9 +597,13 @@ class TestGearsView:
         for miles in [4, 40, 400, 999]:
             bearing = random.uniform(0, 360)
             new_point = distance(miles=miles).destination(origin, bearing)
-            gear_subjectsource = get_custom_location_gear_subjectsource(Point(new_point.longitude, new_point.latitude))
-            gear_subjectsource.subject.additional["display_id"] = generate_fake_display_id()
-            gear_subjectsource.subject.save()
+            gear_subjectsource_new = get_custom_location_gear_subjectsource(
+                Point(new_point.longitude, new_point.latitude)
+            )
+            gear_subjectsource_new.subject.additional["display_id"] = generate_fake_display_id()
+            gear_subjectsource_new.subject.save()
+            # Add the gear to the SubjectGroup so the user can see it
+            gear_subjectsource_new.subject.groups.add(subject_group)
 
         url = reverse(self.base_url)
 
