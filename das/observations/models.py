@@ -1123,15 +1123,17 @@ class SubjectSource(TenantModelMixin, models.Model):
 
     @property
     def is_current(self):
-        return not self.is_expired
+        return datetime.now(tz=timezone.utc) in self.assigned_range
 
     @property
     def has_assigned_lower_range(self):
-        return self.assigned_range.lower != DEFAULT_ASSIGNED_RANGE[0]
+        min_with_timezone = DEFAULT_ASSIGNED_RANGE[0]
+        return self.assigned_range.lower != min_with_timezone
 
     @property
     def has_assigned_upper_range(self):
-        return self.assigned_range.upper != DEFAULT_ASSIGNED_RANGE[1]
+        max_with_timezone = DEFAULT_ASSIGNED_RANGE[1]
+        return self.assigned_range.upper != max_with_timezone
 
     @property
     def has_assigned_range(self):

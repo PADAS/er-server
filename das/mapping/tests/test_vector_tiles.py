@@ -15,6 +15,7 @@ from mapping.views import SpatialFeatureTileView
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
 class TestSpatialFeatureLayer:
     def test_basic_config(self):
         layer = SpatialFeatureLayer()
@@ -209,6 +210,7 @@ class TestSpatialFeatureLayer:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
 class TestSpatialFeatureTileEndpoint:
     def test_tile_view_instantiation_and_layer_injection(self, monkeypatch):
         # Permit example.org host for this test
