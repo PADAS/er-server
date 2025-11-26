@@ -70,6 +70,14 @@ class BuoyService:
             provider_key=provider_key, display_name=manufacturer_name
         )
 
+        # Get SourceProvider for that user
+        try:
+            provider = models.SourceProvider.objects.get(additional__buoy_post_user_id=str(user.id))
+        except models.SourceProvider.DoesNotExist:
+            provider = models.SourceProvider.objects.get(id=models.get_default_source_provider_id())
+
+        manufacturer = provider.provider_key
+
         # Ensure subject subtype exists for buoy gear
         subject_subtype = None
         try:
