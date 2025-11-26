@@ -100,9 +100,7 @@ reference_choice_object_schema_in_anyOf = {
     "type": "array",
     "items": {
         "type": "object",
-        "properties": {
-            "$ref": {"type": "string", "format": "uri"}
-        },
+        "properties": {"$ref": {"type": "string", "format": "uri"}},
         "required": ["$ref"],
     },
     "minItems": 1,
@@ -363,10 +361,7 @@ ui_choice_schema = {
         "choices": {
             "type": "object",
             "properties": {
-                "eventTypeCategories": {
-                    "type": "array",
-                    "items": {"type": "string", "format": "uuid"}
-                },
+                "eventTypeCategories": {"type": "array", "items": {"type": "string", "format": "uuid"}},
                 "existingChoiceList": {
                     "type": "array",
                     "items": {"type": "string", "format": "uuid"},
@@ -475,10 +470,7 @@ ui_section_columns = {
     "type": "array",
     "items": {
         "type": "object",
-        "properties": {
-            "name": {"type": "string"},
-            "type": {"enum": ["field", "header"]}
-        },
+        "properties": {"name": {"type": "string"}, "type": {"enum": ["field", "header"]}},
         "additionalProperties": False,
     },
 }
@@ -555,19 +547,14 @@ does_not_have_input_condition_schema = {
                         "not": {
                             "type": "object",
                             "properties": {
-                                "required": {
-                                    "type": "array",
-                                    "items": {"type": "string"},
-                                    "minItems": 1,
-                                    "maxItems": 1
-                                }
+                                "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1}
                             },
                             "required": ["required"],
-                            "additionalProperties": False
+                            "additionalProperties": False,
                         }
                     },
                     "required": ["not"],
-                    "additionalProperties": False
+                    "additionalProperties": False,
                 },
                 {
                     "type": "object",
@@ -579,25 +566,17 @@ does_not_have_input_condition_schema = {
                             "patternProperties": {
                                 ".*": {
                                     "type": "object",
-                                    "properties": {
-                                        "type": {"const": "array"},
-                                        "maxItems": {"const": 0}
-                                    },
+                                    "properties": {"type": {"const": "array"}, "maxItems": {"const": 0}},
                                     "required": ["type", "maxItems"],
-                                    "additionalProperties": False
+                                    "additionalProperties": False,
                                 }
                             },
-                            "additionalProperties": False
+                            "additionalProperties": False,
                         },
-                        "required": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "minItems": 1,
-                            "maxItems": 1
-                        }
+                        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
                     },
                     "required": ["properties", "required"],
-                    "additionalProperties": False
+                    "additionalProperties": False,
                 },
                 {
                     "type": "object",
@@ -609,25 +588,17 @@ does_not_have_input_condition_schema = {
                             "patternProperties": {
                                 ".*": {
                                     "type": "object",
-                                    "properties": {
-                                        "type": {"const": "object"},
-                                        "maxProperties": {"const": 0}
-                                    },
+                                    "properties": {"type": {"const": "object"}, "maxProperties": {"const": 0}},
                                     "required": ["type", "maxProperties"],
-                                    "additionalProperties": False
+                                    "additionalProperties": False,
                                 }
                             },
-                            "additionalProperties": False
+                            "additionalProperties": False,
                         },
-                        "required": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "minItems": 1,
-                            "maxItems": 1
-                        }
+                        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
                     },
                     "required": ["properties", "required"],
-                    "additionalProperties": False
+                    "additionalProperties": False,
                 },
                 {
                     "type": "object",
@@ -639,32 +610,24 @@ does_not_have_input_condition_schema = {
                             "patternProperties": {
                                 ".*": {
                                     "type": "object",
-                                    "properties": {
-                                        "type": {"const": "string"},
-                                        "maxLength": {"const": 0}
-                                    },
+                                    "properties": {"type": {"const": "string"}, "maxLength": {"const": 0}},
                                     "required": ["type", "maxLength"],
-                                    "additionalProperties": False
+                                    "additionalProperties": False,
                                 }
                             },
-                            "additionalProperties": False
+                            "additionalProperties": False,
                         },
-                        "required": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "minItems": 1,
-                            "maxItems": 1
-                        }
+                        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
                     },
                     "required": ["properties", "required"],
-                    "additionalProperties": False
-                }
+                    "additionalProperties": False,
+                },
             ],
-            "items": False
+            "items": False,
         }
     },
     "required": ["anyOf"],
-    "additionalProperties": False
+    "additionalProperties": False,
 }
 
 has_input_condition_schema = {
@@ -689,15 +652,13 @@ has_input_condition_schema = {
                                     "properties": {
                                         "not": {
                                             "type": "object",
-                                            "properties": {
-                                                "type": {"const": "null"}
-                                            },
+                                            "properties": {"type": {"const": "null"}},
                                             "required": ["type"],
-                                            "additionalProperties": False
+                                            "additionalProperties": False,
                                         }
                                     },
                                     "required": ["not"],
-                                    "additionalProperties": False
+                                    "additionalProperties": False,
                                 },
                                 {
                                     "type": "object",
@@ -711,71 +672,62 @@ has_input_condition_schema = {
                                                     "type": "object",
                                                     "properties": {
                                                         "type": {"const": "array"},
-                                                        "minItems": {"const": 1}
+                                                        "minItems": {"const": 1},
                                                     },
                                                     "required": ["type", "minItems"],
-                                                    "additionalProperties": False
+                                                    "additionalProperties": False,
                                                 },
                                                 {
                                                     "type": "object",
-                                                    "properties": {
-                                                        "type": {"const": "boolean"}
-                                                    },
+                                                    "properties": {"type": {"const": "boolean"}},
                                                     "required": ["type"],
-                                                    "additionalProperties": False
+                                                    "additionalProperties": False,
                                                 },
                                                 {
                                                     "type": "object",
-                                                    "properties": {
-                                                        "type": {"const": "number"}
-                                                    },
+                                                    "properties": {"type": {"const": "number"}},
                                                     "required": ["type"],
-                                                    "additionalProperties": False
+                                                    "additionalProperties": False,
                                                 },
                                                 {
                                                     "type": "object",
                                                     "properties": {
                                                         "type": {"const": "object"},
-                                                        "minProperties": {"const": 1}
+                                                        "minProperties": {"const": 1},
                                                     },
                                                     "required": ["type", "minProperties"],
-                                                    "additionalProperties": False
+                                                    "additionalProperties": False,
                                                 },
                                                 {
                                                     "type": "object",
                                                     "properties": {
                                                         "type": {"const": "string"},
-                                                        "minLength": {"const": 1}
+                                                        "minLength": {"const": 1},
                                                     },
                                                     "required": ["type", "minLength"],
-                                                    "additionalProperties": False
-                                                }
+                                                    "additionalProperties": False,
+                                                },
                                             ],
-                                            "items": False
+                                            "items": False,
                                         }
                                     },
                                     "required": ["anyOf"],
-                                    "additionalProperties": False
-                                }
+                                    "additionalProperties": False,
+                                },
                             ],
-                            "items": False
+                            "items": False,
                         }
                     },
                     "required": ["allOf"],
-                    "additionalProperties": False
+                    "additionalProperties": False,
                 }
             },
             "additionalProperties": False,
         },
-        "required": {
-            "type": "array",
-            "items": {"type": "string"},
-            "minItems": 1,
-            "maxItems": 1
-        }
+        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
     },
     "required": ["properties", "required"],
-    "additionalProperties": False
+    "additionalProperties": False,
 }
 
 input_is_exactly_condition_schema = {
@@ -797,41 +749,30 @@ input_is_exactly_condition_schema = {
                             "prefixItems": [
                                 {
                                     "type": "object",
-                                    "properties": {
-                                        "const": {"type": ["number", "null"]},
-                                        "type": {"const": "number"}
-                                    },
+                                    "properties": {"const": {"type": ["number", "null"]}, "type": {"const": "number"}},
                                     "required": ["const", "type"],
-                                    "additionalProperties": false
+                                    "additionalProperties": false,
                                 },
                                 {
                                     "type": "object",
-                                    "properties": {
-                                        "const": {"type": "string"},
-                                        "type": {"const": "string"}
-                                    },
+                                    "properties": {"const": {"type": "string"}, "type": {"const": "string"}},
                                     "required": ["const", "type"],
-                                    "additionalProperties": false
-                                }
+                                    "additionalProperties": false,
+                                },
                             ],
-                            "items": False
+                            "items": False,
                         }
                     },
                     "required": ["anyOf"],
-                    "additionalProperties": false
+                    "additionalProperties": false,
                 }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
         },
-        "required": {
-            "type": "array",
-            "items": { "type": "string" },
-            "minItems": 1,
-            "maxItems": 1
-        }
+        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
     },
     "required": ["properties", "required"],
-    "additionalProperties": false
+    "additionalProperties": false,
 }
 
 ui_schema = {
@@ -893,7 +834,7 @@ json_field_schema = {
                 "type": "object",
                 "properties": {
                     "if": {
-                        "type": "object"
+                        "type": "object",
                         "properties": {
                             "allOf": {
                                 "type": "array",
@@ -933,11 +874,7 @@ json_field_schema = {
                                     }
                                 },
                             },
-                            "required": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "uniqueItems": True
-                            },
+                            "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": True},
                         },
                         "required": ["properties", "required"],
                         "additionalProperties": False,
@@ -968,11 +905,7 @@ json_field_schema = {
                 }
             },
         },
-        "required": {
-            "type": "array",
-            "items": {"type": "string"},
-            "uniqueItems": True
-        },
+        "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": True},
         "type": {"const": "object"},
         "unevaluatedProperties": {"const": False},
     },
