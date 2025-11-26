@@ -73,10 +73,12 @@ location_field_schema = {
             "required": ["latitude", "longitude"],
             "additionalProperties": False,
         },
+        "required": {"const": ["latitude", "longitude"]},
         "title": {"type": "string", "maxLength": 100},
         "type": {"const": "object"},
+        "unevaluatedProperties": {"const": False},
     },
-    "required": ["deprecated", "properties", "title", "type"],
+    "required": ["deprecated", "properties", "required", "title", "type", "unevaluatedProperties"],
     "additionalProperties": False,
 }
 
