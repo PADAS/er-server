@@ -751,28 +751,28 @@ input_is_exactly_condition_schema = {
                                     "type": "object",
                                     "properties": {"const": {"type": ["number", "null"]}, "type": {"const": "number"}},
                                     "required": ["const", "type"],
-                                    "additionalProperties": false,
+                                    "additionalProperties": False,
                                 },
                                 {
                                     "type": "object",
                                     "properties": {"const": {"type": "string"}, "type": {"const": "string"}},
                                     "required": ["const", "type"],
-                                    "additionalProperties": false,
+                                    "additionalProperties": False,
                                 },
                             ],
                             "items": False,
                         }
                     },
                     "required": ["anyOf"],
-                    "additionalProperties": false,
+                    "additionalProperties": False,
                 }
             },
-            "additionalProperties": false,
+            "additionalProperties": False,
         },
         "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
     },
     "required": ["properties", "required"],
-    "additionalProperties": false,
+    "additionalProperties": False,
 }
 
 ui_schema = {
