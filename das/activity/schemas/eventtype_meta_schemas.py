@@ -488,7 +488,7 @@ ui_sections_schema = {
                 "properties": {
                     "field": {"type": "string"},
                     "operator": {"enum": ["INPUT_IS_EXACTLY", "HAS_INPUT", "DOES_NOT_HAVE_INPUT", "CONTAINS"]},
-                    "value": {"type": "string"},
+                    "value": {"type": ["string", "null"]},
                 },
                 "required": ["field", "operator"],
                 "additionalProperties": False,
