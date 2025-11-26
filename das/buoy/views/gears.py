@@ -178,11 +178,14 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data
 
-        manufacturer_name = request.user.first_name
-        subject, observations = BuoyService.process_gearset(validated_data, manufacturer=manufacturer_name)
+        subject, observations = BuoyService.process_gearset(validated_data, user=request.user)
         return Response(
             {
                 "detail": "Gears successfully processed",
@@ -194,40 +197,30 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
 
 class GearView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = (StandardObjectPermissions,)
+    permission_classes = (HasManufacturerSubjectGroupPermission,)
     serializer_class = serializers.GearSerializer
     lookup_field = "id"
 
-    def check_permissions(self, request):
-        subject_id = self.kwargs.get("id")
-        self.queryset_linked_user = Subject.objects.filter(linked_user=request.user, id=subject_id)
-        if not self.queryset_linked_user.exists():
-            for permission in self.get_permissions():
-                if not permission.has_permission(request, self):
-                    self.permission_denied(request)
-
     def get_queryset(self):
         subject_id = self.kwargs.get("id")
-        subject = generics.get_object_or_404(Subject.objects.all(), pk=subject_id)
-        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
-            raise ForbiddenAPIException
-        min_age_days = get_minimum_allowed_age(self.request.user) or 0
-        queryset = Subject.objects.filter(id=subject_id)
-        mou_date = self.request.user.additional.get("expiry", None)
-        mou_date = dateparse(mou_date) if mou_date else None
-        queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
-        self._get_two_way_sources(queryset)
+
+        # Return SubjectSource queryset instead of Subject queryset
+        # to work with the new GearSerializer (ModelSerializer)
+        queryset = SubjectSource.objects.filter(subject_id=subject_id)
+
+        # Prefetch related data for efficient queries
+        queryset = queryset.select_related("subject", "source", "source__provider")
+        queryset = queryset.prefetch_related("source__last_observation_sources", "subject__groups")
+
         return queryset
 
     def get_object(self):
-        if self.queryset_linked_user.exists():
-            subject_id = self.kwargs.get("id")
-            return get_object_or_404(self.queryset_linked_user, pk=subject_id)
-        return super().get_object()
+        # Get the first SubjectSource from the queryset
+        subject_source = self.get_queryset().first()
+        if not subject_source:
+            raise NotFound("No SubjectSource found for this subject")
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["two_way_subject_sources"] = self.two_way_subject_sources
-        context["simple_mode"] = True
+        # Check object-level permissions
+        self.check_object_permissions(self.request, subject_source)
 
-        return context
+        return subject_source
