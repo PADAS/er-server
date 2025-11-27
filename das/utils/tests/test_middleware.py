@@ -235,7 +235,7 @@ class TestManageAdminEFBTokenMiddleware:
         assert EFB_ACCESS_TOKEN_NAME in response.cookies
         assert response.cookies[EFB_ACCESS_TOKEN_NAME].value == ""
 
-    @patch("utils.middleware.ManageAdminEFBTokenMiddleware._can_create_efb_token", return_value=False)
+    @patch("utils.middleware.ManageAdminEFBTokenMiddleware._should_create_efb_token", return_value=False)
     def test_error_handling_during_token_deletion(self, caplog):
         with patch("core.models.oauth.DASAccessToken.objects.filter", side_effect=Exception("DB Error")) as mock_delete:
             with pytest.raises(Exception):
