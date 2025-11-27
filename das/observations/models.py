@@ -958,6 +958,223 @@ class Observation(TenantModelMixin, models.Model):
 DEFAULT_ASSIGNED_RANGE = list((pytz.utc.localize(datetime.min), pytz.utc.localize(datetime.max)))
 
 
+class ObservationSegmentQuerySet(models.QuerySet, FilterMixin):
+    """QuerySet for ObservationSegment with filtering capabilities."""
+
+    def by_subject(self, subject):
+        """Filter segments by subject."""
+        return self.filter(subject=subject)
+
+    def by_subject_id(self, subject_id):
+        """Filter segments by subject ID."""
+        return self.filter(subject_id=subject_id)
+
+    def by_time_range(self, since=None, until=None):
+        """
+        Filter segments by time range based on start_recorded_at.
+        Uses gte (>=) for since and lt (<) for until to avoid overlap at boundaries.
+        """
+        if since and until:
+            return self.filter(start_recorded_at__gte=since, start_recorded_at__lt=until)
+        elif since:
+            return self.filter(start_recorded_at__gte=since)
+        elif until:
+            return self.filter(start_recorded_at__lt=until)
+        return self
+
+    def by_exclusion_flags(self, filter_flag):
+        """Filter segments by exclusion flags."""
+        if filter_flag is None:
+            return self
+        return self.filter(exclusion_flags=filter_flag)
+
+    def ordered_by_time(self):
+        """Order segments by start time."""
+        return self.order_by("start_recorded_at")
+
+
+class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset(ObservationSegmentQuerySet)):
+    """Manager for ObservationSegment with tenant awareness."""
+
+    use_in_migrations = True
+
+    def create_segment(self, start_obs, end_obs, subject):
+        """
+        Create a segment between two observations.
+
+        Args:
+            start_obs: Starting Observation instance
+            end_obs: Ending Observation instance
+            subject: Subject instance the segment belongs to
+
+        Returns:
+            ObservationSegment instance
+        """
+        from django.contrib.gis.geos import LineString
+
+        # Create LineString geometry
+        geometry = LineString(start_obs.location, end_obs.location, srid=4326)
+
+        # Calculate time gap in milliseconds
+        time_delta = abs((end_obs.recorded_at - start_obs.recorded_at).total_seconds())
+        time_gap_ms = time_delta * 1000.0
+
+        # Calculate distance in meters using PostGIS
+        # ST_Distance on geography type returns meters
+        distance_meters = start_obs.location.distance(end_obs.location) * 111319.9  # degrees to meters approximation
+
+        # For accurate distance, we should use geography cast
+        # This will be done in the model's save method using raw SQL for precision
+
+        # Calculate speed in km/h
+        time_gap_hours = time_gap_ms / (1000.0 * 3600.0)  # Convert ms to hours for speed calculation
+        speed_kmh = (distance_meters / 1000.0) / time_gap_hours if time_gap_hours > 0 else 0.0
+
+        # Combine exclusion flags (OR operation)
+        exclusion_flags = start_obs.exclusion_flags.mask | end_obs.exclusion_flags.mask
+
+        segment = self.create(
+            subject=subject,
+            start_observation=start_obs,
+            end_observation=end_obs,
+            geometry=geometry,
+            speed_kmh=speed_kmh,
+            time_gap_ms=time_gap_ms,
+            distance_meters=distance_meters,
+            start_recorded_at=start_obs.recorded_at,
+            end_recorded_at=end_obs.recorded_at,
+            exclusion_flags=exclusion_flags,
+            das_tenant_id=subject.das_tenant_id,
+        )
+
+        return segment
+
+    def get_or_create_segment(self, start_obs, end_obs, subject):
+        """
+        Get or create a segment between two observations.
+
+        Returns:
+            (ObservationSegment, created) tuple
+        """
+        try:
+            segment = self.get(
+                start_observation=start_obs, end_observation=end_obs, das_tenant_id=subject.das_tenant_id
+            )
+            return segment, False
+        except self.model.DoesNotExist:
+            return self.create_segment(start_obs, end_obs, subject), True
+
+
+class ObservationSegment(TenantModelMixin, models.Model):
+    """
+    Pre-computed track segments between consecutive observations.
+    Optimized for vector tile and GeoJSON track rendering.
+
+    Each segment represents the line between two consecutive observations
+    for a subject, ordered by recorded_at.
+
+    Segments are automatically maintained via signals on Observation changes:
+    - When an observation is created, segments to prev/next observations are created
+    - When an observation is deleted, affected segments are removed and bridged
+    - When an observation is updated, affected segments are recalculated
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+
+    # Core relationships
+    subject = TenantForeignKey(
+        "Subject",
+        on_delete=models.CASCADE,
+        related_name="segments",
+        related_query_name="segment",
+        help_text="Subject this segment belongs to",
+    )
+    # Observation table is partitioned with composite PK (das_tenant_id, id)
+    # We MUST use TenantForeignKey to properly reference both columns
+    start_observation = TenantForeignKey(
+        "Observation",
+        on_delete=models.CASCADE,
+        related_name="segments_as_start",
+        related_query_name="segment_as_start",
+        help_text="Starting observation of the segment",
+    )
+    end_observation = TenantForeignKey(
+        "Observation",
+        on_delete=models.CASCADE,
+        related_name="segments_as_end",
+        related_query_name="segment_as_end",
+        help_text="Ending observation of the segment",
+    )
+
+    # Geometry (LineString connecting start → end)
+    geometry = models.LineStringField(srid=4326, help_text="LineString geometry from start to end observation")
+
+    # Computed metrics
+    speed_kmh = models.FloatField(help_text="Speed in km/h between observations")
+    time_gap_ms = models.FloatField(help_text="Time gap in milliseconds between observations")
+    distance_meters = models.FloatField(help_text="Distance in meters between observations (ST_Distance)")
+
+    # Temporal ordering (denormalized from observations for query performance)
+    start_recorded_at = models.DateTimeField(db_index=True, help_text="Start observation recorded_at (denormalized)")
+    end_recorded_at = models.DateTimeField(db_index=True, help_text="End observation recorded_at (denormalized)")
+
+    # Exclusion metadata (OR of both observations' exclusion flags)
+    exclusion_flags = BitField(flags=Observation.BITMAP_FILTER_CHOICES, default=0)
+
+    # Tenant isolation
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = ObservationSegmentManager()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        indexes = [
+            Index(fields=["das_tenant", "subject", "start_recorded_at"]),
+            Index(fields=["das_tenant", "subject", "end_recorded_at"]),
+            Index(fields=["start_observation", "end_observation"]),
+            Index(fields=["das_tenant", "subject", "exclusion_flags"]),
+        ]
+        constraints = [
+            # Unique constraint on observation pair only (not tenant, since observations are globally unique by UUID)
+            UniqueConstraint(
+                fields=["start_observation", "end_observation"], name="%(app_label)s_%(class)s_unique_segment"
+            ),
+        ]
+        ordering = ["start_recorded_at"]
+
+    def __str__(self):
+        return f"Segment {self.subject.name if self.subject else 'Unknown'}: {self.start_recorded_at} → {self.end_recorded_at}"
+
+    def save(self, *args, **kwargs):
+        """Override save to calculate accurate distance using PostGIS ST_Distance on geography."""
+        if self.pk is None:  # Only on creation
+            # Recalculate distance using geography for accuracy
+            from django.db import connection
+
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT ST_Distance(
+                        ST_GeogFromWKB(%s),
+                        ST_GeogFromWKB(%s)
+                    )
+                """,
+                    [self.start_observation.location.wkb, self.end_observation.location.wkb],
+                )
+                self.distance_meters = cursor.fetchone()[0]
+
+            # Recalculate speed with accurate distance
+            time_gap_hours = self.time_gap_ms / (1000.0 * 3600.0)
+            if time_gap_hours > 0:
+                self.speed_kmh = (self.distance_meters / 1000.0) / time_gap_hours
+
+        super().save(*args, **kwargs)
+
+
 class SubjectSourceQuerySet(models.QuerySet, FilterMixin):
     def by_two_way_messaging_enabled(self):
         return (

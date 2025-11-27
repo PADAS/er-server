@@ -13,14 +13,14 @@ from mapping.cache import (
 )
 from observations.permissions import SubjectModelPermissions
 from observations.utils import VIEW_OBSERVATION_PERMS
-from observations.vector_layers import ObservationVectorLayer
+from observations.vector_layers_segments import ObservationSegmentVectorLayer
 from utils.tenant.providers import get_tenant_data_by_host
 
 logger = logging.getLogger(__name__)
 
 
-class ObservationTileViewSchema(CustomSchema):
-    """Schema for observation vector tile endpoint."""
+class ObservationSegmentTileViewSchema(CustomSchema):
+    """Schema for observation segment vector tile endpoint."""
 
     def get_operation(self, *args, **kwargs):
         operation = super().get_operation(*args, **kwargs)
@@ -41,38 +41,26 @@ class ObservationTileViewSchema(CustomSchema):
                 {
                     "name": "since",
                     "in": "query",
-                    "description": "Get observations after this ISO8601 date, include timezone",
+                    "description": "Get segments after this ISO8601 date, include timezone",
                     "schema": {"type": "string", "format": "date-time"},
                 },
                 {
                     "name": "until",
                     "in": "query",
-                    "description": "Get observations up to this ISO8601 date, include timezone",
+                    "description": "Get segments up to this ISO8601 date, include timezone",
                     "schema": {"type": "string", "format": "date-time"},
                 },
                 {
                     "name": "created_after",
                     "in": "query",
-                    "description": "Get observations created after this ISO8601 date, include timezone",
+                    "description": "Get segments created after this ISO8601 date, include timezone",
                     "schema": {"type": "string", "format": "date-time"},
                 },
                 {
                     "name": "filter",
                     "in": "query",
-                    "description": "Filter using exclusion_flags for observations",
+                    "description": "Filter using exclusion_flags for segments",
                     "schema": {"type": "integer"},
-                },
-                {
-                    "name": "max_time_gap_hours",
-                    "in": "query",
-                    "description": "Maximum hours between observations for track continuity (default: 24)",
-                    "schema": {"type": "number", "default": 24},
-                },
-                {
-                    "name": "speed_threshold_kmh",
-                    "in": "query",
-                    "description": "Speed threshold in km/h for track segmentation (default: 200)",
-                    "schema": {"type": "number", "default": 200},
                 },
             ]
             operation["parameters"] = operation.get("parameters", [])
@@ -80,33 +68,33 @@ class ObservationTileViewSchema(CustomSchema):
         return operation
 
 
-class ObservationTileView(MVTView):
+class ObservationSegmentTileView(MVTView):
     """
-    Vector tile endpoint for Observation geometries with track segmentation.
+    Vector tile endpoint for pre-computed ObservationSegment geometries.
 
-    Returns Mapbox Vector Tiles (MVT) containing observations as points,
-    segmented into track collections based on time gaps and speed thresholds.
+    Returns Mapbox Vector Tiles (MVT) containing track segments as LineString features.
+    Each segment represents the line between two consecutive observations with
+    computed metrics (speed, time gap, distance).
 
     Features:
-    - Multiple collections within a collection (track segments)
     - Subject filtering by ID(s)
-    - Time-based segmentation (max hours between points)
-    - Speed-based segmentation (impossible travel speeds)
-    - Ordered by recorded_at property
+    - Time-based filtering (since/until on segment start time)
+    - Exclusion flag filtering
+    - Ordered by start_recorded_at
 
     Cache strategy:
-    - Server-side TTL ~ 1 hour (observations change more frequently than spatial features)
+    - Server-side TTL ~ 15 minutes (segments update when observations change)
     - Client: 5 minutes fresh (max-age), then 5 minutes stale-while-revalidate window
     - Client: stale-if-error for same 5 minute window to mask transient origin faults
     - Authorization varied so per-user/tenant isolation is preserved
     """
 
-    layer_classes = [ObservationVectorLayer]
+    layer_classes = [ObservationSegmentVectorLayer]
     permission_classes = (SubjectModelPermissions,)
     content_type = "application/vnd.mapbox-vector-tile"
-    schema = ObservationTileViewSchema()
+    schema = ObservationSegmentTileViewSchema()
 
-    # Server-side cache TTL (seconds). Shorter than spatial features since observations change more frequently
+    # Server-side cache TTL (seconds)
     cache_timeout_seconds = 900  # 15 minutes server cache
     # Client cache controls (freshness window + stale-while-revalidate window)
     client_max_age_seconds = 300  # 5 minutes fresh
@@ -114,21 +102,26 @@ class ObservationTileView(MVTView):
     client_stale_if_error_seconds = 300  # serve stale if origin errors for same 5 minutes
 
     def get(self, request, z, x, y):
-        """Handle GET request for vector tiles."""
-        # Validate tenant data - inherited from SpatialFeatureTileView improvements
+        """
+        Handle GET request for vector tiles.
+        Implements tenant validation, permission checks, caching, and error handling.
+        """
         host = request.get_host().split(":")[0]
         try:
             tenant_data = get_tenant_data_by_host(host)
-        except Exception:
-            return HttpResponse(status=500)
+        except Exception as e:
+            logger.error(f"Tenant data fetch error: {e}")
+            return HttpResponse("Tenant data error", status=500)
         if not tenant_data.get("domain"):
-            return HttpResponse(status=500)
+            logger.error(f"Missing tenant domain for host: {host}")
+            return HttpResponse("Missing tenant domain", status=500)
 
-        # Check permissions
         if not self._check_observation_permissions(request):
-            return HttpResponse(status=401, headers={"WWW-Authenticate": "Bearer realm=vector-tiles"})
+            logger.warning(f"Permission denied for user {getattr(request.user, 'id', None)}")
+            return HttpResponse(
+                "Permission denied", status=401, headers={"WWW-Authenticate": "Bearer realm=vector-tiles"}
+            )
 
-        # Use class-level ids for cache key so we can avoid instantiating layers on cache hits.
         layer_ids = [lc.id for lc in self.layer_classes]
         try:
             cache_key = build_tile_cache_key(
@@ -139,21 +132,20 @@ class ObservationTileView(MVTView):
                 layer_ids,
                 cache_version=get_effective_cache_version(),
             )
-        except ValueError:
+        except ValueError as e:
+            logger.warning(f"Cache key build error: {e}")
             return HttpResponse(
-                status=401, headers={"WWW-Authenticate": "Bearer realm=vector-tiles"}
-            )  # Fast reject unauthenticated / malformed token requests
+                "Malformed token or unauthenticated request",
+                status=401,
+                headers={"WWW-Authenticate": "Bearer realm=vector-tiles"},
+            )
 
         vt_cache = get_vector_tile_cache()
-        # Generate ETag based on cache key for consistent versioning
-        # Use SHA256 instead of MD5 for better collision resistance
         etag_hash = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()[:16]
         etag_value = f'"{etag_hash}"'
 
-        # Check if client has current version
         client_etag = request.META.get("HTTP_IF_NONE_MATCH")
         if client_etag == etag_value:
-            # Client has current version, send 304
             resp = HttpResponse(status=304)
             resp["ETag"] = etag_value
             resp["Cache-Control"] = (
@@ -164,7 +156,7 @@ class ObservationTileView(MVTView):
             return resp
 
         cached_payload = vt_cache.get(cache_key)
-        if cached_payload is not None:  # Reconstruct fresh response object to avoid mutating cached instance
+        if cached_payload is not None:
             content, content_type = cached_payload
             resp = HttpResponse(content, content_type=content_type)
             resp["Cache-Control"] = (
@@ -175,7 +167,7 @@ class ObservationTileView(MVTView):
             resp["ETag"] = etag_value
             resp["X-Cache"] = "HIT"
             return resp
-        # Instantiate layers only on a cache miss.
+
         self.layers = [lc() for lc in self.layer_classes]
         response = super().get(request, z, x, y)
         if response.status_code == 200 and response.get("Content-Type", "").startswith("application/x-protobuf"):

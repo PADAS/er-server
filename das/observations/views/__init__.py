@@ -80,7 +80,6 @@ from observations.utils import (
 )
 from observations.views.observations import FlattenObservationsView, ObservationsView
 from observations.views.schemas import InactiveSubjectsViewSchema
-from observations.views.vector_tiles import ObservationTileView
 from observations.views.subjects import (
     SubjectGroupSubjectsView,
     SubjectGroupsView,
@@ -1640,7 +1639,6 @@ __all__ = [
     "MessagesView",
     "ObservationView",
     "ObservationsView",
-    "ObservationTileView",
     "RegionSubjectsView",
     "RegionView",
     "RegionsView",

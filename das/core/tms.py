@@ -8,6 +8,7 @@ from requests import RequestException
 from django.conf import settings
 
 from core.exceptions import ConnectionTMSApiTimeoutException
+from utils.tenant.builder import DjangoSettingsTenantBuilder
 from utils.tenant.exceptions import TenantNotFoundException
 from utils.tenant.lookups import get_tenant_lookup_type
 
@@ -58,8 +59,6 @@ class DjangoSettingsClient(BaseClient):
             TenantNotFoundException: If the tenant is not found based on the lookup value.
             ConnectionTMSApiTimeoutException: If there is a timeout while connecting to the TMS API.
         """
-
-        from utils.tenant.builder import DjangoSettingsTenantBuilder
 
         tenant_data = DjangoSettingsTenantBuilder().build().to_dict()
 

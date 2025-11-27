@@ -21,6 +21,7 @@ from observations.models import (
     Announcement,
     Message,
     Observation,
+    ObservationSegment,
     SourceProvider,
     Subject,
     SubjectGroup,
@@ -186,3 +187,256 @@ def news_post_save(sender, instance, created, **kwargs):
         logger.info("saved announcement {}, created={}".format(instance.pk, str(created)))
         action = "das.announcement.new"
         transaction.on_commit(lambda: pubsub.publish({"announcement_id": str(instance.pk)}, action))
+
+
+# ============================================================================
+# ObservationSegment Maintenance Signals
+# ============================================================================
+
+
+def get_subject_for_observation(observation):
+    """
+    Get the subject associated with an observation at the time it was recorded.
+    Uses caching to avoid repeated queries for the same observation.
+
+    Args:
+        observation: Observation instance
+    Returns:
+        Subject instance or None if no subject is assigned
+    """
+    cache_key = f"obs_subject_{observation.id}"
+    subject = cache.get(cache_key)
+
+    if subject is None:
+        # Find the subject assignment valid at the time of this observation
+        try:
+            subjectsource = (
+                SubjectSource.objects.select_related("subject")
+                .filter(source=observation.source, assigned_range__contains=observation.recorded_at)
+                .first()
+            )
+
+            if subjectsource:
+                subject = subjectsource.subject
+                # Cache for 5 minutes (observations don't change subjects retroactively often)
+                cache.set(cache_key, subject, 300)
+        except Exception as e:
+            logger.warning(f"Failed to get subject for observation {observation.id}: {e}")
+            return None
+
+    return subject
+
+
+def get_neighbor_observations(observation, subject):
+    """
+    Get the previous and next observations for a subject relative to a given observation.
+
+    Args:
+        observation: Observation instance
+        subject: Subject instance
+
+    Returns:
+        tuple: (prev_observation, next_observation) - either can be None
+    """
+    # Get all observations for this subject through all their sources
+    subject_sources = SubjectSource.objects.filter(subject=subject).values_list("source_id", flat=True)
+
+    # Find previous observation (most recent before this one)
+    prev_obs = (
+        Observation.objects.filter(
+            source_id__in=subject_sources, recorded_at__lt=observation.recorded_at, location__isnull=False
+        )
+        .order_by("-recorded_at")
+        .first()
+    )
+
+    # Find next observation (earliest after this one)
+    next_obs = (
+        Observation.objects.filter(
+            source_id__in=subject_sources, recorded_at__gt=observation.recorded_at, location__isnull=False
+        )
+        .order_by("recorded_at")
+        .first()
+    )
+
+    return prev_obs, next_obs
+
+
+def _delete_observation_segments(observation):
+    """
+    Delete all segments involving the given observation.
+
+    Args:
+        observation: Observation instance
+    """
+    ObservationSegment.objects.filter(
+        Q(start_observation=observation) | Q(end_observation=observation), das_tenant_id=observation.das_tenant_id
+    ).delete()
+
+
+def _create_bridge_segment(prev_obs, next_obs, subject):
+    """
+    Create a bridge segment between two observations.
+
+    Args:
+        prev_obs: Previous observation
+        next_obs: Next observation
+        subject: Subject instance
+    """
+    try:
+        ObservationSegment.objects.create_segment(prev_obs, next_obs, subject)
+        logger.debug(f"Created bridge segment {prev_obs.id} -> {next_obs.id}")
+    except Exception as e:
+        logger.error(f"Failed to create bridge segment: {e}")
+
+
+def _delete_bridge_segment(prev_obs, next_obs, tenant_id):
+    """
+    Delete the bridge segment between two observations.
+
+    Args:
+        prev_obs: Previous observation
+        next_obs: Next observation
+        tenant_id: Tenant ID for filtering
+    """
+    ObservationSegment.objects.filter(
+        start_observation=prev_obs, end_observation=next_obs, das_tenant_id=tenant_id
+    ).delete()
+
+
+def _create_segment_to_neighbor(start_obs, end_obs, subject):
+    """
+    Create a segment between two observations.
+
+    Args:
+        start_obs: Starting observation
+        end_obs: Ending observation
+        subject: Subject instance
+
+    Returns:
+        str or None: Description of created segment, or None if not created
+    """
+    try:
+        segment, created_flag = ObservationSegment.objects.get_or_create_segment(start_obs, end_obs, subject)
+        if created_flag:
+            return f"{start_obs.id} -> {end_obs.id}"
+    except Exception as e:
+        logger.error(f"Failed to create segment {start_obs.id} -> {end_obs.id}: {e}")
+    return None
+
+
+def _handle_observation_deletion(observation, subject, prev_obs, next_obs):
+    """
+    Handle segment updates when an observation is deleted.
+
+    Args:
+        observation: Observation being deleted
+        subject: Subject instance
+        prev_obs: Previous observation (or None)
+        next_obs: Next observation (or None)
+    """
+    # Delete segments involving this observation
+    _delete_observation_segments(observation)
+
+    # Bridge the gap if both neighbors exist
+    if prev_obs and next_obs:
+        _create_bridge_segment(prev_obs, next_obs, subject)
+
+
+def _handle_observation_create_or_update(observation, subject, prev_obs, next_obs, created):
+    """
+    Handle segment updates when an observation is created or updated.
+
+    Args:
+        observation: Observation being created or updated
+        subject: Subject instance
+        prev_obs: Previous observation (or None)
+        next_obs: Next observation (or None)
+        created: Whether this is a new observation
+    """
+    # For updates: delete existing segments involving this observation
+    if not created:
+        _delete_observation_segments(observation)
+
+    # If inserting between two observations, delete the bridge segment
+    if created and prev_obs and next_obs:
+        _delete_bridge_segment(prev_obs, next_obs, observation.das_tenant_id)
+
+    # Create new segments to neighbors
+    segments_created = []
+
+    if prev_obs:
+        segment_desc = _create_segment_to_neighbor(prev_obs, observation, subject)
+        if segment_desc:
+            segments_created.append(segment_desc)
+
+    if next_obs:
+        segment_desc = _create_segment_to_neighbor(observation, next_obs, subject)
+        if segment_desc:
+            segments_created.append(segment_desc)
+
+    if segments_created:
+        logger.debug(f"Created segments: {', '.join(segments_created)}")
+
+
+def update_segments_for_observation(observation, created=False, deleted=False):
+    """
+    Update segments affected by an observation change.
+
+    This implements the O(1) segment update logic:
+    - When observation is created: create segments to prev/next
+    - When observation is updated: delete old segments, create new ones
+    - When observation is deleted: delete affected segments, bridge the gap
+
+    Args:
+        observation: Observation instance
+        created: Whether this is a new observation
+        deleted: Whether this observation is being deleted
+    """
+    # Skip observations without location
+    if not deleted and not observation.location:
+        return
+
+    # Get the subject this observation belongs to
+    subject = get_subject_for_observation(observation)
+    if not subject:
+        logger.debug(f"No subject found for observation {observation.id}")
+        return
+
+    # Get neighboring observations
+    prev_obs, next_obs = get_neighbor_observations(observation, subject)
+
+    # Handle deletion or create/update
+    if deleted:
+        _handle_observation_deletion(observation, subject, prev_obs, next_obs)
+    else:
+        _handle_observation_create_or_update(observation, subject, prev_obs, next_obs, created)
+
+
+@receiver(post_save, sender=Observation)
+def observation_segment_post_save(sender, instance, created, **kwargs):
+    """
+    Signal handler to maintain ObservationSegments when observations are created or updated.
+    This handler updates only the 2 affected segments (O(1) update).
+    """
+    # Skip during fixture loading
+    if kwargs.get("raw", False):
+        return
+
+    # Skip if location is not set (can't create segments without geometry)
+    if not instance.location:
+        return
+
+    # Schedule segment update after transaction commits
+    transaction.on_commit(lambda: update_segments_for_observation(instance, created=created))
+
+
+@receiver(pre_delete, sender=Observation)
+def observation_segment_pre_delete(sender, instance, **kwargs):
+    """
+    Signal handler to maintain ObservationSegments when observations are deleted.
+    Removes affected segments and bridges the gap if possible.
+    """
+    # We need to process this before the observation is actually deleted
+    # so we can still access its relationships
+    update_segments_for_observation(instance, deleted=True)
