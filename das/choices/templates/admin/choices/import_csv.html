@@ -1,0 +1,172 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        .csv-import-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+
+        .csv-instructions {
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .csv-instructions h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+
+        .csv-instructions ul {
+            margin-bottom: 0;
+        }
+
+        .csv-example {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+
+        .form-row {
+            margin-bottom: 15px;
+        }
+
+        .form-row label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .helptext {
+            display: block;
+            margin-top: 5px;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .submit-row {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+
+        .button {
+            background-color: #417690;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .button:hover {
+            background-color: #205067;
+        }
+
+        .cancel-link {
+            margin-left: 10px;
+            color: #666;
+        }
+    </style>
+{% endblock %}
+
+{% block breadcrumbs %}
+    <div class="breadcrumbs">
+        <a href="{% url 'admin:index' %}">Home</a>
+        &rsaquo; <a href="{% url 'admin:choices_choice_changelist' %}">Choices</a>
+        &rsaquo; Import from CSV
+    </div>
+{% endblock %}
+
+{% block content %}
+    <div class="csv-import-container">
+        <h1>{{ title }}</h1>
+
+        <div class="csv-instructions">
+            <h3>Instructions</h3>
+            <p style="margin-bottom: 15px;">
+                <strong>Need a template?</strong>
+                <a href="?download_template=1" class="button" style="display: inline-block; margin-left: 10px; padding: 8px 15px; background-color: #417690; color: white; text-decoration: none; border-radius: 4px;">
+                    Download CSV Template
+                </a>
+            </p>
+            <p>Upload a CSV file to import or update choices. The CSV file must contain the following columns (matching the export format):</p>
+            <ul>
+                <li><strong>model</strong> (required) - The model name (e.g., "activity.event", "activity.eventtype")</li>
+                <li><strong>field</strong> (required) - The field name</li>
+                <li><strong>value</strong> (required) - The choice value (unique key)</li>
+                <li><strong>display</strong> (optional) - The display text (defaults to value if not provided)</li>
+                <li><strong>icon</strong> (optional) - The icon identifier</li>
+                <li><strong>ordernum</strong> (optional) - The sort order number</li>
+                <li><strong>is_active</strong> (optional) - Whether the choice is active (true/false, defaults to true)</li>
+            </ul>
+
+            <p><em>Note: The sub_choice_of field is available in exports but not yet supported for import.</em></p>
+
+            <p><strong>Valid model choices:</strong></p>
+            <ul>
+                <li>activity.event</li>
+                <li>activity.eventtype</li>
+                <li>accounts.user.User</li>
+                <li>mapping.TileLayer</li>
+                <li>observations.region</li>
+                <li>observations.Source</li>
+            </ul>
+
+            <h4>Example CSV format:</h4>
+            <div class="csv-example">
+model,field,value,display,icon,ordernum,is_active<br>
+activity.event,priority,high,High Priority,,1,true<br>
+activity.event,priority,medium,Medium Priority,,2,true<br>
+activity.event,priority,low,Low Priority,,3,false
+            </div>
+
+            <p><strong>Important notes:</strong></p>
+            <ul>
+                <li>If a choice with the same model, field, and value already exists, it will be updated</li>
+                <li>All rows are validated before any import occurs</li>
+                <li>If any validation errors are found, no data will be imported</li>
+                <li>Errors will be reported by row number</li>
+            </ul>
+        </div>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            {% if form.errors %}
+                <div class="errornote">
+                    <p>Please correct the errors below:</p>
+                    {{ form.errors }}
+                </div>
+            {% endif %}
+
+            <div class="form-row">
+                {{ form.csv_file.label_tag }}
+                {{ form.csv_file }}
+                {% if form.csv_file.help_text %}
+                    <span class="helptext">{{ form.csv_file.help_text }}</span>
+                {% endif %}
+                {% if form.csv_file.errors %}
+                    <div class="errorlist">
+                        {{ form.csv_file.errors }}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="submit-row">
+                <input type="submit" value="Import CSV" class="button">
+                <a href="{% url 'admin:choices_choice_changelist' %}" class="cancel-link">Cancel</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

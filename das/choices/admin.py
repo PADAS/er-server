@@ -1,3 +1,4 @@
+import logging
 import urllib.parse as urlparse
 from urllib.parse import urlencode
 
@@ -11,13 +12,16 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _
 
 import choices.models as models
-from choices.forms import ChoiceForm
+from choices.forms import ChoiceForm, CSVImportForm
+from choices.serializers import ChoiceSerializer
 from core.admin import BaseModelAdminMixin, ModelAdminDisplayingManyToManyFieldMixin
-from utils.admin import ExportDataActionMixin
+from utils.admin import CSVImportMixin, ExportDataActionMixin
+
+logger = logging.getLogger(__name__)
 
 
 @admin.register(models.Choice)
-class ChoiceAdmin(ModelAdminDisplayingManyToManyFieldMixin, ExportDataActionMixin):
+class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, ExportDataActionMixin):
     change_list_template = "admin/disable_change_list.html"
     delete_confirmation_template = "admin/soft_delete_confirmation.html"
     delete_selected_confirmation_template = "admin/soft_delete_selected_confirmation.html"
@@ -31,6 +35,9 @@ class ChoiceAdmin(ModelAdminDisplayingManyToManyFieldMixin, ExportDataActionMixi
     list_filter = ("model", "field")
     list_editable = ("value", "display", "ordernum")
     exclude = ("delete_on", "is_active")
+
+    # Fields used for both CSV export and import (except sub_choice_of which is export-only)
+    # Note: model, field, value are required for import; others are optional
     fields_to_export = [
         "model",
         "field",
@@ -38,9 +45,16 @@ class ChoiceAdmin(ModelAdminDisplayingManyToManyFieldMixin, ExportDataActionMixi
         "display",
         "icon",
         "ordernum",
-        "sub_choice_of",
+        "sub_choice_of",  # Export only - ManyToMany field not supported in CSV import
         "is_active",
     ]
+
+    # CSV Import configuration
+    csv_required_fields = ["model", "field", "value"]
+    csv_unique_fields = ["model", "field", "value"]  # Fields that uniquely identify a record
+    csv_excluded_import_fields = ["sub_choice_of"]  # ManyToMany field - not supported in import
+    csv_import_form_class = CSVImportForm
+    csv_import_template = "admin/choices/import_csv.html"
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
@@ -170,6 +184,93 @@ class ChoiceAdmin(ModelAdminDisplayingManyToManyFieldMixin, ExportDataActionMixi
     def _icon_display(self, obj):
         url = models.Choice.marker_icon(obj.icon_id)
         return mark_safe(f'<img src="{url}" style="height:2.5em; filter:opacity(0.8)" />')
+
+    # CSV Import hooks - override CSVImportMixin methods for Choice-specific behavior
+
+    def get_csv_import_serializer(self):
+        """Return the serializer to use for validation"""
+        return ChoiceSerializer
+
+    def get_csv_example_row(self):
+        """Provide example data for CSV template"""
+        return {
+            "model": "activity.event",
+            "field": "priority",
+            "value": "high",
+            "display": "High Priority",
+            "icon": "",
+            "ordernum": "1",
+            "is_active": "true",
+        }
+
+    def validate_csv_row_data(self, row, row_num, seen_combinations):
+        """
+        Choice-specific CSV row validation.
+        Override from CSVImportMixin to add custom validation logic.
+        """
+        row_errors = []
+
+        # Check required fields are not empty
+        for field in self.csv_required_fields:
+            value = row.get(field, "").strip()
+            if not value:
+                row_errors.append(f"'{field}' is required and cannot be empty")
+
+        # Validate model is a valid choice
+        model_value = row.get("model", "").strip()
+        valid_models = [choice[0] for choice in models.Choice.MODEL_REF_CHOICES]
+        if model_value and model_value not in valid_models:
+            row_errors.append(
+                f"'{model_value}' is not a valid model choice. " f"Valid choices are: {', '.join(valid_models)}"
+            )
+
+        # Check for duplicates within the CSV file
+        field_value = row.get("field", "").strip()
+        value_value = row.get("value", "").strip()
+        combination_key = (model_value, field_value, value_value)
+
+        if combination_key in seen_combinations:
+            row_errors.append(
+                f"Duplicate entry: (model={model_value}, field={field_value}, "
+                f"value={value_value}) already exists in this CSV"
+            )
+        else:
+            seen_combinations.add(combination_key)
+
+        # Validate ordernum is an integer if provided
+        ordernum = row.get("ordernum", "").strip()
+        if ordernum:
+            try:
+                ordernum = int(ordernum)
+            except ValueError:
+                row_errors.append(f"'ordernum' must be an integer, got '{ordernum}'")
+
+        # Validate is_active is a boolean if provided
+        is_active_str = row.get("is_active", "").strip()
+        is_active = True  # Default value
+        if is_active_str:
+            is_active_lower = is_active_str.lower()
+            if is_active_lower in ["true", "1", "yes", "y"]:
+                is_active = True
+            elif is_active_lower in ["false", "0", "no", "n"]:
+                is_active = False
+            else:
+                row_errors.append(
+                    f"'is_active' must be a boolean value (true/false, 1/0, yes/no), got '{is_active_str}'"
+                )
+
+        # Prepare validated data (this format is expected by the mixin)
+        processed_data = {
+            "model": model_value,
+            "field": field_value,
+            "value": value_value,
+            "display": row.get("display", "").strip() or value_value,
+            "icon": row.get("icon", "").strip() or None,
+            "ordernum": int(ordernum) if ordernum else None,
+            "is_active": is_active,
+        }
+
+        return row_errors, processed_data
 
 
 @admin.register(models.DisableChoice)
