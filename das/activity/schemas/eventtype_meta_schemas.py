@@ -355,10 +355,13 @@ ui_choice_schema = {
         "choices": {
             "type": "object",
             "properties": {
-                "eventTypeCategories": {"type": "array", "items": {"type": "string", "format": "uuid"}},
+                "eventTypeCategories": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
                 "existingChoiceList": {
                     "type": "array",
-                    "items": {"type": "string", "format": "uuid"},
+                    "items": {"type": "string"},
                 },
                 "featureCategories": {
                     "type": "array",
@@ -374,6 +377,7 @@ ui_choice_schema = {
                 },
                 "myDataType": {
                     "enum": [
+                        "",
                         "EVENT_TYPES_FROM_EVENT_CATEGORY",
                         "FEATURES_FROM_FEATURE_CATEGORY",
                         "SOURCES",
@@ -452,7 +456,7 @@ ui_section_columns = {
                 "type": "object",
                 "properties": {
                     "name": {"type": "string"},
-                    "type": {"const": "field"}
+                    "type": {"const": "field"},
                 },
                 "required": ["name", "type"],
                 "additionalProperties": False,
@@ -461,7 +465,7 @@ ui_section_columns = {
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "pattern": "^header-.*"},
-                    "type": {"const": "header"}
+                    "type": {"const": "header"},
                 },
                 "required": ["name", "type"],
                 "additionalProperties": False,

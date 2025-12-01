@@ -40,9 +40,7 @@
                 "isActive": true,
                 "leftColumn": [],
                 "rightColumn": [],
-                "parent": "section-2",
-                "columns": 1,
-                "type": "SECTIONS"
+                "columns": 1
             }
         }
     }
