@@ -269,8 +269,8 @@ class TestJsonSchemaField:
         # Populate UI elements for this test using helpers
         schema["ui"]["sections"] = {"section-a": self._create_default_section("Section A")}
         schema["ui"]["headers"] = {
-            # Create header with invalid section reference
-            "header-1": self._create_default_header("Header 1", "non_existent_section")
+            # Create header with invalid section reference (must match ^section-.* pattern)
+            "header-1": self._create_default_header("Header 1", "section-nonexistent")
         }
         # schema["ui"]["order"] remains empty [] from base
 
@@ -278,7 +278,7 @@ class TestJsonSchemaField:
         with pytest.raises(ValidationError) as e:
             field_schema.to_internal_value(schema)
         expected_error = (
-            "'header-1' has an invalid 'parent' or 'section': 'non_existent_section' does not exist in 'sections'."
+            "'header-1' has an invalid 'parent' or 'section': 'section-nonexistent' does not exist in 'sections'."
         )
         assert "Validation errors:" in str(e.value)
         assert expected_error in str(e.value)
@@ -289,12 +289,12 @@ class TestJsonSchemaField:
         # Populate UI elements for this test using helpers
         schema["ui"]["sections"] = {"section-a": self._create_default_section("Section A")}
         # schema["ui"]["headers"] remains empty {} from base
-        schema["ui"]["order"] = ["section-a", "non_existent_section"]
+        schema["ui"]["order"] = ["section-a", "section-nonexistent"]
 
         field_schema = JSONSchemaField(meta_schema=main_event_type_schema, validate_sections=True)
         with pytest.raises(ValidationError) as e:
             field_schema.to_internal_value(schema)
-        expected_error = "non_existent_section in 'order' does not exist in 'sections'"
+        expected_error = "section-nonexistent in 'order' does not exist in 'sections'"
         assert "Validation errors:" in str(e.value)
         assert expected_error in str(e.value)
 
@@ -304,19 +304,19 @@ class TestJsonSchemaField:
         # Populate UI elements for this test using helpers
         schema["ui"]["sections"] = {"section-a": self._create_default_section("Section A")}
         schema["ui"]["headers"] = {
-            # Create header with invalid section reference
-            "header-1": self._create_default_header("Header 1", "non_existent_section1")
+            # Create header with invalid section reference (must match ^section-.* pattern)
+            "header-1": self._create_default_header("Header 1", "section-nonexistent1")
         }
-        schema["ui"]["order"] = ["section-a", "non_existent_section2"]
+        schema["ui"]["order"] = ["section-a", "section-nonexistent2"]
 
         field_schema = JSONSchemaField(meta_schema=main_event_type_schema, validate_sections=True)
         with pytest.raises(ValidationError) as e:
             field_schema.to_internal_value(schema)
 
         expected_error1 = (
-            "'header-1' has an invalid 'parent' or 'section': 'non_existent_section1' does not exist in 'sections'."
+            "'header-1' has an invalid 'parent' or 'section': 'section-nonexistent1' does not exist in 'sections'."
         )
-        expected_error2 = "non_existent_section2 in 'order' does not exist in 'sections'"
+        expected_error2 = "section-nonexistent2 in 'order' does not exist in 'sections'"
         error_str = str(e.value)
         assert "Validation errors:" in error_str
         assert expected_error1 in error_str
@@ -327,8 +327,8 @@ class TestJsonSchemaField:
         schema = self._get_base_schema_for_section_tests()
         # Populate UI elements with errors that would fail if validate_sections=True, using helpers
         schema["ui"]["sections"] = {"section-a": self._create_default_section("Section A")}
-        schema["ui"]["headers"] = {"header-1": self._create_default_header("Header 1", "non_existent_section1")}
-        schema["ui"]["order"] = ["section-a", "non_existent_section2"]
+        schema["ui"]["headers"] = {"header-1": self._create_default_header("Header 1", "section-nonexistent1")}
+        schema["ui"]["order"] = ["section-a", "section-nonexistent2"]
 
         # Initialize with validate_sections=False (default)
         field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
