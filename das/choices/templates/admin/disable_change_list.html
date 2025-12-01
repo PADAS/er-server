@@ -1,4 +1,15 @@
-{% extends 'admin/change_list.html' %} {% block search %}
+{% extends 'admin/change_list.html' %}
+
+{% block object-tools-items %}
+{{ block.super }}
+<li>
+    <a href="{% url 'admin:choices_choice_import_csv' %}" class="addlink">
+        Import from CSV
+    </a>
+</li>
+{% endblock %}
+
+{% block search %}
 {{ block.super }}
 
 <form action="../disablechoice/" method="POST">

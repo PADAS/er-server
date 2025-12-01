@@ -1,0 +1,12 @@
+model,field,value,display,icon,ordernum,is_active
+activity.event,priority,critical,Critical Priority,alert,1,true
+activity.event,priority,high,High Priority,warning,2,true
+activity.event,priority,medium,Medium Priority,info,3,true
+activity.event,priority,low,Low Priority,low,4,true
+activity.event,status,open,Open,folder-open,1,true
+activity.event,status,in_progress,In Progress,spinner,2,true
+activity.event,status,resolved,Resolved,check,3,true
+activity.event,status,closed,Closed,archive,4,false
+activity.eventtype,category,security,Security Incident,,1,true
+activity.eventtype,category,wildlife,Wildlife Monitoring,,2,true
+activity.eventtype,category,maintenance,Maintenance,,3,false
