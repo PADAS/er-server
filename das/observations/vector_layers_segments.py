@@ -56,8 +56,18 @@ class ObservationSegmentVectorLayer(VectorLayer):
     def get_queryset(self):
         """
         Build queryset for segments with annotations.
+
+        By default, excludes segments with non-zero exclusion flags.
         """
-        return self.model.objects.select_related("subject", "subject__subject_subtype").order_by("start_recorded_at")
+        qs = self.model.objects.select_related("subject", "subject__subject_subtype")
+
+        # Apply default exclusion unless 'show_excluded=true'
+        if hasattr(self, "request") and self.request:
+            show_excluded = (self.request.GET.get("show_excluded", "false") or "false").lower() == "true"
+            if not show_excluded:
+                qs = qs.filter(exclusion_flags=0)
+
+        return qs.order_by("start_recorded_at")
 
     def _get_vector_tile_annotations(self):
         """

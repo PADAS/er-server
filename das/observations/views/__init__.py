@@ -68,6 +68,7 @@ from observations.serializers import (
     TrackSerializer,
     create_sg_serializer,
 )
+from observations.serializers.segments import SubjectTrackSegmentsGroupedSerializer
 from observations.tasks import handle_outbox_message, process_gpxdata_api
 from observations.utils import (
     VIEW_OBSERVATION_PERMS,
@@ -401,6 +402,66 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         context["subject_linked_sources"] = linked_sources
 
+        return context
+
+
+class SubjectTrackSegmentsV2View(generics.RetrieveAPIView):
+    """Retrieve grouped pre-computed observation segments for a subject as flattened LineStrings.
+
+    Query params:
+      - since: ISO timestamp (inclusive lower bound)
+      - until: ISO timestamp (inclusive upper bound)
+      - filter: exclusion flag value (integer). If omitted, only unflagged (0) segments are returned.
+      - group_by_flags: if 'true', break groups when exclusion_flags changes.
+
+    Returns a GeoJSON FeatureCollection where each feature is a single LineString representing
+    one contiguous group of segments (merged coordinate sequence, no duplicate join points).
+    """
+
+    lookup_url_kwarg = "subject_id"
+    serializer_class = SubjectTrackSegmentsGroupedSerializer
+
+    def get_queryset(self):
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+        qs = Subject.objects.all().select_related("subject_subtype__subject_type")
+        qs = qs.annotate_with_subjectstatus(delay_hours=min_age_days * 24)
+        return qs
+
+    def check_object_permissions(self, request, obj):
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, obj):
+            raise PermissionDenied
+
+    def get_object(self):
+        try:
+            return self._cached_object
+        except AttributeError:
+            self._cached_object = super().get_object()
+            return self._cached_object
+
+    def _parse_dt(self, value):
+        if not value:
+            return None
+        try:
+            return dateparse(value)
+        except Exception:
+            return None
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        since = self._parse_dt(self.request.query_params.get("since"))
+        until = self._parse_dt(self.request.query_params.get("until"))
+        # Whether to include observations/segments marked with any exclusion flag.
+        show_excluded = self.request.query_params.get("show_excluded", "false").lower() == "true"
+        group_by_flags = self.request.query_params.get("group_by_flags", "false").lower() == "true"
+
+        context.update(
+            {
+                "since": since,
+                "until": until,
+                "show_excluded": show_excluded,
+                "group_by_flags": group_by_flags,
+            }
+        )
         return context
 
 

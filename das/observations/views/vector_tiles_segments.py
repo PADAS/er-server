@@ -57,10 +57,10 @@ class ObservationSegmentTileViewSchema(CustomSchema):
                     "schema": {"type": "string", "format": "date-time"},
                 },
                 {
-                    "name": "filter",
+                    "name": "show_excluded",
                     "in": "query",
-                    "description": "Filter using exclusion_flags for segments",
-                    "schema": {"type": "integer"},
+                    "description": "Include segments with truthy exclusion flags (default: excluded)",
+                    "schema": {"type": "boolean"},
                 },
             ]
             operation["parameters"] = operation.get("parameters", [])
@@ -79,7 +79,7 @@ class ObservationSegmentTileView(MVTView):
     Features:
     - Subject filtering by ID(s)
     - Time-based filtering (since/until on segment start time)
-    - Exclusion flag filtering
+    - Exclusion flags: default exclude segments with truthy flags; include when `show_excluded=true`
     - Ordered by start_recorded_at
 
     Cache strategy:

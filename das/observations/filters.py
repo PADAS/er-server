@@ -18,7 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 class ObservationSegmentVectorTileFilterSet(filters.FilterSet):
-    """Filter for observation segment vector tiles."""
+    """
+    Filter for observation segment vector tiles.
+
+    By default, excludes segments with non-zero exclusion_flags.
+    To include segments with truthy exclusion flags, set show_excluded=true.
+    """
 
     # Subject filtering
     subject_id = UUIDFilter(field_name="subject_id")
@@ -29,8 +34,11 @@ class ObservationSegmentVectorTileFilterSet(filters.FilterSet):
     until = filters.DateTimeFilter(field_name="end_recorded_at", lookup_expr="lte")
     created_after = filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
 
-    # Exclusion filtering
-    filter = filters.NumberFilter(field_name="exclusion_flags", lookup_expr="exact")
+    # Exclusion handling using boolean show_excluded
+    show_excluded = filters.BooleanFilter(
+        method="filter_exclusion_flags",
+        help_text=("Include segments with truthy exclusion flags (default: excluded)"),
+    )
 
     class Meta:
         model = ObservationSegment
@@ -40,8 +48,14 @@ class ObservationSegmentVectorTileFilterSet(filters.FilterSet):
             "since",
             "until",
             "created_after",
-            "filter",
+            "show_excluded",
         ]
+
+    def filter_exclusion_flags(self, queryset, _name, value):
+        """Boolean control: include flagged segments when True; exclude when False or None."""
+        if value:
+            return queryset
+        return queryset.filter(exclusion_flags=0)
 
 
 # Legacy filter classes for backward compatibility
