@@ -40,16 +40,35 @@ from utils.features import features
 
 
 def send_task(name, args=(), kwargs={}, **opts):
-    task = app.tasks[name]
-    # return task.apply(args, kwargs, **opts)
-    return task(*args, **kwargs)
+    # Use direct task call instead of accessing app.tasks to avoid triggering Celery finalization
+    # which causes issues with celery_once signature inspection for bound tasks
+    if name == "analyzers.tasks.download_gfw_alerts":
+        # For bound tasks, use apply() method which executes synchronously
+        # and avoids triggering Celery finalization that causes celery_once issues
+        return download_gfw_alerts.apply(args=args, kwargs=kwargs)
+    else:
+        # Fallback: try to get task without triggering finalization
+        try:
+            # Check if task is already registered without triggering finalization
+            if hasattr(app, "_tasks") and name in app._tasks:
+                task = app._tasks[name]
+            else:
+                task = app.tasks[name]
+            return task(*args, **kwargs)
+        except (KeyError, AttributeError, ValueError):
+            # If task lookup fails, raise with helpful message
+            raise ValueError(f"Task {name} not found and cannot be resolved")
 
 
 @pytest.mark.usefixtures("tenant_settings")
 class GFWAlertHandlerTest(BaseAPITest):
     sensor_type = "gfw-alert"
     provider = "gfw"
-    download_url_unknown_geostore = "http://production-api.globalforestwatch.org/glad-alerts/download/?period=2020-02-23,2020-02-27&gladConfirmOnly=False&aggregate_values=False&aggregate_by=False&geostore=8cfb4e52a779d2aeaa3b3877d5874e7a&format=json"
+    download_url_unknown_geostore = (
+        "http://production-api.globalforestwatch.org/glad-alerts/download/"
+        "?period=2020-02-23,2020-02-27&gladConfirmOnly=False&aggregate_values=False"
+        "&aggregate_by=False&geostore=8cfb4e52a779d2aeaa3b3877d5874e7a&format=json"
+    )
     unknown_geostore = "8cfb4e52a779d2aeaa3b3877d5874e7a"
     test_data_glad_subscription_id = "5d1f9014836a9b13000e7d1d"
     test_data_viirs_subscription_id = "5d11c24e062bed110071db94"
