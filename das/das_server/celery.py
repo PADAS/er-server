@@ -219,6 +219,10 @@ app.conf.beat_schedule = {
         "task": "das_server.tasks.refresh_tenants_cache",
         "schedule": timedelta(hours=1),
     },
+    "refresh-auth0-jwks": {
+        "task": "utils.auth0.tasks.refresh_cached_auth0_jwks",
+        "schedule": timedelta(minutes=30),
+    },
 }
 
 # Patch Celery's configuration with some attributes that Celery_once will

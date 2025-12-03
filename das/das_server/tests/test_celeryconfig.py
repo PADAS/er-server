@@ -82,6 +82,7 @@ class CeleryConfigurationTests(TestCase):
             "tracking.tasks.run_source_plugin",
             "tracking.tasks.schedule_firms_plugins",
             "usercontent.tasks.warm_imagefilecontent",
+            "utils.auth0.tasks.refresh_cached_auth0_jwks",
         ]
 
         current_app.loader.import_default_modules()
