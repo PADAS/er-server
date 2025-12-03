@@ -185,8 +185,7 @@ class ObservationAnnotator(Annotator):
 
     def annotate_with_segmentation(self, queryset, max_time_gap_hours=24.0, speed_threshold_kmh=None):
         """
-        PRODUCTION-READY: Annotate queryset with track segmentation using optimized raw SQL.
-
+        Annotate queryset with track segmentation using optimized raw SQL.
         This method uses a CTE-based approach for optimal performance with large datasets.
 
         Args:

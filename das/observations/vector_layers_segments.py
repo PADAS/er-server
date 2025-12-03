@@ -127,12 +127,17 @@ class ObservationSegmentVectorLayer(VectorLayer):
         """
         Return feature dict for vector tile rendering.
         """
+
+        # Ensure ISO 8601 with 'T' separator for lexicographic sorting
+        def _iso(dt):
+            return dt.isoformat(sep="T", timespec="milliseconds") if dt else None
+
         props = {
             "id": str(obj.id),
             "subject_id": str(obj.subject_id),
             "subject_name": getattr(obj, "subject_name", ""),
-            "start_recorded_at": obj.start_recorded_at.isoformat() if obj.start_recorded_at else None,
-            "end_recorded_at": obj.end_recorded_at.isoformat() if obj.end_recorded_at else None,
+            "start_recorded_at": _iso(obj.start_recorded_at),
+            "end_recorded_at": _iso(obj.end_recorded_at),
             "speed_kmh": round(obj.speed_kmh, 2) if obj.speed_kmh else None,
             "time_gap_ms": round(obj.time_gap_ms, 0) if obj.time_gap_ms else None,
             "distance_meters": round(obj.distance_meters, 2) if obj.distance_meters else None,

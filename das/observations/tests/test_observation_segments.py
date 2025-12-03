@@ -407,6 +407,70 @@ class TestObservationSegmentVectorTiles:
 
     # TODO: Add more vector tile endpoint tests with authenticated user and fixtures
 
+    def test_iso_timestamps_are_lexicographically_sortable(self, db):
+        """Ensure vector layer uses ISO 8601 with 'T' and millisecond precision so strings sort consistently."""
+        from datetime import datetime, timedelta, timezone
+
+        from django.contrib.gis.geos import Point
+        from rest_framework.test import APIRequestFactory
+
+        from core.models import DASTenant
+        from observations.vector_layers_segments import ObservationSegmentVectorLayer
+        from utils.migrations.columns import default_tenant_id
+
+        tenant = DASTenant.objects.get(id=default_tenant_id())
+        # Minimal subject/source setup
+        subject_type, _ = SubjectType.objects.get_or_create(value="wildlife", display="Wildlife", das_tenant=tenant)
+        subject_subtype, _ = SubjectSubType.objects.get_or_create(
+            value="tester", display="Tester", subject_type=subject_type, das_tenant=tenant
+        )
+        subject = Subject.objects.create(name="ISO Test", subject_subtype=subject_subtype, das_tenant=tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="iso_provider", display_name="ISO Provider", das_tenant=tenant
+        )
+        source = Source.objects.create(manufacturer_id="iso_collar", provider=provider, das_tenant=tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=tenant)
+
+        base = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        obs1 = Observation.objects.create(source=source, recorded_at=base, location=Point(0.0, 0.0), das_tenant=tenant)
+        obs2 = Observation.objects.create(
+            source=source,
+            recorded_at=base + timedelta(minutes=5),
+            location=Point(0.05, 0.0),
+            das_tenant=tenant,
+        )
+        obs3 = Observation.objects.create(
+            source=source,
+            recorded_at=base + timedelta(minutes=10),
+            location=Point(0.10, 0.0),
+            das_tenant=tenant,
+        )
+
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
+        ObservationSegment.objects.create_segment(obs2, obs3, subject)
+
+        layer = ObservationSegmentVectorLayer()
+        request = APIRequestFactory().get("/tiles")
+        layer.request = request
+        qs = layer.get_vector_tile_queryset()
+        features = [layer.as_vector_tile_feature(obj) for obj in qs]
+
+        # Extract timestamp strings
+        starts = [f["properties"]["start_recorded_at"] for f in features]
+        ends = [f["properties"]["end_recorded_at"] for f in features]
+
+        # All timestamps must contain 'T' separator and end with timezone offset
+        assert all("T" in s for s in starts)
+        assert all("T" in e for e in ends)
+
+        # Lexicographic ordering of 'end_recorded_at' should match chronological ordering
+        lex_sorted = sorted(ends)
+        chrono_sorted = [
+            f["properties"]["end_recorded_at"]
+            for f in sorted(features, key=lambda f: f["properties"]["end_recorded_at"])
+        ]
+        assert lex_sorted == chrono_sorted
+
     def test_is_latest_flag_layer_and_feature(self, db):
         """Verify is_latest annotation and feature property in vector layer."""
         tenant = DASTenant.objects.get(id=default_tenant_id())
