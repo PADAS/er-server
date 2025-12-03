@@ -413,6 +413,11 @@ class SubjectTrackSegmentsV2View(generics.RetrieveAPIView):
       - until: ISO timestamp (inclusive upper bound)
       - filter: exclusion flag value (integer). If omitted, only unflagged (0) segments are returned.
       - group_by_flags: if 'true', break groups when exclusion_flags changes.
+            - max_speed_kmh: float. If provided, splits groups when a segment's speed_kmh exceeds this value.
+            - max_gap_ms: integer milliseconds. Splits groups when a segment's time_gap_ms
+                exceeds this value.
+            - max_gap_seconds: integer seconds. Convenience alternative to max_gap_ms (converted to ms).
+            - max_gap_minutes: integer minutes. Convenience alternative to max_gap_ms (converted to ms).
 
     Returns a GeoJSON FeatureCollection where each feature is a single LineString representing
     one contiguous group of segments (merged coordinate sequence, no duplicate join points).
