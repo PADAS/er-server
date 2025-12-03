@@ -6,8 +6,8 @@ Provides Mapbox Vector Tile layers for rendering pre-computed track segments.
 
 from vectortiles import VectorLayer
 
-from django.db.models import CharField, F, Value
-from django.db.models.functions import Coalesce
+from django.db.models import BooleanField, Case, CharField, F, Value, When, Window
+from django.db.models.functions import Coalesce, RowNumber
 
 from observations.filters import ObservationSegmentVectorTileFilterSet
 from observations.models import ObservationSegment
@@ -48,6 +48,7 @@ class ObservationSegmentVectorLayer(VectorLayer):
             "time_gap_ms",
             "distance_meters",
             "exclusion_flags",
+            "is_latest",
         )
 
     # ------------------------------------------------------------------ #
@@ -83,6 +84,18 @@ class ObservationSegmentVectorLayer(VectorLayer):
         """
         qs = self.get_queryset()
         annotations = self._get_vector_tile_annotations()
+
+        # Flag the latest segment per subject within the filtered queryset
+        rn = Window(
+            expression=RowNumber(),
+            partition_by=F("subject_id"),
+            order_by=[F("end_recorded_at").desc()],
+        )
+        qs = qs.annotate(_rn=rn)
+        qs = qs.annotate(
+            is_latest=Case(When(_rn=1, then=Value(True)), default=Value(False), output_field=BooleanField())
+        )
+
         return qs.annotate(**annotations)
 
     # ------------------------------------------------------------------ #
@@ -124,6 +137,7 @@ class ObservationSegmentVectorLayer(VectorLayer):
             "time_gap_ms": round(obj.time_gap_ms, 0) if obj.time_gap_ms else None,
             "distance_meters": round(obj.distance_meters, 2) if obj.distance_meters else None,
             "exclusion_flags": obj.exclusion_flags.mask if hasattr(obj.exclusion_flags, "mask") else 0,
+            "is_latest": bool(getattr(obj, "is_latest", False)),
         }
 
         # Add presentation properties

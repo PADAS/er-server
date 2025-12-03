@@ -15,6 +15,7 @@ import pytest
 
 from django.contrib.gis.geos import LineString, Point
 from django.urls import reverse
+from rest_framework.test import APIRequestFactory
 
 from core.models import DASTenant
 from observations.models import (
@@ -28,6 +29,7 @@ from observations.models import (
     SubjectType,
 )
 from observations.signals import update_segments_for_observation
+from observations.vector_layers_segments import ObservationSegmentVectorLayer
 from utils.migrations.columns import default_tenant_id
 
 
@@ -404,3 +406,54 @@ class TestObservationSegmentVectorTiles:
         assert response.status_code in [200, 401, 403]  # Endpoint exists
 
     # TODO: Add more vector tile endpoint tests with authenticated user and fixtures
+
+    def test_is_latest_flag_layer_and_feature(self, db):
+        """Verify is_latest annotation and feature property in vector layer."""
+        tenant = DASTenant.objects.get(id=default_tenant_id())
+        subject_type, _ = SubjectType.objects.get_or_create(value="wildlife", display="Wildlife", das_tenant=tenant)
+        subject_subtype, _ = SubjectSubType.objects.get_or_create(
+            value="zebra", display="Zebra", subject_type=subject_type, das_tenant=tenant
+        )
+        subject = Subject.objects.create(name="VT Zebra", subject_subtype=subject_subtype, das_tenant=tenant)
+
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_provider_mvt", display_name="Test Provider", das_tenant=tenant
+        )
+        source = Source.objects.create(manufacturer_id="test_collar_mvt", provider=provider, das_tenant=tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=tenant)
+
+        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=base_time, location=Point(0.0, 0.0), das_tenant=tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=base_time + timedelta(minutes=10), location=Point(0.05, 0.0), das_tenant=tenant
+        )
+        obs3 = Observation.objects.create(
+            source=source, recorded_at=base_time + timedelta(minutes=20), location=Point(0.10, 0.0), das_tenant=tenant
+        )
+
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
+        ObservationSegment.objects.create_segment(obs2, obs3, subject)
+
+        # Layer-level queryset with annotation
+        layer = ObservationSegmentVectorLayer()
+        factory = APIRequestFactory()
+        request = factory.get("/tiles")
+        layer.request = request
+
+        qs = layer.get_vector_tile_queryset()
+        segments = list(qs)
+        assert len(segments) == 2
+        ends = sorted([s.end_recorded_at for s in segments])
+        latest_seg = next(s for s in segments if s.end_recorded_at == ends[-1])
+        earlier_seg = next(s for s in segments if s.end_recorded_at == ends[0])
+
+        assert getattr(latest_seg, "is_latest", False) is True
+        assert getattr(earlier_seg, "is_latest", True) is False
+
+        # Feature properties include is_latest
+        features = [layer.as_vector_tile_feature(obj) for obj in segments]
+        flags = [f["properties"].get("is_latest") for f in features]
+        assert flags.count(True) == 1
+        assert flags.count(False) == 1
