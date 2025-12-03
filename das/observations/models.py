@@ -36,7 +36,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.db import models as dbmodels
-from django.contrib.gis.geos import Point, Polygon
+from django.contrib.gis.geos import LineString, Point, Polygon
 from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
@@ -1010,7 +1010,6 @@ class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset
         Returns:
             ObservationSegment instance
         """
-        from django.contrib.gis.geos import LineString
 
         # Create LineString geometry
         geometry = LineString(start_obs.location, end_obs.location, srid=4326)

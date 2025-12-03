@@ -153,3 +153,42 @@ __all__ = [
     "bump_vector_tile_data_version",
     "VECTOR_TILE_DATA_VERSION_KEY",
 ]
+
+# --- Prefix-based invalidation utilities (Redis) ---
+
+
+def delete_tile_keys_by_prefix(prefix: str) -> int:
+    """Delete cache   whose keys match the given prefix.
+
+    Works with django-redis by using SCAN to avoid blocking. Returns count of deleted keys.
+    """
+    cache = get_vector_tile_cache()
+    deleted = 0
+    try:
+        client = getattr(cache, "client", None)
+        if client is None:
+            return 0
+        rc = client.get_client(write=True)
+        # Use scan_iter for non-blocking iteration
+        for key in rc.scan_iter(f"{prefix}*"):
+            try:
+                rc.delete(key)
+                deleted += 1
+            except Exception:
+                pass
+    except Exception:
+        # Best-effort only
+        return 0
+    return deleted
+
+
+def invalidate_tile_cache_keys(
+    *, tenant_id: str, layer_ids: Sequence[str] | Iterable[str], cache_version: str, z: int, x: int, y: int
+) -> int:
+    """Invalidate cache entries for a specific tenant/layers/version tile (z/x/y).
+
+    This implementation derives the cache key prefix from build_tile_cache_key layout and deletes matching keys.
+    """
+    layers_part = ",".join(sorted(layer_ids)) if layer_ids else "nolayers"
+    prefix = f"vt:{tenant_id}:{layers_part}:{cache_version}:{z}:{x}:{y}:"
+    return delete_tile_keys_by_prefix(prefix)
