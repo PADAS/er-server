@@ -281,6 +281,18 @@ wheels = [
 ]
 
 [[package]]
+name = "authlib"
+version = "1.6.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cd/3f/1d3bbd0bf23bdd99276d4def22f29c27a914067b4cf66f753ff9b8bbd0f3/authlib-1.6.5.tar.gz", hash = "sha256:6aaf9c79b7cc96c900f0b284061691c5d4e61221640a948fe690b556a6d6d10b", size = 164553, upload-time = "2025-10-02T13:36:09.489Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f8/aa/5082412d1ee302e9e7d80b6949bc4d2a8fa1149aaab610c5fc24709605d6/authlib-1.6.5-py2.py3-none-any.whl", hash = "sha256:3e0e0507807f842b02175507bdee8957a1d5707fd4afb17c32fb43fee90b6e3a", size = 243608, upload-time = "2025-10-02T13:36:07.637Z" },
+]
+
+[[package]]
 name = "autoflake"
 version = "2.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -767,6 +779,7 @@ dependencies = [
     { name = "arcgis" },
     { name = "arcgis2geojson" },
     { name = "async-lru" },
+    { name = "authlib" },
     { name = "bleach" },
     { name = "boto3" },
     { name = "business-rules" },
@@ -823,6 +836,7 @@ dependencies = [
     { name = "httplib2" },
     { name = "humanize" },
     { name = "jinja2" },
+    { name = "joserfc" },
     { name = "jsonschema" },
     { name = "jsonschema-specifications" },
     { name = "jupyterlab" },
@@ -910,6 +924,7 @@ requires-dist = [
     { name = "arcgis", specifier = "==2.4.1.3" },
     { name = "arcgis2geojson" },
     { name = "async-lru", specifier = "==1.0.3" },
+    { name = "authlib", specifier = ">=1.6.5,<2" },
     { name = "bleach", specifier = "==6.2.0" },
     { name = "boto3" },
     { name = "business-rules", specifier = "==1.1.1" },
@@ -966,6 +981,7 @@ requires-dist = [
     { name = "httplib2" },
     { name = "humanize" },
     { name = "jinja2" },
+    { name = "joserfc", specifier = ">=1.4.3,<2" },
     { name = "jsonschema" },
     { name = "jsonschema-specifications", specifier = "==2023.12.1" },
     { name = "jupyterlab", specifier = "==3.5.3" },
@@ -2547,6 +2563,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e8/5d/447af5ea094b9e4c4054f82e223ada074c552335b9b4b2d14bd9b35a67c4/joblib-1.5.2.tar.gz", hash = "sha256:3faa5c39054b2f03ca547da9b2f52fde67c06240c31853f306aea97f13647b55", size = 331077, upload-time = "2025-08-27T12:15:46.575Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1e/e8/685f47e0d754320684db4425a0967f7d3fa70126bffd76110b7009a0090f/joblib-1.5.2-py3-none-any.whl", hash = "sha256:4e1f0bdbb987e6d843c70cf43714cb276623def372df3c22fe5266b2670bc241", size = 308396, upload-time = "2025-08-27T12:15:45.188Z" },
+]
+
+[[package]]
+name = "joserfc"
+version = "1.4.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/dc/32/8315032da02a124a326c2c98724387a4c9dcfa248efeb1307db8f2662331/joserfc-1.4.3.tar.gz", hash = "sha256:dcbd447ff70c64d75f4cbdc5fb1d48f6914bff67b97fa0f779dd5c581d1bb81d", size = 200514, upload-time = "2025-11-19T05:52:27.942Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d9/4e/b998a5f8f042a17a6a87e7ed7fb85082d62f7d5c1d307ac6c544a2c7293c/joserfc-1.4.3-py3-none-any.whl", hash = "sha256:3cb2f1c1e3285c44a50ca9cb3287f37c2c665442028a4983aed87a75285164dc", size = 66957, upload-time = "2025-11-19T05:52:26.15Z" },
 ]
 
 [[package]]
