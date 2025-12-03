@@ -141,6 +141,8 @@ class SubjectTrackSegmentsGroupedSerializer(serializers.Serializer):
         until = self.context.get("until")
         show_excluded = bool(self.context.get("show_excluded", False))
         group_by_flags = self.context.get("group_by_flags", False)  # Optional: split on flag changes
+        max_speed_kmh = self.context.get("max_speed_kmh", None)
+        max_gap_ms = self.context.get("max_gap_ms", None)
 
         # Get subject's segments
         segments_qs = ObservationSegment.objects.filter(subject=subject).select_related(
@@ -178,6 +180,23 @@ class SubjectTrackSegmentsGroupedSerializer(serializers.Serializer):
                 is_contiguous = prev_segment.end_observation_id == segment.start_observation_id and (
                     not group_by_flags or prev_segment.exclusion_flags == segment.exclusion_flags
                 )
+
+                # Apply runtime segmentation thresholds: break if limits exceeded
+                if is_contiguous and max_speed_kmh is not None:
+                    try:
+                        if float(segment.speed_kmh) > float(max_speed_kmh):
+                            is_contiguous = False
+                    except Exception:
+                        # If value is not parseable, do not break on speed
+                        pass
+
+                if is_contiguous and max_gap_ms is not None:
+                    try:
+                        if int(segment.time_gap_ms) > int(max_gap_ms):
+                            is_contiguous = False
+                    except Exception:
+                        # If value is not parseable, do not break on time gap
+                        pass
 
             if not is_contiguous and current_group:
                 # Finish the current group and start a new one

@@ -454,12 +454,41 @@ class SubjectTrackSegmentsV2View(generics.RetrieveAPIView):
         show_excluded = self.request.query_params.get("show_excluded", "false").lower() == "true"
         group_by_flags = self.request.query_params.get("group_by_flags", "false").lower() == "true"
 
+        # Optional runtime segmentation thresholds (aligning with vector tile service conventions)
+        def _get_float(name):
+            val = self.request.query_params.get(name)
+            try:
+                return float(val) if val is not None and val != "" else None
+            except Exception:
+                return None
+
+        def _get_int(name):
+            val = self.request.query_params.get(name)
+            try:
+                return int(val) if val is not None and val != "" else None
+            except Exception:
+                return None
+
+        max_speed_kmh = _get_float("max_speed_kmh")
+        # Support multiple time gap param styles; prefer milliseconds for precision
+        max_gap_ms = _get_int("max_gap_ms")
+        if max_gap_ms is None:
+            max_gap_seconds = _get_int("max_gap_seconds")
+            if max_gap_seconds is not None:
+                max_gap_ms = max_gap_seconds * 1000
+        if max_gap_ms is None:
+            max_gap_minutes = _get_int("max_gap_minutes")
+            if max_gap_minutes is not None:
+                max_gap_ms = max_gap_minutes * 60 * 1000
+
         context.update(
             {
                 "since": since,
                 "until": until,
                 "show_excluded": show_excluded,
                 "group_by_flags": group_by_flags,
+                "max_speed_kmh": max_speed_kmh,
+                "max_gap_ms": max_gap_ms,
             }
         )
         return context
