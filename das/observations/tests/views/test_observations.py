@@ -205,6 +205,24 @@ class ObservationViewTestCase(BaseAPITest):
         # all records are of the given source
         self.assertTrue(all(k.get("source") == source_id for k in response.data.get("results")))
 
+    def test_filter_observations_by_source_id_include_empty_location(self):
+        no_location_observation = Observation.objects.create(
+            source=self.collar, recorded_at=datetime.now(pytz.UTC), location=Point(0, 0), additional={}
+        )
+        source_id = str(self.collar.id)
+        filter_params = {"source_id": source_id}
+        response = self.make_observations_filter_request(filter_params)
+
+        assert str(no_location_observation.id) not in [item.get("id") for item in response.data.get("results")]
+
+        filter_params = {"source_id": source_id, "include_empty_location": "true"}
+        response = self.make_observations_filter_request(filter_params)
+
+        # all records are of the given source
+        self.assertTrue(all(k.get("source") == source_id for k in response.data.get("results")))
+        # the observation with no location is included
+        assert str(no_location_observation.id) in [item.get("id") for item in response.data.get("results")]
+
     def test_filter_observations_by_recorded_since(self):
         filter_params = {"since": self.observation_time + timedelta(days=1)}
         response = self.make_observations_filter_request(filter_params)
