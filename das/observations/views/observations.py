@@ -90,6 +90,11 @@ class ObservationsViewSchema(CustomSchema):
                     "in": "query",
                     "description": "filter to observations within a bounding box, [west, south, east, north]. format is 'min_lat,min_lon,max_lat,max_lon'",
                 },
+                {
+                    "name": "include_empty_location",
+                    "in": "query",
+                    "description": "include observations with no location data, 0,0 points. Default is false.",
+                },
             ]
             operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)
