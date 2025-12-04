@@ -552,13 +552,10 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
         queryset = self.filter(source=source)
         queryset = queryset.by_since_until(since, until)
-        queryset = queryset.by_exclusion_flags(filter_flag)
+        queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=include_empty_location)
         if bbox:
             geometry = Polygon.from_bbox(bbox)
             queryset = queryset.filter(location__within=geometry)
-
-        if not include_empty_location:
-            queryset = queryset.exclude(location=EMPTY_POINT)
 
         if order_by:
             queryset = queryset.order_by(order_by)
