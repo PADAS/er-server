@@ -13,7 +13,7 @@
           "type": "string",
           "anyOf": [
             {
-              "$ref": "https://root.dev.pamdas.org/api/v2.0/schemas/subjects.json?subject_group=b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057"
+              "$ref": "https://zoo.com/api/v2.0/schemas/subjects.json?subject_group=b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057"
             }
           ]
         }
