@@ -23,7 +23,7 @@ from django.conf.urls import include
 from django.contrib import admin
 from django.urls import path, re_path
 
-from das_server import views
+from das_server import auth_check, views
 from das_server.admin import dasadmin_site
 from das_server.spectacular_views import SwaggerUIViewWithLogin
 
@@ -33,6 +33,7 @@ admin.site.enable_nav_sidebar = False
 
 urlpatterns = [
     re_path("api/v1.0/status/?$", views.StatusView.as_view(), name="api-status"),
+    re_path("api/v1.0/auth/validate-jwt/?$", auth_check.echo_auth0_token_subject, name="auth-validate-jwt"),
     path("api/v1.0/", include("accounts.urls")),
     path("api/v1.0/", include("observations.urls")),
     path("api/v1.0/", include("mapping.urls")),
