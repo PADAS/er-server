@@ -101,11 +101,6 @@
                         "type": "number"
                     }
                 },
-                "required": [
-                    "latitude",
-                    "longitude"
-                ],
-                "unevaluatedProperties": false,
                 "title": "Location of items",
                 "type": "object"
             },
