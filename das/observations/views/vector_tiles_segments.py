@@ -111,7 +111,7 @@ class ObservationSegmentTileView(MVTView):
             tenant_data = get_tenant_data_by_host(host)
         except Exception as e:
             logger.error(f"Tenant data fetch error: {e}")
-            return HttpResponse("Tenant data error", status=500)
+            return HttpResponse(f"Failed to retrieve tenant data for host: {host}", status=500)
         if not tenant_data.get("domain"):
             logger.error(f"Missing tenant domain for host: {host}")
             return HttpResponse("Missing tenant domain", status=500)
