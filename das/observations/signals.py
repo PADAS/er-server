@@ -238,8 +238,12 @@ def get_neighbor_observations(observation, subject):
     Returns:
         tuple: (prev_observation, next_observation) - either can be None
     """
-    # Get all observations for this subject through all their sources
-    subject_sources = SubjectSource.objects.filter(subject=subject).values_list("source_id", flat=True)
+    # Get all observations for this subject through all their sources, using cache
+    cache_key = f"subject_sources_{subject.id}"
+    subject_sources = cache.get(cache_key)
+    if subject_sources is None:
+        subject_sources = list(SubjectSource.objects.filter(subject=subject).values_list("source_id", flat=True))
+        cache.set(cache_key, subject_sources, 300)  # Cache for 5 minutes
 
     # Find previous observation (most recent before this one)
     prev_obs = (
