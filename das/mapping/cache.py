@@ -174,8 +174,9 @@ def delete_tile_keys_by_prefix(prefix: str) -> int:
             try:
                 rc.delete(key)
                 deleted += 1
-            except Exception:
-                pass
+            except Exception as e:
+                # Best-effort: log and continue on individual key deletion failure
+                logger.warning(f"Failed to delete cache key {key!r}: {e}", exc_info=True)
     except Exception:
         # Best-effort only
         return 0
