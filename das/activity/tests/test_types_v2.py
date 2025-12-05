@@ -235,6 +235,8 @@ class TestEventTypesV2:
         response = user_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == str(target.id)
+        assert response.data["value"] == target.value
 
     def test_event_type_detail_not_found(self, superuser_client):
         url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": "nonexistent"})

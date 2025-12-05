@@ -71,12 +71,15 @@ class EventCategoryPermissions(IsAuthenticated):
                 or "eventtype_value" in view.kwargs
             ):
                 try:
+                    is_event_type_request = False
                     if "event_type" in request.data:
                         event_type = EventType.objects.get_by_natural_key(request.data["event_type"])
                     elif "eventtype_id" in view.kwargs:
                         event_type = get_object_or_404(EventType, id=view.kwargs["eventtype_id"])
+                        is_event_type_request = True
                     elif "eventtype_value" in view.kwargs:
                         event_type = EventType.objects.get_by_natural_key(view.kwargs["eventtype_value"])
+                        is_event_type_request = True
                     else:
                         event_type = get_object_or_404(Event, id=view.kwargs["id"]).event_type
 
@@ -84,7 +87,7 @@ class EventCategoryPermissions(IsAuthenticated):
 
                     permitted = user.has_perm(permission_name)
                     # For GET requests on EventType, also allow users with "create" permission
-                    if k == "GET" and not permitted and user.is_authenticated:
+                    if is_event_type_request and k == "GET" and not permitted and user.is_authenticated:
                         create_permission_name = "activity.{0}_create".format(event_type.category.value)
                         if user.has_perm(create_permission_name):
                             return True
