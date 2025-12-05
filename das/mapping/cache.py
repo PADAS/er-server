@@ -158,7 +158,7 @@ __all__ = [
 
 
 def delete_tile_keys_by_prefix(prefix: str) -> int:
-    """Delete cache   whose keys match the given prefix.
+    """Delete cache entries whose keys match the given prefix.
 
     Works with django-redis by using SCAN to avoid blocking. Returns count of deleted keys.
     """
