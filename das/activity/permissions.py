@@ -78,7 +78,7 @@ class EventCategoryPermissions(IsAuthenticated):
                         event_type = get_object_or_404(EventType, id=view.kwargs["eventtype_id"])
                         is_event_type_request = True
                     elif "eventtype_value" in view.kwargs:
-                        event_type = EventType.objects.get_by_natural_key(view.kwargs["eventtype_value"])
+                        event_type = get_object_or_404(EventType, value=view.kwargs["eventtype_value"])
                         is_event_type_request = True
                     else:
                         event_type = get_object_or_404(Event, id=view.kwargs["id"]).event_type
