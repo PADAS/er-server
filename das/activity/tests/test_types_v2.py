@@ -238,6 +238,12 @@ class TestEventTypesV2:
         assert response.data["id"] == str(target.id)
         assert response.data["value"] == target.value
 
+        # Verify user cannot access event types from other categories
+        cat2_event_type = [et for et in cat1_cat2_event_types if et.category.value == "cat2"][0]
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat2_event_type.value})
+        response = user_client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
     def test_event_type_detail_not_found(self, superuser_client):
         url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": "nonexistent"})
         response = superuser_client.get(url)
