@@ -14,6 +14,7 @@ from rest_framework.permissions import (
 )
 
 from activity.models import Event, EventCategory, EventType, Patrol, PatrolType
+from core.utils import is_uuid
 from observations.models import Subject
 from observations.utils import get_distance_points, is_banned
 from utils.categories import make_eventcategory_permission_codename
@@ -78,7 +79,9 @@ class EventCategoryPermissions(IsAuthenticated):
                         event_type = get_object_or_404(EventType, id=view.kwargs["eventtype_id"])
                         is_event_type_request = True
                     elif "eventtype_value" in view.kwargs:
-                        event_type = get_object_or_404(EventType, value=view.kwargs["eventtype_value"])
+                        eventtype_value_is_uuid = is_uuid(view.kwargs["eventtype_value"])
+                        kwargs = {"id" if eventtype_value_is_uuid else "value": view.kwargs["eventtype_value"]}
+                        event_type = get_object_or_404(EventType, **kwargs)
                         is_event_type_request = True
                     else:
                         event_type = get_object_or_404(Event, id=view.kwargs["id"]).event_type
