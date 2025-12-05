@@ -4,10 +4,12 @@ from pathlib import Path
 
 import pytest
 
+from django.contrib.auth.models import Permission
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 
+from accounts.models import PermissionSet
 from activity.constants import PRI_IMPORTANT, PRI_URGENT
 from activity.models import AlertRule, Event, EventType
 from activity.serializers.event_types_v2 import EventTypeV2Serializer
@@ -15,6 +17,7 @@ from activity.tests.helpers.schema_test_utils import (
     V2SchemaBuilder,
     minimal_event_type_schema,
 )
+from utils.categories import make_eventcategory_permission_codename_with_tenant
 
 
 @pytest.mark.django_db
@@ -215,6 +218,23 @@ class TestEventTypesV2:
 
         for field in self.expected_fields:
             assert field in response.data
+
+    def test_get_event_type_detail_create_only_permission(self, user_client, cat1_cat2_event_types, tenant_settings):
+        target = cat1_cat2_event_types[0]
+        target_category = target.category
+        permission_set = PermissionSet.objects.create(name=f"test_perm_set_{target_category.value}")
+        add_permission = Permission.objects.get(
+            codename=make_eventcategory_permission_codename_with_tenant(
+                target_category.value, "create", tenant_settings.id
+            )
+        )
+        permission_set.permissions.add(add_permission)
+        user_client.user.permission_sets.add(permission_set)
+
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
 
     def test_event_type_detail_not_found(self, superuser_client):
         url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": "nonexistent"})
