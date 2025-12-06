@@ -119,7 +119,7 @@ class ObservationSegmentTileView(MVTView):
         if not self._check_observation_permissions(request):
             logger.warning(f"Permission denied for user {getattr(request.user, 'id', None)}")
             return HttpResponse(
-                "Permission denied", status=401, headers={"WWW-Authenticate": "Bearer realm=vector-tiles"}
+                "Permission denied", status=403
             )
 
         layer_ids = [lc.id for lc in self.layer_classes]
