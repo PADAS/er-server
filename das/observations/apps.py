@@ -7,7 +7,6 @@ class ObservationsConfig(AppConfig):
 
     def ready(self):
         # Import default signals
+        from . import signals  # noqa: F401
         # Cache invalidation signals for segment tiles
         from . import signals_segments_cache  # noqa: F401
-
-        from . import signals  # noqa: F401
