@@ -136,7 +136,7 @@ class ObservationSegmentTileView(MVTView):
             logger.warning(f"Cache key build error: {e}")
             return HttpResponse(
                 "Malformed token or unauthenticated request",
-                status=401,
+                status=403,
                 headers={"WWW-Authenticate": "Bearer realm=vector-tiles"},
             )
 
