@@ -1018,16 +1018,12 @@ class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset
         time_delta = abs((end_obs.recorded_at - start_obs.recorded_at).total_seconds())
         time_gap_ms = time_delta * 1000.0
 
-        # Calculate distance in meters using PostGIS
-        # ST_Distance on geography type returns meters
-        distance_meters = start_obs.location.distance(end_obs.location) * 111319.9  # degrees to meters approximation
-
-        # For accurate distance, we should use geography cast
-        # This will be done in the model's save method using raw SQL for precision
-
-        # Calculate speed in km/h
-        time_gap_hours = time_gap_ms / (1000.0 * 3600.0)  # Convert ms to hours for speed calculation
-        speed_kmh = (distance_meters / 1000.0) / time_gap_hours if time_gap_hours > 0 else 0.0
+        # Do NOT calculate approximate distance here to avoid propagating error.
+        # Accurate distance is computed in ObservationSegment.save() using geography.
+        # Set placeholders; speed will be recalculated in save() after accurate distance.
+        distance_meters = 0.0
+        time_gap_hours = time_gap_ms / (1000.0 * 3600.0)
+        speed_kmh = 0.0 if time_gap_hours > 0 else 0.0
 
         # Combine exclusion flags (OR operation)
         exclusion_flags = start_obs.exclusion_flags.mask | end_obs.exclusion_flags.mask
@@ -1149,20 +1145,26 @@ class ObservationSegment(TenantModelMixin, models.Model):
         return f"Segment {self.subject.name if self.subject else 'Unknown'}: {self.start_recorded_at} → {self.end_recorded_at}"
 
     def save(self, *args, **kwargs):
-        """Override save to calculate accurate distance using PostGIS ST_Distance on geography."""
-        if self.pk is None:  # Only on creation
-            # Recalculate distance using geography for accuracy
+        """Override save to calculate accurate distance using PostGIS functions when missing."""
+        should_compute = (self.distance_meters is None) or (self.distance_meters == 0.0)
+        if should_compute:
+            # Recalculate distance using spherical distance on lon/lat to avoid WKB casting issues
             from django.db import connection
+
+            start_lon = self.start_observation.location.x
+            start_lat = self.start_observation.location.y
+            end_lon = self.end_observation.location.x
+            end_lat = self.end_observation.location.y
 
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT ST_Distance(
-                        ST_GeogFromWKB(%s),
-                        ST_GeogFromWKB(%s)
+                    SELECT ST_DistanceSphere(
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326),
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)
                     )
-                """,
-                    [self.start_observation.location.wkb, self.end_observation.location.wkb],
+                    """,
+                    [start_lon, start_lat, end_lon, end_lat],
                 )
                 self.distance_meters = cursor.fetchone()[0]
 

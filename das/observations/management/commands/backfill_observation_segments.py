@@ -8,24 +8,11 @@ Usage:
     # Backfill all subjects
     python manage.py backfill_observation_segments
 
-    # Backfill specific subjects
-    python manage.py backfill_observation_segments --subject-ids uuid1,uuid2,uuid3
-
-    # Backfill with custom batch size
-    python manage.py backfill_observation_segments --batch-size 1000
-
     # Dry run to see what would be processed
     python manage.py backfill_observation_segments --dry-run
-
-    # Process observations from a specific date range
-    python manage.py backfill_observation_segments --since 2023-01-01 --until 2023-12-31
 """
 
 import logging
-from datetime import datetime
-from uuid import UUID
-
-import pytz
 
 from django.core.management.base import BaseCommand
 from django.db.models import Count
@@ -41,68 +28,23 @@ class Command(TenantCommandMixin, BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--subject-ids",
-            type=str,
-            help="Comma-separated list of subject UUIDs to process (default: all subjects)",
-        )
-        parser.add_argument(
-            "--batch-size",
-            type=int,
-            default=500,
-            help="Number of observations to process per batch (default: 500)",
-        )
-        parser.add_argument(
             "--dry-run",
             action="store_true",
             default=False,
             help="Don't actually create segments, just report what would be done",
         )
-        parser.add_argument(
-            "--since",
-            type=str,
-            help="Process observations since this date (ISO format: YYYY-MM-DD)",
-        )
-        parser.add_argument(
-            "--until",
-            type=str,
-            help="Process observations until this date (ISO format: YYYY-MM-DD)",
-        )
-        parser.add_argument(
-            "--clear-existing",
-            action="store_true",
-            default=False,
-            help="Clear existing segments before backfilling",
-        )
 
     def handle(self, *args, **options):
         self.dry_run = options["dry_run"]
-        self.batch_size = options["batch_size"]
 
-        # Parse date filters
-        since = None
-        until = None
-        if options["since"]:
-            since = pytz.utc.localize(datetime.fromisoformat(options["since"]))
-        if options["until"]:
-            until = pytz.utc.localize(datetime.fromisoformat(options["until"]))
+        # Default batch size is fixed to keep memory in check
+        self.batch_size = 500
 
-        # Get subjects to process
-        if options["subject_ids"]:
-            subject_ids = [UUID(s.strip()) for s in options["subject_ids"].split(",")]
-            subjects = Subject.objects.filter(id__in=subject_ids)
-            self.stdout.write(f"Processing {subjects.count()} specified subjects")
-        else:
-            # Get all subjects that have observations
-            subjects = Subject.objects.annotate(obs_count=Count("subjectsource__source__observation")).filter(
-                obs_count__gt=0
-            )
-            self.stdout.write(f"Processing all {subjects.count()} subjects with observations")
-
-        # Clear existing segments if requested
-        if options["clear_existing"] and not self.dry_run:
-            self.stdout.write(self.style.WARNING("Clearing existing segments..."))
-            deleted_count = ObservationSegment.objects.all().delete()[0]
-            self.stdout.write(self.style.SUCCESS(f"Deleted {deleted_count} existing segments"))
+        # Get all subjects that have observations
+        subjects = Subject.objects.annotate(obs_count=Count("subjectsource__source__observation")).filter(
+            obs_count__gt=0
+        )
+        self.stdout.write(f"Processing all {subjects.count()} subjects with observations")
 
         # Process each subject
         total_subjects = subjects.count()
@@ -115,7 +57,7 @@ class Command(TenantCommandMixin, BaseCommand):
                 f"\n[{subjects_processed}/{total_subjects}] Processing subject: {subject.name} ({subject.id})"
             )
 
-            segments_created = self.process_subject(subject, since, until)
+            segments_created = self.process_subject(subject)
             total_segments_created += segments_created
 
         # Summary
@@ -150,18 +92,15 @@ class Command(TenantCommandMixin, BaseCommand):
             "recorded_at"
         )
 
-        if since:
-            obs_qs = obs_qs.filter(recorded_at__gte=since)
-        if until:
-            obs_qs = obs_qs.filter(recorded_at__lte=until)
+        # Date range filtering removed; process full history
 
         total_observations = obs_qs.count()
         if total_observations == 0:
-            self.stdout.write(f"  No observations found")
+            self.stdout.write("  No observations found")
             return 0
 
         if total_observations == 1:
-            self.stdout.write(f"  Only 1 observation found, no segments to create")
+            self.stdout.write("  Only 1 observation found, no segments to create")
             return 0
 
         self.stdout.write(f"  Found {total_observations} observations")

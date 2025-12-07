@@ -155,5 +155,89 @@ class ObservationSegmentVectorLayer(VectorLayer):
         }
 
     def get_tile_data(self, tile, layer_name=None):
-        """Use superclass tile builder."""
-        return super().get_tile_data(tile, layer_name)
+        """Build tile data and append endpoint point features for arrows (z>=10)."""
+        base_features = super().get_tile_data(tile, layer_name)
+
+        # Safely append point features for each LineString segment
+        # Zoom-gate to avoid payload bloat at low zooms
+        z = getattr(tile, "z", None)
+        segment_points = [] if (z is None or z < 10) else []
+        if z is None or z < 10:
+            # Below threshold, return only base line features
+            return base_features
+
+        for feat in base_features:
+            geom = feat.get("geometry")
+            props = feat.get("properties", {})
+            # Only process LineStrings
+            if getattr(geom, "geom_type", None) == "LineString":
+                try:
+                    coords = list(getattr(geom, "coords", []))
+                except Exception:
+                    coords = []
+
+                if len(coords) >= 2:
+                    start = coords[0]
+                    end = coords[-1]
+
+                    # Compute bearing from start -> end
+                    bearing = self._compute_bearing_deg(start[1], start[0], end[1], end[0])
+
+                    # Start point feature (arrow towards next)
+                    segment_points.append(
+                        {
+                            "id": props.get("id", "") + ":start",
+                            "geometry": self._make_point(start),
+                            "properties": {
+                                **props,
+                                "kind": "segment_start",
+                                "bearing_to_next": bearing,
+                            },
+                        }
+                    )
+
+                    # End point feature (arrow from previous)
+                    segment_points.append(
+                        {
+                            "id": props.get("id", "") + ":end",
+                            "geometry": self._make_point(end),
+                            "properties": {
+                                **props,
+                                "kind": "segment_end",
+                                "bearing_from_prev": bearing,
+                            },
+                        }
+                    )
+
+        return base_features + segment_points
+
+    # ------------------------------------------------------------------ #
+    # Helpers
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _compute_bearing_deg(lat1, lon1, lat2, lon2):
+        """Compute initial bearing from (lat1, lon1) to (lat2, lon2) in degrees [0,360)."""
+        import math
+
+        phi1 = math.radians(lat1)
+        phi2 = math.radians(lat2)
+        d_lambda = math.radians(lon2 - lon1)
+
+        x = math.sin(d_lambda) * math.cos(phi2)
+        y = math.cos(phi1) * math.sin(phi2) - math.sin(phi1) * math.cos(phi2) * math.cos(d_lambda)
+        theta = math.atan2(x, y)
+        bearing = (math.degrees(theta) + 360.0) % 360.0
+        return round(bearing, 2)
+
+    @staticmethod
+    def _make_point(coord):
+        """Create a GEOS Point from (lon, lat[, alt])."""
+        try:
+            from django.contrib.gis.geos import Point
+        except Exception:
+            # Fallback: return original tuple; renderer may handle plain coords
+            return coord
+
+        if len(coord) >= 3:
+            return Point(coord[0], coord[1], coord[2])
+        return Point(coord[0], coord[1])

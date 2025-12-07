@@ -126,11 +126,8 @@ class ObservationAnnotator(Annotator):
         - distance_preceding: Distance from previous observation (meters)
         - time_lapse_preceding: Time gap from previous observation (seconds)
         - speed_kmh: Speed in km/h based on distance and time
-
-        Note: This is a simplified version that works with Django ORM limitations.
-        For production use, consider using the more complex raw SQL approach.
         """
-        # constrain complexity to maintain compatibility with
+        # note to devs: constrain complexity here to maintain compatibility with
         #  Django's limitations around .extra().
         # be careful with table aliases and references.
 
@@ -209,7 +206,6 @@ class ObservationAnnotator(Annotator):
         if not observation_ids:
             return queryset.none()
 
-        # Production-ready raw SQL with CTE for optimal performance
         # Create placeholder string for IN clause to prevent SQL injection
         placeholders = ",".join(["%s"] * len(observation_ids))
         sql = f"""
