@@ -161,7 +161,7 @@ class ObservationSegmentVectorLayer(VectorLayer):
         # Safely append point features for each LineString segment
         # Zoom-gate to avoid payload bloat at low zooms
         z = getattr(tile, "z", None)
-        segment_points = [] if (z is None or z < 10) else []
+        segment_points = []
         if z is None or z < 10:
             # Below threshold, return only base line features
             return base_features
