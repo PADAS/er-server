@@ -14,6 +14,7 @@ from rest_framework.permissions import (
 )
 
 from activity.models import Event, EventCategory, EventType, Patrol, PatrolType
+from core.utils import is_uuid
 from observations.models import Subject
 from observations.utils import get_distance_points, is_banned
 from utils.categories import make_eventcategory_permission_codename
@@ -65,20 +66,34 @@ class EventCategoryPermissions(IsAuthenticated):
         perms = {"POST": "create", "PATCH": "update", "PUT": "update", "GET": "read", "DELETE": "delete"}
         for k, v in perms.items():
             if request.method == k and (
-                "event_type" in request.data or "id" in view.kwargs or "eventtype_id" in view.kwargs
+                "event_type" in request.data
+                or "id" in view.kwargs
+                or "eventtype_id" in view.kwargs
+                or "eventtype_value" in view.kwargs
             ):
                 try:
+                    is_event_type_request = False
                     if "event_type" in request.data:
                         event_type = EventType.objects.get_by_natural_key(request.data["event_type"])
                     elif "eventtype_id" in view.kwargs:
                         event_type = get_object_or_404(EventType, id=view.kwargs["eventtype_id"])
+                        is_event_type_request = True
+                    elif "eventtype_value" in view.kwargs:
+                        eventtype_value_is_uuid = is_uuid(view.kwargs["eventtype_value"])
+                        kwargs = {"id" if eventtype_value_is_uuid else "value": view.kwargs["eventtype_value"]}
+                        event_type = get_object_or_404(EventType, **kwargs)
+                        is_event_type_request = True
                     else:
                         event_type = get_object_or_404(Event, id=view.kwargs["id"]).event_type
 
                     permission_name = "activity.{0}_{1}".format(event_type.category.value, v)
 
                     permitted = user.has_perm(permission_name)
-                    if k == "GET" and not permitted and user.is_authenticated:
+                    # For GET requests on EventType, also allow users with "create" permission
+                    if is_event_type_request and k == "GET" and not permitted and user.is_authenticated:
+                        create_permission_name = "activity.{0}_create".format(event_type.category.value)
+                        if user.has_perm(create_permission_name):
+                            return True
                         return False
                     return permitted
                 except EventType.DoesNotExist:
@@ -107,7 +122,15 @@ class EventCategoryPermissions(IsAuthenticated):
                     is_subject = set(event_subjects) <= set(user_subjects)
 
         permission_name = permission_fmt.format(value, EventCategoryPermissions.http_method_map[request.method])
-        return request.user.has_perm(permission_name) and is_subject
+        has_perm = request.user.has_perm(permission_name)
+
+        # For GET requests on EventType objects, also allow users with "create" permission
+        # (users who can create events should be able to view the event type definition)
+        if not has_perm and request.method == "GET" and isinstance(obj, EventType):
+            create_permission_name = permission_fmt.format(value, "create")
+            has_perm = request.user.has_perm(create_permission_name)
+
+        return has_perm and is_subject
 
 
 class EventCategoryObjectPermissions(DjangoObjectPermissions):
