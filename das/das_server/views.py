@@ -80,6 +80,10 @@ class StatusView(generics.RetrieveAPIView):
         resp["subjects_enabled"] = tenant.feature_flags.subjects_enabled
         resp["spatial_features_enabled"] = tenant.feature_flags.spatial_features_enabled
         resp["analyzers_enabled"] = tenant.feature_flags.analyzers_enabled
+        resp["require_idp"] = tenant.feature_flags.require_idp
+
+        if tenant.feature_flags.require_idp:
+            resp["idp_login_url"] = tenant.env_settings.idp_login_url
 
         default_event_filter_from_days = tenant.env_settings.default_event_filter_from_days
         if default_event_filter_from_days and default_event_filter_from_days >= 0:
