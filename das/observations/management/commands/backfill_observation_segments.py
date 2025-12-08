@@ -92,7 +92,6 @@ class Command(TenantCommandMixin, BaseCommand):
             "recorded_at"
         )
 
-        # Date range filtering removed; process full history
 
         total_observations = obs_qs.count()
         if total_observations == 0:
