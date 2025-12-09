@@ -108,7 +108,7 @@
                 <li><strong>display</strong> (optional) - The display text (defaults to value if not provided)</li>
                 <li><strong>icon</strong> (optional) - The icon identifier</li>
                 <li><strong>ordernum</strong> (optional) - The sort order number</li>
-                <li><strong>is_active</strong> (optional) - Whether the choice is active (true/false, defaults to true)</li>
+                <li><strong>is_active</strong> (optional) - Whether the choice is active (true/false, defaults to true). Set to false to disable a choice instead of deleting it.</li>
             </ul>
 
             <p><em>Note: The sub_choice_of field is available in exports but not yet supported for import.</em></p>
@@ -134,6 +134,7 @@ activity.event,priority,low,Low Priority,,3,false
             <p><strong>Important notes:</strong></p>
             <ul>
                 <li>If a choice with the same model, field, and value already exists, it will be updated</li>
+                <li>To disable a choice (recommended), set <strong>is_active=false</strong>. This preserves the choice for historical data while hiding it from new selections</li>
                 <li>All rows are validated before any import occurs</li>
                 <li>If any validation errors are found, no data will be imported</li>
                 <li>Errors will be reported by row number</li>
