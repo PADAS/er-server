@@ -7,13 +7,21 @@ from revision.manager import RevisionMixin
 
 logger = logging.getLogger(__name__)
 request_context = local()
-request_context.user = None
+request_context.request = None
 
 
 def attach_revision_user_to_instance(sender, instance, **kwargs):
     if issubclass(sender, RevisionMixin):
-        setattr(instance, "revision_user", request_context.user)
-        logger.debug("Setting revision user to '%s'", request_context.user)
+        # Access request.user lazily - this happens during model save,
+        # after DRF authentication has run, so request.user is correctly set
+        user = None
+        if request := getattr(request_context, "request", None):
+            if _user := getattr(request, "user", None):
+                if _user.is_authenticated:
+                    user = _user
+                    logger.debug("Setting revision user from request.user: '%s'", user.username)
+
+        setattr(instance, "revision_user", user)
 
 
 class RevisionMiddleware(object):
@@ -38,12 +46,14 @@ class RevisionMiddleware(object):
 
     def _process_request(self, request):
         if request.method not in ("GET", "HEAD", "OPTIONS", "TRACE"):
-            if hasattr(request, "user") and request.user.is_authenticated:
-                request_context.user = request.user
-            else:
-                request_context.user = None
+            # Store request object - user will be accessed lazily during model save
+            # This ensures we get the user AFTER DRF authentication has run
+            # (important when Bearer tokens are used instead of session auth)
+            request_context.request = request
+        else:
+            request_context.request = None
 
     def _process_response(self, request, response):
-        request_context.user = None
-        logger.debug("Clear revision user in current thread")
+        request_context.request = None
+        logger.debug("Clear revision request in current thread")
         return response
