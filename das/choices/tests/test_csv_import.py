@@ -97,7 +97,7 @@ class TestCSVImportValidation:
         assert is_valid is True
         assert len(errors) == 0
         assert len(validated_data) == 3
-        assert validated_data[0]["value"] == "high"
+        assert validated_data[0]["data"]["value"] == "high"
 
     def test_validate_csv_missing_required_fields(self, choice_admin_fixture, invalid_csv_missing_required):
         """Test validation fails with missing required fields"""
@@ -109,9 +109,10 @@ class TestCSVImportValidation:
         assert is_valid is False
         assert len(errors) > 0
         # Check that both rows with missing data are reported
+        # Row numbers are 1-indexed for data rows (first data row = 1)
         row_numbers = [err["row"] for err in errors]
-        assert 2 in row_numbers  # Row with missing field
-        assert 3 in row_numbers  # Row with missing value
+        assert 1 in row_numbers  # Row with missing field
+        assert 2 in row_numbers  # Row with missing value
 
     def test_validate_csv_invalid_model(self, choice_admin_fixture, invalid_csv_wrong_model):
         """Test validation fails with invalid model choice"""
@@ -122,7 +123,8 @@ class TestCSVImportValidation:
 
         assert is_valid is False
         assert len(errors) == 1
-        assert errors[0]["row"] == 2
+        # Row numbers are 1-indexed for data rows (first data row = 1)
+        assert errors[0]["row"] == 1
         assert "model" in errors[0]["error"].lower()
 
     def test_validate_csv_mixed_valid_invalid(self, choice_admin_fixture, csv_with_mixed_errors):
@@ -134,9 +136,10 @@ class TestCSVImportValidation:
 
         assert is_valid is False
         assert len(errors) == 2  # Two invalid rows
+        # Row numbers are 1-indexed for data rows (first data row = 1)
         row_numbers = [err["row"] for err in errors]
-        assert 3 in row_numbers  # Row with invalid model
-        assert 4 in row_numbers  # Row with missing field
+        assert 2 in row_numbers  # Row with invalid model
+        assert 3 in row_numbers  # Row with missing field
 
     def test_validate_csv_empty_file(self, choice_admin_fixture):
         """Test validation fails with empty CSV"""
@@ -341,17 +344,18 @@ class TestCSVTemplateDownload:
         required_fields, optional_fields, all_fields = admin._get_csv_field_info()
 
         # Verify that all_fields is derived from fields_to_export
-        # (excluding sub_choice_of which is export-only)
-        expected_fields = [f for f in admin.fields_to_export if f != "sub_choice_of"]
+        # (excluding sub_choice_of which is export-only and delete-now which is import-only hidden feature)
+        expected_fields = [f for f in admin.fields_to_export if f not in ["sub_choice_of", "delete-now"]]
         assert all_fields == expected_fields
 
         # Verify required fields
-        assert required_fields == ["model", "field", "value"]
+        assert required_fields == ["model", "field", "value", "display"]
 
-        # Verify optional fields don't include required ones or sub_choice_of
+        # Verify optional fields don't include required ones, sub_choice_of, or delete-now
         for field in optional_fields:
             assert field not in required_fields
             assert field != "sub_choice_of"
+            assert field != "delete-now"
 
     def test_download_csv_template_from_import_page(self, choice_admin_fixture, client):
         """Test downloading CSV template from import page"""
