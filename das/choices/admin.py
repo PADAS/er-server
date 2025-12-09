@@ -1,21 +1,27 @@
+import csv
 import logging
+import re
 import urllib.parse as urlparse
+from functools import partial
 from urllib.parse import urlencode
 
 from django.contrib import admin, messages
 from django.contrib.admin.actions import delete_selected
 from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
 from django.contrib.admin.utils import model_ngettext
-from django.http import HttpResponseRedirect
+from django.forms import modelformset_factory
+from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _
 
 import choices.models as models
-from choices.forms import ChoiceForm, CSVImportForm
+from choices.forms import ChoiceForm, ChoiceFormSet, CSVImportForm
 from choices.serializers import ChoiceSerializer
 from core.admin import BaseModelAdminMixin, ModelAdminDisplayingManyToManyFieldMixin
 from utils.admin import CSVImportMixin, ExportDataActionMixin
+from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
 
@@ -47,14 +53,35 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
         "ordernum",
         "sub_choice_of",  # Export only - ManyToMany field not supported in CSV import
         "is_active",
+        "delete-now",  # Import only - optional column to mark rows for deletion (obscured name)
     ]
 
     # CSV Import configuration
-    csv_required_fields = ["model", "field", "value"]
+    csv_required_fields = ["model", "field", "value", "display"]
     csv_unique_fields = ["model", "field", "value"]  # Fields that uniquely identify a record
-    csv_excluded_import_fields = ["sub_choice_of"]  # ManyToMany field - not supported in import
+    csv_excluded_import_fields = [
+        "sub_choice_of",
+        "delete-now",
+    ]  # ManyToMany field and delete-now (hidden feature) - not in template
     csv_import_form_class = CSVImportForm
     csv_import_template = "admin/choices/import_csv.html"
+
+    def get_changelist_formset(self, request, **kwargs):
+        """Override to use custom formset for list_editable validation"""
+        if request.method == "POST":
+            defaults = {
+                "formfield_callback": partial(self.formfield_for_dbfield, request=request),
+                **kwargs,
+            }
+            return modelformset_factory(
+                self.model,
+                self.get_changelist_form(request),
+                formset=ChoiceFormSet,
+                extra=0,
+                fields=self.list_editable,
+                **defaults,
+            )
+        return super().get_changelist_formset(request, **kwargs)
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
@@ -185,6 +212,26 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
         url = models.Choice.marker_icon(obj.icon_id)
         return mark_safe(f'<img src="{url}" style="height:2.5em; filter:opacity(0.8)" />')
 
+    def export_data_as_csv(self, request, queryset):
+        """Override to filter out non-model fields from export"""
+        # Filter out fields that don't exist on the model (like 'delete-now' and ManyToMany fields)
+        export_fields = [f for f in self.fields_to_export if f not in ["delete-now", "sub_choice_of"]]
+
+        model = queryset.model
+        now = timezone.now()
+        download_filename = f'{model._meta.model_name}_data_{now.strftime("%Y-%m-%d")}.csv'
+
+        response = HttpResponse(
+            content_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={download_filename}"},
+        )
+        data = queryset.values(*export_fields)
+        writer = csv.DictWriter(response, fieldnames=export_fields)
+        writer.writeheader()
+        writer.writerows(data)
+
+        return response
+
     # CSV Import hooks - override CSVImportMixin methods for Choice-specific behavior
 
     def get_csv_import_serializer(self):
@@ -210,71 +257,165 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
         """
         row_errors = []
 
+        # Check if this is a delete operation (hidden feature - not advertised)
+        # Look for "delete-now" column (obscured name)
+        # Handle case-insensitive and whitespace-tolerant lookup
+        delete_str = None
+        for key in row.keys():
+            if key.strip().lower() == "delete-now":
+                delete_str = (row.get(key) or "").strip()
+                break
+        if delete_str is None:
+            # Fallback to old "delete" column name for backwards compatibility
+            for key in row.keys():
+                if key.strip().lower() == "delete":
+                    delete_str = (row.get(key) or "").strip()
+                    break
+        if delete_str is None:
+            delete_str = (row.get("delete-now") or row.get("delete") or "").strip()
+        should_delete = parse_bool(delete_str) if delete_str else False
+
+        # If deleting, only require unique identifier fields
+        if should_delete:
+            required_fields = self.csv_unique_fields
+        else:
+            required_fields = self.csv_required_fields
+
         # Check required fields are not empty
-        for field in self.csv_required_fields:
-            value = row.get(field, "").strip()
+        for field in required_fields:
+            value = (row.get(field) or "").strip()
             if not value:
                 row_errors.append(f"'{field}' is required and cannot be empty")
 
         # Validate model is a valid choice
-        model_value = row.get("model", "").strip()
+        model_value = (row.get("model") or "").strip()
         valid_models = [choice[0] for choice in models.Choice.MODEL_REF_CHOICES]
         if model_value and model_value not in valid_models:
             row_errors.append(
                 f"'{model_value}' is not a valid model choice. " f"Valid choices are: {', '.join(valid_models)}"
             )
 
-        # Check for duplicates within the CSV file
-        field_value = row.get("field", "").strip()
-        value_value = row.get("value", "").strip()
+        # Check for duplicates within the CSV file (skip for delete operations)
+        field_value = (row.get("field") or "").strip()
+        value_value = (row.get("value") or "").strip()
         combination_key = (model_value, field_value, value_value)
 
-        if combination_key in seen_combinations:
-            row_errors.append(
-                f"Duplicate entry: (model={model_value}, field={field_value}, "
-                f"value={value_value}) already exists in this CSV"
-            )
-        else:
-            seen_combinations.add(combination_key)
-
-        # Validate ordernum is an integer if provided
-        ordernum = row.get("ordernum", "").strip()
-        if ordernum:
-            try:
-                ordernum = int(ordernum)
-            except ValueError:
-                row_errors.append(f"'ordernum' must be an integer, got '{ordernum}'")
-
-        # Validate is_active is a boolean if provided
-        is_active_str = row.get("is_active", "").strip()
-        is_active = True  # Default value
-        if is_active_str:
-            is_active_lower = is_active_str.lower()
-            if is_active_lower in ["true", "1", "yes", "y"]:
-                is_active = True
-            elif is_active_lower in ["false", "0", "no", "n"]:
-                is_active = False
-            else:
+        if not should_delete:
+            # Validate field format: only unicode word characters (letters, numbers, underscores) allowed (no spaces)
+            if field_value and not re.match(r"^\w+$", field_value):
                 row_errors.append(
-                    f"'is_active' must be a boolean value (true/false, 1/0, yes/no), got '{is_active_str}'"
+                    f"'field' must contain only letters, numbers, and underscores (no spaces). " f"Got: '{field_value}'"
+                )
+            # Validate value format: only unicode word characters (letters, numbers, underscores) allowed (no spaces)
+            if value_value and not re.match(r"^\w+$", value_value):
+                row_errors.append(
+                    f"'value' must contain only letters, numbers, and underscores (no spaces). " f"Got: '{value_value}'"
                 )
 
+            # Only check for duplicates if not deleting
+            if combination_key in seen_combinations:
+                row_errors.append(
+                    f"Duplicate entry: (model={model_value}, field={field_value}, "
+                    f"value={value_value}) already exists in this CSV"
+                )
+            else:
+                seen_combinations.add(combination_key)
+
+        # Skip optional field validation if deleting
+        ordernum_value = None
+        if not should_delete:
+            # Validate ordernum is an integer if provided
+            ordernum_str = (row.get("ordernum") or "").strip()
+            if ordernum_str:
+                try:
+                    ordernum_value = int(ordernum_str)
+                except ValueError:
+                    row_errors.append(f"'ordernum' must be an integer, got '{ordernum_str}'")
+
+            # Validate is_active is a boolean if provided
+            is_active_str = (row.get("is_active") or "").strip()
+            is_active = True  # Default value
+            if is_active_str:
+                # Validate format before parsing
+                valid_bool_strings = ["true", "1", "yes", "ok", "okay", "false", "0", "no", "n"]
+                if is_active_str.lower() not in valid_bool_strings:
+                    row_errors.append(
+                        f"'is_active' must be a boolean value (true/false, 1/0, yes/no/ok), got '{is_active_str}'"
+                    )
+                else:
+                    is_active = parse_bool(is_active_str)
+        else:
+            # For delete operations, set defaults (won't be used but needed for processed_data)
+            is_active = True
+
         # Prepare validated data (this format is expected by the mixin)
+        # Only include fields that passed validation
+        display_value = (row.get("display") or "").strip() or value_value if not should_delete else ""
+        icon_value = (row.get("icon") or "").strip() or None if not should_delete else None
+
         processed_data = {
             "model": model_value,
             "field": field_value,
             "value": value_value,
-            "display": row.get("display", "").strip() or value_value,
-            "icon": row.get("icon", "").strip() or None,
-            "ordernum": int(ordernum) if ordernum else None,
-            "is_active": is_active,
+            "display": display_value,
+            "icon": icon_value,
+            "is_active": is_active if not should_delete else True,
+            "delete": should_delete,
         }
+        # Only add ordernum if it was successfully validated (or not provided)
+        if ordernum_value is not None:
+            processed_data["ordernum"] = ordernum_value
+        elif not should_delete and not (row.get("ordernum") or "").strip():
+            # Allow None/empty ordernum
+            processed_data["ordernum"] = None
 
         return row_errors, processed_data
+
+    def _format_row_for_display(self, data):
+        """
+        Format row data for display in success/error message.
+        Includes model, field, value, display, and optionally is_active, ordernum, icon.
+
+        Args:
+            data: Dictionary of validated row data
+
+        Returns:
+            str: Formatted row display string
+        """
+        # Core fields always shown
+        core_fields = ["model", "field", "value", "display"]
+        values = []
+
+        for field in core_fields:
+            if field in data:
+                field_value = data[field]
+                if field_value is not None:
+                    value_str = str(field_value).strip()
+                    if value_str:  # Only add non-empty values
+                        values.append(value_str)
+
+        # Additional fields to show if they're set and meaningful
+        additional_fields = ["is_active", "ordernum", "icon"]
+        for field in additional_fields:
+            if field in data:
+                field_value = data[field]
+                if field_value is not None:
+                    if field == "is_active":
+                        # Show is_active as true/false
+                        values.append(f"is_active={str(field_value).lower()}")
+                    elif field == "ordernum":
+                        # Show ordernum if it's set
+                        values.append(f"ordernum={field_value}")
+                    elif field == "icon" and field_value:
+                        # Show icon if it's not empty
+                        values.append(f"icon={field_value}")
+
+        return ", ".join(values)
 
 
 @admin.register(models.DisableChoice)
 class DisableChoiceAdmin(BaseModelAdminMixin):
+    form = ChoiceForm
     # actions = ('disable_choices', )
     ordering = ("model", "field", "ordernum", "display", "delete_on")
     list_display = ("model", "field", "value", "display", "ordernum", "delete_on", "is_active")
@@ -282,6 +423,23 @@ class DisableChoiceAdmin(BaseModelAdminMixin):
     search_fields = ("model", "field", "value", "display")
     list_editable = ("value", "display", "ordernum", "is_active")
     list_filter = ("value", "delete_on", "field")
+
+    def get_changelist_formset(self, request, **kwargs):
+        """Override to use custom formset for list_editable validation"""
+        if request.method == "POST":
+            defaults = {
+                "formfield_callback": partial(self.formfield_for_dbfield, request=request),
+                **kwargs,
+            }
+            return modelformset_factory(
+                self.model,
+                self.get_changelist_form(request),
+                formset=ChoiceFormSet,
+                extra=0,
+                fields=self.list_editable,
+                **defaults,
+            )
+        return super().get_changelist_formset(request, **kwargs)
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)

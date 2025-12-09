@@ -1,9 +1,11 @@
 import csv
 import io
 import logging
+import re
 from typing import List
 from urllib.parse import urlencode
 
+from django import forms
 from django.contrib import admin, messages
 from django.db import transaction
 from django.db.models import QuerySet
@@ -11,6 +13,7 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
+from django.utils.safestring import mark_safe
 
 logger = logging.getLogger(__name__)
 
@@ -118,11 +121,11 @@ class CSVImportMixin:
         required_fields, optional_fields, all_fields = self._get_csv_field_info()
 
         if not csv_reader.fieldnames:
-            return False, {"row": 0, "error": "CSV file is empty or has no headers"}
+            return False, {"row": "header", "error": "CSV file is empty or has no headers"}
 
         missing_headers = set(required_fields) - set(csv_reader.fieldnames)
         if missing_headers:
-            return False, {"row": 0, "error": f"Missing required columns: {', '.join(missing_headers)}"}
+            return False, {"row": "header", "error": f"Missing required columns: {', '.join(missing_headers)}"}
         return True, None
 
     def validate_csv_row_data(self, row, row_num, seen_combinations):
@@ -162,34 +165,140 @@ class CSVImportMixin:
                 return False, errors, validated_data
 
             # Validate each row
-            row_num = 1  # Start at 1 (header is row 0)
+            row_num = 0  # Will be incremented to 1 for first data row
             seen_combinations = set()
 
             for row in csv_reader:
-                row_num += 1
+                row_num += 1  # First data row is Row 1
                 # Call model-specific validation hook
                 row_errors, processed_data = self.validate_csv_row_data(row, row_num, seen_combinations)
 
                 if row_errors:
+                    # Format row data for display
+                    row_display = self._format_row_for_display_from_raw(row)
                     for error in row_errors:
-                        errors.append({"row": row_num, "error": error})
+                        errors.append({"row": row_num, "error": error, "row_display": row_display})
                 else:
                     # Use serializer if available
                     serializer_class = self.get_csv_import_serializer()
                     if serializer_class:
-                        serializer = serializer_class(data=processed_data)
-                        if serializer.is_valid():
-                            validated_data.append(serializer.validated_data)
-                        else:
-                            for field, field_errors in serializer.errors.items():
-                                for error in field_errors:
-                                    errors.append({"row": row_num, "error": f"{field}: {error}"})
-                    else:
-                        validated_data.append(processed_data)
+                        try:
+                            # Extract non-serializer fields (like "delete") before validation
+                            # These fields are not in the serializer schema but need to be preserved
+                            non_serializer_fields = {}
+                            # Check for delete field - look for "delete-now" (obscured) or "delete" (backwards compat)
+                            delete_value = False
+                            delete_key = None
+                            for key in list(processed_data.keys()):
+                                key_lower = key.strip().lower()
+                                if key_lower == "delete-now" or key_lower == "delete":
+                                    delete_value = processed_data.get(key, False)
+                                    delete_key = key
+                                    break
+                            # Always include delete field (even if False) so it's available in process_csv_row
+                            # Use "delete" as internal key name for consistency
+                            non_serializer_fields["delete"] = delete_value
+                            # Remove delete field from processed_data before serializer validation
+                            if delete_key:
+                                processed_data = {k: v for k, v in processed_data.items() if k != delete_key}
 
+                            serializer = serializer_class(data=processed_data)
+                            if serializer.is_valid():
+                                # Merge serializer validated data with non-serializer fields
+                                final_data = {**serializer.validated_data, **non_serializer_fields}
+                                # Store row number with validated data
+                                validated_data.append({"row_num": row_num, "data": final_data})
+                            else:
+                                # Format row data for display
+                                row_display = self._format_row_for_display(processed_data)
+                                for field, field_errors in serializer.errors.items():
+                                    for error in field_errors:
+                                        # Make error messages more user-friendly
+                                        if (
+                                            "A valid integer is required" in str(error)
+                                            or "invalid" in str(error).lower()
+                                        ):
+                                            errors.append(
+                                                {
+                                                    "row": row_num,
+                                                    "error": (
+                                                        f"'{field}' field has an invalid value. "
+                                                        "Please check that numeric fields contain only numbers."
+                                                    ),
+                                                    "row_display": row_display,
+                                                }
+                                            )
+                                        else:
+                                            errors.append(
+                                                {
+                                                    "row": row_num,
+                                                    "error": f"{field}: {error}",
+                                                    "row_display": row_display,
+                                                }
+                                            )
+                        except (ValueError, TypeError) as e:
+                            # Catch any conversion errors during serializer initialization/validation
+                            error_msg = str(e)
+                            # Format row data for display
+                            row_display = self._format_row_for_display(processed_data)
+                            if "invalid literal for int()" in error_msg or "invalid" in error_msg.lower():
+                                errors.append(
+                                    {
+                                        "row": row_num,
+                                        "error": (
+                                            "Invalid value found in row. Please check that all numeric fields "
+                                            "(like 'ordernum') contain only numbers, and boolean fields contain "
+                                            "true/false values."
+                                        ),
+                                        "row_display": row_display,
+                                    }
+                                )
+                            else:
+                                errors.append(
+                                    {
+                                        "row": row_num,
+                                        "error": f"Error validating row data: {error_msg}",
+                                        "row_display": row_display,
+                                    }
+                                )
+                    else:
+                        # Store row number with validated data
+                        validated_data.append({"row_num": row_num, "data": processed_data})
+
+        except ValueError as e:
+            # Handle value conversion errors with more helpful messages
+            error_msg = str(e)
+            if "invalid literal for int()" in error_msg:
+                # Extract the problematic value from the error message
+
+                match = re.search(r"invalid literal for int\(\) with base 10: '([^']+)'", error_msg)
+                if match:
+                    bad_value = match.group(1)
+                    errors.append(
+                        {
+                            "row": "CSV file",
+                            "error": (
+                                f"Invalid integer value '{bad_value}' found in CSV. "
+                                "Please check numeric fields like 'ordernum' contain only numbers."
+                            ),
+                        }
+                    )
+                else:
+                    errors.append({"row": "CSV file", "error": f"Invalid number format in CSV: {error_msg}"})
+            else:
+                errors.append({"row": "CSV file", "error": f"Invalid value in CSV: {error_msg}"})
+            return False, errors, validated_data
         except Exception as e:
             logger.exception(f"Error validating CSV: {e}")
-            errors.append({"row": 0, "error": f"Error reading CSV file: {str(e)}"})
+            errors.append(
+                {
+                    "row": "CSV file",
+                    "error": (
+                        f"Error reading CSV file: {str(e)}. "
+                        "Please check that your CSV file is properly formatted and all required columns are present."
+                    ),
+                }
+            )
             return False, errors, validated_data
 
         is_valid = len(errors) == 0
@@ -202,6 +311,164 @@ class CSVImportMixin:
         """
         return None
 
+    def _format_row_for_display(self, data):
+        """
+        Format row data for display in success/error message.
+        Returns a comma-separated string of key fields (model, field, value, display).
+
+        Args:
+            data: Dictionary of validated row data
+
+        Returns:
+            str: Formatted row display string
+        """
+        # Get key fields in order: model, field, value, display
+        fields = ["model", "field", "value", "display"]
+        values = []
+        for field in fields:
+            if field in data:
+                field_value = data[field]
+                if field_value is not None:
+                    value_str = str(field_value).strip()
+                    if value_str:  # Only add non-empty values
+                        values.append(value_str)
+        return ", ".join(values)
+
+    def _format_row_for_display_from_raw(self, row):
+        """
+        Format raw CSV row data for display in error message.
+        Returns a comma-separated string of key fields (model, field, value, display).
+
+        Args:
+            row: Dictionary of raw CSV row data
+
+        Returns:
+            str: Formatted row display string
+        """
+        # Get key fields in order: model, field, value, display
+        fields = ["model", "field", "value", "display"]
+        values = []
+        for field in fields:
+            if field in row:
+                field_value = row[field]
+                if field_value is not None:
+                    try:
+                        value_str = str(field_value).strip()
+                        if value_str:  # Only add non-empty values
+                            values.append(value_str)
+                    except (AttributeError, TypeError):
+                        # Skip if we can't convert to string or strip
+                        pass
+        return ", ".join(values)
+
+    def _format_import_error_message(self, errors):
+        """
+        Format error messages with row data grouped by row, similar to success message format.
+        Returns HTML-formatted message for Django admin display.
+
+        Args:
+            errors: List of error dicts with 'row', 'error', and optionally 'row_display' keys
+
+        Returns:
+            str: HTML-formatted error message
+        """
+        from django.utils.safestring import mark_safe
+
+        message_parts = ["CSV validation failed. Please fix the following errors:"]
+
+        # Group errors by row
+        errors_by_row = {}
+        header_errors = []
+        csv_file_errors = []
+
+        for error in errors:
+            row_label = error["row"]
+            if row_label == "header":
+                header_errors.append(error["error"])
+            elif row_label == "CSV file":
+                csv_file_errors.append(error["error"])
+            else:
+                # Group by row number
+                if row_label not in errors_by_row:
+                    errors_by_row[row_label] = {
+                        "row_display": error.get("row_display", ""),
+                        "errors": [],
+                    }
+                errors_by_row[row_label]["errors"].append(error["error"])
+
+        # Add header errors first
+        for error_msg in header_errors:
+            message_parts.append(f"Header row: {error_msg}")
+
+        # Add CSV file errors
+        for error_msg in csv_file_errors:
+            message_parts.append(error_msg)
+
+        # Add row errors grouped by row
+        if errors_by_row:
+            # Sort by row number
+            sorted_rows = sorted(errors_by_row.keys(), key=lambda x: x if isinstance(x, int) else 999)
+            for row_num in sorted_rows:
+                row_info = errors_by_row[row_num]
+                row_display = row_info["row_display"]
+                row_errors = row_info["errors"]
+
+                # Show row data once, then list all errors
+                if row_display:
+                    message_parts.append(f"Row {row_num}: {row_display}")
+                else:
+                    message_parts.append(f"Row {row_num}:")
+
+                # List all errors for this row
+                for error_msg in row_errors:
+                    message_parts.append(f"  - {error_msg}")
+
+        # Join with <br> tags for HTML display
+        html_message = "<br>".join(message_parts)
+        return mark_safe(html_message)
+
+    def _format_import_success_message(self, added_rows, updated_rows, deleted_rows):
+        """
+        Format a formalized success message with sections for added/updated/deleted rows.
+        Returns HTML-formatted message for Django admin display.
+
+        Args:
+            added_rows: List of dicts with 'row_num' and 'display' keys
+            updated_rows: List of dicts with 'row_num' and 'display' keys
+            deleted_rows: List of dicts with 'row_num' and 'display' keys
+
+        Returns:
+            str: HTML-formatted success message
+        """
+
+        message_parts = []
+
+        if added_rows:
+            message_parts.append("The following choices were added:")
+            for row_info in added_rows:
+                message_parts.append(f"Row {row_info['row_num']}: {row_info['display']}")
+
+        if updated_rows:
+            if message_parts:
+                message_parts.append("")  # Blank line between sections
+            message_parts.append("The following choices were updated:")
+            for row_info in updated_rows:
+                message_parts.append(f"Row {row_info['row_num']}: {row_info['display']}")
+
+        if deleted_rows:
+            if message_parts:
+                message_parts.append("")  # Blank line between sections
+            message_parts.append("The following choices were deleted:")
+            for row_info in deleted_rows:
+                message_parts.append(f"Row {row_info['row_num']}: {row_info['display']}")
+
+        if not message_parts:
+            message_parts.append(f"No {self.model._meta.verbose_name_plural} were processed")
+
+        # Join with <br> tags for HTML display
+        html_message = "<br>".join(message_parts)
+        return mark_safe(html_message)
+
     def process_csv_row(self, data):
         """
         Process and save a single CSV row.
@@ -211,16 +478,48 @@ class CSVImportMixin:
             data: Validated data dict for the row
 
         Returns:
-            tuple: (instance, created: bool)
+            tuple: (instance, created: bool, deleted: bool)
         """
+        # Check if this row should be deleted
+        should_delete = data.pop("delete", False)
+
         unique_fields = getattr(self, "csv_unique_fields", [])
         if unique_fields:
             lookup = {field: data[field] for field in unique_fields if field in data}
-            instance, created = self.model.objects.update_or_create(defaults=data, **lookup)
-            return instance, created
+
+            # Try to find existing instance
+            try:
+                instance = self.model.objects.get(**lookup)
+                if should_delete:
+                    # Delete the instance (use soft delete if available)
+                    if hasattr(instance, "disable"):
+                        instance.disable()
+                    elif hasattr(instance, "delete"):
+                        instance.delete()
+                    else:
+                        # Fallback to hard delete
+                        self.model.objects.filter(**lookup).delete()
+                    return None, False, True
+                else:
+                    # Update existing instance
+                    for key, value in data.items():
+                        setattr(instance, key, value)
+                    instance.save()
+                    return instance, False, False
+            except self.model.DoesNotExist:
+                if should_delete:
+                    # Row marked for delete but doesn't exist - skip silently
+                    return None, False, False
+                # Create new instance
+                instance = self.model.objects.create(**data)
+                return instance, True, False
         else:
+            if should_delete:
+                # Without unique fields, we can't identify what to delete
+                logger.warning("Cannot delete row: csv_unique_fields not defined")
+                return None, False, False
             instance = self.model.objects.create(**data)
-            return instance, True
+            return instance, True, False
 
     def import_csv_data(self, csv_file):
         """
@@ -235,27 +534,32 @@ class CSVImportMixin:
         is_valid, errors, validated_data = self.validate_csv_data(csv_file)
 
         if not is_valid:
-            error_message = "CSV validation failed. Please fix the following errors:\n"
-            for error in errors:
-                error_message += f"Row {error['row']}: {error['error']}\n"
+            error_message = self._format_import_error_message(errors)
             return False, error_message
 
         try:
             with transaction.atomic():
-                created_count = 0
-                updated_count = 0
+                added_rows = []
+                updated_rows = []
+                deleted_rows = []
 
-                for data in validated_data:
-                    instance, created = self.process_csv_row(data)
-                    if created:
-                        created_count += 1
+                for row_info in validated_data:
+                    row_num = row_info["row_num"]
+                    data = row_info["data"]
+                    instance, created, deleted = self.process_csv_row(data)
+
+                    # Format row data for display (model, field, value, display)
+                    row_display = self._format_row_for_display(data)
+
+                    if deleted:
+                        deleted_rows.append({"row_num": row_num, "display": row_display})
+                    elif created:
+                        added_rows.append({"row_num": row_num, "display": row_display})
                     else:
-                        updated_count += 1
+                        updated_rows.append({"row_num": row_num, "display": row_display})
 
-                message = (
-                    f"Successfully imported {created_count + updated_count} {self.model._meta.verbose_name_plural}: "
-                    f"{created_count} created, {updated_count} updated"
-                )
+                # Build formalized success message
+                message = self._format_import_success_message(added_rows, updated_rows, deleted_rows)
                 return True, message
 
         except Exception as e:
@@ -321,7 +625,6 @@ class CSVImportMixin:
 
     def _get_default_import_form(self):
         """Create a basic CSV import form if none is provided"""
-        from django import forms
 
         class DefaultCSVImportForm(forms.Form):
             csv_file = forms.FileField(
