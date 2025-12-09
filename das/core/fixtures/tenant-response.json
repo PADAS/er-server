@@ -51,7 +51,8 @@
     "subjectsEnabled": true,
     "spatialFeaturesEnabled": true,
     "analyzersEnabled": true,
-    "requireIdp": false
+    "requireIdp": false,
+    "idpLoginUrl": null
   },
   "services": {
     "auth": {
