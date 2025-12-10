@@ -483,14 +483,23 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return self.annotate(source_transforms=F("source__provider__transforms"))
 
     def get_subjectsource_observations(
-        self, subjectsource, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None, bbox=None
+        self,
+        subjectsource,
+        since=None,
+        until=None,
+        limit=None,
+        values=None,
+        filter_flag=0,
+        order_by=None,
+        bbox=None,
+        include_empty_location=False,
     ):
         queryset = self.filter(
             source__subjectsource=subjectsource, source__subjectsource__assigned_range__contains=F("recorded_at")
         )
 
         queryset = queryset.by_since_until(since, until)
-        queryset = queryset.by_exclusion_flags(filter_flag)
+        queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=include_empty_location)
         if bbox:
             geometry = Polygon.from_bbox(bbox)
             queryset = queryset.filter(location__within=geometry)
@@ -543,13 +552,10 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
         queryset = self.filter(source=source)
         queryset = queryset.by_since_until(since, until)
-        queryset = queryset.by_exclusion_flags(filter_flag)
+        queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=include_empty_location)
         if bbox:
             geometry = Polygon.from_bbox(bbox)
             queryset = queryset.filter(location__within=geometry)
-
-        if not include_empty_location:
-            queryset = queryset.exclude(location=EMPTY_POINT)
 
         if order_by:
             queryset = queryset.order_by(order_by)
@@ -586,6 +592,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         created_after=None,
         bbox=None,
         avoid_unions=False,
+        include_empty_location=False,
     ):
         """
         An optimized version of get_subject_observations that uses partitioning to avoid full table scans.
@@ -602,7 +609,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             order_by (str, optional): Field by which to order the results. Defaults to "-recorded_at".
             created_after (datetime, optional): Filter on the created_at time of the observations. Must provide since and until if using this. Defaults to None.
             avoid_unions (bool, optional): If True, uses a single query instead of UNIONs for better compatibility with cursor pagination. Defaults to False.
-
+            include_empty_location (bool, optional): Include observations with no location data, 0,0 points. Defaults to False.
         Returns:
             QuerySet: A Django QuerySet containing the filtered and partitioned observations.
         """
@@ -656,7 +663,9 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                 geometry = Polygon.from_bbox(bbox)
                 queryset = queryset.filter(location__within=geometry)
 
-            queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=subject.is_stationary_subject)
+            queryset = queryset.by_exclusion_flags(
+                filter_flag, include_empty_location=include_empty_location or subject.is_stationary_subject
+            )
 
             # Apply ordering and limit
             queryset = queryset.order_by(order_by or "-recorded_at")
@@ -722,7 +731,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                     source_qs = source_qs.filter(location__within=geometry)
 
                 source_qs = source_qs.by_exclusion_flags(
-                    filter_flag, include_empty_location=subject.is_stationary_subject
+                    filter_flag, include_empty_location=include_empty_location or subject.is_stationary_subject
                 )
 
                 # Add to batch query
