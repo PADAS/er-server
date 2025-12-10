@@ -2,7 +2,7 @@ import pytest
 from django_multitenant.utils import get_current_tenant, set_current_tenant
 from faker import Faker
 
-from django.forms import ValidationError
+from django.core.exceptions import ValidationError
 
 from accounts.models import User
 
@@ -235,3 +235,86 @@ class TestUserFormAlertRulesValidation:
         # Check form index mapping
         assert "0" in form_index_to_user_id
         assert "1" in form_index_to_user_id
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestUserAuth0Integration:
+    """Test Auth0 ID field validation and constraints"""
+
+    def test_auth0_id_can_be_null(self, das_tenant):
+        """Auth0 ID can be None/null"""
+        user = User.objects.create_user(
+            username="testuser1", email="test1@example.com", password="password", auth0_id=None
+        )
+        assert user.auth0_id is None
+
+    def test_auth0_id_can_be_valid_string(self, das_tenant):
+        """Auth0 ID can be a valid Auth0 subject identifier"""
+        auth0_id = "a" * 256
+        user = User.objects.create_user(
+            username="testuser2", email="test2@example.com", password="password", auth0_id=auth0_id
+        )
+        assert user.auth0_id == auth0_id
+
+    def test_auth0_id_same_id_different_tenants(self, five_tenants):
+        """Same Auth0 ID can exist in different tenants"""
+        auth0_id = "the-same-auth0-id"
+
+        # Create users with same auth0_id in two different tenants - should work
+        set_current_tenant(five_tenants[0])
+        user1 = User.objects.create_user(
+            username="testuser_tenant1", email="test1@example.com", password="password", auth0_id=auth0_id
+        )
+
+        set_current_tenant(five_tenants[1])
+        user2 = User.objects.create_user(
+            username="testuser_tenant2", email="test2@example.com", password="password", auth0_id=auth0_id
+        )
+
+        assert user1.auth0_id == auth0_id
+        assert user2.auth0_id == auth0_id
+
+    @pytest.mark.parametrize("auth0_id_value", ["", " "])
+    def test_auth0_id_cannot_be_empty_or_whitespace(self, das_tenant, auth0_id_value):
+        """Auth0 ID cannot be an empty or whitespace-only string"""
+        with pytest.raises(ValidationError) as exc_info:
+            User.objects.create_user(
+                username="testuser3", email="test3@example.com", password="password", auth0_id=auth0_id_value
+            )
+
+        assert "auth0_id" in exc_info.value.message_dict
+        assert "cannot be empty" in str(exc_info.value.message_dict["auth0_id"][0]).lower()
+
+    def test_auth0_id_max_length_failure(self, das_tenant):
+        """Auth0 ID cannot exceed 256 characters"""
+        auth0_id_257 = "a" * 257  # 257 'a' characters - should fail
+        with pytest.raises(ValidationError) as exc_info:
+            User.objects.create_user(
+                username="testuser4", email="test4@example.com", password="password", auth0_id=auth0_id_257
+            )
+
+        assert "auth0_id" in exc_info.value.message_dict
+        error_message = str(exc_info.value.message_dict["auth0_id"][0])
+        assert "at most 256 characters" in error_message
+        assert "it has 257" in error_message
+
+    def test_auth0_id_same_id_same_tenant_failure(self, das_tenant):
+        """Same Auth0 ID cannot exist twice in same tenant"""
+        from django.db import IntegrityError
+
+        auth0_id = "the-same-auth0-id"
+
+        # Create first user - should work
+        User.objects.create_user(
+            username="testuser5", email="test5@example.com", password="password", auth0_id=auth0_id
+        )
+
+        # Try to create second user with same auth0_id in same tenant - should fail
+        with pytest.raises(IntegrityError) as exc_info:
+            User.objects.create_user(
+                username="testuser6", email="test6@example.com", password="password", auth0_id=auth0_id
+            )
+
+        error_message = str(exc_info.value)
+        assert "unique_auth0_id_per_tenant" in error_message
