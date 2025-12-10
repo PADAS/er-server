@@ -19,7 +19,7 @@ class ChoiceSerializer(serializers.Serializer):
     id = serializers.UUIDField(read_only=True)
     model = serializers.ChoiceField(choices=Choice.MODEL_REF_CHOICES, default=Choice.EVENT_MODEL)
     field = serializers.CharField()
-    value = serializers.CharField(allow_blank=True, required=False)
+    value = serializers.CharField(allow_blank=False, required=True)
     display = serializers.CharField(allow_blank=True, required=False)
     ordernum = serializers.IntegerField(allow_null=True, required=False)
     icon = serializers.CharField(allow_null=True, allow_blank=True, required=False)

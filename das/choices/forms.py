@@ -51,7 +51,7 @@ class CSVImportForm(forms.Form):
 
     csv_file = forms.FileField(
         label="CSV File",
-        help_text="Upload a CSV file with columns: model, field, value, display, icon, ordernum",
+        help_text="Upload a CSV file with columns: model, field, value, display (optional), icon, ordernum",
         widget=forms.FileInput(attrs={"accept": ".csv"}),
     )
 
@@ -96,5 +96,3 @@ class ChoiceFormSet(BaseModelFormSet):
                         "field",
                         "Field must contain only letters, numbers, and underscores (no spaces). " f"Got: '{field}'",
                     )
-        if any(form.errors for form in self.forms):
-            raise forms.ValidationError("One or more forms have errors. Please correct them.")
