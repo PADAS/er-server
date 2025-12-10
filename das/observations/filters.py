@@ -274,6 +274,15 @@ class ObservationsFilter(BaseFilterBackend):
                 bbox=bbox,
                 include_empty_location=include_empty_location,
             )
+        elif sourceprovider_id:
+            queryset = queryset.get_source_provider_observations(
+                sourceprovider_id,
+                since=recorded_since,
+                until=recorded_until,
+                filter_flag=filter_flag,
+                bbox=bbox,
+                include_empty_location=include_empty_location,
+            )
         elif subjectsource_id:
             queryset = queryset.get_subjectsource_observations(
                 subjectsource_id,
