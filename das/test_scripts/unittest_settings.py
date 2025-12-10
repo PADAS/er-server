@@ -28,8 +28,9 @@ TENANT_DOCUMENT_CACHE = {
     "API_KEY": "",
 }
 
-AUTH0_DOMAIN = "auth0.com"
-AUTH0_RESOURCE_SERVER = "example.com"
+AUTH0_CUSTOM_DOMAIN = "tenant.auth0.com"
+AUTH0_TENANT_DOMAIN = "tenant.auth0.com"
+AUTH0_RESOURCE_SERVER = "https://example.com"
 
 """
 We put test fixtures in a non-conventional place, so build a list of directories here to let Django

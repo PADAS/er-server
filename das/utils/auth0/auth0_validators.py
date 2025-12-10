@@ -29,9 +29,9 @@ class Auth0JWTBearerTokenValidator(JWTBearerTokenValidator):
     """
 
     def __init__(self):
-        auth0_domain = getattr(settings, "AUTH0_DOMAIN").strip()
+        auth0_domain = getattr(settings, "AUTH0_CUSTOM_DOMAIN").strip()
         if not auth0_domain:
-            raise ValueError("AUTH0_DOMAIN must be configured in settings")
+            raise ValueError("AUTH0_CUSTOM_DOMAIN must be configured in settings")
 
         parsed = urlsplit(auth0_domain, allow_fragments=False)
         hostname = parsed.hostname or parsed.path.rstrip("/")
