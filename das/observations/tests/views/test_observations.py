@@ -173,11 +173,29 @@ class ObservationViewTestCase(BaseAPITest):
         self.assertNotIn("observation_details", obs.keys())
 
     def test_filter_observations_by_subject_id(self):
+        no_location_observation = Observation.objects.create(
+            source=self.collar, recorded_at=datetime.now(pytz.UTC), location=Point(0, 0), additional={}
+        )
+
         filter_params = {"subject_id": self.elephant.id}
         response = self.make_observations_filter_request(filter_params)
 
         # all records are of the given subject
-        self.assertTrue(self.elephant.observations().count(), response.data.get("count"))
+        assert self.elephant.observations().count() == response.data.get("count")
+        # the observation with no location is not included
+        assert str(no_location_observation.id) not in [item.get("id") for item in response.data.get("results")]
+
+    def test_filter_observations_by_subject_id_include_empty_location(self):
+        # Create an observation with no location
+        no_location_observation = Observation.objects.create(
+            source=self.collar, recorded_at=datetime.now(pytz.UTC), location=Point(0, 0), additional={}
+        )
+
+        filter_params = {"subject_id": self.elephant.id, "include_empty_location": "true"}
+        response = self.make_observations_filter_request(filter_params)
+
+        # the observation with no location is included
+        self.assertTrue(str(no_location_observation.id) in [item.get("id") for item in response.data.get("results")])
 
     def test_filter_observations_by_source_id(self):
         source_id = str(self.collar.id)
@@ -186,6 +204,24 @@ class ObservationViewTestCase(BaseAPITest):
 
         # all records are of the given source
         self.assertTrue(all(k.get("source") == source_id for k in response.data.get("results")))
+
+    def test_filter_observations_by_source_id_include_empty_location(self):
+        no_location_observation = Observation.objects.create(
+            source=self.collar, recorded_at=datetime.now(pytz.UTC), location=Point(0, 0), additional={}
+        )
+        source_id = str(self.collar.id)
+        filter_params = {"source_id": source_id}
+        response = self.make_observations_filter_request(filter_params)
+
+        assert str(no_location_observation.id) not in [item.get("id") for item in response.data.get("results")]
+
+        filter_params = {"source_id": source_id, "include_empty_location": "true"}
+        response = self.make_observations_filter_request(filter_params)
+
+        # all records are of the given source
+        self.assertTrue(all(k.get("source") == source_id for k in response.data.get("results")))
+        # the observation with no location is included
+        assert str(no_location_observation.id) in [item.get("id") for item in response.data.get("results")]
 
     def test_filter_observations_by_recorded_since(self):
         filter_params = {"since": self.observation_time + timedelta(days=1)}

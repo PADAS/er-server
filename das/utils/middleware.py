@@ -77,7 +77,6 @@ class RequestLoggingMiddleware(object):
 
     def process_response(self, request, response):
         try:
-            logname = "-"
             remote_addr = request.META.get("REMOTE_ADDR")
             remote_addr = request.META.get("HTTP_X_FORWARDED_FOR") or remote_addr
             user_id = "-"
@@ -296,7 +295,7 @@ def is_check_eula_path(path):
 
 class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
     def process_response(self, request, response):
-        if self._can_create_efb_token(request, response):
+        if self._should_create_efb_token(request, response):
             if token := DASAccessToken.objects.filter(
                 application__client_id=EFB_APPLICATION_ID,
                 user=request.user,
@@ -312,7 +311,7 @@ class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
 
         return response
 
-    def _can_create_efb_token(self, request, response):
+    def _should_create_efb_token(self, request, response):
         return (
             "/admin/login" in request.path
             and request.user.is_authenticated
@@ -345,17 +344,18 @@ class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
 
     def _create_efb_token(self, request, response):
         try:
-            efb_app, _ = DASApplication.objects.get_or_create(
+            efb_app = DASApplication.objects.get(
                 client_id=EFB_APPLICATION_ID,
-                defaults={
-                    "client_type": "Confidential",
-                    "authorization_grant_type": "password",
-                    "client_secret": "",
-                    "name": "Event Form Builder Das App",
-                    "skip_authorization": True,
-                },
             )
+        except DASApplication.DoesNotExist:
+            logger.warning(
+                "EFB application with client_id %s does not exist in tenant %s",
+                EFB_APPLICATION_ID,
+                get_tenant_settings().domain,
+            )
+            return
 
+        try:
             oauth2_settings = getattr(settings, "OAUTH2_PROVIDER", {})
             expire_in_secs = oauth2_settings.get("ACCESS_TOKEN_EXPIRE_SECONDS")
             expires = timezone.now() + timedelta(seconds=expire_in_secs)
@@ -368,7 +368,7 @@ class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
                 scope="read write",
                 das_tenant=request.user.das_tenant,
             )
-            logger.info(
+            logger.debug(
                 "Middleware: Created access token for user %s at %s",
                 request.user.username,
                 EFB_ACCESS_TOKEN_NAME,

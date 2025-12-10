@@ -233,6 +233,7 @@ class ObservationsFilter(BaseFilterBackend):
         subjectsource_id = query_params.get("subjectsource_id")
         if bbox := query_params.get("bbox"):
             bbox = bbox_from_string(bbox)
+        include_empty_location = parse_bool(query_params.get("include_empty_location", False))
 
         if len([id for id in (subject_id, source_id, subjectsource_id) if id]) > 1:
             raise ValueError("Can only specify one of: subject_id and source_id and subjectsource_id")
@@ -262,18 +263,29 @@ class ObservationsFilter(BaseFilterBackend):
                 filter_flag=filter_flag,
                 bbox=bbox,
                 avoid_unions=use_cursor,
+                include_empty_location=include_empty_location,
             )
         elif source_id:
             queryset = queryset.get_source_observations(
-                source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, bbox=bbox
+                source_id,
+                since=recorded_since,
+                until=recorded_until,
+                filter_flag=filter_flag,
+                bbox=bbox,
+                include_empty_location=include_empty_location,
             )
         elif subjectsource_id:
             queryset = queryset.get_subjectsource_observations(
-                subjectsource_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, bbox=bbox
+                subjectsource_id,
+                since=recorded_since,
+                until=recorded_until,
+                filter_flag=filter_flag,
+                bbox=bbox,
+                include_empty_location=include_empty_location,
             )
         else:
             queryset = queryset.by_since_until(recorded_since, recorded_until)
-            queryset = queryset.by_exclusion_flags(filter_flag)
+            queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=include_empty_location)
             if bbox:
                 geometry = Polygon.from_bbox(bbox)
                 queryset = queryset.filter(location__within=geometry)
