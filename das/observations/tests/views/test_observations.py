@@ -223,6 +223,12 @@ class ObservationViewTestCase(BaseAPITest):
         # the observation with no location is included
         assert str(no_location_observation.id) in [item.get("id") for item in response.data.get("results")]
 
+    def test_filter_observations_by_sourceprovider_id(self):
+        sourceprovider_id = str(self.collar.provider.id)
+        filter_params = {"sourceprovider_id": sourceprovider_id}
+        response = self.make_observations_filter_request(filter_params)
+        assert response.data.get("count") == 1
+
     def test_filter_observations_by_recorded_since(self):
         filter_params = {"since": self.observation_time + timedelta(days=1)}
         response = self.make_observations_filter_request(filter_params)
