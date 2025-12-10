@@ -303,7 +303,7 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
             # Validate field format: only unicode word characters (letters, numbers, underscores) allowed (no spaces)
             if field_value and not re.match(r"^\w+$", field_value):
                 row_errors.append(
-                    f"'field' must contain only letters, numbers, and underscores (no spaces). " f"Got: '{field_value}'"
+                    f"'field' must contain only letters, numbers, and underscores (no spaces). Got: '{field_value}'"
                 )
             # Validate value format: only unicode word characters (letters, numbers, underscores) allowed (no spaces)
             if value_value and not re.match(r"^\w+$", value_value):
