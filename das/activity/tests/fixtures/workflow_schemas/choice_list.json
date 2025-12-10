@@ -10,7 +10,7 @@
         "type": "string",
         "anyOf": [
           {
-            "$ref": "https://root.dev.pamdas.org/api/v2.0/schemas/choices.json?field=service_type"
+            "$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=service_type"
           }
         ]
       }

@@ -1,6 +1,7 @@
 {
     "json": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
         "properties": {
             "testDateTime": {
                 "type": "string",
@@ -8,7 +9,9 @@
                 "title": "Test DateTime",
                 "default": "not-a-valid-datetime"
             }
-        }
+        },
+        "required": [],
+        "unevaluatedProperties": false
     },
     "ui": {
         "sections": {},

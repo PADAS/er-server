@@ -195,6 +195,7 @@ class AccountsAbstractUser(TenantModelMixin, AbstractBaseUser, PermissionsMixin)
     )
     accepted_eula = models.BooleanField(default=False)
     pin = models.CharField(max_length=4, blank=True, null=True)
+    auth0_id = models.CharField(max_length=256, null=True, blank=True, help_text="Auth0 subject identifier (sub claim)")
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"
@@ -215,6 +216,11 @@ class AccountsAbstractUser(TenantModelMixin, AbstractBaseUser, PermissionsMixin)
             UniqueConstraint(
                 fields=["das_tenant", "username"],
                 name="%(app_label)s_%(class)s_unique_username_across_tenatns",
+            ),
+            UniqueConstraint(
+                fields=["das_tenant", "auth0_id"],
+                name="%(app_label)s_%(class)s_unique_auth0_id_per_tenant",
+                condition=models.Q(auth0_id__isnull=False),
             ),
         ]
         indexes = [
@@ -331,5 +337,11 @@ class User(AccountsAbstractUser):
                 )
         except User.DoesNotExist:
             pass
+
+        # Validate auth0_id: null is OK, empty or whitespace-only string is not
+        if self.auth0_id is not None and self.auth0_id.strip() == "":
+            raise ValidationError(
+                {"auth0_id": ValidationError(_("Auth0 ID cannot be empty. Use null instead."), code="invalid")}
+            )
 
         return result
