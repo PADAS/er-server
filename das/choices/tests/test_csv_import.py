@@ -344,12 +344,13 @@ class TestCSVTemplateDownload:
         required_fields, optional_fields, all_fields = admin._get_csv_field_info()
 
         # Verify that all_fields is derived from fields_to_export
-        # (excluding sub_choice_of which is export-only and delete-now which is import-only hidden feature)
+        # (excluding sub_choice_of, which is export-only, and delete-now, which is intentionally hidden from users
+        # and only available for advanced/undocumented import use cases)
         expected_fields = [f for f in admin.fields_to_export if f not in ["sub_choice_of", "delete-now"]]
         assert all_fields == expected_fields
 
         # Verify required fields
-        assert required_fields == ["model", "field", "value", "display"]
+        assert required_fields == ["model", "field", "value"]
 
         # Verify optional fields don't include required ones, sub_choice_of, or delete-now
         for field in optional_fields:

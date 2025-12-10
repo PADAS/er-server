@@ -57,7 +57,8 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
     ]
 
     # CSV Import configuration
-    csv_required_fields = ["model", "field", "value", "display"]
+    # Note: display is optional and can be empty/blank
+    csv_required_fields = ["model", "field", "value"]
     csv_unique_fields = ["model", "field", "value"]  # Fields that uniquely identify a record
     csv_excluded_import_fields = [
         "sub_choice_of",
@@ -214,7 +215,9 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
 
     def export_data_as_csv(self, request, queryset):
         """Override to filter out non-model fields from export"""
-        # Filter out fields that don't exist on the model (like 'delete-now' and ManyToMany fields)
+        # Filter out fields that don't exist on the model (like 'delete-now'), and
+        # exclude ManyToMany fields (like 'sub_choice_of') because Django's queryset.values()
+        # does not support serializing ManyToMany fields and will raise an error if they are included.
         export_fields = [f for f in self.fields_to_export if f not in ["delete-now", "sub_choice_of"]]
 
         model = queryset.model
@@ -244,7 +247,7 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
             "model": "activity.event",
             "field": "priority",
             "value": "high",
-            "display": "High Priority",
+            "display": "High Priority",  # Optional - can be empty/blank (will default to value if empty)
             "icon": "",
             "ordernum": "1",
             "is_active": "true",
@@ -266,13 +269,7 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
                 delete_str = (row.get(key) or "").strip()
                 break
         if delete_str is None:
-            # Fallback to old "delete" column name for backwards compatibility
-            for key in row.keys():
-                if key.strip().lower() == "delete":
-                    delete_str = (row.get(key) or "").strip()
-                    break
-        if delete_str is None:
-            delete_str = (row.get("delete-now") or row.get("delete") or "").strip()
+            delete_str = (row.get("delete-now") or "").strip()
         should_delete = parse_bool(delete_str) if delete_str else False
 
         # If deleting, only require unique identifier fields
@@ -286,6 +283,8 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
             value = (row.get(field) or "").strip()
             if not value:
                 row_errors.append(f"'{field}' is required and cannot be empty")
+
+        # Note: display is optional and can be empty/blank - if not provided, it will default to value
 
         # Validate model is a valid choice
         model_value = (row.get("model") or "").strip()
@@ -345,13 +344,17 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
                 else:
                     is_active = parse_bool(is_active_str)
         else:
-            # For delete operations, set defaults (won't be used but needed for processed_data)
+            # For delete operations, is_active is always set to True in processed_data below.
             is_active = True
 
         # Prepare validated data (this format is expected by the mixin)
         # Only include fields that passed validation
-        display_value = (row.get("display") or "").strip() or value_value if not should_delete else ""
-        icon_value = (row.get("icon") or "").strip() or None if not should_delete else None
+        if should_delete:
+            display_value = ""
+            icon_value = None
+        else:
+            display_value = (row.get("display") or "").strip() or value_value
+            icon_value = (row.get("icon") or "").strip() or None
 
         processed_data = {
             "model": model_value,

@@ -13,6 +13,7 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
+from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
 logger = logging.getLogger(__name__)
@@ -315,12 +316,13 @@ class CSVImportMixin:
         """
         Format row data for display in success/error message.
         Returns a comma-separated string of key fields (model, field, value, display).
+        Values are escaped for safe HTML display.
 
         Args:
             data: Dictionary of validated row data
 
         Returns:
-            str: Formatted row display string
+            str: Formatted row display string (HTML-escaped)
         """
         # Get key fields in order: model, field, value, display
         fields = ["model", "field", "value", "display"]
@@ -331,19 +333,20 @@ class CSVImportMixin:
                 if field_value is not None:
                     value_str = str(field_value).strip()
                     if value_str:  # Only add non-empty values
-                        values.append(value_str)
+                        values.append(escape(value_str))
         return ", ".join(values)
 
     def _format_row_for_display_from_raw(self, row):
         """
         Format raw CSV row data for display in error message.
         Returns a comma-separated string of key fields (model, field, value, display).
+        Values are escaped for safe HTML display.
 
         Args:
             row: Dictionary of raw CSV row data
 
         Returns:
-            str: Formatted row display string
+            str: Formatted row display string (HTML-escaped)
         """
         # Get key fields in order: model, field, value, display
         fields = ["model", "field", "value", "display"]
@@ -355,7 +358,7 @@ class CSVImportMixin:
                     try:
                         value_str = str(field_value).strip()
                         if value_str:  # Only add non-empty values
-                            values.append(value_str)
+                            values.append(escape(value_str))
                     except (AttributeError, TypeError):
                         # Skip if we can't convert to string or strip
                         pass
@@ -372,7 +375,6 @@ class CSVImportMixin:
         Returns:
             str: HTML-formatted error message
         """
-        from django.utils.safestring import mark_safe
 
         message_parts = ["CSV validation failed. Please fix the following errors:"]
 
@@ -398,11 +400,11 @@ class CSVImportMixin:
 
         # Add header errors first
         for error_msg in header_errors:
-            message_parts.append(f"Header row: {error_msg}")
+            message_parts.append(f"Header row: {escape(error_msg)}")
 
         # Add CSV file errors
         for error_msg in csv_file_errors:
-            message_parts.append(error_msg)
+            message_parts.append(escape(error_msg))
 
         # Add row errors grouped by row
         if errors_by_row:
@@ -421,7 +423,7 @@ class CSVImportMixin:
 
                 # List all errors for this row
                 for error_msg in row_errors:
-                    message_parts.append(f"  - {error_msg}")
+                    message_parts.append(f"  - {escape(error_msg)}")
 
         # Join with <br> tags for HTML display
         html_message = "<br>".join(message_parts)
@@ -431,6 +433,7 @@ class CSVImportMixin:
         """
         Format a formalized success message with sections for added/updated/deleted rows.
         Returns HTML-formatted message for Django admin display.
+        All user data is escaped for safe HTML display.
 
         Args:
             added_rows: List of dicts with 'row_num' and 'display' keys
@@ -446,6 +449,7 @@ class CSVImportMixin:
         if added_rows:
             message_parts.append("The following choices were added:")
             for row_info in added_rows:
+                # row_info['display'] is already escaped from _format_row_for_display()
                 message_parts.append(f"Row {row_info['row_num']}: {row_info['display']}")
 
         if updated_rows:
@@ -453,6 +457,7 @@ class CSVImportMixin:
                 message_parts.append("")  # Blank line between sections
             message_parts.append("The following choices were updated:")
             for row_info in updated_rows:
+                # row_info['display'] is already escaped from _format_row_for_display()
                 message_parts.append(f"Row {row_info['row_num']}: {row_info['display']}")
 
         if deleted_rows:
@@ -460,6 +465,7 @@ class CSVImportMixin:
                 message_parts.append("")  # Blank line between sections
             message_parts.append("The following choices were deleted:")
             for row_info in deleted_rows:
+                # row_info['display'] is already escaped from _format_row_for_display()
                 message_parts.append(f"Row {row_info['row_num']}: {row_info['display']}")
 
         if not message_parts:
@@ -481,11 +487,12 @@ class CSVImportMixin:
             tuple: (instance, created: bool, deleted: bool)
         """
         # Check if this row should be deleted
-        should_delete = data.pop("delete", False)
+        should_delete = data.get("delete", False)
+        data_for_save = {k: v for k, v in data.items() if k != "delete"}
 
         unique_fields = getattr(self, "csv_unique_fields", [])
         if unique_fields:
-            lookup = {field: data[field] for field in unique_fields if field in data}
+            lookup = {field: data_for_save[field] for field in unique_fields if field in data_for_save}
 
             # Try to find existing instance
             try:
@@ -494,15 +501,13 @@ class CSVImportMixin:
                     # Delete the instance (use soft delete if available)
                     if hasattr(instance, "disable"):
                         instance.disable()
-                    elif hasattr(instance, "delete"):
-                        instance.delete()
                     else:
-                        # Fallback to hard delete
-                        self.model.objects.filter(**lookup).delete()
+                        instance.delete()
+
                     return None, False, True
                 else:
                     # Update existing instance
-                    for key, value in data.items():
+                    for key, value in data_for_save.items():
                         setattr(instance, key, value)
                     instance.save()
                     return instance, False, False
@@ -511,14 +516,14 @@ class CSVImportMixin:
                     # Row marked for delete but doesn't exist - skip silently
                     return None, False, False
                 # Create new instance
-                instance = self.model.objects.create(**data)
+                instance = self.model.objects.create(**data_for_save)
                 return instance, True, False
         else:
             if should_delete:
                 # Without unique fields, we can't identify what to delete
                 logger.warning("Cannot delete row: csv_unique_fields not defined")
                 return None, False, False
-            instance = self.model.objects.create(**data)
+            instance = self.model.objects.create(**data_for_save)
             return instance, True, False
 
     def import_csv_data(self, csv_file):
@@ -564,7 +569,7 @@ class CSVImportMixin:
 
         except Exception as e:
             logger.exception(f"Error importing CSV: {e}")
-            return False, f"Error importing data: {str(e)}"
+            return False, f"Error importing data: {escape(str(e))}"
 
     def _download_template_response(self):
         """Generate CSV template download response"""
