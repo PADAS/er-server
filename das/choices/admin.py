@@ -338,8 +338,9 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
                 # Validate format before parsing
                 valid_bool_strings = ["true", "1", "yes", "ok", "okay", "false", "0", "no", "n"]
                 if is_active_str.lower() not in valid_bool_strings:
+                    valid_options = ", ".join(valid_bool_strings)
                     row_errors.append(
-                        f"'is_active' must be a boolean value (true/false, 1/0, yes/no/ok), got '{is_active_str}'"
+                        f"'is_active' must be a boolean value ({valid_options}), got '{is_active_str}'"
                     )
                 else:
                     is_active = parse_bool(is_active_str)
