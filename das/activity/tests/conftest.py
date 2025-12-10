@@ -148,6 +148,8 @@ def cat1_fire_v2_event_type(cat1_cat2_categories):
                                     "latitude": {"maximum": 90, "minimum": -90, "type": "number"},
                                     "longitude": {"maximum": 180, "minimum": -180, "type": "number"},
                                 },
+                                "required": ["latitude", "longitude"],
+                                "unevaluatedProperties": False,
                                 "title": "Location",
                                 "type": "object",
                             },
