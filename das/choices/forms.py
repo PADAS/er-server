@@ -87,7 +87,7 @@ class ChoiceFormSet(BaseModelFormSet):
                 elif not re.match(r"^\w+$", value):
                     form.add_error(
                         "value",
-                        "Value must contain only letters, numbers, and underscores (no spaces). " f"Got: '{value}'",
+                        f"Value must contain only letters, numbers, and underscores (no spaces). Got: '{value}'",
                     )
                 # Also validate field format
                 field = form.cleaned_data.get("field")
