@@ -44,7 +44,7 @@ def in_memory_cache():
 def mock_settings():
     """Mock Django settings with relevant configuration."""
     with patch("utils.auth0.auth0_validators.settings") as mock_settings:
-        mock_settings.AUTH0_DOMAIN = "test.auth0.com"
+        mock_settings.AUTH0_CUSTOM_DOMAIN = "test.auth0.com"
         mock_settings.AUTH0_RESOURCE_SERVER = "https://api.example.com"
         mock_settings.AUTH0_JWKS_CACHE_TTL_S = 3600
         mock_settings.SHARED_CACHE_ALIAS = "shared"
@@ -57,14 +57,14 @@ class TestAuth0JWTBearerTokenValidator:
         def test_init_sets_super_values(self, mock_settings):
             validator = Auth0JWTBearerTokenValidator()
 
-            assert validator.issuer == f"https://{mock_settings.AUTH0_DOMAIN}/"
+            assert validator.issuer == f"https://{mock_settings.AUTH0_CUSTOM_DOMAIN}/"
             assert validator.resource_server == mock_settings.AUTH0_RESOURCE_SERVER
 
         @pytest.mark.parametrize("auth0_domain", ["", "  "])
         def test_auth0_domain_empty_or_whitespace_raises_error(self, auth0_domain, mock_settings):
-            mock_settings.AUTH0_DOMAIN = auth0_domain
+            mock_settings.AUTH0_CUSTOM_DOMAIN = auth0_domain
 
-            with pytest.raises(ValueError, match="AUTH0_DOMAIN must be configured"):
+            with pytest.raises(ValueError, match="AUTH0_CUSTOM_DOMAIN must be configured"):
                 Auth0JWTBearerTokenValidator()
 
         @pytest.mark.parametrize("resource_server", ["", "  "])
@@ -89,7 +89,7 @@ class TestAuth0JWTBearerTokenValidator:
             ],
         )
         def test_domain_parsing_and_issuer_construction(self, domain, expected_issuer, mock_settings):
-            mock_settings.AUTH0_DOMAIN = domain
+            mock_settings.AUTH0_CUSTOM_DOMAIN = domain
 
             validator = Auth0JWTBearerTokenValidator()
 

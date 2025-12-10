@@ -296,8 +296,8 @@ CSRF_TRUSTED_ORIGINS = []
 # Set to False by default, but can be enabled via env var if cookie issues persist
 CSRF_USE_SESSIONS = env.bool("CSRF_USE_SESSIONS", False)
 
-# Auth0 configuration for JWT validation
-AUTH0_DOMAIN = env.str("AUTH0_DOMAIN", "")
+AUTH0_CUSTOM_DOMAIN = env.str("AUTH0_CUSTOM_DOMAIN", "")
+AUTH0_TENANT_DOMAIN = env.str("AUTH0_TENANT_DOMAIN", "")
 AUTH0_RESOURCE_SERVER = env.str("AUTH0_RESOURCE_SERVER", "")
 AUTH0_JWKS_CACHE_TTL_S = env.int("AUTH0_JWKS_CACHE_TTL_S", 3600)
 
