@@ -1,9 +1,24 @@
 import logging
 from urllib.parse import urlsplit
 
+from auth0.authentication import GetToken
+
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+
+def get_auth0_management_api_access_token() -> str:
+    """Get Auth0 management API access token for backend operations."""
+    client_id = getattr(settings, "AUTH0_CLIENT_ID_FOR_MANAGEMENT_API")
+    client_secret = getattr(settings, "AUTH0_CLIENT_SECRET_FOR_MANAGEMENT_API")
+
+    get_token_endpoints = GetToken(get_auth0_custom_domain(), client_id, client_secret=client_secret)
+
+    management_api_audience = f"https://{get_auth0_tenant_domain_for_management_api_only()}/api/v2/"
+    management_api_token = get_token_endpoints.client_credentials(audience=management_api_audience)
+
+    return management_api_token["access_token"]
 
 
 def get_auth0_custom_domain() -> str:
