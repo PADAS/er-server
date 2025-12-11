@@ -44,124 +44,88 @@ def in_memory_cache():
 def mock_settings():
     """Mock Django settings with relevant configuration."""
     with patch("utils.auth0.auth0_validators.settings") as mock_settings:
-        mock_settings.AUTH0_CUSTOM_DOMAIN = "test.auth0.com"
         mock_settings.AUTH0_RESOURCE_SERVER = "https://api.example.com"
         mock_settings.AUTH0_JWKS_CACHE_TTL_S = 3600
         mock_settings.SHARED_CACHE_ALIAS = "shared"
         yield mock_settings
 
 
+@pytest.fixture
+def validator_test_instance():
+    """Test validator instance with hardcoded test domain."""
+    return Auth0JWTBearerTokenValidator(auth0_custom_domain_provider=lambda: "test.auth0.com")
+
+
 class TestAuth0JWTBearerTokenValidator:
 
     class TestInit:
-        def test_init_sets_super_values(self, mock_settings):
-            validator = Auth0JWTBearerTokenValidator()
-
-            assert validator.issuer == f"https://{mock_settings.AUTH0_CUSTOM_DOMAIN}/"
-            assert validator.resource_server == mock_settings.AUTH0_RESOURCE_SERVER
-
-        @pytest.mark.parametrize("auth0_domain", ["", "  "])
-        def test_auth0_domain_empty_or_whitespace_raises_error(self, auth0_domain, mock_settings):
-            mock_settings.AUTH0_CUSTOM_DOMAIN = auth0_domain
-
-            with pytest.raises(ValueError, match="AUTH0_CUSTOM_DOMAIN must be configured"):
-                Auth0JWTBearerTokenValidator()
+        def test_init_sets_super_values(self, validator_test_instance, mock_settings):
+            assert validator_test_instance.issuer == "https://test.auth0.com/"
+            assert validator_test_instance.resource_server == mock_settings.AUTH0_RESOURCE_SERVER
 
         @pytest.mark.parametrize("resource_server", ["", "  "])
         def test_resource_server_empty_or_whitespace_raises_error(self, resource_server, mock_settings):
             mock_settings.AUTH0_RESOURCE_SERVER = resource_server
 
             with pytest.raises(ValueError, match="AUTH0_RESOURCE_SERVER must be configured"):
-                Auth0JWTBearerTokenValidator()
-
-    class TestDomainParsing:
-        @pytest.mark.parametrize(
-            "domain,expected_issuer",
-            [
-                ("test.auth0.com", "https://test.auth0.com/"),
-                ("https://test.auth0.com", "https://test.auth0.com/"),
-                ("http://test.auth0.com", "https://test.auth0.com/"),
-                ("https://test.auth0.com/some/path", "https://test.auth0.com/"),
-                ("test.auth0.com/", "https://test.auth0.com/"),
-                ("https://test.auth0.com:8080/path?query=value#fragment", "https://test.auth0.com/"),
-                ("my-tenant.us.auth0.com", "https://my-tenant.us.auth0.com/"),
-                ("enterprise.eu.auth0.com", "https://enterprise.eu.auth0.com/"),
-            ],
-        )
-        def test_domain_parsing_and_issuer_construction(self, domain, expected_issuer, mock_settings):
-            mock_settings.AUTH0_CUSTOM_DOMAIN = domain
-
-            validator = Auth0JWTBearerTokenValidator()
-
-            assert validator.issuer == expected_issuer
+                Auth0JWTBearerTokenValidator(auth0_custom_domain_provider=lambda: "test.auth0.com")
 
     class TestCaching:
-        def test_get_jwks_cache_hit(self, in_memory_cache, mock_urlopen):
+        def test_get_jwks_cache_hit(self, validator_test_instance, in_memory_cache, mock_urlopen):
             cached_jwks = {"keys": ["cached_key"]}
 
-            validator = Auth0JWTBearerTokenValidator()
-            in_memory_cache.set(validator.cache_key, cached_jwks, 3600)
+            in_memory_cache.set(validator_test_instance.cache_key, cached_jwks, 3600)
 
-            jwks = validator.get_jwks()
+            jwks = validator_test_instance.get_jwks()
 
             assert jwks == cached_jwks
             mock_urlopen.assert_not_called()
 
-        def test_get_jwks_cache_miss_fetches_from_url(self, mock_urlopen, in_memory_cache):
-            validator = Auth0JWTBearerTokenValidator()
-
-            jwks = validator.get_jwks()
+        def test_get_jwks_cache_miss_fetches_from_url(self, validator_test_instance, mock_urlopen, in_memory_cache):
+            jwks = validator_test_instance.get_jwks()
 
             assert jwks == mock_jwks_response
             mock_urlopen.assert_called_once_with("https://test.auth0.com/.well-known/jwks.json", timeout=10)
-            assert in_memory_cache.get(validator.cache_key) == mock_jwks_response
+            assert in_memory_cache.get(validator_test_instance.cache_key) == mock_jwks_response
 
-        def test_force_jwks_cache_refresh(self, mock_urlopen, in_memory_cache):
-            validator = Auth0JWTBearerTokenValidator()
-
-            validator.force_jwks_cache_refresh()
+        def test_force_jwks_cache_refresh(self, validator_test_instance, mock_urlopen, in_memory_cache):
+            validator_test_instance.force_jwks_cache_refresh()
 
             mock_urlopen.assert_called_once_with("https://test.auth0.com/.well-known/jwks.json", timeout=10)
-            assert in_memory_cache.get(validator.cache_key) == mock_jwks_response
+            assert in_memory_cache.get(validator_test_instance.cache_key) == mock_jwks_response
 
-        def test_force_jwks_cache_refresh_sets_ttl(self, mock_urlopen, mock_settings):
+        def test_force_jwks_cache_refresh_sets_ttl(self, validator_test_instance, mock_urlopen, mock_settings):
             mock_cache = MagicMock()
             with patch("utils.auth0.auth0_validators.caches", {"shared": mock_cache}):
-                validator = Auth0JWTBearerTokenValidator()
+                validator = Auth0JWTBearerTokenValidator(auth0_custom_domain_provider=lambda: "test.auth0.com")
                 validator.force_jwks_cache_refresh()
 
                 mock_cache.set.assert_called_once_with(validator.cache_key, mock_jwks_response, 3600)
 
     class TestTokenAuthentication:
-        def test_authenticate_token_success(self):
-            validator = Auth0JWTBearerTokenValidator()
-
-            with patch.object(validator.__class__.__bases__[0], "authenticate_token") as mock_super_auth:
+        def test_authenticate_token_success(self, validator_test_instance):
+            with patch.object(validator_test_instance.__class__.__bases__[0], "authenticate_token") as mock_super_auth:
                 mock_claims = {"sub": "user123", "iss": "https://test.auth0.com/"}
                 mock_super_auth.return_value = mock_claims
 
-                result = validator.authenticate_token("fake.jwt.token")
+                result = validator_test_instance.authenticate_token("fake.jwt.token")
 
                 assert result == mock_claims
                 mock_super_auth.assert_called_once_with("fake.jwt.token")
 
-        def test_authenticate_token_with_key_rotation(self, mock_urlopen):
-            validator = Auth0JWTBearerTokenValidator()
-
-            with patch.object(validator.__class__.__bases__[0], "authenticate_token") as mock_super_auth:
+        def test_authenticate_token_with_key_rotation(self, validator_test_instance, mock_urlopen):
+            with patch.object(validator_test_instance.__class__.__bases__[0], "authenticate_token") as mock_super_auth:
                 mock_claims = {"sub": "user123", "iss": "https://test.auth0.com/"}
 
                 mock_super_auth.side_effect = [InvalidKeyIdError("Unknown key ID"), mock_claims]
 
-                result = validator.authenticate_token("fake.jwt.token")
+                result = validator_test_instance.authenticate_token("fake.jwt.token")
 
                 assert result == mock_claims
                 assert mock_super_auth.call_count == 2
                 mock_urlopen.assert_called_once_with("https://test.auth0.com/.well-known/jwks.json", timeout=10)
 
-        def test_fetch_jwks_error_handling(self):
-            validator = Auth0JWTBearerTokenValidator()
-
+        def test_fetch_jwks_error_handling(self, validator_test_instance):
             with patch("utils.auth0.auth0_validators.urlopen", side_effect=Exception("Network error")):
                 with pytest.raises(Exception, match="Network error"):
-                    validator._fetch_jwks()
+                    validator_test_instance._fetch_jwks()
