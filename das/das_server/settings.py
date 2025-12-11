@@ -304,6 +304,10 @@ AUTH0_JWKS_CACHE_TTL_S = env.int("AUTH0_JWKS_CACHE_TTL_S", 3600)
 AUTH0_CLIENT_ID_FOR_MANAGEMENT_API = env.str("AUTH0_CLIENT_ID_FOR_MANAGEMENT_API", "")
 AUTH0_CLIENT_SECRET_FOR_MANAGEMENT_API = env.str("AUTH0_CLIENT_SECRET_FOR_MANAGEMENT_API", "")
 
+# This is the connection name we have defined (`foo-bar-baz`) in our Auth0 tenant.
+# This is NOT the opaque connection id Auth0 generates (`con_uGlYF0oBaR`)
+AUTH0_USER_DB_CONNECTION_NAME = env.str("AUTH0_USER_DB_CONNECTION_NAME", "")
+
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
 
 SPECTACULAR_SETTINGS = {
