@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Polygon
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -247,7 +249,7 @@ class ObservationsFilter(BaseFilterBackend):
 
         if subject_id:
             try:
-                subject = Subject.objects.select_related("subject_subtype__subject_type").get(pk=subject_id)
+                subject = Subject.objects.select_related("subject_subtype__subject_type").get(pk=uuid.UUID(subject_id))
             except Subject.DoesNotExist:
                 raise NotFound
 
@@ -268,7 +270,7 @@ class ObservationsFilter(BaseFilterBackend):
             )
         elif source_id:
             queryset = queryset.get_source_observations(
-                source_id,
+                source=uuid.UUID(source_id),
                 since=recorded_since,
                 until=recorded_until,
                 filter_flag=filter_flag,
@@ -277,7 +279,7 @@ class ObservationsFilter(BaseFilterBackend):
             )
         elif sourceprovider_id:
             queryset = queryset.get_sourceprovider_observations(
-                sourceprovider_id,
+                sourceprovider=uuid.UUID(sourceprovider_id),
                 since=recorded_since,
                 until=recorded_until,
                 filter_flag=filter_flag,
@@ -286,7 +288,7 @@ class ObservationsFilter(BaseFilterBackend):
             )
         elif subjectsource_id:
             queryset = queryset.get_subjectsource_observations(
-                subjectsource_id,
+                subjectsource=uuid.UUID(subjectsource_id),
                 since=recorded_since,
                 until=recorded_until,
                 filter_flag=filter_flag,
