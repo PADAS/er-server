@@ -89,6 +89,7 @@ class CSVImportMixin:
     - process_csv_row() - For custom import logic per row
     """
 
+    DELETE_ROW_FIELD_NAME = "delete-now"
     fields_to_export: List[str] = []
     csv_required_fields: List[str] = []
     csv_import_form_class = None
@@ -184,24 +185,38 @@ class CSVImportMixin:
                     serializer_class = self.get_csv_import_serializer()
                     if serializer_class:
                         try:
-                            # Extract non-serializer fields (like "delete") before validation
+                            # Extract non-serializer fields (like DELETE_ROW_FIELD_NAME) before validation
                             # These fields are not in the serializer schema but need to be preserved
                             non_serializer_fields = {}
-                            # Check for delete field - look for "delete-now" (obscured) or "delete" (backwards compat)
-                            delete_value = False
+                            # Check for delete field - look for both "delete" (set by validate_csv_row_data)
+                            # and DELETE_ROW_FIELD_NAME ("delete-now" from CSV)
                             delete_key = None
-                            for key in list(processed_data.keys()):
-                                key_lower = key.strip().lower()
-                                if key_lower == "delete-now" or key_lower == "delete":
-                                    delete_value = processed_data.get(key, False)
-                                    delete_key = key
-                                    break
+                            delete_value = False
+                            # First check for "delete" key (set by validate_csv_row_data in choices/admin.py)
+                            if "delete" in processed_data:
+                                delete_key = "delete"
+                                delete_value = processed_data.get("delete", False)
+                            else:
+                                # Fallback: check for DELETE_ROW_FIELD_NAME
+                                delete_key = next(
+                                    (
+                                        k
+                                        for k in processed_data.keys()
+                                        if k.strip().lower() == self.DELETE_ROW_FIELD_NAME
+                                    ),
+                                    None,
+                                )
+                                delete_value = processed_data.get(delete_key, False) if delete_key else False
                             # Always include delete field (even if False) so it's available in process_csv_row
-                            # Use "delete" as internal key name for consistency
+                            # Store as "delete" for consistency in process_csv_row
                             non_serializer_fields["delete"] = delete_value
                             # Remove delete field from processed_data before serializer validation
                             if delete_key:
-                                processed_data = {k: v for k, v in processed_data.items() if k != delete_key}
+                                processed_data = {
+                                    k: v
+                                    for k, v in processed_data.items()
+                                    if k != delete_key and k.strip().lower() != self.DELETE_ROW_FIELD_NAME
+                                }
 
                             serializer = serializer_class(data=processed_data)
                             if serializer.is_valid():
@@ -487,8 +502,22 @@ class CSVImportMixin:
             tuple: (instance, created: bool, deleted: bool)
         """
         # Check if this row should be deleted
+        # The delete flag may be stored as "delete" (after conversion from "delete-now")
+        # or as DELETE_ROW_FIELD_NAME if it came through a different path
         should_delete = data.get("delete", False)
-        data_for_save = {k: v for k, v in data.items() if k != "delete"}
+        if not should_delete:
+            # Fallback: check for DELETE_ROW_FIELD_NAME and parse if it's a string
+            delete_now_value = data.get(self.DELETE_ROW_FIELD_NAME, False)
+            if isinstance(delete_now_value, str):
+                # Import parse_bool if needed - but this should rarely be needed
+                # since validate_csv_row_data should convert delete-now to delete
+                from utils.json import parse_bool
+
+                should_delete = parse_bool(delete_now_value)
+            else:
+                should_delete = bool(delete_now_value)
+        # Filter out both "delete" and DELETE_ROW_FIELD_NAME from data_for_save
+        data_for_save = {k: v for k, v in data.items() if k != "delete" and k != self.DELETE_ROW_FIELD_NAME}
 
         unique_fields = getattr(self, "csv_unique_fields", [])
         if unique_fields:

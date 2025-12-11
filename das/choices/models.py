@@ -103,6 +103,8 @@ class ChoiceManager(TenantManagerMixin, models.Manager.from_queryset(ChoiceQuery
 
 
 class Choice(SoftDeleteModel):
+    VALID_VALUE_CHARS = r"^\w+$"
+    VALID_FIELD_CHARS = r"^\w+$"
     EVENT_MODEL = "activity.event"
     EVENT_TYPE_MODEL = "activity.eventtype"
     USER_MODEL = "accounts.user.User"
@@ -145,13 +147,8 @@ class Choice(SoftDeleteModel):
         """
         Validate that field and value are required and contain only unicode word characters
         (letters, numbers, underscores) - no spaces.
-        Only validates new instances (pk is None) to avoid database calls.
-        Existing records are validated via form validation when edited.
+        Only validates new instances (pk is None) for backward compatibility.
         """
-
-        # Only validate new instances - existing records are validated via forms/CSV import
-        if self.pk is not None:
-            return
 
         errors = {}
         fields_to_validate = [
@@ -163,7 +160,7 @@ class Choice(SoftDeleteModel):
             field_value = getattr(self, field_name, None)
             if not field_value:
                 errors[field_name] = f"{field_label} is required and cannot be empty."
-            elif not re.match(r"^\w+$", field_value):
+            elif not re.match(getattr(Choice, f"VALID_{field_name.upper()}_CHARS"), field_value):
                 errors[field_name] = (
                     f"{field_label} must contain only letters, numbers, and underscores (no spaces). "
                     f"Got: '{field_value}'"

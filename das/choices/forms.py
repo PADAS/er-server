@@ -25,9 +25,9 @@ class ChoiceForm(forms.ModelForm):
         (letters, numbers, underscores) - no spaces.
         """
         field = self.cleaned_data.get("field")
-        if field and not re.match(r"^\w+$", field):
+        if field and not re.match(Choice.VALID_FIELD_CHARS, field):
             raise forms.ValidationError(
-                "Field must contain only letters, numbers, and underscores (no spaces). " f"Got: '{field}'"
+                "Field must contain only letters, numbers, and underscores (no spaces). Got: '{field}'"
             )
         return field
 
@@ -41,7 +41,7 @@ class ChoiceForm(forms.ModelForm):
             raise forms.ValidationError("Value is required and cannot be empty.")
         if not re.match(r"^\w+$", value):
             raise forms.ValidationError(
-                "Value must contain only letters, numbers, and underscores (no spaces). " f"Got: '{value}'"
+                "Value must contain only letters, numbers, and underscores (no spaces). Got: '{value}'"
             )
         return value
 
@@ -84,14 +84,14 @@ class ChoiceFormSet(BaseModelFormSet):
                 value = form.cleaned_data.get("value")
                 if not value:
                     form.add_error("value", "Value is required and cannot be empty.")
-                elif not re.match(r"^\w+$", value):
+                elif not re.match(Choice.VALID_VALUE_CHARS, value):
                     form.add_error(
                         "value",
                         f"Value must contain only letters, numbers, and underscores (no spaces). Got: '{value}'",
                     )
                 # Also validate field format
                 field = form.cleaned_data.get("field")
-                if field and not re.match(r"^\w+$", field):
+                if field and not re.match(Choice.VALID_FIELD_CHARS, field):
                     form.add_error(
                         "field",
                         f"Field must contain only letters, numbers, and underscores (no spaces). Got: '{field}'",

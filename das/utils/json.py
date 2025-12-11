@@ -200,12 +200,15 @@ def load_from_file(file_path: str) -> Union[dict, list, None]:
         return loads(f.read())
 
 
+VALID_BOOLEAN_STRINGS = ["true", "1", "yes", "ok", "okay", "false", "0", "no", "n"]
+VALID_TRUE_STRINGS = ["true", "1", "yes", "ok", "okay"]
+
+
 def parse_bool(text):
     """Return a boolean from the passed in text"""
-    TRUE_VALUES = ["true", "1", "yes", "ok", "okay"]
     if isinstance(text, bool):
         return text
-    if isinstance(text, str) and text.lower() in TRUE_VALUES:
+    if isinstance(text, str) and text.lower() in VALID_TRUE_STRINGS:
         return True
     return False
 
