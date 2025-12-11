@@ -1,6 +1,7 @@
 import json
 import logging
-from urllib.parse import urljoin, urlsplit
+from typing import Callable
+from urllib.parse import urljoin
 from urllib.request import urlopen
 
 from authlib.oauth2.rfc9068 import JWTBearerTokenValidator
@@ -9,6 +10,8 @@ from joserfc.errors import InvalidKeyIdError
 
 from django.conf import settings
 from django.core.cache import caches
+
+from utils.auth0.helpers import get_auth0_custom_domain
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +31,9 @@ class Auth0JWTBearerTokenValidator(JWTBearerTokenValidator):
     - Standard JWT claims (exp, etc.) are valid
     """
 
-    def __init__(self):
-        auth0_domain = getattr(settings, "AUTH0_CUSTOM_DOMAIN").strip()
-        if not auth0_domain:
-            raise ValueError("AUTH0_CUSTOM_DOMAIN must be configured in settings")
-
-        parsed = urlsplit(auth0_domain, allow_fragments=False)
-        hostname = parsed.hostname or parsed.path.rstrip("/")
-        issuer = f"https://{hostname}/"
+    def __init__(self, auth0_custom_domain_provider: Callable[[], str] = get_auth0_custom_domain):
+        auth0_domain = auth0_custom_domain_provider()
+        issuer = f"https://{auth0_domain}/"
         self.cache_key = f"auth0_jwks_{hash(issuer)}"
         self.jwks_url = urljoin(issuer, ".well-known/jwks.json")
 
