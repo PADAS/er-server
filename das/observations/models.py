@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 from functools import reduce
 from operator import getitem
 from typing import List, NamedTuple, Set, Union
+from uuid import UUID
 
 import pymet
 import pytz
@@ -484,7 +485,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
     def get_subjectsource_observations(
         self,
-        subjectsource,
+        subjectsource: Union[SubjectSource, UUID],
         since=None,
         until=None,
         limit=None,
@@ -517,7 +518,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
     def get_source_observations(
         self,
-        source_id: str,
+        source: Union[Source, UUID],
         since: datetime = None,
         until: datetime = None,
         limit: int = None,
@@ -546,7 +547,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             QuerySet: the now filtered queryset
         """
         return self._get_filter_observations(
-            primary_filter={"source_id": source_id},
+            primary_filter={"source": source},
             since=since,
             until=until,
             limit=limit,
@@ -559,7 +560,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
     def get_sourceprovider_observations(
         self,
-        sourceprovider_id: str,
+        sourceprovider: Union[SourceProvider, UUID],
         since: datetime = None,
         until: datetime = None,
         limit: int = None,
@@ -570,7 +571,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         bbox: List[float] = None,
     ) -> QuerySet:
         """Filter Observation on sourceprovider, plus some standard filters.
-        If since and until are not included, defaults are used to keep from inadvertantly creating
+        If since and until are not included, defaults are used to keep from inadvertently creating
         a very expensive query across partitioned tables.
 
         Args:
@@ -588,7 +589,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             QuerySet: the now filtered queryset
         """
         return self._get_filter_observations(
-            primary_filter={"source__provider_id": sourceprovider_id},
+            primary_filter={"source__provider": sourceprovider},
             since=since,
             until=until,
             limit=limit,
@@ -612,7 +613,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         bbox: List[float] = None,
     ) -> QuerySet:
         """Filter Observation on a filter param, plus some standard filters.
-        If since and until are not included, defaults are used to keep from inadvertantly creating
+        If since and until are not included, defaults are used to keep from inadvertently creating
         a very expensive query across partitioned tables.
 
         Args:
