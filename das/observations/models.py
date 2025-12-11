@@ -539,6 +539,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             filter_flag (int, optional): exclusion flags, see Observation.exclusion_flags. Defaults to 0.
             order_by (str, optional): order by field. Defaults to None.
             include_empty_location (bool, optional): filter out 0,0 locations if set to False. Defaults to True.
+            bbox (List[float], optional): bounding box as [xmin, ymin, xmax, ymax] to filter observations within this area. Defaults to None.
 
         Returns:
             QuerySet: the now filtered queryset
