@@ -75,14 +75,6 @@ activity.event,,pending,Pending,,3
 activity.event,status,resolved,Resolved,,4"""
 
 
-@pytest.fixture
-def csv_with_duplicate_in_file():
-    """Returns CSV with duplicate entries within the file"""
-    return """model,field,value,display,icon,ordernum
-activity.event,priority,high,High Priority,,1
-activity.event,priority,high,High Priority Duplicate,,2"""
-
-
 @pytest.mark.usefixtures("tenant_settings")
 class TestCSVImportValidation:
     """Test CSV validation logic"""
@@ -332,6 +324,227 @@ activity.event,priority,urgent,Urgent Priority,,1"""
         assert success is False
         assert "is_active" in message.lower()
         assert "boolean" in message.lower()
+
+
+@pytest.fixture
+def csv_with_delete_now():
+    """Returns CSV content with delete-now column to mark rows for deletion"""
+    return """model,field,value,display,icon,ordernum,is_active,delete-now
+activity.event,priority,high,High Priority,,1,true,false
+activity.event,priority,medium,Medium Priority,,2,true,true
+activity.event,priority,low,Low Priority,,3,true,false
+activity.event,status,open,Open Status,,1,true,true"""
+
+
+@pytest.fixture
+def csv_with_delete_now_mixed_operations():
+    """Returns CSV content mixing delete operations with updates and new records"""
+    return """model,field,value,display,icon,ordernum,is_active,delete-now
+activity.event,priority,high,High Priority Updated,,1,true,false
+activity.event,priority,medium,Medium Priority,,2,true,true
+activity.event,priority,new,New Priority,,4,true,false"""
+
+
+@pytest.mark.usefixtures("tenant_settings")
+class TestCSVImportDeleteNow:
+    """Test CSV import delete-now column feature"""
+
+    def test_import_deletes_existing_choices_with_delete_now(self, choice_admin_fixture, csv_with_delete_now):
+        """Test that import deletes choices when delete-now column is set to true"""
+        admin = choice_admin_fixture.admin
+
+        # Create initial choices
+        high_choice = Choice.objects.create(
+            model="activity.event", field="priority", value="high", display="High Priority", ordernum=1, is_active=True
+        )
+        medium_choice = Choice.objects.create(
+            model="activity.event",
+            field="priority",
+            value="medium",
+            display="Medium Priority",
+            ordernum=2,
+            is_active=True,
+        )
+        low_choice = Choice.objects.create(
+            model="activity.event", field="priority", value="low", display="Low Priority", ordernum=3, is_active=True
+        )
+        open_choice = Choice.objects.create(
+            model="activity.event", field="status", value="open", display="Open Status", ordernum=1, is_active=True
+        )
+
+        initial_count = Choice.objects.count()
+
+        csv_file = io.StringIO(csv_with_delete_now)
+        success, message = admin.import_csv_data(csv_file)
+
+        assert success is True
+        # Count stays same (soft delete doesn't reduce count)
+        assert Choice.objects.count() == initial_count
+
+        # Verify high and low choices are still active (delete-now was false)
+        high_choice.refresh_from_db()
+        assert high_choice.is_active is True
+        assert high_choice.delete_on is None
+
+        low_choice.refresh_from_db()
+        assert low_choice.is_active is True
+        assert low_choice.delete_on is None
+
+        # Verify medium and open choices are disabled (delete-now was true)
+        medium_choice.refresh_from_db()
+        assert medium_choice.is_active is False
+        assert medium_choice.delete_on is not None
+
+        open_choice.refresh_from_db()
+        assert open_choice.is_active is False
+        assert open_choice.delete_on is not None
+
+        # Verify success message mentions deletions
+        assert "deleted" in message.lower()
+
+    def test_import_delete_now_with_mixed_operations(self, choice_admin_fixture, csv_with_delete_now_mixed_operations):
+        """Test delete-now works correctly with mixed operations (update, delete, create)"""
+        admin = choice_admin_fixture.admin
+
+        # Create initial choices
+        high_choice = Choice.objects.create(
+            model="activity.event", field="priority", value="high", display="High Priority", ordernum=1, is_active=True
+        )
+        medium_choice = Choice.objects.create(
+            model="activity.event",
+            field="priority",
+            value="medium",
+            display="Medium Priority",
+            ordernum=2,
+            is_active=True,
+        )
+
+        initial_count = Choice.objects.count()
+
+        csv_file = io.StringIO(csv_with_delete_now_mixed_operations)
+        success, message = admin.import_csv_data(csv_file)
+
+        assert success is True
+        # One new choice was created (soft delete doesn't reduce count)
+        assert Choice.objects.count() == initial_count + 1
+
+        # Verify high choice was updated (not deleted)
+        high_choice.refresh_from_db()
+        assert high_choice.display == "High Priority Updated"
+        assert high_choice.is_active is True
+        assert high_choice.delete_on is None
+
+        # Verify medium choice was deleted
+        medium_choice.refresh_from_db()
+        assert medium_choice.is_active is False
+        assert medium_choice.delete_on is not None
+
+        # Verify new choice was created
+        new_choice = Choice.objects.get(model="activity.event", field="priority", value="new")
+        assert new_choice.display == "New Priority"
+        assert new_choice.is_active is True
+        assert new_choice.delete_on is None
+
+    def test_import_delete_now_only_requires_unique_fields(self, choice_admin_fixture):
+        """Test that delete-now rows only require model, field, value (unique identifier fields)"""
+        admin = choice_admin_fixture.admin
+
+        # Create a choice to delete
+        Choice.objects.create(
+            model="activity.event", field="priority", value="test", display="Test Priority", ordernum=1, is_active=True
+        )
+
+        # CSV with delete-now=true but minimal fields (only unique identifier fields)
+        csv_content = """model,field,value,delete-now
+activity.event,priority,test,true"""
+        csv_file = io.StringIO(csv_content)
+
+        success, message = admin.import_csv_data(csv_file)
+
+        assert success is True
+
+        # Verify choice was deleted
+        choice = Choice.objects.get(model="activity.event", field="priority", value="test")
+        assert choice.is_active is False
+        assert choice.delete_on is not None
+
+    def test_import_delete_now_nonexistent_choice_silently_skipped(self, choice_admin_fixture):
+        """Test that delete-now for nonexistent choice is silently skipped"""
+        admin = choice_admin_fixture.admin
+
+        initial_count = Choice.objects.count()
+
+        # CSV with delete-now=true for a choice that doesn't exist
+        csv_content = """model,field,value,delete-now
+activity.event,priority,nonexistent,true"""
+        csv_file = io.StringIO(csv_content)
+
+        success, message = admin.import_csv_data(csv_file)
+
+        assert success is True
+        assert Choice.objects.count() == initial_count  # No changes
+
+    def test_import_delete_now_case_insensitive(self, choice_admin_fixture):
+        """Test that delete-now column name is case-insensitive"""
+        admin = choice_admin_fixture.admin
+
+        # Create a choice to delete
+        Choice.objects.create(
+            model="activity.event", field="priority", value="test", display="Test Priority", ordernum=1, is_active=True
+        )
+
+        # CSV with DELETE-NOW (uppercase) column
+        csv_content = """model,field,value,DELETE-NOW
+activity.event,priority,test,true"""
+        csv_file = io.StringIO(csv_content)
+
+        success, message = admin.import_csv_data(csv_file)
+
+        assert success is True
+
+        # Verify choice was deleted
+        choice = Choice.objects.get(model="activity.event", field="priority", value="test")
+        assert choice.is_active is False
+        assert choice.delete_on is not None
+
+    def test_import_delete_now_boolean_values(self, choice_admin_fixture):
+        """Test that delete-now accepts various boolean string values"""
+        admin = choice_admin_fixture.admin
+
+        # Create choices to test different boolean values
+        choice1 = Choice.objects.create(
+            model="activity.event", field="priority", value="test1", display="Test 1", ordernum=1, is_active=True
+        )
+        choice2 = Choice.objects.create(
+            model="activity.event", field="priority", value="test2", display="Test 2", ordernum=2, is_active=True
+        )
+        choice3 = Choice.objects.create(
+            model="activity.event", field="priority", value="test3", display="Test 3", ordernum=3, is_active=True
+        )
+
+        # CSV with various boolean values for delete-now
+        csv_content = """model,field,value,delete-now
+activity.event,priority,test1,true
+activity.event,priority,test2,1
+activity.event,priority,test3,yes"""
+        csv_file = io.StringIO(csv_content)
+
+        success, message = admin.import_csv_data(csv_file)
+
+        assert success is True
+
+        # Verify all three choices were deleted
+        choice1.refresh_from_db()
+        assert choice1.is_active is False
+        assert choice1.delete_on is not None
+
+        choice2.refresh_from_db()
+        assert choice2.is_active is False
+        assert choice2.delete_on is not None
+
+        choice3.refresh_from_db()
+        assert choice3.is_active is False
+        assert choice3.delete_on is not None
 
 
 @pytest.mark.usefixtures("tenant_settings")

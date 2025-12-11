@@ -21,7 +21,7 @@ from choices.forms import ChoiceForm, ChoiceFormSet, CSVImportForm
 from choices.serializers import ChoiceSerializer
 from core.admin import BaseModelAdminMixin, ModelAdminDisplayingManyToManyFieldMixin
 from utils.admin import CSVImportMixin, ExportDataActionMixin
-from utils.json import parse_bool
+from utils.json import VALID_BOOLEAN_STRINGS, parse_bool
 
 logger = logging.getLogger(__name__)
 
@@ -263,13 +263,10 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
         # Check if this is a delete operation (hidden feature - not advertised)
         # Look for "delete-now" column (obscured name)
         # Handle case-insensitive and whitespace-tolerant lookup
-        delete_str = None
-        for key in row.keys():
-            if key.strip().lower() == "delete-now":
-                delete_str = (row.get(key) or "").strip()
-                break
-        if delete_str is None:
-            delete_str = (row.get("delete-now") or "").strip()
+
+        normalized_key_map = {k.strip().lower(): k for k in row.keys()}
+        delete_key = normalized_key_map.get("delete-now")
+        delete_str = (row.get(delete_key) or "").strip() if delete_key else ""
         should_delete = parse_bool(delete_str) if delete_str else False
 
         # If deleting, only require unique identifier fields
@@ -301,14 +298,14 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
 
         if not should_delete:
             # Validate field format: only unicode word characters (letters, numbers, underscores) allowed (no spaces)
-            if field_value and not re.match(r"^\w+$", field_value):
+            if field_value and not re.match(models.Choice.VALID_FIELD_CHARS, field_value):
                 row_errors.append(
                     f"'field' must contain only letters, numbers, and underscores (no spaces). Got: '{field_value}'"
                 )
             # Validate value format: only unicode word characters (letters, numbers, underscores) allowed (no spaces)
-            if value_value and not re.match(r"^\w+$", value_value):
+            if value_value and not re.match(models.Choice.VALID_VALUE_CHARS, value_value):
                 row_errors.append(
-                    f"'value' must contain only letters, numbers, and underscores (no spaces). " f"Got: '{value_value}'"
+                    f"'value' must contain only letters, numbers, and underscores (no spaces). Got: '{value_value}'"
                 )
 
             # Only check for duplicates if not deleting
@@ -322,6 +319,7 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
 
         # Skip optional field validation if deleting
         ordernum_value = None
+        is_active = True
         if not should_delete:
             # Validate ordernum is an integer if provided
             ordernum_str = (row.get("ordernum") or "").strip()
@@ -333,20 +331,14 @@ class ChoiceAdmin(CSVImportMixin, ModelAdminDisplayingManyToManyFieldMixin, Expo
 
             # Validate is_active is a boolean if provided
             is_active_str = (row.get("is_active") or "").strip()
-            is_active = True  # Default value
             if is_active_str:
                 # Validate format before parsing
-                valid_bool_strings = ["true", "1", "yes", "ok", "okay", "false", "0", "no", "n"]
-                if is_active_str.lower() not in valid_bool_strings:
-                    valid_options = ", ".join(valid_bool_strings)
-                    row_errors.append(
-                        f"'is_active' must be a boolean value ({valid_options}), got '{is_active_str}'"
-                    )
+
+                if is_active_str.lower() not in VALID_BOOLEAN_STRINGS:
+                    valid_options = ", ".join(VALID_BOOLEAN_STRINGS)
+                    row_errors.append(f"'is_active' must be a boolean value ({valid_options}), got '{is_active_str}'")
                 else:
                     is_active = parse_bool(is_active_str)
-        else:
-            # For delete operations, is_active is always set to True in processed_data below.
-            is_active = True
 
         # Prepare validated data (this format is expected by the mixin)
         # Only include fields that passed validation
