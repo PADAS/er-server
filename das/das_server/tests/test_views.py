@@ -109,3 +109,5 @@ class TestStatusView:
         assert response.data["subjects_enabled"] is True
         assert response.data["spatial_features_enabled"] is True
         assert response.data["analyzers_enabled"] is True
+        assert response.data["require_idp"] is False
+        assert response.data["idp_org_id"] is None
