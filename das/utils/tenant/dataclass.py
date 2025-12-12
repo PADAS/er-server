@@ -63,7 +63,7 @@ class FeatureFlags:
     spatial_features_enabled: Optional[bool] = field(metadata=config(field_name="spatialFeaturesEnabled"), default=True)
     analyzers_enabled: Optional[bool] = field(metadata=config(field_name="analyzersEnabled"), default=True)
     require_idp: Optional[bool] = field(metadata=config(field_name="requireIdp"), default=False)
-    idp_login_url: Optional[str] = field(metadata=config(field_name="idpLoginUrl"), default=None)
+    idp_org_id: Optional[str] = field(metadata=config(field_name="idpOrgId"), default=None)
 
 
 @dataclass_json

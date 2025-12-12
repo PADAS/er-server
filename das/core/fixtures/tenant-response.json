@@ -52,7 +52,7 @@
     "spatialFeaturesEnabled": true,
     "analyzersEnabled": true,
     "requireIdp": false,
-    "idpLoginUrl": null
+    "idpOrgId": null
   },
   "services": {
     "auth": {

@@ -37,4 +37,4 @@ class VersionSerializer(rest_framework.serializers.Serializer):
     spatial_features_enabled = rest_framework.serializers.BooleanField(read_only=True)
     analyzers_enabled = rest_framework.serializers.BooleanField(read_only=True)
     require_idp = rest_framework.serializers.BooleanField(read_only=True)
-    idp_login_url = rest_framework.serializers.URLField(read_only=True)
+    idp_org_id = rest_framework.serializers.CharField(read_only=True)
