@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Optional
 
@@ -9,11 +10,14 @@ from accounts.models.permissionset import PermissionSet
 from accounts.utils import add_tenant_to_permission_codename
 from activity.models import EventCategory
 from activity.permissions import EventCategoryPermissions
+from revision.middleware import get_current_request_user
 from utils.categories import (
     ACTIONS,
     GEO_ACTIONS,
     make_eventcategory_permission_codename,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def get_er_user():
@@ -57,9 +61,12 @@ def ensure_eventcategory_perms_exist(
     content_type = ContentType.objects.get(app_label="activity", model="event")
     category_name = category.value
 
+    # Get user to assign to newly created permissionsets
+    user = get_current_request_user()
+
     if not geographic_only:
         permissionset_name = category.auto_permissionset_name
-        permissionset, _ = PermissionSet.objects.get_or_create(name=permissionset_name)
+        permissionset, created = PermissionSet.objects.get_or_create(name=permissionset_name)
 
         for action in ACTIONS:
             codename = make_eventcategory_permission_codename(category_name, action)
@@ -69,8 +76,13 @@ def ensure_eventcategory_perms_exist(
 
             permissionset.permissions.add(permission)
 
+        # Add user to permissionset if it was just created
+        if created and user:
+            permissionset.user_set.add(user)
+            logger.debug("Added user '%s' to newly created permissionset '%s'", user.username, permissionset_name)
+
     permission_set_name = category.auto_geographic_permission_set_name
-    geographic_permission_set, _ = PermissionSet.objects.get_or_create(name=permission_set_name)
+    geographic_permission_set, created = PermissionSet.objects.get_or_create(name=permission_set_name)
 
     for action in GEO_ACTIONS:
         codename = make_eventcategory_permission_codename(category_name, action, True)
@@ -82,3 +94,10 @@ def ensure_eventcategory_perms_exist(
         permission, _ = Permission.objects.get_or_create(codename=codename, defaults=defaults)
 
         geographic_permission_set.permissions.add(permission)
+
+    # Add user to geographic permissionset if it was just created
+    if created and user:
+        geographic_permission_set.user_set.add(user)
+        logger.debug(
+            "Added user '%s' to newly created geographic permissionset '%s'", user.username, permission_set_name
+        )
