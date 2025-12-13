@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from django.core.management.base import BaseCommand
 
-from observations.models import PENDING, Message
+from observations.models import ERRORED, PENDING, Message
 from observations.tasks import handle_outbox_message
 from utils.tenant.commands import TenantCommandMixin
 
@@ -20,7 +20,9 @@ class Command(TenantCommandMixin, BaseCommand):
         since = datetime.now(timezone.utc) - timedelta(days=days)
 
         # Get all messages from the last week
-        pending_messages = Message.objects.filter(status=PENDING, message_time__gte=since).select_related("device")
+        pending_messages = Message.objects.filter(
+            status__in=[PENDING, ERRORED], message_time__gte=since
+        ).select_related("device")
 
         self.stdout.write(f"Found {pending_messages.count()} pending messages from the last {days} days")
 
