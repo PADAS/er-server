@@ -10,16 +10,28 @@ request_context = local()
 request_context.request = None
 
 
+def get_current_request_user():
+    """
+    Get the authenticated user from the current request context.
+
+    Returns:
+        User: The authenticated user from the current request, or None if no request
+            or user is available.
+    """
+    if request := getattr(request_context, "request", None):
+        if user := getattr(request, "user", None):
+            if user.is_authenticated:
+                return user
+    return None
+
+
 def attach_revision_user_to_instance(sender, instance, **kwargs):
     if issubclass(sender, RevisionMixin):
         # Access request.user lazily - this happens during model save,
         # after DRF authentication has run, so request.user is correctly set
-        user = None
-        if request := getattr(request_context, "request", None):
-            if _user := getattr(request, "user", None):
-                if _user.is_authenticated:
-                    user = _user
-                    logger.debug("Setting revision user from request.user: '%s'", user.username)
+        user = get_current_request_user()
+        if user:
+            logger.debug("Setting revision user from request.user: '%s'", user.username)
 
         setattr(instance, "revision_user", user)
 
