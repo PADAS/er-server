@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Polygon
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -231,12 +233,13 @@ class ObservationsFilter(BaseFilterBackend):
         subject_id = query_params.get("subject_id")
         source_id = query_params.get("source_id")
         subjectsource_id = query_params.get("subjectsource_id")
+        sourceprovider_id = query_params.get("sourceprovider_id")
         if bbox := query_params.get("bbox"):
             bbox = bbox_from_string(bbox)
         include_empty_location = parse_bool(query_params.get("include_empty_location", False))
 
-        if len([id for id in (subject_id, source_id, subjectsource_id) if id]) > 1:
-            raise ValueError("Can only specify one of: subject_id and source_id and subjectsource_id")
+        if len([id for id in (subject_id, source_id, subjectsource_id, sourceprovider_id) if id]) > 1:
+            raise ValueError("Can only specify one of: subject_id, source_id, subjectsource_id, and sourceprovider_id")
 
         filter_flag = query_params.get("filter", 0)
         try:
@@ -246,7 +249,7 @@ class ObservationsFilter(BaseFilterBackend):
 
         if subject_id:
             try:
-                subject = Subject.objects.select_related("subject_subtype__subject_type").get(pk=subject_id)
+                subject = Subject.objects.select_related("subject_subtype__subject_type").get(pk=uuid.UUID(subject_id))
             except Subject.DoesNotExist:
                 raise NotFound
 
@@ -267,7 +270,16 @@ class ObservationsFilter(BaseFilterBackend):
             )
         elif source_id:
             queryset = queryset.get_source_observations(
-                source_id,
+                source=uuid.UUID(source_id),
+                since=recorded_since,
+                until=recorded_until,
+                filter_flag=filter_flag,
+                bbox=bbox,
+                include_empty_location=include_empty_location,
+            )
+        elif sourceprovider_id:
+            queryset = queryset.get_sourceprovider_observations(
+                sourceprovider=uuid.UUID(sourceprovider_id),
                 since=recorded_since,
                 until=recorded_until,
                 filter_flag=filter_flag,
@@ -276,7 +288,7 @@ class ObservationsFilter(BaseFilterBackend):
             )
         elif subjectsource_id:
             queryset = queryset.get_subjectsource_observations(
-                subjectsource_id,
+                subjectsource=uuid.UUID(subjectsource_id),
                 since=recorded_since,
                 until=recorded_until,
                 filter_flag=filter_flag,
