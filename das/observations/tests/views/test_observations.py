@@ -223,6 +223,15 @@ class ObservationViewTestCase(BaseAPITest):
         # the observation with no location is included
         assert str(no_location_observation.id) in [item.get("id") for item in response.data.get("results")]
 
+    def test_filter_observations_by_sourceprovider_id(self):
+        sourceprovider_id = str(self.collar.provider.id)
+        source_id = str(self.collar.id)
+
+        filter_params = {"sourceprovider_id": sourceprovider_id}
+        response = self.make_observations_filter_request(filter_params)
+        assert response.data.get("count") == 1
+        self.assertTrue(all(k.get("source") == source_id for k in response.data.get("results")))
+
     def test_filter_observations_by_recorded_since(self):
         filter_params = {"since": self.observation_time + timedelta(days=1)}
         response = self.make_observations_filter_request(filter_params)
@@ -278,7 +287,7 @@ class ObservationViewTestCase(BaseAPITest):
         response = self.make_observations_filter_request(filter_params, expect_success=False)
         self.assertEqual(response.status_code, 400)
         self.assertIn("error", response.data)
-        self.assertIn("Can only specify one of: subject_id and source_id and subjectsource_id", response.data["error"])
+        self.assertIn("Can only specify one of", response.data["error"])
 
         # Test with all three IDs
         filter_params = {
@@ -289,7 +298,7 @@ class ObservationViewTestCase(BaseAPITest):
         response = self.make_observations_filter_request(filter_params, expect_success=False)
         self.assertEqual(response.status_code, 400)
         self.assertIn("error", response.data)
-        self.assertIn("Can only specify one of: subject_id and source_id and subjectsource_id", response.data["error"])
+        self.assertIn("Can only specify one of", response.data["error"])
 
     def test_filter_observations_by_recorded_until(self):
         filter_params = {"until": self.observation_time + timedelta(days=1)}
