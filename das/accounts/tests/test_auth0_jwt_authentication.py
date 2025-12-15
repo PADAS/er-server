@@ -127,3 +127,30 @@ class TestAuth0JWTAuthentication:
         assert result is not None
         assert result[0] == das_user_with_auth0_id_for_test
         assert result[1] is None
+
+    def test_auth0_authentication_is_first_in_settings(self):
+        """Test that Auth0JWTAuthentication is first in REST_FRAMEWORK authentication classes.
+
+        This test exists to enforce a critical security requirement: Auth0JWTAuthentication
+        MUST be the first authentication class in the DRF authentication chain.
+
+        Why this ordering is essential:
+
+        1. When require_idp=False: Auth0JWTAuthentication returns None, allowing the chain
+           to continue to other authentication methods (OAuth2, session auth, etc.)
+
+        2. When require_idp=True: Auth0JWTAuthentication either succeeds OR raises
+           AuthenticationFailed, which stops the authentication chain entirely.
+
+        This prevents security bypasses where users could authenticate with legacy OAuth2
+        tokens or session cookies when a tenant has mandated Auth0-only authentication.
+
+        If Auth0JWTAuthentication were placed later in the chain, other authentication
+        methods could succeed first, defeating the purpose of the require_idp feature flag.
+
+        This test prevents accidental reordering that would create a security vulnerability.
+        """
+        from django.conf import settings
+
+        auth_classes = settings.REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"]
+        assert auth_classes[0] == "accounts.backends.Auth0JWTAuthentication"
