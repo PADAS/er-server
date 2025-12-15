@@ -176,6 +176,9 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ),
     "DEFAULT_AUTHENTICATION_CLASSES": (
+        # Auth0JWTAuthentication must be first: when require_idp=True, it either succeeds
+        # or raises AuthenticationFailed to prevent fallback to other auth methods
+        "accounts.backends.Auth0JWTAuthentication",
         "accounts.backends.PriorityOAuth2SessionAuthentication",
         "utils.authentication.BearerTokenInUrlAuthentication",
     ),
