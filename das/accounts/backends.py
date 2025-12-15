@@ -1,6 +1,8 @@
 import logging
 import uuid
 
+from authlib.oauth2 import ResourceProtector
+from authlib.oauth2.rfc9068.claims import JWTAccessTokenClaims
 from oauth2_provider.backends import OAuth2Backend
 from oauth2_provider.contrib.rest_framework.authentication import OAuth2Authentication
 
@@ -8,10 +10,12 @@ from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from rest_framework import exceptions
-from rest_framework.authentication import SessionAuthentication
+from rest_framework.authentication import BaseAuthentication, SessionAuthentication
+from rest_framework.exceptions import APIException, AuthenticationFailed
 
 from accounts.models import User
 from accounts.utils import filter_permissions_by_tenant, parse_permission_codename
+from utils.auth0.auth0_validators import Auth0JWTBearerTokenValidator
 from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger("django.request")
@@ -281,3 +285,53 @@ class AccountsModelBackend(ModelBackend):
         """
         ctype = ContentType.objects.get_for_model(obj)
         return (ctype.id, obj.pk)
+
+
+class Auth0JWTAuthentication(BaseAuthentication):
+    """
+    Auth0 JWT authentication class that integrates with EarthRanger's tenant-aware system.
+
+    This authentication backend:
+    - Only activates when the tenant feature flag 'require_idp' is True
+    - Uses the Auth0JWTBearerTokenValidator to validate JWT tokens
+    - Maps Auth0 subject IDs to EarthRanger users via the auth0_id field
+    - Validates that the Auth0 organization matches the tenant's idp_org_id
+    """
+
+    def __init__(self):
+        self.resource_protector = ResourceProtector()
+        self.resource_protector.register_token_validator(Auth0JWTBearerTokenValidator())
+
+    def authenticate(self, request):
+        """
+        Returns two-tuple of (user, token) if authentication succeeds,
+        or None otherwise.
+        """
+        try:
+            tenant_settings = get_tenant_settings()
+            if not tenant_settings.feature_flags.require_idp:
+                return None
+            expected_org_id = tenant_settings.feature_flags.idp_org_id
+        except Exception as ex:
+            logger.error("Cannot resolve tenant settings, so failing closed.\n%s", ex)
+            raise APIException()  # 500
+
+        # From here forward, we must either successfully return a user,
+        # or fail authentication by raising, since `require_idp` must be True.
+
+        try:
+            token: JWTAccessTokenClaims = self.resource_protector.validate_request(scopes=None, request=request)
+            auth0_subject = token.get("sub")
+
+            auth0_org_id = token.get("org_id")
+            if auth0_org_id != expected_org_id:
+                logger.debug(
+                    "Auth0 org_id mismatch: token has '%s', tenant expects '%s'", auth0_org_id, expected_org_id
+                )
+                raise AuthenticationFailed()
+
+            user = User.objects.get(auth0_id=auth0_subject, is_active=True)
+            return user, None
+        except Exception as e:
+            logger.debug("Auth0 authentication failed: %s", e)
+            raise AuthenticationFailed()
