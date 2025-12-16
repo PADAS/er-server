@@ -40,7 +40,7 @@ from django.contrib.gis.geos import LineString, Point, Polygon
 from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.db import connections, transaction
+from django.db import connection, connections, transaction
 from django.db.models import (
     BooleanField,
     Case,
@@ -1148,23 +1148,21 @@ class ObservationSegment(TenantModelMixin, models.Model):
         """Override save to calculate accurate distance using PostGIS functions when missing."""
         should_compute = (self.distance_meters is None) or (self.distance_meters == 0.0)
         if should_compute:
-            # Recalculate distance using spherical distance on lon/lat to avoid WKB casting issues
-            from django.db import connection
-
-            start_lon = self.start_observation.location.x
-            start_lat = self.start_observation.location.y
-            end_lon = self.end_observation.location.x
-            end_lat = self.end_observation.location.y
 
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT ST_DistanceSphere(
-                        ST_SetSRID(ST_MakePoint(%s, %s), 4326),
-                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)
+                    SELECT ST_Distance(
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography
                     )
                     """,
-                    [start_lon, start_lat, end_lon, end_lat],
+                    [
+                        self.start_observation.location.x,
+                        self.start_observation.location.y,
+                        self.end_observation.location.x,
+                        self.end_observation.location.y,
+                    ],
                 )
                 self.distance_meters = cursor.fetchone()[0]
 
