@@ -299,6 +299,7 @@ class Auth0JWTAuthentication(BaseAuthentication):
     """
 
     def __init__(self):
+        self.keyword = "Token"
         self.resource_protector = ResourceProtector()
         self.resource_protector.register_token_validator(Auth0JWTBearerTokenValidator())
 
@@ -335,3 +336,6 @@ class Auth0JWTAuthentication(BaseAuthentication):
         except Exception as e:
             logger.debug("Auth0 authentication failed: %s", e)
             raise AuthenticationFailed()
+
+    def authenticate_header(self, request):
+        return self.keyword

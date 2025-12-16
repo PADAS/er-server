@@ -128,6 +128,10 @@ class TestAuth0JWTAuthentication:
         assert result[0] == das_user_with_auth0_id_for_test
         assert result[1] is None
 
+    def test_keyword_is_token(self, api_request_for_test, das_user_with_auth0_id_for_test, mock_auth0_validator):
+        """Test that our keyword is Token."""
+        assert Auth0JWTAuthentication().keyword == "Token"
+
     def test_auth0_authentication_is_first_in_settings(self):
         """Test that Auth0JWTAuthentication is first in REST_FRAMEWORK authentication classes.
 
