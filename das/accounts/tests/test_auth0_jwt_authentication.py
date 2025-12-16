@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory
 from rest_framework.exceptions import APIException, AuthenticationFailed
 
@@ -117,6 +118,17 @@ class TestAuth0JWTAuthentication:
 
         with pytest.raises(AuthenticationFailed):
             Auth0JWTAuthentication().authenticate(api_request_for_test)
+
+    def test_no_authorization_header_returns_anonymous_user_when_idp_required(self):
+        """Test that when require_idp=True but no Authorization header, should return AnonymousUser."""
+        factory = RequestFactory()
+        request_without_auth = factory.get("/api/test/")
+
+        result = Auth0JWTAuthentication().authenticate(request_without_auth)
+
+        assert result is not None
+        assert isinstance(result[0], AnonymousUser)
+        assert result[1] is None
 
     def test_successful_authentication_returns_user(
         self, api_request_for_test, das_user_with_auth0_id_for_test, mock_auth0_validator

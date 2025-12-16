@@ -7,7 +7,7 @@ from oauth2_provider.backends import OAuth2Backend
 from oauth2_provider.contrib.rest_framework.authentication import OAuth2Authentication
 
 from django.contrib.auth.backends import ModelBackend
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import AnonymousUser, Permission
 from django.contrib.contenttypes.models import ContentType
 from rest_framework import exceptions
 from rest_framework.authentication import BaseAuthentication, SessionAuthentication
@@ -305,8 +305,19 @@ class Auth0JWTAuthentication(BaseAuthentication):
 
     def authenticate(self, request):
         """
-        Returns two-tuple of (user, token) if authentication succeeds,
-        or None otherwise.
+        Authenticate a request using Auth0 JWT tokens when IDP is required.
+
+        Returns:
+            - None: When require_idp=False (skip this authenticator)
+            - (AnonymousUser, None): When require_idp=True but no Authorization header (allow anonymous access)
+            - (User, None): When require_idp=True and valid JWT token provided
+            - Raises AuthenticationFailed: When require_idp=True and invalid JWT token provided
+            - Raises APIException: When tenant settings cannot be resolved
+
+        This method implements a three-tier authentication strategy:
+        1. Skip authentication entirely when IDP is not required for the tenant
+        2. Allow anonymous access when IDP is required but no credentials are provided
+        3. Enforce strict JWT validation when credentials are present
         """
         try:
             tenant_settings = get_tenant_settings()
@@ -316,6 +327,10 @@ class Auth0JWTAuthentication(BaseAuthentication):
         except Exception as ex:
             logger.error("Cannot resolve tenant settings, so failing closed.\n%s", ex)
             raise APIException()  # 500
+
+        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+        if not auth_header:
+            return AnonymousUser(), None
 
         # From here forward, we must either successfully return a user,
         # or fail authentication by raising, since `require_idp` must be True.
