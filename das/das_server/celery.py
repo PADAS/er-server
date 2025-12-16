@@ -28,7 +28,7 @@ app = Celery("das_server")
 
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
-app.autodiscover_tasks(lambda: ["utils.db"])
+app.autodiscover_tasks(lambda: ["utils.db", "utils.auth0"])
 
 default_exchange = Exchange(app.conf.task_default_exchange)
 app.autodiscover_tasks()
