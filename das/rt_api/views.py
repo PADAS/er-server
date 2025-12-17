@@ -233,12 +233,13 @@ def create_realtime_handler(sios):
                 # request for oauth to authenticate
                 client_data = client.get_client(sid)
                 with TenantContextManager(domain=client_data.domain):
-                    dummy_request = DummyRequest(headers={"Authorization": data["authorization"]})
+                    dummy_request = DummyRequest(headers={"HTTP_AUTHORIZATION": data["authorization"]})
                     # Use DRF Request which automatically handles authentication
                     drf_request = wrap_dummy_request_with_drf_request(dummy_request)
                     try:
                         # Accessing .user triggers DRF's authentication workflow
                         user = drf_request.user if drf_request.user.is_authenticated else None
+                        logger.debug("Request successfull auth class: %s", drf_request.successful_authenticator)
                     except Exception:
                         logger.exception("Error accessing user from DRF request")
                         user = None
