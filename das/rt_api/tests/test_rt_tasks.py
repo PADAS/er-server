@@ -27,7 +27,7 @@ class RTUtils(BaseAPITest):
     def test_dummy_request_authorization(self):
         user = self.app_user
         tok = self.create_access_token(user)
-        dummy_request = DummyRequest(headers={"Authorization": f"Bearer {tok}"})
+        dummy_request = DummyRequest(headers={"HTTP_AUTHORIZATION": f"Bearer {tok}"})
         drf_request = wrap_dummy_request_with_drf_request(dummy_request)
         # Accessing .user triggers DRF's authentication workflow
         auth_user = drf_request.user if drf_request.user.is_authenticated else None
