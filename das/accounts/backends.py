@@ -322,6 +322,9 @@ class Auth0JWTAuthentication(BaseAuthentication):
         try:
             tenant_settings = get_tenant_settings()
             if not tenant_settings.feature_flags.require_idp:
+                logger.debug(
+                    "Auth0 authentication skipped because require_idp is False for tenant %s", tenant_settings.domain
+                )
                 return None
             expected_org_id = tenant_settings.feature_flags.idp_org_id
         except Exception as ex:
@@ -330,6 +333,7 @@ class Auth0JWTAuthentication(BaseAuthentication):
 
         auth_header = request.META.get("HTTP_AUTHORIZATION", "")
         if not auth_header:
+            logger.debug("Auth0 authentication skipped because no authorization header")
             return AnonymousUser(), None
 
         # From here forward, we must either successfully return a user,
