@@ -32,14 +32,19 @@ class AuthZeroUserProvisioner:
     def __init__(
         self,
         das_user_username: str,
+        das_user_email: str | None,
+        das_site_name: str,
         auth0_organization_id: str,
         token_factory: Callable[[], str] = get_auth0_management_api_access_token,
         auth0_factory: Callable[[str, str], Auth0] = Auth0,
     ):
-        """Initialize provisioner with username, token factory, and Auth0 factory.
+        """Initialize provisioner to provision a single DAS user in Auth0.
 
         Args:
-            das_user_username: EarthRanger username to provision
+            das_user_username: EarthRanger username to provision in Auth0
+            das_user_email: EarthRanger user's email (if any) to provision in Auth0
+            das_site_name: EarthRanger site name used to
+                            derive a fallback email address for use on provisioned Auth0 user
             auth0_organization_id: Auth0 opaque organization id to which the Auth0
                                     user should be added,
             token_factory: Function that returns Auth0 management API access token
@@ -52,7 +57,8 @@ class AuthZeroUserProvisioner:
         self.auth0 = auth0_factory(domain, token)
         self.auth0_organization_id = auth0_organization_id
         self.connection_name = getattr(settings, "AUTH0_USER_DB_CONNECTION_NAME")
-        self.das_username = das_user_username
+        self.resolved_email_address = das_user_email or f"{das_user_username}.{das_site_name}@managed.pamdas.org"
+        self.das_user_username = das_user_username
 
     def provision_user(self) -> AuthZeroUserProvisioningResult:
         is_newly_created = self._upsert_auth0_user()
@@ -69,14 +75,15 @@ class AuthZeroUserProvisioner:
                 {
                     "connection": self.connection_name,
                     "password": generate_token(),
-                    "username": self.das_username,
+                    "username": self.das_user_username,
+                    "email": self.resolved_email_address,
                 }
             )
             time.sleep(5)  # Auth0's api is eventually consistent
             return True
         except Auth0Error as e:
             if e.status_code == 409:
-                logger.warning("User '%s' already exists in Auth0", self.das_username)
+                logger.warning("User '%s' already exists in Auth0", self.das_user_username)
                 return False
             else:
                 raise
@@ -84,17 +91,17 @@ class AuthZeroUserProvisioner:
     @retry_on_exception(ValueError, delay=5, max_retries=6)
     def _get_auth0_user_id_by_username(self) -> str:
         matching_users = self.auth0.users.list(
-            q=f'username:"{self.das_username}" AND identities.connection:"{self.connection_name}"',
+            q=f'username:"{self.das_user_username}" AND identities.connection:"{self.connection_name}"',
             include_totals=False,
             fields=["user_id"],
         )
 
         if not matching_users:
-            raise ValueError(f"User '{self.das_username}' not found in Auth0 connection '{self.connection_name}'")
+            raise ValueError(f"User '{self.das_user_username}' not found in Auth0 connection '{self.connection_name}'")
 
         if len(matching_users) > 1:
             raise ValueError(
-                f"Multiple users found with username '{self.das_username}' in Auth0 connection '{self.connection_name}'"
+                f"Multiple users found with username '{self.das_user_username}' in Auth0 connection '{self.connection_name}'"
             )
 
         return matching_users[0]["user_id"]
