@@ -240,6 +240,7 @@ def create_realtime_handler(sios):
                         # Accessing .user triggers DRF's authentication workflow
                         user = drf_request.user if drf_request.user.is_authenticated else None
                     except Exception:
+                        logger.exception("Error accessing user from DRF request")
                         user = None
                     # The token checks out
                     if user is not None:
