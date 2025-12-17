@@ -8,14 +8,16 @@ import pytest
 from django_multitenant.utils import set_current_tenant
 from pytz import UTC
 
-from django.contrib.auth import authenticate
 from django.core.management import call_command
 from django.test import TestCase
 
 from core.tests import BaseAPITest, User, fake_get_pool
 from observations.serializers import ObservationSerializer
 from observations.views import SubjectStatusView
-from rt_api.rest_api_interface.dummy_request import DummyRequest
+from rt_api.rest_api_interface.dummy_request import (
+    DummyRequest,
+    wrap_dummy_request_with_drf_request,
+)
 from rt_api.tasks import get_subjectstatus_view, get_username_sids_map
 from utils.tenant.managers import UnsetDASTenantContextManager
 
@@ -25,8 +27,10 @@ class RTUtils(BaseAPITest):
     def test_dummy_request_authorization(self):
         user = self.app_user
         tok = self.create_access_token(user)
-        request = DummyRequest(headers={"Authorization": f"Bearer {tok}"})
-        auth_user = authenticate(**{"request": request})
+        dummy_request = DummyRequest(headers={"Authorization": f"Bearer {tok}"})
+        drf_request = wrap_dummy_request_with_drf_request(dummy_request)
+        # Accessing .user triggers DRF's authentication workflow
+        auth_user = drf_request.user if drf_request.user.is_authenticated else None
         self.assertEqual(auth_user, user)
 
 

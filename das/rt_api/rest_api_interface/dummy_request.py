@@ -2,8 +2,16 @@
 from oauthlib.common import CaseInsensitiveDict, extract_params, to_unicode
 
 from django.http.request import HttpRequest
+from rest_framework.request import Request
+from rest_framework.settings import api_settings
 
 from utils.tenant import get_tenant_settings
+
+
+def wrap_dummy_request_with_drf_request(dummy_request):
+    """Wrap a DummyRequest in a DRF Request, applying DRF authentication classes."""
+    authentication_classes = api_settings.DEFAULT_AUTHENTICATION_CLASSES
+    return Request(request=dummy_request, authenticators=[auth() for auth in authentication_classes])
 
 
 class DummyRequest(HttpRequest):
