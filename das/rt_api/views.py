@@ -5,7 +5,6 @@ import uuid
 import eventlet
 
 from django.conf import settings
-from django.contrib.auth import authenticate
 from django.db import close_old_connections
 from django.shortcuts import render
 from django.views.generic import View
@@ -13,7 +12,10 @@ from django.views.generic import View
 import rt_api.pubsub_listener
 import utils.json
 from rt_api import client
-from rt_api.rest_api_interface.dummy_request import DummyRequest
+from rt_api.rest_api_interface.dummy_request import (
+    DummyRequest,
+    wrap_dummy_request_with_drf_request,
+)
 from rt_api.server import DasSocketIOServer
 from utils import stats
 from utils.tenant import get_tenant_settings
@@ -231,8 +233,14 @@ def create_realtime_handler(sios):
                 # request for oauth to authenticate
                 client_data = client.get_client(sid)
                 with TenantContextManager(domain=client_data.domain):
-                    request = DummyRequest(headers={"Authorization": data["authorization"]})
-                    user = authenticate(**{"request": request})
+                    dummy_request = DummyRequest(headers={"Authorization": data["authorization"]})
+                    # Use DRF Request which automatically handles authentication
+                    drf_request = wrap_dummy_request_with_drf_request(dummy_request)
+                    try:
+                        # Accessing .user triggers DRF's authentication workflow
+                        user = drf_request.user if drf_request.user.is_authenticated else None
+                    except Exception:
+                        user = None
                     # The token checks out
                     if user is not None:
                         extra = dict(sid=sid, user_id=user.id)
