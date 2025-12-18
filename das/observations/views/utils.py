@@ -12,7 +12,7 @@ from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import Observation, Subject, SubjectGroup
 from observations.utils import VIEW_SUBJECTGROUP_PERMS, get_cyclic_subjectgroup
 from utils.drf import CycleDetectedException, ForbiddenAPIException
-from utils.etags import get_hash_from_queryset
+from utils.etags import generate_etag_string, get_hash_from_queryset
 from utils.json import parse_bool
 from utils.tenant.thread import get_tenant_settings
 
@@ -156,6 +156,14 @@ def subject_group_etag(request, *args, **kwargs):
 
 
 def all_group_subjects_etag(request, *args, **kwargs):
+    """Generate an ETag for all subject groups.
+    When the subject groups call includes last known location for each subject, it's not possible to use the queryset to generate an ETag.
+    Instead, we generate an ETag based on the current timestamp.
+    """
+    render_last_location = parse_bool(request.GET.get("render_last_location", True))
+    if render_last_location:
+        return generate_etag_string(datetime.datetime.now(tz=datetime.timezone.utc).isoformat(), request=request)
+
     fields = get_subject_group_etag_fields()
     queryset = SubjectGroupGetQuerySet().get_all_queryset()
     queryset = queryset.values(*fields)
