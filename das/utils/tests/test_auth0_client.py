@@ -53,8 +53,10 @@ class TestAuthZeroUserProvisioner:
     def provisioner_test_instance(self, mock_auth0):
         """Test instance of AuthZeroUserProvisioner with mocked dependencies."""
         return AuthZeroUserProvisioner(
-            "testuser",
-            "some-org-id",
+            das_user_username="testuser",
+            das_user_email="testuser@example.com",
+            das_site_name="foo",
+            auth0_organization_id="some-org-id",
             token_factory=lambda: "some-access-token",
             auth0_factory=lambda domain, token: mock_auth0,
         )
@@ -65,7 +67,12 @@ class TestAuthZeroUserProvisioner:
         mock_token_factory = Mock(return_value="test-access-token-456")
 
         provisioner = AuthZeroUserProvisioner(
-            "testuser", "some-org-id", token_factory=mock_token_factory, auth0_factory=mock_auth0_factory
+            das_user_username="testuser",
+            das_user_email="testuser@example.com",
+            das_site_name="foo",
+            auth0_organization_id="some-org-id",
+            token_factory=mock_token_factory,
+            auth0_factory=mock_auth0_factory,
         )
 
         mock_auth0_factory.assert_called_once_with("auth.example.com", "test-access-token-456")
@@ -73,17 +80,31 @@ class TestAuthZeroUserProvisioner:
         assert provisioner.auth0 == mock_auth0
         assert provisioner.auth0_organization_id == "some-org-id"
         assert provisioner.connection_name == "test-connection"
-        assert provisioner.das_username == "testuser"
+        assert provisioner.das_user_username == "testuser"
 
-    def test_provision_user_success(self, provisioner_test_instance, mock_auth0):
+    @pytest.mark.parametrize(
+        ("das_user_email", "expected_auth0_user_email"),
+        [("testuser@example.com", "testuser@example.com"), (None, "testuser.foo@managed.pamdas.org")],
+    )
+    def test_provision_user_success(self, mock_auth0, das_user_email, expected_auth0_user_email):
         """Test provision_user method creates user with correct parameters."""
-        result = provisioner_test_instance.provision_user()
+        provisioner = AuthZeroUserProvisioner(
+            das_user_username="testuser",
+            das_user_email=das_user_email,
+            das_site_name="foo",
+            auth0_organization_id="some-org-id",
+            token_factory=lambda: "some-access-token",
+            auth0_factory=lambda domain, token: mock_auth0,
+        )
+
+        result = provisioner.provision_user()
 
         mock_auth0.users.create.assert_called_once_with(
             {
                 "connection": "test-connection",
                 "password": "test-generated-password-123",
                 "username": "testuser",
+                "email": expected_auth0_user_email,
             }
         )
 
