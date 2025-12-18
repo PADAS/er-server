@@ -429,7 +429,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         response = SubjectGroupsView.as_view()(request)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_etag_should_be_the_same_on_duplicate_request(self):
+    def test_etag_should_be_different_on_duplicate_request(self):
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.superuser)
 
@@ -442,13 +442,13 @@ class SubjectGroupViewTest(BasePermissionTest):
         second_etag = second_response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
-        assert etag == second_etag
+        assert etag != second_etag
 
     def test_etag_should_change_by_value_changes(self):
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.superuser)
 
-        response = SubjectGroupsView.as_view()(request)
+        response = SubjectGroupsView.as_view()(request, render_last_location=False)
         etag = response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
@@ -457,7 +457,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         obj.name = "new name"
         obj.save(update_fields=["name"])
 
-        second_response = SubjectGroupsView.as_view()(request)
+        second_response = SubjectGroupsView.as_view()(request, render_last_location=False)
         second_etag = second_response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
@@ -467,7 +467,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.superuser)
 
-        response = SubjectGroupsView.as_view()(request)
+        response = SubjectGroupsView.as_view()(request, render_last_location=False)
         etag = response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
@@ -478,7 +478,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         subject.save(update_fields=["name"])
         subject_group.subjects.add(subject)
 
-        second_response = SubjectGroupsView.as_view()(request)
+        second_response = SubjectGroupsView.as_view()(request, render_last_location=False)
         second_etag = second_response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
@@ -492,7 +492,7 @@ class SubjectGroupViewTest(BasePermissionTest):
 
         request_superuser = self.factory.get(url)
         self.force_authenticate(request_superuser, self.superuser)
-        response_superuser = SubjectGroupsView.as_view()(request_superuser)
+        response_superuser = SubjectGroupsView.as_view()(request_superuser, render_last_location=False)
         etag_superuser = response_superuser.headers["ETag"]
 
         assert response_superuser.status_code == status.HTTP_200_OK
@@ -500,7 +500,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         request_app_user = self.factory.get(url)
         request_app_user.META["user-profile"] = str(self.app_user.id)
         self.force_authenticate(request_app_user, self.app_user)
-        response_app_user = SubjectGroupsView.as_view()(request_app_user)
+        response_app_user = SubjectGroupsView.as_view()(request_app_user, render_last_location=False)
         etag_app_user = response_app_user.headers["ETag"]
 
         assert response_app_user.status_code == status.HTTP_200_OK
