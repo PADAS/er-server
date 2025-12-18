@@ -26,7 +26,7 @@ def _make_request(path="/tiles/", headers=None, params=None, user=None):
 
 
 def test_build_tile_cache_key_basic_order_invariance_layers():
-    request = _make_request(headers={"Authorization": "Bearer abc123"})
+    request = _make_request(headers={"HTTP_AUTHORIZATION": "Bearer abc123"})
     key1 = build_tile_cache_key(request, 5, 10, 12, ["b", "a"])  # unsorted input
     key2 = build_tile_cache_key(request, 5, 10, 12, ["a", "b"])  # already sorted
     assert key1 == key2
@@ -44,8 +44,8 @@ def test_build_tile_cache_key_basic_order_invariance_layers():
 
 def test_build_tile_cache_key_query_param_order_invariance():
     # same logical params, different submission order
-    req1 = _make_request(headers={"Authorization": "Bearer tokenXYZ"}, params={"z": "1", "a": "2"})
-    req2 = _make_request(headers={"Authorization": "Bearer tokenXYZ"}, params={"a": "2", "z": "1"})
+    req1 = _make_request(headers={"HTTP_AUTHORIZATION": "Bearer tokenXYZ"}, params={"z": "1", "a": "2"})
+    req2 = _make_request(headers={"HTTP_AUTHORIZATION": "Bearer tokenXYZ"}, params={"a": "2", "z": "1"})
     k1 = build_tile_cache_key(req1, 1, 2, 3, ["layer"])  # noqa: E741
     k2 = build_tile_cache_key(req2, 1, 2, 3, ["layer"])  # noqa: E741
     assert k1 == k2
@@ -54,13 +54,13 @@ def test_build_tile_cache_key_query_param_order_invariance():
 
 
 def test_build_tile_cache_key_include_query_false_uses_noquery():
-    request = _make_request(headers={"Authorization": "Bearer qwerty"}, params={"foo": "bar"})
+    request = _make_request(headers={"HTTP_AUTHORIZATION": "Bearer qwerty"}, params={"foo": "bar"})
     key = build_tile_cache_key(request, 2, 4, 8, ["x"], include_query=False)
     assert key.endswith(":noquery")
 
 
 def test_build_tile_cache_key_user_hash_length():
-    request = _make_request(headers={"Authorization": "Bearer supersecrettokenvalue"})
+    request = _make_request(headers={"HTTP_AUTHORIZATION": "Bearer supersecrettokenvalue"})
     key = build_tile_cache_key(request, 9, 1, 1, ["l"])
     # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{user_hash}:{query_hash}
     parts = key.split(":")
@@ -89,7 +89,7 @@ def test_build_tile_cache_key_requires_user_and_tenant():
 
 
 def test_build_tile_cache_key_empty_layer_list_uses_nolayers():
-    request = _make_request(headers={"Authorization": "Bearer abc"})
+    request = _make_request(headers={"HTTP_AUTHORIZATION": "Bearer abc"})
     key = build_tile_cache_key(request, 1, 1, 1, [])
     # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{user_hash}:{query_hash}
     parts = key.split(":")

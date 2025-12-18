@@ -555,6 +555,14 @@ def user_client(create_client_for_user, user):
 
 
 @pytest.fixture
+def user_client_with_invalid_token(user):
+    client = APIClientWithUser()
+    client.credentials(HTTP_AUTHORIZATION="Bearer invalid_token")
+    client.user = user
+    return client
+
+
+@pytest.fixture
 def event_geometry_with_polygon():
     return EventGeometryFactory.create(event__event_type__geometry_type="Polygon")
 
