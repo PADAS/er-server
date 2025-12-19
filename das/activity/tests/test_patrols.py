@@ -17,7 +17,6 @@ from django.core.management import call_command
 from django.db import connection
 from django.http import HttpResponseNotModified
 
-# from django.test import Client
 from django.urls import reverse
 from django.utils import lorem_ipsum, timezone
 from rest_framework import status
