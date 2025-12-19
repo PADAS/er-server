@@ -14,6 +14,7 @@ from django.contrib.gis.geos import Point
 from django.test import override_settings
 from django.urls import resolve, reverse
 from rest_framework import status
+from rest_framework.test import APIClient
 
 from accounts.models import PermissionSet, User
 from client_http import HTTPClient
@@ -576,14 +577,13 @@ def subject_with_month_long_track(db, user_with_one_week_track_perms):
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_one_week_track_permissions(
-    subject_with_month_long_track, client, tenant_response, tenant_document_cache_client_mock
-):
+def test_one_week_track_permissions(subject_with_month_long_track, tenant_response, tenant_document_cache_client_mock):
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     oldest_time = now - datetime.timedelta(days=31)
 
     user, subject = (subject_with_month_long_track.user, subject_with_month_long_track.subject)
-    client.force_login(user)
+    client = APIClient()
+    client.force_authenticate(user=user)
     url = reverse("subject-view-tracks", kwargs=dict(subject_id=subject.id))
     response = client.get(url + "?since=" + oldest_time.isoformat())
     max_day = datetime.datetime.combine(
@@ -609,14 +609,13 @@ def test_one_week_track_permissions(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_retrieving_future_tracks(
-    subject_with_month_long_track, client, tenant_response, tenant_document_cache_client_mock
-):
+def test_retrieving_future_tracks(subject_with_month_long_track, tenant_response, tenant_document_cache_client_mock):
     since = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=1)
     until = since + datetime.timedelta(days=31)
 
     user, subject = (subject_with_month_long_track.user, subject_with_month_long_track.subject)
-    client.force_login(user)
+    client = APIClient()
+    client.force_authenticate(user=user)
     url = reverse("subject-view-tracks", kwargs=dict(subject_id=subject.id))
     params = {"since": since.isoformat(), "until": until.isoformat()}
     response = client.get(url, params)
@@ -627,13 +626,14 @@ def test_retrieving_future_tracks(
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_retrieving_since_equals_to_until(
-    subject_with_month_long_track, client, tenant_response, tenant_document_cache_client_mock
+    subject_with_month_long_track, tenant_response, tenant_document_cache_client_mock
 ):
     since = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=1)
     until = since
 
     user, subject = (subject_with_month_long_track.user, subject_with_month_long_track.subject)
-    client.force_login(user)
+    client = APIClient()
+    client.force_authenticate(user=user)
     url = reverse("subject-view-tracks", kwargs=dict(subject_id=subject.id))
     params = {"since": since.isoformat(), "until": until.isoformat()}
     response = client.get(url, params)
