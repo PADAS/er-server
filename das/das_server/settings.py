@@ -211,6 +211,7 @@ REST_FRAMEWORK = {
 }
 
 AUTHENTICATION_BACKENDS = (
+    "accounts.backends.Auth0BackendForStaffUsers",
     "accounts.backends.NoLoginOAuth2Backend",
     "accounts.backends.AccountsModelBackend",
 )
