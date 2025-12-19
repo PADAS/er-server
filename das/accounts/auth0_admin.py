@@ -52,18 +52,22 @@ def admin_login_entrypoint(request):
     try:
         tenant_settings = get_tenant_settings()
         require_idp = tenant_settings.feature_flags.require_idp
+        org_id = tenant_settings.feature_flags.idp_org_id
     except Exception as e:
         logger.error("Failed to get tenant settings in admin login: %s", e)
         # Fail safely to Django default admin login
-        require_idp = False
+        return _use_default_django_admin_login(request)
 
-    if require_idp:
+    if require_idp and org_id:
         logger.debug("Redirecting to Auth0 admin login for tenant with require_idp=True")
         next_param = request.GET.get("next", "/admin/")
-        return redirect(f"{reverse('auth0_admin_login')}?next={next_param}")
+        return redirect(f"{reverse('auth0_admin_login')}?next={next_param}&org_id={org_id}")
+    else:
+        return _use_default_django_admin_login(request)
 
-    # Default Django admin login behavior
-    logger.debug("Using Django default admin login for tenant with require_idp=False")
+
+def _use_default_django_admin_login(request):
+    logger.debug("Using Django default admin login")
     return admin.site.login(request)
 
 
@@ -75,10 +79,12 @@ def initiate_auth0_admin_login(request):
     next_param = request.GET.get("next", "/admin/")
     request.session["auth0_admin_next"] = next_param
 
+    org_id = request.GET.get("org_id")
+
     auth0_callback_url = request.build_absolute_uri(reverse("auth0_callback"))
 
-    logger.debug("Redirecting to Auth0 authorization URL for admin login")
-    return _admin_auth0_client.auth0.authorize_redirect(request, auth0_callback_url)
+    logger.debug("Using organization ID for Auth0 admin login: %s", org_id)
+    return _admin_auth0_client.auth0.authorize_redirect(request, auth0_callback_url, organization=org_id)
 
 
 @csrf_exempt
