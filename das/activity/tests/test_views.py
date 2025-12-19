@@ -12,6 +12,7 @@ from django.contrib.gis.geos import MultiPoint, Point, Polygon
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
+from rest_framework.test import APIClient
 
 from accounts.models.permissionset import PermissionSet
 from activity.models import Event, EventGeometry, EventType
@@ -395,7 +396,6 @@ class TestEventsExportView:
         self,
         superuser_client,
         ops_user,
-        client,
         subject_source_with_proximity_analyzer_configured,
         five_observations,
         tenant_document_cache_client_mock,
@@ -405,7 +405,8 @@ class TestEventsExportView:
         source = subject_source_with_proximity_analyzer_configured.source
         can_export_data_permission_set = PermissionSet.objects.get(name="Can Export Data")
         ops_user.permission_sets.add(can_export_data_permission_set)
-        client.force_login(ops_user)
+        client = APIClient()
+        client.force_authenticate(user=ops_user)
         self._setup_observations(source, five_observations)
         self._analyze_subject(subject)
 

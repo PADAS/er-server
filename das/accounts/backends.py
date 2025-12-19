@@ -2,11 +2,12 @@ import logging
 import uuid
 
 from authlib.oauth2 import ResourceProtector
+from authlib.oauth2.rfc6749 import OAuth2Token
 from authlib.oauth2.rfc9068.claims import JWTAccessTokenClaims
 from oauth2_provider.backends import OAuth2Backend
 from oauth2_provider.contrib.rest_framework.authentication import OAuth2Authentication
 
-from django.contrib.auth.backends import ModelBackend
+from django.contrib.auth.backends import BaseBackend, ModelBackend
 from django.contrib.auth.models import AnonymousUser, Permission
 from django.contrib.contenttypes.models import ContentType
 from rest_framework import exceptions
@@ -358,3 +359,65 @@ class Auth0JWTAuthentication(BaseAuthentication):
 
     def authenticate_header(self, request):
         return self.keyword
+
+
+class Auth0BackendForStaffUsers(BaseBackend):
+    """
+    Auth0 authentication backend for Django Admin staff users.
+
+    This backend authenticates staff users via Auth0 OAuth2 tokens for Django Admin access.
+    It enforces strict security requirements by only allowing active staff users with
+    valid Auth0 IDs to authenticate.
+
+    Security constraints:
+    - User must exist in the database with a matching auth0_id
+    - User must be active (is_active=True)
+    - User must be staff (is_staff=True)
+
+    Usage:
+        This backend is designed to work with the Auth0 OAuth flow for Django Admin.
+        It expects an OAuth2Token containing userinfo with an Auth0 subject ID.
+
+    Authentication flow:
+        1. Extract Auth0 subject ID from OAuth2 token userinfo
+        2. Look up user by auth0_id and is_active=True
+        3. Verify user has is_staff=True
+        4. Return authenticated user or None
+
+    Reference:
+        https://community.auth0.com/t/implementing-auth0-in-django-admin/132271/3
+    """
+
+    def authenticate(self, request, token: OAuth2Token | None = None, **kwargs) -> User | None:
+        # Only handle Auth0 token-based authentication
+        if token is None:
+            return None
+
+        try:
+            user_info = token.get("userinfo")
+            auth0_id = user_info.get("sub")
+        except Exception as ex:
+            logger.exception("Error occurred authenticating a staff user!\n%s", ex)
+            return None
+
+        try:
+            user = User.objects.get(auth0_id=auth0_id, is_active=True)
+            if user.is_staff:
+                return user
+            else:
+                logger.error(
+                    "Non-staff user %s with auth0_id %s is attempting to authenticate as staff!",
+                    user.username,
+                    auth0_id,
+                )
+                return None
+        except User.DoesNotExist:
+            logger.warning("Could not retrieve an active staff user with auth0_id %s", auth0_id)
+            return None
+
+    def get_user(self, user_id) -> User | None:
+        try:
+            return User.objects.get(pk=user_id, is_active=True, is_staff=True)
+        except User.DoesNotExist:
+            logger.warning("Could not retrieve an active staff user with id %s", user_id)
+            return None
