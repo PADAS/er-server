@@ -16,10 +16,12 @@ import django.contrib.auth
 from django.core.management import call_command
 from django.db import connection
 from django.http import HttpResponseNotModified
-from django.test import Client
+
+# from django.test import Client
 from django.urls import reverse
 from django.utils import lorem_ipsum, timezone
 from rest_framework import status
+from rest_framework.test import APIClient as Client
 
 from accounts.models import PermissionSet
 from activity import views
@@ -1651,7 +1653,7 @@ class TestPatrol(BaseAPITest):
         view_patrol_permissionset = PermissionSet.objects.get(name="View Patrols Permissions")
         self.radio_room_user.permission_sets.add(view_patrol_permissionset)
         client = Client()
-        client.force_login(self.radio_room_user)
+        client.force_authenticate(user=self.radio_room_user)
         response = client.get(reverse("patrol-types"))
         assert response.status_code == 200
         assert [pt for pt in response.data if pt["value"] == "routine_patrol"]
