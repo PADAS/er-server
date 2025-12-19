@@ -46,6 +46,18 @@ def mock_tenant_settings_require_idp_true():
     with patch("accounts.auth0_admin.get_tenant_settings") as mock_settings:
         mock = Mock()
         mock.feature_flags.require_idp = True
+        mock.feature_flags.idp_org_id = "org_test123"
+        mock_settings.return_value = mock
+        yield mock
+
+
+@pytest.fixture
+def mock_tenant_settings_require_idp_true_no_org():
+    """Mock tenant settings with require_idp=True but no org_id."""
+    with patch("accounts.auth0_admin.get_tenant_settings") as mock_settings:
+        mock = Mock()
+        mock.feature_flags.require_idp = True
+        mock.feature_flags.idp_org_id = None
         mock_settings.return_value = mock
         yield mock
 
@@ -80,7 +92,7 @@ class TestAdminLoginEntrypoint:
         result = admin_login_entrypoint(request)
 
         assert result.status_code == 302
-        expected_location = f"{reverse('auth0_admin_login')}?next=/admin/some/page"
+        expected_location = f"{reverse('auth0_admin_login')}?next=/admin/some/page&org_id=org_test123"
         assert result.url == expected_location
 
     def test_preserves_next_parameter(self, request_factory, mock_tenant_settings_require_idp_true):
@@ -91,6 +103,20 @@ class TestAdminLoginEntrypoint:
 
         assert result.status_code == 302
         assert "next=/admin/custom/path" in result.url
+        assert "org_id=org_test123" in result.url
+
+    def test_require_idp_true_no_org_id_uses_django_admin(
+        self, request_factory, mock_tenant_settings_require_idp_true_no_org
+    ):
+        """Test that when require_idp=True but org_id is None, Django admin is used."""
+        request = request_factory.get("/admin/login/")
+
+        with patch("accounts.auth0_admin.admin.site.login") as mock_admin_login:
+            mock_admin_login.return_value = HttpResponse("django_admin_response")
+            result = admin_login_entrypoint(request)
+
+            mock_admin_login.assert_called_once_with(request)
+            assert result.content == b"django_admin_response"
 
     def test_handles_tenant_settings_error(self, request_factory):
         """Test that tenant settings errors fall back to Django admin login."""
@@ -112,6 +138,7 @@ class TestAdminLoginEntrypoint:
 
         assert result.status_code == 302
         assert "next=/admin/" in result.url
+        assert "org_id=org_test123" in result.url
 
 
 @pytest.mark.django_db
@@ -120,7 +147,7 @@ class TestInitiateAuth0AdminLogin:
 
     def test_stores_next_in_session(self, request_factory):
         """Test that next parameter is stored in session."""
-        request = request_factory.get("/auth/admin-login/?next=/admin/target")
+        request = request_factory.get("/auth/admin-login/?next=/admin/target&org_id=org_test123")
         request.session = {}
 
         with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_redirect") as mock_redirect:
@@ -132,7 +159,7 @@ class TestInitiateAuth0AdminLogin:
 
     def test_default_next_in_session(self, request_factory):
         """Test that missing next parameter defaults to /admin/ in session."""
-        request = request_factory.get("/auth/admin-login/")
+        request = request_factory.get("/auth/admin-login/?org_id=org_test123")
         request.session = {}
 
         with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_redirect") as mock_redirect:
@@ -142,8 +169,26 @@ class TestInitiateAuth0AdminLogin:
 
             assert request.session["auth0_admin_next"] == "/admin/"
 
-    def test_calls_authlib_oauth_redirect(self, request_factory):
-        """Test that Authlib OAuth redirect is called with correct parameters."""
+    def test_calls_authlib_oauth_redirect_with_organization(self, request_factory):
+        """Test that Authlib OAuth redirect is called with correct parameters including organization."""
+        request = request_factory.get("/auth/admin-login/?org_id=org_test123")
+        request.session = {}
+        request.build_absolute_uri = lambda path: f"https://example.com{path}"
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_redirect") as mock_redirect:
+            mock_redirect.return_value = HttpResponse("auth0_redirect")
+
+            _ = initiate_auth0_admin_login(request)
+
+            mock_redirect.assert_called_once()
+            call_args = mock_redirect.call_args
+            assert call_args[0][0] == request  # First arg is request
+            assert call_args[0][1] == "https://example.com/auth/callback/"  # Second arg is callback URL
+            # Check that organization parameter is passed
+            assert call_args[1]["organization"] == "org_test123"
+
+    def test_missing_org_id_parameter(self, request_factory):
+        """Test that missing org_id parameter passes None as organization."""
         request = request_factory.get("/auth/admin-login/")
         request.session = {}
         request.build_absolute_uri = lambda path: f"https://example.com{path}"
@@ -157,6 +202,8 @@ class TestInitiateAuth0AdminLogin:
             call_args = mock_redirect.call_args
             assert call_args[0][0] == request  # First arg is request
             assert call_args[0][1] == "https://example.com/auth/callback/"  # Second arg is callback URL
+            # Check that organization parameter is None when org_id missing
+            assert call_args[1]["organization"] is None
 
 
 @pytest.mark.django_db
