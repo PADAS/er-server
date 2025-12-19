@@ -223,14 +223,14 @@ class GearCreateSerializer(serializers.Serializer):
             if subject and source:
                 subject_source = SubjectSource.objects.filter(subject=subject, source=source).first()
 
-            # Default assigned range sentinel
-            default_lower, default_upper = models.DEFAULT_ASSIGNED_RANGE
-
             # If device is being deployed, ensure we're not redeploying same device at same location
             if device.get("device_status") == "deployed":
                 if subject_source is not None:
-                    current_assigned_range = subject_source.assigned_range
-                    if current_assigned_range is not None and current_assigned_range.lower != default_lower:
+                    # Check if device is currently deployed by checking if has assigned lower range (deployment time)
+                    # and that the current time is within the assigned range (i.e., is_current) considering that the default
+                    # upper bound is datetime.max and therefore the device is still deployed.
+                    is_currently_deployed = subject_source.has_assigned_lower_range and subject_source.is_current
+                    if is_currently_deployed:
                         # If it's already deployed at same location, collect error
                         device_latitude = subject_source.location.y if subject_source.location else None
                         device_longitude = subject_source.location.x if subject_source.location else None
@@ -248,8 +248,8 @@ class GearCreateSerializer(serializers.Serializer):
             else:
                 # If there's an existing subject_source, ensure it hasn't already been hauled
                 if subject_source is not None:
-                    current_assigned_range = subject_source.assigned_range
-                    if current_assigned_range is not None and current_assigned_range.upper != default_upper:
+                    is_currently_deployed = subject_source.has_assigned_lower_range and subject_source.is_current
+                    if not is_currently_deployed:
                         device_errors.setdefault(idx, []).append(
                             f"Device {subject_source.source.manufacturer_id} is already hauled"
                         )
