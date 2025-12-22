@@ -405,8 +405,6 @@ class TestObservationSegmentVectorTiles:
         response = client.get(url)
         assert response.status_code in [200, 401, 403]  # Endpoint exists
 
-    # TODO: Add more vector tile endpoint tests with authenticated user and fixtures
-
     def test_iso_timestamps_are_lexicographically_sortable(self, db):
         """Ensure vector layer uses ISO 8601 with 'T' and millisecond precision so strings sort consistently."""
         from datetime import datetime, timedelta, timezone
