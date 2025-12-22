@@ -4,7 +4,7 @@ try:
 except ImportError:
     BUILD_NUMBER = 1
 
-VERSION = (2, 130, 1, "dev", BUILD_NUMBER)
+VERSION = (2, 131, 1, "dev", BUILD_NUMBER)
 
 if VERSION[3]:  # pragma: no cover
     __version__ = "{0}.{1}.{2}-{3}.{4}".format(*VERSION)
