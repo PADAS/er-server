@@ -73,7 +73,7 @@ def admin_logout(request):
     Conditional admin logout that checks the tenant's require_idp flag.
 
     If require_idp=True, redirects to our Auth0 logout endpoint with a return to URL of the admin index page.
-    If require_idp=False, uses Django's default admin login.
+    If require_idp=False, uses Django's default admin logout.
 
     This function replaces the default admin logout URL handler.
     """
