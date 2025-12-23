@@ -6,6 +6,7 @@ based on the tenant's require_idp feature flag using our session-based
 implementation with Authlib OAuth client.
 """
 
+import urllib.parse
 from unittest.mock import Mock, patch
 
 import pytest
@@ -17,6 +18,7 @@ from django.urls import reverse
 
 from accounts.auth0_admin import (
     admin_login_entrypoint,
+    admin_logout,
     auth0_callback,
     initiate_auth0_admin_login,
 )
@@ -290,3 +292,96 @@ class TestAuth0Callback:
 
                     assert result.status_code == 302
                     assert result.url == "/admin/"
+
+
+@pytest.mark.django_db
+class TestAdminLogout:
+    """Test the admin_logout function."""
+
+    def test_require_idp_true_redirects_to_auth0_logout(self, request_factory, mock_tenant_settings_require_idp_true):
+        """Test that when require_idp=True, user is redirected to Auth0 logout URL."""
+        request = request_factory.get("/admin/logout/")
+        request.build_absolute_uri = lambda path: f"https://example.com{path}"
+
+        with patch("accounts.auth0_admin.django_logout") as mock_django_logout:
+            with patch("accounts.auth0_admin.settings") as mock_settings:
+                mock_settings.AUTH0_CUSTOM_DOMAIN = "test-tenant.auth0.com"
+                mock_settings.AUTH0_CLIENT_ID_FOR_DJANGO_ADMIN = "test_client_id_123"
+
+                result = admin_logout(request)
+
+                # Verify django_logout was called
+                mock_django_logout.assert_called_once_with(request)
+
+                # Verify redirect to Auth0 logout URL
+                assert result.status_code == 302
+                assert "test-tenant.auth0.com/v2/logout" in result.url
+                assert "client_id=test_client_id_123" in result.url
+                # Verify returnTo parameter is URL encoded
+                assert "returnTo=" in result.url
+
+    def test_require_idp_false_redirects_to_admin_index(self, request_factory, mock_tenant_settings_require_idp_false):
+        """Test that when require_idp=False, user is redirected to admin index."""
+        request = request_factory.get("/admin/logout/")
+
+        with patch("accounts.auth0_admin.django_logout") as mock_django_logout:
+            result = admin_logout(request)
+
+            # Verify django_logout was called
+            mock_django_logout.assert_called_once_with(request)
+
+            # Verify redirect to admin index
+            assert result.status_code == 302
+            assert result.url == reverse("admin:index")
+
+    def test_handles_tenant_settings_error(self, request_factory):
+        """Test that tenant settings errors redirect to admin index."""
+        request = request_factory.get("/admin/logout/")
+
+        with patch("accounts.auth0_admin.django_logout") as mock_django_logout:
+            with patch("accounts.auth0_admin.get_tenant_settings", side_effect=Exception("Tenant error")):
+                result = admin_logout(request)
+
+                # Verify django_logout was called even on error
+                mock_django_logout.assert_called_once_with(request)
+
+                # Verify redirect to admin index on error
+                assert result.status_code == 302
+                assert result.url == reverse("admin:index")
+
+    def test_auth0_logout_url_construction(self, request_factory, mock_tenant_settings_require_idp_true):
+        """Test that Auth0 logout URL is constructed correctly with proper URL encoding."""
+        request = request_factory.get("/admin/logout/")
+        admin_index_url = reverse("admin:index")
+        return_to_url = f"https://example.com{admin_index_url}"
+        request.build_absolute_uri = lambda path: return_to_url
+
+        with patch("accounts.auth0_admin.django_logout"):
+            with patch("accounts.auth0_admin.settings") as mock_settings:
+                mock_settings.AUTH0_CUSTOM_DOMAIN = "custom.auth0.com"
+                mock_settings.AUTH0_CLIENT_ID_FOR_DJANGO_ADMIN = "admin_client_456"
+
+                result = admin_logout(request)
+
+                assert result.status_code == 302
+                # Verify all components of the Auth0 logout URL
+                assert "https://custom.auth0.com/v2/logout?" in result.url
+                assert "client_id=admin_client_456" in result.url
+                # The returnTo should be URL encoded
+                expected_encoded_return = urllib.parse.quote_plus(return_to_url)
+                assert f"returnTo={expected_encoded_return}" in result.url
+
+    def test_django_logout_always_called(self, request_factory, mock_tenant_settings_require_idp_true):
+        """Test that django_logout is always called regardless of require_idp setting."""
+        request = request_factory.get("/admin/logout/")
+        request.build_absolute_uri = lambda path: f"https://example.com{path}"
+
+        with patch("accounts.auth0_admin.django_logout") as mock_django_logout:
+            with patch("accounts.auth0_admin.settings") as mock_settings:
+                mock_settings.AUTH0_CUSTOM_DOMAIN = "test.auth0.com"
+                mock_settings.AUTH0_CLIENT_ID_FOR_DJANGO_ADMIN = "test_client"
+
+                _ = admin_logout(request)
+
+                # Verify django_logout was called
+                mock_django_logout.assert_called_once_with(request)
