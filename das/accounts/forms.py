@@ -139,7 +139,6 @@ class UserAdditionalForm(UserFormValidatorMixin, JSONFieldFormMixin, UserChangeF
         help_text="Use 4 digit numbers.",
         widget=forms.TextInput(attrs={"max": "4", "type": "number"}),
     )
-    auth0_id = forms.CharField(required=False, label="Auth0 ID", widget=forms.TextInput(attrs={"readonly": True}))
 
     # Additional JSON Fields
     notes = forms.CharField(required=False, label="Notes", widget=forms.Textarea)
@@ -183,7 +182,6 @@ class UserAdditionalForm(UserFormValidatorMixin, JSONFieldFormMixin, UserChangeF
             "username",
             "act_as_profiles",
             "linked_subject",
-            "auth0_id",
         ) + json_fields
 
     json_field = "additional"
