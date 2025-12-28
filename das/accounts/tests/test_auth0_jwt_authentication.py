@@ -5,12 +5,16 @@ Tests for Auth0JWTAuthentication backend.
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from oauth2_provider.models import get_access_token_model
 
 from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory
 from rest_framework.exceptions import APIException, AuthenticationFailed
 
 from accounts.backends import Auth0JWTAuthentication
+from factories import AccessTokenFactory
+
+AccessToken = get_access_token_model()
 
 
 @pytest.fixture
@@ -139,6 +143,44 @@ class TestAuth0JWTAuthentication:
         assert result is not None
         assert result[0] == das_user_with_auth0_id_for_test
         assert result[1] is None
+
+    def test_allowlisted_oauth2_client_skips_auth0_and_allows_fallback(
+        self, mock_tenant_settings, settings, user, application
+    ):
+        """
+        When require_idp=True, we usually fail closed to prevent legacy OAuth2 use.
+        This test verifies the explicit carve-out: if the incoming Bearer token matches
+        a DOT access token and its OAuth2 application's client_id is allowlisted, we
+        return None to allow DRF to continue to OAuth2 authentication.
+        """
+        settings.IDP_OAUTH2_CLIENT_IDS_ALLOWLIST = [application.client_id]
+
+        access_token = AccessTokenFactory(user=user, application=application)
+        factory = RequestFactory()
+        request = factory.get("/api/test/", HTTP_AUTHORIZATION=f"Bearer {access_token.token}")
+
+        # Ensure Auth0 JWT validation path is not invoked
+        with patch(
+            "accounts.backends.ResourceProtector.validate_request",
+            side_effect=Exception("should not be called"),
+        ):
+            result = Auth0JWTAuthentication().authenticate(request)
+
+        assert result is None
+
+    def test_non_allowlisted_oauth2_token_fails_closed(self, mock_tenant_settings, settings, user, application):
+        """
+        If the incoming Bearer token is one of our stored DOT access tokens but the
+        OAuth2 client_id is not allowlisted, we must fail closed and block fallback.
+        """
+        settings.IDP_OAUTH2_CLIENT_IDS_ALLOWLIST = []
+
+        access_token = AccessTokenFactory(user=user, application=application)
+        factory = RequestFactory()
+        request = factory.get("/api/test/", HTTP_AUTHORIZATION=f"Bearer {access_token.token}")
+
+        with pytest.raises(AuthenticationFailed):
+            Auth0JWTAuthentication().authenticate(request)
 
     def test_keyword_is_token(self, api_request_for_test, das_user_with_auth0_id_for_test, mock_auth0_validator):
         """Test that our keyword is Token."""
