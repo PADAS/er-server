@@ -2,11 +2,14 @@ import logging
 import uuid
 
 from authlib.oauth2 import ResourceProtector
+from authlib.oauth2.rfc6749 import OAuth2Token
 from authlib.oauth2.rfc9068.claims import JWTAccessTokenClaims
 from oauth2_provider.backends import OAuth2Backend
 from oauth2_provider.contrib.rest_framework.authentication import OAuth2Authentication
+from oauth2_provider.models import get_access_token_model
 
-from django.contrib.auth.backends import ModelBackend
+from django.conf import settings
+from django.contrib.auth.backends import BaseBackend, ModelBackend
 from django.contrib.auth.models import AnonymousUser, Permission
 from django.contrib.contenttypes.models import ContentType
 from rest_framework import exceptions
@@ -19,6 +22,8 @@ from utils.auth0.auth0_validators import Auth0JWTBearerTokenValidator
 from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger("django.request")
+
+AccessToken = get_access_token_model()
 
 
 def act_as_user_in_request(user, request):
@@ -303,6 +308,41 @@ class Auth0JWTAuthentication(BaseAuthentication):
         self.resource_protector = ResourceProtector()
         self.resource_protector.register_token_validator(Auth0JWTBearerTokenValidator())
 
+    def _get_bearer_token_value(self, request) -> str | None:
+        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+        if not auth_header:
+            return None
+        if not auth_header.startswith("Bearer "):
+            return None
+        parts = auth_header.split(" ", maxsplit=1)
+        if len(parts) != 2:
+            return None
+        token_value = parts[1].strip()
+        return token_value or None
+
+    def _should_allow_legacy_oauth2_for_request(self, request, allowed_oauth2_client_ids: list[str]) -> bool:
+        """
+        When require_idp=True, we *normally* fail closed and prevent fallback to legacy auth methods.
+
+        This method implements a carve-out: if the incoming Authorization header is a Django OAuth
+        Toolkit access token (opaque token stored in our DB) and its OAuth2 application is in an
+        allowlist, we skip Auth0 JWT auth and allow the DRF auth chain to continue to OAuth2.
+        """
+        if not allowed_oauth2_client_ids:
+            return False
+
+        token_value = self._get_bearer_token_value(request)
+        if not token_value:
+            return False
+
+        # Only carve out for OAuth2 "opaque" tokens we issue/store. If it's not found, it might be
+        # an Auth0 JWT (also typically presented as Bearer), so we should proceed with JWT validation.
+        access_token = AccessToken.objects.select_related("application").filter(token=token_value).first()
+        if not access_token or not getattr(access_token, "application", None):
+            return False
+
+        return access_token.application.client_id in set(allowed_oauth2_client_ids)
+
     def authenticate(self, request):
         """
         Authenticate a request using Auth0 JWT tokens when IDP is required.
@@ -327,6 +367,7 @@ class Auth0JWTAuthentication(BaseAuthentication):
                 )
                 return None
             expected_org_id = tenant_settings.feature_flags.idp_org_id
+            allowed_oauth2_client_ids = list(getattr(settings, "IDP_OAUTH2_CLIENT_IDS_ALLOWLIST", []) or [])
         except Exception as ex:
             logger.error("Cannot resolve tenant settings, so failing closed.\n%s", ex)
             raise APIException()  # 500
@@ -335,6 +376,19 @@ class Auth0JWTAuthentication(BaseAuthentication):
         if not auth_header:
             logger.debug("Auth0 authentication skipped because no authorization header")
             return AnonymousUser(), None
+
+        # Carve-out: allow certain legacy OAuth2 clients to keep using DOT access tokens even when
+        # require_idp=True, without weakening the default fail-closed behavior for other clients.
+        if self._get_bearer_token_value(request):
+            if self._should_allow_legacy_oauth2_for_request(request, allowed_oauth2_client_ids):
+                logger.debug("Allowing legacy OAuth2 token for allowlisted client_id while require_idp=True")
+                return None
+            # If it *is* one of our OAuth2 tokens but not allowlisted, we should fail closed and not
+            # proceed to validate as Auth0 JWT (avoids ambiguous behavior and keeps the security model strict).
+            access_token = AccessToken.objects.filter(token=self._get_bearer_token_value(request)).first()
+            if access_token:
+                logger.debug("Blocking legacy OAuth2 token while require_idp=True (client_id not allowlisted)")
+                raise AuthenticationFailed()
 
         # From here forward, we must either successfully return a user,
         # or fail authentication by raising, since `require_idp` must be True.
@@ -358,3 +412,65 @@ class Auth0JWTAuthentication(BaseAuthentication):
 
     def authenticate_header(self, request):
         return self.keyword
+
+
+class Auth0BackendForStaffUsers(BaseBackend):
+    """
+    Auth0 authentication backend for Django Admin staff users.
+
+    This backend authenticates staff users via Auth0 OAuth2 tokens for Django Admin access.
+    It enforces strict security requirements by only allowing active staff users with
+    valid Auth0 IDs to authenticate.
+
+    Security constraints:
+    - User must exist in the database with a matching auth0_id
+    - User must be active (is_active=True)
+    - User must be staff (is_staff=True)
+
+    Usage:
+        This backend is designed to work with the Auth0 OAuth flow for Django Admin.
+        It expects an OAuth2Token containing userinfo with an Auth0 subject ID.
+
+    Authentication flow:
+        1. Extract Auth0 subject ID from OAuth2 token userinfo
+        2. Look up user by auth0_id and is_active=True
+        3. Verify user has is_staff=True
+        4. Return authenticated user or None
+
+    Reference:
+        https://community.auth0.com/t/implementing-auth0-in-django-admin/132271/3
+    """
+
+    def authenticate(self, request, token: OAuth2Token | None = None, **kwargs) -> User | None:
+        # Only handle Auth0 token-based authentication
+        if token is None:
+            return None
+
+        try:
+            user_info = token.get("userinfo")
+            auth0_id = user_info.get("sub")
+        except Exception as ex:
+            logger.exception("Error occurred authenticating a staff user!\n%s", ex)
+            return None
+
+        try:
+            user = User.objects.get(auth0_id=auth0_id, is_active=True)
+            if user.is_staff:
+                return user
+            else:
+                logger.error(
+                    "Non-staff user %s with auth0_id %s is attempting to authenticate as staff!",
+                    user.username,
+                    auth0_id,
+                )
+                return None
+        except User.DoesNotExist:
+            logger.warning("Could not retrieve an active staff user with auth0_id %s", auth0_id)
+            return None
+
+    def get_user(self, user_id) -> User | None:
+        try:
+            return User.objects.get(pk=user_id, is_active=True, is_staff=True)
+        except User.DoesNotExist:
+            logger.warning("Could not retrieve an active staff user with id %s", user_id)
+            return None

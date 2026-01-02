@@ -23,6 +23,12 @@ from django.conf.urls import include
 from django.contrib import admin
 from django.urls import path, re_path
 
+from accounts.auth0_admin import (
+    admin_login_entrypoint,
+    admin_logout,
+    auth0_callback,
+    initiate_auth0_admin_login,
+)
 from das_server import auth_check, views
 from das_server.admin import dasadmin_site
 from das_server.spectacular_views import SwaggerUIViewWithLogin
@@ -54,6 +60,13 @@ urlpatterns = [
         name="openapi-redoc-ui",
     ),
     path("api/v1.0/docs/", include("docs.urls")),
+    # Auth0 admin authentication URLs
+    path("auth/admin-login/", initiate_auth0_admin_login, name="auth0_admin_login"),
+    path("auth/callback/", auth0_callback, name="auth0_callback"),
+    # Override admin login with conditional Auth0 integration
+    path("admin/login/", admin_login_entrypoint, name="admin_login"),
+    # Override admin logout with conditional Auth0 integration
+    path("admin/logout/", admin_logout, name="admin_logout"),
     path("admin/", admin.site.urls),
     path("dasadmin/", dasadmin_site.urls),
     path("accounts/", include("accounts.urls_user")),
