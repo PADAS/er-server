@@ -211,6 +211,7 @@ REST_FRAMEWORK = {
 }
 
 AUTHENTICATION_BACKENDS = (
+    "accounts.backends.Auth0BackendForStaffUsers",
     "accounts.backends.NoLoginOAuth2Backend",
     "accounts.backends.AccountsModelBackend",
 )
@@ -306,6 +307,15 @@ AUTH0_JWKS_CACHE_TTL_S = env.int("AUTH0_JWKS_CACHE_TTL_S", 3600)
 
 AUTH0_CLIENT_ID_FOR_MANAGEMENT_API = env.str("AUTH0_CLIENT_ID_FOR_MANAGEMENT_API", "")
 AUTH0_CLIENT_SECRET_FOR_MANAGEMENT_API = env.str("AUTH0_CLIENT_SECRET_FOR_MANAGEMENT_API", "")
+
+# Auth0 settings for admin login OAuth flow
+AUTH0_CLIENT_ID_FOR_DJANGO_ADMIN = env.str("AUTH0_CLIENT_ID_FOR_DJANGO_ADMIN", "")
+AUTH0_CLIENT_SECRET_FOR_DJANGO_ADMIN = env.str("AUTH0_CLIENT_SECRET_FOR_DJANGO_ADMIN", "")
+
+# When require_idp=True (Auth0 enforced), allow these legacy DOT OAuth2 applications
+# (identified by OAuth2 application client_id) to continue using OAuth2 access tokens.
+# This is a global allowlist across tenants.
+IDP_OAUTH2_CLIENT_IDS_ALLOWLIST = env.list("IDP_OAUTH2_CLIENT_IDS_ALLOWLIST", default=["das_kml_export", "gundi"])
 
 # This is the connection name we have defined (`foo-bar-baz`) in our Auth0 tenant.
 # This is NOT the opaque connection id Auth0 generates (`con_uGlYF0oBaR`)
