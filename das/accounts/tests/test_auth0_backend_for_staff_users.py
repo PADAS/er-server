@@ -2,7 +2,7 @@
 Tests for Auth0BackendForStaffUsers authentication backend.
 """
 
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -28,7 +28,13 @@ def mock_request():
 def mock_oauth2_token():
     """Create a mock OAuth2Token with userinfo."""
     token = Mock()
-    token.get.return_value = {"sub": "auth0|123456789", "email": "staff@example.com", "name": "Staff User"}
+    token.get.return_value = {
+        "sub": "auth0|123456789",
+        "email": "staff@example.com",
+        "name": "Staff User",
+        "org_id": "org_123456789",
+    }
+
     return token
 
 
@@ -60,6 +66,17 @@ def das_inactive_staff_user_with_auth0_id(user):
     user.is_active = False
     user.save()
     return user
+
+
+@pytest.fixture(autouse=True)
+def mock_tenant_settings():
+    """Mock tenant settings with default feature flags."""
+    with patch("accounts.backends.get_tenant_settings") as mock_settings:
+        mock = Mock()
+        mock.feature_flags.require_idp = True
+        mock.feature_flags.idp_org_id = "org_123456789"
+        mock_settings.return_value = mock
+        yield mock
 
 
 @pytest.mark.django_db
@@ -101,6 +118,15 @@ class TestAuth0BackendForStaffUsersAuthenticate:
     def test_authentication_with_no_token(self, auth0_backend, mock_request):
         """Test authentication with no token provided."""
         result = auth0_backend.authenticate(mock_request, token=None)
+
+        assert result is None
+
+    def test_authentication_fails_when_org_id_mismatch(
+        self, auth0_backend, mock_request, mock_oauth2_token, das_staff_user_with_auth0_id, mock_tenant_settings
+    ):
+        """Test authentication fails when token has org id for different DAS tenant."""
+        mock_tenant_settings.feature_flags.idp_org_id = "org_999999999"
+        result = auth0_backend.authenticate(mock_request, token=mock_oauth2_token)
 
         assert result is None
 
