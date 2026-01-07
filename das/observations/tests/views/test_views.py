@@ -14,6 +14,7 @@ from django.contrib.gis.geos import Point
 from django.test import override_settings
 from django.urls import resolve, reverse
 from rest_framework import status
+from rest_framework.test import APIClient
 
 from accounts.models import PermissionSet, User
 from client_http import HTTPClient
@@ -428,7 +429,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         response = SubjectGroupsView.as_view()(request)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_etag_should_be_the_same_on_duplicate_request(self):
+    def test_etag_should_be_different_on_duplicate_request(self):
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.superuser)
 
@@ -441,13 +442,13 @@ class SubjectGroupViewTest(BasePermissionTest):
         second_etag = second_response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
-        assert etag == second_etag
+        assert etag != second_etag
 
     def test_etag_should_change_by_value_changes(self):
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.superuser)
 
-        response = SubjectGroupsView.as_view()(request)
+        response = SubjectGroupsView.as_view()(request, render_last_location=False)
         etag = response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
@@ -456,7 +457,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         obj.name = "new name"
         obj.save(update_fields=["name"])
 
-        second_response = SubjectGroupsView.as_view()(request)
+        second_response = SubjectGroupsView.as_view()(request, render_last_location=False)
         second_etag = second_response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
@@ -466,7 +467,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.superuser)
 
-        response = SubjectGroupsView.as_view()(request)
+        response = SubjectGroupsView.as_view()(request, render_last_location=False)
         etag = response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
@@ -477,7 +478,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         subject.save(update_fields=["name"])
         subject_group.subjects.add(subject)
 
-        second_response = SubjectGroupsView.as_view()(request)
+        second_response = SubjectGroupsView.as_view()(request, render_last_location=False)
         second_etag = second_response.headers["ETag"]
 
         assert response.status_code == status.HTTP_200_OK
@@ -491,7 +492,7 @@ class SubjectGroupViewTest(BasePermissionTest):
 
         request_superuser = self.factory.get(url)
         self.force_authenticate(request_superuser, self.superuser)
-        response_superuser = SubjectGroupsView.as_view()(request_superuser)
+        response_superuser = SubjectGroupsView.as_view()(request_superuser, render_last_location=False)
         etag_superuser = response_superuser.headers["ETag"]
 
         assert response_superuser.status_code == status.HTTP_200_OK
@@ -499,7 +500,7 @@ class SubjectGroupViewTest(BasePermissionTest):
         request_app_user = self.factory.get(url)
         request_app_user.META["user-profile"] = str(self.app_user.id)
         self.force_authenticate(request_app_user, self.app_user)
-        response_app_user = SubjectGroupsView.as_view()(request_app_user)
+        response_app_user = SubjectGroupsView.as_view()(request_app_user, render_last_location=False)
         etag_app_user = response_app_user.headers["ETag"]
 
         assert response_app_user.status_code == status.HTTP_200_OK
@@ -576,14 +577,13 @@ def subject_with_month_long_track(db, user_with_one_week_track_perms):
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_one_week_track_permissions(
-    subject_with_month_long_track, client, tenant_response, tenant_document_cache_client_mock
-):
+def test_one_week_track_permissions(subject_with_month_long_track, tenant_response, tenant_document_cache_client_mock):
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     oldest_time = now - datetime.timedelta(days=31)
 
     user, subject = (subject_with_month_long_track.user, subject_with_month_long_track.subject)
-    client.force_login(user)
+    client = APIClient()
+    client.force_authenticate(user=user)
     url = reverse("subject-view-tracks", kwargs=dict(subject_id=subject.id))
     response = client.get(url + "?since=" + oldest_time.isoformat())
     max_day = datetime.datetime.combine(
@@ -609,14 +609,13 @@ def test_one_week_track_permissions(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-def test_retrieving_future_tracks(
-    subject_with_month_long_track, client, tenant_response, tenant_document_cache_client_mock
-):
+def test_retrieving_future_tracks(subject_with_month_long_track, tenant_response, tenant_document_cache_client_mock):
     since = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=1)
     until = since + datetime.timedelta(days=31)
 
     user, subject = (subject_with_month_long_track.user, subject_with_month_long_track.subject)
-    client.force_login(user)
+    client = APIClient()
+    client.force_authenticate(user=user)
     url = reverse("subject-view-tracks", kwargs=dict(subject_id=subject.id))
     params = {"since": since.isoformat(), "until": until.isoformat()}
     response = client.get(url, params)
@@ -627,13 +626,14 @@ def test_retrieving_future_tracks(
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_retrieving_since_equals_to_until(
-    subject_with_month_long_track, client, tenant_response, tenant_document_cache_client_mock
+    subject_with_month_long_track, tenant_response, tenant_document_cache_client_mock
 ):
     since = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=1)
     until = since
 
     user, subject = (subject_with_month_long_track.user, subject_with_month_long_track.subject)
-    client.force_login(user)
+    client = APIClient()
+    client.force_authenticate(user=user)
     url = reverse("subject-view-tracks", kwargs=dict(subject_id=subject.id))
     params = {"since": since.isoformat(), "until": until.isoformat()}
     response = client.get(url, params)

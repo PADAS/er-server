@@ -5,6 +5,7 @@ from celery import current_app
 from django.test import TestCase
 
 from das_server import celery
+from das_server.celery import app as celery_app
 
 
 class CeleryConfigurationTests(TestCase):
@@ -82,6 +83,7 @@ class CeleryConfigurationTests(TestCase):
             "tracking.tasks.run_source_plugin",
             "tracking.tasks.schedule_firms_plugins",
             "usercontent.tasks.warm_imagefilecontent",
+            "utils.auth0.tasks.refresh_cached_auth0_jwks",
         ]
 
         current_app.loader.import_default_modules()
@@ -89,3 +91,29 @@ class CeleryConfigurationTests(TestCase):
 
         for task_name in task_names:
             assert task_name in registered_tasks
+
+    def test_all_scheduled_tasks_are_discoverable_via_autodiscovery(self):
+        """
+        Test that all tasks referenced in beat_schedule can be discovered through autodiscovery.
+
+        This test ensures that the autodiscovery configuration includes all modules
+        that contain scheduled tasks. Without proper autodiscovery, tasks would fail
+        with "unregistered task" errors at runtime.
+        """
+        scheduled_task_names = []
+        for schedule_entry in celery_app.conf.beat_schedule.values():
+            scheduled_task_names.append(schedule_entry["task"])
+
+        celery_app.loader.import_default_modules()
+
+        unregistered_tasks = []
+        for task_name in scheduled_task_names:
+            if task_name not in celery_app.tasks:
+                unregistered_tasks.append(task_name)
+
+        self.assertEqual(
+            [],
+            unregistered_tasks,
+            f"These scheduled tasks would cause 'Received unregistered task' errors: {unregistered_tasks}. "
+            f"Check that their modules are included in autodiscover_tasks() calls in celery.py.",
+        )

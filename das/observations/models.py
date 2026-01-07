@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 from functools import reduce
 from operator import getitem
 from typing import List, NamedTuple, Set, Union
+from uuid import UUID
 
 import pymet
 import pytz
@@ -483,14 +484,23 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return self.annotate(source_transforms=F("source__provider__transforms"))
 
     def get_subjectsource_observations(
-        self, subjectsource, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None, bbox=None
+        self,
+        subjectsource: Union[SubjectSource, UUID],
+        since=None,
+        until=None,
+        limit=None,
+        values=None,
+        filter_flag=0,
+        order_by=None,
+        bbox=None,
+        include_empty_location=False,
     ):
         queryset = self.filter(
             source__subjectsource=subjectsource, source__subjectsource__assigned_range__contains=F("recorded_at")
         )
 
         queryset = queryset.by_since_until(since, until)
-        queryset = queryset.by_exclusion_flags(filter_flag)
+        queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=include_empty_location)
         if bbox:
             geometry = Polygon.from_bbox(bbox)
             queryset = queryset.filter(location__within=geometry)
@@ -508,7 +518,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
     def get_source_observations(
         self,
-        source: Source,
+        source: Union[Source, UUID],
         since: datetime = None,
         until: datetime = None,
         limit: int = None,
@@ -523,7 +533,91 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         a very expensive query across partitioned tables.
 
         Args:
-            source (Source): _description_
+            source_id (str): the id of the source
+            since (datetime, optional): matching observation records by recorded_at GTE this datetime. Defaults to yesterday.
+            until (datetime, optional): matching observation records by recorded_at LTE this datetime. Defaults to now().
+            limit (int, optional): limit to int records. Defaults to None.
+            values (array[str], optional): return only these values. Defaults to None.
+            filter_flag (int, optional): exclusion flags, see Observation.exclusion_flags. Defaults to 0.
+            order_by (str, optional): order by field. Defaults to None.
+            include_empty_location (bool, optional): filter out 0,0 locations if set to False. Defaults to True.
+            bbox (List[float], optional): bounding box as [xmin, ymin, xmax, ymax] to filter observations within this area. Defaults to None.
+
+        Returns:
+            QuerySet: the now filtered queryset
+        """
+        return self._get_filter_observations(
+            primary_filter={"source": source},
+            since=since,
+            until=until,
+            limit=limit,
+            values=values,
+            filter_flag=filter_flag,
+            order_by=order_by,
+            include_empty_location=include_empty_location,
+            bbox=bbox,
+        )
+
+    def get_sourceprovider_observations(
+        self,
+        sourceprovider: Union[SourceProvider, UUID],
+        since: datetime = None,
+        until: datetime = None,
+        limit: int = None,
+        values=None,
+        filter_flag: int = 0,
+        order_by: str = None,
+        include_empty_location: bool = True,
+        bbox: List[float] = None,
+    ) -> QuerySet:
+        """Filter Observation on sourceprovider, plus some standard filters.
+        If since and until are not included, defaults are used to keep from inadvertently creating
+        a very expensive query across partitioned tables.
+
+        Args:
+            sourceprovider_id (str): the id of the sourceprovider
+            since (datetime, optional): matching observation records by recorded_at GTE this datetime. Defaults to yesterday.
+            until (datetime, optional): matching observation records by recorded_at LTE this datetime. Defaults to now().
+            limit (int, optional): limit to int records. Defaults to None.
+            values (array[str], optional): return only these values. Defaults to None.
+            filter_flag (int, optional): exclusion flags, see Observation.exclusion_flags. Defaults to 0.
+            order_by (str, optional): order by field. Defaults to None.
+            include_empty_location (bool, optional): filter out 0,0 locations if set to False. Defaults to True.
+            bbox (List[float], optional): bounding box for spatial filtering, specified as [min_lon, min_lat, max_lon, max_lat]. Defaults to None.
+
+        Returns:
+            QuerySet: the now filtered queryset
+        """
+        return self._get_filter_observations(
+            primary_filter={"source__provider": sourceprovider},
+            since=since,
+            until=until,
+            limit=limit,
+            values=values,
+            filter_flag=filter_flag,
+            order_by=order_by,
+            include_empty_location=include_empty_location,
+            bbox=bbox,
+        )
+
+    def _get_filter_observations(
+        self,
+        primary_filter: dict,
+        since: datetime = None,
+        until: datetime = None,
+        limit: int = None,
+        values=None,
+        filter_flag: int = 0,
+        order_by: str = None,
+        include_empty_location: bool = True,
+        bbox: List[float] = None,
+    ) -> QuerySet:
+        """Filter Observation on a filter param, plus some standard filters.
+        If since and until are not included, defaults are used to keep from inadvertently creating
+        a very expensive query across partitioned tables.
+
+        Args:
+            primary_filter (dict): the primary filter to apply to the observations
             since (datetime, optional): matching observation records by recorded_at GTE this datetime. Defaults to yesterday.
             until (datetime, optional): matching observation records by recorded_at LTE this datetime. Defaults to now().
             limit (int, optional): limit to int records. Defaults to None.
@@ -541,15 +635,12 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         if not since:
             since = until - timedelta(days=1)
 
-        queryset = self.filter(source=source)
+        queryset = self.filter(**primary_filter)
         queryset = queryset.by_since_until(since, until)
-        queryset = queryset.by_exclusion_flags(filter_flag)
+        queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=include_empty_location)
         if bbox:
             geometry = Polygon.from_bbox(bbox)
             queryset = queryset.filter(location__within=geometry)
-
-        if not include_empty_location:
-            queryset = queryset.exclude(location=EMPTY_POINT)
 
         if order_by:
             queryset = queryset.order_by(order_by)
@@ -586,6 +677,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         created_after=None,
         bbox=None,
         avoid_unions=False,
+        include_empty_location=False,
     ):
         """
         An optimized version of get_subject_observations that uses partitioning to avoid full table scans.
@@ -602,7 +694,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             order_by (str, optional): Field by which to order the results. Defaults to "-recorded_at".
             created_after (datetime, optional): Filter on the created_at time of the observations. Must provide since and until if using this. Defaults to None.
             avoid_unions (bool, optional): If True, uses a single query instead of UNIONs for better compatibility with cursor pagination. Defaults to False.
-
+            include_empty_location (bool, optional): Include observations with no location data, 0,0 points. Defaults to False.
         Returns:
             QuerySet: A Django QuerySet containing the filtered and partitioned observations.
         """
@@ -656,7 +748,9 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                 geometry = Polygon.from_bbox(bbox)
                 queryset = queryset.filter(location__within=geometry)
 
-            queryset = queryset.by_exclusion_flags(filter_flag, include_empty_location=subject.is_stationary_subject)
+            queryset = queryset.by_exclusion_flags(
+                filter_flag, include_empty_location=include_empty_location or subject.is_stationary_subject
+            )
 
             # Apply ordering and limit
             queryset = queryset.order_by(order_by or "-recorded_at")
@@ -722,7 +816,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                     source_qs = source_qs.filter(location__within=geometry)
 
                 source_qs = source_qs.by_exclusion_flags(
-                    filter_flag, include_empty_location=subject.is_stationary_subject
+                    filter_flag, include_empty_location=include_empty_location or subject.is_stationary_subject
                 )
 
                 # Add to batch query

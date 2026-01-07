@@ -1,17 +1,22 @@
 """Test suite for SpatialFeatureLayer and tile endpoint (no host-based image prefixing)."""
 
 import pytest
-from vectortiles.views import MVTView
 
 from django.conf import settings
 from django.contrib.gis.geos import Point
 from django.db.models import Case
+from django.http import HttpResponse
 from django.test import RequestFactory
+from django.urls import reverse
 
 import mapping.views as mviews
 from mapping.models import DisplayCategory, SpatialFeature, SpatialFeatureType
 from mapping.vector_layers import SpatialFeatureLayer
 from mapping.views import SpatialFeatureTileView
+
+
+def make_tile_url(z, x, y):
+    return reverse("mapping:spatialfeature-tiles", kwargs={"z": z, "x": x, "y": y})
 
 
 @pytest.mark.django_db
@@ -240,7 +245,6 @@ class TestSpatialFeatureTileEndpoint:
 
     def test_tile_view_missing_user_or_auth_returns_401(self, monkeypatch):
         """Requests without authenticated user (missing id/tenant) should 401."""
-        from django.conf import settings
 
         monkeypatch.setattr(settings, "ALLOWED_HOSTS", ["example.org"])
         # Tenant resolution OK
@@ -265,9 +269,8 @@ class TestSpatialFeatureTileEndpoint:
         resp2 = view.get(request2, 5, 10, 12)
         assert resp2.status_code == 401
 
-    def test_tile_view_cache_hit_serves_cached_payload(self, monkeypatch):
+    def test_tile_view_cache_hit_serves_cached_payload(self, monkeypatch, user_client):
         """Second identical request should not call underlying MVTView.get again and should preserve Cache-Control."""
-        from django.conf import settings
 
         monkeypatch.setattr(settings, "ALLOWED_HOSTS", ["example.org"])
         monkeypatch.setattr(mviews, "get_tenant_data_by_host", lambda host: {"domain": host})
@@ -289,23 +292,20 @@ class TestSpatialFeatureTileEndpoint:
             call_record["count"] += 1
             return HttpResponse(b"tile-bytes", content_type="application/vnd.mapbox-vector-tile")
 
-        from django.http import HttpResponse
+        monkeypatch.setattr(SpatialFeatureTileView, "_get", fake_get)
 
-        monkeypatch.setattr(MVTView, "get", fake_get)
-
-        view = SpatialFeatureTileView()
-        r1 = view.get(request, 8, 128, 256)
+        SpatialFeatureTileView()
+        r1 = user_client.get(make_tile_url(8, 128, 256))
         assert call_record["count"] == 1
         assert r1["Cache-Control"].startswith("public")
         # Second identical request
-        r2 = view.get(request, 8, 128, 256)
+        r2 = user_client.get(make_tile_url(8, 128, 256))
         assert call_record["count"] == 1  # unchanged => cache hit
         assert r2.content == b"tile-bytes"
         assert r2["Cache-Control"] == r1["Cache-Control"]
 
     def test_tile_view_tenant_resolution_failure_returns_500(self, monkeypatch):
         """Failure to resolve tenant host should result in 500 (security hard-fail)."""
-        from django.conf import settings
 
         monkeypatch.setattr(settings, "ALLOWED_HOSTS", ["bad.example"])
         # Force tenant resolution to raise

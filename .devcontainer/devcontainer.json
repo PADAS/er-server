@@ -94,7 +94,8 @@
 //		"DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
 		"ROOT_LOGGING_LEVEL": "INFO",
 		"GDAL_LIBRARY_PATH": "/usr/lib/aarch64-linux-gnu/libgdal.so",
-		"GEOS_LIBRARY_PATH":"/usr/lib/aarch64-linux-gnu/libgeos_c.so.1"
+		"GEOS_LIBRARY_PATH":"/usr/lib/aarch64-linux-gnu/libgeos_c.so.1",
+		"PYTHONPATH": "/workspaces/${localWorkspaceFolderBasename}/das"
 	},
 	"postCreateCommand": "git config --global --add safe.directory /workspaces/${localWorkspaceFolderBasename}; cd /workspaces/${localWorkspaceFolderBasename}; uv run pre-commit install",
 	"remoteUser": "vscode",

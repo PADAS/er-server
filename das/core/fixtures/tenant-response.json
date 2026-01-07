@@ -50,7 +50,9 @@
     "eventsEnabled": true,
     "subjectsEnabled": true,
     "spatialFeaturesEnabled": true,
-    "analyzersEnabled": true
+    "analyzersEnabled": true,
+    "requireIdp": false,
+    "idpOrgId": null
   },
   "services": {
     "auth": {

@@ -4,7 +4,7 @@ from itertools import chain
 
 import simplejson as json
 from rest_framework_extensions.etag.decorators import etag
-from vectortiles.views import MVTView
+from vectortiles.mixins import BaseVectorTileView
 
 from django.core.serializers import serialize
 from django.db.models import Count, F, Prefetch
@@ -273,7 +273,14 @@ class LayerJsonView(generics.RetrieveUpdateDestroyAPIView):
         return TileLayer.objects.all()
 
 
-class SpatialFeatureTileView(MVTView):
+class DRFMVTView(BaseVectorTileView, generics.GenericAPIView):
+    """Subclass of BaseVectorTileView that uses DRF views for authentication and authorization.
+    This is necessary because BaseVectorTileView uses Django's View class, which does not support DRF's authentication and authorization.
+    Keep an eye on MVTView in vectortiles.views for updates needed to this.
+    """
+
+
+class SpatialFeatureTileView(DRFMVTView):
     """
     Vector tile endpoint for SpatialFeature geometries.
 
@@ -357,7 +364,8 @@ class SpatialFeatureTileView(MVTView):
             return resp
         # Instantiate layers only on a cache miss.
         self.layers = [lc() for lc in self.layer_classes]
-        response = super().get(request, z, x, y)
+        response = self._get(request, z, x, y)
+
         if response.status_code in (200, 204) and response.get("Content-Type", "").startswith(
             "application/vnd.mapbox-vector-tile"
         ):
@@ -374,6 +382,24 @@ class SpatialFeatureTileView(MVTView):
         )
         response["ETag"] = etag_value
         return response
+
+    def _get(self, request, z, x, y, *args, **kwargs):
+        """
+        Internal method to handle GET request to serve tile, see vectortiles.views.MVTView.get for more details.
+
+        :param request:
+        :type request: HttpRequest
+        :param x: longitude coordinate tile
+        :type x: int
+        :param y: latitude coordinate tile
+        :type y: int
+        :param z: zoom level
+        :type z: int
+
+        :rtype HttpResponse
+        """
+        content, status = self.get_content_status(int(z), int(x), int(y))
+        return HttpResponse(content, content_type=self.content_type, status=status)
 
 
 #

@@ -53,6 +53,11 @@ class ObservationsViewSchema(CustomSchema):
                     "description": "filter to a subjectsource_id, rather than source_id + time range",
                 },
                 {
+                    "name": "sourceprovider_id",
+                    "in": "query",
+                    "description": "filter to a single source provider id (UUID)",
+                },
+                {
                     "name": "since",
                     "in": "query",
                     "description": "get observations after this ISO8061 date, include timezone",
@@ -89,6 +94,11 @@ class ObservationsViewSchema(CustomSchema):
                     "name": "bbox",
                     "in": "query",
                     "description": "filter to observations within a bounding box, [west, south, east, north]. format is 'min_lat,min_lon,max_lat,max_lon'",
+                },
+                {
+                    "name": "include_empty_location",
+                    "in": "query",
+                    "description": "include observations with no location data, 0,0 points. Default is false.",
                 },
             ]
             operation["parameters"] = operation.get("parameters", [])

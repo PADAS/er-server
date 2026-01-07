@@ -4,6 +4,7 @@ import pytest
 
 from django.urls import reverse
 from rest_framework import status
+from rest_framework.test import APIClient
 
 from utils.tenant import Tenant
 
@@ -96,6 +97,20 @@ class TestStatusView:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["services"] == []
 
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_get_status_with_idp_required(self, monkeypatch, tenant_response, tenant_document_cache_client_mock):
+        tenant_settings = Tenant.from_dict(tenant_response)
+        tenant_settings.feature_flags.require_idp = True
+        tenant_settings.feature_flags.idp_org_id = "some-org"
+        monkeypatch.setattr("das_server.views.get_tenant_settings", MagicMock(return_value=tenant_settings))
+        monkeypatch.setattr("accounts.backends.get_tenant_settings", MagicMock(return_value=tenant_settings))
+        url = reverse("api-status")
+
+        client = APIClient()
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+
     def _assert_feature_flags_response_match(self, response):
         assert response.status_code == status.HTTP_200_OK
         assert response.data["event_matrix_enabled"] is False
@@ -109,3 +124,5 @@ class TestStatusView:
         assert response.data["subjects_enabled"] is True
         assert response.data["spatial_features_enabled"] is True
         assert response.data["analyzers_enabled"] is True
+        assert response.data["require_idp"] is False
+        assert response.data["idp_org_id"] is None

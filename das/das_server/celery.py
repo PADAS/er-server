@@ -28,7 +28,7 @@ app = Celery("das_server")
 
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
-app.autodiscover_tasks(lambda: ["utils.db"])
+app.autodiscover_tasks(lambda: ["utils.db", "utils.auth0"])
 
 default_exchange = Exchange(app.conf.task_default_exchange)
 app.autodiscover_tasks()
@@ -218,6 +218,10 @@ app.conf.beat_schedule = {
     "refresh_tenants_cache": {
         "task": "das_server.tasks.refresh_tenants_cache",
         "schedule": timedelta(hours=1),
+    },
+    "refresh-auth0-jwks": {
+        "task": "utils.auth0.tasks.refresh_cached_auth0_jwks",
+        "schedule": timedelta(minutes=30),
     },
 }
 

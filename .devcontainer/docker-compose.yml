@@ -3,7 +3,7 @@ services:
   ### Primary instance
   postgis:
     container_name: postgis
-    image: kartoza/postgis:14-3.3
+    image: docker.io/kartoza/postgis:14-3.3
     environment:
       - POSTGRES_USER=das
       - POSTGRES_DB=das
@@ -28,7 +28,7 @@ services:
   ### Read Replica
   postgis-replica:
     container_name: postgis-replica
-    image: kartoza/postgis:14-3.3
+    image: docker.io/kartoza/postgis:14-3.3
     environment:
       - POSTGRES_USER=das
       - POSTGRES_DB=das
@@ -68,7 +68,7 @@ services:
   ## ----------------------------- Redis -----------------------------
   redis:
     container_name: redis
-    image: redis:6.2.7
+    image: docker.io/library/redis:6.2.7
     ports:
       - "6379:6379"
     expose:
