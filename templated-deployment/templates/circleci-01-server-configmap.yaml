@@ -39,7 +39,7 @@ data:
   GFW_BACKFILL_INTERVAL_DAYS: "${GFW_BACKFILL_INTERVAL_DAYS}"
   GFW_CLUSTER_RADIUS: "${GFW_CLUSTER_RADIUS}"
   GS_BUCKET_NAME: "${GS_BUCKET_NAME}"
-  GUNICORN_CMD_ARGS: "--workers 4 --threads 2 --worker-class gthread --max-requests 20000 --limit-request-line 15000 --max-requests-jitter 500 --timeout 120 --graceful-timeout 40 --keep-alive 10"
+  GUNICORN_CMD_ARGS: "--workers 4 --threads 2 --worker-class gthread --max-requests 20000 --limit-request-line 66000 --max-requests-jitter 500 --timeout 120 --graceful-timeout 40 --keep-alive 10"
   KML_EXPORT: "${KML_EXPORT}"
   MAPPING_FEATURES_V2: "${MAPPING_FEATURES_V2}"
   OBSERVATION_ACCURACY_THRESHOLD: "${OBSERVATION_ACCURACY_THRESHOLD}"
