@@ -928,6 +928,9 @@ main_event_type_schema = {
     "properties": {
         "json": json_field_schema,
         "ui": ui_schema,
+        "read_only": {"type": "boolean"},
+        "icon_id": {"type": "string"},
+        "image_url": {"type": "string"},
     },
     "required": ["json", "ui"],
     "$defs": {
