@@ -383,7 +383,9 @@ class TestSerializerIntegration:
         }
 
         serializer = EventDetailsSerializer()
-        serializer._handle_v2_auto_generate(event_type, event_data)
+        result = serializer._handle_auto_generate(event_type, event_data)
+
+        assert result is True  # Auto-generation was triggered
 
         event_type.refresh_from_db()
         generated_schema = json.loads(event_type.schema)
@@ -432,10 +434,62 @@ class TestSerializerIntegration:
         event_data = {"new_field": "new value"}
 
         serializer = EventDetailsSerializer()
-        serializer._handle_v2_auto_generate(event_type, event_data)
+        result = serializer._handle_auto_generate(event_type, event_data)
+
+        assert result is False  # Auto-generation was NOT triggered
 
         event_type.refresh_from_db()
         schema_after = json.loads(event_type.schema)
 
         assert schema_after == original_schema
         assert "new_field" not in schema_after["json"]["properties"]
+
+    def test_v1_auto_generate_upgrades_to_v2(self, cat1_cat2_categories):
+        """Test that v1 event types with auto-generate marker are upgraded to v2."""
+        from activity.serializers.event_details import EventDetailsSerializer
+
+        cat1, _ = cat1_cat2_categories
+        # V1-style auto-generate marker schema
+        v1_marker_schema = {
+            "auto-generate": True,
+            "description": "Placeholder",
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Placeholder",
+                "type": "object",
+                "properties": {"placeholder": {"type": "string"}},
+            },
+            "definition": ["placeholder"],
+        }
+
+        event_type = EventType.objects.create(
+            value="test_v1_auto_gen",
+            display="Test V1 Auto Gen",
+            category=cat1,
+            version=EventType.VersionChoices.VERSION_1,
+            schema=json.dumps(v1_marker_schema),
+        )
+
+        assert event_type.version == EventType.VersionChoices.VERSION_1
+
+        event_data = {
+            "animal_name": "Elephant",
+            "count": 10,
+        }
+
+        serializer = EventDetailsSerializer()
+        result = serializer._handle_auto_generate(event_type, event_data)
+
+        assert result is True
+
+        event_type.refresh_from_db()
+
+        # Should be upgraded to v2
+        assert event_type.version == EventType.VersionChoices.VERSION_2
+
+        # Schema should be v2 format
+        generated_schema = json.loads(event_type.schema)
+        assert "auto-generate" not in generated_schema
+        assert "json" in generated_schema
+        assert "ui" in generated_schema
+        assert generated_schema["json"]["$schema"] == "https://json-schema.org/draft/2020-12/schema"

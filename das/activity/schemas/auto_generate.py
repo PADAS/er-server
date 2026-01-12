@@ -6,6 +6,7 @@ based on the properties found in the first event posted for an EventType
 that has an auto-generate marker schema.
 """
 
+import json
 import re
 from typing import Any, Optional
 
@@ -351,6 +352,30 @@ def should_auto_generate_v2(schema: dict) -> bool:
         return False
 
     return schema.get("auto-generate", False)
+
+
+def should_auto_generate_schema(schema_string: str) -> bool:
+    """
+    Check if a schema (v1 or v2) is marked for auto-generation.
+
+    This is the unified check that works for both v1 and v2 schemas.
+    Both use the same `"auto-generate": true` marker at the root level.
+
+    Args:
+        schema_string: The schema as a JSON string.
+
+    Returns:
+        True if the schema has the auto-generate marker.
+    """
+    if not schema_string:
+        return False
+
+    try:
+        schema_doc = json.loads(schema_string)
+    except (json.JSONDecodeError, TypeError):
+        return False
+
+    return schema_doc.get("auto-generate", False)
 
 
 def get_auto_generate_v2_marker_schema() -> dict:
