@@ -4,8 +4,29 @@ observations_observation table.
 
 More information here: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#partition_data_time
 
+This command supports pg_partman 5.2.4+ features including:
+- Targeting specific partition months (--year and --month)
+- Controlling batch processing (--batch-count, --batch-interval)
+- Lock timeout configuration (--lock-wait)
+- Processing order control (--order ASC/DESC)
+- Jobmon integration (--no-jobmon to disable)
+- Skipping post-migration ANALYZE (--no-analyze)
+
 Some sanity checks are run before and after running the partman function to
 ensure data integrity.
+
+Examples:
+    # Process all data with sanity checks
+    python manage.py partman_partition_data_time
+
+    # Fix a specific partition (e.g., January 2024)
+    python manage.py partman_partition_data_time --year 2024 --month 1
+
+    # Process in batches with 5-second lock timeout
+    python manage.py partman_partition_data_time --batch-count 10 --lock-wait 5.0
+
+    # Dry run mode (rollback after testing)
+    python manage.py partman_partition_data_time --dry-run
 """
 
 import logging
@@ -26,13 +47,15 @@ from utils.db.postgresql import (
     partman_partition_data_time_query,
     rollback,
     to_fully_qualified_table_name,
+    to_monthly_partition_table_name,
     vacuum_analyze_query,
 )
 
 
 class Command(BaseCommand):
     help = """Using pg_partman to run the `partman.partition_data_time()`. It is
-    useful for backfilling missing partitions.
+    useful for backfilling missing partitions. Supports pg_partman 5.2.4+
+    features including targeting specific partition months and batch processing.
 
     More information available here: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#partition_data_time"""
 
@@ -170,10 +193,62 @@ class Command(BaseCommand):
             default="observations_observation",
         )
         parser.add_argument(
+            "-y",
+            "--year",
+            type=int,
+            help="Year of the partition to fix (e.g., 2024). If specified with --month, targets a specific partition.",
+            default=None,
+        )
+        parser.add_argument(
+            "-m",
+            "--month",
+            type=int,
+            help="Month of the partition to fix (1-12). Must be used with --year.",
+            default=None,
+        )
+        parser.add_argument(
+            "--batch-count",
+            type=int,
+            help="Number of times to run the batch in a single call. If not specified, runs until completion.",
+            default=None,
+        )
+        parser.add_argument(
+            "--batch-interval",
+            type=str,
+            help="Interval of time to process per batch (e.g., '1 week', '1 month'). If not specified, uses partition interval.",
+            default=None,
+        )
+        parser.add_argument(
+            "--lock-wait",
+            type=float,
+            help="Amount of time in seconds to wait for locks. If not specified, waits indefinitely.",
+            default=None,
+        )
+        parser.add_argument(
+            "-o",
+            "--order",
+            type=str,
+            choices=["ASC", "DESC"],
+            help="Order to process data: ASC or DESC (default: ASC)",
+            default="ASC",
+        )
+        parser.add_argument(
+            "--no-analyze",
+            action="store_true",
+            help="Skip ANALYZE after moving data",
+            default=False,
+        )
+        parser.add_argument(
+            "--no-jobmon",
+            action="store_true",
+            help="Disable jobmon logging",
+            default=False,
+        )
+        parser.add_argument(
             "--dry-run",
             action="store_true",
             default=False,
-            help="Run in dry-run mode (no changes made)",
+            help="Run in dry-run mode (rollback after completion, no changes made)",
         )
 
     def handle(self, *args, **options):
@@ -184,64 +259,105 @@ class Command(BaseCommand):
         logger.info(f"args: {args}")
         schema = options["schema"]
         table_name = options["table"]
+        year = options["year"]
+        month = options["month"]
+        batch_count = options["batch_count"]
+        batch_interval = options["batch_interval"]
+        lock_wait = options["lock_wait"]
+        order = options["order"]
+        analyze = not options["no_analyze"]
+        jobmon = not options["no_jobmon"]
         is_dry_run = options["dry_run"]
         fully_qualified_table = to_fully_qualified_table_name(schema=schema, table_name=table_name)
 
+        # Validate year/month combination
+        if (year is None) != (month is None):
+            self.stdout.write(self.style.ERROR("Both --year and --month must be specified together, or neither."))
+            return
+
+        if month is not None and not (1 <= month <= 12):
+            self.stdout.write(self.style.ERROR("Month must be between 1 and 12."))
+            return
+
         if not is_postgresql_extension_installed(psql_extension=PSQLExtension.PG_PARTMAN, logger=logger):
-            self.stdout.write(self.style.WARNING(f"pg_partman is not installed, skipping..."))
+            self.stdout.write(self.style.WARNING("pg_partman is not installed, skipping..."))
+            return
+
+        logger.info("pg_partman is properly installed.")
+
+        # Determine source table if year/month specified
+        source_table = None
+        if year is not None and month is not None:
+            source_table = to_monthly_partition_table_name(schema=schema, table_name=table_name, year=year, month=month)
+            logger.info(f"Targeting specific partition: {source_table}")
+            self.stdout.write(self.style.SUCCESS(f"Targeting partition: {source_table}"))
         else:
-            logger.info(f"pg_partman is properly installed.")
-            sql_query = partman_partition_data_time_query(schema=schema, table_name=table_name)
+            logger.info("Processing all data from default partition")
+            self.stdout.write(self.style.SUCCESS("Processing all data from default partition"))
 
-            try:
-                begin(logger=logger)
-                initial_metadata = self.collect_metadata_for_sanity_check(
-                    schema=schema,
-                    table_name=table_name,
-                    logger=logger,
+        # Build the query with all parameters
+        sql_query = partman_partition_data_time_query(
+            schema=schema,
+            table_name=table_name,
+            p_batch_count=batch_count,
+            p_batch_interval=batch_interval,
+            p_lock_wait=lock_wait,
+            p_order=order,
+            p_analyze=analyze,
+            p_jobmon=jobmon,
+            p_source_table=source_table,
+        )
+
+        try:
+            begin(logger=logger)
+            initial_metadata = self.collect_metadata_for_sanity_check(
+                schema=schema,
+                table_name=table_name,
+                logger=logger,
+            )
+
+            # Data partition
+            logger.info(f'Running partition_data_time() with: "{sql_query}" - It can be slow...')
+            execute_sql_query(query=sql_query, logger=logger, fetch_type=FetchType.NONE)
+
+            final_metadata = self.collect_metadata_for_sanity_check(
+                schema=schema,
+                table_name=table_name,
+                logger=logger,
+            )
+
+            self.run_sanity_checks(
+                initial_metadata=initial_metadata,
+                final_metadata=final_metadata,
+                logger=logger,
+            )
+
+            set_created_partitions = set(final_metadata["partition_table_names"]) - set(
+                initial_metadata["partition_table_names"]
+            )
+
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Successfully ran the data partition procedure, created {len(set_created_partitions)} new partitions on table {fully_qualified_table}: {set_created_partitions}"
                 )
+            )
 
-                # Data partition
-                logger.info(f'running the partition_data_time() function with: "{sql_query}" - It can be slow...')
-                execute_sql_query(query=sql_query, logger=logger, fetch_type=FetchType.NONE)
-
-                final_metadata = self.collect_metadata_for_sanity_check(
-                    schema=schema,
-                    table_name=table_name,
-                    logger=logger,
+            if is_dry_run:
+                number_partitions = len(set_created_partitions)
+                logger.info(
+                    f"Dry Run Mode: Rolling back the transaction. Undoing the {number_partitions} new partition(s) on the table '{fully_qualified_table}': {set_created_partitions}"
                 )
+                rollback(logger=logger)
+            else:
+                commit(logger=logger)
 
-                self.run_sanity_checks(
-                    initial_metadata=initial_metadata,
-                    final_metadata=final_metadata,
-                    logger=logger,
-                )
-
-                set_created_partitions = set(final_metadata["partition_table_names"]) - set(
-                    initial_metadata["partition_table_names"]
-                )
-
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"Successfully ran the data partition procedure, created {len(set_created_partitions)} new partitions on table {fully_qualified_table}: {set_created_partitions}"
-                    )
-                )
-
-                if is_dry_run:
-                    number_partitions = len(set_created_partitions)
-                    logger.info(
-                        f"Dry Run Mode: Rolling back the transaction. Undoing the {number_partitions} new partition(s) on the table '{fully_qualified_table}': {set_created_partitions}"
-                    )
-                    rollback(logger=logger)
-                else:
-
-                    commit(logger=logger)
-
-                    # Vacuuming
+                # Vacuuming (if analyze is enabled)
+                if analyze:
                     vacuum_analyze_sql_query = vacuum_analyze_query(schema=schema, table_name=table_name)
-                    logger.info(f'running the vacuuming with: "{vacuum_analyze_sql_query}"')
+                    logger.info(f'Running vacuuming with: "{vacuum_analyze_sql_query}"')
                     execute_sql_query(query=vacuum_analyze_sql_query, logger=logger, fetch_type=FetchType.NONE)
 
-            except Exception as e:
-                self.stdout.write(self.style.ERROR(f'Could not execute the following query: "{sql_query}". Error: {e}'))
-                rollback(logger=logger)
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f'Could not execute query: "{sql_query}". Error: {e}'))
+            logger.exception("Failed to execute partition_data_time")
+            rollback(logger=logger)
