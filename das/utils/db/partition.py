@@ -8,7 +8,11 @@ import pytz
 
 from django.db import ProgrammingError, connection
 
-from .postgresql import PSQLExtension, is_postgresql_extension_installed
+from .postgresql import (
+    PSQLExtension,
+    get_postgresql_extension_version,
+    is_postgresql_extension_installed,
+)
 
 
 class PARTITION_INTERVALS(Enum):
@@ -24,6 +28,7 @@ class PartitionTableToolProtocol(Protocol):
 class IndexData:
     name: str
     columns: List[str]
+    index_type: str = "btree"  # Support btree, gist, gin, brin, etc.
 
 
 @dataclass
@@ -56,6 +61,7 @@ class TableData:
 
 class PartitionTableTool(PartitionTableToolProtocol):
     logger = logging.getLogger(__name__)
+    MINIMUM_PG_PARTMAN_VERSION = "5.2.4"
 
     def __init__(
         self,
@@ -353,6 +359,44 @@ class PartitionTableTool(PartitionTableToolProtocol):
             self.logger.warning("creating pg_partman extension")
             self._execute_sql_command("CREATE EXTENSION pg_partman SCHEMA partman;")
 
+        # Check pg_partman version
+        pg_partman_version = get_postgresql_extension_version(
+            psql_extension=PSQLExtension.PG_PARTMAN, logger=self.logger
+        )
+        if pg_partman_version:
+            if not self._is_version_sufficient(pg_partman_version, self.MINIMUM_PG_PARTMAN_VERSION):
+                self.logger.error(
+                    f"pg_partman version {pg_partman_version} is installed, but version "
+                    f"{self.MINIMUM_PG_PARTMAN_VERSION} or higher is required."
+                )
+                exit(1)
+            self.logger.warning(f"pg_partman version {pg_partman_version} detected.")
+        else:
+            self.logger.error("Could not determine pg_partman version.")
+            exit(1)
+
+    @staticmethod
+    def _is_version_sufficient(current_version: str, minimum_version: str) -> bool:
+        """
+        Compare version strings to check if current_version >= minimum_version.
+
+        Args:
+            current_version: The current version string (e.g., "5.2.4")
+            minimum_version: The minimum required version string (e.g., "5.2.4")
+
+        Returns:
+            bool: True if current_version >= minimum_version, False otherwise
+        """
+
+        def parse_version(version_str: str) -> tuple:
+            """Parse version string into tuple of integers for comparison."""
+            try:
+                return tuple(int(part) for part in version_str.split("."))
+            except (ValueError, AttributeError):
+                return (0, 0, 0)
+
+        return parse_version(current_version) >= parse_version(minimum_version)
+
     def _validate_table_partititon_state(self) -> None:
         sql = f"""SELECT COUNT(c.oid)
                 FROM pg_class AS c
@@ -415,7 +459,7 @@ class PartitionTableTool(PartitionTableToolProtocol):
             sql = f"""
             CREATE INDEX IF NOT EXISTS {index_data.name}
             ON {table_name}
-            USING btree
+            USING {index_data.index_type}
             ({', '.join(index_data.columns)});
             """
 

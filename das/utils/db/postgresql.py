@@ -52,10 +52,13 @@ class PSQLExtension(Enum):
 
     Values:
         PG_PARTMAN: pg_partman (partition management)
+        BTREE_GIST: btree_gist (GiST index support for btree-equivalent data types)
     """
 
     # Partition Management
     PG_PARTMAN = "pg_partman"
+    # GiST index support for btree-equivalent data types (required for GIST indexes on timestamp columns)
+    BTREE_GIST = "btree_gist"
 
 
 def dictfetchall(cursor) -> List[Dict[str, Any]]:
@@ -156,6 +159,31 @@ def is_postgresql_extension_installed(psql_extension: PSQLExtension, logger: Log
         return False
 
 
+def get_postgresql_extension_version(psql_extension: PSQLExtension, logger: Logger) -> str:
+    """
+    Get the version of a postgresql extension.
+
+    Args:
+        psql_extension (PSQLExtension): Name of the PSQLExtension.
+        logger (logging.Logger): logger to use to write potential execution
+        errors.
+
+    Output:
+        str: The version string of the extension, or None if not found.
+    """
+    sql_query = f"SELECT extversion FROM pg_extension WHERE extname = '{psql_extension.value}';"
+    try:
+        sql_result = execute_sql_query(
+            query=sql_query,
+            logger=logger,
+            fetch_type=FetchType.ONE,
+        )
+        return sql_result[0] if sql_result else None
+    except:
+        logger.exception(f"cannot execute sql query: {sql_query}")
+        return None
+
+
 def to_fully_qualified_table_name(schema: str, table_name: str) -> str:
     """
     Given the psql `schema` and a `table_name`, it returns a fully qualified
@@ -199,6 +227,37 @@ def to_partition_start_time_string(year: int, month: int, day: int = 1) -> str:
     assert 1 <= day <= 31, "day should be in a valid range 1..31"
 
     return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+def to_monthly_partition_table_name(schema: str, table_name: str, year: int, month: int) -> str:
+    """
+    Construct the partition table name for a monthly partitioned table.
+
+    For pg_partman monthly partitions, the naming convention is:
+    {schema}.{table_name}_p{year}_{month:02d}
+
+    Args:
+        schema (str): psql schema where the table is stored. `public` is the
+        default one in psql.
+        table_name (str): name of the parent partitioned table.
+        year (int): year of the partition (2000-3000)
+        month (int): month of the partition (1-12)
+
+    Returns:
+        str: Fully qualified partition table name
+
+    Raises:
+        AssertionError: if the year or month parameters are not valid.
+
+    Example:
+        >>> to_monthly_partition_table_name("public", "observations_observation", 2024, 9)
+        'public.observations_observation_p2024_09'
+    """
+    assert 2000 <= year <= 3000, "year should be in a valid range 2000..3000"
+    assert 1 <= month <= 12, "month should be in a valid range 1..12"
+
+    partition_suffix = f"_p{year:04d}_{month:02d}"
+    return to_fully_qualified_table_name(schema=schema, table_name=f"{table_name}{partition_suffix}")
 
 
 def partman_create_monthly_partition_time_query(schema: str, table_name: str, year: int, month: int) -> str:
@@ -289,7 +348,14 @@ def partman_partition_maintenance_proc_query() -> str:
     return f"CALL partman.run_maintenance_proc();"
 
 
-def partman_partition_data_proc_query(schema: str, table_name: str) -> str:
+def partman_partition_data_proc_query(
+    schema: str,
+    table_name: str,
+    p_wait: int = 0,
+    p_order: str = "ASC",
+    p_analyze: bool = True,
+    p_source_table: str = None,
+) -> str:
     """
     Create the SQL query string for running the partman partition data procedure.
     More information here: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#partition_data_proc
@@ -298,17 +364,40 @@ def partman_partition_data_proc_query(schema: str, table_name: str) -> str:
         schema (str): psql schema where the table is stored. `public` is the
         default one in psql.
         table_name (str): name of the psql table.
+        p_wait (int): Time in seconds to wait between commits. Default 0.
+        p_order (str): Order to process data. 'ASC' or 'DESC'. Default 'ASC'.
+        p_analyze (bool): Run ANALYZE after moving data. Default True.
+        p_source_table (str): Specific child partition table to migrate from.
+        If None, migrates all data from parent default partition.
 
     Note: This does not check for SQL injection. Make sure to know what you are
     doing with `schema` and `table_name`.
     """
     fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
-    return f"CALL partman.partition_data_proc('{fully_qualified_table_name}');"
+
+    # Build the parameter list
+    params = [f"'{fully_qualified_table_name}'"]
+    params.append(f"p_wait := {p_wait}")
+    params.append(f"p_order := '{p_order}'")
+    params.append(f"p_analyze := {str(p_analyze).upper()}")
+
+    if p_source_table:
+        params.append(f"p_source_table := '{p_source_table}'")
+
+    params_str = ", ".join(params)
+    return f"CALL partman.partition_data_proc({params_str});"
 
 
 def partman_partition_data_time_query(
     schema: str,
     table_name: str,
+    p_batch_count: int = None,
+    p_batch_interval: str = None,
+    p_lock_wait: float = None,
+    p_order: str = "ASC",
+    p_analyze: bool = True,
+    p_jobmon: bool = True,
+    p_source_table: str = None,
 ) -> str:
     """
     Create the SQL query string for running partman partition_data_time.
@@ -318,12 +407,44 @@ def partman_partition_data_time_query(
         schema (str): psql schema where the table is stored. `public` is the
         default one in psql.
         table_name (str): name of the psql table.
+        p_batch_count (int): Number of times to run the batch in a single call.
+        If None, runs until completion.
+        p_batch_interval (str): Interval of time to process per batch (e.g., '1 week').
+        If None, uses control column's partition interval.
+        p_lock_wait (float): Amount of time in seconds to wait for locks.
+        If None, waits indefinitely.
+        p_order (str): Order to process data. 'ASC' or 'DESC'. Default 'ASC'.
+        p_analyze (bool): Run ANALYZE after moving data. Default True.
+        p_jobmon (bool): Use jobmon for logging. Default True.
+        p_source_table (str): Specific child partition table to migrate from.
+        If None, migrates all data from parent default partition.
 
     Note: This does not check for SQL injection. Make sure to know what you are
     doing with `schema` and `table_name`.
     """
     fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
-    return f"SELECT partman.partition_data_time('{fully_qualified_table_name}');"
+
+    # Build the parameter list
+    params = [f"'{fully_qualified_table_name}'"]
+
+    if p_batch_count is not None:
+        params.append(f"p_batch_count := {p_batch_count}")
+
+    if p_batch_interval is not None:
+        params.append(f"p_batch_interval := '{p_batch_interval}'")
+
+    if p_lock_wait is not None:
+        params.append(f"p_lock_wait := {p_lock_wait}")
+
+    params.append(f"p_order := '{p_order}'")
+    params.append(f"p_analyze := {str(p_analyze).upper()}")
+    params.append(f"p_jobmon := {str(p_jobmon).upper()}")
+
+    if p_source_table:
+        params.append(f"p_source_table := '{p_source_table}'")
+
+    params_str = ", ".join(params)
+    return f"SELECT partman.partition_data_time({params_str});"
 
 
 def partman_get_config_query(schema: str, table_name: str) -> str:
