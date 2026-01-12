@@ -9,13 +9,12 @@ from accounts.serializers import UserDisplaySerializer
 from activity.models import EventDetails, EventType
 from activity.schemas.auto_generate import (
     generate_v2_schema_from_document,
-    should_auto_generate_v2,
+    should_auto_generate_schema,
 )
 from activity.serializers.helpers import get_update_type
 from revision.manager import ACTION_ADDED, ACTION_UPDATED
 from utils.schema_utils import (
     flatten_definition_items,
-    generate_event_type_schema_from_doc,
     get_all_fields_and_definitions,
     get_display_value_header_for_key,
     get_display_values_for_event_details,
@@ -25,7 +24,6 @@ from utils.schema_utils import (
     get_replacement_fields_in_schema,
     get_schema_renderer_method,
     get_table_choices,
-    should_auto_generate,
 )
 
 logger = logging.getLogger(__name__)
@@ -77,29 +75,38 @@ class EventDetailsSerializer(ModelSerializer):
 
         return event_type
 
-    def _handle_v2_auto_generate(self, event_type, data):
+    def _handle_auto_generate(self, event_type, data):
         """
-        Handle auto-generation of V2 schema from event data.
+        Handle auto-generation of schema from event data.
 
         If the event type has the auto-generate marker in its schema,
         generate a new V2 schema based on the incoming event data and
-        update the event type.
+        update the event type. This works for both v1 and v2 event types.
+
+        For v1 event types, this also upgrades them to v2.
 
         Args:
             event_type: The EventType instance.
             data: The event data dictionary to generate schema from.
-        """
-        try:
-            schema = json.loads(event_type.schema) if event_type.schema else {}
-        except json.JSONDecodeError:
-            return
 
-        if not should_auto_generate_v2(schema):
-            return
+        Returns:
+            True if auto-generation was triggered, False otherwise.
+        """
+        if not should_auto_generate_schema(event_type.schema):
+            return False
 
         new_schema = generate_v2_schema_from_document(data)
-        EventType.objects.filter(id=event_type.id).update(schema=json.dumps(new_schema, indent=2))
+
+        update_fields = {"schema": json.dumps(new_schema, indent=2)}
+
+        # Upgrade v1 event types to v2
+        if event_type.version == EventType.VersionChoices.VERSION_1:
+            update_fields["version"] = EventType.VersionChoices.VERSION_2
+            logger.info(f"Upgrading EventType {event_type.value} from v1 to v2")
+
+        EventType.objects.filter(id=event_type.id).update(**update_fields)
         logger.info(f"Auto-generated V2 schema for EventType: {event_type.value}")
+        return True
 
     def get_schema_fields_possible_values(self, schema):
         replacement_fields = get_replacement_fields_in_schema(schema)
@@ -126,21 +133,20 @@ class EventDetailsSerializer(ModelSerializer):
             return data
 
         event_type = self.get_event_type(instance)
+
+        # Handle auto-generate for both v1 and v2 event types.
+        # If triggered, this generates a v2 schema and upgrades v1 event types to v2.
+        if self._handle_auto_generate(event_type, data):
+            # Auto-generation happened, event type is now v2
+            return data
+
+        # V2 schemas don't need the v1-style field processing below
         if event_type.version == EventType.VersionChoices.VERSION_2:
-            # Handle v2 auto-generate if the schema has the marker
-            self._handle_v2_auto_generate(event_type, data)
             return data
 
         schema = event_type.schema
         if not schema:
             return super().to_internal_value(data)
-
-        # Auto-generate a schema if appropriate.
-        if should_auto_generate(schema):
-            schema = generate_event_type_schema_from_doc(data)
-            # Downstream code is expecting a template (as a string).
-            schema = json.dumps(schema, indent=2)
-            EventType.objects.filter(id=event_type.id).update(schema=schema)
 
         all_schema_fields, all_schema_definitions, parameters = self.get_schema_fields_possible_values(schema)
         flattened_definitions = list(flatten_definition_items(all_schema_definitions))
