@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Tuple
 
 from psycopg2.extras import DateTimeTZRange
@@ -140,12 +140,18 @@ class BuoyService:
             subject.save()
 
         for device_data in devices:
-            device_location = models.Point(device_data["location"]["longitude"], device_data["location"]["latitude"])
-            recorded_at = device_data.get("recorded_at", datetime.now(timezone.utc))
-
             # Use device_id as Source.id and mfr_device_id as manufacturer_id
             device_id = str(device_data["device_id"])
             mfr_device_id = device_data.get("mfr_device_id")
+
+            device_location = models.Point(device_data["location"]["longitude"], device_data["location"]["latitude"])
+            if not device_data.get("recorded_at"):
+                logger.warning(
+                    f"recorded_at not provided for device {device_id}, mfr_device_id: {mfr_device_id}, using current time"
+                )
+                recorded_at = datetime.now(timezone.utc)
+            else:
+                recorded_at = device_data.get("recorded_at")
 
             # Get or create Source using the unique constraint fields (provider, manufacturer_id)
             # The unique constraint is on (das_tenant, provider, manufacturer_id), not on id.
@@ -189,7 +195,12 @@ class BuoyService:
                     logger.warning(
                         f"SubjectSource created for {subject.name} and {source.manufacturer_id} but device status is {device_data.get('device_status')}, the assigned_range lower bound will be the default min time"
                     )
-                assigned_range = DateTimeTZRange(lower=subject_source.assigned_range.lower, upper=recorded_at)
+                # Range queries are inclusive of the lower bound, exclusive of the upper bound, add a little padding to the upper bound
+                # so this observation is included in the subject source's assigned range
+                assigned_range_upper = (
+                    recorded_at + timedelta(seconds=1) if recorded_at != datetime.max else recorded_at
+                )
+                assigned_range = DateTimeTZRange(lower=subject_source.assigned_range.lower, upper=assigned_range_upper)
 
             subject_source.location = device_location
             subject_source.assigned_range = assigned_range
