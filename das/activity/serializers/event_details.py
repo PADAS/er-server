@@ -7,6 +7,10 @@ from rest_framework.serializers import ModelSerializer
 
 from accounts.serializers import UserDisplaySerializer
 from activity.models import EventDetails, EventType
+from activity.schemas.auto_generate import (
+    generate_v2_schema_from_document,
+    should_auto_generate_v2,
+)
 from activity.serializers.helpers import get_update_type
 from revision.manager import ACTION_ADDED, ACTION_UPDATED
 from utils.schema_utils import (
@@ -73,6 +77,30 @@ class EventDetailsSerializer(ModelSerializer):
 
         return event_type
 
+    def _handle_v2_auto_generate(self, event_type, data):
+        """
+        Handle auto-generation of V2 schema from event data.
+
+        If the event type has the auto-generate marker in its schema,
+        generate a new V2 schema based on the incoming event data and
+        update the event type.
+
+        Args:
+            event_type: The EventType instance.
+            data: The event data dictionary to generate schema from.
+        """
+        try:
+            schema = json.loads(event_type.schema) if event_type.schema else {}
+        except json.JSONDecodeError:
+            return
+
+        if not should_auto_generate_v2(schema):
+            return
+
+        new_schema = generate_v2_schema_from_document(data)
+        EventType.objects.filter(id=event_type.id).update(schema=json.dumps(new_schema, indent=2))
+        logger.info(f"Auto-generated V2 schema for EventType: {event_type.value}")
+
     def get_schema_fields_possible_values(self, schema):
         replacement_fields = get_replacement_fields_in_schema(schema)
 
@@ -99,6 +127,8 @@ class EventDetailsSerializer(ModelSerializer):
 
         event_type = self.get_event_type(instance)
         if event_type.version == EventType.VersionChoices.VERSION_2:
+            # Handle v2 auto-generate if the schema has the marker
+            self._handle_v2_auto_generate(event_type, data)
             return data
 
         schema = event_type.schema
