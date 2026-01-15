@@ -342,6 +342,7 @@ class TestGearCreateSerializer(BaseAPITest):
                     "last_updated": now,
                     "device_status": "deployed",
                     "location": {"latitude": 1.23, "longitude": 4.56},
+                    "recorded_at": now,
                 }
             ],
         }
