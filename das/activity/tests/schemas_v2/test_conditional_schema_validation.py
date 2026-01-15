@@ -58,7 +58,7 @@ class TestContainsCondition:
         schema = load_fixture(fixture_name)
         result = schema_field.to_internal_value(schema)
         assert result is not None
-        assert isinstance(result, str)
+        assert isinstance(result, dict)
 
 
 # =============================================================================
@@ -86,7 +86,7 @@ class TestHasInputCondition:
         schema = load_fixture(fixture_name)
         result = schema_field.to_internal_value(schema)
         assert result is not None
-        assert isinstance(result, str)
+        assert isinstance(result, dict)
 
 
 # =============================================================================
@@ -114,7 +114,7 @@ class TestDoesNotHaveInputCondition:
         schema = load_fixture(fixture_name)
         result = schema_field.to_internal_value(schema)
         assert result is not None
-        assert isinstance(result, str)
+        assert isinstance(result, dict)
 
 
 # =============================================================================
@@ -139,4 +139,4 @@ class TestInputIsExactlyCondition:
         schema = load_fixture(fixture_name)
         result = schema_field.to_internal_value(schema)
         assert result is not None
-        assert isinstance(result, str)
+        assert isinstance(result, dict)
