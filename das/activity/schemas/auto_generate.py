@@ -7,8 +7,11 @@ that has an auto-generate marker schema.
 """
 
 import json
+import logging
 import re
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 V2_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 
@@ -76,6 +79,7 @@ class V2SchemaAutoBuilder:
         field_type, format_hint = self._infer_type(value)
 
         if field_type is None:
+            logger.warning(f"Unsupported type for field {key}: {type(value)}")
             return self
 
         title = self._generate_title(key)
@@ -188,7 +192,7 @@ class V2SchemaAutoBuilder:
         Returns:
             A title-cased string (e.g., "Animal Count", "Species Name").
         """
-        return " ".join(key.split("_")).title()
+        return " ".join(key.strip().split("_")).title()
 
     def _build_json_field(self, field_type: str, title: str, format_hint: Optional[str] = None) -> dict:
         """
@@ -338,22 +342,6 @@ def generate_v2_schema_from_document(doc: dict[str, Any]) -> dict:
     return V2SchemaAutoBuilder.from_document(doc)
 
 
-def should_auto_generate_v2(schema: dict) -> bool:
-    """
-    Check if a V2 schema is marked for auto-generation.
-
-    Args:
-        schema: The V2 schema dict (with `json` and `ui` keys).
-
-    Returns:
-        True if the schema has the auto-generate marker.
-    """
-    if not isinstance(schema, dict):
-        return False
-
-    return schema.get("auto-generate", False)
-
-
 def should_auto_generate_schema(schema_string: str) -> bool:
     """
     Check if a schema (v1 or v2) is marked for auto-generation.
@@ -376,56 +364,3 @@ def should_auto_generate_schema(schema_string: str) -> bool:
         return False
 
     return schema_doc.get("auto-generate", False)
-
-
-def get_auto_generate_v2_marker_schema() -> dict:
-    """
-    Get the V2 auto-generate marker schema.
-
-    This schema serves as a placeholder that triggers auto-generation
-    when the first event is posted for an EventType.
-
-    Returns:
-        A V2 schema with the auto-generate marker.
-    """
-    return {
-        "auto-generate": True,
-        "description": "This schema is a placeholder, to be replaced automatically when new data is recorded.",
-        "json": {
-            "$schema": V2_DRAFT,
-            "properties": {
-                "placeholder": {
-                    "default": "This schema will be auto-generated when event data is recorded.",
-                    "deprecated": False,
-                    "title": "Placeholder",
-                    "type": "string",
-                }
-            },
-            "required": [],
-            "type": "object",
-            "unevaluatedProperties": False,
-        },
-        "ui": {
-            "fields": {
-                "placeholder": {
-                    "conditionalDependents": [],
-                    "inputType": "SHORT_TEXT",
-                    "parent": "section-1",
-                    "placeholder": "",
-                    "type": "TEXT",
-                }
-            },
-            "headers": {},
-            "order": ["section-1"],
-            "sections": {
-                "section-1": {
-                    "columns": 1,
-                    "conditions": [],
-                    "isActive": True,
-                    "label": "",
-                    "leftColumn": [{"name": "placeholder", "type": "field"}],
-                    "rightColumn": [],
-                }
-            },
-        },
-    }

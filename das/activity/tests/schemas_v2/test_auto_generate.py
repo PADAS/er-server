@@ -10,8 +10,7 @@ from activity.models import EventType
 from activity.schemas.auto_generate import (
     V2SchemaAutoBuilder,
     generate_v2_schema_from_document,
-    get_auto_generate_v2_marker_schema,
-    should_auto_generate_v2,
+    should_auto_generate_schema,
 )
 
 
@@ -251,57 +250,84 @@ class TestGenerateV2SchemaFromDocument:
         assert "name" in schema["json"]["properties"]
         assert "count" in schema["json"]["properties"]
 
+    def test_generated_schema_passes_service_validation(self):
+        """Generated schema should pass EventTypeSchemaService validation."""
+        from activity.schemas.eventtype_service import EventTypeSchemaService
 
-class TestShouldAutoGenerateV2:
-    """Tests for the should_auto_generate_v2 function."""
+        doc = {
+            "species": "Elephant",
+            "count": 10,
+            "is_healthy": True,
+            "observed_at": "2024-06-15T10:00:00Z",
+            "location": {"latitude": -2.5, "longitude": 37.2},
+        }
+        schema = generate_v2_schema_from_document(doc)
 
-    def test_returns_true_for_marker_schema(self):
-        """Should return True when auto-generate marker is present."""
-        schema = {"auto-generate": True, "json": {}, "ui": {}}
-        assert should_auto_generate_v2(schema) is True
+        service = EventTypeSchemaService()
+        _, errors = service.parse_schema(json.dumps(schema))
+
+        assert errors == [], f"Generated schema has validation errors: {errors}"
+
+
+class TestShouldAutoGenerateSchema:
+    """Tests for the unified should_auto_generate_schema function."""
+
+    def test_returns_true_for_v2_marker_schema(self):
+        """Should return True when auto-generate marker is present in V2 schema."""
+        schema = json.dumps({"auto-generate": True, "json": {}, "ui": {}})
+        assert should_auto_generate_schema(schema) is True
+
+    def test_returns_true_for_v1_marker_schema(self):
+        """Should return True when auto-generate marker is present in V1 schema."""
+        schema = json.dumps(
+            {
+                "auto-generate": True,
+                "schema": {"$schema": "http://json-schema.org/draft-04/schema#"},
+                "definition": [],
+            }
+        )
+        assert should_auto_generate_schema(schema) is True
 
     def test_returns_false_for_normal_schema(self):
         """Should return False for schemas without the marker."""
-        schema = {"json": {}, "ui": {}}
-        assert should_auto_generate_v2(schema) is False
+        schema = json.dumps({"json": {}, "ui": {}})
+        assert should_auto_generate_schema(schema) is False
 
-    def test_returns_false_for_non_dict(self):
-        """Should return False for non-dict inputs."""
-        assert should_auto_generate_v2(None) is False
-        assert should_auto_generate_v2("string") is False
-        assert should_auto_generate_v2([]) is False
+    def test_returns_false_for_empty_string(self):
+        """Should return False for empty string input."""
+        assert should_auto_generate_schema("") is False
+        assert should_auto_generate_schema(None) is False
+
+    def test_returns_false_for_invalid_json(self):
+        """Should return False for invalid JSON input."""
+        assert should_auto_generate_schema("not valid json") is False
 
     def test_returns_false_for_explicit_false_marker(self):
         """Should return False when auto-generate is explicitly False."""
-        schema = {"auto-generate": False, "json": {}, "ui": {}}
-        assert should_auto_generate_v2(schema) is False
+        schema = json.dumps({"auto-generate": False, "json": {}, "ui": {}})
+        assert should_auto_generate_schema(schema) is False
 
 
-class TestGetAutoGenerateV2MarkerSchema:
-    """Tests for the get_auto_generate_v2_marker_schema function."""
+class TestAutoGenerateV2MarkerSchema:
+    """Tests for the auto_generate_v2_marker_schema fixture."""
 
-    def test_marker_schema_has_auto_generate_flag(self):
+    def test_marker_schema_has_auto_generate_flag(self, auto_generate_v2_marker_schema):
         """Marker schema should have the auto-generate flag set to True."""
-        schema = get_auto_generate_v2_marker_schema()
-        assert schema["auto-generate"] is True
+        assert auto_generate_v2_marker_schema["auto-generate"] is True
 
-    def test_marker_schema_is_valid_v2_structure(self):
+    def test_marker_schema_is_valid_v2_structure(self, auto_generate_v2_marker_schema):
         """Marker schema should be a valid V2 schema structure."""
-        schema = get_auto_generate_v2_marker_schema()
+        assert "json" in auto_generate_v2_marker_schema
+        assert "ui" in auto_generate_v2_marker_schema
+        assert auto_generate_v2_marker_schema["json"]["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+        assert "properties" in auto_generate_v2_marker_schema["json"]
+        assert "fields" in auto_generate_v2_marker_schema["ui"]
+        assert "sections" in auto_generate_v2_marker_schema["ui"]
 
-        assert "json" in schema
-        assert "ui" in schema
-        assert schema["json"]["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-        assert "properties" in schema["json"]
-        assert "fields" in schema["ui"]
-        assert "sections" in schema["ui"]
-
-    def test_marker_schema_has_placeholder_field(self):
+    def test_marker_schema_has_placeholder_field(self, auto_generate_v2_marker_schema):
         """Marker schema should have a placeholder field."""
-        schema = get_auto_generate_v2_marker_schema()
-
-        assert "placeholder" in schema["json"]["properties"]
-        assert "placeholder" in schema["ui"]["fields"]
+        assert "placeholder" in auto_generate_v2_marker_schema["json"]["properties"]
+        assert "placeholder" in auto_generate_v2_marker_schema["ui"]["fields"]
 
 
 class TestComplexDocuments:
@@ -361,18 +387,17 @@ class TestComplexDocuments:
 class TestSerializerIntegration:
     """Integration tests for auto-generate with the EventDetailsSerializer."""
 
-    def test_v2_auto_generate_updates_event_type_schema(self, cat1_cat2_categories):
+    def test_v2_auto_generate_updates_event_type_schema(self, cat1_cat2_categories, auto_generate_v2_marker_schema):
         """Test that posting event data triggers V2 schema auto-generation."""
         from activity.serializers.event_details import EventDetailsSerializer
 
         cat1, _ = cat1_cat2_categories
-        marker_schema = get_auto_generate_v2_marker_schema()
         event_type = EventType.objects.create(
             value="test_auto_gen_v2",
             display="Test Auto Gen V2",
             category=cat1,
             version=EventType.VersionChoices.VERSION_2,
-            schema=json.dumps(marker_schema),
+            schema=json.dumps(auto_generate_v2_marker_schema),
         )
 
         event_data = {
