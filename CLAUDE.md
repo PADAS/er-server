@@ -63,3 +63,4 @@ Key considerations:
 For implementation work, use the specialized agents in `.claude/agents/`:
 - `backend-developer` - Django development, database operations, testing
 - `frontend-developer` - React development, Playwright E2E tests
+- `code-reviewer` - Code review for quality, security, performance, multi-tenancy

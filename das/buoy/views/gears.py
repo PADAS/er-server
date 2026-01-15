@@ -8,6 +8,7 @@ from drf_spectacular.utils import (
 )
 
 from django.db import transaction
+from django.db.utils import IntegrityError
 from django.urls import reverse
 from rest_framework import generics
 from rest_framework import serializers as drf_serializers
@@ -28,7 +29,11 @@ from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import SubjectSource
-from utils.drf import StandardObjectPermissions, StandardResultsSetPagination
+from utils.drf import (
+    StandardObjectPermissions,
+    StandardResultsSetPagination,
+    return_409_response,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -183,14 +188,18 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @transaction.atomic
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data
 
-        subject, observations = BuoyService.process_gearset(validated_data, user=request.user)
+        try:
+            with transaction.atomic():
+                subject, observations = BuoyService.process_gearset(validated_data, user=request.user)
+        except IntegrityError as integrity_error:
+            return return_409_response(message=str(integrity_error))
+
         return Response(
             {
                 "detail": "Gears successfully processed",

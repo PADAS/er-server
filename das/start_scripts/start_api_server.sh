@@ -62,14 +62,16 @@ fi
 # Override GUNICORN_CMD_ARGS at deployment if desired.
 # Keep in mind that the flags specified below, when running gunicorn, take
 # precedence.
-GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS:-"--workers 3 --threads 2 --worker-class gthread --max-requests 20000 --max-requests-jitter 500 --timeout 120 --graceful-timeout 40 --keep-alive 10"}
+# NOTE: Gunicorn 23 hard-caps request-line length at 8190 bytes when using a
+# positive value. Setting 0 disables the request-line length check in gunicorn,
+# so ensure nginx/ingress enforces the desired (e.g. 64KB) limit.
+GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS:-"--workers 3 --threads 2 --worker-class gthread --limit-request-line 0 --max-requests 20000 --max-requests-jitter 500 --timeout 120 --graceful-timeout 40 --keep-alive 10"}
 export GUNICORN_CMD_ARGS
 
 echo "Notice GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS}"
 
 uv run gunicorn das_server.wsgi --name das \
     --bind 0.0.0.0:8000 \
-    --limit-request-line 15000 \
     --worker-tmp-dir /dev/shm \
     -c das_server/gunicorn.conf.py \
     --log-level info \
