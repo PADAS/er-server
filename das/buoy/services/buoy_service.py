@@ -207,10 +207,14 @@ class BuoyService:
             subject_source.save()
 
         # If all SubjectSource for the Subject are hauled, set Subject is_active to False
-        # Optimize by pulling "assigned_range" directly and check is_expired in Python
-        now = datetime.now(timezone.utc)
+        # A SubjectSource is considered "hauled" if its assigned_range upper bound is not datetime.max
+        # (i.e., the range has been closed). We check this instead of 'now not in assigned_range'
+        # to avoid a race condition where 'now' might still be within the 1-second padding
+        # added to the upper bound for recent haul events.
+        max_upper = DEFAULT_ASSIGNED_RANGE[1]
         assigned_ranges = models.SubjectSource.objects.filter(subject=subject).values_list("assigned_range", flat=True)
-        all_hauled = all(now not in assigned_range for assigned_range in assigned_ranges)
+        # Only consider hauled if there are SubjectSources AND all have a closed upper bound
+        all_hauled = assigned_ranges.exists() and all(ar.upper != max_upper for ar in assigned_ranges)
         if all_hauled:
             subject.is_active = False
             subject.save()
