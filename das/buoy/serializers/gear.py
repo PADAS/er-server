@@ -53,6 +53,7 @@ class GearDeviceCreateSerializer(serializers.Serializer):
     )
     location = PointField(required=False)
     subject = SubjectRelatedField()
+    recorded_at = serializers.DateTimeField(required=False)
 
     def validate_last_deployed(self, value):
         if value:
