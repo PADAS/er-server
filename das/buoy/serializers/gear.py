@@ -74,6 +74,7 @@ class GearDeviceCreateSerializer(serializers.Serializer):
     device_pgn_data = serializers.JSONField(
         required=False,
     )
+    recorded_at = serializers.DateTimeField(required=False)
 
     def validate_last_deployed(self, value):
         if value:
