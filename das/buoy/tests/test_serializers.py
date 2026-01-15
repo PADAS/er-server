@@ -892,3 +892,175 @@ def test_process_gearset_updates_existing_subject_keeps_subjectgroup(superuser):
 
     # Verify the subject has the correct manufacturer in additional
     assert subject.additional.get("manufacturer") == "TestUpdateManufacturer"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_sets_is_active_false_when_all_hauled(superuser):
+    """Test that process_gearset sets subject.is_active=False when all devices are hauled.
+
+    This test verifies that when haul time is in the past (relative to deployment),
+    the is_active flag is correctly set to False.
+    """
+    from observations.models import DEFAULT_ASSIGNED_RANGE
+
+    # Create SubjectGroup and assign permission to superuser
+    subject_group = SubjectGroup.objects.create(name="TestHaulManufacturer")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    now = timezone.now()
+    deploy_time = now - timedelta(hours=1)  # Deployed 1 hour ago
+    haul_time = now - timedelta(minutes=5)  # Hauled 5 minutes ago
+    device_id = "333e4567-e89b-12d3-a456-426614174000"
+
+    # First, deploy the gearset (with recorded_at in the past)
+    deploy_data = {
+        "manufacturer_name": "TestHaulManufacturer",
+        "owner_id": "owner123",
+        "mfr_set_id": "TEST_HAUL_SET",
+        "deployment_type": "single",
+        "initial_deployment_date": deploy_time,
+        "devices": [
+            {
+                "device_id": device_id,
+                "mfr_device_id": "mfr_haul_test",
+                "last_deployed": deploy_time,
+                "last_updated": deploy_time,
+                "device_status": "deployed",
+                "location": {"latitude": 1.23, "longitude": 4.56},
+                "recorded_at": deploy_time,
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=deploy_data, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, _ = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Verify subject is active after deployment
+    subject.refresh_from_db()
+    assert subject.is_active is True
+
+    # Verify SubjectSource has upper bound at datetime.max (deployed)
+    subject_source = SubjectSource.objects.get(subject=subject)
+    assert subject_source.assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
+
+    # Now haul the gearset - haul_time is after deploy_time but before now
+    haul_data = {
+        "manufacturer_name": "TestHaulManufacturer",
+        "owner_id": "owner123",
+        "set_id": str(subject.id),
+        "mfr_set_id": "TEST_HAUL_SET",
+        "deployment_type": "single",
+        "devices": [
+            {
+                "device_id": device_id,
+                "mfr_device_id": "mfr_haul_test",
+                "last_deployed": deploy_time,
+                "last_updated": now,
+                "device_status": "hauled",
+                "location": {"latitude": 1.23, "longitude": 4.56},
+                "recorded_at": haul_time,
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=haul_data, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, _ = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Verify SubjectSource has upper bound set (not datetime.max)
+    subject_source.refresh_from_db()
+    assert subject_source.assigned_range.upper != DEFAULT_ASSIGNED_RANGE[1]
+    assert subject_source.assigned_range.upper < now  # Upper bound should be in the past
+
+    # This is the critical assertion - is_active should be False after all devices are hauled
+    subject.refresh_from_db()
+    assert subject.is_active is False, (
+        f"Subject is_active should be False after haul. "
+        f"assigned_range.upper={subject_source.assigned_range.upper}, now={now}"
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_is_active_false_with_recent_recorded_at(superuser):
+    """Test that process_gearset sets is_active=False even when recorded_at is very recent.
+
+    This test specifically tests the race condition where recorded_at is the current time,
+    causing the 1-second padding to make 'now in assigned_range' return True.
+    """
+    from observations.models import DEFAULT_ASSIGNED_RANGE
+
+    # Create SubjectGroup and assign permission to superuser
+    subject_group = SubjectGroup.objects.create(name="TestRecentHaulManufacturer")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    now = timezone.now()
+    device_id = "444e4567-e89b-12d3-a456-426614174000"
+
+    # First, deploy the gearset
+    deploy_data = {
+        "manufacturer_name": "TestRecentHaulManufacturer",
+        "owner_id": "owner123",
+        "mfr_set_id": "TEST_RECENT_HAUL_SET",
+        "deployment_type": "single",
+        "initial_deployment_date": now,
+        "devices": [
+            {
+                "device_id": device_id,
+                "mfr_device_id": "mfr_recent_haul_test",
+                "last_deployed": now,
+                "last_updated": now,
+                "device_status": "deployed",
+                "location": {"latitude": 1.23, "longitude": 4.56},
+                "recorded_at": now,
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=deploy_data, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, _ = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Now haul the gearset - use current time (this is the race condition scenario)
+    # The bug is that 'now not in assigned_range' will be False because now < upper (recorded_at + 1s)
+    haul_time = timezone.now()  # Very recent - this triggers the bug
+    haul_data = {
+        "manufacturer_name": "TestRecentHaulManufacturer",
+        "owner_id": "owner123",
+        "set_id": str(subject.id),
+        "mfr_set_id": "TEST_RECENT_HAUL_SET",
+        "deployment_type": "single",
+        "devices": [
+            {
+                "device_id": device_id,
+                "mfr_device_id": "mfr_recent_haul_test",
+                "last_deployed": now,
+                "last_updated": haul_time,
+                "device_status": "hauled",
+                "location": {"latitude": 1.23, "longitude": 4.56},
+                "recorded_at": haul_time,
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=haul_data, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, _ = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Verify SubjectSource has upper bound set (not datetime.max)
+    subject_source = SubjectSource.objects.get(subject=subject)
+    assert subject_source.assigned_range.upper != DEFAULT_ASSIGNED_RANGE[1]
+
+    # This assertion will FAIL with the current buggy code because 'now' might still
+    # be within the 1-second window of the upper bound
+    subject.refresh_from_db()
+    assert subject.is_active is False, (
+        f"Subject is_active should be False after haul even with recent recorded_at. "
+        f"assigned_range.upper={subject_source.assigned_range.upper}"
+    )
