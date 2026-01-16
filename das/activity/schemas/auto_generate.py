@@ -116,8 +116,12 @@ class V2SchemaAutoBuilder:
             A tuple of (field_type, format_hint). Returns (None, None) if
             the value type is not supported for auto-generation.
         """
+        # TODO: Add boolean field support when V2 schema spec includes boolean_field_schema.
+        # Currently, V2 schemas don't have a defined boolean field type. When the spec is
+        # updated, change this to return V2FieldType.BOOLEAN instead of (None, None).
+        # Note: bool check must come before int check since Python's bool is a subclass of int.
         if isinstance(value, bool):
-            return V2FieldType.BOOLEAN, None
+            return None, None
 
         if isinstance(value, (int, float)):
             return V2FieldType.NUMERIC, None
@@ -325,21 +329,6 @@ class V2SchemaAutoBuilder:
                 }
             },
         }
-
-
-def generate_v2_schema_from_document(doc: dict[str, Any]) -> dict:
-    """
-    Generate a V2 EventType schema from the given document.
-
-    This is the main entry point for auto-generating V2 schemas.
-
-    Args:
-        doc: A dictionary of event properties.
-
-    Returns:
-        A valid V2 EventType schema with `json` and `ui` sections.
-    """
-    return V2SchemaAutoBuilder.from_document(doc)
 
 
 def should_auto_generate_schema(schema_string: str) -> bool:
