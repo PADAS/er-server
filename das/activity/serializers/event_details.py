@@ -8,7 +8,7 @@ from rest_framework.serializers import ModelSerializer
 from accounts.serializers import UserDisplaySerializer
 from activity.models import EventDetails, EventType
 from activity.schemas.auto_generate import (
-    generate_v2_schema_from_document,
+    V2SchemaAutoBuilder,
     should_auto_generate_schema,
 )
 from activity.serializers.helpers import get_update_type
@@ -95,7 +95,7 @@ class EventDetailsSerializer(ModelSerializer):
         if not should_auto_generate_schema(event_type.schema):
             return False
 
-        new_schema = generate_v2_schema_from_document(data)
+        new_schema = V2SchemaAutoBuilder.from_document(data)
 
         update_fields = {"schema": json.dumps(new_schema, indent=2)}
 

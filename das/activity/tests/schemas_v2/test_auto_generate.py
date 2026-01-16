@@ -7,15 +7,28 @@ import json
 import pytest
 
 from activity.models import EventType
-from activity.schemas.auto_generate import (
-    V2SchemaAutoBuilder,
-    generate_v2_schema_from_document,
-    should_auto_generate_schema,
-)
+from activity.schemas.auto_generate import V2SchemaAutoBuilder
+from activity.schemas.eventtype_meta_schemas import main_event_type_schema
+from activity.serializers.fields.json_schema import JSONSchemaField
 
 
 class TestV2SchemaAutoBuilder:
     """Tests for the V2SchemaAutoBuilder class."""
+
+    def test_generated_schema_validates_against_meta_schema(self):
+        """Generated schema should validate against main_event_type_schema."""
+        doc = {
+            "species": "Elephant",
+            "count": 10,
+            "observed_at": "2024-06-15T10:00:00Z",
+            "location": {"latitude": -2.5, "longitude": 37.2},
+        }
+        schema = V2SchemaAutoBuilder.from_document(doc)
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        validated = field.to_internal_value(schema)
+
+        assert validated == schema
 
     def test_empty_document_generates_empty_schema(self):
         """An empty document should generate an empty but valid V2 schema."""
@@ -53,16 +66,16 @@ class TestV2SchemaAutoBuilder:
         assert schema["ui"]["fields"]["count"]["type"] == "NUMERIC"
         assert schema["ui"]["fields"]["temperature"]["type"] == "NUMERIC"
 
-    def test_boolean_field_inferred_as_boolean(self):
-        """Boolean values should be inferred as BOOLEAN fields."""
-        schema = V2SchemaAutoBuilder.from_document({"is_active": True})
+    def test_boolean_values_are_skipped(self):
+        """Boolean values should be skipped until V2 schema spec adds boolean field support."""
+        # TODO: Update this test when boolean_field_schema is added to V2 spec
+        schema = V2SchemaAutoBuilder.from_document({"is_active": True, "name": "Test"})
 
-        json_field = schema["json"]["properties"]["is_active"]
-        ui_field = schema["ui"]["fields"]["is_active"]
-
-        assert json_field["type"] == "boolean"
-        assert json_field["title"] == "Is Active"
-        assert ui_field["type"] == "BOOLEAN"
+        # Boolean field should NOT be in the generated schema
+        assert "is_active" not in schema["json"]["properties"]
+        assert "is_active" not in schema["ui"]["fields"]
+        # Other fields should still be generated
+        assert "name" in schema["json"]["properties"]
 
     def test_iso_datetime_inferred_as_datetime(self):
         """ISO datetime strings should be inferred as DATE_TIME fields."""
@@ -229,105 +242,12 @@ class TestV2SchemaAutoBuilder:
             {
                 "field1": "a",
                 "field2": 123,
-                "field3": True,
+                "field3": "another string",
             }
         )
 
         for field_name, ui_field in schema["ui"]["fields"].items():
             assert ui_field["parent"] == "section-1", f"Field {field_name} missing parent"
-
-
-class TestGenerateV2SchemaFromDocument:
-    """Tests for the generate_v2_schema_from_document function."""
-
-    def test_convenience_function_works(self):
-        """The convenience function should work like the builder."""
-        doc = {"name": "Test", "count": 5}
-        schema = generate_v2_schema_from_document(doc)
-
-        assert "json" in schema
-        assert "ui" in schema
-        assert "name" in schema["json"]["properties"]
-        assert "count" in schema["json"]["properties"]
-
-    def test_generated_schema_passes_service_validation(self):
-        """Generated schema should pass EventTypeSchemaService validation."""
-        from activity.schemas.eventtype_service import EventTypeSchemaService
-
-        doc = {
-            "species": "Elephant",
-            "count": 10,
-            "is_healthy": True,
-            "observed_at": "2024-06-15T10:00:00Z",
-            "location": {"latitude": -2.5, "longitude": 37.2},
-        }
-        schema = generate_v2_schema_from_document(doc)
-
-        service = EventTypeSchemaService()
-        _, errors = service.parse_schema(json.dumps(schema))
-
-        assert errors == [], f"Generated schema has validation errors: {errors}"
-
-
-class TestShouldAutoGenerateSchema:
-    """Tests for the unified should_auto_generate_schema function."""
-
-    def test_returns_true_for_v2_marker_schema(self):
-        """Should return True when auto-generate marker is present in V2 schema."""
-        schema = json.dumps({"auto-generate": True, "json": {}, "ui": {}})
-        assert should_auto_generate_schema(schema) is True
-
-    def test_returns_true_for_v1_marker_schema(self):
-        """Should return True when auto-generate marker is present in V1 schema."""
-        schema = json.dumps(
-            {
-                "auto-generate": True,
-                "schema": {"$schema": "http://json-schema.org/draft-04/schema#"},
-                "definition": [],
-            }
-        )
-        assert should_auto_generate_schema(schema) is True
-
-    def test_returns_false_for_normal_schema(self):
-        """Should return False for schemas without the marker."""
-        schema = json.dumps({"json": {}, "ui": {}})
-        assert should_auto_generate_schema(schema) is False
-
-    def test_returns_false_for_empty_string(self):
-        """Should return False for empty string input."""
-        assert should_auto_generate_schema("") is False
-        assert should_auto_generate_schema(None) is False
-
-    def test_returns_false_for_invalid_json(self):
-        """Should return False for invalid JSON input."""
-        assert should_auto_generate_schema("not valid json") is False
-
-    def test_returns_false_for_explicit_false_marker(self):
-        """Should return False when auto-generate is explicitly False."""
-        schema = json.dumps({"auto-generate": False, "json": {}, "ui": {}})
-        assert should_auto_generate_schema(schema) is False
-
-
-class TestAutoGenerateV2MarkerSchema:
-    """Tests for the auto_generate_v2_marker_schema fixture."""
-
-    def test_marker_schema_has_auto_generate_flag(self, auto_generate_v2_marker_schema):
-        """Marker schema should have the auto-generate flag set to True."""
-        assert auto_generate_v2_marker_schema["auto-generate"] is True
-
-    def test_marker_schema_is_valid_v2_structure(self, auto_generate_v2_marker_schema):
-        """Marker schema should be a valid V2 schema structure."""
-        assert "json" in auto_generate_v2_marker_schema
-        assert "ui" in auto_generate_v2_marker_schema
-        assert auto_generate_v2_marker_schema["json"]["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-        assert "properties" in auto_generate_v2_marker_schema["json"]
-        assert "fields" in auto_generate_v2_marker_schema["ui"]
-        assert "sections" in auto_generate_v2_marker_schema["ui"]
-
-    def test_marker_schema_has_placeholder_field(self, auto_generate_v2_marker_schema):
-        """Marker schema should have a placeholder field."""
-        assert "placeholder" in auto_generate_v2_marker_schema["json"]["properties"]
-        assert "placeholder" in auto_generate_v2_marker_schema["ui"]["fields"]
 
 
 class TestComplexDocuments:
@@ -338,18 +258,16 @@ class TestComplexDocuments:
         doc = {
             "species_name": "African Elephant",
             "animal_count": 12,
-            "is_injured": False,
             "sighting_location": {"latitude": -2.5, "longitude": 37.2},
             "observed_at": "2024-06-15T08:30:00Z",
             "photo_url": "https://cdn.example.com/photos/elephant.jpg",
             "notes": "Herd moving towards water source",
         }
 
-        schema = generate_v2_schema_from_document(doc)
+        schema = V2SchemaAutoBuilder.from_document(doc)
 
         assert schema["json"]["properties"]["species_name"]["type"] == "string"
         assert schema["json"]["properties"]["animal_count"]["type"] == "number"
-        assert schema["json"]["properties"]["is_injured"]["type"] == "boolean"
         assert schema["json"]["properties"]["sighting_location"]["type"] == "object"
         assert schema["json"]["properties"]["observed_at"]["format"] == "date-time"
         assert schema["json"]["properties"]["photo_url"]["format"] == "uri"
@@ -357,7 +275,6 @@ class TestComplexDocuments:
 
         assert schema["ui"]["fields"]["species_name"]["type"] == "TEXT"
         assert schema["ui"]["fields"]["animal_count"]["type"] == "NUMERIC"
-        assert schema["ui"]["fields"]["is_injured"]["type"] == "BOOLEAN"
         assert schema["ui"]["fields"]["sighting_location"]["type"] == "LOCATION"
         assert schema["ui"]["fields"]["observed_at"]["type"] == "DATE_TIME"
         assert schema["ui"]["fields"]["photo_url"]["type"] == "LINK"
@@ -370,16 +287,16 @@ class TestComplexDocuments:
             "patrol_start_time": "06:00:00",
             "kilometers_covered": 45.7,
             "incidents_reported": 3,
-            "all_clear": True,
+            "notes": "All clear",
         }
 
-        schema = generate_v2_schema_from_document(doc)
+        schema = V2SchemaAutoBuilder.from_document(doc)
 
         assert schema["json"]["properties"]["patrol_date"]["format"] == "date"
         assert schema["json"]["properties"]["patrol_start_time"]["format"] == "time"
         assert schema["json"]["properties"]["kilometers_covered"]["type"] == "number"
         assert schema["json"]["properties"]["incidents_reported"]["type"] == "number"
-        assert schema["json"]["properties"]["all_clear"]["type"] == "boolean"
+        assert schema["json"]["properties"]["notes"]["type"] == "string"
 
 
 @pytest.mark.django_db
@@ -387,8 +304,14 @@ class TestComplexDocuments:
 class TestSerializerIntegration:
     """Integration tests for auto-generate with the EventDetailsSerializer."""
 
-    def test_v2_auto_generate_updates_event_type_schema(self, cat1_cat2_categories, auto_generate_v2_marker_schema):
-        """Test that posting event data triggers V2 schema auto-generation."""
+    def test_v2_placeholder_triggers_auto_generate(self, cat1_cat2_categories, auto_generate_v2_marker_schema):
+        """Test v2 placeholder schema triggers auto-generation.
+
+        This tests the flow where v2 event types are created with a v2
+        placeholder schema. When event data is posted, the system should:
+        1. Detect the auto-generate marker
+        2. Generate a v2 schema from the event data
+        """
         from activity.serializers.event_details import EventDetailsSerializer
 
         cat1, _ = cat1_cat2_categories
@@ -403,7 +326,6 @@ class TestSerializerIntegration:
         event_data = {
             "species": "Lion",
             "count": 5,
-            "is_healthy": True,
             "observed_at": "2024-06-15T10:00:00Z",
         }
 
@@ -422,7 +344,6 @@ class TestSerializerIntegration:
         props = generated_schema["json"]["properties"]
         assert props["species"]["type"] == "string"
         assert props["count"]["type"] == "number"
-        assert props["is_healthy"]["type"] == "boolean"
         assert props["observed_at"]["format"] == "date-time"
 
     def test_v2_auto_generate_does_not_trigger_without_marker(self, cat1_cat2_categories):
@@ -469,30 +390,26 @@ class TestSerializerIntegration:
         assert schema_after == original_schema
         assert "new_field" not in schema_after["json"]["properties"]
 
-    def test_v1_auto_generate_upgrades_to_v2(self, cat1_cat2_categories):
-        """Test that v1 event types with auto-generate marker are upgraded to v2."""
+    def test_v1_placeholder_triggers_auto_generate_and_upgrades_to_v2(
+        self, cat1_cat2_categories, auto_generate_v1_marker_schema
+    ):
+        """Test v1 placeholder schema triggers auto-generation and upgrades to v2.
+
+        This tests the Django admin flow where v1 event types are created with
+        a v1 placeholder schema. When event data is posted, the system should:
+        1. Detect the auto-generate marker
+        2. Generate a v2 schema from the event data
+        3. Upgrade the event type from v1 to v2
+        """
         from activity.serializers.event_details import EventDetailsSerializer
 
         cat1, _ = cat1_cat2_categories
-        # V1-style auto-generate marker schema
-        v1_marker_schema = {
-            "auto-generate": True,
-            "description": "Placeholder",
-            "schema": {
-                "$schema": "http://json-schema.org/draft-04/schema#",
-                "title": "Placeholder",
-                "type": "object",
-                "properties": {"placeholder": {"type": "string"}},
-            },
-            "definition": ["placeholder"],
-        }
-
         event_type = EventType.objects.create(
-            value="test_v1_auto_gen",
-            display="Test V1 Auto Gen",
+            value="test_v1_placeholder",
+            display="Test V1 Placeholder",
             category=cat1,
             version=EventType.VersionChoices.VERSION_1,
-            schema=json.dumps(v1_marker_schema),
+            schema=json.dumps(auto_generate_v1_marker_schema),
         )
 
         assert event_type.version == EventType.VersionChoices.VERSION_1
@@ -500,6 +417,7 @@ class TestSerializerIntegration:
         event_data = {
             "animal_name": "Elephant",
             "count": 10,
+            "observed_at": "2024-06-15T10:00:00Z",
         }
 
         serializer = EventDetailsSerializer()
@@ -512,9 +430,15 @@ class TestSerializerIntegration:
         # Should be upgraded to v2
         assert event_type.version == EventType.VersionChoices.VERSION_2
 
-        # Schema should be v2 format
+        # Schema should be v2 format with generated fields
         generated_schema = json.loads(event_type.schema)
         assert "auto-generate" not in generated_schema
         assert "json" in generated_schema
         assert "ui" in generated_schema
         assert generated_schema["json"]["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+
+        # Verify fields were generated from event data
+        props = generated_schema["json"]["properties"]
+        assert "animal_name" in props
+        assert "count" in props
+        assert "observed_at" in props

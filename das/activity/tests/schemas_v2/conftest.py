@@ -14,6 +14,29 @@ def json_schema_fixture(request):
 
 
 @pytest.fixture
+def auto_generate_v1_marker_schema():
+    """V1 auto-generate marker schema for testing (as used in Django admin)."""
+    return {
+        "auto-generate": True,
+        "description": "This schema is a placeholder, to be replaced automatically when new data is recorded.",
+        "schema": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "title": "Placeholder schema",
+            "type": "object",
+            "readonly": True,
+            "properties": {
+                "placeholder": {
+                    "type": "string",
+                    "title": "Placeholder",
+                    "default": "This schema will be auto-generated when event data is recorded.",
+                }
+            },
+        },
+        "definition": ["placeholder"],
+    }
+
+
+@pytest.fixture
 def auto_generate_v2_marker_schema():
     """V2 auto-generate marker schema for testing."""
     return {
