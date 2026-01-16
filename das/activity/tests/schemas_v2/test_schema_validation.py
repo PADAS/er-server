@@ -157,7 +157,7 @@ class TestRootSchemaValidation:
     Tests for root-level schema structure and properties.
 
     These tests verify required root properties (json, ui) and their sub-properties,
-    plus optional root properties like readonly, icon_id, and image_url.
+    plus optional root properties like auto-generate, readonly, icon_id, and image_url.
     """
 
     def _build_schema(self, root_overrides=None):
@@ -236,6 +236,8 @@ class TestRootSchemaValidation:
     @pytest.mark.parametrize(
         "property_name, valid_value",
         [
+            ("auto-generate", True),
+            ("auto-generate", False),
             ("readonly", True),
             ("readonly", False),
             ("icon_id", "some-icon-uuid-or-id"),
@@ -254,6 +256,8 @@ class TestRootSchemaValidation:
     @pytest.mark.parametrize(
         "property_name, invalid_value, expected_error",
         [
+            ("auto-generate", "not-a-boolean", "is not of type 'boolean'"),
+            ("auto-generate", 123, "is not of type 'boolean'"),
             ("readonly", "not-a-boolean", "is not of type 'boolean'"),
             ("readonly", 123, "is not of type 'boolean'"),
             ("icon_id", 123, "is not of type 'string'"),
