@@ -126,7 +126,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Topic :: Internet",
-    "Programming Language :: Python :: 3.8"
+    "Programming Language :: Python :: 3.10"
 ]
 
 
