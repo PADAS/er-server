@@ -27,7 +27,7 @@ Error Handling and Validation
 Dependencies
 - Django 3.2
 - Django REST Framework (for API development)
-- python 3.8
+- python 3.10
 - pytest for unittesting
 - Celery (for background tasks)
 - Redis (for caching and task queues)
