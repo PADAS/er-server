@@ -39,7 +39,7 @@ Dependencies
 - pytest for unittesting
 - Celery (for background tasks)
 - Redis (for caching and task queues)
-- PostgreSQL 14
+- PostgreSQL 16
 - Docker and Kubernetes for deployment
 
 Django-Specific Guidelines
