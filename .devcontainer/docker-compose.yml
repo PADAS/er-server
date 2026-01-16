@@ -8,6 +8,7 @@ services:
       - POSTGRES_USER=das
       - POSTGRES_DB=das
       - POSTGRES_PASSWORD=das
+      - POSTGRES_MULTIPLE_EXTENSIONS=postgis,hstore,postgis_topology,postgis_raster,pgrouting,pg_partman
       - REPLICATION=true
       - REPLICATION_USER=replicator
       - REPLICATION_PASS=replicator
