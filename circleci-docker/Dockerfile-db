@@ -6,18 +6,18 @@ FROM docker.io/bitnami/postgresql:16.1.0-debian-11-r22
 USER root
 
 # Install build dependencies and pg_partman 5.2.4
+# Note: Use Bitnami's pg_config to install extension to correct location
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     ca-certificates \
     wget \
-    postgresql-server-dev-16 \
     && wget -O /tmp/pg_partman.tar.gz https://github.com/pgpartman/pg_partman/archive/refs/tags/v5.2.4.tar.gz \
     && tar -xzf /tmp/pg_partman.tar.gz -C /tmp \
     && cd /tmp/pg_partman-5.2.4 \
-    && make \
-    && make install \
-    && apt-get purge -y --auto-remove build-essential wget postgresql-server-dev-16 \
+    && make PG_CONFIG=/opt/bitnami/postgresql/bin/pg_config \
+    && make PG_CONFIG=/opt/bitnami/postgresql/bin/pg_config install \
     && rm -rf /var/lib/apt/lists/* /tmp/pg_partman* \
+    && apt-get purge -y --auto-remove build-essential wget \
     && apt-get clean
 
 USER 1001
