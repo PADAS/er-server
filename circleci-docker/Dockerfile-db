@@ -1,7 +1,9 @@
 # pg_dump -U postgres --format=plain --no-owner --no-acl -d earthranger --verbose > /tmp/db_backup.sql
 # kubectl cp postgresql-0:/tmp/db_backup.sql ./db-backup.sql -n <namespace>
 
-FROM docker.io/bitnami/postgresql:16.1.0-debian-11-r22
+# TODO: find new base image since bitnami has gone commercial
+FROM docker.io/bitnamilegacy/postgresql:16.5.0-debian-12-r0
+
 
 USER root
 
