@@ -1,0 +1,40 @@
+name: Build PostgreSQL Image
+on:
+  workflow_dispatch:
+    inputs:
+      tag_suffix:
+        description: 'Optional tag suffix (e.g., "1" results in YYYYMMDD-1). Defaults to run number.'
+        required: false
+        type: string
+  push:
+    branches:
+      - develop
+      - 'release-**'
+    paths:
+      - 'circleci-docker/Dockerfile-db'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Generate date tag
+        id: tag
+        run: |
+          DATE=$(date +%Y%m%d)
+          SUFFIX="${{ inputs.tag_suffix || github.run_number }}"
+          echo "tag=${DATE}-${SUFFIX}" >> $GITHUB_OUTPUT
+
+  build:
+    needs: generate-tag
+    uses: PADAS/gundi-workflows/.github/workflows/build_docker.yml@v2
+    with:
+      environment: padas-app
+      repository: europe-west3-docker.pkg.dev/padas-app/er-mt/postgresql
+      tag: ${{ needs.generate-tag.outputs.tag }}
+      dockerfile: circleci-docker/Dockerfile-db
