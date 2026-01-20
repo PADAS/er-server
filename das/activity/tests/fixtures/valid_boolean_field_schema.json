@@ -5,26 +5,40 @@
         "additionalProperties": false,
         "properties": {
             "testBool": {
-                "title": "Valid Boolean Field",
-                "type": "string",
-                "description": "A valid boolean field (as choice).",
+                "title": "Animal Requires Medicine",
+                "type": "boolean",
+                "description": "A valid native boolean field.",
                 "deprecated": false,
-                "anyOf": [
-                    {
-                        "$ref": "http://example.com/true"
-                    },
-                    {
-                        "$ref": "http://example.com/false"
-                    }
-                ]
+                "default": true
             }
         },
-        "required": ["testBool"]
+        "required": []
     },
     "ui": {
-        "fields": {},
+        "fields": {
+            "testBool": {
+                "conditionalDependents": [],
+                "parent": "section-1",
+                "type": "BOOLEAN"
+            }
+        },
         "headers": {},
-        "order": [],
-        "sections": {}
+        "order": [
+            "section-1"
+        ],
+        "sections": {
+            "section-1": {
+                "columns": 1,
+                "isActive": true,
+                "label": "",
+                "leftColumn": [
+                    {
+                        "name": "testBool",
+                        "type": "field"
+                    }
+                ],
+                "rightColumn": []
+            }
+        }
     }
 }
