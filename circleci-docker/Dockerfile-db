@@ -1,5 +1,5 @@
-# pg_dump -U postgres --format=plain --no-owner --no-acl -d earthranger --verbose > /tmp/db_backup.sql
-# kubectl cp postgresql-0:/tmp/db_backup.sql ./db-backup.sql -n <namespace>
+# pg_dump -U postgres --format=plain --no-owner --no-acl -d earthranger --verbose > /tmp/db-backup.sql
+# kubectl cp postgresql-0:/tmp/db-backup.sql ./db-backup.sql -n <namespace>
 #
 # To update the db backup in GCS:
 #   gsutil cp db-backup.sql gs://padas-app-db-backups/postgresql-init/db-backup.sql
