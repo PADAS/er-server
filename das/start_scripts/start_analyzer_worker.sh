@@ -6,4 +6,4 @@ wait_for $API_HOST $API_PORT
 
 WORKERS=2
 
-uv run celery --app das_server worker -Q analyzers,realtime_p1,realtime_p2,realtime_p3 -l info -c $WORKERS --without-gossip -n analyzers 2>&1
+uv run celery --app das_server worker -Q analyzers,realtime_p1,realtime_p2,realtime_p3 -l info -c $WORKERS --without-gossip -n analyzers@%h 2>&1
