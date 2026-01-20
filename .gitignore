@@ -3,7 +3,7 @@ GENERATED_MANIFEST
 /das/www
 www/static
 # Database backup files (downloaded from GCS during CI)
-db-backup.sql
+circleci-docker/db-backup.sql
 # Created by .ignore support plugin (hsz.mobi)
 ### Python template
 # Byte-compiled / optimized / DLL files
