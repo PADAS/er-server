@@ -340,18 +340,41 @@ def md5_over_column_query(
     ;"""
 
 
-def partman_partition_maintenance_proc_query() -> str:
+def partman_partition_maintenance_proc_query(
+    wait: int = 0,
+    analyze: bool = None,
+    jobmon: bool = True,
+    debug: bool = False,
+) -> str:
     """
-    Create the SQL query for running the partman partition maintenance
-    procedure.
+    Create the SQL query for running the partman partition maintenance procedure.
+
+    Args:
+        wait (int): Time in seconds to wait between partition set maintenance runs. Default 0.
+        analyze (bool): Whether to run ANALYZE after creating child tables. If None, uses
+            pg_partman default behavior. Default None.
+        jobmon (bool): Whether to use pg_jobmon for logging. Default True.
+        debug (bool): Whether to enable debug notices. Default False.
+
+    More information: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#run_maintenance_proc
     """
-    return f"CALL partman.run_maintenance_proc();"
+    # Build parameter string - p_analyze accepts NULL for default behavior
+    analyze_str = "NULL" if analyze is None else str(analyze).upper()
+
+    return (
+        f"CALL partman.run_maintenance_proc("
+        f"p_wait := {wait}, "
+        f"p_analyze := {analyze_str}, "
+        f"p_jobmon := {str(jobmon).upper()}, "
+        f"p_debug := {str(debug).upper()});"
+    )
 
 
 def partman_partition_data_proc_query(
     schema: str,
     table_name: str,
     p_wait: int = 0,
+    p_batch: int = None,
     p_order: str = "ASC",
     p_analyze: bool = True,
     p_source_table: str = None,
@@ -362,13 +385,14 @@ def partman_partition_data_proc_query(
 
     Args:
         schema (str): psql schema where the table is stored. `public` is the
-        default one in psql.
+            default one in psql.
         table_name (str): name of the psql table.
         p_wait (int): Time in seconds to wait between commits. Default 0.
+        p_batch (int): Limit the number of batches moved in a single call. Default None (no limit).
         p_order (str): Order to process data. 'ASC' or 'DESC'. Default 'ASC'.
         p_analyze (bool): Run ANALYZE after moving data. Default True.
         p_source_table (str): Specific child partition table to migrate from.
-        If None, migrates all data from parent default partition.
+            If None, migrates all data from parent default partition.
 
     Note: This does not check for SQL injection. Make sure to know what you are
     doing with `schema` and `table_name`.
@@ -378,6 +402,10 @@ def partman_partition_data_proc_query(
     # Build the parameter list
     params = [f"'{fully_qualified_table_name}'"]
     params.append(f"p_wait := {p_wait}")
+
+    if p_batch is not None:
+        params.append(f"p_batch := {p_batch}")
+
     params.append(f"p_order := '{p_order}'")
     params.append(f"p_analyze := {str(p_analyze).upper()}")
 
