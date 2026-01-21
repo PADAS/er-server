@@ -236,8 +236,8 @@ class PartitionTableTool(PartitionTableToolProtocol):
         migrate_sql = f"""
             CALL partman.partition_data_proc(
             'public.{self.original_table_name}',
-            p_wait:= 2,
-            p_batch := {self.migrate_batch_size}
+            p_loop_count := {self.migrate_batch_size},
+            p_wait := 2
             );
         """
 

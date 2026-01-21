@@ -373,11 +373,12 @@ def partman_partition_maintenance_proc_query(
 def partman_partition_data_proc_query(
     schema: str,
     table_name: str,
-    p_wait: int = 0,
-    p_batch: int = None,
+    p_loop_count: int = None,
+    p_interval: str = None,
+    p_lock_wait: int = 0,
+    p_wait: int = 1,
     p_order: str = "ASC",
-    p_analyze: bool = True,
-    p_source_table: str = None,
+    p_quiet: bool = False,
 ) -> str:
     """
     Create the SQL query string for running the partman partition data procedure.
@@ -387,12 +388,12 @@ def partman_partition_data_proc_query(
         schema (str): psql schema where the table is stored. `public` is the
             default one in psql.
         table_name (str): name of the psql table.
-        p_wait (int): Time in seconds to wait between commits. Default 0.
-        p_batch (int): Limit the number of batches moved in a single call. Default None (no limit).
+        p_loop_count (int): Number of times to loop through moving data. Default None (run until complete).
+        p_interval (str): Interval to use for batching data moves. Default None (uses partition interval).
+        p_lock_wait (int): Time in seconds to wait for locks. Default 0.
+        p_wait (int): Time in seconds to wait between partition set data moves. Default 1.
         p_order (str): Order to process data. 'ASC' or 'DESC'. Default 'ASC'.
-        p_analyze (bool): Run ANALYZE after moving data. Default True.
-        p_source_table (str): Specific child partition table to migrate from.
-            If None, migrates all data from parent default partition.
+        p_quiet (bool): Suppress notice messages. Default False.
 
     Note: This does not check for SQL injection. Make sure to know what you are
     doing with `schema` and `table_name`.
@@ -401,16 +402,17 @@ def partman_partition_data_proc_query(
 
     # Build the parameter list
     params = [f"'{fully_qualified_table_name}'"]
+
+    if p_loop_count is not None:
+        params.append(f"p_loop_count := {p_loop_count}")
+
+    if p_interval is not None:
+        params.append(f"p_interval := '{p_interval}'")
+
+    params.append(f"p_lock_wait := {p_lock_wait}")
     params.append(f"p_wait := {p_wait}")
-
-    if p_batch is not None:
-        params.append(f"p_batch := {p_batch}")
-
     params.append(f"p_order := '{p_order}'")
-    params.append(f"p_analyze := {str(p_analyze).upper()}")
-
-    if p_source_table:
-        params.append(f"p_source_table := '{p_source_table}'")
+    params.append(f"p_quiet := {str(p_quiet).upper()}")
 
     params_str = ", ".join(params)
     return f"CALL partman.partition_data_proc({params_str});"
