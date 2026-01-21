@@ -349,6 +349,6 @@ class Command(BaseCommand):
             try:
                 rollback(logger=logger)
                 self.stdout.write(self.style.WARNING("Rolled back transaction"))
-            except:
-                pass
+            except Exception as rollback_error:
+                logger.exception("Failed to rollback transaction after error fixing partition")
             raise
