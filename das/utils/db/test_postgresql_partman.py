@@ -37,7 +37,7 @@ def test_partman_partition_maintenance_proc_query_analyze(analyze, expected):
 def test_partman_partition_data_proc_query_default_args():
     assert (
         partman_partition_data_proc_query(schema="public", table_name="observations_observation")
-        == "CALL partman.partition_data_proc('public.observations_observation', p_wait := 2);"
+        == "CALL partman.partition_data_proc('public.observations_observation', p_wait := 0);"
     )
 
 
