@@ -16,7 +16,7 @@ from .postgresql import (
 
 
 class PARTITION_INTERVALS(Enum):
-    MONTHLY = "monthly"
+    MONTHLY = "1 month"
 
 
 class PartitionTableToolProtocol(Protocol):
