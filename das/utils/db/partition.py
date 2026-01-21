@@ -155,7 +155,6 @@ class PartitionTableTool(PartitionTableToolProtocol):
             SELECT partman.create_parent(
                p_parent_table := 'public.{self.partitioned_table_name}',
                p_control := '{self.partition_column}',
-               p_type := 'native',
                p_interval := '{self.partition_interval}',
                p_template_table := 'public.{self.template_table_name}',
                p_premake := 1
