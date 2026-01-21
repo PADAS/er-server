@@ -361,3 +361,4 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Could not execute query: "{sql_query}". Error: {e}'))
             logger.exception("Failed to execute partition_data_time")
             rollback(logger=logger)
+            raise
