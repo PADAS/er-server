@@ -37,14 +37,14 @@ def test_partman_partition_maintenance_proc_query_analyze(analyze, expected):
 def test_partman_partition_data_proc_query_default_args():
     assert (
         partman_partition_data_proc_query(schema="public", table_name="observations_observation")
-        == "CALL partman.partition_data_proc('public.observations_observation', p_wait := 0, p_order := 'ASC', p_analyze := TRUE);"
+        == "CALL partman.partition_data_proc('public.observations_observation', p_lock_wait := 0, p_wait := 1, p_order := 'ASC', p_quiet := FALSE);"
     )
 
 
-def test_partman_partition_data_proc_query_with_batch():
+def test_partman_partition_data_proc_query_with_loop_count():
     assert (
         partman_partition_data_proc_query(
-            schema="public", table_name="observations_observation", p_batch=10000, p_wait=1
+            schema="public", table_name="observations_observation", p_loop_count=10000, p_wait=2
         )
-        == "CALL partman.partition_data_proc('public.observations_observation', p_wait := 1, p_batch := 10000, p_order := 'ASC', p_analyze := TRUE);"
+        == "CALL partman.partition_data_proc('public.observations_observation', p_loop_count := 10000, p_lock_wait := 0, p_wait := 2, p_order := 'ASC', p_quiet := FALSE);"
     )
