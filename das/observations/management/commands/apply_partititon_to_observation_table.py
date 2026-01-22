@@ -53,12 +53,16 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Running in [{'rollback' if should_rollback else 'normal'}] mode."))
 
         indexes = [
-            IndexData(name="observations_observation_created_at_13a1d874", columns=["created_at"]),
-            IndexData(name="observations_observation_das_tenant_id_fa03ec57", columns=["das_tenant_id"]),
-            IndexData(name="observations_observation_location_id", columns=["location"], index_type="gist"),
-            IndexData(name="observations_observation_source_id_813afa19", columns=["source_id"]),
+            IndexData(name="observations_observation_created_at_13a1d874", columns=["das_tenant_id", "created_at"]),
+            # das_tenant_id index removed - covered by other composite indexes starting with das_tenant_id
             IndexData(
-                name="observations_recorded_at_location_gist", columns=["recorded_at", "location"], index_type="gist"
+                name="observations_observation_location_id", columns=["das_tenant_id", "location"], index_type="gist"
+            ),
+            # source_id index removed - covered by unique constraint (das_tenant_id, source_id, recorded_at)
+            IndexData(
+                name="observations_recorded_at_location_gist",
+                columns=["das_tenant_id", "recorded_at", "location"],
+                index_type="gist",
             ),
         ]
 
