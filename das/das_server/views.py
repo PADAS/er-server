@@ -11,7 +11,6 @@ from django.utils import timezone
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 
-from activity.alerts import has_alerts_permissionset, has_patrol_view_permission
 from core.utils import get_site_name
 
 # This import ensures we register user-login receivers.
@@ -67,14 +66,14 @@ class StatusView(generics.RetrieveAPIView):
         resp = {"version": __version__}  # request.version}
 
         tenant = get_tenant_settings()
-        resp["alerts_enabled"] = tenant.feature_flags.alerts_enabled and has_alerts_permissionset(self.request.user)
+        resp["alerts_enabled"] = tenant.feature_flags.alerts_enabled
         resp["daily_report_enabled"] = tenant.feature_flags.daily_report_enabled
         resp["eula_enabled"] = tenant.env_settings.accept_eula
         resp["export_kml_enabled"] = tenant.feature_flags.kml_export
-        resp["patrol_enabled"] = tenant.env_settings.patrol_enabled and has_patrol_view_permission(self.request.user)
+        resp["patrol_enabled"] = tenant.env_settings.patrol_enabled
         resp["show_stationary_subjects_on_map"] = tenant.env_settings.show_stationary_subjects_on_map
         resp["show_track_days"] = tenant.env_settings.show_track_days
-        resp["tableau_enabled"] = self.request.user.is_superuser and tenant.feature_flags.tableau_enabled
+        resp["tableau_enabled"] = tenant.feature_flags.tableau_enabled
         resp["track_length"] = tenant.env_settings.track_length
         resp["events_enabled"] = tenant.feature_flags.events_enabled
         resp["subjects_enabled"] = tenant.feature_flags.subjects_enabled
