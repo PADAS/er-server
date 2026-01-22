@@ -284,6 +284,17 @@ class PartitionTableTool(PartitionTableToolProtocol):
         for unique_constraint in self.table_data.unique_constraints if self.table_data.unique_constraints else []:
             self._create_unique_constraint(table_name=self.original_table_name, constraint_data=unique_constraint)
         self.logger.warning("Triggers restored")
+
+        # Create indexes on the partitioned table
+        for index in self.table_data.indexes if self.table_data.indexes else []:
+            self._create_index(table_name=self.original_table_name, index_data=index)
+        self.logger.warning("Indexes created")
+
+        # Create foreign keys on the partitioned table
+        for foreign_key in self.table_data.foreign_keys if self.table_data.foreign_keys else []:
+            self._create_foreign_key(table_name=self.original_table_name, foreign_key_data=foreign_key)
+        self.logger.warning("Foreign keys created")
+
         self._set_current_step(step=5)
 
     def _validate_data(self) -> None:
@@ -419,15 +430,6 @@ class PartitionTableTool(PartitionTableToolProtocol):
         """
         self._execute_sql_command(command=create_table_sql)
         self.logger.warning(f"Table: {target_table_name} created successfully.")
-
-        self._create_index(
-            table_name=target_table_name,
-            index_data=IndexData(
-                name=f"{target_table_name}_unique",
-                columns=["das_tenant_id", "source_id", "recorded_at"],
-            ),
-            is_unique=True,
-        )
 
         add_primary_key_sql = f"""
                 ALTER TABLE public.{target_table_name}
