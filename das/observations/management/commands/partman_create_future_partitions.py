@@ -155,6 +155,7 @@ class Command(BaseCommand):
 
     def calculate_partitions_to_create(
         self,
+        schema: str,
         table_name: str,
         number_partitions: int,
         offset: int,
@@ -166,10 +167,11 @@ class Command(BaseCommand):
         Calculate which partitions need to be created, skipping ones that already exist.
 
         Args:
+            schema: Name of the psql schema (e.g., "public").
             table_name: Name of the table (without schema).
             number_partitions: Total number of partitions requested.
             offset: Month offset from current month.
-            existing_partitions: Set of existing partition table names.
+            existing_partitions: Set of existing partition table names (fully qualified with schema).
             now: Current datetime.
             logger: Logger instance.
 
@@ -186,8 +188,9 @@ class Command(BaseCommand):
             year = partition_start_date.year
             month = partition_start_date.month
 
-            # pg_partman naming convention: {table_name}_p{year}_{month:02d}
-            partition_name = f"{table_name}_p{year:04d}_{month:02d}"
+            # pg_partman naming convention: {schema}.{table_name}_p{year}_{month:02d}
+            # Note: existing_partitions from partman.show_partitions() are fully qualified
+            partition_name = f"{schema}.{table_name}_p{year:04d}_{month:02d}"
 
             if partition_name in existing_partitions:
                 logger.info(f"Partition {partition_name} already exists, skipping")
@@ -228,6 +231,7 @@ class Command(BaseCommand):
 
                 # Calculate which partitions need to be created (skip existing ones)
                 partitions_to_create, skipped_partitions = self.calculate_partitions_to_create(
+                    schema=schema,
                     table_name=table_name,
                     number_partitions=number_partitions,
                     offset=offset,
