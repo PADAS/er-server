@@ -11,6 +11,7 @@ class GearsQueryParamsSerializer(serializers.Serializer):
     updated_since = serializers.CharField(required=False)
     state = serializers.ChoiceField(choices=["deployed", "hauled"], required=False, default="deployed")
     max_nm_range = serializers.IntegerField(required=False, default=NAUTICAL_MILE_RADIUS, min_value=1, max_value=1000)
+    include_empty_location = serializers.BooleanField(required=False, default=False)
     page = serializers.IntegerField(required=False)
     page_size = serializers.IntegerField(required=False)
 
