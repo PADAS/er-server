@@ -359,7 +359,8 @@ def partman_partition_maintenance_proc_query(
     More information: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#run_maintenance_proc
     """
     # Build parameter string - p_analyze accepts NULL for default behavior
-    analyze_str = "NULL" if analyze is None else str(analyze).upper()
+    # NULL must be explicitly cast to boolean for PostgreSQL to match the procedure signature
+    analyze_str = "NULL::boolean" if analyze is None else str(analyze).upper()
 
     return (
         f"CALL partman.run_maintenance_proc("
