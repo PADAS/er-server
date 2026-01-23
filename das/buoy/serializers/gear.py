@@ -19,7 +19,7 @@ from buoy.constants import (
     RELEASE_TYPE_CHOICES,
 )
 from observations import models
-from observations.models import EMPTY_POINT, SubjectSource
+from observations.models import SubjectSource
 
 logger = logging.getLogger(__name__)
 
@@ -460,7 +460,11 @@ class GearSerializer(serializers.ModelSerializer):
                     if latest_obs_source and latest_obs_source.observation:
                         observation = latest_obs_source.observation
                         # Check for EMPTY_POINT (0,0) which indicates no real location data
-                        if observation.location and observation.location != EMPTY_POINT:
+                        # Compare coordinates directly to avoid SRID mismatch issues
+                        is_empty_point = not observation.location or (
+                            observation.location.x == 0 and observation.location.y == 0
+                        )
+                        if not is_empty_point:
                             location = {"latitude": observation.location.y, "longitude": observation.location.x}
                             has_real_location = True
                         else:
