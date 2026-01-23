@@ -282,7 +282,6 @@ class Command(BaseCommand):
                 p_lock_wait=lock_wait,
                 p_order=order,
                 p_analyze=analyze,
-                p_jobmon=True,
                 p_source_table=staging_table,
             )
 
@@ -349,6 +348,6 @@ class Command(BaseCommand):
             try:
                 rollback(logger=logger)
                 self.stdout.write(self.style.WARNING("Rolled back transaction"))
-            except Exception as rollback_error:
+            except Exception:
                 logger.exception("Failed to rollback transaction after error fixing partition")
             raise
