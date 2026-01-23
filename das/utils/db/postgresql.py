@@ -343,32 +343,45 @@ def md5_over_column_query(
 def partman_partition_maintenance_proc_query(
     wait: int = 0,
     analyze: bool = None,
-    jobmon: bool = True,
-    debug: bool = False,
+    jobmon: bool = None,
+    debug: bool = None,
 ) -> str:
     """
     Create the SQL query for running the partman partition maintenance procedure.
+
+    Only parameters that differ from pg_partman defaults are included in the query
+    for maximum compatibility across pg_partman versions.
 
     Args:
         wait (int): Time in seconds to wait between partition set maintenance runs. Default 0.
         analyze (bool): Whether to run ANALYZE after creating child tables. If None, uses
             pg_partman default behavior. Default None.
-        jobmon (bool): Whether to use pg_jobmon for logging. Default True.
-        debug (bool): Whether to enable debug notices. Default False.
+        jobmon (bool): Whether to use pg_jobmon for logging. If None, uses pg_partman default (true).
+        debug (bool): Whether to enable debug notices. If None, uses pg_partman default (false).
 
     More information: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#run_maintenance_proc
     """
-    # Build parameter string - p_analyze accepts NULL for default behavior
-    # NULL must be explicitly cast to boolean for PostgreSQL to match the procedure signature
-    analyze_str = "NULL::boolean" if analyze is None else str(analyze).upper()
+    # Build parameter list dynamically - only include non-default parameters for version compatibility
+    params = []
 
-    return (
-        f"CALL partman.run_maintenance_proc("
-        f"p_wait := {wait}, "
-        f"p_analyze := {analyze_str}, "
-        f"p_jobmon := {str(jobmon).upper()}, "
-        f"p_debug := {str(debug).upper()});"
-    )
+    # p_wait: only include if non-zero
+    if wait != 0:
+        params.append(f"p_wait := {wait}")
+
+    # p_analyze: include if explicitly set (NULL is the pg_partman default)
+    if analyze is not None:
+        params.append(f"p_analyze := {str(analyze).upper()}")
+
+    # p_jobmon: only include if explicitly set to False (True is the pg_partman default)
+    if jobmon is not None and jobmon is False:
+        params.append(f"p_jobmon := FALSE")
+
+    # p_debug: only include if explicitly set to True (False is the pg_partman default)
+    if debug is not None and debug is True:
+        params.append(f"p_debug := TRUE")
+
+    params_str = ", ".join(params)
+    return f"CALL partman.run_maintenance_proc({params_str});"
 
 
 def partman_partition_data_proc_query(
