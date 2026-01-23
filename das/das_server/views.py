@@ -73,7 +73,7 @@ class StatusView(generics.RetrieveAPIView):
         resp["patrol_enabled"] = tenant.env_settings.patrol_enabled
         resp["show_stationary_subjects_on_map"] = tenant.env_settings.show_stationary_subjects_on_map
         resp["show_track_days"] = tenant.env_settings.show_track_days
-        resp["tableau_enabled"] = tenant.feature_flags.tableau_enabled
+        resp["tableau_enabled"] = self.request.user.is_superuser and tenant.feature_flags.tableau_enabled
         resp["track_length"] = tenant.env_settings.track_length
         resp["events_enabled"] = tenant.feature_flags.events_enabled
         resp["subjects_enabled"] = tenant.feature_flags.subjects_enabled
