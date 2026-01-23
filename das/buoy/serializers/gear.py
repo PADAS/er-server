@@ -20,6 +20,32 @@ STATUS_KEY = "status"
 GEAR_TYPE_TRAWL = "trawl"
 GEAR_TYPE_SINGLE = "single"
 SUBJECT_KEY = "subject"
+from observations.models import EMPTY_POINT, SubjectSource
+
+logger = logging.getLogger(__name__)
+
+
+class GeoLocationSerializer(serializers.Serializer):
+    latitude = serializers.FloatField(
+        required=False,
+        allow_null=True,
+    )
+    longitude = serializers.FloatField(
+        required=False,
+        allow_null=True,
+    )
+
+    def validate_latitude(self, value):
+        """Validate latitude is within valid range (if provided)."""
+        if value is not None and not -90 <= value <= 90:
+            raise serializers.ValidationError("Latitude must be between -90 and 90 degrees")
+        return value
+
+    def validate_longitude(self, value):
+        """Validate longitude is within valid range (if provided)."""
+        if value is not None and not -180 <= value <= 180:
+            raise serializers.ValidationError("Longitude must be between -180 and 180 degrees")
+        return value
 
 
 class GearDeviceCreateSerializer(serializers.Serializer):
@@ -44,7 +70,7 @@ class GearDeviceCreateSerializer(serializers.Serializer):
         choices=RELEASE_TYPE_CHOICES,
         required=False,
     )
-    location = GeoLocationSerializer(required=True)
+    location = GeoLocationSerializer(required=False, allow_null=True)
     device_additional_data = serializers.JSONField(
         required=False,
     )
@@ -406,6 +432,9 @@ class GearSerializer(serializers.ModelSerializer):
             devices = []
             now = datetime.now(timezone.utc)
 
+            # Check if we should include devices with empty locations
+            include_empty_location = self.context.get("include_empty_location", False)
+
             # Build base query for related subject sources
             related_subject_sources_query = (
                 models.SubjectSource.objects.filter(subject__id=subject.id)
@@ -430,11 +459,21 @@ class GearSerializer(serializers.ModelSerializer):
                     # Use prefetched LatestObservationSource data instead of making individual queries
                     # This prevents N+1 query problem when serializing multiple gears
                     latest_obs_source = subject_source.source.last_observation_sources.first()
+                    has_real_location = False
                     if latest_obs_source and latest_obs_source.observation:
                         observation = latest_obs_source.observation
-                        location = {"latitude": observation.location.y, "longitude": observation.location.x}
+                        # Check for EMPTY_POINT (0,0) which indicates no real location data
+                        if observation.location and observation.location != EMPTY_POINT:
+                            location = {"latitude": observation.location.y, "longitude": observation.location.x}
+                            has_real_location = True
+                        else:
+                            location = {"latitude": None, "longitude": None}
                     else:
                         location = {"latitude": None, "longitude": None}
+
+                    # Skip devices with empty location unless include_empty_location is True
+                    if not has_real_location and not include_empty_location:
+                        continue
 
                     # Get last_updated from Source's additional field, fallback to updated_at
                     source_additional = subject_source.source.additional or {}
@@ -461,7 +500,7 @@ class GearSerializer(serializers.ModelSerializer):
                     device = {
                         "device_id": device_id,
                         "mfr_device_id": mfr_device_id,
-                        "label": chr(97 + idx),  # 'a', 'b', 'c', etc.
+                        "label": chr(97 + len(devices)),  # 'a', 'b', 'c', etc. based on included devices
                         "location": location,
                         "last_updated": device_last_updated,
                         "last_deployed": last_deployed,
