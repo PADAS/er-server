@@ -10,7 +10,7 @@ the offset and the number of partitions to create manually. See --help.
 import logging
 from datetime import datetime
 from logging import Logger
-from typing import Any, Dict
+from typing import Any, Dict, List, Set, Tuple
 
 import pytz
 from dateutil.relativedelta import relativedelta
@@ -73,13 +73,19 @@ class Command(BaseCommand):
 
     def run_sanity_checks(
         self,
-        options,
+        expected_new_count: int,
         initial_metadata: Dict[str, Any],
         final_metadata: Dict[str, Any],
         logger: Logger,
     ) -> None:
         """
         Run some sanity checks and returns whether we can commit the transaction.
+
+        Args:
+            expected_new_count: The number of partitions we expected to create (excluding already existing ones).
+            initial_metadata: Metadata collected before partition creation.
+            final_metadata: Metadata collected after partition creation.
+            logger: Logger instance.
 
         Raises:
             AssertionError: when one sanity check does not pass.
@@ -91,13 +97,12 @@ class Command(BaseCommand):
         assert all(key in initial_metadata for key in required_keys), "Missing keys in initial_metadata"
         assert all(key in final_metadata for key in required_keys), "Missing keys in final_metadata"
 
-        # Checking that the number of new partitions match what the user wanted to create
-        number_partitions = options["number"]
+        # Checking that the number of new partitions match what we expected to create
         set_created_partitions = final_metadata["partitions"] - initial_metadata["partitions"]
 
-        assert number_partitions == len(
+        assert expected_new_count == len(
             set_created_partitions
-        ), "the number of created partitions does not match the number of partitions the user wants to create"
+        ), f"expected to create {expected_new_count} partitions but created {len(set_created_partitions)}"
 
         # Data integrity checks
         assert initial_metadata["counts"] <= final_metadata["counts"], "some rows were dropped"
@@ -148,6 +153,50 @@ class Command(BaseCommand):
 
         return result
 
+    def calculate_partitions_to_create(
+        self,
+        table_name: str,
+        number_partitions: int,
+        offset: int,
+        existing_partitions: Set[str],
+        now: datetime,
+        logger: Logger,
+    ) -> Tuple[List[Tuple[int, int]], List[str]]:
+        """
+        Calculate which partitions need to be created, skipping ones that already exist.
+
+        Args:
+            table_name: Name of the table (without schema).
+            number_partitions: Total number of partitions requested.
+            offset: Month offset from current month.
+            existing_partitions: Set of existing partition table names.
+            now: Current datetime.
+            logger: Logger instance.
+
+        Returns:
+            Tuple of (list of (year, month) tuples to create, list of skipped partition names)
+        """
+        partitions_to_create = []
+        skipped_partitions = []
+
+        for i in range(number_partitions):
+            partition_start_date = (now + relativedelta(months=1 + (i + offset))).replace(
+                day=1, hour=0, minute=0, second=0, microsecond=0
+            )
+            year = partition_start_date.year
+            month = partition_start_date.month
+
+            # pg_partman naming convention: {table_name}_p{year}_{month:02d}
+            partition_name = f"{table_name}_p{year:04d}_{month:02d}"
+
+            if partition_name in existing_partitions:
+                logger.info(f"Partition {partition_name} already exists, skipping")
+                skipped_partitions.append(partition_name)
+            else:
+                partitions_to_create.append((year, month))
+
+        return partitions_to_create, skipped_partitions
+
     def handle(self, *args, **options):
 
         logger = logging.getLogger(__name__)
@@ -163,7 +212,7 @@ class Command(BaseCommand):
         now = datetime.now(tz=pytz.utc)
 
         if not is_postgresql_extension_installed(psql_extension=PSQLExtension.PG_PARTMAN, logger=logger):
-            self.stdout.write(self.style.WARNING(f"pg_partman is not installed, skipping..."))
+            self.stdout.write(self.style.WARNING("pg_partman is not installed, skipping..."))
         else:
             try:
                 logger.info(
@@ -177,25 +226,39 @@ class Command(BaseCommand):
                 )
                 logger.info(f"Initial metadata: {initial_metadata}")
 
-                for i in range(number_partitions):
+                # Calculate which partitions need to be created (skip existing ones)
+                partitions_to_create, skipped_partitions = self.calculate_partitions_to_create(
+                    table_name=table_name,
+                    number_partitions=number_partitions,
+                    offset=offset,
+                    existing_partitions=initial_metadata.get("partitions", set()),
+                    now=now,
+                    logger=logger,
+                )
 
-                    # The partition start dates are based on the current time and
-                    # the offset in months.
-                    partition_start_date = (now + relativedelta(months=1 + (i + offset))).replace(
-                        day=1,
-                        hour=0,
-                        minute=0,
-                        second=0,
-                        microsecond=0,
+                if skipped_partitions:
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f"Skipping {len(skipped_partitions)} partitions that already exist: {skipped_partitions}"
+                        )
                     )
 
-                    logger.info(f"Partition start date: {partition_start_date}")
+                if not partitions_to_create:
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f"All {number_partitions} requested partitions already exist. Nothing to create."
+                        )
+                    )
+                    rollback(logger=logger)
+                    return
 
+                # Create only the partitions that don't exist
+                for year, month in partitions_to_create:
                     sql_query = partman_create_monthly_partition_time_query(
                         schema=schema,
                         table_name=table_name,
-                        year=partition_start_date.year,
-                        month=partition_start_date.month,
+                        year=year,
+                        month=month,
                     )
 
                     logger.info(f"SQL query to create the partition: {sql_query}")
@@ -212,21 +275,22 @@ class Command(BaseCommand):
                 )
 
                 self.run_sanity_checks(
-                    options=options,
+                    expected_new_count=len(partitions_to_create),
                     initial_metadata=initial_metadata,
                     final_metadata=final_metadata,
                     logger=logger,
                 )
 
+                created_partitions = final_metadata["partitions"] - initial_metadata["partitions"]
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f"Created {number_partitions} new partitions in {fully_qualified_table}: {final_metadata['partitions'] - initial_metadata['partitions']}"
+                        f"Created {len(created_partitions)} new partitions in {fully_qualified_table}: {created_partitions}"
                     )
                 )
 
                 if is_dry_run:
                     logger.info(
-                        f"Dry Run Mode: Rolling back the transaction. Undoing the {number_partitions} new partitions on the table {schema}.{table_name}"
+                        f"Dry Run Mode: Rolling back the transaction. Undoing the {len(partitions_to_create)} new partitions on the table {schema}.{table_name}"
                     )
                     rollback(logger=logger)
                 else:
