@@ -37,16 +37,10 @@ class Command(BaseCommand):
             help="Whether to ANALYZE after creating child tables (p_analyze). Use null to keep pg_partman default.",
         )
         parser.add_argument(
-            "--jobmon",
-            action="store_true",
-            default=True,
-            help="Enable pg_jobmon usage (p_jobmon).",
-        )
-        parser.add_argument(
             "--no-jobmon",
-            action="store_false",
-            dest="jobmon",
-            help="Disable pg_jobmon usage (p_jobmon).",
+            action="store_true",
+            default=False,
+            help="Disable pg_jobmon usage (p_jobmon). By default, pg_partman's default (enabled) is used.",
         )
         parser.add_argument(
             "--debug",
@@ -71,11 +65,15 @@ class Command(BaseCommand):
         elif analyze_str == "false":
             analyze = False
 
+        # Only pass jobmon/debug if explicitly specified to maximize version compatibility
+        jobmon = False if options["no_jobmon"] else None
+        debug = True if options["debug"] else None
+
         sql_query = partman_partition_maintenance_proc_query(
             wait=options["wait"],
             analyze=analyze,
-            jobmon=options["jobmon"],
-            debug=options["debug"],
+            jobmon=jobmon,
+            debug=debug,
         )
         logger.info(f'running pg_partman maintenance proc with: "{sql_query}"')
         execute_sql_query(query=sql_query, logger=logger, fetch_type=FetchType.NONE)
