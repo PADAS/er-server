@@ -9,7 +9,6 @@ This command supports pg_partman 5.2.4+ features including:
 - Controlling batch processing (--batch-count, --batch-interval)
 - Lock timeout configuration (--lock-wait)
 - Processing order control (--order ASC/DESC)
-- Jobmon integration (--no-jobmon to disable)
 - Skipping post-migration ANALYZE (--no-analyze)
 
 Some sanity checks are run before and after running the partman function to
@@ -239,12 +238,6 @@ class Command(BaseCommand):
             default=False,
         )
         parser.add_argument(
-            "--no-jobmon",
-            action="store_true",
-            help="Disable jobmon logging",
-            default=False,
-        )
-        parser.add_argument(
             "--dry-run",
             action="store_true",
             default=False,
@@ -266,7 +259,6 @@ class Command(BaseCommand):
         lock_wait = options["lock_wait"]
         order = options["order"]
         analyze = not options["no_analyze"]
-        jobmon = not options["no_jobmon"]
         is_dry_run = options["dry_run"]
         fully_qualified_table = to_fully_qualified_table_name(schema=schema, table_name=table_name)
 
@@ -304,7 +296,6 @@ class Command(BaseCommand):
             p_lock_wait=lock_wait,
             p_order=order,
             p_analyze=analyze,
-            p_jobmon=jobmon,
             p_source_table=source_table,
         )
 

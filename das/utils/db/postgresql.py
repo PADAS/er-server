@@ -438,28 +438,29 @@ def partman_partition_data_time_query(
     p_batch_count: int = None,
     p_batch_interval: str = None,
     p_lock_wait: float = None,
-    p_order: str = "ASC",
-    p_analyze: bool = True,
-    p_jobmon: bool = True,
+    p_order: str = None,
+    p_analyze: bool = None,
     p_source_table: str = None,
 ) -> str:
     """
     Create the SQL query string for running partman partition_data_time.
     More information here: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#partition_data_time
 
+    Only parameters that differ from pg_partman defaults are included in the query
+    for maximum compatibility across pg_partman versions.
+
     Args:
         schema (str): psql schema where the table is stored. `public` is the
         default one in psql.
         table_name (str): name of the psql table.
         p_batch_count (int): Number of times to run the batch in a single call.
-        If None, runs until completion.
+        Default is 1 in pg_partman.
         p_batch_interval (str): Interval of time to process per batch (e.g., '1 week').
         If None, uses control column's partition interval.
         p_lock_wait (float): Amount of time in seconds to wait for locks.
-        If None, waits indefinitely.
-        p_order (str): Order to process data. 'ASC' or 'DESC'. Default 'ASC'.
-        p_analyze (bool): Run ANALYZE after moving data. Default True.
-        p_jobmon (bool): Use jobmon for logging. Default True.
+        Default is 0 in pg_partman.
+        p_order (str): Order to process data. 'ASC' or 'DESC'. Default 'ASC' in pg_partman.
+        p_analyze (bool): Run ANALYZE after moving data. Default True in pg_partman.
         p_source_table (str): Specific child partition table to migrate from.
         If None, migrates all data from parent default partition.
 
@@ -468,24 +469,29 @@ def partman_partition_data_time_query(
     """
     fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
 
-    # Build the parameter list
-    params = [f"'{fully_qualified_table_name}'"]
+    # Build the parameter list - first param is required, cast to text for type safety
+    params = [f"'{fully_qualified_table_name}'::text"]
 
+    # Only include optional parameters that differ from pg_partman defaults
     if p_batch_count is not None:
         params.append(f"p_batch_count := {p_batch_count}")
 
     if p_batch_interval is not None:
-        params.append(f"p_batch_interval := '{p_batch_interval}'")
+        params.append(f"p_batch_interval := '{p_batch_interval}'::interval")
 
     if p_lock_wait is not None:
         params.append(f"p_lock_wait := {p_lock_wait}")
 
-    params.append(f"p_order := '{p_order}'")
-    params.append(f"p_analyze := {str(p_analyze).upper()}")
-    params.append(f"p_jobmon := {str(p_jobmon).upper()}")
+    # p_order: only include if not 'ASC' (the default)
+    if p_order is not None and p_order.upper() != "ASC":
+        params.append(f"p_order := '{p_order}'::text")
+
+    # p_analyze: only include if explicitly False (True is the default)
+    if p_analyze is not None and p_analyze is False:
+        params.append("p_analyze := FALSE")
 
     if p_source_table:
-        params.append(f"p_source_table := '{p_source_table}'")
+        params.append(f"p_source_table := '{p_source_table}'::text")
 
     params_str = ", ".join(params)
     return f"SELECT partman.partition_data_time({params_str});"
