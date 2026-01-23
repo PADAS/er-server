@@ -7,7 +7,7 @@ from psycopg2.extras import DateTimeTZRange
 
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE, DEVICE_STATUS_DEPLOYED
 from observations import models
-from observations.models import DEFAULT_ASSIGNED_RANGE
+from observations.models import DEFAULT_ASSIGNED_RANGE, EMPTY_POINT
 from utils.json import ExtendedJSONEncoder
 
 logger = logging.getLogger(__name__)
@@ -144,7 +144,18 @@ class BuoyService:
             device_id = str(device_data["device_id"])
             mfr_device_id = device_data.get("mfr_device_id")
 
-            device_location = models.Point(device_data["location"]["longitude"], device_data["location"]["latitude"])
+            # Handle null/missing location - Edgetech may send location object with null lat/lon
+            device_location_data = device_data.get("location")
+            if (
+                device_location_data
+                and device_location_data.get("longitude") is not None
+                and device_location_data.get("latitude") is not None
+            ):
+                device_location = models.Point(device_location_data["longitude"], device_location_data["latitude"])
+            else:
+                device_location = EMPTY_POINT
+                logger.info(f"Device {device_id} (mfr_device_id: {mfr_device_id}) has no location data")
+
             if not device_data.get("recorded_at"):
                 logger.warning(
                     f"recorded_at not provided for device {device_id}, mfr_device_id: {mfr_device_id}, using current time"
@@ -202,7 +213,12 @@ class BuoyService:
                 )
                 assigned_range = DateTimeTZRange(lower=subject_source.assigned_range.lower, upper=assigned_range_upper)
 
-            subject_source.location = device_location
+            # Only set SubjectSource.location if we have real location data (not EMPTY_POINT)
+            # SubjectSource.location allows null, so None is more semantically correct for "no location"
+            if device_location != EMPTY_POINT:
+                subject_source.location = device_location
+            else:
+                subject_source.location = None
             subject_source.assigned_range = assigned_range
             subject_source.save()
 
