@@ -155,6 +155,7 @@ class Command(BaseCommand):
                 query=md5_over_column_query(
                     schema=schema,
                     table_name=partition_tablename,
+                    order_by="id",
                     column_name="id",
                 ),
                 logger=logger,
