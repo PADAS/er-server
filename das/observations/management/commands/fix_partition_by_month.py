@@ -21,13 +21,14 @@ Examples:
     # Fix with custom batch processing
     python manage.py fix_partition_by_month -y 2024 -m 3 --batch-count 10
 
-    # Dry run to verify the process
+    # Preview what would happen without making changes
     python manage.py fix_partition_by_month -y 2024 -m 6 --dry-run
 """
 
 import logging
 
 from django.core.management import BaseCommand
+from django.core.management.base import CommandError
 
 from utils.db.postgresql import (
     FetchType,
@@ -112,7 +113,7 @@ class Command(BaseCommand):
             "--dry-run",
             action="store_true",
             default=False,
-            help="Run in dry-run mode (rollback after completion, no changes made)",
+            help="Preview what would happen without making any changes (read-only)",
         )
 
     def handle(self, *args, **options):
@@ -159,6 +160,190 @@ class Command(BaseCommand):
         staging_table_name = f"{table_name}_stage_{year:04d}_{month:02d}"
         staging_table = to_fully_qualified_table_name(schema=schema, table_name=staging_table_name)
 
+        # Dry-run mode: preview only, no changes made
+        if is_dry_run:
+            self._handle_dry_run(
+                logger=logger,
+                schema=schema,
+                table_name=table_name,
+                year=year,
+                month=month,
+                start_date=start_date,
+                end_date=end_date,
+                fully_qualified_table=fully_qualified_table,
+                default_table=default_table,
+                staging_table_name=staging_table_name,
+                staging_table=staging_table,
+                batch_count=batch_count,
+                batch_interval=batch_interval,
+                lock_wait=lock_wait,
+                order=order,
+                analyze=analyze,
+            )
+            return
+
+        # Normal execution mode
+        self._handle_execution(
+            logger=logger,
+            schema=schema,
+            table_name=table_name,
+            year=year,
+            month=month,
+            start_date=start_date,
+            end_date=end_date,
+            fully_qualified_table=fully_qualified_table,
+            default_table=default_table,
+            staging_table_name=staging_table_name,
+            staging_table=staging_table,
+            batch_count=batch_count,
+            batch_interval=batch_interval,
+            lock_wait=lock_wait,
+            order=order,
+            analyze=analyze,
+        )
+
+    def _handle_dry_run(
+        self,
+        logger,
+        schema: str,
+        table_name: str,
+        year: int,
+        month: int,
+        start_date: str,
+        end_date: str,
+        fully_qualified_table: str,
+        default_table: str,
+        staging_table_name: str,
+        staging_table: str,
+        batch_count: int | None,
+        batch_interval: str | None,
+        lock_wait: float | None,
+        order: str,
+        analyze: bool,
+    ):
+        """Preview what would happen without making any changes."""
+        self.stdout.write(self.style.WARNING("=" * 60))
+        self.stdout.write(self.style.WARNING("DRY RUN MODE - No changes will be made"))
+        self.stdout.write(self.style.WARNING("=" * 60))
+        self.stdout.write("")
+
+        self.stdout.write(self.style.SUCCESS(f"Target partition: {year:04d}-{month:02d}"))
+        self.stdout.write(f"  Date range: {start_date} to {end_date}")
+        self.stdout.write(f"  Parent table: {fully_qualified_table}")
+        self.stdout.write(f"  Default partition: {default_table}")
+        self.stdout.write(f"  Staging table (to be created): {staging_table}")
+        self.stdout.write("")
+
+        # Check if staging table already exists
+        check_staging_sql = f"""
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_schema = '{schema}'
+              AND table_name = '{staging_table_name}';
+        """
+        staging_exists = execute_sql_query(query=check_staging_sql, logger=logger, fetch_type=FetchType.ONE)
+
+        if staging_exists and staging_exists[0] > 0:
+            self.stdout.write(
+                self.style.ERROR(f"ERROR: Staging table {staging_table} already exists. Command would fail.")
+            )
+            return
+
+        self.stdout.write(self.style.SUCCESS("Staging table does not exist (OK)"))
+
+        # Check if target partition already exists
+        expected_partition_name = f"{table_name}_p{year:04d}_{month:02d}"
+        check_partition_sql = f"""
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_schema = '{schema}'
+              AND table_name = '{expected_partition_name}';
+        """
+        partition_exists = execute_sql_query(query=check_partition_sql, logger=logger, fetch_type=FetchType.ONE)
+
+        if partition_exists and partition_exists[0] > 0:
+            self.stdout.write(self.style.WARNING(f"Note: Target partition {expected_partition_name} already exists"))
+        else:
+            self.stdout.write(f"Target partition {expected_partition_name} will be created")
+
+        # Count rows in default partition for target month
+        count_default_sql = f"""
+            SELECT COUNT(*)
+            FROM ONLY {default_table}
+            WHERE recorded_at >= '{start_date}'::timestamptz
+              AND recorded_at <  '{end_date}'::timestamptz;
+        """
+        count_result = execute_sql_query(query=count_default_sql, logger=logger, fetch_type=FetchType.ONE)
+        rows_to_move = count_result[0] if count_result else 0
+
+        self.stdout.write("")
+        self.stdout.write(self.style.SUCCESS("Data Analysis:"))
+        self.stdout.write(f"  Rows in default partition for {year:04d}-{month:02d}: {rows_to_move:,}")
+
+        if rows_to_move == 0:
+            self.stdout.write("")
+            self.stdout.write(self.style.WARNING("No data found in default partition for this month."))
+            self.stdout.write(self.style.WARNING("Running this command would have no effect."))
+            return
+
+        # Show date range of affected data
+        date_range_sql = f"""
+            SELECT MIN(recorded_at), MAX(recorded_at)
+            FROM ONLY {default_table}
+            WHERE recorded_at >= '{start_date}'::timestamptz
+              AND recorded_at <  '{end_date}'::timestamptz;
+        """
+        date_range = execute_sql_query(query=date_range_sql, logger=logger, fetch_type=FetchType.ONE)
+        if date_range and date_range[0]:
+            self.stdout.write(f"  Earliest record: {date_range[0]}")
+            self.stdout.write(f"  Latest record: {date_range[1]}")
+
+        # Show planned operations
+        self.stdout.write("")
+        self.stdout.write(self.style.SUCCESS("Planned Operations:"))
+        self.stdout.write(f"  1. Create staging table: {staging_table}")
+        self.stdout.write(f"  2. Move ~{rows_to_move:,} rows from {default_table} to {staging_table}")
+        self.stdout.write(f"  3. Run partition_data_time() to create partition and move data from staging")
+        self.stdout.write(f"  4. Drop staging table: {staging_table}")
+        if analyze:
+            self.stdout.write(f"  5. Run VACUUM ANALYZE on {fully_qualified_table}")
+
+        # Show partition_data_time parameters
+        self.stdout.write("")
+        self.stdout.write(self.style.SUCCESS("partition_data_time() parameters:"))
+        self.stdout.write(f"  p_parent_table: {fully_qualified_table}")
+        self.stdout.write(f"  p_source_table: {staging_table}")
+        self.stdout.write(f"  p_batch_count: {batch_count or 'default'}")
+        self.stdout.write(f"  p_batch_interval: {batch_interval or 'default (partition interval)'}")
+        self.stdout.write(f"  p_lock_wait: {lock_wait or 'default (wait indefinitely)'}")
+        self.stdout.write(f"  p_order: {order}")
+        self.stdout.write(f"  p_analyze: {analyze}")
+
+        self.stdout.write("")
+        self.stdout.write(self.style.WARNING("=" * 60))
+        self.stdout.write(self.style.WARNING("To execute these changes, run without --dry-run"))
+        self.stdout.write(self.style.WARNING("=" * 60))
+
+    def _handle_execution(
+        self,
+        logger,
+        schema: str,
+        table_name: str,
+        year: int,
+        month: int,
+        start_date: str,
+        end_date: str,
+        fully_qualified_table: str,
+        default_table: str,
+        staging_table_name: str,
+        staging_table: str,
+        batch_count: int | None,
+        batch_interval: str | None,
+        lock_wait: float | None,
+        order: str,
+        analyze: bool,
+    ):
+        """Execute the partition fix operation."""
         self.stdout.write(
             self.style.SUCCESS(f"Fixing partition for {year:04d}-{month:02d} (data range: {start_date} to {end_date})")
         )
@@ -181,7 +366,7 @@ class Command(BaseCommand):
             if staging_exists and staging_exists[0] > 0:
                 self.stdout.write(self.style.WARNING(f"Staging table {staging_table} already exists. Exiting..."))
                 rollback(logger=logger)
-                exit(1)
+                raise CommandError(f"Staging table {staging_table} already exists.")
 
             # Create staging table
             self.stdout.write(self.style.SUCCESS(f"Creating staging table: {staging_table}"))
@@ -319,22 +504,17 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS("Staging table is empty - all data moved successfully"))
 
             # Step 4: Clean up staging table
-            if not is_dry_run:
-                self.stdout.write(self.style.SUCCESS(f"Dropping staging table: {staging_table}"))
-                drop_staging_sql = f"DROP TABLE {staging_table};"
-                execute_sql_query(query=drop_staging_sql, logger=logger, fetch_type=FetchType.NONE)
-                logger.info(f"Dropped staging table: {staging_table}")
+            self.stdout.write(self.style.SUCCESS(f"Dropping staging table: {staging_table}"))
+            drop_staging_sql = f"DROP TABLE {staging_table};"
+            execute_sql_query(query=drop_staging_sql, logger=logger, fetch_type=FetchType.NONE)
+            logger.info(f"Dropped staging table: {staging_table}")
 
-                # Vacuum analyze if enabled
-                if analyze:
-                    self.stdout.write(self.style.SUCCESS("Running VACUUM ANALYZE..."))
-                    vacuum_sql = vacuum_analyze_query(schema=schema, table_name=table_name)
-                    execute_sql_query(query=vacuum_sql, logger=logger, fetch_type=FetchType.NONE)
-                    logger.info("VACUUM ANALYZE completed")
-            else:
-                self.stdout.write(
-                    self.style.WARNING(f"Dry run mode: Keeping staging table {staging_table} for inspection")
-                )
+            # Vacuum analyze if enabled
+            if analyze:
+                self.stdout.write(self.style.SUCCESS("Running VACUUM ANALYZE..."))
+                vacuum_sql = vacuum_analyze_query(schema=schema, table_name=table_name)
+                execute_sql_query(query=vacuum_sql, logger=logger, fetch_type=FetchType.NONE)
+                logger.info("VACUUM ANALYZE completed")
 
             self.stdout.write(
                 self.style.SUCCESS(
