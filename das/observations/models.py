@@ -2600,7 +2600,9 @@ def transform_additional_data(additional, transform_format):
 
         try:
             value = reduce(getitem, keys, additional)
-        except KeyError:
+        except (KeyError, TypeError):
+            # KeyError: key doesn't exist in dict
+            # TypeError: intermediate value is not subscriptable (e.g., string or None)
             continue
 
         if value is not None and ds not in dests:
