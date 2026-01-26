@@ -2,9 +2,21 @@
 Management command to manually create partitions for the
 observations_observation table.
 
-By default, it creates the partitions for the next 3 months (not including the
-current one). It is possible to call the script with some parameters to change
-the offset and the number of partitions to create manually. See --help.
+There are two modes of operation:
+
+1. **Specific month mode** (--year and --month): Creates a partition for a specific
+   month. Use this when you need to create a partition for a known date, such as
+   fixing a missing partition or handling observations with future timestamps.
+
+   Example:
+       python manage.py partman_create_future_partitions --year 2024 --month 3
+
+2. **Offset mode** (default): Creates partitions for the next N months relative to
+   the current date. By default, it creates partitions for the next 3 months
+   (not including the current one).
+
+   Example:
+       python manage.py partman_create_future_partitions --number 3 --offset 0
 """
 
 import logging
@@ -54,16 +66,30 @@ class Command(BaseCommand):
             default="observations_observation",
         )
         parser.add_argument(
+            "-y",
+            "--year",
+            type=int,
+            help="Year of the partition to create (e.g., 2024). Use with --month for specific month mode.",
+            default=None,
+        )
+        parser.add_argument(
+            "-m",
+            "--month",
+            type=int,
+            help="Month of the partition to create (1-12). Use with --year for specific month mode.",
+            default=None,
+        )
+        parser.add_argument(
             "-n",
             "--number",
             type=int,
-            help="Number of partitions to create",
+            help="Number of partitions to create (offset mode only)",
             default=3,
         )
         parser.add_argument(
             "--offset",
             type=int,
-            help="month offset to start creating partitions (current_month + offset)",
+            help="Month offset to start creating partitions (offset mode only, current_month + offset)",
             default=0,
         )
         parser.add_argument(
@@ -157,6 +183,38 @@ class Command(BaseCommand):
 
         return result
 
+    def calculate_specific_partition(
+        self,
+        schema: str,
+        table_name: str,
+        year: int,
+        month: int,
+        existing_partitions: Set[str],
+        logger: Logger,
+    ) -> Tuple[List[Tuple[int, int]], List[str]]:
+        """
+        Check if a specific partition needs to be created.
+
+        Args:
+            schema: Name of the psql schema (e.g., "public").
+            table_name: Name of the table (without schema).
+            year: Year of the partition to create.
+            month: Month of the partition to create (1-12).
+            existing_partitions: Set of existing partition table names (fully qualified with schema).
+            logger: Logger instance.
+
+        Returns:
+            Tuple of (list of (year, month) tuples to create, list of skipped partition names)
+        """
+        # pg_partman naming convention: {schema}.{table_name}_p{year}_{month:02d}
+        partition_name = f"{schema}.{table_name}_p{year:04d}_{month:02d}"
+
+        if partition_name in existing_partitions:
+            logger.info(f"Partition {partition_name} already exists, skipping")
+            return [], [partition_name]
+        else:
+            return [(year, month)], []
+
     def calculate_partitions_to_create(
         self,
         schema: str,
@@ -213,18 +271,36 @@ class Command(BaseCommand):
         schema = options["schema"]
         table_name = options["table"]
         fully_qualified_table = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+        year = options["year"]
+        month = options["month"]
         number_partitions = options["number"]
         offset = options["offset"]
         is_dry_run = options["dry_run"]
         now = datetime.now(tz=pytz.utc)
 
+        # Validate year/month arguments
+        if (year is None) != (month is None):
+            self.stdout.write(self.style.ERROR("Both --year and --month must be specified together."))
+            return
+
+        if month is not None and not (1 <= month <= 12):
+            self.stdout.write(self.style.ERROR("Month must be between 1 and 12."))
+            return
+
+        # Determine mode: specific month or offset-based
+        is_specific_month_mode = year is not None and month is not None
+
         if not is_postgresql_extension_installed(psql_extension=PSQLExtension.PG_PARTMAN, logger=logger):
             self.stdout.write(self.style.WARNING("pg_partman is not installed, skipping..."))
         else:
             try:
-                logger.info(
-                    f"Attempt to create {number_partitions} new partitions on {fully_qualified_table} with an offset of {offset} month(s) from now."
-                )
+                if is_specific_month_mode:
+                    logger.info(f"Attempt to create partition for {year:04d}-{month:02d} on {fully_qualified_table}")
+                else:
+                    logger.info(
+                        f"Attempt to create {number_partitions} new partitions on {fully_qualified_table} with an offset of {offset} month(s) from now."
+                    )
+
                 begin(logger=logger)
                 initial_metadata = self.collect_metadata_for_sanity_check(
                     schema=schema,
@@ -233,16 +309,27 @@ class Command(BaseCommand):
                 )
                 logger.info(f"Initial metadata: {initial_metadata}")
 
-                # Calculate which partitions need to be created (skip existing ones)
-                partitions_to_create, skipped_partitions = self.calculate_partitions_to_create(
-                    schema=schema,
-                    table_name=table_name,
-                    number_partitions=number_partitions,
-                    offset=offset,
-                    existing_partitions=initial_metadata.get("partitions", set()),
-                    now=now,
-                    logger=logger,
-                )
+                if is_specific_month_mode:
+                    # Specific month mode: create partition for the given year/month
+                    partitions_to_create, skipped_partitions = self.calculate_specific_partition(
+                        schema=schema,
+                        table_name=table_name,
+                        year=year,
+                        month=month,
+                        existing_partitions=initial_metadata.get("partitions", set()),
+                        logger=logger,
+                    )
+                else:
+                    # Offset mode: calculate which partitions need to be created (skip existing ones)
+                    partitions_to_create, skipped_partitions = self.calculate_partitions_to_create(
+                        schema=schema,
+                        table_name=table_name,
+                        number_partitions=number_partitions,
+                        offset=offset,
+                        existing_partitions=initial_metadata.get("partitions", set()),
+                        now=now,
+                        logger=logger,
+                    )
 
                 if skipped_partitions:
                     self.stdout.write(
@@ -252,21 +339,28 @@ class Command(BaseCommand):
                     )
 
                 if not partitions_to_create:
-                    self.stdout.write(
-                        self.style.SUCCESS(
-                            f"All {number_partitions} requested partitions already exist. Nothing to create."
+                    if is_specific_month_mode:
+                        self.stdout.write(
+                            self.style.SUCCESS(
+                                f"Partition for {year:04d}-{month:02d} already exists. Nothing to create."
+                            )
                         )
-                    )
+                    else:
+                        self.stdout.write(
+                            self.style.SUCCESS(
+                                f"All {number_partitions} requested partitions already exist. Nothing to create."
+                            )
+                        )
                     rollback(logger=logger)
                     return
 
                 # Create only the partitions that don't exist
-                for year, month in partitions_to_create:
+                for part_year, part_month in partitions_to_create:
                     sql_query = partman_create_monthly_partition_time_query(
                         schema=schema,
                         table_name=table_name,
-                        year=year,
-                        month=month,
+                        year=part_year,
+                        month=part_month,
                     )
 
                     logger.info(f"SQL query to create the partition: {sql_query}")
