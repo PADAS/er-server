@@ -9,24 +9,24 @@ from utils.db.partition import (
     TableData,
     TriggerData,
 )
+from utils.db.postgresql import PSQLExtension, is_postgresql_extension_installed
 
 
 class PartitionObservationTable(PartitionTableTool):
+    def _pre_requirements_check(self) -> None:
+        # Call parent pre-requirements check for pg_partman and version
+        super()._pre_requirements_check()
+
+        # Ensure btree_gist extension is installed (required for GIST index on recorded_at)
+        if not is_postgresql_extension_installed(psql_extension=PSQLExtension.BTREE_GIST, logger=self.logger):
+            self.logger.warning("creating btree_gist extension")
+            self._execute_sql_command("CREATE EXTENSION IF NOT EXISTS btree_gist;")
+
     def _create_parent_table(self) -> None:
         sql = f"""
         CREATE TABLE IF NOT EXISTS {self.partitioned_table_name}
             (
-                id              uuid                     NOT NULL,
-                location        geometry(Point, 4326)    NOT NULL,
-                recorded_at     timestamp WITH TIME ZONE NOT NULL,
-                created_at      timestamp WITH TIME ZONE NOT NULL,
-                additional      jsonb,
-                source_id       uuid                     NOT NULL,
-                exclusion_flags bigint                   NOT NULL,
-                das_tenant_id   uuid                     NOT NULL
-                    CONSTRAINT observations_observa_das_tenant_id_fa03ec57_fk_core_dast
-                        REFERENCES core_dastenant
-                        DEFERRABLE INITIALLY DEFERRED
+                LIKE {self.original_table_name} INCLUDING DEFAULTS INCLUDING IDENTITY
             ) PARTITION BY RANGE ({self.partition_column});
             """
         self._execute_sql_command(command=sql)
@@ -53,11 +53,17 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Running in [{'rollback' if should_rollback else 'normal'}] mode."))
 
         indexes = [
-            IndexData(name="observations_observation_created_at_13a1d874", columns=["created_at"]),
-            IndexData(name="observations_observation_das_tenant_id_fa03ec57", columns=["das_tenant_id"]),
-            IndexData(name="observations_observation_location_id", columns=["location"]),
-            IndexData(name="observations_observation_source_id_813afa19", columns=["source_id"]),
-            IndexData(name="observations_recorded_at_location_gist", columns=["recorded_at", "location"]),
+            IndexData(name="observations_observation_created_at_13a1d874", columns=["das_tenant_id", "created_at"]),
+            # das_tenant_id index removed - covered by other composite indexes starting with das_tenant_id
+            IndexData(
+                name="observations_observation_location_id", columns=["das_tenant_id", "location"], index_type="gist"
+            ),
+            # source_id index removed - covered by unique constraint (das_tenant_id, source_id, recorded_at)
+            IndexData(
+                name="observations_recorded_at_location_gist",
+                columns=["das_tenant_id", "recorded_at", "location"],
+                index_type="gist",
+            ),
         ]
 
         unique_constraints = [
