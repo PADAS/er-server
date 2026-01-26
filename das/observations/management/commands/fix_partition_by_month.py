@@ -27,6 +27,8 @@ Examples:
 
 import logging
 
+from psycopg2 import sql as psycopg2_sql
+
 from django.core.management import BaseCommand
 from django.core.management.base import CommandError
 
@@ -39,6 +41,7 @@ from utils.db.postgresql import (
     is_postgresql_extension_installed,
     partman_partition_data_time_query,
     rollback,
+    safe_table_reference,
     to_fully_qualified_table_name,
     vacuum_analyze_query,
 )
@@ -235,13 +238,15 @@ class Command(BaseCommand):
         self.stdout.write("")
 
         # Check if staging table already exists
-        check_staging_sql = f"""
+        check_staging_sql = """
             SELECT COUNT(*)
             FROM information_schema.tables
-            WHERE table_schema = '{schema}'
-              AND table_name = '{staging_table_name}';
+            WHERE table_schema = %s
+              AND table_name = %s;
         """
-        staging_exists = execute_sql_query(query=check_staging_sql, logger=logger, fetch_type=FetchType.ONE)
+        staging_exists = execute_sql_query(
+            query=check_staging_sql, logger=logger, fetch_type=FetchType.ONE, params=(schema, staging_table_name)
+        )
 
         if staging_exists and staging_exists[0] > 0:
             self.stdout.write(
@@ -253,13 +258,15 @@ class Command(BaseCommand):
 
         # Check if target partition already exists
         expected_partition_name = f"{table_name}_p{year:04d}_{month:02d}"
-        check_partition_sql = f"""
+        check_partition_sql = """
             SELECT COUNT(*)
             FROM information_schema.tables
-            WHERE table_schema = '{schema}'
-              AND table_name = '{expected_partition_name}';
+            WHERE table_schema = %s
+              AND table_name = %s;
         """
-        partition_exists = execute_sql_query(query=check_partition_sql, logger=logger, fetch_type=FetchType.ONE)
+        partition_exists = execute_sql_query(
+            query=check_partition_sql, logger=logger, fetch_type=FetchType.ONE, params=(schema, expected_partition_name)
+        )
 
         if partition_exists and partition_exists[0] > 0:
             self.stdout.write(self.style.WARNING(f"Note: Target partition {expected_partition_name} already exists"))
@@ -267,13 +274,19 @@ class Command(BaseCommand):
             self.stdout.write(f"Target partition {expected_partition_name} will be created")
 
         # Count rows in default partition for target month
-        count_default_sql = f"""
+        # Use psycopg2.sql for safe identifier composition
+        default_table_ref = safe_table_reference(schema, f"{table_name}_default")
+        count_default_sql = psycopg2_sql.SQL(
+            """
             SELECT COUNT(*)
-            FROM ONLY {default_table}
-            WHERE recorded_at >= '{start_date}'::timestamptz
-              AND recorded_at <  '{end_date}'::timestamptz;
+            FROM ONLY {table}
+            WHERE recorded_at >= %s::timestamptz
+              AND recorded_at < %s::timestamptz;
         """
-        count_result = execute_sql_query(query=count_default_sql, logger=logger, fetch_type=FetchType.ONE)
+        ).format(table=default_table_ref)
+        count_result = execute_sql_query(
+            query=count_default_sql, logger=logger, fetch_type=FetchType.ONE, params=(start_date, end_date)
+        )
         rows_to_move = count_result[0] if count_result else 0
 
         self.stdout.write("")
@@ -287,13 +300,17 @@ class Command(BaseCommand):
             return
 
         # Show date range of affected data
-        date_range_sql = f"""
+        date_range_sql = psycopg2_sql.SQL(
+            """
             SELECT MIN(recorded_at), MAX(recorded_at)
-            FROM ONLY {default_table}
-            WHERE recorded_at >= '{start_date}'::timestamptz
-              AND recorded_at <  '{end_date}'::timestamptz;
+            FROM ONLY {table}
+            WHERE recorded_at >= %s::timestamptz
+              AND recorded_at < %s::timestamptz;
         """
-        date_range = execute_sql_query(query=date_range_sql, logger=logger, fetch_type=FetchType.ONE)
+        ).format(table=default_table_ref)
+        date_range = execute_sql_query(
+            query=date_range_sql, logger=logger, fetch_type=FetchType.ONE, params=(start_date, end_date)
+        )
         if date_range and date_range[0]:
             self.stdout.write(f"  Earliest record: {date_range[0]}")
             self.stdout.write(f"  Latest record: {date_range[1]}")
@@ -355,25 +372,31 @@ class Command(BaseCommand):
             begin(logger=logger)
 
             # Check if staging table already exists
-            check_staging_sql = f"""
+            check_staging_sql = """
                 SELECT COUNT(*)
                 FROM information_schema.tables
-                WHERE table_schema = '{schema}'
-                  AND table_name = '{staging_table_name}';
+                WHERE table_schema = %s
+                  AND table_name = %s;
             """
-            staging_exists = execute_sql_query(query=check_staging_sql, logger=logger, fetch_type=FetchType.ONE)
+            staging_exists = execute_sql_query(
+                query=check_staging_sql, logger=logger, fetch_type=FetchType.ONE, params=(schema, staging_table_name)
+            )
 
             if staging_exists and staging_exists[0] > 0:
                 self.stdout.write(self.style.WARNING(f"Staging table {staging_table} already exists. Exiting..."))
                 rollback(logger=logger)
                 raise CommandError(f"Staging table {staging_table} already exists.")
 
-            # Create staging table
+            # Create staging table using safe identifier composition
             self.stdout.write(self.style.SUCCESS(f"Creating staging table: {staging_table}"))
-            create_staging_sql = f"""
+            staging_table_ref = safe_table_reference(schema, staging_table_name)
+            parent_table_ref = safe_table_reference(schema, table_name)
+            create_staging_sql = psycopg2_sql.SQL(
+                """
                 CREATE TABLE {staging_table}
-                (LIKE {fully_qualified_table} INCLUDING ALL);
+                (LIKE {parent_table} INCLUDING ALL);
             """
+            ).format(staging_table=staging_table_ref, parent_table=parent_table_ref)
             execute_sql_query(query=create_staging_sql, logger=logger, fetch_type=FetchType.NONE)
             logger.info(f"Created staging table: {staging_table}")
 
@@ -386,17 +409,26 @@ class Command(BaseCommand):
             move_iteration = 0
             max_move_iterations = 100  # Safety limit
 
+            # Prepare SQL queries with safe identifiers outside the loop
+            default_table_ref = safe_table_reference(schema, f"{table_name}_default")
+            count_default_sql = psycopg2_sql.SQL(
+                """
+                SELECT COUNT(*)
+                FROM ONLY {table}
+                WHERE recorded_at >= %s::timestamptz
+                  AND recorded_at < %s::timestamptz;
+            """
+            ).format(table=default_table_ref)
+
+            drop_staging_sql = psycopg2_sql.SQL("DROP TABLE {staging_table};").format(staging_table=staging_table_ref)
+
             while move_iteration < max_move_iterations:
                 move_iteration += 1
 
                 # Count rows in default for this month
-                count_default_sql = f"""
-                    SELECT COUNT(*)
-                    FROM ONLY {default_table}
-                    WHERE recorded_at >= '{start_date}'::timestamptz
-                      AND recorded_at <  '{end_date}'::timestamptz;
-                """
-                count_result = execute_sql_query(query=count_default_sql, logger=logger, fetch_type=FetchType.ONE)
+                count_result = execute_sql_query(
+                    query=count_default_sql, logger=logger, fetch_type=FetchType.ONE, params=(start_date, end_date)
+                )
                 rows_to_move = count_result[0] if count_result else 0
 
                 if rows_to_move == 0:
@@ -407,7 +439,6 @@ class Command(BaseCommand):
                             )
                         )
                         # Clean up empty staging table
-                        drop_staging_sql = f"DROP TABLE {staging_table};"
                         execute_sql_query(query=drop_staging_sql, logger=logger, fetch_type=FetchType.NONE)
                         return
                     else:
@@ -428,17 +459,21 @@ class Command(BaseCommand):
 
                 # Atomically move data from default to staging
                 begin(logger=logger)
-                move_sql = f"""
+                move_sql = psycopg2_sql.SQL(
+                    """
                     WITH moved_rows AS (
                         DELETE FROM ONLY {default_table}
-                        WHERE recorded_at >= '{start_date}'::timestamptz
-                          AND recorded_at <  '{end_date}'::timestamptz
+                        WHERE recorded_at >= %s::timestamptz
+                          AND recorded_at < %s::timestamptz
                         RETURNING *
                     )
                     INSERT INTO {staging_table}
                     SELECT * FROM moved_rows;
                 """
-                execute_sql_query(query=move_sql, logger=logger, fetch_type=FetchType.NONE)
+                ).format(default_table=default_table_ref, staging_table=staging_table_ref)
+                execute_sql_query(
+                    query=move_sql, logger=logger, fetch_type=FetchType.NONE, params=(start_date, end_date)
+                )
                 commit(logger=logger)
 
                 total_rows_moved_to_staging += rows_to_move
@@ -491,7 +526,9 @@ class Command(BaseCommand):
                     raise Exception("Too many iterations (>1000). Possible infinite loop.")
 
             # Verify staging table is empty
-            count_staging_sql = f"SELECT COUNT(*) FROM {staging_table};"
+            count_staging_sql = psycopg2_sql.SQL("SELECT COUNT(*) FROM {staging_table};").format(
+                staging_table=staging_table_ref
+            )
             staging_count = execute_sql_query(query=count_staging_sql, logger=logger, fetch_type=FetchType.ONE)
             remaining = staging_count[0] if staging_count else 0
 
@@ -505,7 +542,6 @@ class Command(BaseCommand):
 
             # Step 4: Clean up staging table
             self.stdout.write(self.style.SUCCESS(f"Dropping staging table: {staging_table}"))
-            drop_staging_sql = f"DROP TABLE {staging_table};"
             execute_sql_query(query=drop_staging_sql, logger=logger, fetch_type=FetchType.NONE)
             logger.info(f"Dropped staging table: {staging_table}")
 

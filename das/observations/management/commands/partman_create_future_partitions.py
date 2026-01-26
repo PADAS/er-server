@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Set, Tuple
 
 import pytz
 from dateutil.relativedelta import relativedelta
+from psycopg2 import sql as psycopg2_sql
 
 from django.core.management import BaseCommand
 
@@ -27,6 +28,7 @@ from utils.db.postgresql import (
     partman_create_monthly_partition_time_query,
     partman_list_partitions_query,
     rollback,
+    safe_table_reference,
     to_fully_qualified_table_name,
 )
 
@@ -131,10 +133,12 @@ class Command(BaseCommand):
             `schema.table_name`.
         """
         result = {}
-        fully_qualified_table = to_fully_qualified_table_name(schema=schema, table_name=table_name)
 
+        # Use safe table reference to prevent SQL injection
+        table_ref = safe_table_reference(schema, table_name)
+        counts_sql = psycopg2_sql.SQL("SELECT COUNT(*) FROM {table};").format(table=table_ref)
         counts_result = execute_sql_query(
-            query=f"SELECT COUNT(*) FROM {fully_qualified_table};",
+            query=counts_sql,
             logger=logger,
             fetch_type=FetchType.ONE,
         )

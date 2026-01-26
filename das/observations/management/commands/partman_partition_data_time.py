@@ -32,6 +32,8 @@ import logging
 from logging import Logger
 from typing import Any, Dict
 
+from psycopg2 import sql as psycopg2_sql
+
 from django.core.management import BaseCommand
 
 from utils.db.postgresql import (
@@ -45,6 +47,7 @@ from utils.db.postgresql import (
     partman_list_partitions_query,
     partman_partition_data_time_query,
     rollback,
+    safe_table_reference,
     to_fully_qualified_table_name,
     to_monthly_partition_table_name,
     vacuum_analyze_query,
@@ -121,16 +124,21 @@ class Command(BaseCommand):
             counts (int): count of the number of entries in `schema.table_name`.
         """
         result = {"partition": {}, "partition_table_names": []}
-        fully_qualified_table = to_fully_qualified_table_name(schema=schema, table_name=table_name)
 
+        # Use safe table references to prevent SQL injection
+        table_ref = safe_table_reference(schema, table_name)
+        default_table_ref = safe_table_reference(schema, f"{table_name}_default")
+
+        counts_sql = psycopg2_sql.SQL("SELECT COUNT(*) FROM {table};").format(table=table_ref)
         counts_result = execute_sql_query(
-            query=f"SELECT COUNT(*) FROM {fully_qualified_table};",
+            query=counts_sql,
             logger=logger,
             fetch_type=FetchType.ONE,
         )
 
+        counts_default_sql = psycopg2_sql.SQL("SELECT COUNT(*) FROM {table};").format(table=default_table_ref)
         counts_default_result = execute_sql_query(
-            query=f"SELECT COUNT(*) FROM {fully_qualified_table}_default;",
+            query=counts_default_sql,
             logger=logger,
             fetch_type=FetchType.ONE,
         )
@@ -146,8 +154,10 @@ class Command(BaseCommand):
         for partition_tablename in partition_tablenames:
             result["partition"][partition_tablename] = {"counts": None, "md5": None}
 
+            partition_ref = safe_table_reference(schema, partition_tablename)
+            counts_partition_sql = psycopg2_sql.SQL("SELECT COUNT(*) FROM {table};").format(table=partition_ref)
             counts_partition_result = execute_sql_query(
-                query=f"SELECT COUNT(*) FROM {to_fully_qualified_table_name(schema=schema, table_name=partition_tablename)};",
+                query=counts_partition_sql,
                 logger=logger,
                 fetch_type=FetchType.ONE,
             )
