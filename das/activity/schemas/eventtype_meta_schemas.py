@@ -873,7 +873,7 @@ input_is_exactly_condition_schema = {
                                     },
                                     "required": ["type", "properties", "required", "unevaluatedProperties"],
                                     "additionalProperties": False,
-                                }
+                                },
                                 {
                                     "type": "object",
                                     "properties": {"const": {"type": ["string", "null"]}, "type": {"const": "string"}},
