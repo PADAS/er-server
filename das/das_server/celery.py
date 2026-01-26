@@ -57,6 +57,9 @@ app.conf.task_routes = {
     "rt_api.tasks.handle_emit_data": {
         "queue": "realtime_p1",
     },
+    "activity.tasks.evaluate_alert_rules": {
+        "queue": "realtime_p1",
+    },
     "das_server.tasks.celerybeat_pulse": {
         "queue": "realtime_p1",
     },
@@ -131,9 +134,6 @@ app.conf.task_routes = {
         "queue": "analyzers",
     },
     "tracking.tasks.run_firms_plugin": {
-        "queue": "analyzers",
-    },
-    "activity.tasks.evaluate_alert_rules": {
         "queue": "analyzers",
     },
 }
