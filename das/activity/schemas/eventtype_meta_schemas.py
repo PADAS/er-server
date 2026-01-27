@@ -499,7 +499,16 @@ ui_sections_schema = {
                             "IS_NOT_CONTAINED_BY"
                         ]
                     },
-                    "value": {"type": ["string", "null"]},
+                    "value": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "null"},
+                            {
+                                "type": "array",
+                                "items": {"type": "string"}
+                            }
+                        ]
+                    },
                 },
                 "required": ["field", "id", "operator"],
                 "additionalProperties": False,
