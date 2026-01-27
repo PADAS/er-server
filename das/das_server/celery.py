@@ -64,13 +64,13 @@ app.conf.task_routes = {
         "queue": "realtime_p1",
     },
     "tracking.tasks.run_plugins": {
-        "queue": "realtime_p1",
+        "queue": "realtime_p2",
     },
     "tracking.tasks.run_plugin_class": {
-        "queue": "realtime_p1",
+        "queue": "realtime_p2",
     },
     "tracking.tasks.run_source_plugin": {
-        "queue": "realtime_p1",
+        "queue": "realtime_p2",
     },
     "rt_api.tasks.broadcast_service_status": {"queue": "realtime_p2"},
     "rt_api.tasks.handle_new_event": {
