@@ -29,6 +29,7 @@ class TestJsonSchemaFieldBasics:
             "valid_choice_field_schema",
             "valid_multiple_choice_field_schema",
             "valid_boolean_field_schema",
+            "valid_boolean_field_minimal_schema",
             "valid_datetime_field_schema",
             "valid_date_field_schema",
             "valid_time_field_schema",

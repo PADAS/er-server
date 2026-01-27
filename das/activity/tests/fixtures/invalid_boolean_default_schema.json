@@ -5,31 +5,40 @@
         "additionalProperties": false,
         "properties": {
             "testBool": {
-                "type": "string",
+                "type": "boolean",
                 "title": "Test Boolean",
-                "description": "Boolean (choice) field with invalid default property.",
+                "description": "Boolean field with invalid default (string instead of boolean).",
                 "deprecated": false,
-                "anyOf": [
-                    {
-                        "const": true,
-                        "title": "Yes"
-                    },
-                    {
-                        "const": false,
-                        "title": "No"
-                    }
-                ],
                 "default": "true"
             }
         },
-        "required": [
-            "testBool"
-        ]
+        "required": []
     },
     "ui": {
-        "sections": {},
+        "fields": {
+            "testBool": {
+                "conditionalDependents": [],
+                "parent": "section-1",
+                "type": "BOOLEAN"
+            }
+        },
         "headers": {},
-        "fields": {},
-        "order": []
+        "order": [
+            "section-1"
+        ],
+        "sections": {
+            "section-1": {
+                "columns": 1,
+                "isActive": true,
+                "label": "",
+                "leftColumn": [
+                    {
+                        "name": "testBool",
+                        "type": "field"
+                    }
+                ],
+                "rightColumn": []
+            }
+        }
     }
 }
