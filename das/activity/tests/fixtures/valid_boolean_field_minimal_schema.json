@@ -5,11 +5,9 @@
         "additionalProperties": false,
         "properties": {
             "testBool": {
-                "title": "Animal Requires Medicine",
+                "title": "Minimal Boolean Field",
                 "type": "boolean",
-                "description": "A valid native boolean field.",
-                "deprecated": false,
-                "default": true
+                "deprecated": false
             }
         },
         "required": []
