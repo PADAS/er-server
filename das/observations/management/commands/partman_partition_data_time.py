@@ -174,7 +174,10 @@ class Command(BaseCommand):
 
             if counts_partition_result:
                 result["partition"][partition_tablename]["counts"] = counts_partition_result[0]
-                result["partition"][partition_tablename]["md5"] = md5_partition_result[0]
+                # MD5 can be None for empty partitions (NULL from DB)
+                result["partition"][partition_tablename]["md5"] = (
+                    md5_partition_result[0] if md5_partition_result else None
+                )
 
         if partitions_result:
             result["partition_table_names"] = partition_tablenames
