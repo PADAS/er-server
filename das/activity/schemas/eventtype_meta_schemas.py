@@ -896,6 +896,231 @@ input_is_exactly_condition_schema = {
     "additionalProperties": False,
 }
 
+is_contained_by_condition_schema = {
+    "type": "object",
+    "title": "Is Contained By condition schema for EventType Builder",
+    "properties": {
+        "properties": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 1,
+            "patternProperties": {
+                ".*": {
+                    "type": "object",
+                    "properties": {
+                        "anyOf": {
+                            "type": "array",
+                            "minItems": 3,
+                            "maxItems": 3,
+                            "prefixItems": [
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {"const": "array"},
+                                        "minItems": {"const": 1},
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "enum": {"type": "array", "items": {"type": "string"}}
+                                            },
+                                            "required": ["enum"],
+                                            "additionalProperties": False,
+                                        },
+                                    },
+                                    "required": ["type", "minItems", "items"],
+                                    "additionalProperties": False,
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {"const": "object"},
+                                        "minProperties": {"const": 1},
+                                        "propertyNames": {
+                                            "type": "object",
+                                            "properties": {
+                                                "enum": {"type": "array", "items": {"type": "string"}}
+                                            },
+                                            "required": ["enum"],
+                                            "additionalProperties": False,
+                                        },
+                                    },
+                                    "required": ["type", "minProperties", "propertyNames"],
+                                    "additionalProperties": False,
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {"const": "string"},
+                                        "enum": {"type": "array", "items": {"type": "string"}},
+                                    },
+                                    "required": ["type", "enum"],
+                                    "additionalProperties": False,
+                                },
+                            ],
+                            "items": False,
+                        }
+                    },
+                    "required": ["anyOf"],
+                    "additionalProperties": False,
+                }
+            },
+            "additionalProperties": False,
+        },
+        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
+    },
+    "required": ["properties", "required"],
+    "additionalProperties": False,
+}
+
+is_not_contained_by_condition_schema = {
+    "type": "object",
+    "title": "Is Not Contained By condition schema for EventType Builder",
+    "properties": {
+        "properties": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 1,
+            "patternProperties": {
+                ".*": {
+                    "type": "object",
+                    "properties": {
+                        "anyOf": {
+                            "type": "array",
+                            "minItems": 3,
+                            "maxItems": 3,
+                            "prefixItems": [
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "allOf": {
+                                            "type": "array",
+                                            "minItems": 2,
+                                            "maxItems": 2,
+                                            "prefixItems": [
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "type": {"const": "array"},
+                                                        "minItems": {"const": 1},
+                                                    },
+                                                    "required": ["type", "minItems"],
+                                                    "additionalProperties": False,
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "not": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "type": {"const": "array"},
+                                                                "items": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "enum": {
+                                                                            "type": "array",
+                                                                            "items": {"type": "string"}
+                                                                        }
+                                                                    },
+                                                                    "required": ["enum"],
+                                                                    "additionalProperties": False,
+                                                                },
+                                                            },
+                                                            "required": ["type", "items"],
+                                                            "additionalProperties": False,
+                                                        }
+                                                    },
+                                                    "required": ["not"],
+                                                    "additionalProperties": False,
+                                                },
+                                            ],
+                                            "items": False,
+                                        }
+                                    },
+                                    "required": ["allOf"],
+                                    "additionalProperties": False,
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "allOf": {
+                                            "type": "array",
+                                            "minItems": 2,
+                                            "maxItems": 2,
+                                            "prefixItems": [
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "type": {"const": "object"},
+                                                        "minProperties": {"const": 1},
+                                                    },
+                                                    "required": ["type", "minProperties"],
+                                                    "additionalProperties": False,
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "not": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "type": {"const": "object"},
+                                                                "propertyNames": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "enum": {
+                                                                            "type": "array",
+                                                                            "items": {"type": "string"}
+                                                                        }
+                                                                    },
+                                                                    "required": ["enum"],
+                                                                    "additionalProperties": False,
+                                                                },
+                                                            },
+                                                            "required": ["type", "propertyNames"],
+                                                            "additionalProperties": False,
+                                                        }
+                                                    },
+                                                    "required": ["not"],
+                                                    "additionalProperties": False,
+                                                },
+                                            ],
+                                            "items": False,
+                                        }
+                                    },
+                                    "required": ["allOf"],
+                                    "additionalProperties": False,
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {"const": "string"},
+                                        "not": {
+                                            "type": "object",
+                                            "properties": {
+                                                "enum": {"type": "array", "items": {"type": "string"}}
+                                            },
+                                            "required": ["enum"],
+                                            "additionalProperties": False,
+                                        },
+                                    },
+                                    "required": ["type", "not"],
+                                    "additionalProperties": False,
+                                },
+                            ],
+                            "items": False,
+                        }
+                    },
+                    "required": ["anyOf"],
+                    "additionalProperties": False,
+                }
+            },
+            "additionalProperties": False,
+        },
+        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
+    },
+    "required": ["properties", "required"],
+    "additionalProperties": False,
+}
+
 ui_schema = {
     "additionalProperties": False,
     "type": "object",
@@ -965,6 +1190,8 @@ json_field_schema = {
                                         {"$ref": "#/$defs/doesNotHaveInputCondition"},
                                         {"$ref": "#/$defs/hasInputCondition"},
                                         {"$ref": "#/$defs/inputIsExactlyCondition"},
+                                        {"$ref": "#/$defs/isContainedByCondition"},
+                                        {"$ref": "#/$defs/isNotContainedByCondition"},
                                     ]
                                 },
                             }
@@ -1073,5 +1300,7 @@ main_event_type_schema = {
         "doesNotHaveInputCondition": does_not_have_input_condition_schema,
         "hasInputCondition": has_input_condition_schema,
         "inputIsExactlyCondition": input_is_exactly_condition_schema,
+        "isContainedByCondition": is_contained_by_condition_schema,
+        "isNotContainedByCondition": is_not_contained_by_condition_schema,
     },
 }
