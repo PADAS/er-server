@@ -489,7 +489,16 @@ ui_sections_schema = {
                 "properties": {
                     "field": {"type": "string"},
                     "id": {"type": "string", "pattern": "^condition-.*"},
-                    "operator": {"enum": ["INPUT_IS_EXACTLY", "HAS_INPUT", "DOES_NOT_HAVE_INPUT", "CONTAINS"]},
+                    "operator": {
+                        "enum": [
+                            "INPUT_IS_EXACTLY",
+                            "HAS_INPUT",
+                            "DOES_NOT_HAVE_INPUT",
+                            "CONTAINS",
+                            "IS_CONTAINED_BY",
+                            "IS_NOT_CONTAINED_BY"
+                        ]
+                    },
                     "value": {"type": ["string", "null"]},
                 },
                 "required": ["field", "id", "operator"],
