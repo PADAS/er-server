@@ -37,7 +37,7 @@ SECRET_KEY = "j(h&tc(u_#z-tf)u(9+3n39gmk92#6-v-he_p0ae+1rs*+2j@b"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
-# ENABLE_SILK = env.bool("ENABLE_SILK", False)
+ENABLE_SILK = env.bool("ENABLE_SILK", False)
 DEV = False
 
 # Application definition
@@ -292,8 +292,6 @@ CSRF_COOKIE_HTTPONLY = False  # Must be False so JavaScript can read it for AJAX
 SESSION_COOKIE_SAMESITE = "Lax"  # Lax allows cookies on top-level navigation (redirects)
 CSRF_COOKIE_SAMESITE = "Lax"
 
-ENABLE_SILK = False
-
 # CSRF_TRUSTED_ORIGINS needs to be set in local settings with proper schemes
 CSRF_TRUSTED_ORIGINS = []
 
@@ -302,9 +300,9 @@ CSRF_TRUSTED_ORIGINS = []
 # Set to False by default, but can be enabled via env var if cookie issues persist
 CSRF_USE_SESSIONS = env.bool("CSRF_USE_SESSIONS", False)
 
-AUTH0_CUSTOM_DOMAIN = env.str("AUTH0_CUSTOM_DOMAIN", "localhost")
+AUTH0_CUSTOM_DOMAIN = env.str("AUTH0_CUSTOM_DOMAIN", "")
 AUTH0_TENANT_DOMAIN = env.str("AUTH0_TENANT_DOMAIN", "")
-AUTH0_RESOURCE_SERVER = env.str("AUTH0_RESOURCE_SERVER", "localhost")
+AUTH0_RESOURCE_SERVER = env.str("AUTH0_RESOURCE_SERVER", "")
 AUTH0_JWKS_CACHE_TTL_S = env.int("AUTH0_JWKS_CACHE_TTL_S", 3600)
 
 AUTH0_CLIENT_ID_FOR_MANAGEMENT_API = env.str("AUTH0_CLIENT_ID_FOR_MANAGEMENT_API", "")
