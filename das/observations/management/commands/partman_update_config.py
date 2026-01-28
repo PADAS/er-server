@@ -3,6 +3,15 @@ Management command to update partman configuration.
 
 Only a subset of configuration entries are currently supported via this
 command: `premake` and `infinite_time_partitions`.
+
+Example:
+    Update premake to create 10 months of future partitions ahead of time:
+
+        python manage.py partman_update_config --key premake --value 10
+
+    Dry-run mode (no changes made):
+
+        python manage.py partman_update_config --key premake --value 10 --dry-run
 """
 
 import logging
@@ -172,11 +181,16 @@ class Command(BaseCommand):
                     fetch_type=FetchType.ONE_DICT,
                 )
                 logger.info(f"final config set: {final_configset_results}")
-                self.stdout.write(self.style.SUCCESS(f"Successfully set the partman config '{key}' to '{value}'."))
                 if is_dry_run:
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f"Successfully set the partman config '{key}' to '{value}' (dry-run, changes rolled back)."
+                        )
+                    )
                     logger.info(f"Dry Run Mode: Rolling back the transaction. Undoing the partman config update.")
                     rollback(logger=logger)
                 else:
+                    self.stdout.write(self.style.SUCCESS(f"Successfully set the partman config '{key}' to '{value}'."))
                     commit(logger=logger)
 
             except Exception as e:

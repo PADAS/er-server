@@ -337,7 +337,7 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
                         location = statusvalues.location if statusvalues.location else get_null_point()
                         recorded_at = statusvalues.recorded_at
 
-                    tracks_available = (
+                    tracks_available = bool(
                         recorded_at
                         and recorded_at != models.DEFAULT_STATUS_VALUE_DATE
                         and recorded_at >= show_track_days_since

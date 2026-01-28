@@ -12,11 +12,12 @@ from django.utils import timezone
 from accounts.models import PermissionSet
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
 from buoy.serializers import GearCreateSerializer, GearSerializer
-from buoy.serializers.gear import GeoLocationSerializer
+from buoy.serializers.gear import GearDeviceCreateSerializer, GeoLocationSerializer
 from buoy.services.buoy_service import BuoyService
 from core.tests import BaseAPITest
 from factories import SubjectTypeFactory
 from observations.models import (
+    EMPTY_POINT,
     Observation,
     Source,
     SourceProvider,
@@ -342,6 +343,7 @@ class TestGearCreateSerializer(BaseAPITest):
                     "last_updated": now,
                     "device_status": "deployed",
                     "location": {"latitude": 1.23, "longitude": 4.56},
+                    "recorded_at": now,
                 }
             ],
         }
@@ -929,3 +931,521 @@ def test_process_gearset_updates_existing_subject_keeps_subjectgroup(superuser):
 
     # Verify the subject has the correct manufacturer in additional
     assert subject.additional.get("manufacturer") == "TestUpdateManufacturer"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_sets_is_active_false_when_all_hauled(superuser):
+    """Test that process_gearset sets subject.is_active=False when all devices are hauled.
+
+    This test verifies that when haul time is in the past (relative to deployment),
+    the is_active flag is correctly set to False.
+    """
+    from observations.models import DEFAULT_ASSIGNED_RANGE
+
+    # Create SubjectGroup and assign permission to superuser
+    subject_group = SubjectGroup.objects.create(name="TestHaulManufacturer")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    now = timezone.now()
+    deploy_time = now - timedelta(hours=1)  # Deployed 1 hour ago
+    haul_time = now - timedelta(minutes=5)  # Hauled 5 minutes ago
+    device_id = "333e4567-e89b-12d3-a456-426614174000"
+
+    # First, deploy the gearset (with recorded_at in the past)
+    deploy_data = {
+        "manufacturer_name": "TestHaulManufacturer",
+        "owner_id": "owner123",
+        "mfr_set_id": "TEST_HAUL_SET",
+        "deployment_type": "single",
+        "initial_deployment_date": deploy_time,
+        "devices": [
+            {
+                "device_id": device_id,
+                "mfr_device_id": "mfr_haul_test",
+                "last_deployed": deploy_time,
+                "last_updated": deploy_time,
+                "device_status": "deployed",
+                "location": {"latitude": 1.23, "longitude": 4.56},
+                "recorded_at": deploy_time,
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=deploy_data, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, _ = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Verify subject is active after deployment
+    subject.refresh_from_db()
+    assert subject.is_active is True
+
+    # Verify SubjectSource has upper bound at datetime.max (deployed)
+    subject_source = SubjectSource.objects.get(subject=subject)
+    assert subject_source.assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
+
+    # Now haul the gearset - haul_time is after deploy_time but before now
+    haul_data = {
+        "manufacturer_name": "TestHaulManufacturer",
+        "owner_id": "owner123",
+        "set_id": str(subject.id),
+        "mfr_set_id": "TEST_HAUL_SET",
+        "deployment_type": "single",
+        "devices": [
+            {
+                "device_id": device_id,
+                "mfr_device_id": "mfr_haul_test",
+                "last_deployed": deploy_time,
+                "last_updated": now,
+                "device_status": "hauled",
+                "location": {"latitude": 1.23, "longitude": 4.56},
+                "recorded_at": haul_time,
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=haul_data, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, _ = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Verify SubjectSource has upper bound set (not datetime.max)
+    subject_source.refresh_from_db()
+    assert subject_source.assigned_range.upper != DEFAULT_ASSIGNED_RANGE[1]
+    assert subject_source.assigned_range.upper < now  # Upper bound should be in the past
+
+    # This is the critical assertion - is_active should be False after all devices are hauled
+    subject.refresh_from_db()
+    assert subject.is_active is False, (
+        f"Subject is_active should be False after haul. "
+        f"assigned_range.upper={subject_source.assigned_range.upper}, now={now}"
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_is_active_false_with_recent_recorded_at(superuser):
+    """Test that process_gearset sets is_active=False even when recorded_at is very recent.
+
+    This test specifically tests the race condition where recorded_at is the current time,
+    causing the 1-second padding to make 'now in assigned_range' return True.
+    """
+    from observations.models import DEFAULT_ASSIGNED_RANGE
+
+    # Create SubjectGroup and assign permission to superuser
+    subject_group = SubjectGroup.objects.create(name="TestRecentHaulManufacturer")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    now = timezone.now()
+    device_id = "444e4567-e89b-12d3-a456-426614174000"
+
+    # First, deploy the gearset
+    deploy_data = {
+        "manufacturer_name": "TestRecentHaulManufacturer",
+        "owner_id": "owner123",
+        "mfr_set_id": "TEST_RECENT_HAUL_SET",
+        "deployment_type": "single",
+        "initial_deployment_date": now,
+        "devices": [
+            {
+                "device_id": device_id,
+                "mfr_device_id": "mfr_recent_haul_test",
+                "last_deployed": now,
+                "last_updated": now,
+                "device_status": "deployed",
+                "location": {"latitude": 1.23, "longitude": 4.56},
+                "recorded_at": now,
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=deploy_data, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, _ = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Now haul the gearset - use current time (this is the race condition scenario)
+    # The bug is that 'now not in assigned_range' will be False because now < upper (recorded_at + 1s)
+    haul_time = timezone.now()  # Very recent - this triggers the bug
+    haul_data = {
+        "manufacturer_name": "TestRecentHaulManufacturer",
+        "owner_id": "owner123",
+        "set_id": str(subject.id),
+        "mfr_set_id": "TEST_RECENT_HAUL_SET",
+        "deployment_type": "single",
+        "devices": [
+            {
+                "device_id": device_id,
+                "mfr_device_id": "mfr_recent_haul_test",
+                "last_deployed": now,
+                "last_updated": haul_time,
+                "device_status": "hauled",
+                "location": {"latitude": 1.23, "longitude": 4.56},
+                "recorded_at": haul_time,
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=haul_data, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, _ = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Verify SubjectSource has upper bound set (not datetime.max)
+    subject_source = SubjectSource.objects.get(subject=subject)
+    assert subject_source.assigned_range.upper != DEFAULT_ASSIGNED_RANGE[1]
+
+    # This assertion will FAIL with the current buggy code because 'now' might still
+    # be within the 1-second window of the upper bound
+    subject.refresh_from_db()
+    assert subject.is_active is False, (
+        f"Subject is_active should be False after haul even with recent recorded_at. "
+        f"assigned_range.upper={subject_source.assigned_range.upper}"
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestDeviceWithNullLocation:
+    """Tests for devices with null/missing location data (Edgetech use case)."""
+
+    def test_serializer_accepts_null_location(self, superuser):
+        """Test that GearDeviceCreateSerializer accepts null location."""
+
+        now = timezone.now()
+        data = {
+            "device_id": "123e4567-e89b-12d3-a456-426614174000",
+            "mfr_device_id": "mfr_null_loc",
+            "last_deployed": now,
+            "last_updated": now,
+            "device_status": "deployed",
+            "location": None,
+        }
+        serializer = GearDeviceCreateSerializer(data=data)
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data.get("location") is None
+
+    def test_serializer_accepts_null_lat_lon_in_location_object(self, superuser):
+        """Test that GearDeviceCreateSerializer accepts location object with null lat/lon (Edgetech format)."""
+
+        now = timezone.now()
+        data = {
+            "device_id": "123e4567-e89b-12d3-a456-426614174000",
+            "mfr_device_id": "mfr_null_lat_lon",
+            "last_deployed": now,
+            "last_updated": now,
+            "device_status": "deployed",
+            "location": {"latitude": None, "longitude": None},
+        }
+        serializer = GearDeviceCreateSerializer(data=data)
+        assert serializer.is_valid(), serializer.errors
+        # Location object should be present with null values
+        assert serializer.validated_data.get("location") is not None
+        assert serializer.validated_data["location"]["latitude"] is None
+        assert serializer.validated_data["location"]["longitude"] is None
+
+    def test_serializer_accepts_missing_location(self, superuser):
+        """Test that GearDeviceCreateSerializer accepts missing location field."""
+
+        now = timezone.now()
+        data = {
+            "device_id": "123e4567-e89b-12d3-a456-426614174000",
+            "mfr_device_id": "mfr_missing_loc",
+            "last_deployed": now,
+            "last_updated": now,
+            "device_status": "deployed",
+            # No location field at all
+        }
+        serializer = GearDeviceCreateSerializer(data=data)
+        assert serializer.is_valid(), serializer.errors
+        assert "location" not in serializer.validated_data or serializer.validated_data.get("location") is None
+
+    def test_gear_create_serializer_accepts_device_with_null_location(self, superuser):
+        """Test that GearCreateSerializer accepts a device with null location."""
+        # Create SubjectGroup and assign permission to superuser
+        subject_group = SubjectGroup.objects.create(name="TestNullLocManufacturer")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser.permission_sets.add(permission_set)
+
+        now = timezone.now()
+        device_id = "123e4567-e89b-12d3-a456-426614174000"
+        data = {
+            "manufacturer_name": "TestNullLocManufacturer",
+            "owner_id": "owner_null_loc",
+            "mfr_set_id": "SET_NULL_LOC",
+            "deployment_type": "single",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    "device_id": device_id,
+                    "mfr_device_id": "mfr_null_loc_device",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": None,
+                }
+            ],
+        }
+        serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(superuser)})
+        assert serializer.is_valid(), serializer.errors
+
+    def test_process_gearset_with_null_location_creates_observation_with_empty_point(self, superuser):
+        """Test that BuoyService creates Observation with EMPTY_POINT for device with null location."""
+
+        # Create SubjectGroup and assign permission to superuser
+        subject_group = SubjectGroup.objects.create(name="TestNullLocObsManufacturer")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser.permission_sets.add(permission_set)
+
+        now = timezone.now()
+        device_id = "223e4567-e89b-12d3-a456-426614174000"
+        data = {
+            "manufacturer_name": "TestNullLocObsManufacturer",
+            "owner_id": "owner_null_loc_obs",
+            "mfr_set_id": "SET_NULL_LOC_OBS",
+            "deployment_type": "single",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    "device_id": device_id,
+                    "mfr_device_id": "mfr_null_loc_obs_device",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": None,
+                    "recorded_at": now,
+                }
+            ],
+        }
+        serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(superuser)})
+        assert serializer.is_valid(), serializer.errors
+
+        subject, observations = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+        # Verify observation was created with EMPTY_POINT
+        assert len(observations) == 1
+        obs = observations[0]
+        assert obs.location == EMPTY_POINT, f"Expected EMPTY_POINT, got {obs.location}"
+
+    def test_process_gearset_with_null_location_sets_subjectsource_location_to_none(self, superuser):
+        """Test that BuoyService sets SubjectSource.location to None for device with null location."""
+        # Create SubjectGroup and assign permission to superuser
+        subject_group = SubjectGroup.objects.create(name="TestNullLocSSManufacturer")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser.permission_sets.add(permission_set)
+
+        now = timezone.now()
+        device_id = "323e4567-e89b-12d3-a456-426614174000"
+        data = {
+            "manufacturer_name": "TestNullLocSSManufacturer",
+            "owner_id": "owner_null_loc_ss",
+            "mfr_set_id": "SET_NULL_LOC_SS",
+            "deployment_type": "single",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    "device_id": device_id,
+                    "mfr_device_id": "mfr_null_loc_ss_device",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": None,
+                    "recorded_at": now,
+                }
+            ],
+        }
+        serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(superuser)})
+        assert serializer.is_valid(), serializer.errors
+
+        subject, observations = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+        # Verify SubjectSource was created with null location
+        subject_source = SubjectSource.objects.get(subject=subject)
+        assert subject_source.location is None, f"Expected None, got {subject_source.location}"
+
+    def test_process_gearset_with_missing_location_field(self, superuser):
+        """Test that BuoyService handles device with entirely missing location field."""
+
+        # Create SubjectGroup and assign permission to superuser
+        subject_group = SubjectGroup.objects.create(name="TestMissingLocManufacturer")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser.permission_sets.add(permission_set)
+
+        now = timezone.now()
+        device_id = "423e4567-e89b-12d3-a456-426614174000"
+        data = {
+            "manufacturer_name": "TestMissingLocManufacturer",
+            "owner_id": "owner_missing_loc",
+            "mfr_set_id": "SET_MISSING_LOC",
+            "deployment_type": "single",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    "device_id": device_id,
+                    "mfr_device_id": "mfr_missing_loc_device",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    # No location field at all
+                    "recorded_at": now,
+                }
+            ],
+        }
+        serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(superuser)})
+        assert serializer.is_valid(), serializer.errors
+
+        subject, observations = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+        # Verify observation was created with EMPTY_POINT
+        assert len(observations) == 1
+        obs = observations[0]
+        assert obs.location == EMPTY_POINT, f"Expected EMPTY_POINT, got {obs.location}"
+
+        # Verify SubjectSource has null location
+        subject_source = SubjectSource.objects.get(subject=subject)
+        assert subject_source.location is None
+
+    def test_trawl_with_mixed_location_devices(self, superuser):
+        """Test trawl gearset where one device has location and another has null location."""
+
+        # Create SubjectGroup and assign permission to superuser
+        subject_group = SubjectGroup.objects.create(name="TestMixedLocManufacturer")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser.permission_sets.add(permission_set)
+
+        now = timezone.now()
+        device_id_with_loc = "523e4567-e89b-12d3-a456-426614174000"
+        device_id_without_loc = "623e4567-e89b-12d3-a456-426614174000"
+        data = {
+            "manufacturer_name": "TestMixedLocManufacturer",
+            "owner_id": "owner_mixed_loc",
+            "mfr_set_id": "SET_MIXED_LOC",
+            "deployment_type": "trawl",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    "device_id": device_id_with_loc,
+                    "mfr_device_id": "mfr_with_loc",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": {"latitude": 42.5, "longitude": -70.8},
+                    "recorded_at": now,
+                },
+                {
+                    "device_id": device_id_without_loc,
+                    "mfr_device_id": "mfr_without_loc",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": None,
+                    "recorded_at": now,
+                },
+            ],
+        }
+        serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(superuser)})
+        assert serializer.is_valid(), serializer.errors
+
+        subject, observations = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+        # Verify both observations were created
+        assert len(observations) == 2
+
+        # Find observations by source
+        obs_with_loc = next(o for o in observations if str(o.source.id) == device_id_with_loc)
+        obs_without_loc = next(o for o in observations if str(o.source.id) == device_id_without_loc)
+
+        # Verify locations
+        assert obs_with_loc.location.x == -70.8  # longitude
+        assert obs_with_loc.location.y == 42.5  # latitude
+        assert obs_without_loc.location == EMPTY_POINT
+
+        # Verify SubjectSource locations
+        ss_with_loc = SubjectSource.objects.get(source_id=device_id_with_loc)
+        ss_without_loc = SubjectSource.objects.get(source_id=device_id_without_loc)
+
+        assert ss_with_loc.location is not None
+        assert ss_with_loc.location.x == -70.8
+        assert ss_with_loc.location.y == 42.5
+        assert ss_without_loc.location is None
+
+    def test_edgetech_format_location_with_null_lat_lon(self, superuser):
+        """Test exact Edgetech payload format: location object with null latitude/longitude values.
+
+        Edgetech sends: {"location": {"latitude": null, "longitude": null}}
+        This is different from location: null or missing location field entirely.
+        """
+
+        # Create SubjectGroup and assign permission to superuser
+        subject_group = SubjectGroup.objects.create(name="TestEdgetechManufacturer")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser.permission_sets.add(permission_set)
+
+        now = timezone.now()
+        device_id_with_loc = "723e4567-e89b-12d3-a456-426614174000"
+        device_id_null_lat_lon = "823e4567-e89b-12d3-a456-426614174000"
+
+        # Exact Edgetech format: one device has location, other has location object with null values
+        data = {
+            "manufacturer_name": "TestEdgetechManufacturer",
+            "owner_id": "652e7174c0884e7f02ec97d1",
+            "mfr_set_id": "SET_EDGETECH_FORMAT",
+            "deployment_type": "trawl",
+            "initial_deployment_date": now,
+            "devices": [
+                {
+                    "device_id": device_id_with_loc,
+                    "mfr_device_id": "88CE99D7C3_test",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    "location": {"latitude": 40.6014382, "longitude": -70.5142263},
+                    "recorded_at": now,
+                },
+                {
+                    "device_id": device_id_null_lat_lon,
+                    "mfr_device_id": "88CE99D9A9_test",
+                    "last_deployed": now,
+                    "last_updated": now,
+                    "device_status": "deployed",
+                    # Exact Edgetech format: location object exists but lat/lon are null
+                    "location": {"latitude": None, "longitude": None},
+                    "recorded_at": now,
+                },
+            ],
+        }
+
+        serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(superuser)})
+        assert serializer.is_valid(), serializer.errors
+
+        subject, observations = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+        # Verify both observations were created
+        assert len(observations) == 2
+
+        # Find observations by source
+        obs_with_loc = next(o for o in observations if str(o.source.id) == device_id_with_loc)
+        obs_null_lat_lon = next(o for o in observations if str(o.source.id) == device_id_null_lat_lon)
+
+        # Device with valid location should have real coordinates
+        assert obs_with_loc.location.x == -70.5142263  # longitude
+        assert obs_with_loc.location.y == 40.6014382  # latitude
+
+        # Device with null lat/lon in location object should have EMPTY_POINT
+        assert obs_null_lat_lon.location == EMPTY_POINT
+
+        # Verify SubjectSource locations
+        ss_with_loc = SubjectSource.objects.get(source_id=device_id_with_loc)
+        ss_null_lat_lon = SubjectSource.objects.get(source_id=device_id_null_lat_lon)
+
+        assert ss_with_loc.location is not None
+        assert ss_with_loc.location.x == -70.5142263
+        assert ss_with_loc.location.y == 40.6014382
+        assert ss_null_lat_lon.location is None
