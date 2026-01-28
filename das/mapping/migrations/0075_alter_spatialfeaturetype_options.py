@@ -6,12 +6,18 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('mapping', '0074_add_spatialfeature_indexes'),
+        ("mapping", "0074_add_spatialfeature_indexes"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='spatialfeaturetype',
-            options={'base_manager_name': 'objects', 'default_manager_name': 'objects', 'ordering': ['name'], 'verbose_name': 'Feature Type', 'verbose_name_plural': 'Feature Types'},
+            name="spatialfeaturetype",
+            options={
+                "base_manager_name": "objects",
+                "default_manager_name": "objects",
+                "ordering": ["name"],
+                "verbose_name": "Feature Type",
+                "verbose_name_plural": "Feature Types",
+            },
         ),
     ]
