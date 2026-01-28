@@ -329,7 +329,7 @@ def get_feature_class(name):
         return models.LineFeature
     if "point" in name_lower:
         return models.PointFeature
-    raise KeyError("EarthRanger Feature class not found for {0}".format(name))
+    raise KeyError("EarthRanger Feature type not found for {0}".format(name))
 
 
 def get_featuretype_for_feature(feature, default=None):

@@ -190,7 +190,7 @@ class DisplayCategoryForm(forms.ModelForm):
     feature_classes = forms.ModelMultipleChoiceField(
         queryset=SpatialFeatureType.objects.none(),
         required=False,
-        widget=FilteredSelectMultiple(verbose_name=_("Feature Classes"), is_stacked=False),
+        widget=FilteredSelectMultiple(verbose_name=_("Feature Types"), is_stacked=False),
     )
 
     def __init__(self, *args, **kwargs):
@@ -211,8 +211,8 @@ class ArcgisConfigurationForm(forms.ModelForm):
     disable_import_feature_class_presentation = forms.BooleanField(
         widget=forms.CheckboxInput(),
         help_text=(
-            "Check to pause the importing of Feature Class presentation.  "
-            "Note, Feature Class names will still be imported. This will not "
+            "Check to pause the importing of Feature Type presentation.  "
+            "Note, Feature Type names will still be imported. This will not "
             "affect the importing of Features."
         ),
         required=False,
