@@ -1069,6 +1069,119 @@ def test_process_gearset_is_active_false_with_recent_recorded_at(superuser):
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_auto_haul_all_devices_when_one_device_hauled(superuser):
+    """Test that hauling one device in a multi-device gearset auto-hauls all other devices.
+
+    This test verifies the auto-haul behavior: when a gearset has multiple devices
+    and only one device is included in the haul notification, all other deployed
+    devices are automatically hauled using the same haul timestamp.
+    """
+    from observations.models import DEFAULT_ASSIGNED_RANGE
+
+    # Create SubjectGroup and assign permission to superuser
+    subject_group = SubjectGroup.objects.create(name="TestAutoHaulManufacturer")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    now = timezone.now()
+    deploy_time = now - timedelta(hours=2)
+    haul_time = now - timedelta(minutes=10)
+
+    device_id_1 = "111e4567-e89b-12d3-a456-426614174001"
+    device_id_2 = "222e4567-e89b-12d3-a456-426614174002"
+
+    # Deploy gearset with TWO devices
+    deploy_data = {
+        "manufacturer_name": "TestAutoHaulManufacturer",
+        "owner_id": "owner_auto_haul",
+        "mfr_set_id": "TEST_AUTO_HAUL_SET",
+        "deployment_type": "trawl",
+        "initial_deployment_date": deploy_time,
+        "devices": [
+            {
+                "device_id": device_id_1,
+                "mfr_device_id": "mfr_auto_haul_1",
+                "last_deployed": deploy_time,
+                "last_updated": deploy_time,
+                "device_status": "deployed",
+                "location": {"latitude": 42.0, "longitude": -70.0},
+                "recorded_at": deploy_time,
+            },
+            {
+                "device_id": device_id_2,
+                "mfr_device_id": "mfr_auto_haul_2",
+                "last_deployed": deploy_time,
+                "last_updated": deploy_time,
+                "device_status": "deployed",
+                "location": {"latitude": 42.1, "longitude": -70.1},
+                "recorded_at": deploy_time,
+            },
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=deploy_data, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, _ = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Verify subject is active and both SubjectSources have open ranges
+    subject.refresh_from_db()
+    assert subject.is_active is True
+
+    ss_1 = SubjectSource.objects.get(source_id=device_id_1)
+    ss_2 = SubjectSource.objects.get(source_id=device_id_2)
+    assert ss_1.assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
+    assert ss_2.assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
+
+    # Now haul the gearset with ONLY ONE device in the haul notification
+    haul_data = {
+        "manufacturer_name": "TestAutoHaulManufacturer",
+        "owner_id": "owner_auto_haul",
+        "set_id": str(subject.id),
+        "mfr_set_id": "TEST_AUTO_HAUL_SET",
+        "deployment_type": "trawl",
+        "devices": [
+            {
+                "device_id": device_id_1,
+                "mfr_device_id": "mfr_auto_haul_1",
+                "last_deployed": deploy_time,
+                "last_updated": now,
+                "device_status": "hauled",
+                "location": {"latitude": 42.0, "longitude": -70.0},
+                "recorded_at": haul_time,
+            },
+            # device_id_2 is intentionally NOT included in the haul notification
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=haul_data, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, _ = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Verify BOTH SubjectSources are now hauled (ranges closed)
+    ss_1.refresh_from_db()
+    ss_2.refresh_from_db()
+
+    assert (
+        ss_1.assigned_range.upper != DEFAULT_ASSIGNED_RANGE[1]
+    ), f"Device 1 should be hauled but assigned_range.upper={ss_1.assigned_range.upper}"
+    assert (
+        ss_2.assigned_range.upper != DEFAULT_ASSIGNED_RANGE[1]
+    ), f"Device 2 should be auto-hauled but assigned_range.upper={ss_2.assigned_range.upper}"
+
+    # Both devices should have haul time close to the same value (within 1 second padding)
+    assert abs((ss_1.assigned_range.upper - ss_2.assigned_range.upper).total_seconds()) < 2
+
+    # Subject should now be inactive (all devices hauled)
+    subject.refresh_from_db()
+    assert subject.is_active is False, (
+        f"Subject should be inactive after auto-haul. "
+        f"ss_1.upper={ss_1.assigned_range.upper}, ss_2.upper={ss_2.assigned_range.upper}"
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestDeviceWithNullLocation:
     """Tests for devices with null/missing location data (Edgetech use case)."""
 
