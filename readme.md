@@ -121,5 +121,22 @@ ln -s AGENTS.md .cursorrules
 
 ## Onboarding
 
+## Coding Agent Setup
+As of Jan 27, 2026, the way is this:
+We write our Agent context in [AGENTS.md](https://agents.md/), then link it for other cli's to find it
+
+```
+# Use Cursor's rules as the source of truth
+ln -s .cursor/rules .claude/rules
+```
+
+Either link the files, or remember to @AGENTS.md in your claude prompt
+```
+ln -s AGENTS.md CLAUDE.md
+ln -s AGENTS.md .cursorrules
+```
+
+## Onboarding
+
 See the ER Onboarding documents hosted in Confluence for help on setting up your developer workstation.
 [OnBoarding](https://allenai.atlassian.net/wiki/spaces/ER/pages/19312935978/Onboarding)
