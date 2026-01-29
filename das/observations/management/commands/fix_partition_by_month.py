@@ -400,6 +400,14 @@ class Command(BaseCommand):
             execute_sql_query(query=create_staging_sql, logger=logger, fetch_type=FetchType.NONE)
             logger.info(f"Created staging table: {staging_table}")
 
+            # Set REPLICA IDENTITY FULL on staging table to support logical replication
+            # This is required when the database has publications that include deletes
+            set_replica_identity_sql = psycopg2_sql.SQL("ALTER TABLE {staging_table} REPLICA IDENTITY FULL;").format(
+                staging_table=staging_table_ref
+            )
+            execute_sql_query(query=set_replica_identity_sql, logger=logger, fetch_type=FetchType.NONE)
+            logger.info(f"Set REPLICA IDENTITY FULL on staging table: {staging_table}")
+
             commit(logger=logger)
             self.stdout.write(self.style.SUCCESS("Staging table created"))
 

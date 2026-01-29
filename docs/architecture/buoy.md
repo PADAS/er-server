@@ -88,7 +88,7 @@ The system uses multiple strategies to determine the `set_id` (Subject ID):
 **Subject Group Assignment:**
 - The Subject is added to a SubjectGroup based on `manufacturer_name`
 - The SubjectGroup must exist before gear creation (validated in serializer)
-- User must have permission to create gears in that SubjectGroup (checked via Casbin permission sets)
+- User must have permission to create gears in that SubjectGroup
 - The relationship is many-to-many, so a Subject can belong to multiple SubjectGroups
 
 #### 4. Source (Device) Creation/Update
@@ -145,14 +145,36 @@ subject_source, created = SubjectSource.objects.get_or_create(
 - Cannot haul a device that's already hauled
 - Checked in serializer: `GearCreateSerializer.validate()`
 
-#### 6. Subject Active State Management
+#### 6. Auto-Haul Behavior
 
-After processing all devices, the system determines if the Subject should be active:
+When any device in a gearset is hauled, the system **automatically hauls all other deployed devices** in the same gearset:
 
 ```python
-now = datetime.now(timezone.utc)
+# If any device was hauled, auto-haul all remaining deployed devices
+if any_device_hauled:
+    haul_time = <recorded_at from first hauled device>
+    deployed_subject_sources = SubjectSource.objects.filter(
+        subject=subject,
+        assigned_range__endswith=datetime.max,  # Still deployed
+    )
+    for ss in deployed_subject_sources:
+        ss.assigned_range = DateTimeTZRange(lower=ss.assigned_range.lower, upper=haul_time)
+        ss.save()
+```
+
+**Why Auto-Haul?**
+- Fishing gear sets (trawls) are hauled as a unit - all devices come up together
+- Manufacturers may only report one device in haul notifications due to operational constraints
+- This prevents "orphaned" deployed devices when the gearset is physically retrieved
+
+#### 7. Subject Active State Management
+
+After processing all devices (including auto-haul), the system determines if the Subject should be active:
+
+```python
+max_upper = DEFAULT_ASSIGNED_RANGE[1]  # datetime.max
 assigned_ranges = SubjectSource.objects.filter(subject=subject).values_list("assigned_range", flat=True)
-all_hauled = all(now not in assigned_range for assigned_range in assigned_ranges)
+all_hauled = assigned_ranges.exists() and all(ar.upper != max_upper for ar in assigned_ranges)
 if all_hauled:
     subject.is_active = False
     subject.save()
@@ -160,11 +182,8 @@ if all_hauled:
 
 **Business Rule:**
 - A Subject (gear set) is `is_active = True` if ANY of its SubjectSources have an active deployment
-- A Subject is `is_active = False` if ALL of its SubjectSources are hauled (current time is outside all assigned_range values)
-- This means:
-  - New deployments automatically set Subject to active
-  - Hauling ALL devices sets Subject to inactive
-  - Hauling SOME devices keeps Subject active (partial retrieval)
+- A Subject is `is_active = False` if ALL of its SubjectSources are hauled (upper bound is not `datetime.max`)
+- With auto-haul, hauling ANY device effectively hauls the entire gearset
 
 #### 7. Observation Creation
 
@@ -246,15 +265,7 @@ POST /api/v1.0/gears/
 │  Location   │
 └──────┬──────┘
        │
-       │ Some devices hauled
-       v
-┌─────────────┐
-│  Partially  │ (is_active = True)
-│   Hauled    │
-│             │
-└──────┬──────┘
-       │
-       │ All devices hauled
+       │ Any device hauled (auto-hauls all)
        v
 ┌─────────────┐
 │    Hauled   │ (is_active = False)
@@ -268,6 +279,8 @@ POST /api/v1.0/gears/
 │ Re-deployed │ (is_active = True)
 └─────────────┘
 ```
+
+**Note:** With auto-haul enabled, there is no "Partially Hauled" state. When any device is hauled, all devices in the gearset are automatically hauled together.
 
 ### Device (Source/SubjectSource) States
 
@@ -426,9 +439,9 @@ POST /api/v1.0/gears/
 - **Observations created:**
   - Two Observations (one per device)
 
-### Scenario 4: Partial Trawl Haul
+### Scenario 4: Trawl Haul with Auto-Haul
 
-If only ONE device from the trawl above is hauled:
+If only ONE device from the trawl above is included in the haul notification, the system **automatically hauls all other devices**:
 
 **Request:**
 ```json
@@ -450,9 +463,11 @@ If only ONE device from the trawl above is hauled:
 ```
 
 **Result:**
-- **Subject:** `is_active` remains `True` (BOG_002 still deployed)
-- **SubjectSource for BOG_001:** assigned_range closed
-- **SubjectSource for BOG_002:** assigned_range still open (unchanged)
+- **Subject:** `is_active` set to `False` (all devices hauled via auto-haul)
+- **SubjectSource for BOG_001:** assigned_range closed to `[2024-01-20T08:00:00Z, 2024-01-20T14:00:00Z)`
+- **SubjectSource for BOG_002:** **auto-hauled** with assigned_range closed to `[2024-01-20T08:05:00Z, 2024-01-20T14:00:00Z)`
+
+**Note:** The auto-haul uses the `recorded_at` timestamp from the first hauled device in the request. This ensures all devices in the gearset have consistent haul timestamps.
 
 ## Permission Requirements
 
