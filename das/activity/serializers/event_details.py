@@ -97,14 +97,14 @@ class EventDetailsSerializer(ModelSerializer):
 
         new_schema = V2SchemaAutoBuilder.from_document(data)
 
-        update_fields = {"schema": json.dumps(new_schema, indent=2)}
+        event_type.schema = json.dumps(new_schema, indent=2)
 
         # Upgrade v1 event types to v2
         if event_type.version == EventType.VersionChoices.VERSION_1:
-            update_fields["version"] = EventType.VersionChoices.VERSION_2
+            event_type.version = EventType.VersionChoices.VERSION_2
             logger.info(f"Upgrading EventType {event_type.value} from v1 to v2")
 
-        EventType.objects.filter(id=event_type.id).update(**update_fields)
+        event_type.save(update_fields=["schema", "version", "updated_at"])
         logger.info(f"Auto-generated V2 schema for EventType: {event_type.value}")
         return True
 
