@@ -433,12 +433,14 @@ class GearSerializer(serializers.ModelSerializer):
 
             # Build base query for related subject sources
             # Note: We use select_related only for "source" and not "source__provider" because
-            # some Sources may not have a provider set (provider_id is NULL), and select_related
+            # the default SourceProvider may not exist in test environments, and select_related
             # uses INNER JOIN which would exclude those rows.
+            # We prefetch last_observation_sources but NOT the observation FK to avoid
+            # expensive queries on the partitioned observations table.
             related_subject_sources_query = (
                 models.SubjectSource.objects.filter(subject__id=subject.id)
                 .select_related("source")
-                .prefetch_related("source__last_observation_sources", "source__last_observation_sources__observation")
+                .prefetch_related("source__last_observation_sources")
             )
 
             if subject.is_active:
