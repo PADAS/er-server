@@ -4,7 +4,6 @@ from collections import Counter
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from django.db.models.functions import Lower
 from django.utils.dateparse import parse_datetime
 from rest_framework import serializers
 
@@ -433,13 +432,13 @@ class GearSerializer(serializers.ModelSerializer):
             include_empty_location = self.context.get("include_empty_location", False)
 
             # Build base query for related subject sources
+            # Note: We use select_related only for "source" and not "source__provider" because
+            # some Sources may not have a provider set (provider_id is NULL), and select_related
+            # uses INNER JOIN which would exclude those rows.
             related_subject_sources_query = (
                 models.SubjectSource.objects.filter(subject__id=subject.id)
-                .annotate(lower=Lower("assigned_range"))
-                .exclude(
-                    lower=datetime.min.replace(tzinfo=now.tzinfo)
-                )  # This prevents including sources that didn't have the lower bound set i.e. deployed
-                .select_related("source", "source__provider")
+                .select_related("source")
+                .prefetch_related("source__last_observation_sources", "source__last_observation_sources__observation")
             )
 
             if subject.is_active:
