@@ -5,12 +5,21 @@ from typing import List, Tuple
 
 from psycopg2.extras import DateTimeTZRange
 
-from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE, DEVICE_STATUS_DEPLOYED
+from buoy.constants import (
+    BUOY_GEAR_SUBJECT_SUBTYPE,
+    DEVICE_STATUS_DEPLOYED,
+    DEVICE_STATUS_HAULED,
+)
 from observations import models
 from observations.models import DEFAULT_ASSIGNED_RANGE, EMPTY_POINT
 from utils.json import ExtendedJSONEncoder
 
 logger = logging.getLogger(__name__)
+
+# Offset added to haul time for assigned_range upper bound.
+# Range queries are inclusive of lower bound, exclusive of upper bound,
+# so we add padding to ensure the haul observation is included in the range.
+HAUL_TIME_OFFSET = timedelta(seconds=1)
 
 
 class BuoyService:
@@ -206,11 +215,7 @@ class BuoyService:
                     logger.warning(
                         f"SubjectSource created for {subject.name} and {source.manufacturer_id} but device status is {device_data.get('device_status')}, the assigned_range lower bound will be the default min time"
                     )
-                # Range queries are inclusive of the lower bound, exclusive of the upper bound, add a little padding to the upper bound
-                # so this observation is included in the subject source's assigned range
-                assigned_range_upper = (
-                    recorded_at + timedelta(seconds=1) if recorded_at != datetime.max else recorded_at
-                )
+                assigned_range_upper = recorded_at + HAUL_TIME_OFFSET if recorded_at != datetime.max else recorded_at
                 assigned_range = DateTimeTZRange(lower=subject_source.assigned_range.lower, upper=assigned_range_upper)
 
             # Only set SubjectSource.location if we have real location data (not EMPTY_POINT)
@@ -222,12 +227,41 @@ class BuoyService:
             subject_source.assigned_range = assigned_range
             subject_source.save()
 
+        # Auto-haul: If any device in this request was hauled, automatically haul all other
+        # deployed devices in the same gearset. This ensures the entire gearset is marked as
+        # hauled even if the haul notification only includes a subset of devices.
+        max_upper = DEFAULT_ASSIGNED_RANGE[1]
+        any_device_hauled = any(device_data.get("device_status") == DEVICE_STATUS_HAULED for device_data in devices)
+
+        if any_device_hauled:
+            # Find the haul time from the first hauled device in the request
+            haul_time = None
+            for device_data in devices:
+                if device_data.get("device_status") == DEVICE_STATUS_HAULED:
+                    haul_time = device_data.get("recorded_at") or datetime.now(timezone.utc)
+                    break
+
+            # Find all SubjectSources for this Subject that are still deployed (open upper bound)
+            deployed_subject_sources = models.SubjectSource.objects.filter(
+                subject=subject,
+                assigned_range__endswith=max_upper,
+            )
+
+            # Auto-haul each deployed SubjectSource
+            for ss in deployed_subject_sources:
+                assigned_range_upper = haul_time + HAUL_TIME_OFFSET if haul_time != datetime.max else haul_time
+                ss.assigned_range = DateTimeTZRange(lower=ss.assigned_range.lower, upper=assigned_range_upper)
+                ss.save()
+                logger.info(
+                    f"Auto-hauled device {ss.source.manufacturer_id} for gearset {subject.name} "
+                    f"(set_id: {subject.id}) at {haul_time}"
+                )
+
         # If all SubjectSource for the Subject are hauled, set Subject is_active to False
         # A SubjectSource is considered "hauled" if its assigned_range upper bound is not datetime.max
         # (i.e., the range has been closed). We check this instead of 'now not in assigned_range'
         # to avoid a race condition where 'now' might still be within the 1-second padding
         # added to the upper bound for recent haul events.
-        max_upper = DEFAULT_ASSIGNED_RANGE[1]
         assigned_ranges = models.SubjectSource.objects.filter(subject=subject).values_list("assigned_range", flat=True)
         # Only consider hauled if there are SubjectSources AND all have a closed upper bound
         all_hauled = assigned_ranges.exists() and all(ar.upper != max_upper for ar in assigned_ranges)
