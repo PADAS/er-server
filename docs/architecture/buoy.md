@@ -88,7 +88,7 @@ The system uses multiple strategies to determine the `set_id` (Subject ID):
 **Subject Group Assignment:**
 - The Subject is added to a SubjectGroup based on `manufacturer_name`
 - The SubjectGroup must exist before gear creation (validated in serializer)
-- User must have permission to create gears in that SubjectGroup (checked via Casbin permission sets)
+- User must have permission to create gears in that SubjectGroup
 - The relationship is many-to-many, so a Subject can belong to multiple SubjectGroups
 
 #### 4. Source (Device) Creation/Update
