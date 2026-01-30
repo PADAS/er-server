@@ -121,3 +121,52 @@ class EventTypeRevisionSerializer(serializers.Serializer):
             updated_fields = [k for k in obj.data.keys() if k not in non_user_fields]
             return updated_fields
         return []
+
+
+class MigrationRequestSerializer(serializers.Serializer):
+    """
+    Serializer for V1 to V2 schema migration request.
+
+    Request body:
+    - dry_run: if true, preview migration without persisting changes
+    - event_types: array of event type values to migrate
+    """
+
+    dry_run = serializers.BooleanField(default=True)
+    event_types = serializers.ListField(
+        child=serializers.CharField(max_length=255),
+        min_length=1,
+        help_text="List of event type values to migrate",
+    )
+
+    def validate_event_types(self, value: List[str]) -> List[str]:
+        """Validate that event_types is not empty and contains valid strings."""
+        if not value:
+            raise serializers.ValidationError("At least one event type must be specified.")
+        # Remove duplicates while preserving order
+        seen = set()
+        unique = []
+        for item in value:
+            if item not in seen:
+                seen.add(item)
+                unique.append(item)
+        return unique
+
+
+class MigrationResultSerializer(serializers.Serializer):
+    """
+    Serializer for a single migration result.
+
+    Response fields per FE contract:
+    - event_type: value of the event type
+    - v2_schema: resulting V2 schema (or null if failed)
+    - warnings: array of warning messages
+    - errors: array of error messages
+    - metadata: additional migration information
+    """
+
+    event_type = serializers.CharField()
+    v2_schema = serializers.JSONField(allow_null=True)
+    warnings = serializers.ListField(child=serializers.CharField())
+    errors = serializers.ListField(child=serializers.CharField())
+    metadata = serializers.JSONField()

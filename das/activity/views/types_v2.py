@@ -21,9 +21,12 @@ from activity.filters import EventTypeFilterSet
 from activity.models import Event, EventType
 from activity.permissions import EventCategoryPermissions
 from activity.schemas.eventtype_service import EventTypeSchemaService
+from activity.schemas.migration.service import MigrationService
 from activity.serializers.event_types_v2 import (
     EventTypeRevisionSerializer,
     EventTypeV2Serializer,
+    MigrationRequestSerializer,
+    MigrationResultSerializer,
 )
 from activity.views.events.utils import AllowedCategoriesMixin
 from core.utils import is_uuid
@@ -220,3 +223,37 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         page = self.paginate_queryset(revisions)
         serializer = EventTypeRevisionSerializer(page, many=True)
         return self.get_paginated_response(serializer.data)
+
+    @extend_schema(
+        request=MigrationRequestSerializer,
+        responses={200: MigrationResultSerializer(many=True)},
+    )
+    @action(
+        methods=["post"],
+        detail=False,
+        url_path="migrate",
+        serializer_class=MigrationRequestSerializer,
+    )
+    def migrate(self, request: Request) -> Response:
+        """
+        Migrate V1 EventType schemas to V2.
+
+        Request body:
+        - dry_run: if true, preview migration without persisting (default: true)
+        - event_types: array of event type values to migrate
+
+        Response:
+        - data: array of migration results, one per event type
+        """
+        serializer = MigrationRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        dry_run = serializer.validated_data["dry_run"]
+        event_types = serializer.validated_data["event_types"]
+
+        migration_service = MigrationService(request=request, dry_run=dry_run)
+        results = migration_service.migrate(event_types)
+
+        response_data = {"data": [MigrationResultSerializer(r.to_dict()).data for r in results]}
+
+        return Response(response_data, status=status.HTTP_200_OK)
