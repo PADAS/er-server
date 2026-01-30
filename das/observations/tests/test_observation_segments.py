@@ -519,3 +519,152 @@ class TestObservationSegmentVectorTiles:
         flags = [f["properties"].get("is_latest") for f in features]
         assert flags.count(True) == 1
         assert flags.count(False) == 1
+
+    def test_bearing_calculated_on_segment_creation(self, db):
+        """Test that bearing_deg is automatically calculated when segment is created."""
+        tenant = DASTenant.objects.get(id=default_tenant_id())
+        subject_type, _ = SubjectType.objects.get_or_create(value="wildlife", display="Wildlife", das_tenant=tenant)
+        subject_subtype, _ = SubjectSubType.objects.get_or_create(
+            value="test", display="Test", subject_type=subject_type, das_tenant=tenant
+        )
+        subject = Subject.objects.create(name="Test Subject", subject_subtype=subject_subtype, das_tenant=tenant)
+
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_provider_bearing", display_name="Test Provider", das_tenant=tenant
+        )
+        source = Source.objects.create(manufacturer_id="test_collar_bearing", provider=provider, das_tenant=tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=tenant)
+
+        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+        # Test various directions
+        test_cases = [
+            # (start_point, end_point, expected_bearing_range)
+            (Point(0, 0), Point(0, 1), (0, 0)),  # Due north
+            (Point(0, 0), Point(1, 0), (85, 95)),  # Due east (~90°)
+            (Point(0, 0), Point(0, -1), (180, 180)),  # Due south
+            (Point(0, 0), Point(-1, 0), (265, 275)),  # Due west (~270°)
+        ]
+
+        for i, (start_pt, end_pt, (min_bearing, max_bearing)) in enumerate(test_cases):
+            obs1 = Observation.objects.create(
+                source=source,
+                recorded_at=base_time + timedelta(hours=i * 2),
+                location=start_pt,
+                das_tenant=tenant,
+            )
+            obs2 = Observation.objects.create(
+                source=source,
+                recorded_at=base_time + timedelta(hours=i * 2 + 1),
+                location=end_pt,
+                das_tenant=tenant,
+            )
+
+            segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+            # Verify bearing was calculated
+            assert segment.bearing_deg is not None
+            assert 0 <= segment.bearing_deg < 360
+
+            # Verify bearing is in expected range
+            if min_bearing == max_bearing:
+                # Exact bearing (north or south)
+                assert abs(segment.bearing_deg - min_bearing) < 1.0
+            else:
+                # Range (east or west, allowing for equator calculation variations)
+                assert min_bearing <= segment.bearing_deg <= max_bearing
+
+    def test_bearing_in_vector_tile_features(self, db):
+        """Test that bearing_deg is included in vector tile feature properties."""
+        tenant = DASTenant.objects.get(id=default_tenant_id())
+        subject_type, _ = SubjectType.objects.get_or_create(value="wildlife", display="Wildlife", das_tenant=tenant)
+        subject_subtype, _ = SubjectSubType.objects.get_or_create(
+            value="test", display="Test", subject_type=subject_type, das_tenant=tenant
+        )
+        subject = Subject.objects.create(name="VT Test", subject_subtype=subject_subtype, das_tenant=tenant)
+
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_provider_vt_bearing", display_name="Test Provider", das_tenant=tenant
+        )
+        source = Source.objects.create(manufacturer_id="test_collar_vt_bearing", provider=provider, das_tenant=tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=tenant)
+
+        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=base_time, location=Point(0, 0), das_tenant=tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=base_time + timedelta(minutes=10), location=Point(1, 0), das_tenant=tenant
+        )
+
+        segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Get feature from vector layer
+        layer = ObservationSegmentVectorLayer()
+        factory = APIRequestFactory()
+        request = factory.get("/tiles")
+        layer.request = request
+
+        feature = layer.as_vector_tile_feature(segment)
+
+        # Verify bearing_deg is in properties
+        assert "bearing_deg" in feature["properties"]
+        assert feature["properties"]["bearing_deg"] is not None
+        assert isinstance(feature["properties"]["bearing_deg"], (int, float))
+        assert 0 <= feature["properties"]["bearing_deg"] < 360
+
+    def test_no_point_features_generated(self, db):
+        """Test that vector tiles only contain LineString features, no Point features for segment endpoints."""
+        tenant = DASTenant.objects.get(id=default_tenant_id())
+        subject_type, _ = SubjectType.objects.get_or_create(value="wildlife", display="Wildlife", das_tenant=tenant)
+        subject_subtype, _ = SubjectSubType.objects.get_or_create(
+            value="test", display="Test", subject_type=subject_type, das_tenant=tenant
+        )
+        subject = Subject.objects.create(name="Line Test", subject_subtype=subject_subtype, das_tenant=tenant)
+
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_provider_no_points", display_name="Test Provider", das_tenant=tenant
+        )
+        source = Source.objects.create(
+            manufacturer_id="test_collar_no_points", provider=provider, das_tenant=tenant
+        )
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=tenant)
+
+        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=base_time, location=Point(0, 0), das_tenant=tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=base_time + timedelta(minutes=10), location=Point(0.1, 0), das_tenant=tenant
+        )
+        obs3 = Observation.objects.create(
+            source=source, recorded_at=base_time + timedelta(minutes=20), location=Point(0.2, 0), das_tenant=tenant
+        )
+
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
+        ObservationSegment.objects.create_segment(obs2, obs3, subject)
+
+        # Get features from vector layer
+        layer = ObservationSegmentVectorLayer()
+        factory = APIRequestFactory()
+        request = factory.get("/tiles")
+        layer.request = request
+
+        qs = layer.get_vector_tile_queryset()
+        features = [layer.as_vector_tile_feature(obj) for obj in qs]
+
+        # Should have exactly 2 features (one per segment)
+        assert len(features) == 2
+
+        # All features should be LineStrings
+        for feature in features:
+            geom = feature["geometry"]
+            assert isinstance(geom, LineString)
+            assert geom.geom_type == "LineString"
+
+        # Verify no "kind" property exists (which was used for point features)
+        for feature in features:
+            props = feature["properties"]
+            assert "kind" not in props
+            assert "bearing_to_next" not in props
+            assert "bearing_from_prev" not in props

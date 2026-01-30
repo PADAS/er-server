@@ -1202,6 +1202,11 @@ class ObservationSegment(TenantModelMixin, models.Model):
     speed_kmh = models.FloatField(help_text="Speed in km/h between observations")
     time_gap_ms = models.FloatField(help_text="Time gap in milliseconds between observations")
     distance_meters = models.FloatField(help_text="Distance in meters between observations (ST_Distance)")
+    bearing_deg = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Initial bearing in degrees [0,360) from start to end observation",
+    )
 
     # Temporal ordering (denormalized from observations for query performance)
     start_recorded_at = models.DateTimeField(db_index=True, help_text="Start observation recorded_at (denormalized)")
@@ -1238,11 +1243,27 @@ class ObservationSegment(TenantModelMixin, models.Model):
     def __str__(self):
         return f"Segment {self.subject.name if self.subject else 'Unknown'}: {self.start_recorded_at} → {self.end_recorded_at}"
 
-    def save(self, *args, **kwargs):
-        """Override save to calculate accurate distance using PostGIS functions when missing."""
-        should_compute = (self.distance_meters is None) or (self.distance_meters == 0.0)
-        if should_compute:
+    @staticmethod
+    def compute_bearing_deg(lat1, lon1, lat2, lon2):
+        """Compute initial bearing from (lat1, lon1) to (lat2, lon2) in degrees [0,360)."""
+        import math
 
+        phi1 = math.radians(lat1)
+        phi2 = math.radians(lat2)
+        d_lambda = math.radians(lon2 - lon1)
+
+        x = math.sin(d_lambda) * math.cos(phi2)
+        y = math.cos(phi1) * math.sin(phi2) - math.sin(phi1) * math.cos(phi2) * math.cos(d_lambda)
+        theta = math.atan2(x, y)
+        bearing = (math.degrees(theta) + 360.0) % 360.0
+        return round(bearing, 2)
+
+    def save(self, *args, **kwargs):
+        """Override save to calculate accurate distance and bearing using PostGIS/geometry when missing."""
+        should_compute_distance = (self.distance_meters is None) or (self.distance_meters == 0.0)
+        should_compute_bearing = self.bearing_deg is None
+
+        if should_compute_distance:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -1264,6 +1285,15 @@ class ObservationSegment(TenantModelMixin, models.Model):
             time_gap_hours = self.time_gap_ms / (1000.0 * 3600.0)
             if time_gap_hours > 0:
                 self.speed_kmh = (self.distance_meters / 1000.0) / time_gap_hours
+
+        # Calculate bearing if not set
+        if should_compute_bearing:
+            start_loc = self.start_observation.location
+            end_loc = self.end_observation.location
+            self.bearing_deg = self.compute_bearing_deg(
+                start_loc.y, start_loc.x,  # lat, lon
+                end_loc.y, end_loc.x
+            )
 
         super().save(*args, **kwargs)
 
