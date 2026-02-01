@@ -37,13 +37,13 @@ A collection is a way to group events of significance together. An Incident is a
 
 
 ### Patrols
-More generally, a patrol is an acitivity. This activity is lead by a patrol leader. It has a start time and place. During a patrol, Events can be collected.
+More generally, a patrol is an activity. This activity is lead by a patrol leader. It has a start time and place. During a patrol, Events can be collected.
 
 Currently a Patrol has patrol segments, that are meant to be used to capture specific legs of a patrol. The people joining a patrol would be recorded in the patrol segment.
 
 ## Observations
 ### Observation table
-this is the big table. Currently at 2.5 billion records, and growing 4 million rows a day. The table has been partitioned by month. We don't currently have plans to archive any data as we promissed a user can review in real-time all of their subject data using our timeslider. And yes, loading a map with 5 years of data would crowd the map.
+this is the big table. Currently at 2.5 billion records, and growing 4 million rows a day. The table has been partitioned by month. We don't currently have plans to archive any data as we promised a user can review in real-time all of their subject data using our timeslider. And yes, loading a map with 5 years of data would crowd the map.
 Attributes include
 * Source_id
 * recorded_at
@@ -98,15 +98,15 @@ Attributes include
 * subject_id
 * location - last known location of the subject
 * recorded_at - time of last known location
-* addtional - extra attributes, json
+* additional - extra attributes, json
 * radio_state - status of the radio at this time
 * delay_hours - to support caching, we can set the delay_hours to 24, and remember where the subject was located 24 hours ago
 
 ### SubjectGroup
-A hierarhical grouping of Subjects. A Subject can exist in more than one group. Groups can be nested as sub groups
+A hierarchical grouping of Subjects. A Subject can exist in more than one group. Groups can be nested as sub groups. A PermissionSet is assigned to a SubjectGroup to give users permission to subject(s).
 
 ### SourceGroup
-A hierachical grouping of Sources. Simialar to subjects, a source can be in more than one group. Groups can be nested as sub groups.
+A hierarchical grouping of Sources. Similar to subjects, a source can be in more than one group. Groups can be nested as sub groups. A PermissionSet is assigned to a SourceGroup to give users permission to a source(s)
 
 #### Real-time Updates
 When a new Observation is added to the database, the following process occurs:
