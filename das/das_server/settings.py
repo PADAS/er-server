@@ -300,7 +300,7 @@ CSRF_TRUSTED_ORIGINS = []
 # Set to False by default, but can be enabled via env var if cookie issues persist
 CSRF_USE_SESSIONS = env.bool("CSRF_USE_SESSIONS", False)
 
-AUTH0_CUSTOM_DOMAIN = env.str("AUTH0_CUSTOM_DOMAIN", "auth-dev.serca.org")
+AUTH0_CUSTOM_DOMAIN = env.str("AUTH0_CUSTOM_DOMAIN", "auth-dev.pamdas.org")
 AUTH0_TENANT_DOMAIN = env.str("AUTH0_TENANT_DOMAIN", "")
 AUTH0_RESOURCE_SERVER = env.str("AUTH0_RESOURCE_SERVER", "https://pamdas.org/api")
 AUTH0_JWKS_CACHE_TTL_S = env.int("AUTH0_JWKS_CACHE_TTL_S", 3600)
