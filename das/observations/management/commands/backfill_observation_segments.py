@@ -92,7 +92,6 @@ class Command(TenantCommandMixin, BaseCommand):
             "recorded_at"
         )
 
-
         total_observations = obs_qs.count()
         if total_observations == 0:
             self.stdout.write("  No observations found")

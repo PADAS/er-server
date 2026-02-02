@@ -9,7 +9,6 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("core", "0030_token"),
         ("observations", "0199_vicuna"),
     ]
 

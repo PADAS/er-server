@@ -590,9 +590,7 @@ class TestObservationSegmentVectorTiles:
         SubjectSource.objects.create(subject=subject, source=source, das_tenant=tenant)
 
         base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-        obs1 = Observation.objects.create(
-            source=source, recorded_at=base_time, location=Point(0, 0), das_tenant=tenant
-        )
+        obs1 = Observation.objects.create(source=source, recorded_at=base_time, location=Point(0, 0), das_tenant=tenant)
         obs2 = Observation.objects.create(
             source=source, recorded_at=base_time + timedelta(minutes=10), location=Point(1, 0), das_tenant=tenant
         )
@@ -625,15 +623,11 @@ class TestObservationSegmentVectorTiles:
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_provider_no_points", display_name="Test Provider", das_tenant=tenant
         )
-        source = Source.objects.create(
-            manufacturer_id="test_collar_no_points", provider=provider, das_tenant=tenant
-        )
+        source = Source.objects.create(manufacturer_id="test_collar_no_points", provider=provider, das_tenant=tenant)
         SubjectSource.objects.create(subject=subject, source=source, das_tenant=tenant)
 
         base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-        obs1 = Observation.objects.create(
-            source=source, recorded_at=base_time, location=Point(0, 0), das_tenant=tenant
-        )
+        obs1 = Observation.objects.create(source=source, recorded_at=base_time, location=Point(0, 0), das_tenant=tenant)
         obs2 = Observation.objects.create(
             source=source, recorded_at=base_time + timedelta(minutes=10), location=Point(0.1, 0), das_tenant=tenant
         )

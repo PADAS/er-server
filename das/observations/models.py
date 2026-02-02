@@ -1290,10 +1290,7 @@ class ObservationSegment(TenantModelMixin, models.Model):
         if should_compute_bearing:
             start_loc = self.start_observation.location
             end_loc = self.end_observation.location
-            self.bearing_deg = self.compute_bearing_deg(
-                start_loc.y, start_loc.x,  # lat, lon
-                end_loc.y, end_loc.x
-            )
+            self.bearing_deg = self.compute_bearing_deg(start_loc.y, start_loc.x, end_loc.y, end_loc.x)  # lat, lon
 
         super().save(*args, **kwargs)
 
