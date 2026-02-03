@@ -39,7 +39,7 @@ Observation = apps.get_model("observations", "Observation")
 ObservationSegment = apps.get_model("observations", "ObservationSegment")
 
 # Layers used by the segment tiles view; must match id list used in the view
-SEGMENT_LAYER_IDS = ("observation-segments",)
+SEGMENT_LAYER_IDS = ("observation_segments",)
 
 
 logger = logging.getLogger(__name__)
