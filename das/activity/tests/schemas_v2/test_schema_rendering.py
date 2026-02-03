@@ -5,8 +5,8 @@ from referencing import Registry
 
 from activity.schemas.schema_rendering import SchemaRenderer
 
+from .helpers import get_counting_retriever
 from .schema_examples import BASE_URL, SAMPLE_SCHEMAS
-from .test_helpers import get_counting_retriever
 
 
 def call_count_schema_renderer() -> Tuple[SchemaRenderer, Dict[str, int]]:

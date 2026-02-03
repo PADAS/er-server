@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import List
 
@@ -71,6 +72,18 @@ class EventTypeV2Serializer(serializers.ModelSerializer):
     def get_icon_id(self, instance: EventType) -> str:
         """Get the icon_id from the EventType instance."""
         return instance.icon_id
+
+    def validate(self, attrs: dict) -> dict:
+        """
+        Extract 'readonly' from schema if present (V1 backwards compatibility),
+        set it on the model field, and remove it from the schema before saving.
+        """
+        schema = attrs.get("schema")
+        if schema and isinstance(schema, dict):
+            if "readonly" in schema:
+                attrs["readonly"] = schema.pop("readonly")
+            attrs["schema"] = json.dumps(schema, indent=2)
+        return attrs
 
     def to_representation(self, instance: EventType) -> dict:
         """

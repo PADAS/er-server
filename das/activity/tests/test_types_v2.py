@@ -1301,3 +1301,148 @@ class TestTrailingSlashConfiguration:
 
         # Verify both responses return the same data
         assert response_with_slash.data == response_without_slash.data
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestReadonlyExtractionFromSchema:
+    """
+    In V1, the 'readonly' property was stored inside the schema JSON. For V2, we now
+    store it as a model field, but we still accept it in the schema for backwards
+    compatibility with migrations from V1.
+    """
+
+    @pytest.fixture
+    def valid_schema(self):
+        """Valid event type schema structure for tests."""
+        return copy.deepcopy(minimal_event_type_schema)
+
+    def test_post_readonly_in_schema_sets_model_field(self, superuser_client, cat1_cat2_categories, valid_schema):
+        """Test POST with 'readonly' in schema extracts it and sets the model field."""
+        valid_schema["readonly"] = True
+        data = {
+            "value": "test-readonly-extraction",
+            "display": "Test Readonly Extraction",
+            "category": cat1_cat2_categories[0].value,
+            "schema": valid_schema,
+        }
+
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.post(url, data=data)
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        # Verify readonly is set on the model
+        event_type = EventType.objects.get(value="test-readonly-extraction")
+        assert event_type.readonly is True
+
+        # Verify readonly is stripped from the stored schema
+        stored_schema = json.loads(event_type.schema)
+        assert "readonly" not in stored_schema
+
+    def test_post_readonly_false_in_schema(self, superuser_client, cat1_cat2_categories, valid_schema):
+        """Test POST with 'readonly': false in schema."""
+        valid_schema["readonly"] = False
+        data = {
+            "value": "test-readonly-false",
+            "display": "Test Readonly False",
+            "category": cat1_cat2_categories[0].value,
+            "schema": valid_schema,
+        }
+
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.post(url, data=data)
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        event_type = EventType.objects.get(value="test-readonly-false")
+        assert event_type.readonly is False
+
+        stored_schema = json.loads(event_type.schema)
+        assert "readonly" not in stored_schema
+
+    def test_post_no_readonly_in_schema_uses_default(self, superuser_client, cat1_cat2_categories, valid_schema):
+        """Test POST without 'readonly' in schema uses default model value."""
+        data = {
+            "value": "test-no-readonly",
+            "display": "Test No Readonly",
+            "category": cat1_cat2_categories[0].value,
+            "schema": valid_schema,
+        }
+
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.post(url, data=data)
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        event_type = EventType.objects.get(value="test-no-readonly")
+        assert event_type.readonly is False  # Default value
+
+    def test_patch_readonly_in_schema_updates_model(self, superuser_client, cat1_fire_v2_event_type):
+        """Test PATCH with 'readonly' in schema updates the model field."""
+        # First verify the event type has readonly=False
+        assert cat1_fire_v2_event_type.readonly is False
+
+        # Get current schema and add readonly
+        current_schema = json.loads(cat1_fire_v2_event_type.schema)
+        current_schema["readonly"] = True
+
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+        response = superuser_client.patch(url, data={"schema": current_schema})
+
+        assert response.status_code == status.HTTP_200_OK
+
+        cat1_fire_v2_event_type.refresh_from_db()
+        assert cat1_fire_v2_event_type.readonly is True
+
+        # Verify readonly is stripped from the stored schema
+        stored_schema = json.loads(cat1_fire_v2_event_type.schema)
+        assert "readonly" not in stored_schema
+
+    def test_put_readonly_in_schema_updates_model(self, superuser_client, cat1_fire_v2_event_type):
+        """Test PUT with 'readonly' in schema updates the model field."""
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": cat1_fire_v2_event_type.value})
+
+        # Get current data for PUT
+        response_get = superuser_client.get(url, {"include_schema": "true"})
+        put_payload = response_get.data.copy()
+
+        # Remove read-only fields
+        for fld in ["id", "url", "has_events_assigned", "icon_id"]:
+            put_payload.pop(fld, None)
+
+        # Add readonly to schema
+        schema = put_payload["schema"]
+        if isinstance(schema, str):
+            schema = json.loads(schema)
+        schema["readonly"] = True
+        put_payload["schema"] = schema
+
+        response = superuser_client.put(url, data=put_payload)
+        assert response.status_code == status.HTTP_200_OK
+
+        cat1_fire_v2_event_type.refresh_from_db()
+        assert cat1_fire_v2_event_type.readonly is True
+
+        stored_schema = json.loads(cat1_fire_v2_event_type.schema)
+        assert "readonly" not in stored_schema
+
+    def test_schema_readonly_overrides_body_readonly(self, superuser_client, cat1_cat2_categories, valid_schema):
+        """Test that 'readonly' in schema takes precedence when both are provided."""
+        valid_schema["readonly"] = True
+        data = {
+            "value": "test-readonly-precedence",
+            "display": "Test Readonly Precedence",
+            "category": cat1_cat2_categories[0].value,
+            "schema": valid_schema,
+            "readonly": False,  # Body says false, schema says true
+        }
+
+        url = reverse("v2-eventtype-list")
+        response = superuser_client.post(url, data=data)
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        event_type = EventType.objects.get(value="test-readonly-precedence")
+        # Schema's readonly should take precedence
+        assert event_type.readonly is True
