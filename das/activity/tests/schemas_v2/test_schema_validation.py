@@ -1,6 +1,4 @@
 import copy
-import json
-from pathlib import Path
 
 import pytest
 
@@ -14,25 +12,13 @@ from activity.tests.helpers.schema_test_utils import (
 )
 
 
-class TestJsonSchemaField:
-    @pytest.fixture
-    def json_schema_fixture(self, request):
-        fixture_name = request.param
+class TestJsonSchemaFieldBasics:
+    """
+    Tests for basic JSONSchemaField input validation and fixture-based schema tests.
 
-        fixture_path = Path(__file__).parent.parent / "fixtures" / f"{fixture_name}.json"
-        with open(fixture_path) as f:
-            return json.load(f)
-
-    @pytest.mark.parametrize("json_schema_fixture", ["ui_schema_missing_parent_section"], indirect=True)
-    def test_invalid_ui_schema_missing_parents(self, json_schema_fixture):
-        field_schema = JSONSchemaField(meta_schema=main_event_type_schema, validate_sections=True)
-        with pytest.raises(ValidationError) as e:
-            field_schema.to_internal_value(json_schema_fixture)
-
-        err = str(e.value)
-        assert "Validation errors:" in err
-        assert "'header-1' has an invalid 'parent' or 'section': 'section-3' does not exist in 'sections'" in err
-        assert "section-3 in 'order' does not exist in 'sections'" in err
+    These tests verify the field handles various input types correctly and validates
+    schemas loaded from fixture files.
+    """
 
     @pytest.mark.parametrize(
         "json_schema_fixture",
@@ -43,6 +29,7 @@ class TestJsonSchemaField:
             "valid_choice_field_schema",
             "valid_multiple_choice_field_schema",
             "valid_boolean_field_schema",
+            "valid_boolean_field_minimal_schema",
             "valid_datetime_field_schema",
             "valid_date_field_schema",
             "valid_time_field_schema",
@@ -89,70 +76,6 @@ class TestJsonSchemaField:
             e.value
         )
 
-    @pytest.mark.parametrize(
-        "input_schema,error_str",
-        [
-            (
-                # Missing 'json' at root
-                {"ui": minimal_ui_schema},
-                "Invalid JSON Schema: 'json' is a required property at ",
-            ),
-            (
-                # Missing $schema at json
-                {"json": {}},
-                "$schema must be https://json-schema.org/draft/2020-12/schema",
-            ),
-            (
-                # Missing 'ui' at root
-                {"json": minimal_json_schema},
-                "Invalid JSON Schema: 'ui' is a required property at ",
-            ),
-            (
-                # Missing 'properties' under 'json'
-                {
-                    "json": {"$schema": f"{VALID_DRAFT}"},
-                    "ui": minimal_ui_schema,
-                },
-                "Invalid JSON Schema: 'properties' is a required property at json",
-            ),
-            (
-                {
-                    "json": minimal_json_schema,
-                    "ui": {"headers": {}, "order": [], "sections": {}},
-                },
-                "Invalid JSON Schema: 'fields' is a required property at ui",
-            ),
-            (
-                {
-                    "json": minimal_json_schema,
-                    "ui": {"fields": {}, "order": [], "sections": {}},
-                },
-                "Invalid JSON Schema: 'headers' is a required property at ui",
-            ),
-            (
-                {
-                    "json": minimal_json_schema,
-                    "ui": {"fields": {}, "headers": {}, "sections": {}},
-                },
-                "Invalid JSON Schema: 'order' is a required property at ui",
-            ),
-            (
-                {
-                    "json": minimal_json_schema,
-                    "ui": {"fields": {}, "headers": {}, "order": []},
-                },
-                "Invalid JSON Schema: 'sections' is a required property at ui",
-            ),
-        ],
-    )
-    def test_missing_root_properties(self, input_schema, error_str):
-        field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
-        with pytest.raises(ValidationError) as e:
-            field_schema.to_internal_value(input_schema)
-
-        assert error_str in str(e.value)
-
-    # --- Tests for Specific Field Schema Validations (Using Fixtures) --- #
     @pytest.mark.parametrize(
         "json_schema_fixture, error_str_part1, error_str_part2",
         [
@@ -229,7 +152,141 @@ class TestJsonSchemaField:
         assert error_str_part1 in error_message
         assert error_str_part2 in error_message
 
-    # --- Helpers for Section Validation Tests --- #
+
+class TestRootSchemaValidation:
+    """
+    Tests for root-level schema structure and properties.
+
+    These tests verify required root properties (json, ui) and their sub-properties,
+    plus optional root properties like auto-generate, readonly, icon_id, and image_url.
+    """
+
+    def _build_schema(self, root_overrides=None):
+        """Build a valid schema with optional root-level overrides."""
+        schema = {
+            "json": copy.deepcopy(minimal_json_schema),
+            "ui": copy.deepcopy(minimal_ui_schema),
+        }
+        if root_overrides:
+            schema.update(root_overrides)
+        return schema
+
+    @pytest.mark.parametrize(
+        "input_schema,error_str",
+        [
+            (
+                # Missing 'json' at root
+                {"ui": minimal_ui_schema},
+                "Invalid JSON Schema: 'json' is a required property at ",
+            ),
+            (
+                # Missing $schema at json
+                {"json": {}},
+                "$schema must be https://json-schema.org/draft/2020-12/schema",
+            ),
+            (
+                # Missing 'ui' at root
+                {"json": minimal_json_schema},
+                "Invalid JSON Schema: 'ui' is a required property at ",
+            ),
+            (
+                # Missing 'properties' under 'json'
+                {
+                    "json": {"$schema": f"{VALID_DRAFT}"},
+                    "ui": minimal_ui_schema,
+                },
+                "Invalid JSON Schema: 'properties' is a required property at json",
+            ),
+            (
+                {
+                    "json": minimal_json_schema,
+                    "ui": {"headers": {}, "order": [], "sections": {}},
+                },
+                "Invalid JSON Schema: 'fields' is a required property at ui",
+            ),
+            (
+                {
+                    "json": minimal_json_schema,
+                    "ui": {"fields": {}, "order": [], "sections": {}},
+                },
+                "Invalid JSON Schema: 'headers' is a required property at ui",
+            ),
+            (
+                {
+                    "json": minimal_json_schema,
+                    "ui": {"fields": {}, "headers": {}, "sections": {}},
+                },
+                "Invalid JSON Schema: 'order' is a required property at ui",
+            ),
+            (
+                {
+                    "json": minimal_json_schema,
+                    "ui": {"fields": {}, "headers": {}, "order": []},
+                },
+                "Invalid JSON Schema: 'sections' is a required property at ui",
+            ),
+        ],
+    )
+    def test_missing_root_properties(self, input_schema, error_str):
+        field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as e:
+            field_schema.to_internal_value(input_schema)
+
+        assert error_str in str(e.value)
+
+    @pytest.mark.parametrize(
+        "property_name, valid_value",
+        [
+            ("auto-generate", True),
+            ("auto-generate", False),
+            ("readonly", True),
+            ("readonly", False),
+            ("icon_id", "some-icon-uuid-or-id"),
+            ("icon_id", ""),
+            ("image_url", "https://example.com/image.png"),
+            ("image_url", ""),
+        ],
+    )
+    def test_valid_new_root_properties(self, property_name, valid_value):
+        """Test that new root properties accept valid values."""
+        schema = self._build_schema({property_name: valid_value})
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        # Should not raise ValidationError
+        assert field.to_internal_value(schema)
+
+    @pytest.mark.parametrize(
+        "property_name, invalid_value, expected_error",
+        [
+            ("auto-generate", "not-a-boolean", "is not of type 'boolean'"),
+            ("auto-generate", 123, "is not of type 'boolean'"),
+            ("readonly", "not-a-boolean", "is not of type 'boolean'"),
+            ("readonly", 123, "is not of type 'boolean'"),
+            ("icon_id", 123, "is not of type 'string'"),
+            ("icon_id", True, "is not of type 'string'"),
+            ("image_url", 123, "is not of type 'string'"),
+            ("image_url", True, "is not of type 'string'"),
+        ],
+    )
+    def test_invalid_new_root_properties_types(self, property_name, invalid_value, expected_error):
+        """Test that new root properties reject invalid types."""
+        schema = self._build_schema({property_name: invalid_value})
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert expected_error in error_message
+        assert property_name in error_message
+
+
+class TestSectionReferenceValidation:
+    """
+    Tests for UI section reference validation.
+
+    These tests verify the validate_sections parameter that checks headers
+    and order items reference existing sections.
+    """
 
     def _create_default_section(self, label):
         """Creates a minimally valid section structure."""
@@ -246,7 +303,16 @@ class TestJsonSchemaField:
             "ui": copy.deepcopy(minimal_ui_schema),
         }
 
-    # --- Tests for _validate_parent_references --- #
+    @pytest.mark.parametrize("json_schema_fixture", ["ui_schema_missing_parent_section"], indirect=True)
+    def test_invalid_ui_schema_missing_parents(self, json_schema_fixture):
+        field_schema = JSONSchemaField(meta_schema=main_event_type_schema, validate_sections=True)
+        with pytest.raises(ValidationError) as e:
+            field_schema.to_internal_value(json_schema_fixture)
+
+        err = str(e.value)
+        assert "Validation errors:" in err
+        assert "'header-1' has an invalid 'parent' or 'section': 'section-3' does not exist in 'sections'" in err
+        assert "section-3 in 'order' does not exist in 'sections'" in err
 
     def test_valid_section_references(self):
         """Tests that a schema with valid section references passes when validate_sections=True."""

@@ -5,7 +5,7 @@ text_field_schema = {
         "default": {"type": "string"},
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
-        "title": {"type": "string", "maxLength": 100},
+        "title": {"type": "string", "maxLength": 140},
         "type": {"const": "string"},
     },
     "additionalProperties": False,
@@ -18,7 +18,7 @@ attachment_field_schema = {
     "properties": {
         "deprecated": {"type": "boolean"},
         "format": {"const": "uri"},
-        "title": {"type": "string", "maxLength": 100},
+        "title": {"type": "string", "maxLength": 140},
         "type": {"const": "string"},
     },
     "required": ["deprecated", "format", "title", "type"],
@@ -33,7 +33,7 @@ date_time_field_schema = {
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
         "format": {"enum": ["date-time", "date", "time"]},
-        "title": {"type": "string", "maxLength": 100},
+        "title": {"type": "string", "maxLength": 140},
         "type": {"const": "string"},
     },
     "required": ["deprecated", "format", "title", "type"],
@@ -74,7 +74,7 @@ location_field_schema = {
             "additionalProperties": False,
         },
         "required": {"const": ["latitude", "longitude"]},
-        "title": {"type": "string", "maxLength": 100},
+        "title": {"type": "string", "maxLength": 140},
         "type": {"const": "object"},
         "unevaluatedProperties": {"const": False},
     },
@@ -91,8 +91,22 @@ numeric_field_schema = {
         "description": {"type": "string"},
         "maximum": {"type": "number"},
         "minimum": {"type": "number"},
-        "title": {"type": "string", "maxLength": 100},
+        "title": {"type": "string", "maxLength": 140},
         "type": {"const": "number"},
+    },
+    "required": ["deprecated", "title", "type"],
+    "additionalProperties": False,
+}
+
+boolean_field_schema = {
+    "type": "object",
+    "title": "Boolean field schema for EventType Builder",
+    "properties": {
+        "default": {"type": "boolean"},
+        "deprecated": {"type": "boolean"},
+        "description": {"type": "string"},
+        "title": {"type": "string", "maxLength": 140},
+        "type": {"const": "boolean"},
     },
     "required": ["deprecated", "title", "type"],
     "additionalProperties": False,
@@ -102,7 +116,9 @@ reference_choice_object_schema_in_anyOf = {
     "type": "array",
     "items": {
         "type": "object",
-        "properties": {"$ref": {"type": "string", "format": "uri"}},
+        "properties": {
+            "$ref": {"type": "string", "format": "uri"},
+        },
         "required": ["$ref"],
     },
     "minItems": 1,
@@ -115,7 +131,7 @@ choice_field_schema = {
         "anyOf": reference_choice_object_schema_in_anyOf,
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
-        "title": {"type": "string", "maxLength": 100},
+        "title": {"type": "string", "maxLength": 140},
         "type": {"const": "string"},
     },
     "required": ["anyOf", "deprecated", "title", "type"],
@@ -137,7 +153,7 @@ choice_list_field_schema = {
             "required": ["anyOf", "type"],
             "additionalItems": False,
         },
-        "title": {"type": "string", "maxLength": 100},
+        "title": {"type": "string", "maxLength": 140},
         "type": {"const": "array"},
         "uniqueItems": {"const": True},
     },
@@ -238,6 +254,7 @@ collection_field_schema = {
                             "anyOf": [
                                 {"$ref": "#/$defs/textField"},
                                 {"$ref": "#/$defs/numericField"},
+                                {"$ref": "#/$defs/booleanField"},
                                 {"$ref": "#/$defs/attachmentField"},
                                 {"$dynamicRef": "#collectionField"},  # self reference
                                 {"$ref": "#/$defs/dateTimeField"},
@@ -266,13 +283,14 @@ collection_field_schema = {
         },
         "maxItems": {"type": "integer"},
         "minItems": {"type": "integer"},
-        "title": {"type": "string", "maxLength": 100},
+        "title": {"type": "string", "maxLength": 140},
         "type": {"const": "array"},
         "unevaluatedItems": {"const": False},
     },
     "$defs": {
         "textField": text_field_schema,
         "numericField": numeric_field_schema,
+        "booleanField": boolean_field_schema,
         "attachmentField": attachment_field_schema,
         "collectionField": {
             "$dynamicAnchor": "collectionField",
@@ -434,6 +452,18 @@ ui_numeric_schema = {
         "placeholder": {"type": "string"},
         "parent": {"type": "string"},
         "type": {"const": "NUMERIC"},
+    },
+    "required": ["parent", "type"],
+}
+
+ui_boolean_schema = {
+    "additionalProperties": False,
+    "type": "object",
+    "title": "UI Boolean schema for EventType Builder",
+    "properties": {
+        "conditionalDependents": conditional_dependents_schema,
+        "parent": {"type": "string"},
+        "type": {"const": "BOOLEAN"},
     },
     "required": ["parent", "type"],
 }
@@ -1152,6 +1182,7 @@ ui_schema = {
                     "oneOf": [
                         {"$ref": "#/$defs/uiTextSchema"},
                         {"$ref": "#/$defs/uiNumericSchema"},
+                        {"$ref": "#/$defs/uiBooleanSchema"},
                         {"$ref": "#/$defs/uiAttachmentSchema"},
                         {"$ref": "#/$defs/uiCollectionSchema"},
                         {"$ref": "#/$defs/uiDateTimeSchema"},
@@ -1228,6 +1259,7 @@ json_field_schema = {
                                         "anyOf": [
                                             {"$ref": "#/$defs/textField"},
                                             {"$ref": "#/$defs/numericField"},
+                                            {"$ref": "#/$defs/booleanField"},
                                             {"$ref": "#/$defs/attachmentField"},
                                             {"$ref": "#/$defs/collectionField"},
                                             {"$ref": "#/$defs/dateTimeField"},
@@ -1259,6 +1291,7 @@ json_field_schema = {
                     "anyOf": [
                         {"$ref": "#/$defs/textField"},
                         {"$ref": "#/$defs/numericField"},
+                        {"$ref": "#/$defs/booleanField"},
                         {"$ref": "#/$defs/attachmentField"},
                         {"$ref": "#/$defs/collectionField"},
                         {"$ref": "#/$defs/dateTimeField"},
@@ -1292,11 +1325,16 @@ main_event_type_schema = {
     "properties": {
         "json": json_field_schema,
         "ui": ui_schema,
+        "auto-generate": {"type": "boolean"},
+        "readonly": {"type": "boolean"},
+        "icon_id": {"type": "string"},
+        "image_url": {"type": "string"},
     },
     "required": ["json", "ui"],
     "$defs": {
         "textField": text_field_schema,
         "numericField": numeric_field_schema,
+        "booleanField": boolean_field_schema,
         "attachmentField": attachment_field_schema,
         "collectionField": collection_field_schema,
         "dateTimeField": date_time_field_schema,
@@ -1312,6 +1350,7 @@ main_event_type_schema = {
         "uiDateTimeSchema": ui_date_time_schema,
         "uiLocationSchema": ui_location_schema,
         "uiNumericSchema": ui_numeric_schema,
+        "uiBooleanSchema": ui_boolean_schema,
         "uiHeadersSchema": ui_headers_schema,
         "uiSectionsSchema": ui_sections_schema,
         "containsCondition": contains_condition_schema,

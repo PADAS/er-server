@@ -144,7 +144,11 @@ class FeatureSetListJsonView(APIView):
                         {
                             "name": f.name,
                             "id": str(f.id),  # Convert UUID to string for JSON serialization
-                            "bounds": f.feature_geometry.extent if f.feature_geometry else None,
+                            "bounds": (
+                                f.feature_geometry.extent
+                                if f.feature_geometry and not f.feature_geometry.empty
+                                else None
+                            ),
                         }
                         for f in features
                     ]
