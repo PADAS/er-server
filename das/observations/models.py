@@ -1104,20 +1104,36 @@ class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset
         Returns:
             ObservationSegment instance
         """
+        # Access locations once to avoid potential N+1 queries in bulk operations
+        start_loc = start_obs.location
+        end_loc = end_obs.location
 
         # Create LineString geometry
-        geometry = LineString(start_obs.location, end_obs.location, srid=4326)
+        geometry = LineString(start_loc, end_loc, srid=4326)
 
         # Calculate time gap in milliseconds
         time_delta = abs((end_obs.recorded_at - start_obs.recorded_at).total_seconds())
         time_gap_ms = time_delta * 1000.0
 
-        # Do NOT calculate approximate distance here to avoid propagating error.
-        # Accurate distance is computed in ObservationSegment.save() using geography.
-        # Set placeholders; speed will be recalculated in save() after accurate distance.
-        distance_meters = 0.0
+        # Pre-compute distance using PostGIS to avoid N+1 queries in save()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT ST_Distance(
+                    ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,
+                    ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography
+                )
+                """,
+                [start_loc.x, start_loc.y, end_loc.x, end_loc.y],
+            )
+            distance_meters = cursor.fetchone()[0]
+
+        # Calculate speed with accurate distance
         time_gap_hours = time_gap_ms / (1000.0 * 3600.0)
-        speed_kmh = 0.0 if time_gap_hours > 0 else 0.0
+        speed_kmh = (distance_meters / 1000.0) / time_gap_hours if time_gap_hours > 0 else 0.0
+
+        # Pre-compute bearing to avoid N+1 queries in save()
+        bearing_deg = ObservationSegment.compute_bearing_deg(start_loc.y, start_loc.x, end_loc.y, end_loc.x)
 
         # Combine exclusion flags (OR operation)
         exclusion_flags = start_obs.exclusion_flags.mask | end_obs.exclusion_flags.mask
@@ -1130,6 +1146,7 @@ class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset
             speed_kmh=speed_kmh,
             time_gap_ms=time_gap_ms,
             distance_meters=distance_meters,
+            bearing_deg=bearing_deg,
             start_recorded_at=start_obs.recorded_at,
             end_recorded_at=end_obs.recorded_at,
             exclusion_flags=exclusion_flags,

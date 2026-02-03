@@ -155,22 +155,3 @@ class ObservationSegmentVectorLayer(VectorLayer):
             "geometry": obj.geometry,
             "properties": props,
         }
-
-    # ------------------------------------------------------------------ #
-    # Helpers
-    # ------------------------------------------------------------------ #
-
-    @staticmethod
-    def _compute_bearing_deg(lat1, lon1, lat2, lon2):
-        """Compute initial bearing from (lat1, lon1) to (lat2, lon2) in degrees [0,360)."""
-        import math
-
-        phi1 = math.radians(lat1)
-        phi2 = math.radians(lat2)
-        d_lambda = math.radians(lon2 - lon1)
-
-        x = math.sin(d_lambda) * math.cos(phi2)
-        y = math.cos(phi1) * math.sin(phi2) - math.sin(phi1) * math.cos(phi2) * math.cos(d_lambda)
-        theta = math.atan2(x, y)
-        bearing = (math.degrees(theta) + 360.0) % 360.0
-        return round(bearing, 2)

@@ -152,6 +152,8 @@ __all__ = [
     "get_vector_tile_data_version",
     "bump_vector_tile_data_version",
     "VECTOR_TILE_DATA_VERSION_KEY",
+    "delete_tile_keys_by_prefix",
+    "invalidate_tile_cache_keys",
 ]
 
 # --- Prefix-based invalidation utilities (Redis) ---
