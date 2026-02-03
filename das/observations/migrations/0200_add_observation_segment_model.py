@@ -75,6 +75,9 @@ class Migration(migrations.Migration):
                 CREATE INDEX "observation_das_ten_aee6b0_idx"
                 ON "observations_observationsegment" ("das_tenant_id", "subject_id", "exclusion_flags");
 
+                CREATE INDEX "observations_observationsegment_geometry_idx"
+                ON "observations_observationsegment"
+                USING GIST ("geometry");
                 -- Add unique constraint
                 ALTER TABLE "observations_observationsegment"
                 ADD CONSTRAINT "observations_observationsegment_unique_segment"
