@@ -55,11 +55,19 @@ class SubjectTrackSegmentsSerializer(serializers.Serializer):
         # Get subject's segments
         segments_qs = ObservationSegment.objects.filter(subject=subject).select_related("subject")
 
-        # Apply time filters
-        if since:
-            segments_qs = segments_qs.filter(start_recorded_at__gte=since)
-        if until:
-            segments_qs = segments_qs.filter(end_recorded_at__lte=until)
+        # Apply time filters: include segments that overlap the requested window
+        if since and until:
+            # Segments overlap [since, until] if they start before 'until' and end after 'since'
+            segments_qs = segments_qs.filter(
+                start_recorded_at__lt=until,
+                end_recorded_at__gt=since,
+            )
+        elif since:
+            # Open-ended window [since, +∞): segments that end after 'since'
+            segments_qs = segments_qs.filter(end_recorded_at__gt=since)
+        elif until:
+            # Open-ended window (-∞, until]: segments that start before 'until'
+            segments_qs = segments_qs.filter(start_recorded_at__lt=until)
 
         # Apply exclusion flag behavior: default exclude any truthy flags unless show_excluded
         if not show_excluded:
