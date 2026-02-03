@@ -143,8 +143,7 @@ class TestObservationAnnotatorNewMethods(BaseAPITest):
                     current_segment_id = obs.track_segment_id
                     expected_order = 1
 
-                assert obs.segment_order == expected_order, \
-                    f"Observation {obs.id} should have order {expected_order}"
+                assert obs.segment_order == expected_order, f"Observation {obs.id} should have order {expected_order}"
                 expected_order += 1
 
     def test_annotate_with_segmentation_uses_default_speed_threshold(self):
@@ -222,10 +221,8 @@ class TestObservationAnnotatorNewMethods(BaseAPITest):
             for subject_id, subject_obs in subjects.items():
                 if subject_obs:
                     first_obs = min(subject_obs, key=lambda x: x.recorded_at)
-                    assert first_obs.track_segment_id == 0, \
-                        f"Subject {subject_id} should start with segment_id 0"
-                    assert first_obs.segment_order == 1, \
-                        f"Subject {subject_id} should start with segment_order 1"
+                    assert first_obs.track_segment_id == 0, f"Subject {subject_id} should start with segment_id 0"
+                    assert first_obs.segment_order == 1, f"Subject {subject_id} should start with segment_order 1"
 
     def test_speed_calculation_accuracy(self):
         """Test that speed calculations are mathematically correct."""
@@ -247,9 +244,10 @@ class TestObservationAnnotatorNewMethods(BaseAPITest):
                 expected_speed = (obs.distance_preceding / float(obs.time_lapse_preceding)) * 3.6
 
                 # Allow small floating point differences
-                assert abs(obs.speed_kmh - expected_speed) < 0.01, \
-                    f"Speed calculation incorrect for observation {obs.id}. " \
+                assert abs(obs.speed_kmh - expected_speed) < 0.01, (
+                    f"Speed calculation incorrect for observation {obs.id}. "
                     f"Expected: {expected_speed}, Got: {obs.speed_kmh}"
+                )
 
     def test_time_gap_segmentation_logic(self):
         """Test that time gaps correctly trigger segment breaks."""
@@ -299,5 +297,4 @@ class TestObservationAnnotatorNewMethods(BaseAPITest):
             if obs.distance_preceding is not None:
                 # Distance should be non-negative and reasonable (< 500km for test data)
                 assert obs.distance_preceding >= 0, "Distance should be non-negative"
-                assert obs.distance_preceding < 500000, \
-                    "Distance should be reasonable for test data (< 500km)"
+                assert obs.distance_preceding < 500000, "Distance should be reasonable for test data (< 500km)"
