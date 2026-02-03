@@ -2982,7 +2982,7 @@
     "fields": {
       "codename": "add_spatialfeaturetype",
       "content_type_id": 80,
-      "name": "Can add Feature Class"
+      "name": "Can add Feature Type"
     },
     "model": "auth.authpermissiontemporal",
     "pk": 332
@@ -2991,7 +2991,7 @@
     "fields": {
       "codename": "change_spatialfeaturetype",
       "content_type_id": 80,
-      "name": "Can change Feature Class"
+      "name": "Can change Feature Type"
     },
     "model": "auth.authpermissiontemporal",
     "pk": 333
@@ -3000,7 +3000,7 @@
     "fields": {
       "codename": "delete_spatialfeaturetype",
       "content_type_id": 80,
-      "name": "Can delete Feature Class"
+      "name": "Can delete Feature Type"
     },
     "model": "auth.authpermissiontemporal",
     "pk": 334
@@ -3009,7 +3009,7 @@
     "fields": {
       "codename": "view_spatialfeaturetype",
       "content_type_id": 80,
-      "name": "Can view Feature Class"
+      "name": "Can view Feature Type"
     },
     "model": "auth.authpermissiontemporal",
     "pk": 335
