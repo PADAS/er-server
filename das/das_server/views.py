@@ -50,7 +50,7 @@ class CustomSchema(AutoSchema):
     #         }
 
     def get_tags(self):
-        return [self._view.__module__.split(".")[0].replace("_", " ").title()]
+        return [self.view.__module__.split(".")[0].replace("_", " ").title()]
 
 
 class StatusView(generics.RetrieveAPIView):

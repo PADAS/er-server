@@ -78,7 +78,7 @@ class MigrationService:
 
     def migrate_single(self, event_type_value: str) -> MigrationResult:
         """Migrate a single EventType."""
-        # Shared context between phases
+        # result = shared context between phases
         result = MigrationResult(event_type=event_type_value)
 
         try:
@@ -114,7 +114,7 @@ class MigrationService:
 
         return result
 
-    def transform_schema(self, event_type: EventType, result: MigrationResult) -> Optional[Dict[str, Any]]:
+    def transform_schema(self, event_type: EventType, result: MigrationResult) -> Optional[dict]:
         """Transform V1 schema to V2 using schema_migration_tool."""
         log_collector = LogCollector(
             context={
@@ -145,7 +145,7 @@ class MigrationService:
 
         return v2_schema
 
-    def process_choices(self, v2_schema: Dict[str, Any], result: MigrationResult) -> Dict[str, Any]:
+    def process_choices(self, v2_schema: dict, result: MigrationResult) -> dict:
         """Analyze hardcoded choices in the V2 schema (no DB writes)."""
         choice_processor = ChoiceProcessor(event_type_value=result.event_type)
 

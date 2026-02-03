@@ -233,6 +233,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         detail=False,
         url_path="migrate",
         serializer_class=MigrationRequestSerializer,
+        filterset_class=None,
     )
     def migrate(self, request: Request) -> Response:
         """
