@@ -44,10 +44,10 @@ class Command(TenantCommandMixin, BaseCommand):
         subjects = Subject.objects.annotate(obs_count=Count("subjectsource__source__observation")).filter(
             obs_count__gt=0
         )
-        self.stdout.write(f"Processing all {subjects.count()} subjects with observations")
+        total_subjects = subjects.count()
+        self.stdout.write(f"Processing all {total_subjects} subjects with observations")
 
         # Process each subject
-        total_subjects = subjects.count()
         total_segments_created = 0
         subjects_processed = 0
 
