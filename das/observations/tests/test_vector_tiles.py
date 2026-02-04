@@ -253,6 +253,923 @@ class TestSegmentPermissionFiltering:
         assert segment.end_recorded_at < (now - timedelta(days=7))
 
 
+@pytest.mark.django_db
+class TestSegmentQueryParameterFiltering:
+    """Test query parameter filtering for ObservationSegmentVectorLayer."""
+
+    def test_filter_by_subject_id(self, das_tenant, subject_subtype):
+        """Verify subject_id filter returns only segments for that subject."""
+        from observations.filters import ObservationSegmentVectorTileFilterSet
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+
+        # Create two subjects
+        subject1 = Subject.objects.create(name="Subject 1", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        subject2 = Subject.objects.create(name="Subject 2", subject_subtype=subject_subtype, das_tenant=das_tenant)
+
+        # Create source for observations
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_filter", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="filter_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject1, source=source, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject2, source=source, das_tenant=das_tenant)
+
+        # Create observations and segments for both subjects
+        now = timezone.now()
+        for subject in [subject1, subject2]:
+            obs1 = Observation.objects.create(
+                source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+            )
+            obs2 = Observation.objects.create(
+                source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+            )
+            ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Apply filter for subject1 only
+        qs = ObservationSegment.objects.all()
+        filterset = ObservationSegmentVectorTileFilterSet(data={"subject_id": str(subject1.id)}, queryset=qs)
+        filtered_qs = filterset.qs
+
+        assert filtered_qs.count() == 1
+        assert filtered_qs.first().subject_id == subject1.id
+
+    def test_filter_by_subject_ids(self, das_tenant, subject_subtype):
+        """Verify subject_ids filter returns segments for multiple subjects."""
+        from observations.filters import ObservationSegmentVectorTileFilterSet
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+
+        # Create three subjects
+        subjects = [
+            Subject.objects.create(name=f"Subject {i}", subject_subtype=subject_subtype, das_tenant=das_tenant)
+            for i in range(3)
+        ]
+
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_multi", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="multi_test", provider=provider, das_tenant=das_tenant)
+
+        # Create segments for all subjects
+        now = timezone.now()
+        for subject in subjects:
+            SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+            obs1 = Observation.objects.create(
+                source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+            )
+            obs2 = Observation.objects.create(
+                source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+            )
+            ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Filter for first two subjects only
+        qs = ObservationSegment.objects.all()
+        subject_ids = f"{subjects[0].id},{subjects[1].id}"
+        filterset = ObservationSegmentVectorTileFilterSet(data={"subject_ids": subject_ids}, queryset=qs)
+        filtered_qs = filterset.qs
+
+        assert filtered_qs.count() == 2
+        returned_subject_ids = set(filtered_qs.values_list("subject_id", flat=True))
+        assert returned_subject_ids == {subjects[0].id, subjects[1].id}
+
+    def test_filter_by_since(self, das_tenant, subject_subtype):
+        """Verify since filter returns segments starting after the given time."""
+        from observations.filters import ObservationSegmentVectorTileFilterSet
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+
+        subject = Subject.objects.create(name="Since Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_since", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="since_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Create old segment (should be filtered out)
+        obs_old_1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(days=5), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs_old_2 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=5) + timedelta(hours=1),
+            location=Point(1, 0),
+            das_tenant=das_tenant,
+        )
+        ObservationSegment.objects.create_segment(obs_old_1, obs_old_2, subject)
+
+        # Create recent segment (should be included)
+        obs_new_1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(2, 0), das_tenant=das_tenant
+        )
+        obs_new_2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs_new_1, obs_new_2, subject)
+
+        # Filter with since = 3 days ago
+        qs = ObservationSegment.objects.all()
+        since_time = (now - timedelta(days=3)).isoformat()
+        filterset = ObservationSegmentVectorTileFilterSet(data={"since": since_time}, queryset=qs)
+        filtered_qs = filterset.qs
+
+        assert filtered_qs.count() == 1
+        assert filtered_qs.first().start_recorded_at > now - timedelta(days=3)
+
+    def test_filter_by_until(self, das_tenant, subject_subtype):
+        """Verify until filter returns segments ending before the given time."""
+        from observations.filters import ObservationSegmentVectorTileFilterSet
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+
+        subject = Subject.objects.create(name="Until Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_until", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="until_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Create old segment (should be included)
+        obs_old_1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(days=5), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs_old_2 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=5) + timedelta(hours=1),
+            location=Point(1, 0),
+            das_tenant=das_tenant,
+        )
+        ObservationSegment.objects.create_segment(obs_old_1, obs_old_2, subject)
+
+        # Create recent segment (should be filtered out)
+        obs_new_1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(2, 0), das_tenant=das_tenant
+        )
+        obs_new_2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs_new_1, obs_new_2, subject)
+
+        # Filter with until = 3 days ago
+        qs = ObservationSegment.objects.all()
+        until_time = (now - timedelta(days=3)).isoformat()
+        filterset = ObservationSegmentVectorTileFilterSet(data={"until": until_time}, queryset=qs)
+        filtered_qs = filterset.qs
+
+        assert filtered_qs.count() == 1
+        assert filtered_qs.first().end_recorded_at < now - timedelta(days=3)
+
+    def test_filter_by_created_after(self, das_tenant, subject_subtype):
+        """Verify created_after filter returns segments created after the given time."""
+        from observations.filters import ObservationSegmentVectorTileFilterSet
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+
+        subject = Subject.objects.create(name="Created Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_created", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="created_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Create segment
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Filter with created_after = 1 hour ago (segment was just created)
+        qs = ObservationSegment.objects.all()
+        created_after = (now - timedelta(hours=1)).isoformat()
+        filterset = ObservationSegmentVectorTileFilterSet(data={"created_after": created_after}, queryset=qs)
+        filtered_qs = filterset.qs
+
+        # Segment should be included (created just now)
+        assert filtered_qs.count() == 1
+        assert filtered_qs.first().id == segment.id
+
+        # Filter with created_after = 1 hour in future (should exclude all)
+        created_after_future = (now + timedelta(hours=1)).isoformat()
+        filterset_future = ObservationSegmentVectorTileFilterSet(
+            data={"created_after": created_after_future}, queryset=qs
+        )
+        assert filterset_future.qs.count() == 0
+
+    def test_filter_show_excluded_false_excludes_flagged(self, das_tenant, subject_subtype):
+        """Verify show_excluded=false excludes segments with exclusion flags."""
+        from observations.filters import ObservationSegmentVectorTileFilterSet
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+
+        subject = Subject.objects.create(name="Excluded Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_excluded", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="excluded_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Create segment with no exclusion flags
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=4), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=3), location=Point(1, 0), das_tenant=das_tenant
+        )
+        clean_segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Create segment with exclusion flag
+        obs3 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(hours=2),
+            location=Point(2, 0),
+            exclusion_flags=Observation.EXCLUDED_MANUALLY,
+            das_tenant=das_tenant,
+        )
+        obs4 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs3, obs4, subject)
+
+        qs = ObservationSegment.objects.all()
+
+        # With show_excluded=false (default), should only get clean segment
+        filterset = ObservationSegmentVectorTileFilterSet(data={"show_excluded": "false"}, queryset=qs)
+        assert filterset.qs.count() == 1
+        assert filterset.qs.first().id == clean_segment.id
+
+    def test_filter_show_excluded_true_includes_flagged(self, das_tenant, subject_subtype):
+        """Verify show_excluded=true includes segments with exclusion flags."""
+        from observations.filters import ObservationSegmentVectorTileFilterSet
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+
+        subject = Subject.objects.create(name="Include Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_include", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="include_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Create segment with no exclusion flags
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=4), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=3), location=Point(1, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Create segment with exclusion flag
+        obs3 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(hours=2),
+            location=Point(2, 0),
+            exclusion_flags=Observation.EXCLUDED_MANUALLY,
+            das_tenant=das_tenant,
+        )
+        obs4 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs3, obs4, subject)
+
+        qs = ObservationSegment.objects.all()
+
+        # With show_excluded=true, should get both segments
+        filterset = ObservationSegmentVectorTileFilterSet(data={"show_excluded": "true"}, queryset=qs)
+        assert filterset.qs.count() == 2
+
+    def test_combined_filters(self, das_tenant, subject_subtype):
+        """Verify multiple filters can be combined."""
+        from observations.filters import ObservationSegmentVectorTileFilterSet
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+
+        subject = Subject.objects.create(name="Combined Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_combined", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="combined_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Create old segment
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(days=10), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=10) + timedelta(hours=1),
+            location=Point(1, 0),
+            das_tenant=das_tenant,
+        )
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Create mid-range segment
+        obs3 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(days=5), location=Point(2, 0), das_tenant=das_tenant
+        )
+        obs4 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=5) + timedelta(hours=1),
+            location=Point(3, 0),
+            das_tenant=das_tenant,
+        )
+        mid_segment = ObservationSegment.objects.create_segment(obs3, obs4, subject)
+
+        # Create recent segment
+        obs5 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(4, 0), das_tenant=das_tenant
+        )
+        obs6 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(5, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs5, obs6, subject)
+
+        # Filter: subject + since 7 days ago + until 3 days ago
+        qs = ObservationSegment.objects.all()
+        filterset = ObservationSegmentVectorTileFilterSet(
+            data={
+                "subject_id": str(subject.id),
+                "since": (now - timedelta(days=7)).isoformat(),
+                "until": (now - timedelta(days=3)).isoformat(),
+            },
+            queryset=qs,
+        )
+        filtered_qs = filterset.qs
+
+        # Should only get the mid-range segment
+        assert filtered_qs.count() == 1
+        assert filtered_qs.first().id == mid_segment.id
+
+
+@pytest.mark.django_db
+class TestMOUExpiryFiltering:
+    """Test MOU expiry date filtering on segment and subject layers."""
+
+    def test_segment_layer_filters_by_mou_expiry(self, das_tenant, subject_subtype, user):
+        """Verify segment layer filters segments by MOU expiry date."""
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+        from observations.vector_layers import ObservationSegmentVectorLayer
+
+        subject = Subject.objects.create(name="MOU Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_mou", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="mou_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Create segment before MOU expiry (should be included)
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(days=10), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=10) + timedelta(hours=1),
+            location=Point(1, 0),
+            das_tenant=das_tenant,
+        )
+        old_segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Create segment after MOU expiry (should be filtered out)
+        obs3 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(2, 0), das_tenant=das_tenant
+        )
+        obs4 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs3, obs4, subject)
+
+        # Set MOU expiry to 5 days ago
+        mou_expiry = (now - timedelta(days=5)).isoformat()
+        user.additional = {"expiry": mou_expiry}
+        user.save()
+
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = user
+
+        layer = ObservationSegmentVectorLayer(request=request)
+        assert layer.mou_expiry_date == mou_expiry
+
+        qs = layer.get_queryset()
+
+        # Should only see segment before MOU expiry
+        assert qs.count() == 1
+        assert qs.first().id == old_segment.id
+
+    def test_segment_layer_no_mou_expiry_shows_all(self, das_tenant, subject_subtype, user):
+        """Verify segment layer shows all segments when no MOU expiry is set."""
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+        from observations.vector_layers import ObservationSegmentVectorLayer
+
+        subject = Subject.objects.create(name="No MOU Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_no_mou", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="no_mou_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Create two segments
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(days=10), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=10) + timedelta(hours=1),
+            location=Point(1, 0),
+            das_tenant=das_tenant,
+        )
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        obs3 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(2, 0), das_tenant=das_tenant
+        )
+        obs4 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs3, obs4, subject)
+
+        # User without MOU expiry
+        user.additional = {}
+        user.save()
+
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = user
+
+        layer = ObservationSegmentVectorLayer(request=request)
+        assert layer.mou_expiry_date is None
+
+        qs = layer.get_queryset()
+
+        # Should see both segments
+        assert qs.count() == 2
+
+
+@pytest.mark.django_db
+class TestSubjectLayerProperties:
+    """Test SubjectVectorLayer feature properties and color handling."""
+
+    def test_subject_color_from_additional_rgb(self, das_tenant, subject_subtype):
+        """Verify subject color is extracted from additional.rgb."""
+        subject = Subject.objects.create(
+            name="Color Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={"rgb": "255,128,0"},
+        )
+        SubjectStatus.objects.create(
+            subject=subject,
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            delay_hours=0,
+            radio_state="online-gps",
+            das_tenant=das_tenant,
+        )
+
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject.id).first()
+
+        assert obj is not None
+        assert obj.color == "255,128,0"
+
+    def test_subject_default_color_when_no_rgb(self, das_tenant, subject_subtype):
+        """Verify default color is used when subject has no rgb in additional."""
+        subject = Subject.objects.create(
+            name="No Color Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={},  # No rgb key
+        )
+        SubjectStatus.objects.create(
+            subject=subject,
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            delay_hours=0,
+            radio_state="online-gps",
+            das_tenant=das_tenant,
+        )
+
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject.id).first()
+
+        assert obj is not None
+        assert obj.color == "255,255,0"  # Default yellow
+
+    def test_subject_type_and_subtype_annotations(self, das_tenant, subject_subtype):
+        """Verify subject_type and subject_subtype are properly annotated."""
+        subject = Subject.objects.create(
+            name="Type Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+        )
+        SubjectStatus.objects.create(
+            subject=subject,
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            delay_hours=0,
+            radio_state="online-gps",
+            das_tenant=das_tenant,
+        )
+
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject.id).first()
+
+        assert obj is not None
+        assert obj.subject_type == subject_subtype.subject_type.value
+        assert obj.subject_subtype == subject_subtype.value
+
+
+@pytest.mark.django_db
+class TestSegmentPresentationProperties:
+    """Test segment presentation properties (stroke, stroke-width, stroke-opacity)."""
+
+    def test_presentation_uses_subject_rgb(self, das_tenant, subject_subtype):
+        """Verify presentation stroke uses subject's RGB color."""
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+        from observations.vector_layers import ObservationSegmentVectorLayer
+
+        subject = Subject.objects.create(
+            name="RGB Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={"rgb": "#ff0000"},
+        )
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_rgb", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="rgb_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        layer = ObservationSegmentVectorLayer()
+        props = layer.get_presentation_properties(segment)
+
+        assert props["stroke"] == "#ff0000"
+        assert props["stroke-width"] == 2.0
+        assert props["stroke-opacity"] == 0.8
+
+    def test_presentation_default_stroke_color(self, das_tenant, subject_subtype):
+        """Verify default stroke color when subject has no RGB."""
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+        from observations.vector_layers import ObservationSegmentVectorLayer
+
+        subject = Subject.objects.create(
+            name="Default Color Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={},  # No rgb
+        )
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_default", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="default_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        layer = ObservationSegmentVectorLayer()
+        props = layer.get_presentation_properties(segment)
+
+        assert props["stroke"] == "#4264fb"  # Default blue
+        assert props["stroke-width"] == 2.0
+        assert props["stroke-opacity"] == 0.8
+
+    def test_feature_includes_presentation_properties(self, das_tenant, subject_subtype):
+        """Verify as_vector_tile_feature includes presentation properties."""
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+        from observations.vector_layers import ObservationSegmentVectorLayer
+
+        subject = Subject.objects.create(
+            name="Feature Props Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={"rgb": "#00ff00"},
+        )
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_feature", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="feature_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        layer = ObservationSegmentVectorLayer()
+        factory = APIRequestFactory()
+        request = factory.get("/tiles")
+        layer.request = request
+
+        # Need to get segment from queryset to have annotations
+        qs = layer.get_vector_tile_queryset()
+        annotated_segment = qs.get(id=segment.id)
+        feature = layer.as_vector_tile_feature(annotated_segment)
+
+        assert "stroke" in feature["properties"]
+        assert "stroke-width" in feature["properties"]
+        assert "stroke-opacity" in feature["properties"]
+        assert feature["properties"]["stroke"] == "#00ff00"
+        assert feature["properties"]["stroke-width"] == 2.0
+        assert feature["properties"]["stroke-opacity"] == 0.8
+
+
+@pytest.mark.django_db
+class TestVectorTileEdgeCases:
+    """Test edge cases for vector tile layers."""
+
+    def test_segment_layer_empty_when_no_segments(self, das_tenant, subject_subtype):
+        """Verify layer returns empty queryset when no segments exist."""
+        from observations.vector_layers import ObservationSegmentVectorLayer
+
+        # Create subject but no segments
+        Subject.objects.create(name="Empty Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+
+        layer = ObservationSegmentVectorLayer()
+        qs = layer.get_queryset()
+
+        assert qs.count() == 0
+
+    def test_subject_layer_empty_when_no_status(self, das_tenant, subject_subtype):
+        """Verify subject layer excludes subjects without status."""
+        # Create subject without status
+        subject = Subject.objects.create(name="No Status Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+
+        assert not qs.filter(id=subject.id).exists()
+
+    def test_filter_with_nonexistent_subject_id(self, das_tenant, subject_subtype):
+        """Verify filter returns empty when subject_id doesn't exist."""
+        import uuid
+
+        from observations.filters import ObservationSegmentVectorTileFilterSet
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+
+        subject = Subject.objects.create(name="Exists", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_nonexist", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="nonexist_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        qs = ObservationSegment.objects.all()
+        nonexistent_id = str(uuid.uuid4())
+        filterset = ObservationSegmentVectorTileFilterSet(data={"subject_id": nonexistent_id}, queryset=qs)
+
+        assert filterset.qs.count() == 0
+
+    def test_multiple_exclusion_flags_combined(self, das_tenant, subject_subtype):
+        """Verify segments with multiple exclusion flags are handled correctly."""
+        from observations.filters import ObservationSegmentVectorTileFilterSet
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+
+        subject = Subject.objects.create(name="Multi Flag Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_multiflag", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="multiflag_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Create observation with multiple exclusion flags
+        obs1 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(hours=2),
+            location=Point(0, 0),
+            exclusion_flags=Observation.EXCLUDED_MANUALLY | Observation.EXCLUDED_AUTOMATICALLY,
+            das_tenant=das_tenant,
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Segment should have combined flags
+        assert segment.exclusion_flags.mask != 0
+
+        qs = ObservationSegment.objects.all()
+
+        # With show_excluded=false, should not include this segment
+        filterset_exclude = ObservationSegmentVectorTileFilterSet(data={"show_excluded": "false"}, queryset=qs)
+        assert filterset_exclude.qs.count() == 0
+
+        # With show_excluded=true, should include it
+        filterset_include = ObservationSegmentVectorTileFilterSet(data={"show_excluded": "true"}, queryset=qs)
+        assert filterset_include.qs.count() == 1
+
+    def test_layer_show_excluded_from_request_params(self, das_tenant, subject_subtype):
+        """Verify ObservationSegmentVectorLayer respects show_excluded query param."""
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
+        from observations.vector_layers import ObservationSegmentVectorLayer
+
+        subject = Subject.objects.create(
+            name="Request Param Test", subject_subtype=subject_subtype, das_tenant=das_tenant
+        )
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_reqparam", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="reqparam_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Create clean segment
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=4), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=3), location=Point(1, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Create flagged segment
+        obs3 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(hours=2),
+            location=Point(2, 0),
+            exclusion_flags=Observation.EXCLUDED_MANUALLY,
+            das_tenant=das_tenant,
+        )
+        obs4 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs3, obs4, subject)
+
+        factory = APIRequestFactory()
+
+        # Request without show_excluded (default to false)
+        request_default = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        layer_default = ObservationSegmentVectorLayer(request=request_default)
+        assert layer_default.get_queryset().count() == 1
+
+        # Request with show_excluded=true
+        request_include = factory.get("/observations/segments/tiles/10/512/512.pbf?show_excluded=true")
+        layer_include = ObservationSegmentVectorLayer(request=request_include)
+        assert layer_include.get_queryset().count() == 2
+
+        # Request with show_excluded=false
+        request_exclude = factory.get("/observations/segments/tiles/10/512/512.pbf?show_excluded=false")
+        layer_exclude = ObservationSegmentVectorLayer(request=request_exclude)
+        assert layer_exclude.get_queryset().count() == 1
+
+
 # Fixtures
 
 
