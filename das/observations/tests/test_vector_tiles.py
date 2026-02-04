@@ -273,24 +273,31 @@ class TestSegmentQueryParameterFiltering:
         subject1 = Subject.objects.create(name="Subject 1", subject_subtype=subject_subtype, das_tenant=das_tenant)
         subject2 = Subject.objects.create(name="Subject 2", subject_subtype=subject_subtype, das_tenant=das_tenant)
 
-        # Create source for observations
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_filter", display_name="Test", das_tenant=das_tenant
         )
-        source = Source.objects.create(manufacturer_id="filter_test", provider=provider, das_tenant=das_tenant)
-        SubjectSource.objects.create(subject=subject1, source=source, das_tenant=das_tenant)
-        SubjectSource.objects.create(subject=subject2, source=source, das_tenant=das_tenant)
+        source1 = Source.objects.create(manufacturer_id="filter_test_s1", provider=provider, das_tenant=das_tenant)
+        source2 = Source.objects.create(manufacturer_id="filter_test_s2", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject1, source=source1, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject2, source=source2, das_tenant=das_tenant)
 
         # Create observations and segments for both subjects
         now = timezone.now()
-        for subject in [subject1, subject2]:
-            obs1 = Observation.objects.create(
-                source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
-            )
-            obs2 = Observation.objects.create(
-                source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
-            )
-            ObservationSegment.objects.create_segment(obs1, obs2, subject)
+        obs1_s1 = Observation.objects.create(
+            source=source1, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2_s1 = Observation.objects.create(
+            source=source1, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs1_s1, obs2_s1, subject1)
+
+        obs1_s2 = Observation.objects.create(
+            source=source2, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2_s2 = Observation.objects.create(
+            source=source2, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs1_s2, obs2_s2, subject2)
 
         # Apply filter for subject1 only
         qs = ObservationSegment.objects.all()
@@ -321,11 +328,13 @@ class TestSegmentQueryParameterFiltering:
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_multi", display_name="Test", das_tenant=das_tenant
         )
-        source = Source.objects.create(manufacturer_id="multi_test", provider=provider, das_tenant=das_tenant)
 
-        # Create segments for all subjects
+        # Create sources and observations for each subject
         now = timezone.now()
-        for subject in subjects:
+        for idx, subject in enumerate(subjects):
+            source = Source.objects.create(
+                manufacturer_id=f"multi_test_{idx}", provider=provider, das_tenant=das_tenant
+            )
             SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
             obs1 = Observation.objects.create(
                 source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
@@ -798,13 +807,15 @@ class TestSubjectLayerProperties:
             das_tenant=das_tenant,
             additional={"rgb": "255,128,0"},
         )
-        SubjectStatus.objects.create(
+        SubjectStatus.objects.update_or_create(
             subject=subject,
-            location=Point(0, 0, srid=4326),
-            recorded_at=timezone.now(),
             delay_hours=0,
-            radio_state="online-gps",
             das_tenant=das_tenant,
+            defaults={
+                "location": Point(0, 0, srid=4326),
+                "recorded_at": timezone.now(),
+                "radio_state": "online-gps",
+            },
         )
 
         layer = SubjectVectorLayer()
@@ -822,13 +833,15 @@ class TestSubjectLayerProperties:
             das_tenant=das_tenant,
             additional={},  # No rgb key
         )
-        SubjectStatus.objects.create(
+        SubjectStatus.objects.update_or_create(
             subject=subject,
-            location=Point(0, 0, srid=4326),
-            recorded_at=timezone.now(),
             delay_hours=0,
-            radio_state="online-gps",
             das_tenant=das_tenant,
+            defaults={
+                "location": Point(0, 0, srid=4326),
+                "recorded_at": timezone.now(),
+                "radio_state": "online-gps",
+            },
         )
 
         layer = SubjectVectorLayer()
@@ -845,13 +858,15 @@ class TestSubjectLayerProperties:
             subject_subtype=subject_subtype,
             das_tenant=das_tenant,
         )
-        SubjectStatus.objects.create(
+        SubjectStatus.objects.update_or_create(
             subject=subject,
-            location=Point(0, 0, srid=4326),
-            recorded_at=timezone.now(),
             delay_hours=0,
-            radio_state="online-gps",
             das_tenant=das_tenant,
+            defaults={
+                "location": Point(0, 0, srid=4326),
+                "recorded_at": timezone.now(),
+                "radio_state": "online-gps",
+            },
         )
 
         layer = SubjectVectorLayer()
@@ -1179,46 +1194,58 @@ def subject_with_segments_and_status(db, das_tenant, subject_subtype):
     from observations.models import (
         Observation,
         ObservationSegment,
+        Source,
+        SourceProvider,
         Subject,
+        SubjectSource,
         SubjectStatus,
     )
 
     subject = Subject.objects.create(
-        name="Test Subject",
+        name="Test Subject with Segments",
         subject_subtype=subject_subtype,
         is_active=True,
         das_tenant=das_tenant,
         additional={"rgb": "255,0,0"},
     )
 
-    # Create current status
-    SubjectStatus.objects.create(
+    # Create current status using update_or_create to avoid duplicates
+    SubjectStatus.objects.update_or_create(
         subject=subject,
-        location=Point(1.0, 1.0, srid=4326),
-        recorded_at=timezone.now(),
         delay_hours=0,
-        radio_state="online-gps",
         das_tenant=das_tenant,
+        defaults={
+            "location": Point(1.0, 1.0, srid=4326),
+            "recorded_at": timezone.now(),
+            "radio_state": "online-gps",
+        },
     )
 
-    # Create some observations and segments
+    # Create source for observations
+    provider, _ = SourceProvider.objects.get_or_create(
+        provider_key="test_segments_status", display_name="Test", das_tenant=das_tenant
+    )
+    source = Source.objects.create(manufacturer_id="segments_status_test", provider=provider, das_tenant=das_tenant)
+    SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+    # Create some observations and segments with unique timestamps
     now = timezone.now()
     obs1 = Observation.objects.create(
-        subject=subject,
+        source=source,
         location=Point(0.0, 0.0, srid=4326),
-        recorded_at=now - timedelta(hours=2),
+        recorded_at=now - timedelta(hours=2, minutes=30),
         das_tenant=das_tenant,
     )
     obs2 = Observation.objects.create(
-        subject=subject,
+        source=source,
         location=Point(0.5, 0.5, srid=4326),
-        recorded_at=now - timedelta(hours=1),
+        recorded_at=now - timedelta(hours=1, minutes=30),
         das_tenant=das_tenant,
     )
     obs3 = Observation.objects.create(
-        subject=subject,
+        source=source,
         location=Point(1.0, 1.0, srid=4326),
-        recorded_at=now,
+        recorded_at=now - timedelta(minutes=30),
         das_tenant=das_tenant,
     )
 
@@ -1231,8 +1258,12 @@ def subject_with_segments_and_status(db, das_tenant, subject_subtype):
 @pytest.fixture
 def user_with_realtime_access(db, user):
     """Create a user with real-time access permission (access_ends_0)."""
+    from accounts.models.permissionset import PermissionSet
+
     permission = Permission.objects.get(codename="access_ends_0")
-    user.user_permissions.add(permission)
+    perm_set = PermissionSet.objects.create(name="realtime_access_test")
+    perm_set.permissions.add(permission)
+    user.permission_sets.add(perm_set)
     user.additional = {}
     user.save()
     return user
@@ -1241,8 +1272,12 @@ def user_with_realtime_access(db, user):
 @pytest.fixture
 def user_with_delayed_access(db, user):
     """Create a user with 7-day delayed access permission (access_ends_7)."""
+    from accounts.models.permissionset import PermissionSet
+
     permission = Permission.objects.get(codename="access_ends_7")
-    user.user_permissions.add(permission)
+    perm_set = PermissionSet.objects.create(name="delayed_access_test")
+    perm_set.permissions.add(permission)
+    user.permission_sets.add(perm_set)
     user.additional = {}
     user.save()
     return user
@@ -1263,19 +1298,21 @@ def api_client_with_user(db, user_with_realtime_access):
 def subject_with_status(db, das_tenant, subject_subtype):
     """Create a subject with a latest status (delay_hours=0)."""
     subject = Subject.objects.create(
-        name="Test Subject",
+        name="Test Subject with Status",
         subject_subtype=subject_subtype,
         is_active=True,
         das_tenant=das_tenant,
         additional={"rgb": "255,0,0"},
     )
-    SubjectStatus.objects.create(
+    SubjectStatus.objects.update_or_create(
         subject=subject,
-        location=Point(0.0, 0.0, srid=4326),
-        recorded_at=timezone.now(),
         delay_hours=0,
-        radio_state="online-gps",
         das_tenant=das_tenant,
+        defaults={
+            "location": Point(0.0, 0.0, srid=4326),
+            "recorded_at": timezone.now(),
+            "radio_state": "online-gps",
+        },
     )
     return subject
 
@@ -1301,21 +1338,25 @@ def subject_with_multiple_statuses(db, das_tenant, subject_subtype):
         das_tenant=das_tenant,
     )
     # Latest status (delay_hours=0)
-    SubjectStatus.objects.create(
+    SubjectStatus.objects.update_or_create(
         subject=subject,
-        location=Point(1.0, 1.0, srid=4326),
-        recorded_at=timezone.now(),
         delay_hours=0,
-        radio_state="online-gps",
         das_tenant=das_tenant,
+        defaults={
+            "location": Point(1.0, 1.0, srid=4326),
+            "recorded_at": timezone.now(),
+            "radio_state": "online-gps",
+        },
     )
     # Delayed status (delay_hours=168 = 7 days)
-    SubjectStatus.objects.create(
+    SubjectStatus.objects.update_or_create(
         subject=subject,
-        location=Point(2.0, 2.0, srid=4326),
-        recorded_at=timezone.now() - timedelta(days=7),
         delay_hours=168,
-        radio_state="offline",
         das_tenant=das_tenant,
+        defaults={
+            "location": Point(2.0, 2.0, srid=4326),
+            "recorded_at": timezone.now() - timedelta(days=7),
+            "radio_state": "offline",
+        },
     )
     return subject
