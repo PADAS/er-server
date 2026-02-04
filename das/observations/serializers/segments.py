@@ -55,11 +55,19 @@ class SubjectTrackSegmentsSerializer(serializers.Serializer):
         # Get subject's segments
         segments_qs = ObservationSegment.objects.filter(subject=subject).select_related("subject")
 
-        # Apply time filters
-        if since:
-            segments_qs = segments_qs.filter(start_recorded_at__gte=since)
-        if until:
-            segments_qs = segments_qs.filter(end_recorded_at__lte=until)
+        # Apply time filters: include segments that overlap the requested window
+        if since and until:
+            # Segments overlap [since, until] if they start before 'until' and end after 'since'
+            segments_qs = segments_qs.filter(
+                start_recorded_at__lt=until,
+                end_recorded_at__gt=since,
+            )
+        elif since:
+            # Open-ended window [since, +∞): segments that end after 'since'
+            segments_qs = segments_qs.filter(end_recorded_at__gt=since)
+        elif until:
+            # Open-ended window (-∞, until]: segments that start before 'until'
+            segments_qs = segments_qs.filter(start_recorded_at__lt=until)
 
         # Apply exclusion flag behavior: default exclude any truthy flags unless show_excluded
         if not show_excluded:
@@ -150,10 +158,19 @@ class SubjectTrackSegmentsGroupedSerializer(serializers.Serializer):
         )
 
         # Apply time filters
-        if since:
-            segments_qs = segments_qs.filter(start_recorded_at__gte=since)
-        if until:
-            segments_qs = segments_qs.filter(end_recorded_at__lte=until)
+        # Include any segment that overlaps the [since, until] interval.
+        # Overlap logic: start_recorded_at < until AND end_recorded_at > since
+        if since and until:
+            segments_qs = segments_qs.filter(
+                start_recorded_at__lt=until,
+                end_recorded_at__gt=since,
+            )
+        elif since:
+            # Segments that end after the start of the window
+            segments_qs = segments_qs.filter(end_recorded_at__gt=since)
+        elif until:
+            # Segments that start before the end of the window
+            segments_qs = segments_qs.filter(start_recorded_at__lt=until)
 
         # Default: exclude any truthy exclusion flags unless show_excluded
         if not show_excluded:
