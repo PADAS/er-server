@@ -411,7 +411,8 @@ class SubjectTrackSegmentsV2View(generics.RetrieveAPIView):
     Query params:
       - since: ISO timestamp (inclusive lower bound)
       - until: ISO timestamp (inclusive upper bound)
-      - filter: exclusion flag value (integer). If omitted, only unflagged (0) segments are returned.
+      - show_excluded: if 'true', include segments that have exclusion flags set; if omitted or
+        'false', only unflagged (0) segments are returned.
       - group_by_flags: if 'true', break groups when exclusion_flags changes.
             - max_speed_kmh: float. If provided, splits groups when a segment's speed_kmh exceeds this value.
             - max_gap_ms: integer milliseconds. Splits groups when a segment's time_gap_ms
