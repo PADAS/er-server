@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from schema_migration_tool import LogCollector, transform_schema
+from schema_migration_tool.batch.normalize_export import preprocess_template_vars
 
 from activity.models import EventType
 from activity.permissions import EventCategoryPermissions
@@ -116,15 +117,11 @@ class MigrationService:
 
     def transform_schema(self, event_type: EventType, result: MigrationResult) -> Optional[dict]:
         """Transform V1 schema to V2 using schema_migration_tool."""
-        log_collector = LogCollector(
-            context={
-                "event_type": event_type.value,
-                "id": str(event_type.id),
-            }
-        )
+        log_collector = LogCollector({"event_type": event_type.value})
 
         try:
-            v2_schema = transform_schema(event_type.schema, log_collector)
+            v1_schema = json.loads(preprocess_template_vars(event_type.schema))
+            v2_schema = transform_schema(v1_schema, log_collector)
         except Exception as e:
             logger.exception("Schema transformation failed for %s", event_type.value)
             result.errors.append(f"Transformation failed: {str(e)}")
@@ -139,7 +136,6 @@ class MigrationService:
 
         # Store transformation metadata
         features = log_collector.get_features()
-        result.metadata["field_types"] = features.get("fieldTypes", {})
         result.metadata["ignored_properties"] = features.get("ignoredProperties", [])
         result.metadata["choice_lists_detected"] = features.get("choiceLists", [])
 
@@ -164,7 +160,7 @@ class MigrationService:
 
         Handles:
         - Creating new choice fields (status="to_create")
-        - Adding missing values to existing fields (status="matched_with_additions")
+        - Adding missing values to existing fields (status="candidate")
         - Reusing choice fields within the same event type migration
         """
         choice_metadata = result.metadata.get("choices", {})
@@ -218,7 +214,7 @@ class MigrationService:
                         proposed_name,
                     )
 
-            elif status == "matched_with_additions":
+            elif status == "candidate":
                 values_to_add = field_info.get("values_to_add", [])
                 existing_field = field_info.get("existing_choice_field")
 
@@ -240,7 +236,7 @@ class MigrationService:
 
     def _get_values_key(self, values: List[Dict[str, str]], processor: ChoiceProcessor) -> str:
         """Generate a key for a set of values for deduplication."""
-        normalized = sorted(processor.normalize_for_matching(v.get("const", "")) for v in values)
+        normalized = sorted(processor.normalize_for_matching(v.get("value", "")) for v in values)
         return "|".join(normalized)
 
     def persist_migration(self, event_type: EventType, result: MigrationResult) -> None:

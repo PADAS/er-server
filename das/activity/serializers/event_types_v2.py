@@ -166,7 +166,7 @@ class MigrationResultSerializer(serializers.Serializer):
     """
 
     event_type = serializers.CharField()
-    v2_schema = serializers.JSONField(allow_null=True)
+    v2_schema = serializers.DictField(allow_null=True)
     warnings = serializers.ListField(child=serializers.CharField())
     errors = serializers.ListField(child=serializers.CharField())
-    metadata = serializers.JSONField()
+    metadata = serializers.DictField()

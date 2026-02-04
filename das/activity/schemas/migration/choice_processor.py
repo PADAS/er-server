@@ -25,7 +25,7 @@ class ChoiceFieldResult:
     """Result for a single choice field processing."""
 
     field_name: str
-    status: str = "pending"  # "matched", "matched_with_additions", "to_create", "error"
+    status: str = "pending"  # "matched", "candidate", "to_create", "error"
     existing_choice_field: Optional[str] = None
     proposed_name: Optional[str] = None
     values: List[Dict[str, str]] = field(default_factory=list)  # [{const, title}, ...]
@@ -57,7 +57,7 @@ class ChoiceProcessor:
     """
 
     # Minimum overlap ratio to consider an existing choice field a "match"
-    MATCH_THRESHOLD = 0.9
+    MATCH_THRESHOLD = 2 / 3
 
     # Separator normalization pattern for matching
     SEPARATOR_PATTERN = re.compile(r"[-_.\s]+")
@@ -69,7 +69,7 @@ class ChoiceProcessor:
         """
         self.event_type_value = event_type_value
 
-    def process_hardcoded_choices(self, v2_schema: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    def process_hardcoded_choices(self, v2_schema: Dict[str, Any]) -> Tuple[dict]:
         """
         Process hardcoded choices in a V2 schema.
 
@@ -81,7 +81,7 @@ class ChoiceProcessor:
             - modified_schema: Schema with choices potentially rewritten to $ref
             - metadata: Dict with results per field, warnings, summary
         """
-        metadata: Dict[str, Any] = {
+        metadata = {
             "fields": [],
             "warnings": [],
             "summary": {
@@ -156,15 +156,7 @@ class ChoiceProcessor:
             # Look for hardcoded oneOf structure
             one_of = option.get("oneOf", [])
             if one_of and option.get("title") == "Hardcoded":
-                values = []
-                for item in one_of:
-                    if "const" in item:
-                        values.append(
-                            {
-                                "value": str(item["const"]),
-                                "display": item.get("title", str(item["const"])),
-                            }
-                        )
+                values = [{"value": item["const"], "display": item.get("title", item["const"])} for item in one_of]
                 return values
 
         return []
@@ -189,22 +181,22 @@ class ChoiceProcessor:
             result.match_score = score
             result.values_to_add = missing_values
 
-            if missing_values:
-                result.status = "matched_with_additions"
-                logger.info(
-                    "Field '%s' matched '%s' (%.0f%%), %d values to add",
-                    field_name,
-                    existing_field_name,
-                    score * 100,
-                    len(missing_values),
-                )
-            else:
+            if score == 1.0:
                 result.status = "matched"
                 logger.info(
                     "Field '%s' matched existing choice field '%s' (score: %.0f%%)",
                     field_name,
                     existing_field_name,
                     score * 100,
+                )
+            else:
+                result.status = "candidate"
+                logger.info(
+                    "Field '%s' matched '%s' (%.0f%%), %d values to add",
+                    field_name,
+                    existing_field_name,
+                    score * 100,
+                    len(missing_values),
                 )
             return result
 
@@ -249,7 +241,7 @@ class ChoiceProcessor:
         return slugified.strip("_")
 
     def find_matching_choice_field(
-        self, field_name: str, hardcoded_values: List[Dict[str, str]]
+        self, field_name: str, hardcoded_items: List[Dict[str, str]]
     ) -> Optional[Tuple[str, float, List[Dict[str, str]]]]:
         """
         Find an existing choice field that matches the hardcoded values.
@@ -265,10 +257,9 @@ class ChoiceProcessor:
             - missing_values: hardcoded values not found in existing field
         """
         # Build normalized -> original mapping for hardcoded values
-        hardcoded_by_normalized: Dict[str, Dict[str, str]] = {
-            self.normalize_for_matching(v.get("const", "")): v for v in hardcoded_values if v.get("const")
-        }
+        hardcoded_by_normalized = {self.normalize_for_matching(v["value"]): v for v in hardcoded_items}
         hardcoded_normalized = set(hardcoded_by_normalized.keys())
+        hardcoded_values = [v["value"] for v in hardcoded_items]
 
         # Get all existing choice fields for events
         existing_fields = self.get_existing_choice_fields()
@@ -282,23 +273,33 @@ class ChoiceProcessor:
             if not existing_normalized:
                 continue
 
-            # Calculate overlap score (Jaccard similarity) using normalized values
+            # Calculate overlap score (Jaccard similarity)
+            # using normalized values
             intersection = hardcoded_normalized & existing_normalized
             union = hardcoded_normalized | existing_normalized
-            score = len(intersection) / len(union) if union else 0.0
+            normalized_score = len(intersection) / len(union) if union else 0.0
+            # using original values
+            intersection = set(hardcoded_values) & set(existing_values)
+            union = set(hardcoded_values) | set(existing_values)
+            value_score = len(intersection) / len(union) if union else 0.0
+
+            # Early exit if exact match
+            if value_score == 1.0:
+                best_match = (existing_field_name, value_score, [])
+                break
 
             # Prefer exact name match (also normalized)
             if self.normalize_for_matching(existing_field_name) == self.normalize_for_matching(field_name):
-                score += 0.1  # Slight boost for name match
-                score = min(score, 1.0)
+                value_score += 0.1  # Slight boost for name match
+                value_score = min(value_score, 1.0)
 
-            if score >= self.MATCH_THRESHOLD:
+            if normalized_score >= self.MATCH_THRESHOLD:
                 # Find missing values (in hardcoded but not in existing)
                 missing_normalized = hardcoded_normalized - existing_normalized
                 missing_values = [hardcoded_by_normalized[n] for n in missing_normalized]
 
-                if best_match is None or score > best_match[1]:
-                    best_match = (existing_field_name, score, missing_values)
+                if best_match is None or value_score > best_match[1]:
+                    best_match = (existing_field_name, value_score, missing_values)
 
         return best_match
 
@@ -309,10 +310,7 @@ class ChoiceProcessor:
         Returns:
             Dict mapping field_name -> list of values
         """
-        choices = Choice.objects.filter(
-            model=Choice.EVENT_MODEL,
-            is_active=True,
-        ).values_list("field", "value")
+        choices = Choice.objects.filter(model=Choice.EVENT_MODEL, is_active=True).values_list("field", "value")
 
         fields: Dict[str, List[str]] = {}
         for field_name, value in choices:
@@ -372,10 +370,10 @@ class ChoiceProcessor:
 
         Args:
             field_name: The choice field name
-            values: List of {const, title} dicts
+            values: List of {value, display} dicts from extract_hardcoded_values
         """
         for i, item in enumerate(values):
-            value = item["const"]
+            value = item["value"]
             if not value:
                 logger.warning("Skipping empty value in choice field '%s'", field_name)
                 continue
@@ -384,7 +382,7 @@ class ChoiceProcessor:
                 model=Choice.EVENT_MODEL,
                 field=field_name,
                 value=value,
-                display=item.get("title", value),
+                display=item.get("display", value),
                 ordernum=i,
             )
 
@@ -394,7 +392,7 @@ class ChoiceProcessor:
 
         Args:
             field_name: The existing choice field name
-            values: List of {const, title} dicts to add
+            values: List of {value, display} dicts from extract_hardcoded_values
 
         Returns:
             Number of values actually added
@@ -410,23 +408,19 @@ class ChoiceProcessor:
 
         added = 0
         for item in values:
-            value = item["const"]
+            value = item["value"]
             if not value:
                 continue
 
             # Check if value already exists (shouldn't, but be safe)
-            if Choice.objects.filter(
-                model=Choice.EVENT_MODEL,
-                field=field_name,
-                value=value,
-            ).exists():
+            if Choice.objects.filter(model=Choice.EVENT_MODEL, field=field_name, value=value).exists():
                 continue
 
             Choice.objects.create(
                 model=Choice.EVENT_MODEL,
                 field=field_name,
                 value=value,
-                display=item.get("title", value),
+                display=item.get("display", value),
                 ordernum=next_order,
             )
             next_order += 1

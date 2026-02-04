@@ -233,7 +233,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         detail=False,
         url_path="migrate",
         serializer_class=MigrationRequestSerializer,
-        filterset_class=None,
+        filter_backends=[],
     )
     def migrate(self, request: Request) -> Response:
         """
@@ -255,6 +255,5 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         migration_service = MigrationService(request=request, dry_run=dry_run)
         results = migration_service.migrate(event_types)
 
-        response_data = {"data": [MigrationResultSerializer(r.to_dict()).data for r in results]}
-
+        response_data = MigrationResultSerializer(results, many=True).data
         return Response(response_data, status=status.HTTP_200_OK)
