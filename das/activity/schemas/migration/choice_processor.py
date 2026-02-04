@@ -86,6 +86,7 @@ class ChoiceProcessor:
             "warnings": [],
             "summary": {
                 "matched": 0,
+                "candidate": 0,
                 "to_create": 0,
                 "created": 0,
                 "errors": 0,
@@ -113,6 +114,8 @@ class ChoiceProcessor:
             # Update summary
             if result.status == "matched":
                 metadata["summary"]["matched"] += 1
+            elif result.status == "candidate":
+                metadata["summary"]["candidate"] += 1
             elif result.status == "to_create":
                 metadata["summary"]["to_create"] += 1
             elif result.status == "created":
@@ -233,8 +236,6 @@ class ChoiceProcessor:
         - Strip leading/trailing underscores
         - Collapse multiple underscores
         """
-        import re
-
         slugified = value.lower()
         slugified = re.sub(r"[^a-z0-9]+", "_", slugified)
         slugified = re.sub(r"_+", "_", slugified)
