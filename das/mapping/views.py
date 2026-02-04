@@ -21,11 +21,6 @@ from rest_framework.views import APIView
 import mapping.serializers as serializers
 from das_server.views import CustomSchema
 from mapping import app_settings
-from mapping.cache import (
-    build_tile_cache_key,
-    get_effective_cache_version,
-    get_vector_tile_cache,
-)
 from mapping.models import (
     DisplayCategory,
     Map,
@@ -37,6 +32,11 @@ from mapping.models import (
 )
 from mapping.permissions import LayerObjectPermissions
 from mapping.vector_layers import SpatialFeatureLayer
+from utils.cache import (
+    build_tile_cache_key,
+    get_effective_cache_version,
+    get_vector_tile_cache,
+)
 from utils.drf import create_json_response
 from utils.json import parse_bool
 from utils.tenant.providers import get_tenant_data_by_host

@@ -4,7 +4,7 @@ import pytest
 
 from django.test import RequestFactory
 
-from mapping.cache import build_tile_cache_key
+from utils.cache import build_tile_cache_key
 
 
 class DummyUser:

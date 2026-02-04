@@ -6,14 +6,14 @@ from vectortiles.views import MVTView
 from django.http import HttpResponse
 
 from das_server.views import CustomSchema
-from mapping.cache import (
+from observations.permissions import SubjectModelPermissions
+from observations.utils import VIEW_OBSERVATION_PERMS
+from observations.vector_layers import ObservationSegmentVectorLayer, SubjectVectorLayer
+from utils.cache import (
     build_tile_cache_key,
     get_effective_cache_version,
     get_vector_tile_cache,
 )
-from observations.permissions import SubjectModelPermissions
-from observations.utils import VIEW_OBSERVATION_PERMS
-from observations.vector_layers_segments import ObservationSegmentVectorLayer
 from utils.tenant.providers import get_tenant_data_by_host
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ class ObservationSegmentTileView(MVTView):
     - Authorization varied so per-user/tenant isolation is preserved
     """
 
-    layer_classes = [ObservationSegmentVectorLayer]
+    layer_classes = [ObservationSegmentVectorLayer, SubjectVectorLayer]
     permission_classes = (SubjectModelPermissions,)
     content_type = "application/vnd.mapbox-vector-tile"
     schema = ObservationSegmentTileViewSchema()
@@ -97,6 +97,8 @@ class ObservationSegmentTileView(MVTView):
     # Server-side cache TTL (seconds)
     cache_timeout_seconds = 900  # 15 minutes server cache
     # Client cache controls (freshness window + stale-while-revalidate window)
+    # Note: Real-time subject positions are handled via GeoJSON + WebSocket, so these tiles
+    # are primarily for efficient bulk rendering, not the source of truth for freshness
     client_max_age_seconds = 300  # 5 minutes fresh
     client_stale_while_revalidate_seconds = 300  # serve stale up to another 5 minutes while revalidating
     client_stale_if_error_seconds = 300  # serve stale if origin errors for same 5 minutes
@@ -118,9 +120,7 @@ class ObservationSegmentTileView(MVTView):
 
         if not self._check_observation_permissions(request):
             logger.warning(f"Permission denied for user {getattr(request.user, 'id', None)}")
-            return HttpResponse(
-                "Permission denied", status=403
-            )
+            return HttpResponse("Permission denied", status=403)
 
         layer_ids = [lc.id for lc in self.layer_classes]
         try:
@@ -168,9 +168,12 @@ class ObservationSegmentTileView(MVTView):
             resp["X-Cache"] = "HIT"
             return resp
 
-        self.layers = [lc() for lc in self.layer_classes]
+        # Pass request to layers for permission-based filtering (delay_hours, MOU expiry)
+        self.layers = [lc(request=request) for lc in self.layer_classes]
         response = super().get(request, z, x, y)
-        if response.status_code == 200 and response.get("Content-Type", "").startswith("application/x-protobuf"):
+        if response.status_code in (200, 204) and response.get("Content-Type", "").startswith(
+            "application/vnd.mapbox-vector-tile"
+        ):
             vt_cache.set(
                 cache_key, (response.content, response.get("Content-Type")), timeout=self.cache_timeout_seconds
             )

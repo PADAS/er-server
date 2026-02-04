@@ -7,7 +7,7 @@ from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from mapping.cache import get_effective_cache_version, invalidate_tile_cache_keys
+from utils.cache import get_effective_cache_version, invalidate_tile_cache_keys
 
 # Reasonable zoom range to consider for invalidation; align to typical vector tile usage
 SEGMENTS_TILE_INVALIDATION_ZOOMS = getattr(settings, "SEGMENTS_TILE_INVALIDATION_ZOOMS", range(6, 23))

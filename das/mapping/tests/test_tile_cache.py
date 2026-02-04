@@ -9,7 +9,7 @@ from django.test import override_settings
 from django.urls import reverse
 from rest_framework.test import APIRequestFactory
 
-from mapping.cache import (
+from utils.cache import (
     VECTOR_TILE_DATA_VERSION_KEY,
     build_tile_cache_key,
     bump_vector_tile_data_version,
@@ -36,7 +36,7 @@ def mock_tile_view_dependencies(monkeypatch):
     monkeypatch.setattr("mapping.views.get_tenant_data_by_host", mock_get_tenant_data_by_host)
 
     # Mock the vector tile cache to use default cache
-    monkeypatch.setattr("mapping.cache.get_vector_tile_cache", lambda: caches["default"])
+    monkeypatch.setattr("utils.cache.get_vector_tile_cache", lambda: caches["default"])
 
 
 class DummyUser:

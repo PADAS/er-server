@@ -29,7 +29,7 @@ from observations.models import (
     SubjectType,
 )
 from observations.signals import update_segments_for_observation
-from observations.vector_layers_segments import ObservationSegmentVectorLayer
+from observations.vector_layers import ObservationSegmentVectorLayer
 from utils.migrations.columns import default_tenant_id
 
 
@@ -413,7 +413,7 @@ class TestObservationSegmentVectorTiles:
         from rest_framework.test import APIRequestFactory
 
         from core.models import DASTenant
-        from observations.vector_layers_segments import ObservationSegmentVectorLayer
+        from observations.vector_layers import ObservationSegmentVectorLayer
         from utils.migrations.columns import default_tenant_id
 
         tenant = DASTenant.objects.get(id=default_tenant_id())

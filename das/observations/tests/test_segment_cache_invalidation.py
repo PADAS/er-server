@@ -6,7 +6,7 @@ import pytest
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 
-from mapping import cache as cache_utils
+from utils import cache as cache_utils
 
 
 def lonlat_to_tile_xy(lon: float, lat: float, z: int):

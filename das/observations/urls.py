@@ -139,7 +139,8 @@ urlpatterns = [
         name="subject-sources-list-view",
     ),
     path("flatten-observations/", views.FlattenObservationsView.as_view(), name="flatten-observations"),
-    # Vector tile endpoint
+    # Vector tile endpoints
+    # Consolidated endpoint: includes both observation segments (LineStrings) and subjects (Points)
     re_path(
         r"^observations/segments/tiles/(?P<z>\d+)/(?P<x>\d+)/(?P<y>\d+)\.pbf/?$",
         vector_tiles_segments.ObservationSegmentTileView.as_view(),

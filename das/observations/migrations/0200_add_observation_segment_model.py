@@ -69,13 +69,10 @@ class Migration(migrations.Migration):
                 CREATE INDEX "observation_das_ten_ff294d_idx"
                 ON "observations_observationsegment" ("das_tenant_id", "subject_id", "end_recorded_at");
 
-                CREATE INDEX "observation_start_o_68bbbe_idx"
-                ON "observations_observationsegment" ("start_observation_id", "end_observation_id");
-
                 CREATE INDEX "observation_das_ten_aee6b0_idx"
                 ON "observations_observationsegment" ("das_tenant_id", "subject_id", "exclusion_flags");
 
-                -- Add unique constraint
+                -- Add unique constraint (which automatically creates an index)
                 ALTER TABLE "observations_observationsegment"
                 ADD CONSTRAINT "observations_observationsegment_unique_segment"
                 UNIQUE ("start_observation_id", "end_observation_id");
