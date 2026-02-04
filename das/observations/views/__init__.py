@@ -1,4 +1,3 @@
-import csv
 import datetime
 import json
 import logging
@@ -870,7 +869,100 @@ class TrackingDataCsvView(APIView):
             )
         return queryset
 
+    def _get_fieldnames(self, result_format, request_subject_id):
+        """Get CSV field names with timezone-aware labels."""
+        fixtime_label = "fixtime ({})".format(tz_offset) if result_format == "csv" else "fixtime"
+        dloadtime_label = "dloadtime ({})".format(tz_offset) if result_format == "csv" else "dloadtime"
+        fieldnames = [
+            "chronofile",
+            "recordserial",
+            "observation_id",
+            "collar_id",
+            fixtime_label,
+            dloadtime_label,
+            "lon",
+            "lat",
+            "height",
+            "temp",
+            "voltage",
+            "activity",
+            "activity_label",
+            "subject_name",
+        ]
+        if request_subject_id:
+            fieldnames = [item.replace("chronofile", "subject_id") for item in fieldnames]
+        return fieldnames, fixtime_label, dloadtime_label
+
+    def _generate_current_status_rows(
+        self,
+        max_records,
+        request_subject_id,
+        request_subject_chronofile,
+        request_source_provider,
+        result_format,
+        fixtime_label,
+        dloadtime_label,
+        record_serial_base,
+    ):
+        """Generator for current status data."""
+        items = self.get_subject_status_queryset(
+            max_records, request_subject_id, request_subject_chronofile, request_source_provider
+        )
+        cur_record_serial = record_serial_base
+        for item in items:
+            cur_record_serial += 1
+            yield self.get_csv_observation_data(
+                cur_record_serial,
+                dloadtime_label,
+                fixtime_label,
+                result_format,
+                item,
+                item["subject_id"] if request_subject_id else None,
+                None,
+            )
+
+    def _generate_observation_rows(
+        self,
+        filter_flag,
+        lower,
+        upper,
+        max_records,
+        request_subject_id,
+        request_subject_chronofile,
+        request_source_provider,
+        result_format,
+        fixtime_label,
+        dloadtime_label,
+        record_serial_base,
+    ):
+        """
+        Generator for observation data rows.
+        Streams rows as they're fetched from the database.
+        """
+        cur_record_serial = record_serial_base
+
+        try:
+            subjects = self.get_queryset(request_subject_id, request_subject_chronofile, request_source_provider)
+            for subject in subjects.iterator(chunk_size=100):
+                # Get observations for this subject and stream them
+                observations_qs = self.get_subject_trackdata_queryset(filter_flag, lower, subject, upper, max_records)
+                for item in observations_qs.values().iterator(chunk_size=2000):
+                    cur_record_serial += 1
+                    yield self.get_csv_observation_data(
+                        cur_record_serial,
+                        dloadtime_label,
+                        fixtime_label,
+                        result_format,
+                        item,
+                        subject.id if request_subject_id else None,
+                        None,
+                    )
+        except django.core.exceptions.ValidationError:
+            raise ValidationError({"Error": f"{request_subject_id} is not a valid UUID"})
+
     def get(self, request, *args, **kwargs):
+        from utils.csv_streaming import StreamingCSVResponse
+
         # Set exclusion flag value
         filter_flag = 0
         qparam = self.request.GET.get("filter", 0)
@@ -881,12 +973,12 @@ class TrackingDataCsvView(APIView):
 
         try:
             request_date_after = parse_datetime(self.request.GET.get("after_date", None))
-        except:
+        except Exception:
             request_date_after = None
 
         try:
             request_date_before = parse_datetime(self.request.GET.get("before_date", None))
-        except:
+        except Exception:
             request_date_before = None
 
         # return in json format or csv, default is csv
@@ -916,88 +1008,83 @@ class TrackingDataCsvView(APIView):
         if lower >= upper:
             raise PermissionDenied
 
-        # if passed in bounds further restrict calculated ones for the user,
-        # use those
+        # if passed in bounds further restrict calculated ones for the user, use those
         upper = request_date_before if request_date_before is not None and request_date_before < upper else upper
         lower = request_date_after if request_date_after is not None and request_date_after > lower else lower
 
-        # Get SubjectSource and Observations with in time range for subjects
-        fixtime_label = "fixtime ({})".format(tz_offset) if result_format == "csv" else "fixtime"
-        dloadtime_label = "dloadtime ({})".format(tz_offset) if result_format == "csv" else "dloadtime"
-        fieldnames = [
-            "chronofile",
-            "recordserial",
-            "observation_id",
-            "collar_id",
-            fixtime_label,
-            dloadtime_label,
-            "lon",
-            "lat",
-            "height",
-            "temp",
-            "voltage",
-            "activity",
-            "activity_label",
-            "subject_name",
-        ]
-        csv_data = []
-        cur_record_serial = record_serial_base
-        if get_current:
-            # all the current status objects for the allowed subjects
-            items = self.get_subject_status_queryset(
-                max_records, request_subject_id, request_subject_chronofile, request_source_provider
-            )
-            if items:
-                for item in items:
-                    cur_record_serial += 1
-                    data = self.get_csv_observation_data(
-                        cur_record_serial,
-                        dloadtime_label,
-                        fixtime_label,
-                        result_format,
-                        item,
-                        item["subject_id"] if request_subject_id else None,
-                        None,
-                    )
-                    csv_data.append(data)
-        else:
-            try:
-                subjects = self.get_queryset(request_subject_id, request_subject_chronofile, request_source_provider)
-                for subject in subjects:
-                    # all the relevant observations for the subject
-                    for item in self.get_subject_trackdata_queryset(
-                        filter_flag, lower, subject, upper, max_records
-                    ).values():
-                        cur_record_serial += 1
-                        data = self.get_csv_observation_data(
-                            cur_record_serial,
-                            dloadtime_label,
-                            fixtime_label,
-                            result_format,
-                            item,
-                            subject.id if request_subject_id else None,
-                            None,
-                        )
-                        csv_data.append(data)
-            except django.core.exceptions.ValidationError:
-                raise ValidationError({"Error": f"{request_subject_id} is not a valid UUID"})
+        fieldnames, fixtime_label, dloadtime_label = self._get_fieldnames(result_format, request_subject_id)
 
-        timestamp = current_tz.localize(datetime.datetime.utcnow())
-
+        # JSON format cannot be streamed - must return full list
         if result_format != "csv":
+            csv_data = []
+            if get_current:
+                csv_data = list(
+                    self._generate_current_status_rows(
+                        max_records,
+                        request_subject_id,
+                        request_subject_chronofile,
+                        request_source_provider,
+                        result_format,
+                        fixtime_label,
+                        dloadtime_label,
+                        record_serial_base,
+                    )
+                )
+            else:
+                csv_data = list(
+                    self._generate_observation_rows(
+                        filter_flag,
+                        lower,
+                        upper,
+                        max_records,
+                        request_subject_id,
+                        request_subject_chronofile,
+                        request_source_provider,
+                        result_format,
+                        fixtime_label,
+                        dloadtime_label,
+                        record_serial_base,
+                    )
+                )
             return Response(csv_data)
 
+        # CSV format - use streaming response
+        timestamp = current_tz.localize(datetime.datetime.utcnow())
         download_filename = f'Tracking Data {timestamp.strftime("%Y-%m-%d")}.csv'
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = f"attachment;filename={download_filename}"
-        response["x-das-download-filename"] = download_filename
 
-        if request_subject_id:
-            fieldnames = [item.replace("chronofile", "subject_id") for item in fieldnames]
-        writer = csv.DictWriter(response, fieldnames=fieldnames)
-        writer.writeheader()
-        if csv_data:
-            writer.writerows(csv_data)
+        if get_current:
+            row_generator = self._generate_current_status_rows(
+                max_records,
+                request_subject_id,
+                request_subject_chronofile,
+                request_source_provider,
+                result_format,
+                fixtime_label,
+                dloadtime_label,
+                record_serial_base,
+            )
+        else:
+            row_generator = self._generate_observation_rows(
+                filter_flag,
+                lower,
+                upper,
+                max_records,
+                request_subject_id,
+                request_subject_chronofile,
+                request_source_provider,
+                result_format,
+                fixtime_label,
+                dloadtime_label,
+                record_serial_base,
+            )
+
+        response = StreamingCSVResponse(
+            row_generator=row_generator,
+            fieldnames=fieldnames,
+            filename=download_filename,
+        )
+        # Match original header format (no space after semicolon)
+        response["Content-Disposition"] = f"attachment;filename={download_filename}"
         return response
 
     def get_csv_observation_data(
@@ -1109,15 +1196,11 @@ class TrackingMetaDataExportView(APIView):
 
     # schema = InactiveSubjectsViewSchema()
 
-    def get_source_details(self, format):
-        """
-        Gather required details for each Subject/Source combination.
-        :return: List of dictionaries containing required details.
-        """
-        tracking_metadata = []
-        data_starts = "data_starts ({})".format(tz_offset) if format != "json" else "data_starts"
-        data_stops = "data_stops ({})".format(tz_offset) if format != "json" else "data_stops"
-        headers = [
+    def _get_headers(self, output_format):
+        """Get CSV headers with timezone-aware date column names."""
+        data_starts = "data_starts ({})".format(tz_offset) if output_format != "json" else "data_starts"
+        data_stops = "data_stops ({})".format(tz_offset) if output_format != "json" else "data_stops"
+        return [
             "chronofile",
             "collar_type",
             "collar_id",
@@ -1154,12 +1237,28 @@ class TrackingMetaDataExportView(APIView):
             "external_name",
         ]
 
-        # NOTE: nearly all the data for this call is actually found in the source and subject source, however
-        #       it is the subject and by association the subject_group that are limited by the user
-        #       so make sure to get the source the is currently assigned
+    def _build_subject_groups_lookup(self, subject_ids):
+        """
+        Build a lookup dict mapping subject_id -> comma-separated group names.
+        This eliminates the N+1 query problem by fetching all groups in one query.
+        """
+        from django.contrib.postgres.aggregates import StringAgg
+
+        # Get all subject-group relationships in one query
+        subject_groups_qs = (
+            SubjectGroup.objects.filter(subjects__id__in=subject_ids)
+            .values("subjects__id")
+            .annotate(group_names=StringAgg("name", delimiter=","))
+        )
+
+        return {str(item["subjects__id"]): item["group_names"] for item in subject_groups_qs}
+
+    def _get_annotated_queryset(self):
+        """Get the base queryset with all necessary annotations."""
         subjects = self.get_queryset()
-        subjects = (
+        return (
             subjects.prefetch_related("subjectsources")
+            .select_related("subject_subtype")
             .annotate(subjectsource_additional=F("subjectsource__additional"))
             .annotate(source_model_name=F("subjectsource__source__model_name"))
             .annotate(source_manufacturer_id=F("subjectsource__source__manufacturer_id"))
@@ -1169,110 +1268,137 @@ class TrackingMetaDataExportView(APIView):
             .annotate(subjectsource_id=F("subjectsource__id"))
         )
 
-        subjectsources = set()
-        for subject in subjects:
-            if subject.subjectsource_id in subjectsources:
-                continue
-            subjectsources.add(subject.subjectsource_id)
-            subject.subjectsource_additional = (
-                {} if subject.subjectsource_additional is None else subject.subjectsource_additional
+    def _transform_subject_to_row(self, subject, subject_groups_lookup, output_format, data_starts_key, data_stops_key):
+        """Transform a subject into a CSV row dictionary."""
+        subjectsource_additional = subject.subjectsource_additional or {}
+
+        source_details = {
+            "name": subject.name,
+            "species": subject.additional.get("species", ""),
+            "rgb": subject.additional.get("rgb", ""),
+            "sex": subject.additional.get("sex", ""),
+            "region": subject.additional.get("region", ""),
+            "active": subject.is_active,
+            "country": subject.additional.get("country", ""),
+            "subtype": subject.subject_subtype.display if subject.subject_subtype else "",
+            "groups": subject_groups_lookup.get(str(subject.id), ""),
+            "subject_id": subject.id,
+            "animal_id": subject.additional.get("tm_animal_id", ""),
+            "external_id": subject.additional.get("external_id", ""),
+            "external_name": subject.additional.get("external_name", ""),
+        }
+
+        if subject.source_additional is not None:
+            lower = subject.subjectsource_assigned_range.lower
+            upper = subject.subjectsource_assigned_range.upper
+            try:
+                if output_format != "json":
+                    if lower != datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=pytz.utc):
+                        lower = lower.astimezone(current_tz)
+                    if upper != datetime.datetime(datetime.MAXYEAR, 12, 31, tzinfo=pytz.utc):
+                        upper = upper.astimezone(current_tz)
+            except Exception:
+                pass
+
+            source_details.update(
+                {
+                    "chronofile": subjectsource_additional.get("chronofile", None),
+                    "collar_type": subject.source_model_name,
+                    "collar_id": subject.source_manufacturer_id,
+                    "datasource": subject.source_additional.get("datasource", ""),
+                    "frequency": subject.source_additional.get("frequency", 0.0),
+                    data_starts_key: (
+                        lower.strftime("%m/%d/%Y %H:%M:%S") if output_format != "json" else lower.isoformat()
+                    ),
+                    data_stops_key: (
+                        upper.strftime("%m/%d/%Y %H:%M:%S") if output_format != "json" else upper.isoformat()
+                    ),
+                    "comments": subjectsource_additional.get("comments", ""),
+                    "predicted_expiry": subject.source_additional.get("predicted_expiry", ""),
+                    "data_status": subjectsource_additional.get("data_status", ""),
+                    "data_starts_source": subjectsource_additional.get("data_starts_source", ""),
+                    "data_stops_source": subjectsource_additional.get("data_stops_source", ""),
+                    "data_stops_reason": subjectsource_additional.get("data_stops_reason", ""),
+                    "date_off_or_removed": subjectsource_additional.get("date_off_or_removed", ""),
+                    "collar_status": subject.source_additional.get("collar_status", ""),
+                    "collar_model": subject.source_additional.get("collar_model", ""),
+                    "has_acc_data": subject.source_additional.get("has_acc_data", ""),
+                    "data_owners": subject.source_additional.get("data_owners", ""),
+                    "source_id": subject.source_id,
+                    "subjectsource_id": subject.subjectsource_id,
+                }
             )
 
-            source_details = {}
+        return source_details
+
+    def _generate_rows(self, output_format):
+        """
+        Generator that yields CSV rows for streaming response.
+        Fixes N+1 query by pre-fetching subject groups.
+        """
+        headers = self._get_headers(output_format)
+        data_starts_key = headers[11]  # data_starts column
+        data_stops_key = headers[12]  # data_stops column
+
+        subjects = self._get_annotated_queryset()
+
+        # Get all subject IDs first for the groups lookup
+        # We need to materialize this to build the lookup, but we'll stream the actual rows
+        subject_ids = list(subjects.values_list("id", flat=True))
+        subject_groups_lookup = self._build_subject_groups_lookup(subject_ids)
+
+        # Track seen subjectsources to avoid duplicates
+        seen_subjectsources = set()
+
+        for subject in subjects.iterator(chunk_size=2000):
+            if subject.subjectsource_id in seen_subjectsources:
+                continue
+            seen_subjectsources.add(subject.subjectsource_id)
+
             try:
-                # Collect Subject details.
-                subject_groups = ",".join([grp.name for grp in SubjectGroup.objects.filter(subjects=subject)])
-
-                source_details.update(
-                    {
-                        "name": subject.name,
-                        "species": subject.additional.get("species", ""),
-                        "rgb": subject.additional.get("rgb", ""),
-                        "sex": subject.additional.get("sex", ""),
-                        "region": subject.additional.get("region", ""),
-                        "active": subject.is_active,
-                        "country": subject.additional.get("country", ""),
-                        "subtype": subject.subject_subtype.display,
-                        "groups": subject_groups,
-                        "subject_id": subject.id,
-                        "animal_id": subject.additional.get("tm_animal_id", ""),
-                        "external_id": subject.additional.get("external_id", ""),
-                        "external_name": subject.additional.get("external_name", ""),
-                    }
+                yield self._transform_subject_to_row(
+                    subject, subject_groups_lookup, output_format, data_starts_key, data_stops_key
                 )
-
-                if subject.source_additional is not None:
-                    # Collect Source details.
-
-                    lower = subject.subjectsource_assigned_range.lower
-                    upper = subject.subjectsource_assigned_range.upper
-                    try:
-                        if format != "json":
-                            lower = (
-                                lower.astimezone(current_tz)
-                                if lower != datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=pytz.utc)
-                                else lower
-                            )
-                            upper = (
-                                upper.astimezone(current_tz)
-                                if upper != datetime.datetime(datetime.MAXYEAR, 12, 31, tzinfo=pytz.utc)
-                                else upper
-                            )
-                    except:
-                        pass
-                    source_details.update(
-                        {
-                            "chronofile": subject.subjectsource_additional.get("chronofile", None),
-                            "collar_type": subject.source_model_name,
-                            "collar_id": subject.source_manufacturer_id,
-                            "datasource": subject.source_additional.get("datasource", ""),
-                            "frequency": subject.source_additional.get("frequency", 0.0),
-                            data_starts: lower.strftime("%m/%d/%Y %H:%M:%S") if format != "json" else lower.isoformat(),
-                            data_stops: upper.strftime("%m/%d/%Y %H:%M:%S") if format != "json" else upper.isoformat(),
-                            "comments": subject.subjectsource_additional.get("comments", ""),
-                            "predicted_expiry": subject.source_additional.get("predicted_expiry", ""),
-                            "data_status": subject.subjectsource_additional.get("data_status", ""),
-                            "data_starts_source": subject.subjectsource_additional.get("data_starts_source", ""),
-                            "data_stops_source": subject.subjectsource_additional.get("data_stops_source", ""),
-                            "data_stops_reason": subject.subjectsource_additional.get("data_stops_reason", ""),
-                            "date_off_or_removed": subject.subjectsource_additional.get("date_off_or_removed", ""),
-                            "collar_status": subject.source_additional.get("collar_status", ""),
-                            "collar_model": subject.source_additional.get("collar_model", ""),
-                            "has_acc_data": subject.source_additional.get("has_acc_data", ""),
-                            "data_owners": subject.source_additional.get("data_owners", ""),
-                            "source_id": subject.source_id,
-                            "subjectsource_id": subject.subjectsource_id,
-                        }
-                    )
             except Exception as error:
                 logger.exception(error)
-            finally:
-                tracking_metadata.append(source_details)
+                # Yield empty row on error to maintain row count consistency
+                yield {}
+
+    def get_source_details(self, output_format):
+        """
+        Gather required details for each Subject/Source combination.
+        Used for JSON format which requires a complete list.
+        :return: Tuple of (list of dictionaries, headers list)
+        """
+        headers = self._get_headers(output_format)
+        tracking_metadata = list(self._generate_rows(output_format))
         return tracking_metadata, headers
 
     def get(self, request, *args, **kwargs):
-        # Create the HttpResponse object with the appropriate CSV header.
-        current_tz = pytz.timezone(timezone.get_current_timezone_name())
-        timestamp = current_tz.localize(datetime.datetime.utcnow())
-        format = self.request.GET.get("format", "").lower()
-        tracking_metadata, headers = self.get_source_details(format)
+        from utils.csv_streaming import StreamingCSVResponse
 
-        if format == "json":
+        local_tz = pytz.timezone(timezone.get_current_timezone_name())
+        timestamp = local_tz.localize(datetime.datetime.utcnow())
+        output_format = self.request.GET.get("format", "").lower()
+
+        # JSON format cannot be streamed - return full response
+        if output_format == "json":
+            tracking_metadata, headers = self.get_source_details(output_format)
             return HttpResponse(
                 json.dumps({"metadata": tracking_metadata}, cls=DjangoJSONEncoder),
                 content_type="application/json",
                 status=status.HTTP_200_OK,
             )
 
+        # CSV format - use streaming response
+        headers = self._get_headers(output_format)
         download_filename = f'Tracking Meta Data Export {timestamp.strftime("%Y-%m-%d")}.csv'
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = f"attachment; filename={download_filename}"
-        response["x-das-download-filename"] = download_filename
 
-        writer = csv.DictWriter(response, headers)
-        writer.writeheader()
-        writer.writerows(tracking_metadata)
-        return response
+        return StreamingCSVResponse(
+            row_generator=self._generate_rows(output_format),
+            fieldnames=headers,
+            filename=download_filename,
+        )
 
     def get_queryset(self):
         # Get user accessible active subjects.

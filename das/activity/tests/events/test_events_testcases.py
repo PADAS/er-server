@@ -79,6 +79,7 @@ from utils.categories import (
     get_categories_and_geo_categories,
     make_eventcategory_permission_codename,
 )
+from utils.csv_streaming import read_streaming_response_content
 from utils.gis import convert_to_point
 from utils.html import clean_user_text
 from utils.schema_utils import format_key_for_title
@@ -1056,9 +1057,9 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         response = views.EventsExportView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
-        self.assertTrue("Priority" in response.content.decode("utf-8"))
-        self.assertTrue("Notes" in response.content.decode("utf-8"))
-        self.assertTrue(self.notes_line2_prefix in response.content.decode("utf-8"))
+        self.assertTrue("Priority" in read_streaming_response_content(response))
+        self.assertTrue("Notes" in read_streaming_response_content(response))
+        self.assertTrue(self.notes_line2_prefix in read_streaming_response_content(response))
 
     def test_should_export_csv_to_contain_event_attachments(self):
         carcass_data = json.loads(
@@ -1104,7 +1105,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         response = views.EventsExportView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
-        raw_csv = response.content.decode("utf-8")
+        raw_csv = read_streaming_response_content(response)
         self.assertTrue("Priority" in raw_csv)
         self.assertTrue("Notes" in raw_csv)
         self.assertTrue("Attachments" in raw_csv)
@@ -1128,7 +1129,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         response = views.EventsExportView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
-        raw_csv = response.content.decode("utf-8")
+        raw_csv = read_streaming_response_content(response)
         self.assertTrue("Priority" in raw_csv)
         self.assertTrue("Notes" in raw_csv)
         self.assertTrue("carcassrep_species" in raw_csv)
@@ -1199,7 +1200,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.assertEqual(response.status_code, 200)
 
-        events_report = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        events_report = self.convert_rendered_csv_to_dict(read_streaming_response_content(response))
         # get the last event
         event = {}
         for ev in events_report:
@@ -1236,7 +1237,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         request = self.factory.get(self.api_base + url, {"filter": q_params})
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(read_streaming_response_content(response))
         assert len(rendered_dict) == 1
 
         tomorrow = self.now + timedelta(days=1)
@@ -1245,7 +1246,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         request = self.factory.get(self.api_base + url, {"filter": q_params})
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(read_streaming_response_content(response))
         assert len(rendered_dict) == 0
 
     @mock.patch("activity.models.is_banned")
@@ -1299,7 +1300,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(read_streaming_response_content(response))
         report_names = [report["Title"] for report in rendered_dict]
 
         # 2 reports returned, Incident and contained report
@@ -1408,7 +1409,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_content = response.content.decode("utf-8")
+        rendered_content = read_streaming_response_content(response)
         rendered_dict = self.convert_rendered_csv_to_dict(rendered_content)
         report_headers = rendered_dict[0].keys()
 
@@ -1523,7 +1524,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_content = response.content.decode("utf-8")
+        rendered_content = read_streaming_response_content(response)
         rendered_dict = self.convert_rendered_csv_to_dict(rendered_content)
         report_headers = rendered_dict[0].keys()
 
@@ -1555,7 +1556,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.content.decode("utf-8").splitlines()), 3)
+        self.assertEqual(len(read_streaming_response_content(response).splitlines()), 3)
 
     def test_reported_by_filtering(self):
         reported_by_users = list(Event.objects.get_reported_by_for_provenance(Event.PC_STAFF))
@@ -2241,7 +2242,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(read_streaming_response_content(response))
 
         self.assertIn("DWS Test", [i.get("Report_Type") for i in rendered_dict])
         target_row = {}
@@ -2270,7 +2271,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(read_streaming_response_content(response))
 
         self.assertIn("DWS Test", [i.get("Report_Type") for i in rendered_dict])
         target_row = {}
@@ -2301,7 +2302,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(read_streaming_response_content(response))
 
         self.assertIn("4787-Array", [i.get("Report_Type") for i in rendered_dict])
         target_row = {}
@@ -2329,7 +2330,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(read_streaming_response_content(response))
         self.assertIn("Sprint 88 Behavior", [i.get("Report_Type") for i in rendered_dict])
         target_row = {}
 
@@ -2357,7 +2358,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(read_streaming_response_content(response))
         self.assertIn("Sprint 88 Behavior", [i.get("Report_Type") for i in rendered_dict])
         target_row = {}
 
@@ -2596,7 +2597,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
         # convert rendered csv to dictionary format
-        content = response.content.decode("utf-8")
+        content = read_streaming_response_content(response)
         csv_reader = csv.reader(io.StringIO(content))
         data = list(csv_reader)
         header = data[0]
@@ -2641,7 +2642,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        self.assertTrue("Unknown Rhino 1" in response.content.decode("utf-8"))
+        self.assertTrue("Unknown Rhino 1" in read_streaming_response_content(response))
 
     def test_export_with_0_event_details_data(self):
         et_schema = json.dumps(
@@ -2677,7 +2678,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_content = response.content.decode("utf-8")
+        rendered_content = read_streaming_response_content(response)
         rendered_dict = self.convert_rendered_csv_to_dict(rendered_content)
 
         first_report = rendered_dict[0]
@@ -2728,7 +2729,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         response = views.EventsExportView.as_view()(request)
 
         # title returned, not UUID
-        self.assertTrue("Katie Kitten" in response.content.decode("utf-8"))
+        self.assertTrue("Katie Kitten" in read_streaming_response_content(response))
 
     def test_export_on_similar_titles_for_different_reports(self):
         et_schema = """{"schema":
@@ -2768,7 +2769,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_content = response.content.decode("utf-8")
+        rendered_content = read_streaming_response_content(response)
         rendered_dict = self.convert_rendered_csv_to_dict(rendered_content)
         report_headers = [key for key in rendered_dict[0].keys()]
 

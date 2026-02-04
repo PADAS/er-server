@@ -17,6 +17,7 @@ from factories import (
     SubjectGroupFactory,
 )
 from observations.models import SubjectSubType
+from utils.csv_streaming import read_streaming_response_content
 
 BASE_URL = "https://zoo.com/api/v2.0/schemas"
 
@@ -342,7 +343,7 @@ class TestEventExport:
         response = self.user_client.get(url)
         assert response.status_code == status.HTTP_200_OK
 
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(read_streaming_response_content(response))
 
         assert self.event_display in [i.get("Report_Type") for i in rendered_dict]
         target_row = {}
@@ -376,7 +377,7 @@ class TestEventExport:
         response = self.user_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(read_streaming_response_content(response))
 
         assert self.event_display in [i.get("Report_Type") for i in rendered_dict]
         target_row = {}
@@ -408,7 +409,7 @@ class TestEventExport:
 
         assert response.status_code == status.HTTP_200_OK
 
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(read_streaming_response_content(response))
 
         assert self.event_display in [i.get("Report_Type") for i in rendered_dict]
         target_row = {}
@@ -444,7 +445,7 @@ class TestEventExport:
 
         assert response.status_code == status.HTTP_200_OK
 
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(read_streaming_response_content(response))
 
         target_row = {}
         for row in rendered_dict:
