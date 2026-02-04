@@ -67,8 +67,7 @@ class SubjectVectorLayer(VectorLayer):
             "id",
             "name",
             "subject_type",
-            "subject_subtype",
-            "image",
+            "subject_subtype_value",
             "color",
             "radio_state",
             "recorded_at",
@@ -117,12 +116,11 @@ class SubjectVectorLayer(VectorLayer):
         # Annotate with required fields
         return qs.annotate(
             geom=self._get_geometry_field(),
+            subject_type=F("subject_subtype__subject_type__value"),
+            subject_subtype_value=Coalesce(F("subject_subtype__value"), Value("")),
             color=color_expr,
             radio_state=F("status_radio_state"),
             recorded_at=F("status_recorded_at"),
-            # Note: subject_type is available via subject.subject_type @property
-            # Note: subject_subtype is available via subject.subject_subtype ForeignKey
-            # Note: image will be resolved from subject.image_url property during serialization
         )
 
 

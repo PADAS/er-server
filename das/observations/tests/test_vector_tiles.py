@@ -64,7 +64,7 @@ class TestSubjectVectorLayer:
         assert hasattr(obj, "radio_state")
         assert hasattr(obj, "recorded_at")
         assert hasattr(obj, "subject_type")
-        assert hasattr(obj, "subject_subtype")
+        assert hasattr(obj, "subject_subtype_value")
 
     def test_default_delay_hours_is_zero(self):
         """Verify default delay_hours is 0 when no request provided."""
@@ -875,7 +875,7 @@ class TestSubjectLayerProperties:
 
         assert obj is not None
         assert obj.subject_type == subject_subtype.subject_type.value
-        assert obj.subject_subtype == subject_subtype.value
+        assert obj.subject_subtype_value == subject_subtype.value
 
 
 @pytest.mark.django_db
