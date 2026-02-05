@@ -1,8 +1,13 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "DAS"
 dynamic = ["version"]
+description = "Domain Awareness System, server"
 requires-python = ">=3.10,<3.11"
-readme = "readme.md"
+readme = { file = "readme.md" }
 authors = [
     { name="EarthRanger Developers", email="developers@earthranger.com" }
 ]
@@ -161,6 +166,12 @@ max-public-methods = 20
 
 [tool.uv.sources]
 pymet = { path = "dependencies/wheelhouse/pymet-0.1.26-py3-none-any.whl" }
+
+[tool.setuptools]
+packages = ["das"]
+
+[tool.setuptools.dynamic]
+version = {attr = "das.das_server.__version__"}
 
 [dependency-groups]
 dev = [
