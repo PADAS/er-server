@@ -790,7 +790,7 @@ wheels = [
 
 [[package]]
 name = "das"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "arcgis" },
     { name = "arcgis2geojson" },
