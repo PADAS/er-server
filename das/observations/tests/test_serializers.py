@@ -462,6 +462,84 @@ class TestSubjectSerializer:
         # The name should be parsed from the annotation
         assert serialized_subject["name"] == expected_display_name
 
+    def test_buoy_gear_feature_props_returns_correct_data(self, das_tenant):
+        """Test that _get_buoy_gear_feature_props returns correct name, additional, and device_status_properties."""
+        # Create a subject subtype for buoy gear
+        buoy_subtype = SubjectSubTypeFactory(value=BUOY_GEAR_SUBJECT_SUBTYPE, das_tenant=das_tenant)
+
+        # Create a subject with the buoy gear subtype
+        subject = SubjectFactory(
+            name="Original Subject Name",
+            subject_subtype=buoy_subtype,
+            das_tenant=das_tenant,
+        )
+
+        # Create a source with a manufacturer_id and provider
+        full_manufacturer_id = "88CE99DC88_EVG6q84wwjTqvYlPg00BF9EJpWK99zh6pAmRJ80j_A"
+        expected_display_name = "88CE99DC88"
+        source = SourceFactory(manufacturer_id=full_manufacturer_id, das_tenant=das_tenant)
+        provider_display_name = source.provider.display_name
+
+        # Link the subject to the source
+        SubjectSourceFactory(subject=subject, source=source, das_tenant=das_tenant)
+
+        # Test _get_buoy_gear_feature_props
+        serializer = SubjectSerializer()
+        device_status_props = [{"label": "test", "value": 123}]
+        display_name, additional, returned_device_props = serializer._get_buoy_gear_feature_props(
+            subject, device_status_props
+        )
+
+        # Check display_name (parsed manufacturer_id)
+        assert display_name == expected_display_name
+
+        # Check additional contains display_id and manufacturer
+        assert additional["display_id"] == str(subject.id)
+        assert additional["manufacturer"] == provider_display_name
+
+        # Check device_status_properties is passed through
+        assert returned_device_props == device_status_props
+
+    def test_buoy_gear_feature_props_returns_none_for_non_buoy_subject(self, subject):
+        """Test that _get_buoy_gear_feature_props returns None for non-buoy subjects."""
+        serializer = SubjectSerializer()
+        display_name, additional, device_props = serializer._get_buoy_gear_feature_props(subject, None)
+
+        assert display_name is None
+        assert additional is None
+        assert device_props is None
+
+    def test_provider_display_name_annotation(self, das_tenant):
+        """Test that latest_source_provider_display_name annotation works correctly."""
+        from observations.models import Subject
+
+        # Create a subject subtype for buoy gear
+        buoy_subtype = SubjectSubTypeFactory(value=BUOY_GEAR_SUBJECT_SUBTYPE, das_tenant=das_tenant)
+
+        # Create a subject with the buoy gear subtype
+        subject = SubjectFactory(
+            name="Original Subject Name",
+            subject_subtype=buoy_subtype,
+            das_tenant=das_tenant,
+        )
+
+        # Create a source with a provider
+        source = SourceFactory(
+            manufacturer_id="TEST123_xyz",
+            das_tenant=das_tenant,
+        )
+        expected_provider_name = source.provider.display_name
+
+        # Link the subject to the source
+        SubjectSourceFactory(subject=subject, source=source, das_tenant=das_tenant)
+
+        # Query with annotation
+        annotated_subject = Subject.objects.filter(id=subject.id).annotate_with_subjectsource_transforms().first()
+
+        # Verify the annotation exists and has the correct value
+        assert hasattr(annotated_subject, "latest_source_provider_display_name")
+        assert annotated_subject.latest_source_provider_display_name == expected_provider_name
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
