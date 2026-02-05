@@ -1582,13 +1582,19 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
 
         Returns:
             QuerySet: Annotated with latest_subjectsource_location, latest_subjectsource_transforms,
-                      latest_subjectsource_exists, and latest_source_manufacturer_id
+                      latest_subjectsource_exists, latest_source_manufacturer_id, and
+                      latest_source_provider_display_name
         """
-        # Get the latest subjectsource for each subject with both location and transforms
+        # Get the latest subjectsource for each subject with location, transforms, and source info
         latest_subjectsource = (
             SubjectSource.objects.filter(subject=OuterRef("pk"))
             .order_by("-assigned_range")
-            .values("location", "source__provider__transforms", "source__manufacturer_id")[:1]
+            .values(
+                "location",
+                "source__provider__transforms",
+                "source__manufacturer_id",
+                "source__provider__display_name",
+            )[:1]
         )
 
         return self.annotate(
@@ -1596,6 +1602,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             latest_subjectsource_transforms=Subquery(latest_subjectsource.values("source__provider__transforms")),
             latest_subjectsource_exists=Exists(latest_subjectsource),
             latest_source_manufacturer_id=Subquery(latest_subjectsource.values("source__manufacturer_id")),
+            latest_source_provider_display_name=Subquery(latest_subjectsource.values("source__provider__display_name")),
         )
 
     def annotate_with_subjectsource(self, use_lkl=False, use_bbox=False):

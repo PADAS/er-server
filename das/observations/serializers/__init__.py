@@ -376,6 +376,18 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
                     rep["device_status_properties"] = self._get_device_properties_static_sensor(statusvalues, instance)
                     rep["tracks_available"] = False
 
+                # Add buoy gear specific properties to last_position if applicable
+                if "last_position" in rep:
+                    display_name, additional, _ = self._get_buoy_gear_feature_props(
+                        instance, rep.get("device_status_properties")
+                    )
+                    if display_name:
+                        rep["last_position"]["properties"]["name"] = display_name
+                    if additional:
+                        rep["last_position"]["properties"]["additional"] = additional
+                    if rep.get("device_status_properties"):
+                        rep["last_position"]["properties"]["device_status_properties"] = rep["device_status_properties"]
+
         if request:
             rep["url"] = utils.add_base_url(
                 request,
@@ -493,6 +505,43 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         if subject_source and subject_source.source:
             return subject_source.source.manufacturer_id
         return None
+
+    def _get_provider_display_name(self, subject):
+        """Get source provider display_name from annotation or query."""
+        # First, try to use the annotation (avoids N+1 queries in list views)
+        if hasattr(subject, "latest_source_provider_display_name") and subject.latest_source_provider_display_name:
+            return subject.latest_source_provider_display_name
+
+        # Fall back to querying
+        subject_source = subject.subjectsources.select_related("source__provider").order_by("-assigned_range").first()
+        if subject_source and subject_source.source and subject_source.source.provider:
+            return subject_source.source.provider.display_name
+        return None
+
+    def _get_buoy_gear_feature_props(self, subject, device_status_properties=None):
+        """Get buoy gear specific properties for GeoJSON features.
+
+        Returns a tuple of (display_name, additional, device_status_properties) for buoy gear subjects,
+        or (None, None, None) for non-buoy subjects.
+        """
+        if not (subject.subject_subtype and subject.subject_subtype.value == BUOY_GEAR_SUBJECT_SUBTYPE):
+            return None, None, None
+
+        # Get the parsed display name (first segment of manufacturer_id)
+        display_name = self._get_buoy_gear_display_name(subject)
+        # If display_name equals subject.name, it means we fell back (no valid manufacturer_id)
+        if display_name == subject.name:
+            display_name = None
+
+        # Build additional properties
+        additional = {
+            "display_id": str(subject.id),
+        }
+        manufacturer = self._get_provider_display_name(subject)
+        if manufacturer:
+            additional["manufacturer"] = manufacturer
+
+        return display_name, additional, device_status_properties
 
 
 class SubjectIdSerializer(serializers.Serializer):
@@ -906,7 +955,33 @@ def make_subjectstatus_feature(request, location: Point, subjectstatus):
     return feature
 
 
-def make_feature(request, coordinates, subject, coordinate_times=None, time=None, image_url=None):
+def make_feature(
+    request,
+    coordinates,
+    subject,
+    coordinate_times=None,
+    time=None,
+    image_url=None,
+    display_name=None,
+    additional=None,
+    device_status_properties=None,
+):
+    """Create a GeoJSON feature for a subject.
+
+    Args:
+        request: The HTTP request object.
+        coordinates: Point or list of coordinates for the feature geometry.
+        subject: The Subject instance.
+        coordinate_times: List of times for LineString coordinates.
+        time: Time for Point coordinates.
+        image_url: Optional image URL override.
+        display_name: Optional display name to use as 'name' property (e.g., parsed manufacturer_id).
+        additional: Optional dict of additional properties to include.
+        device_status_properties: Optional device status properties to include.
+
+    Returns:
+        dict: A GeoJSON Feature object.
+    """
     is_point = isinstance(coordinates, Point)
     image_url = add_base_url(request, image_url or subject.image_url)
     feature = {
@@ -927,6 +1002,19 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         }
 
     properties = feature["properties"]
+
+    # Add optional display name (e.g., parsed manufacturer_id for buoy gear)
+    if display_name:
+        properties["name"] = display_name
+
+    # Add optional additional properties (e.g., display_id, manufacturer for buoy gear)
+    if additional:
+        properties["additional"] = additional
+
+    # Add optional device status properties
+    if device_status_properties:
+        properties["device_status_properties"] = device_status_properties
+
     if hasattr(subject, "color"):
         # see https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0
         properties["stroke"] = subject.color
