@@ -1,7 +1,7 @@
 # gdal image: ghcr.io/osgeo/gdal:ubuntu-small-3.4.3
 # Ubuntu 20.04.4 LTS
 # python 3.8.10
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.9.3
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.1
 LABEL org.opencontainers.image.description maintainer="EarthRanger Developers developers@earthranger.com"
 
 
