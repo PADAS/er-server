@@ -23,7 +23,7 @@ ADD ./dependencies /das/dependencies
 ADD ./pyproject.toml /das/
 ADD ./uv.lock /das/
 
-RUN uv sync --no-dev --no-install-project
+RUN uv sync --no-dev
 
 ARG built_version=""
 
