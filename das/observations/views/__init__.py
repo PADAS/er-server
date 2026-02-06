@@ -961,6 +961,8 @@ class TrackingDataCsvView(APIView):
             raise ValidationError({"Error": f"{request_subject_id} is not a valid UUID"})
 
     def get(self, request, *args, **kwargs):
+        from uuid import UUID
+
         from utils.csv_streaming import StreamingCSVResponse
 
         # Set exclusion flag value
@@ -986,6 +988,13 @@ class TrackingDataCsvView(APIView):
 
         # get data for a specific subject This is for STE downloader
         request_subject_id = self.request.GET.get("subject_id", None)
+
+        # Validate UUID eagerly so errors surface before streaming begins
+        if request_subject_id:
+            try:
+                UUID(request_subject_id)
+            except (ValueError, AttributeError):
+                raise ValidationError({"Error": f"{request_subject_id} is not a valid UUID"})
 
         # get data for a specific chronofile? This is for STE downloader
         request_subject_chronofile = self.request.GET.get("subject_chronofile", None)
@@ -1337,18 +1346,16 @@ class TrackingMetaDataExportView(APIView):
 
         return source_details
 
-    def _generate_rows(self, output_format):
+    def _generate_rows(self, output_format, subjects, subject_groups_lookup):
         """
         Generator that yields CSV rows for streaming response.
-        Fixes N+1 query by pre-fetching subject groups.
+
+        Args:
+            output_format: 'json' or 'csv' (affects date formatting).
+            subjects: Pre-built annotated queryset of subjects.
+            subject_groups_lookup: Pre-fetched dict mapping subject_id -> group names.
         """
-        headers, data_starts_key, data_stops_key = self._get_headers(output_format)
-
-        subjects = self._get_annotated_queryset()
-
-        # Reuse the same queryset for IDs - Django evaluates lazily so this is safe
-        subject_ids = list(subjects.values_list("id", flat=True))
-        subject_groups_lookup = self._build_subject_groups_lookup(subject_ids)
+        _, data_starts_key, data_stops_key = self._get_headers(output_format)
 
         # Track seen subjectsources to avoid duplicates
         seen_subjectsources = set()
@@ -1363,10 +1370,15 @@ class TrackingMetaDataExportView(APIView):
                     subject, subject_groups_lookup, output_format, data_starts_key, data_stops_key
                 )
             except Exception as error:
-                logger.exception(
-                    "Failed to transform subject %s to CSV row: %s", getattr(subject, "id", None), error
-                )
+                logger.exception("Failed to transform subject %s to CSV row: %s", getattr(subject, "id", None), error)
                 continue
+
+    def _prepare_subjects_and_groups(self):
+        """Build annotated queryset and subject groups lookup in a single pass."""
+        subjects = self._get_annotated_queryset()
+        subject_ids = list(subjects.values_list("id", flat=True))
+        subject_groups_lookup = self._build_subject_groups_lookup(subject_ids)
+        return subjects, subject_groups_lookup
 
     def get_source_details(self, output_format):
         """
@@ -1375,7 +1387,8 @@ class TrackingMetaDataExportView(APIView):
         :return: Tuple of (list of dictionaries, headers list)
         """
         headers, _, _ = self._get_headers(output_format)
-        tracking_metadata = list(self._generate_rows(output_format))
+        subjects, subject_groups_lookup = self._prepare_subjects_and_groups()
+        tracking_metadata = list(self._generate_rows(output_format, subjects, subject_groups_lookup))
         return tracking_metadata, headers
 
     def get(self, request, *args, **kwargs):
@@ -1398,8 +1411,11 @@ class TrackingMetaDataExportView(APIView):
         headers, _, _ = self._get_headers(output_format)
         download_filename = f'Tracking Meta Data Export {timestamp.strftime("%Y-%m-%d")}.csv'
 
+        # Pre-fetch subjects and groups lookup once, then stream rows
+        subjects, subject_groups_lookup = self._prepare_subjects_and_groups()
+
         return StreamingCSVResponse(
-            row_generator=self._generate_rows(output_format),
+            row_generator=self._generate_rows(output_format, subjects, subject_groups_lookup),
             fieldnames=headers,
             filename=download_filename,
         )

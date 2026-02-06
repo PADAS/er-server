@@ -164,6 +164,17 @@ def test_streaming_csv_response_sets_content_disposition():
     assert response["Content-Disposition"] == 'attachment; filename="export.csv"'
 
 
+def test_streaming_csv_response_sanitizes_filename():
+    """Response should strip CR, LF, and quotes from filename to prevent header injection."""
+    rows = [{"name": "Alice"}]
+    fieldnames = ["name"]
+
+    response = StreamingCSVResponse(rows, fieldnames, filename='bad\r\nname"here.csv')
+
+    assert response["Content-Disposition"] == 'attachment; filename="badnamehere.csv"'
+    assert response["x-das-download-filename"] == "badnamehere.csv"
+
+
 def test_streaming_csv_response_sets_custom_header():
     """Response should set x-das-download-filename header."""
     rows = [{"name": "Alice"}]

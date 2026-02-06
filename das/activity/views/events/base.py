@@ -1,6 +1,5 @@
 import json
 import logging
-import platform
 from collections import OrderedDict
 from datetime import datetime
 from typing import Dict, List, Type, Union
@@ -348,7 +347,9 @@ class EventsExportView(APIView):
             )
         )
 
-    def _generate_event_rows(self, queryset, custom_headers, reported_at_label, event_type_map, reported_by_map, current_tz):
+    def _generate_event_rows(
+        self, queryset, custom_headers, reported_at_label, event_type_map, reported_by_map, current_tz
+    ):
         """
         Generator that yields CSV rows for streaming response.
         """
@@ -438,61 +439,6 @@ class EventsExportView(APIView):
 
             yield event_data
 
-    def get_event_export_list(self):
-        """
-        Legacy method for backwards compatibility.
-        Builds the complete export data structure in memory.
-        """
-        current_tz = get_current_time_zone()
-        current_date = datetime.now(tz=current_tz)
-        tz_offset = get_timezone_offset(current_date)
-        reported_at_label = f"Reported_At_({tz_offset})"
-
-        reported_by_map = generate_reported_by_lookup()
-        event_type_map = generate_event_type_cache()
-
-        # Only build custom headers from event types that have matching events
-        event_type_ids_in_export = set(
-            self._get_annotated_queryset().values_list("event_type_id", flat=True).distinct()
-        )
-
-        default_headers = self._get_default_headers(f"Reported At ({tz_offset})")
-        custom_headers = self._build_custom_headers(event_type_map, event_type_ids_in_export)
-
-        # Build combined headers
-        combined_headers = [header.replace(" ", "_") for header in default_headers]
-        combined_headers.extend([header.replace(" ", "_") for header in custom_headers])
-
-        # Collect all rows (for backwards compatibility with prepare_csv_data)
-        event_export_data = []
-        current_event_type_data = {"id": None, "events": []}
-
-        for event_data in self._generate_event_rows(
-            custom_headers, reported_at_label, event_type_map, reported_by_map, current_tz
-        ):
-            # Group by event type for the legacy structure
-            event_type_id = event_data.get("Report_Type_Internal_Value")
-            if event_type_id != current_event_type_data.get("id"):
-                if current_event_type_data.get("events"):
-                    event_export_data.append(current_event_type_data)
-                current_event_type_data = {
-                    "id": event_type_id,
-                    "display": event_data.get("Report_Type"),
-                    "value": event_type_id,
-                    "events": [],
-                }
-            current_event_type_data["events"].append(event_data)
-
-        # Don't forget the last event type
-        if current_event_type_data.get("events"):
-            event_export_data.append(current_event_type_data)
-
-        return {
-            "event_export_data": event_export_data,
-            "combined_headers": combined_headers,
-            "custom_headers": custom_headers,
-        }
-
     def _get_polygon_property(self, event: dict, key: str) -> Union[float, str]:
         properties = event.get("geometries__properties", {})
         if properties:
@@ -511,8 +457,8 @@ class EventsExportView(APIView):
     def get(self, request, *args, **kwargs):
         from utils.csv_streaming import StreamingCSVResponse
 
-        self.value_cols = request.GET.get("value_cols", False)
-        self.display_cols = request.GET.get("display_cols", True)
+        self.value_cols = parse_bool(request.GET.get("value_cols", "false"))
+        self.display_cols = parse_bool(request.GET.get("display_cols", "true"))
 
         # Prepare timezone and headers
         current_tz = get_current_time_zone()
@@ -528,9 +474,7 @@ class EventsExportView(APIView):
         queryset = self._get_annotated_queryset()
 
         # Only build custom headers from event types that have matching events
-        event_type_ids_in_export = set(
-            queryset.values_list("event_type_id", flat=True).distinct()
-        )
+        event_type_ids_in_export = set(queryset.values_list("event_type_id", flat=True).distinct())
 
         default_headers = self._get_default_headers(f"Reported At ({tz_offset})")
         custom_headers = self._build_custom_headers(event_type_map, event_type_ids_in_export)
@@ -552,19 +496,6 @@ class EventsExportView(APIView):
             fieldnames=combined_headers,
             filename=download_filename,
         )
-
-    def prepare_csv_data(self, **kwargs):
-        """Legacy method - kept for backwards compatibility."""
-        REPORT_TIME_FORMAT = "%-d %B %Y %Z" if platform.system().lower() != "windows" else "%#d %B %Y %Z"
-        current_tz = pytz.timezone(timezone.get_current_timezone_name())
-        timestamp = current_tz.localize(datetime.utcnow())
-        csv_data = {
-            "report_filename": f'Event Export {timestamp.strftime("%Y-%m-%d")}.csv',
-            "report_time": timestamp.strftime(REPORT_TIME_FORMAT),
-            "event_types": self.get_event_export_list(),
-        }
-
-        return csv_data
 
     def get_queryset(self):
         # TODO: Update to allow passing last_days constraint.

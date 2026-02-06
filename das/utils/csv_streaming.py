@@ -146,47 +146,13 @@ class StreamingCSVResponse(StreamingHttpResponse):
             **kwargs,
         )
 
+        # Sanitize filename to prevent header injection (CR/LF) and
+        # broken quoting in Content-Disposition.
+        safe_filename = filename.replace("\r", "").replace("\n", "").replace('"', "")
+
         # Set headers for file download
-        self["Content-Disposition"] = f'attachment; filename="{filename}"'
-        self["x-das-download-filename"] = filename
-
-
-def iter_csv_from_queryset(
-    queryset,
-    row_transform: Callable,
-    chunk_size: int = 2000,
-) -> Generator[Dict, None, None]:
-    """
-    Iterate over a queryset in chunks, transforming each row.
-
-    This is a convenience function for creating row generators from querysets.
-    It uses Django's iterator() to avoid loading the entire queryset into memory.
-
-    Args:
-        queryset: A Django QuerySet to iterate over.
-        row_transform: A callable that takes a model instance and returns
-                      a dictionary suitable for CSV output.
-        chunk_size: Number of rows to fetch from the database at a time.
-
-    Yields:
-        Dictionaries suitable for CSV output.
-
-    Example:
-        def transform_event(event):
-            return {
-                'id': event.id,
-                'title': event.title,
-                'created_at': event.created_at.isoformat(),
-            }
-
-        rows = iter_csv_from_queryset(
-            Event.objects.all(),
-            transform_event,
-            chunk_size=2000
-        )
-    """
-    for item in queryset.iterator(chunk_size=chunk_size):
-        yield row_transform(item)
+        self["Content-Disposition"] = f'attachment; filename="{safe_filename}"'
+        self["x-das-download-filename"] = safe_filename
 
 
 def iter_csv_from_values_queryset(
