@@ -140,3 +140,47 @@ class TestInputIsExactlyCondition:
         result = schema_field.to_internal_value(schema)
         assert result is not None
         assert isinstance(result, dict)
+
+
+# =============================================================================
+# IS_CONTAINED_BY Operator Tests
+# =============================================================================
+
+
+class TestIsContainedByCondition:
+    """IS_CONTAINED_BY operator: show section when multi-select values are within allowed set."""
+
+    @pytest.mark.parametrize(
+        "fixture_name",
+        [
+            pytest.param("is_contained_by_multiselect_field", id="multiselect"),
+        ],
+    )
+    def test_valid_is_contained_by_condition(self, schema_field, fixture_name):
+        """Valid schema with IS_CONTAINED_BY condition on multi-select field."""
+        schema = load_fixture(fixture_name)
+        result = schema_field.to_internal_value(schema)
+        assert result is not None
+        assert isinstance(result, dict)
+
+
+# =============================================================================
+# IS_NOT_CONTAINED_BY Operator Tests
+# =============================================================================
+
+
+class TestIsNotContainedByCondition:
+    """IS_NOT_CONTAINED_BY operator: show section when multi-select values are NOT within set."""
+
+    @pytest.mark.parametrize(
+        "fixture_name",
+        [
+            pytest.param("is_not_contained_by_multiselect_field", id="multiselect"),
+        ],
+    )
+    def test_valid_is_not_contained_by_condition(self, schema_field, fixture_name):
+        """Valid schema with IS_NOT_CONTAINED_BY condition on multi-select field."""
+        schema = load_fixture(fixture_name)
+        result = schema_field.to_internal_value(schema)
+        assert result is not None
+        assert isinstance(result, dict)
