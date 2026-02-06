@@ -280,6 +280,12 @@ class SourceManager(TenantManagerMixin, models.Manager.from_queryset(SourceQuery
         return Source.objects.get_or_create(defaults=defaults, **searchkey)
 
 
+def escape_provider_name(name):
+    """Escape a provider name to be used as a provider key."""
+    # Replace any sequence of non-alphanumeric characters with a single underscore to ensure URL compatibility
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+
+
 class SourceProviderManager(TenantManagerMixin, models.Manager):
     use_in_migrations = True
 
