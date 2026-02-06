@@ -246,14 +246,24 @@ class EventsExportView(APIView):
             "CUSTOM FIELDS BEGIN HERE",
         ]
 
-    def _build_custom_headers(self, event_type_map):
+    def _build_custom_headers(self, event_type_map, event_type_ids=None):
         """
-        Pre-compute all custom headers by scanning all event types.
-        This allows us to know the full header set before streaming rows.
+        Pre-compute custom headers by scanning event types that appear in the export.
+
+        Only processes event types that have matching events in the queryset,
+        preserving the same column set as the original non-streaming implementation.
+
+        Args:
+            event_type_map: Dict of all event types keyed by ID.
+            event_type_ids: Optional set of event type IDs to include. If None,
+                           all event types in event_type_map are processed.
         """
         custom_headers = []
 
         for event_type_id, event_type in event_type_map.items():
+            if event_type_ids is not None and event_type_id not in event_type_ids:
+                continue
+
             try:
                 schema_adapter = SchemaAdapterFactory.create_adapter(event_type["schema"], self.request)
                 current_schema_order = schema_adapter.get_property_order()
@@ -269,8 +279,8 @@ class EventsExportView(APIView):
                             if column_name not in custom_headers:
                                 custom_headers.append(column_name)
 
-            except (json.JSONDecodeError, ValueError) as e:
-                logger.warning("Failed to process schema for event type %s: %s", event_type["value"], str(e))
+            except (json.JSONDecodeError, ValueError, TypeError) as e:
+                logger.warning("Failed to process schema for event type %s: %s", event_type.get("value"), str(e))
                 continue
 
         return custom_headers
@@ -443,8 +453,13 @@ class EventsExportView(APIView):
         reported_by_map = generate_reported_by_lookup()
         event_type_map = generate_event_type_cache()
 
+        # Only build custom headers from event types that have matching events
+        event_type_ids_in_export = set(
+            self._get_annotated_queryset().values_list("event_type_id", flat=True).distinct()
+        )
+
         default_headers = self._get_default_headers(f"Reported At ({tz_offset})")
-        custom_headers = self._build_custom_headers(event_type_map)
+        custom_headers = self._build_custom_headers(event_type_map, event_type_ids_in_export)
 
         # Build combined headers
         combined_headers = [header.replace(" ", "_") for header in default_headers]
@@ -511,9 +526,13 @@ class EventsExportView(APIView):
         reported_by_map = generate_reported_by_lookup()
         event_type_map = generate_event_type_cache()
 
-        # Build headers (need to do this before streaming)
+        # Only build custom headers from event types that have matching events
+        event_type_ids_in_export = set(
+            self._get_annotated_queryset().values_list("event_type_id", flat=True).distinct()
+        )
+
         default_headers = self._get_default_headers(f"Reported At ({tz_offset})")
-        custom_headers = self._build_custom_headers(event_type_map)
+        custom_headers = self._build_custom_headers(event_type_map, event_type_ids_in_export)
         combined_headers = [header.replace(" ", "_") for header in default_headers]
         combined_headers.extend([header.replace(" ", "_") for header in custom_headers])
 

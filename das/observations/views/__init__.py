@@ -1357,14 +1357,15 @@ class TrackingMetaDataExportView(APIView):
                 continue
             seen_subjectsources.add(subject.subjectsource_id)
 
+            source_details = {}
             try:
-                yield self._transform_subject_to_row(
+                source_details = self._transform_subject_to_row(
                     subject, subject_groups_lookup, output_format, data_starts_key, data_stops_key
                 )
             except Exception as error:
                 logger.exception(error)
-                # Yield empty row on error to maintain row count consistency
-                yield {}
+            finally:
+                yield source_details
 
     def get_source_details(self, output_format):
         """
