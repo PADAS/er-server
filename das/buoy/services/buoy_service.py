@@ -54,6 +54,7 @@ class BuoyService:
         set_additional_data = validated_data.get("set_additional_data", {})
         manufacturer_name = validated_data.get("manufacturer_name")
         devices = validated_data.get("devices", [])
+        provider_key = models.escape_provider_name(manufacturer_name)
 
         # Find SubjectGroup by manufacturer_name
         # Note: manufacturer_name should already be validated in the serializer
@@ -63,12 +64,9 @@ class BuoyService:
             # This should not happen if serializer validation passed, but handle it anyway
             raise ValueError(f"SubjectGroup with name '{manufacturer_name}' does not exist")
 
-        # Get default SourceProvider for Source creation
-        try:
-            provider = models.SourceProvider.objects.get(id=models.get_default_source_provider_id())
-        except models.SourceProvider.DoesNotExist:
-            logger.warning(f"Default SourceProvider not found, creating sources without provider reference")
-            provider = None
+        provider = models.SourceProvider.objects.create_provider(
+            provider_key=provider_key, display_name=manufacturer_name
+        )
 
         # Ensure subject subtype exists for buoy gear
         subject_subtype = None
