@@ -39,6 +39,16 @@
                 {
                   "properties": {
                     "count": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "count"
+                  ]
+                },
+                {
+                  "properties": {
+                    "count": {
                       "maxProperties": 0,
                       "type": "object"
                     }

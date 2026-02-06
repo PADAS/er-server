@@ -21,8 +21,29 @@
                 "count": {
                   "anyOf": [
                     {
+                      "type": "array",
+                      "allOf": [
+                        {
+                          "contains": {
+                            "const": "42"
+                          }
+                        }
+                      ],
+                      "maxItems": 1
+                    },
+                    {
+                      "type": "boolean",
+                      "const": null
+                    },
+                    {
                       "const": 42,
                       "type": "number"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {},
+                      "required": [],
+                      "unevaluatedProperties": false
                     },
                     {
                       "const": "42",
