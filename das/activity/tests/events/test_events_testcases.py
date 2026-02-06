@@ -1057,9 +1057,10 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         response = views.EventsExportView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
-        self.assertTrue("Priority" in read_streaming_response_content(response))
-        self.assertTrue("Notes" in read_streaming_response_content(response))
-        self.assertTrue(self.notes_line2_prefix in read_streaming_response_content(response))
+        content = read_streaming_response_content(response)
+        self.assertTrue("Priority" in content)
+        self.assertTrue("Notes" in content)
+        self.assertTrue(self.notes_line2_prefix in content)
 
     def test_should_export_csv_to_contain_event_attachments(self):
         carcass_data = json.loads(
