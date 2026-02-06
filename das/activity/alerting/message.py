@@ -96,7 +96,11 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
         logger.debug(f"Update Event Details Fields: {json.dumps(updated_event_details_fields, indent=2, default=str)}")
 
     if notification_method.method == NOTIFICATION_METHOD_EMAIL:
-        email_body = render_to_string("eventalert.html", report_context)
+        email_body = (
+            alert_rule.override_message
+            if alert_rule.override_message
+            else render_to_string("eventalert.html", report_context)
+        )
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Sending email body: {email_body}")
@@ -129,7 +133,11 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
 
     elif notification_method.method.lower() == NOTIFICATION_METHOD_SMS:
         logger.debug(f"Sending sms alert {event_id} to {notification_method.value}")
-        sms_body = render_to_string("eventalert.sms", report_context)
+        sms_body = (
+            alert_rule.override_message
+            if alert_rule.override_message
+            else render_to_string("eventalert.sms", report_context)
+        )
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Sending sms body: {sms_body}")
