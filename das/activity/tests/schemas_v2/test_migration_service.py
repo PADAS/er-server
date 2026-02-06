@@ -278,3 +278,122 @@ class TestGetValuesKey:
         key2 = migration_service._get_values_key(values2, choice_processor)
 
         assert key1 == key2
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestErrorTruncation:
+    """Tests for error truncation - migration stops when transform_schema has errors."""
+
+    @patch("activity.schemas.migration.service.transform_schema")
+    @patch("activity.schemas.migration.service.LogCollector")
+    def test_transform_errors_skip_process_choices(
+        self, MockLogCollector, mock_transform, migration_service, v1_event_type
+    ):
+        """When transform_schema logs errors, process_choices should not run."""
+        mock_collector = MockLogCollector.return_value
+        mock_transform.return_value = {"json": {"properties": {}}, "ui": {}}
+        mock_collector.get_warnings.return_value = []
+        mock_collector.get_errors.return_value = [{"message": "Invalid field mapping"}]
+        mock_collector.get_features.return_value = {}
+
+        result = migration_service.migrate_single(v1_event_type.value)
+
+        assert result.success is False
+        assert "Invalid field mapping" in result.errors[0]
+        assert result.v2_schema is None
+        assert "choices" not in result.metadata
+
+    @patch("activity.schemas.migration.service.transform_schema")
+    @patch("activity.schemas.migration.service.LogCollector")
+    def test_transform_errors_no_v2_schema(self, MockLogCollector, mock_transform, migration_service, v1_event_type):
+        """result.v2_schema remains None when transform has errors."""
+        mock_collector = MockLogCollector.return_value
+        mock_transform.return_value = {"json": {"properties": {}}, "ui": {}}
+        mock_collector.get_warnings.return_value = [{"message": "Minor issue"}]
+        mock_collector.get_errors.return_value = [{"message": "Critical error"}]
+        mock_collector.get_features.return_value = {}
+
+        result = migration_service.migrate_single(v1_event_type.value)
+
+        assert result.v2_schema is None
+        assert len(result.errors) == 1
+        assert len(result.warnings) == 1
+
+    @patch("activity.schemas.migration.service.transform_schema")
+    def test_transform_exception_returns_error(self, mock_transform, migration_service, v1_event_type):
+        """When transform_schema raises an exception, result has error and no schema."""
+        mock_transform.side_effect = ValueError("Unexpected schema format")
+
+        result = migration_service.migrate_single(v1_event_type.value)
+
+        assert result.success is False
+        assert "Transformation failed" in result.errors[0]
+        assert result.v2_schema is None
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestEndToEndRewrite:
+    """End-to-end tests: migrate_single produces schemas with $ref."""
+
+    @patch("activity.schemas.migration.service.transform_schema")
+    def test_migrate_single_rewrites_hardcoded_to_ref(
+        self, mock_transform, migration_service, v1_event_type, choices_base_url
+    ):
+        """Full migrate_single should produce a schema with $ref for hardcoded choices."""
+        mock_transform.return_value = {
+            "json": {
+                "properties": {
+                    "severity": {
+                        "title": "Severity",
+                        "type": "string",
+                        "anyOf": [
+                            {
+                                "title": "Hardcoded",
+                                "type": "string",
+                                "oneOf": [
+                                    {"const": "low", "title": "Low"},
+                                    {"const": "high", "title": "High"},
+                                ],
+                            }
+                        ],
+                    },
+                    "description": {"type": "string", "title": "Description"},
+                }
+            },
+            "ui": {},
+        }
+
+        result = migration_service.migrate_single(v1_event_type.value)
+
+        assert result.success is True
+        assert result.v2_schema is not None
+        severity_field = result.v2_schema["json"]["properties"]["severity"]
+        # Should be rewritten to $ref
+        assert len(severity_field["anyOf"]) == 1
+        assert "$ref" in severity_field["anyOf"][0]
+        ref_url = severity_field["anyOf"][0]["$ref"]
+        assert ref_url.startswith("http")
+        assert "choices.json?field=" in ref_url
+        # Non-choice field should be untouched
+        desc_field = result.v2_schema["json"]["properties"]["description"]
+        assert desc_field == {"type": "string", "title": "Description"}
+
+    @patch("activity.schemas.migration.service.transform_schema")
+    def test_migrate_single_no_hardcoded_choices_passthrough(self, mock_transform, migration_service, v1_event_type):
+        """Schema without hardcoded choices passes through unchanged."""
+        clean_schema = {
+            "json": {
+                "properties": {
+                    "name": {"type": "string", "title": "Name"},
+                }
+            },
+            "ui": {},
+        }
+        mock_transform.return_value = clean_schema
+
+        result = migration_service.migrate_single(v1_event_type.value)
+
+        assert result.success is True
+        assert result.v2_schema == clean_schema

@@ -343,3 +343,154 @@ class TestGenerateUniqueName:
         processor = choice_processor_with_event_type("fire")
         name = processor.generate_unique_name("status", {"title": "Fire Status"})
         assert name == "status_1"
+
+    def test_respects_reserved_names(self, choice_processor):
+        """Test that reserved_names prevents collisions within a batch."""
+        reserved = {"my_field"}
+
+        name = choice_processor.generate_unique_name("my_field", {"title": "Better Name"}, reserved_names=reserved)
+
+        assert name == "better_name"
+        assert name != "my_field"
+
+    def test_reserved_names_forces_numeric_suffix(self, choice_processor_with_event_type):
+        """Test that reserved_names combined with DB names forces suffix."""
+        processor = choice_processor_with_event_type("fire")
+        reserved = {"status", "fire_status"}
+
+        name = processor.generate_unique_name("status", {"title": "Fire Status"}, reserved_names=reserved)
+
+        assert name == "status_1"
+
+
+class TestRewriteFieldToRef:
+    """Tests for rewrite_field_to_ref method."""
+
+    def test_replaces_hardcoded_anyof_with_ref(self, choice_processor, hardcoded_field_schema, choices_base_url):
+        field_schema = hardcoded_field_schema(("high", "High"), ("low", "Low"))
+
+        choice_processor.rewrite_field_to_ref(field_schema, "priority", choices_base_url)
+
+        assert field_schema["anyOf"] == [{"$ref": f"{choices_base_url}?field=priority"}]
+
+    def test_preserves_other_field_keys(self, choice_processor, choices_base_url):
+        field_schema = {
+            "title": "Severity",
+            "type": "string",
+            "description": "How severe",
+            "anyOf": [{"title": "Hardcoded", "type": "string", "oneOf": [{"const": "low"}]}],
+        }
+
+        choice_processor.rewrite_field_to_ref(field_schema, "severity", choices_base_url)
+
+        assert field_schema["title"] == "Severity"
+        assert field_schema["type"] == "string"
+        assert field_schema["description"] == "How severe"
+        assert field_schema["anyOf"] == [{"$ref": f"{choices_base_url}?field=severity"}]
+
+
+@pytest.mark.django_db
+class TestSchemaRewriteInProcessHardcodedChoices:
+    """Tests for $ref rewriting within process_hardcoded_choices."""
+
+    def test_matched_field_rewritten_to_ref(
+        self, choice_processor, create_choice_field, v2_schema_with_fields, choices_base_url
+    ):
+        """Matched fields should have their hardcoded anyOf replaced with $ref."""
+        create_choice_field("priority", [("high", "High"), ("low", "Low")])
+        v2_schema = v2_schema_with_fields({"priority": [("high", "High"), ("low", "Low")]})
+
+        result_schema, metadata = choice_processor.process_hardcoded_choices(
+            v2_schema, choices_base_url=choices_base_url
+        )
+
+        field_schema = result_schema["json"]["properties"]["priority"]
+        assert field_schema["anyOf"] == [{"$ref": f"{choices_base_url}?field=priority"}]
+        assert metadata["summary"]["matched"] == 1
+
+    def test_to_create_field_rewritten_to_ref(
+        self, choice_processor_with_event_type, v2_schema_with_fields, choices_base_url
+    ):
+        """to_create fields should be rewritten using the proposed_name."""
+        processor = choice_processor_with_event_type("test_event")
+        v2_schema = v2_schema_with_fields({"severity": [("low", "Low"), ("high", "High")]})
+
+        result_schema, metadata = processor.process_hardcoded_choices(v2_schema, choices_base_url=choices_base_url)
+
+        proposed_name = metadata["fields"][0]["proposed_name"]
+        field_schema = result_schema["json"]["properties"]["severity"]
+        assert field_schema["anyOf"] == [{"$ref": f"{choices_base_url}?field={proposed_name}"}]
+        assert metadata["summary"]["to_create"] == 1
+
+    def test_candidate_field_not_rewritten(
+        self, choice_processor, create_choice_field, v2_schema_with_fields, choices_base_url
+    ):
+        """Candidate fields should keep their hardcoded values."""
+        create_choice_field("status", [("open", "Open"), ("closed", "Closed")])
+        v2_schema = v2_schema_with_fields({"status": [("open", "Open"), ("closed", "Closed"), ("pending", "Pending")]})
+
+        result_schema, metadata = choice_processor.process_hardcoded_choices(
+            v2_schema, choices_base_url=choices_base_url
+        )
+
+        field_schema = result_schema["json"]["properties"]["status"]
+        # Should still have the hardcoded oneOf structure
+        assert any("oneOf" in opt for opt in field_schema["anyOf"])
+        assert metadata["summary"]["candidate"] == 1
+        # Should have a warning about manual review
+        assert any("Manual review" in w for w in metadata["warnings"])
+
+    def test_no_rewrite_without_base_url(self, choice_processor_with_event_type, v2_schema_with_fields):
+        """Without choices_base_url, schema should not be rewritten."""
+        processor = choice_processor_with_event_type("test_event")
+        v2_schema = v2_schema_with_fields({"priority": [("high", "High"), ("low", "Low")]})
+
+        result_schema, metadata = processor.process_hardcoded_choices(v2_schema)
+
+        field_schema = result_schema["json"]["properties"]["priority"]
+        # Should still have the original hardcoded structure
+        assert any("oneOf" in opt for opt in field_schema["anyOf"])
+
+
+@pytest.mark.django_db
+class TestNameCollisionWithinBatch:
+    """Tests for name collision prevention across fields in a single batch."""
+
+    def test_two_fields_same_slug_get_unique_names(self, choice_processor_with_event_type, choices_base_url):
+        """Two fields that would generate the same slug get different proposed names."""
+        processor = choice_processor_with_event_type("test_event")
+        v2_schema = {
+            "json": {
+                "properties": {
+                    "status": {
+                        "title": "Status",
+                        "anyOf": [
+                            {
+                                "title": "Hardcoded",
+                                "type": "string",
+                                "oneOf": [{"const": "open", "title": "Open"}, {"const": "closed", "title": "Closed"}],
+                            }
+                        ],
+                    },
+                    "status_2": {
+                        "title": "Status",
+                        "anyOf": [
+                            {
+                                "title": "Hardcoded",
+                                "type": "string",
+                                "oneOf": [
+                                    {"const": "active", "title": "Active"},
+                                    {"const": "inactive", "title": "Inactive"},
+                                ],
+                            }
+                        ],
+                    },
+                }
+            }
+        }
+
+        _, metadata = processor.process_hardcoded_choices(v2_schema, choices_base_url=choices_base_url)
+
+        proposed_names = [f["proposed_name"] for f in metadata["fields"] if f["status"] == "to_create"]
+        assert len(proposed_names) == 2
+        assert len(set(proposed_names)) == 2, f"Proposed names should be unique but got: {proposed_names}"

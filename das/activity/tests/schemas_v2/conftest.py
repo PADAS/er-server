@@ -239,6 +239,19 @@ def auto_generate_v2_marker_schema():
 
 
 # =============================================================================
+# Choices Base URL Fixture
+# =============================================================================
+
+CHOICES_BASE_URL = "http://testserver/api/v2.0/schemas/choices.json"
+
+
+@pytest.fixture
+def choices_base_url():
+    """The absolute base URL used for $ref rewriting in tests."""
+    return CHOICES_BASE_URL
+
+
+# =============================================================================
 # MigrationService Fixtures
 # =============================================================================
 
