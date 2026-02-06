@@ -46,8 +46,7 @@ export PYTHONPATH=$(dirname "$0"):$PYTHONPATH
 
 uv venv --python=python3.10
 source .venv/bin/activate
-uv run pip install --upgrade keyrings.alt
-uv sync --group dev --find-links /das/dependencies/wheelhouse
+uv sync --group dev --no-install-project --find-links /das/dependencies/wheelhouse
 
 export DJANGO_SETTINGS_MODULE=unittest_settings
 
