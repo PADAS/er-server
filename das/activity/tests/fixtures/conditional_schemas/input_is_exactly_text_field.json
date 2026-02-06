@@ -22,8 +22,29 @@
                 "trigger_field": {
                   "anyOf": [
                     {
+                      "type": "array",
+                      "allOf": [
+                        {
+                          "contains": {
+                            "const": "Arequipa"
+                          }
+                        }
+                      ],
+                      "maxItems": 1
+                    },
+                    {
+                      "type": "boolean",
+                      "const": null
+                    },
+                    {
                       "const": null,
                       "type": "number"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {},
+                      "required": [],
+                      "unevaluatedProperties": false
                     },
                     {
                       "const": "Arequipa",

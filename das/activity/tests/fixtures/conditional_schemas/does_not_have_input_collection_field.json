@@ -54,6 +54,16 @@
                                 {
                                     "properties": {
                                         "items": {
+                                            "type": "null"
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                },
+                                {
+                                    "properties": {
+                                        "items": {
                                             "maxProperties": 0,
                                             "type": "object"
                                         }

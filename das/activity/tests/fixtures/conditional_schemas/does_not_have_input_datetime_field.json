@@ -40,6 +40,16 @@
                 {
                   "properties": {
                     "event_time": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "event_time"
+                  ]
+                },
+                {
+                  "properties": {
+                    "event_time": {
                       "maxProperties": 0,
                       "type": "object"
                     }

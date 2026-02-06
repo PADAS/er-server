@@ -44,6 +44,16 @@
                 {
                   "properties": {
                     "status": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                },
+                {
+                  "properties": {
+                    "status": {
                       "maxProperties": 0,
                       "type": "object"
                     }
