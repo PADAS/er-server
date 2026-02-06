@@ -1,10 +1,9 @@
-# gdal image: ghcr.io/osgeo/gdal:ubuntu-small-3.4.3
 # See https://github.com/OSGeo/gdal/tree/master/docker
 # and here to find the image: https://github.com/OSGeo/gdal/pkgs/container/gdal
 # Ubuntu 24.04 LTS
 # python 3.10.18
 
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.9.3
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.1
 ARG PYTHON_VERSION_ID="3.10"
 ARG PYTHON_VERSION="3.10.18"
 ARG WORKSPACE_FOLDERNAME="das"
@@ -64,7 +63,7 @@ ADD ./uv.lock /workspaces/${WORKSPACE_FOLDERNAME}/
 
 USER vscode
 
-RUN uv sync --group dev
+RUN uv sync --group dev --no-install-project
 ENV VIRTUAL_ENV=${UV_PROJECT_ENVIRONMENT}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 

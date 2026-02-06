@@ -1,7 +1,4 @@
-# gdal image: ghcr.io/osgeo/gdal:ubuntu-small-3.4.3
-# Ubuntu 20.04.4 LTS
-# python 3.8.10
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.9.3
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.1
 LABEL org.opencontainers.image.description maintainer="EarthRanger Developers developers@earthranger.com"
 
 
@@ -23,7 +20,10 @@ ADD ./dependencies /das/dependencies
 ADD ./pyproject.toml /das/
 ADD ./uv.lock /das/
 
-RUN uv sync --no-dev
+# Install only third-party dependencies (cached layer).
+# --no-install-project skips building the local 'das' package,
+# avoiding the dynamic version resolution that needs source code.
+RUN uv sync --no-dev --no-install-project
 
 ARG built_version=""
 
@@ -44,11 +44,12 @@ ENV GEOS_LIBRARY_PATH=/lib/${ARCH}-linux-gnu/libgeos_c.so.1
 
 # Default service name
 ENV SERVICE_NAME=api_server
+ENV VIRTUAL_ENV=/das/.venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
 ADD ./das /das
 
 # Collect static files (using a stub database)
-RUN uv run python manage.py collectstatic --noinput --settings=das_server.local_settings_nodb
-ENV VIRTUAL_ENV=/das/.venv
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+RUN python manage.py collectstatic --noinput --settings=das_server.local_settings_nodb
 
 CMD ["/das/start_scripts/start.sh"]
