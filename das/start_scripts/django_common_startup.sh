@@ -4,5 +4,5 @@
 # are already in place from build.
 if [ "$(echo $DEV | tr [[:upper:]] [[:lower:]])" = "true" ]; then
    echo "DEV=${DEV} so running collectstatic now"
-   uv run python manage.py collectstatic --no-input
+   python manage.py collectstatic --no-input
 fi
