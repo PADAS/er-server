@@ -21,6 +21,7 @@ from observations.models import (
     SubjectMaximumSpeed,
     SubjectSource,
     SubjectStatus,
+    escape_provider_name,
 )
 
 
@@ -818,3 +819,44 @@ class TestObservationExclusionProcessing:
 
         subjectstatus = SubjectStatus.objects.get_current_status(subject)
         assert subjectstatus.location == observation.location
+
+
+class TestEscapeProviderName:
+    """Tests for escape_provider_name utility function."""
+
+    @pytest.mark.parametrize(
+        "input_name,expected_output",
+        [
+            # Basic cases
+            ("EdgeTech", "edgetech"),
+            ("edge_tech", "edge_tech"),
+            ("EDGETECH", "edgetech"),
+            # Spaces and special characters replaced with underscore
+            ("Edge Tech", "edge_tech"),
+            ("Edge-Tech", "edge_tech"),
+            ("Edge.Tech", "edge_tech"),
+            ("Edge Tech Inc.", "edge_tech_inc"),
+            # Multiple special characters collapsed to single underscore
+            ("Edge  Tech", "edge_tech"),
+            ("Edge--Tech", "edge_tech"),
+            ("Edge...Tech", "edge_tech"),
+            ("Edge - Tech", "edge_tech"),
+            # Leading/trailing special characters stripped
+            (" EdgeTech ", "edgetech"),
+            ("-EdgeTech-", "edgetech"),
+            ("  Edge Tech  ", "edge_tech"),
+            # Numbers preserved
+            ("EdgeTech123", "edgetech123"),
+            ("Edge2Tech", "edge2tech"),
+            ("123EdgeTech", "123edgetech"),
+            # Mixed cases
+            ("Edge Tech (USA)", "edge_tech_usa"),
+            ("Edge@Tech#Inc!", "edge_tech_inc"),
+            # Empty and edge cases
+            ("a", "a"),
+            ("A1", "a1"),
+        ],
+    )
+    def test_escape_provider_name(self, input_name, expected_output):
+        """Test that provider names are correctly escaped to URL-safe keys."""
+        assert escape_provider_name(input_name) == expected_output
