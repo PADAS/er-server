@@ -40,6 +40,16 @@
                 {
                   "properties": {
                     "trigger_field": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "trigger_field"
+                  ]
+                },
+                {
+                  "properties": {
+                    "trigger_field": {
                       "maxProperties": 0,
                       "type": "object"
                     }
