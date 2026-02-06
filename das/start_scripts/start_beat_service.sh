@@ -4,4 +4,4 @@ wait_for $API_HOST $API_PORT
 
 . $(dirname "$0")/django_common_startup.sh
 
-uv run celery --app das_server beat -l info -s ${CELERYBEAT_SCHEDULE_FILE:-/tmp/celerybeat-schedule}
+celery --app das_server beat -l info -s ${CELERYBEAT_SCHEDULE_FILE:-/tmp/celerybeat-schedule}
