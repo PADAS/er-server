@@ -63,7 +63,7 @@ ADD ./uv.lock /workspaces/${WORKSPACE_FOLDERNAME}/
 
 USER vscode
 
-RUN uv sync --group dev
+RUN uv sync --group dev --no-install-project
 ENV VIRTUAL_ENV=${UV_PROJECT_ENVIRONMENT}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
