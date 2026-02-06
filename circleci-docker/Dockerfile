@@ -23,6 +23,7 @@ ADD ./uv.lock /das/
 # Install only third-party dependencies (cached layer).
 # --no-install-project skips building the local 'das' package,
 # avoiding the dynamic version resolution that needs source code.
+RUN uv venv --python=python3.10
 RUN uv sync --no-dev --no-install-project
 
 ARG built_version=""
@@ -42,12 +43,12 @@ ARG ARCH=x86_64
 ENV GDAL_LIBRARY_PATH=/lib/${ARCH}-linux-gnu/libgdal.so
 ENV GEOS_LIBRARY_PATH=/lib/${ARCH}-linux-gnu/libgeos_c.so.1
 
+ADD ./das /das
+
 # Default service name
 ENV SERVICE_NAME=api_server
 ENV VIRTUAL_ENV=/das/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
-ADD ./das /das
 
 # Collect static files (using a stub database)
 RUN python manage.py collectstatic --noinput --settings=das_server.local_settings_nodb
