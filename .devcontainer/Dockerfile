@@ -1,4 +1,3 @@
-# gdal image: ghcr.io/osgeo/gdal:ubuntu-small-3.4.3
 # See https://github.com/OSGeo/gdal/tree/master/docker
 # and here to find the image: https://github.com/OSGeo/gdal/pkgs/container/gdal
 # Ubuntu 24.04 LTS
