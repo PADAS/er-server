@@ -17,25 +17,25 @@ function review_results() {
 
 function run_test_suite_one() {
   echo_b "Running test suite one...";
-  uv run pytest --reuse-db --junitxml=/testresults/junit/result_suite_one.xml --maxfail=15 accounts/tests mapping/tests reports/tests rt_api/tests tracking/tests
+  pytest --reuse-db --junitxml=/testresults/junit/result_suite_one.xml --maxfail=15 accounts/tests mapping/tests reports/tests rt_api/tests tracking/tests
   review_results
 }
 
 function run_test_suite_two() {
   echo_b "Running test suite two...";
-  uv run pytest --reuse-db --junitxml=/testresults/junit/result_suite_two.xml --maxfail=15 activity/tests sensors/tests revision/test
+  pytest --reuse-db --junitxml=/testresults/junit/result_suite_two.xml --maxfail=15 activity/tests sensors/tests revision/test
   review_results
 }
 
 function run_test_suite_three() {
   echo_b "Running test suite three...";
-  uv run pytest --reuse-db --junitxml=/testresults/junit/result_suite_three.xml --maxfail=15 analyzers/tests utils/tests
+  pytest --reuse-db --junitxml=/testresults/junit/result_suite_three.xml --maxfail=15 analyzers/tests utils/tests
   review_results
 }
 
 function run_test_suite_four() {
   echo_b "Running test suite four...";
-  uv run pytest --reuse-db --junitxml=/testresults/junit/result_suite_four.xml --maxfail=15 choices/tests das_server/tests observations/tests buoy/tests core/tests schemas/tests
+  pytest --reuse-db --junitxml=/testresults/junit/result_suite_four.xml --maxfail=15 choices/tests das_server/tests observations/tests buoy/tests core/tests schemas/tests
   review_results
 }
 
@@ -44,6 +44,8 @@ wait_for $DB_HOST $DB_PORT
 
 export PYTHONPATH=$(dirname "$0"):$PYTHONPATH
 
+uv venv --python=python3.10
+source .venv/bin/activate
 uv run pip install --upgrade keyrings.alt
 uv sync --group dev --find-links /das/dependencies/wheelhouse
 
@@ -52,8 +54,8 @@ export DJANGO_SETTINGS_MODULE=unittest_settings
 echo "${CIRCLE_NODE_TOTAL}"
 echo "${CIRCLE_NODE_INDEX}"
 
-IS_OAUTH2_PROVIDER_MIGRATION=true uv run python manage.py migrate
-IS_OAUTH2_PROVIDER_MIGRATION=true uv run pytest --reuse-db --create-db --junitxml=/testresults/result.xml --maxfail=15  core/tests/test_utils.py
+IS_OAUTH2_PROVIDER_MIGRATION=true python manage.py migrate
+IS_OAUTH2_PROVIDER_MIGRATION=true pytest --reuse-db --create-db --junitxml=/testresults/result.xml --maxfail=15  core/tests/test_utils.py
 
 # Execute based on number of Circle CI nodes, and which Circle CI node is running
 case "$CIRCLE_NODE_TOTAL" in
