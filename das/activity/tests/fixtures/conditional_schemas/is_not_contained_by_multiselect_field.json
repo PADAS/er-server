@@ -2,16 +2,20 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "status": {
+      "tags": {
         "deprecated": false,
         "description": "",
-        "title": "Status",
-        "type": "string",
-        "anyOf": [
-          {
-            "$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=firerep_status"
-          }
-        ]
+        "items": {
+          "anyOf": [
+            {
+              "$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=animal_tags"
+            }
+          ],
+          "type": "string"
+        },
+        "title": "Tags",
+        "type": "array",
+        "uniqueItems": true
       }
     },
     "required": [],
@@ -23,33 +27,60 @@
           "allOf": [
             {
               "properties": {
-                "status": {
+                "tags": {
                   "anyOf": [
                     {
-                      "type": "array",
                       "allOf": [
                         {
-                          "contains": {
-                            "const": "active"
+                          "type": "array",
+                          "minItems": 1
+                        },
+                        {
+                          "not": {
+                            "type": "array",
+                            "items": {
+                              "enum": [
+                                "endangered",
+                                "protected"
+                              ]
+                            }
                           }
                         }
                       ]
                     },
                     {
-                      "type": "object",
-                      "required": [
-                        "active"
+                      "allOf": [
+                        {
+                          "type": "object",
+                          "minProperties": 1
+                        },
+                        {
+                          "not": {
+                            "type": "object",
+                            "propertyNames": {
+                              "enum": [
+                                "endangered",
+                                "protected"
+                              ]
+                            }
+                          }
+                        }
                       ]
                     },
                     {
                       "type": "string",
-                      "pattern": "active"
+                      "not": {
+                        "enum": [
+                          "endangered",
+                          "protected"
+                        ]
+                      }
                     }
                   ]
                 }
               },
               "required": [
-                "status"
+                "tags"
               ]
             }
           ]
@@ -72,11 +103,11 @@
   },
   "ui": {
     "fields": {
-      "status": {
+      "tags": {
         "choices": {
           "eventTypeCategories": [],
           "existingChoiceList": [
-            "firerep_status"
+            "animal_tags"
           ],
           "featureCategories": [],
           "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
@@ -113,7 +144,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "status",
+            "name": "tags",
             "type": "field"
           }
         ],
@@ -123,10 +154,13 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "status",
-            "id": "condition-Xj9suFhW-p2PT9G-pJrTw",
-            "operator": "CONTAINS",
-            "value": "active"
+            "field": "tags",
+            "id": "condition-ms-incb-1",
+            "operator": "IS_NOT_CONTAINED_BY",
+            "value": [
+              "endangered",
+              "protected"
+            ]
           }
         ],
         "isActive": true,

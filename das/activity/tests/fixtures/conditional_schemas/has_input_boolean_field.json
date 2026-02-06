@@ -2,16 +2,12 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "status": {
+      "is_active": {
         "deprecated": false,
         "description": "",
-        "title": "Status",
-        "type": "string",
-        "anyOf": [
-          {
-            "$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=firerep_status"
-          }
-        ]
+        "title": "Is Active",
+        "type": "boolean",
+        "default": false
       }
     },
     "required": [],
@@ -23,33 +19,40 @@
           "allOf": [
             {
               "properties": {
-                "status": {
-                  "anyOf": [
+                "is_active": {
+                  "allOf": [
                     {
-                      "type": "array",
-                      "allOf": [
+                      "not": {
+                        "type": "null"
+                      }
+                    },
+                    {
+                      "anyOf": [
                         {
-                          "contains": {
-                            "const": "active"
-                          }
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "minProperties": 1,
+                          "type": "object"
+                        },
+                        {
+                          "minLength": 1,
+                          "type": "string"
                         }
                       ]
-                    },
-                    {
-                      "type": "object",
-                      "required": [
-                        "active"
-                      ]
-                    },
-                    {
-                      "type": "string",
-                      "pattern": "active"
                     }
                   ]
                 }
               },
               "required": [
-                "status"
+                "is_active"
               ]
             }
           ]
@@ -72,25 +75,12 @@
   },
   "ui": {
     "fields": {
-      "status": {
-        "choices": {
-          "eventTypeCategories": [],
-          "existingChoiceList": [
-            "firerep_status"
-          ],
-          "featureCategories": [],
-          "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
-          "subjectGroups": [],
-          "subjectSubtypes": [],
-          "type": "EXISTING_CHOICE_LIST"
-        },
+      "is_active": {
         "conditionalDependents": [
           "section-2"
         ],
-        "inputType": "DROPDOWN",
-        "placeholder": "",
-        "type": "CHOICE_LIST",
-        "parent": "section-1"
+        "parent": "section-1",
+        "type": "BOOLEAN"
       },
       "conditional_field": {
         "conditionalDependents": [],
@@ -113,7 +103,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "status",
+            "name": "is_active",
             "type": "field"
           }
         ],
@@ -123,10 +113,10 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "status",
-            "id": "condition-Xj9suFhW-p2PT9G-pJrTw",
-            "operator": "CONTAINS",
-            "value": "active"
+            "field": "is_active",
+            "id": "condition-bool-hi-1",
+            "operator": "HAS_INPUT",
+            "value": null
           }
         ],
         "isActive": true,
