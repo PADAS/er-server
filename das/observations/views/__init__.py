@@ -1078,14 +1078,11 @@ class TrackingDataCsvView(APIView):
                 record_serial_base,
             )
 
-        response = StreamingCSVResponse(
+        return StreamingCSVResponse(
             row_generator=row_generator,
             fieldnames=fieldnames,
             filename=download_filename,
         )
-        # Match original header format (no space after semicolon)
-        response["Content-Disposition"] = f"attachment;filename={download_filename}"
-        return response
 
     def get_csv_observation_data(
         self, cur_record_serial, dloadtime_label, fixtime_label, result_format, item, subject_id, subject_chronofile
@@ -1345,8 +1342,8 @@ class TrackingMetaDataExportView(APIView):
 
         subjects = self._get_annotated_queryset()
 
-        # Query subject IDs independently to avoid consuming the main queryset
-        subject_ids = list(self._get_annotated_queryset().values_list("id", flat=True))
+        # Reuse the same queryset for IDs - Django evaluates lazily so this is safe
+        subject_ids = list(subjects.values_list("id", flat=True))
         subject_groups_lookup = self._build_subject_groups_lookup(subject_ids)
 
         # Track seen subjectsources to avoid duplicates
@@ -1357,15 +1354,15 @@ class TrackingMetaDataExportView(APIView):
                 continue
             seen_subjectsources.add(subject.subjectsource_id)
 
-            source_details = {}
             try:
-                source_details = self._transform_subject_to_row(
+                yield self._transform_subject_to_row(
                     subject, subject_groups_lookup, output_format, data_starts_key, data_stops_key
                 )
             except Exception as error:
-                logger.exception(error)
-            finally:
-                yield source_details
+                logger.exception(
+                    "Failed to transform subject %s to CSV row: %s", getattr(subject, "id", None), error
+                )
+                continue
 
     def get_source_details(self, output_format):
         """

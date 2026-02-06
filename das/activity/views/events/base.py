@@ -348,7 +348,7 @@ class EventsExportView(APIView):
             )
         )
 
-    def _generate_event_rows(self, custom_headers, reported_at_label, event_type_map, reported_by_map, current_tz):
+    def _generate_event_rows(self, queryset, custom_headers, reported_at_label, event_type_map, reported_by_map, current_tz):
         """
         Generator that yields CSV rows for streaming response.
         """
@@ -356,8 +356,6 @@ class EventsExportView(APIView):
         schema_adapter = None
         current_schema_order = {}
         event_type = None
-
-        queryset = self._get_annotated_queryset()
 
         for event in queryset.iterator(chunk_size=2000):
             # Update schema adapter when event type changes
@@ -526,9 +524,12 @@ class EventsExportView(APIView):
         reported_by_map = generate_reported_by_lookup()
         event_type_map = generate_event_type_cache()
 
+        # Build annotated queryset once and reuse for both header computation and row generation
+        queryset = self._get_annotated_queryset()
+
         # Only build custom headers from event types that have matching events
         event_type_ids_in_export = set(
-            self._get_annotated_queryset().values_list("event_type_id", flat=True).distinct()
+            queryset.values_list("event_type_id", flat=True).distinct()
         )
 
         default_headers = self._get_default_headers(f"Reported At ({tz_offset})")
@@ -543,7 +544,7 @@ class EventsExportView(APIView):
 
         # Create streaming response
         row_generator = self._generate_event_rows(
-            custom_headers, reported_at_label, event_type_map, reported_by_map, current_tz
+            queryset, custom_headers, reported_at_label, event_type_map, reported_by_map, current_tz
         )
 
         return StreamingCSVResponse(

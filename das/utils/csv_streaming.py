@@ -147,7 +147,7 @@ class StreamingCSVResponse(StreamingHttpResponse):
         )
 
         # Set headers for file download
-        self["Content-Disposition"] = f"attachment; filename={filename}"
+        self["Content-Disposition"] = f'attachment; filename="{filename}"'
         self["x-das-download-filename"] = filename
 
 

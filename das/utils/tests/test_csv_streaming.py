@@ -161,7 +161,7 @@ def test_streaming_csv_response_sets_content_disposition():
 
     response = StreamingCSVResponse(rows, fieldnames, filename="export.csv")
 
-    assert response["Content-Disposition"] == "attachment; filename=export.csv"
+    assert response["Content-Disposition"] == 'attachment; filename="export.csv"'
 
 
 def test_streaming_csv_response_sets_custom_header():
