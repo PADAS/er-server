@@ -1722,6 +1722,11 @@ class AlertRule(TenantModelMixin, TimestampedModel):
         related_query_name="alert_rule",
     )
     title = models.CharField(max_length=100, blank=True, help_text=_("A user friendly name for this alert."))
+    override_message = models.CharField(
+        max_length=1024,
+        blank=True,
+        help_text=_("If set, this message will be sent instead of the default alert message."),
+    )
     ordernum = models.SmallIntegerField(blank=True, null=True, default=0)
     conditions = models.JSONField(default=dict, blank=True)
     schedule = models.JSONField(default=dict, blank=True)

@@ -455,6 +455,30 @@ class TestAlerts(BaseAPITest):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["active@test.com"])
 
+    @patch("sendsms.api.send_sms")
+    def test_alert_rule_override_message(self, mock_send_sms):
+
+        alert_rule = AlertRule.objects.create(
+            owner=self.owner,
+            title="Alert",
+            conditions={"all": [{"name": "sex", "value": "Male", "operator": "equal_to"}]},
+            schedule={"timezone": "Africa/Nairobi"},
+            override_message="This is an override message.",
+        )
+        event = Event.objects.create(title="test event", event_type=self.event_type, created_by_user=self.owner)
+
+        EventDetails.objects.create(event=event, data={"event_details": {"sex": "Female"}})
+
+        notification_method = NotificationMethod.objects.create(
+            owner=self.owner, title="Text", method="sms", value="12125551212"
+        )
+
+        send_event_alert(alert_rule_id=alert_rule.id, event_id=event.id, notification_method_id=notification_method.id)
+
+        self.assertTrue(mock_send_sms.called)
+        _, kwargs = mock_send_sms.call_args
+        self.assertEqual(alert_rule.override_message, kwargs.get("body"))
+
 
 @pytest.mark.django_db
 class TestAlertsLimit:
