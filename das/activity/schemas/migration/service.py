@@ -15,6 +15,8 @@ from typing import Any, Dict, List, Optional
 from schema_migration_tool import LogCollector, transform_schema
 from schema_migration_tool.batch.normalize_export import preprocess_template_vars
 
+from django.urls import reverse
+
 from activity.models import EventType
 from activity.permissions import EventCategoryPermissions
 
@@ -99,7 +101,7 @@ class MigrationService:
 
         # Transform schema
         v2_schema = self.transform_schema(event_type, result)
-        if v2_schema is None:
+        if v2_schema is None or result.errors:
             return result
 
         # Post-process
@@ -137,15 +139,22 @@ class MigrationService:
         # Store transformation metadata
         features = log_collector.get_features()
         result.metadata["ignored_properties"] = features.get("ignoredProperties", [])
-        result.metadata["choice_lists_detected"] = features.get("choiceLists", [])
 
         return v2_schema
 
-    def process_choices(self, v2_schema: dict, result: MigrationResult) -> dict:
-        """Analyze hardcoded choices in the V2 schema (no DB writes)."""
-        choice_processor = ChoiceProcessor(event_type_value=result.event_type)
+    def _build_choices_base_url(self) -> str:
+        """Build the absolute base URL for choice $ref references."""
+        choices_path = reverse("schemas:choices")
+        return self.request.build_absolute_uri(choices_path)
 
-        v2_schema, choice_metadata = choice_processor.process_hardcoded_choices(v2_schema)
+    def process_choices(self, v2_schema: dict, result: MigrationResult) -> dict:
+        """Analyze hardcoded choices and rewrite ready fields to $ref."""
+        choice_processor = ChoiceProcessor(event_type_value=result.event_type)
+        choices_base_url = self._build_choices_base_url()
+
+        v2_schema, choice_metadata = choice_processor.process_hardcoded_choices(
+            v2_schema, choices_base_url=choices_base_url
+        )
 
         if choice_metadata:
             result.metadata["choices"] = choice_metadata
