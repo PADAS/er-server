@@ -171,7 +171,7 @@ pymet = { path = "dependencies/wheelhouse/pymet-0.1.26-py3-none-any.whl" }
 packages = ["das"]
 
 [tool.setuptools.dynamic]
-version = {attr = "das.das_server.__version__"}
+version = {attr = "das._version.__version__"}
 
 [dependency-groups]
 dev = [
