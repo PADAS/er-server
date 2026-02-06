@@ -318,7 +318,6 @@ class EventsExportView(APIView):
             .annotate(related_subjects_count=Count("related_subjects"))
             .annotate(file_ids=ArraySubquery(file_subquery))
             .annotate(parent_event_serial_numbers=ArrayAgg("in_relationship__from_event__serial_number", distinct=True))
-            .prefetch_related("geometries")
             .values(
                 "id",
                 "serial_number",

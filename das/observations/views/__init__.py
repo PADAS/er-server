@@ -909,7 +909,7 @@ class TrackingDataCsvView(APIView):
             max_records, request_subject_id, request_subject_chronofile, request_source_provider
         )
         cur_record_serial = record_serial_base
-        for item in items:
+        for item in items.iterator(chunk_size=2000):
             cur_record_serial += 1
             yield self.get_csv_observation_data(
                 cur_record_serial,
@@ -1257,8 +1257,7 @@ class TrackingMetaDataExportView(APIView):
         """Get the base queryset with all necessary annotations."""
         subjects = self.get_queryset()
         return (
-            subjects.prefetch_related("subjectsources")
-            .select_related("subject_subtype")
+            subjects.select_related("subject_subtype")
             .annotate(subjectsource_additional=F("subjectsource__additional"))
             .annotate(source_model_name=F("subjectsource__source__model_name"))
             .annotate(source_manufacturer_id=F("subjectsource__source__manufacturer_id"))
@@ -1297,8 +1296,12 @@ class TrackingMetaDataExportView(APIView):
                         lower = lower.astimezone(current_tz)
                     if upper != datetime.datetime(datetime.MAXYEAR, 12, 31, tzinfo=pytz.utc):
                         upper = upper.astimezone(current_tz)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug(
+                    "Failed to convert subjectsource_assigned_range to current timezone for subject %s: %s",
+                    getattr(subject, "id", None),
+                    exc,
+                )
 
             source_details.update(
                 {
@@ -1342,9 +1345,8 @@ class TrackingMetaDataExportView(APIView):
 
         subjects = self._get_annotated_queryset()
 
-        # Get all subject IDs first for the groups lookup
-        # We need to materialize this to build the lookup, but we'll stream the actual rows
-        subject_ids = list(subjects.values_list("id", flat=True))
+        # Query subject IDs independently to avoid consuming the main queryset
+        subject_ids = list(self._get_annotated_queryset().values_list("id", flat=True))
         subject_groups_lookup = self._build_subject_groups_lookup(subject_ids)
 
         # Track seen subjectsources to avoid duplicates

@@ -1058,9 +1058,9 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.assertEqual(response.status_code, 200)
         content = read_streaming_response_content(response)
-        self.assertTrue("Priority" in content)
-        self.assertTrue("Notes" in content)
-        self.assertTrue(self.notes_line2_prefix in content)
+        self.assertIn("Priority", content)
+        self.assertIn("Notes", content)
+        self.assertIn(self.notes_line2_prefix, content)
 
     def test_should_export_csv_to_contain_event_attachments(self):
         carcass_data = json.loads(
@@ -1107,10 +1107,10 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.assertEqual(response.status_code, 200)
         raw_csv = read_streaming_response_content(response)
-        self.assertTrue("Priority" in raw_csv)
-        self.assertTrue("Notes" in raw_csv)
-        self.assertTrue("Attachments" in raw_csv)
-        self.assertTrue(self.notes_line2_prefix in raw_csv)
+        self.assertIn("Priority", raw_csv)
+        self.assertIn("Notes", raw_csv)
+        self.assertIn("Attachments", raw_csv)
+        self.assertIn(self.notes_line2_prefix, raw_csv)
 
     def test_export_csv_with_qparam_value_cols_true(self):
         carcass_data = json.loads(
@@ -1131,10 +1131,10 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.assertEqual(response.status_code, 200)
         raw_csv = read_streaming_response_content(response)
-        self.assertTrue("Priority" in raw_csv)
-        self.assertTrue("Notes" in raw_csv)
-        self.assertTrue("carcassrep_species" in raw_csv)
-        self.assertTrue(self.notes_line2_prefix in raw_csv)
+        self.assertIn("Priority", raw_csv)
+        self.assertIn("Notes", raw_csv)
+        self.assertIn("carcassrep_species", raw_csv)
+        self.assertIn(self.notes_line2_prefix, raw_csv)
 
     def test_export_events_with_invalid_et_schema(self):
         url = """/activity/events/export?value_cols=true"""
@@ -2643,7 +2643,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        self.assertTrue("Unknown Rhino 1" in read_streaming_response_content(response))
+        self.assertIn("Unknown Rhino 1", read_streaming_response_content(response))
 
     def test_export_with_0_event_details_data(self):
         et_schema = json.dumps(
@@ -2730,7 +2730,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         response = views.EventsExportView.as_view()(request)
 
         # title returned, not UUID
-        self.assertTrue("Katie Kitten" in read_streaming_response_content(response))
+        self.assertIn("Katie Kitten", read_streaming_response_content(response))
 
     def test_export_on_similar_titles_for_different_reports(self):
         et_schema = """{"schema":
