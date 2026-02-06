@@ -1194,10 +1194,15 @@ class TrackingMetaDataExportView(APIView):
     # schema = InactiveSubjectsViewSchema()
 
     def _get_headers(self, output_format):
-        """Get CSV headers with timezone-aware date column names."""
+        """Get CSV headers with timezone-aware date column names.
+
+        Returns:
+            Tuple of (headers_list, data_starts_key, data_stops_key) where the keys
+            are the timezone-aware column names for use in row dictionaries.
+        """
         data_starts = "data_starts ({})".format(tz_offset) if output_format != "json" else "data_starts"
         data_stops = "data_stops ({})".format(tz_offset) if output_format != "json" else "data_stops"
-        return [
+        headers = [
             "chronofile",
             "collar_type",
             "collar_id",
@@ -1233,6 +1238,7 @@ class TrackingMetaDataExportView(APIView):
             "external_id",
             "external_name",
         ]
+        return headers, data_starts, data_stops
 
     def _build_subject_groups_lookup(self, subject_ids):
         """
@@ -1336,9 +1342,7 @@ class TrackingMetaDataExportView(APIView):
         Generator that yields CSV rows for streaming response.
         Fixes N+1 query by pre-fetching subject groups.
         """
-        headers = self._get_headers(output_format)
-        data_starts_key = headers[11]  # data_starts column
-        data_stops_key = headers[12]  # data_stops column
+        headers, data_starts_key, data_stops_key = self._get_headers(output_format)
 
         subjects = self._get_annotated_queryset()
 
@@ -1370,7 +1374,7 @@ class TrackingMetaDataExportView(APIView):
         Used for JSON format which requires a complete list.
         :return: Tuple of (list of dictionaries, headers list)
         """
-        headers = self._get_headers(output_format)
+        headers, _, _ = self._get_headers(output_format)
         tracking_metadata = list(self._generate_rows(output_format))
         return tracking_metadata, headers
 
@@ -1391,7 +1395,7 @@ class TrackingMetaDataExportView(APIView):
             )
 
         # CSV format - use streaming response
-        headers = self._get_headers(output_format)
+        headers, _, _ = self._get_headers(output_format)
         download_filename = f'Tracking Meta Data Export {timestamp.strftime("%Y-%m-%d")}.csv'
 
         return StreamingCSVResponse(
