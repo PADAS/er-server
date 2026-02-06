@@ -503,12 +503,17 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         return None
 
     def _get_provider_display_name(self, subject):
-        """Get source provider display_name from annotation or query."""
-        # First, try to use the annotation (avoids N+1 queries in list views)
+        """Get manufacturer name from subject.additional, annotation, or source provider."""
+        additional = getattr(subject, "additional", None) or {}
+        manufacturer = additional.get("manufacturer")
+        if manufacturer:
+            return manufacturer
+
+        # Fall back to annotation (avoids N+1 queries in list views)
         if hasattr(subject, "latest_source_provider_display_name") and subject.latest_source_provider_display_name:
             return subject.latest_source_provider_display_name
 
-        # Fall back to querying
+        # Fall back to querying source provider
         subject_source = subject.subjectsources.select_related("source__provider").order_by("-assigned_range").first()
         if subject_source and subject_source.source and subject_source.source.provider:
             return subject_source.source.provider.display_name
