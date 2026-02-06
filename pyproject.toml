@@ -159,6 +159,9 @@ max-attributes = 7
 min-public-methods = 2
 max-public-methods = 20
 
+[tool.uv]
+package = false
+
 [tool.uv.sources]
 pymet = { path = "dependencies/wheelhouse/pymet-0.1.26-py3-none-any.whl" }
 
