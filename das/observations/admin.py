@@ -1638,7 +1638,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
     # readonly_fields = ('recorded_at', 'subject','delay_hours', 'additional')
     list_display = (
         "_status",
-        "radio_state_at",
+        "_radio_state_at",
         "_age_of_state",
         "subject_link",
         "_recorded_at",
@@ -1663,7 +1663,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
     subject_link.admin_order_field = "subject"
 
     def _age(self, o):
-        default = "n/a"
+        default = "-"
         try:
             return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.recorded_at) if o.recorded_at else default
         except OverflowError:
@@ -1673,10 +1673,17 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
     _age.short_description = _("Age of Observation")
     _age.admin_order_field = "-recorded_at"
 
+    def _radio_state_at(self, o):
+        return o.radio_state_at if o.radio_state_at and o.radio_state_at.year >= 1971 else "-"
+
+    _radio_state_at.short_description = _("Time of Last State Change")
+    _radio_state_at.admin_order_field = "radio_state_at"
+
     def _age_of_state(self, o):
-        default = "n/a"
+        default = "-"
         try:
-            return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.radio_state_at) if o.radio_state_at else default
+            if o.radio_state_at and o.radio_state_at.year >= 1971:
+                return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.radio_state_at)
         except OverflowError:
             pass
         return default
