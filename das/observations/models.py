@@ -280,6 +280,12 @@ class SourceManager(TenantManagerMixin, models.Manager.from_queryset(SourceQuery
         return Source.objects.get_or_create(defaults=defaults, **searchkey)
 
 
+def escape_provider_name(name):
+    """Escape a provider name to be used as a provider key."""
+    # Replace any sequence of non-alphanumeric characters with a single underscore to ensure URL compatibility
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+
+
 class SourceProviderManager(TenantManagerMixin, models.Manager):
     use_in_migrations = True
 
@@ -1841,19 +1847,28 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         Uses a subquery to get the latest subjectsource record for each subject.
 
         Returns:
-            QuerySet: Annotated with latest_subjectsource_location and latest_subjectsource_transforms
+            QuerySet: Annotated with latest_subjectsource_location, latest_subjectsource_transforms,
+                      latest_subjectsource_exists, latest_source_manufacturer_id, and
+                      latest_source_provider_display_name
         """
-        # Get the latest subjectsource for each subject with both location and transforms
+        # Get the latest subjectsource for each subject with location, transforms, and source info
         latest_subjectsource = (
             SubjectSource.objects.filter(subject=OuterRef("pk"))
             .order_by("-assigned_range")
-            .values("location", "source__provider__transforms")[:1]
+            .values(
+                "location",
+                "source__provider__transforms",
+                "source__manufacturer_id",
+                "source__provider__display_name",
+            )[:1]
         )
 
         return self.annotate(
             latest_subjectsource_location=Subquery(latest_subjectsource.values("location")),
             latest_subjectsource_transforms=Subquery(latest_subjectsource.values("source__provider__transforms")),
             latest_subjectsource_exists=Exists(latest_subjectsource),
+            latest_source_manufacturer_id=Subquery(latest_subjectsource.values("source__manufacturer_id")),
+            latest_source_provider_display_name=Subquery(latest_subjectsource.values("source__provider__display_name")),
         )
 
     def annotate_with_subjectsource(self, use_lkl=False, use_bbox=False):

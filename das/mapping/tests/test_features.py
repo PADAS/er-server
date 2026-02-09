@@ -303,6 +303,44 @@ class TestSpatialFeatureListJsonView:
         data = response.json()
         assert len(data["features"]) == 1
 
+    def test_empty_feature_geometry_with_summarize_features(self, empty_multi_polygon, display_category, user_client):
+        """Test that summarize_features handles empty geometries without crashing.
+
+        Regression test for: ValueError: not enough values to unpack (expected 2, got 0)
+        when calling .extent on an empty geometry.
+        """
+        spatial_feature_type = empty_multi_polygon.feature_type
+        spatial_feature_type.display_category = display_category
+        spatial_feature_type.save()
+
+        # Create a good polygon as well
+        good_polygon = SpatialFeatureFactory(
+            feature_type=spatial_feature_type,
+            feature_geometry=geos.GEOSGeometry(
+                "MULTIPOLYGON(((-122 47, -122 48, -123 48, -123 47, -122 47)))", srid=4326
+            ),
+        )
+
+        response = user_client.get("/api/v1.0/featureset/", {"summarize_features": "true"})
+        assert response.status_code == 200
+        data = response.json()
+
+        # Find the feature summaries for our category
+        category_data = next(f for f in data["features"] if f["id"] == str(display_category.id))
+        feature_type_data = next(t for t in category_data["types"] if t["id"] == str(spatial_feature_type.id))
+        summaries = feature_type_data["feature_summaries"]
+
+        # Should have 2 features
+        assert len(summaries) == 2
+
+        # The empty geometry should have bounds=None, the good one should have bounds
+        empty_summary = next(s for s in summaries if s["id"] == str(empty_multi_polygon.id))
+        good_summary = next(s for s in summaries if s["id"] == str(good_polygon.id))
+
+        assert empty_summary["bounds"] is None
+        assert good_summary["bounds"] is not None
+        assert len(good_summary["bounds"]) == 4  # (xmin, ymin, xmax, ymax)
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")

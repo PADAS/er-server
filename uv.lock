@@ -790,7 +790,7 @@ wheels = [
 
 [[package]]
 name = "das"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "arcgis" },
     { name = "arcgis2geojson" },
@@ -987,7 +987,7 @@ requires-dist = [
     { name = "drf-spectacular-sidecar", specifier = "==2025.6.1" },
     { name = "eventlet", specifier = "==0.40.3" },
     { name = "fastkml", extras = ["lxml"], specifier = "==1.3.0" },
-    { name = "gdal", specifier = "==3.9.3" },
+    { name = "gdal", specifier = "==3.12.1" },
     { name = "geojson", specifier = "==3.2.0" },
     { name = "geopandas", specifier = "==1.1.1" },
     { name = "geopy" },
@@ -1913,9 +1913,9 @@ wheels = [
 
 [[package]]
 name = "gdal"
-version = "3.9.3"
+version = "3.12.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/53/3d/aa2f485d00751546e3c68dda6804f62f3589a8d62074b5b2b5ea2000053e/gdal-3.9.3.tar.gz", hash = "sha256:b4026010883b37d159fa43aee3ecb28bb466bd9d7e085c4d623d858edd6c62b9", size = 840806, upload-time = "2024-10-14T14:04:23.944Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/99/e3/5be26f3450e9d49c42a306f3f668e14661ff93149df246c325c9be8279d3/gdal-3.12.1.tar.gz", hash = "sha256:c91644f7789d73c89f8baafa4fe61cedf5182081314862c05763223ecc39070b", size = 899230, upload-time = "2025-12-18T14:30:55.206Z" }
 
 [[package]]
 name = "geographiclib"

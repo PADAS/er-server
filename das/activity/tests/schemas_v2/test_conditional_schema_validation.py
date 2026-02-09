@@ -4,10 +4,12 @@ Tests for V2 EventType schema validation with conditional logic.
 Tests complete schema validation (UI + JSON together) for conditional sections.
 
 Operator → Field Type Compatibility:
-- CONTAINS: Text, Choice List
-- HAS_INPUT: All field types (Text, Numeric, Choice, DateTime, Location, Attachment, Collection)
-- DOES_NOT_HAVE_INPUT: All field types
-- INPUT_IS_EXACTLY: Text, Numeric, Choice List
+- CONTAINS: Text, Choice List, Multi-Select, Null value variant
+- HAS_INPUT: All field types (Text, Numeric, Choice, DateTime, Location, Attachment, Collection, Boolean, Multi-Select)
+- DOES_NOT_HAVE_INPUT: All field types (incl. Boolean, Multi-Select)
+- INPUT_IS_EXACTLY: Text, Numeric, Choice List, Boolean, Multi-Select
+- IS_CONTAINED_BY: Multi-Select
+- IS_NOT_CONTAINED_BY: Multi-Select
 """
 
 import json
@@ -51,6 +53,8 @@ class TestContainsCondition:
         [
             pytest.param("contains_text_field", id="text"),
             pytest.param("contains_choice_field", id="choice"),
+            pytest.param("contains_multiselect_field", id="multiselect"),
+            pytest.param("contains_null_value", id="null_value"),
         ],
     )
     def test_valid_contains_condition(self, schema_field, fixture_name):
@@ -58,7 +62,7 @@ class TestContainsCondition:
         schema = load_fixture(fixture_name)
         result = schema_field.to_internal_value(schema)
         assert result is not None
-        assert isinstance(result, str)
+        assert isinstance(result, dict)
 
 
 # =============================================================================
@@ -79,6 +83,8 @@ class TestHasInputCondition:
             pytest.param("has_input_location_field", id="location"),
             pytest.param("has_input_attachment_field", id="attachment"),
             pytest.param("has_input_collection_field", id="collection"),
+            pytest.param("has_input_boolean_field", id="boolean"),
+            pytest.param("has_input_multiselect_field", id="multiselect"),
         ],
     )
     def test_valid_has_input_condition(self, schema_field, fixture_name):
@@ -86,7 +92,7 @@ class TestHasInputCondition:
         schema = load_fixture(fixture_name)
         result = schema_field.to_internal_value(schema)
         assert result is not None
-        assert isinstance(result, str)
+        assert isinstance(result, dict)
 
 
 # =============================================================================
@@ -107,6 +113,8 @@ class TestDoesNotHaveInputCondition:
             pytest.param("does_not_have_input_location_field", id="location"),
             pytest.param("does_not_have_input_attachment_field", id="attachment"),
             pytest.param("does_not_have_input_collection_field", id="collection"),
+            pytest.param("does_not_have_input_multiselect_field", id="multiselect"),
+            pytest.param("does_not_have_input_boolean_field", id="boolean"),
         ],
     )
     def test_valid_does_not_have_input_condition(self, schema_field, fixture_name):
@@ -114,7 +122,7 @@ class TestDoesNotHaveInputCondition:
         schema = load_fixture(fixture_name)
         result = schema_field.to_internal_value(schema)
         assert result is not None
-        assert isinstance(result, str)
+        assert isinstance(result, dict)
 
 
 # =============================================================================
@@ -132,6 +140,8 @@ class TestInputIsExactlyCondition:
             pytest.param("input_is_exactly_numeric_field", id="numeric"),
             pytest.param("input_is_exactly_choice_field", id="choice"),
             pytest.param("input_is_exactly_numeric_zero", id="numeric_zero"),
+            pytest.param("input_is_exactly_multiselect_field", id="multiselect"),
+            pytest.param("input_is_exactly_boolean_field", id="boolean"),
         ],
     )
     def test_valid_input_is_exactly_condition(self, schema_field, fixture_name):
@@ -139,4 +149,48 @@ class TestInputIsExactlyCondition:
         schema = load_fixture(fixture_name)
         result = schema_field.to_internal_value(schema)
         assert result is not None
-        assert isinstance(result, str)
+        assert isinstance(result, dict)
+
+
+# =============================================================================
+# IS_CONTAINED_BY Operator Tests
+# =============================================================================
+
+
+class TestIsContainedByCondition:
+    """IS_CONTAINED_BY operator: show section when multi-select values are within allowed set."""
+
+    @pytest.mark.parametrize(
+        "fixture_name",
+        [
+            pytest.param("is_contained_by_multiselect_field", id="multiselect"),
+        ],
+    )
+    def test_valid_is_contained_by_condition(self, schema_field, fixture_name):
+        """Valid schema with IS_CONTAINED_BY condition on multi-select field."""
+        schema = load_fixture(fixture_name)
+        result = schema_field.to_internal_value(schema)
+        assert result is not None
+        assert isinstance(result, dict)
+
+
+# =============================================================================
+# IS_NOT_CONTAINED_BY Operator Tests
+# =============================================================================
+
+
+class TestIsNotContainedByCondition:
+    """IS_NOT_CONTAINED_BY operator: show section when multi-select values are NOT within set."""
+
+    @pytest.mark.parametrize(
+        "fixture_name",
+        [
+            pytest.param("is_not_contained_by_multiselect_field", id="multiselect"),
+        ],
+    )
+    def test_valid_is_not_contained_by_condition(self, schema_field, fixture_name):
+        """Valid schema with IS_NOT_CONTAINED_BY condition on multi-select field."""
+        schema = load_fixture(fixture_name)
+        result = schema_field.to_internal_value(schema)
+        assert result is not None
+        assert isinstance(result, dict)

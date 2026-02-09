@@ -2,27 +2,31 @@
 Django management command to fix a specific monthly partition by moving data
 from the default partition.
 
-This command uses a staging table approach designed for online systems:
-1. Creates a temporary staging table
-2. LOOPS to move data for the target month from default → staging (handles concurrent inserts)
-3. Uses pg_partman's partition_data_time() to create the partition and move staged data
-4. Cleans up the staging table
+This command uses a direct partition creation approach designed for large datasets
+with minimal locking:
 
-The loop in step 2 ensures that observations arriving during the process are captured.
-It will continue moving data from default to staging until no more rows for that month
-are found in the default partition.
+1. Creates an unattached partition table (no lock on parent)
+2. LOOPS to move data from default → partition (no lock on parent)
+3. Adds CHECK constraint to new partition (validates data matches bounds)
+4. LOCKS table briefly, then in single transaction:
+   - Moves final rows (catches any that arrived during steps 1-3)
+   - Adds exclusion CHECK to default (tells PG no conflicting rows exist)
+   - Attaches partition (instant - no validation scan needed)
+   - Drops the temporary exclusion CHECK
+   - Commits (releases lock)
 
-More information: https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#partition_data_time
+The exclusion CHECK on default is added INSIDE the lock to prevent race conditions
+where new data arrives between adding the check and the attach.
 
 Examples:
     # Fix January 2024 partition
     python manage.py fix_partition_by_month --year 2024 --month 1
 
-    # Fix with custom batch processing
-    python manage.py fix_partition_by_month -y 2024 -m 3 --batch-count 10
-
     # Preview what would happen without making changes
     python manage.py fix_partition_by_month -y 2024 -m 6 --dry-run
+
+    # Resume a previously failed run (when unattached partition exists with data)
+    python manage.py fix_partition_by_month -y 2024 -m 10 --resume
 """
 
 import logging
@@ -34,12 +38,9 @@ from django.core.management.base import CommandError
 
 from utils.db.postgresql import (
     FetchType,
-    PSQLExtension,
     begin,
     commit,
     execute_sql_query,
-    is_postgresql_extension_installed,
-    partman_partition_data_time_query,
     rollback,
     safe_table_reference,
     to_fully_qualified_table_name,
@@ -49,7 +50,7 @@ from utils.db.postgresql import (
 
 class Command(BaseCommand):
     help = """Fix a missing monthly partition by moving data from the default partition.
-    Uses a staging table to safely move data for a specific month. Supports pg_partman 5.2.4+."""
+    Uses direct partition creation with minimal locking for large datasets."""
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -81,32 +82,6 @@ class Command(BaseCommand):
             required=True,
         )
         parser.add_argument(
-            "--batch-count",
-            type=int,
-            help="Number of times to run the batch when moving from staging. If not specified, runs until completion.",
-            default=None,
-        )
-        parser.add_argument(
-            "--batch-interval",
-            type=str,
-            help="Interval of time to process per batch (e.g., '1 week'). If not specified, uses partition interval.",
-            default=None,
-        )
-        parser.add_argument(
-            "--lock-wait",
-            type=float,
-            help="Amount of time in seconds to wait for locks. If not specified, waits indefinitely.",
-            default=None,
-        )
-        parser.add_argument(
-            "-o",
-            "--order",
-            type=str,
-            choices=["ASC", "DESC"],
-            help="Order to process data: ASC or DESC (default: ASC)",
-            default="ASC",
-        )
-        parser.add_argument(
             "--no-analyze",
             action="store_true",
             help="Skip ANALYZE after moving data",
@@ -118,6 +93,12 @@ class Command(BaseCommand):
             default=False,
             help="Preview what would happen without making any changes (read-only)",
         )
+        parser.add_argument(
+            "--resume",
+            action="store_true",
+            default=False,
+            help="Resume from a previously failed run. Expects unattached partition to exist.",
+        )
 
     def handle(self, *args, **options):
         logger = logging.getLogger(__name__)
@@ -127,27 +108,16 @@ class Command(BaseCommand):
         table_name = options["table"]
         year = options["year"]
         month = options["month"]
-        batch_count = options["batch_count"]
-        batch_interval = options["batch_interval"]
-        lock_wait = options["lock_wait"]
-        order = options["order"]
         analyze = not options["no_analyze"]
         is_dry_run = options["dry_run"]
+        is_resume = options["resume"]
 
         # Validate month
         if not (1 <= month <= 12):
             self.stdout.write(self.style.ERROR("Month must be between 1 and 12."))
             return
 
-        # Check pg_partman
-        if not is_postgresql_extension_installed(psql_extension=PSQLExtension.PG_PARTMAN, logger=logger):
-            self.stdout.write(self.style.WARNING("pg_partman is not installed, skipping..."))
-            return
-
-        logger.info("pg_partman is properly installed.")
-
         # Calculate date range for the target month
-        # Handle year boundary for upper bound
         next_month = month + 1
         next_year = year
         if next_month > 12:
@@ -159,9 +129,8 @@ class Command(BaseCommand):
 
         # Define table names
         fully_qualified_table = to_fully_qualified_table_name(schema=schema, table_name=table_name)
-        default_table = f"{fully_qualified_table}_default"
-        staging_table_name = f"{table_name}_stage_{year:04d}_{month:02d}"
-        staging_table = to_fully_qualified_table_name(schema=schema, table_name=staging_table_name)
+        partition_name = f"{table_name}_p{year:04d}_{month:02d}"
+        partition_table = to_fully_qualified_table_name(schema=schema, table_name=partition_name)
 
         # Dry-run mode: preview only, no changes made
         if is_dry_run:
@@ -174,14 +143,8 @@ class Command(BaseCommand):
                 start_date=start_date,
                 end_date=end_date,
                 fully_qualified_table=fully_qualified_table,
-                default_table=default_table,
-                staging_table_name=staging_table_name,
-                staging_table=staging_table,
-                batch_count=batch_count,
-                batch_interval=batch_interval,
-                lock_wait=lock_wait,
-                order=order,
-                analyze=analyze,
+                partition_name=partition_name,
+                partition_table=partition_table,
             )
             return
 
@@ -195,14 +158,10 @@ class Command(BaseCommand):
             start_date=start_date,
             end_date=end_date,
             fully_qualified_table=fully_qualified_table,
-            default_table=default_table,
-            staging_table_name=staging_table_name,
-            staging_table=staging_table,
-            batch_count=batch_count,
-            batch_interval=batch_interval,
-            lock_wait=lock_wait,
-            order=order,
+            partition_name=partition_name,
+            partition_table=partition_table,
             analyze=analyze,
+            resume=is_resume,
         )
 
     def _handle_dry_run(
@@ -215,16 +174,12 @@ class Command(BaseCommand):
         start_date: str,
         end_date: str,
         fully_qualified_table: str,
-        default_table: str,
-        staging_table_name: str,
-        staging_table: str,
-        batch_count: int | None,
-        batch_interval: str | None,
-        lock_wait: float | None,
-        order: str,
-        analyze: bool,
+        partition_name: str,
+        partition_table: str,
     ):
         """Preview what would happen without making any changes."""
+        default_table = f"{fully_qualified_table}_default"
+
         self.stdout.write(self.style.WARNING("=" * 60))
         self.stdout.write(self.style.WARNING("DRY RUN MODE - No changes will be made"))
         self.stdout.write(self.style.WARNING("=" * 60))
@@ -234,30 +189,10 @@ class Command(BaseCommand):
         self.stdout.write(f"  Date range: {start_date} to {end_date}")
         self.stdout.write(f"  Parent table: {fully_qualified_table}")
         self.stdout.write(f"  Default partition: {default_table}")
-        self.stdout.write(f"  Staging table (to be created): {staging_table}")
+        self.stdout.write(f"  Target partition: {partition_table}")
         self.stdout.write("")
 
-        # Check if staging table already exists
-        check_staging_sql = """
-            SELECT COUNT(*)
-            FROM information_schema.tables
-            WHERE table_schema = %s
-              AND table_name = %s;
-        """
-        staging_exists = execute_sql_query(
-            query=check_staging_sql, logger=logger, fetch_type=FetchType.ONE, params=(schema, staging_table_name)
-        )
-
-        if staging_exists and staging_exists[0] > 0:
-            self.stdout.write(
-                self.style.ERROR(f"ERROR: Staging table {staging_table} already exists. Command would fail.")
-            )
-            return
-
-        self.stdout.write(self.style.SUCCESS("Staging table does not exist (OK)"))
-
-        # Check if target partition already exists
-        expected_partition_name = f"{table_name}_p{year:04d}_{month:02d}"
+        # Check if partition already exists
         check_partition_sql = """
             SELECT COUNT(*)
             FROM information_schema.tables
@@ -265,16 +200,32 @@ class Command(BaseCommand):
               AND table_name = %s;
         """
         partition_exists = execute_sql_query(
-            query=check_partition_sql, logger=logger, fetch_type=FetchType.ONE, params=(schema, expected_partition_name)
+            query=check_partition_sql, logger=logger, fetch_type=FetchType.ONE, params=(schema, partition_name)
         )
 
         if partition_exists and partition_exists[0] > 0:
-            self.stdout.write(self.style.WARNING(f"Note: Target partition {expected_partition_name} already exists"))
+            # Check if attached
+            check_attached_sql = """
+                SELECT COUNT(*)
+                FROM pg_inherits i
+                JOIN pg_class c ON i.inhrelid = c.oid
+                JOIN pg_namespace n ON c.relnamespace = n.oid
+                WHERE n.nspname = %s AND c.relname = %s;
+            """
+            is_attached = execute_sql_query(
+                query=check_attached_sql, logger=logger, fetch_type=FetchType.ONE, params=(schema, partition_name)
+            )
+            if is_attached and is_attached[0] > 0:
+                self.stdout.write(self.style.WARNING(f"Partition {partition_table} already exists and is attached."))
+                self.stdout.write(self.style.WARNING("Running this command would only move any remaining data."))
+            else:
+                self.stdout.write(
+                    self.style.WARNING(f"Partition {partition_table} exists but is NOT attached (use --resume).")
+                )
         else:
-            self.stdout.write(f"Target partition {expected_partition_name} will be created")
+            self.stdout.write(f"Partition {partition_table} will be created")
 
         # Count rows in default partition for target month
-        # Use psycopg2.sql for safe identifier composition
         default_table_ref = safe_table_reference(schema, f"{table_name}_default")
         count_default_sql = psycopg2_sql.SQL(
             """
@@ -296,7 +247,6 @@ class Command(BaseCommand):
         if rows_to_move == 0:
             self.stdout.write("")
             self.stdout.write(self.style.WARNING("No data found in default partition for this month."))
-            self.stdout.write(self.style.WARNING("Running this command would have no effect."))
             return
 
         # Show date range of affected data
@@ -318,23 +268,10 @@ class Command(BaseCommand):
         # Show planned operations
         self.stdout.write("")
         self.stdout.write(self.style.SUCCESS("Planned Operations:"))
-        self.stdout.write(f"  1. Create staging table: {staging_table}")
-        self.stdout.write(f"  2. Move ~{rows_to_move:,} rows from {default_table} to {staging_table}")
-        self.stdout.write(f"  3. Run partition_data_time() to create partition and move data from staging")
-        self.stdout.write(f"  4. Drop staging table: {staging_table}")
-        if analyze:
-            self.stdout.write(f"  5. Run VACUUM ANALYZE on {fully_qualified_table}")
-
-        # Show partition_data_time parameters
-        self.stdout.write("")
-        self.stdout.write(self.style.SUCCESS("partition_data_time() parameters:"))
-        self.stdout.write(f"  p_parent_table: {fully_qualified_table}")
-        self.stdout.write(f"  p_source_table: {staging_table}")
-        self.stdout.write(f"  p_batch_count: {batch_count or 'default'}")
-        self.stdout.write(f"  p_batch_interval: {batch_interval or 'default (partition interval)'}")
-        self.stdout.write(f"  p_lock_wait: {lock_wait or 'default (wait indefinitely)'}")
-        self.stdout.write(f"  p_order: {order}")
-        self.stdout.write(f"  p_analyze: {analyze}")
+        self.stdout.write(f"  1. Create unattached partition: {partition_table}")
+        self.stdout.write(f"  2. Move ~{rows_to_move:,} rows from default → partition (no lock on parent)")
+        self.stdout.write(f"  3. Add CHECK constraint (allows fast attach)")
+        self.stdout.write(f"  4. ATTACH partition (brief lock, no data scan)")
 
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("=" * 60))
@@ -351,202 +288,102 @@ class Command(BaseCommand):
         start_date: str,
         end_date: str,
         fully_qualified_table: str,
-        default_table: str,
-        staging_table_name: str,
-        staging_table: str,
-        batch_count: int | None,
-        batch_interval: str | None,
-        lock_wait: float | None,
-        order: str,
+        partition_name: str,
+        partition_table: str,
         analyze: bool,
+        resume: bool = False,
     ):
         """Execute the partition fix operation."""
-        self.stdout.write(
-            self.style.SUCCESS(f"Fixing partition for {year:04d}-{month:02d} (data range: {start_date} to {end_date})")
-        )
-        logger.info(f"Target date range: {start_date} to {end_date}")
-        logger.info(f"Staging table: {staging_table}")
-
-        try:
-            # Step 1: Create staging table
-            begin(logger=logger)
-
-            # Check if staging table already exists
-            check_staging_sql = """
-                SELECT COUNT(*)
-                FROM information_schema.tables
-                WHERE table_schema = %s
-                  AND table_name = %s;
-            """
-            staging_exists = execute_sql_query(
-                query=check_staging_sql, logger=logger, fetch_type=FetchType.ONE, params=(schema, staging_table_name)
+        if resume:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"RESUME MODE: Resuming partition fix for {year:04d}-{month:02d} "
+                    f"(data range: {start_date} to {end_date})"
+                )
             )
-
-            if staging_exists and staging_exists[0] > 0:
-                self.stdout.write(self.style.WARNING(f"Staging table {staging_table} already exists. Exiting..."))
-                rollback(logger=logger)
-                raise CommandError(f"Staging table {staging_table} already exists.")
-
-            # Create staging table using safe identifier composition
-            self.stdout.write(self.style.SUCCESS(f"Creating staging table: {staging_table}"))
-            staging_table_ref = safe_table_reference(schema, staging_table_name)
-            parent_table_ref = safe_table_reference(schema, table_name)
-            create_staging_sql = psycopg2_sql.SQL(
-                """
-                CREATE TABLE {staging_table}
-                (LIKE {parent_table} INCLUDING ALL);
-            """
-            ).format(staging_table=staging_table_ref, parent_table=parent_table_ref)
-            execute_sql_query(query=create_staging_sql, logger=logger, fetch_type=FetchType.NONE)
-            logger.info(f"Created staging table: {staging_table}")
-
-            commit(logger=logger)
-            self.stdout.write(self.style.SUCCESS("Staging table created"))
-
-            # Step 2: Loop to handle ongoing insertions into default
-            # Keep moving data from default to staging until no more rows appear
-            total_rows_moved_to_staging = 0
-            move_iteration = 0
-            max_move_iterations = 100  # Safety limit
-
-            # Prepare SQL queries with safe identifiers outside the loop
-            default_table_ref = safe_table_reference(schema, f"{table_name}_default")
-            count_default_sql = psycopg2_sql.SQL(
-                """
-                SELECT COUNT(*)
-                FROM ONLY {table}
-                WHERE recorded_at >= %s::timestamptz
-                  AND recorded_at < %s::timestamptz;
-            """
-            ).format(table=default_table_ref)
-
-            drop_staging_sql = psycopg2_sql.SQL("DROP TABLE {staging_table};").format(staging_table=staging_table_ref)
-
-            while move_iteration < max_move_iterations:
-                move_iteration += 1
-
-                # Count rows in default for this month
-                count_result = execute_sql_query(
-                    query=count_default_sql, logger=logger, fetch_type=FetchType.ONE, params=(start_date, end_date)
-                )
-                rows_to_move = count_result[0] if count_result else 0
-
-                if rows_to_move == 0:
-                    if move_iteration == 1:
-                        self.stdout.write(
-                            self.style.WARNING(
-                                f"No data found in default partition for {year:04d}-{month:02d}. Nothing to do."
-                            )
-                        )
-                        # Clean up empty staging table
-                        execute_sql_query(query=drop_staging_sql, logger=logger, fetch_type=FetchType.NONE)
-                        return
-                    else:
-                        # No more rows found after previous iterations
-                        self.stdout.write(
-                            self.style.SUCCESS(
-                                f"No more rows in default partition after {move_iteration - 1} iteration(s)"
-                            )
-                        )
-                        break
-
-                logger.info(f"Move iteration {move_iteration}: Found {rows_to_move} rows in default")
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"Iteration {move_iteration}: Moving {rows_to_move} rows from default to staging..."
-                    )
-                )
-
-                # Atomically move data from default to staging
-                begin(logger=logger)
-                move_sql = psycopg2_sql.SQL(
-                    """
-                    WITH moved_rows AS (
-                        DELETE FROM ONLY {default_table}
-                        WHERE recorded_at >= %s::timestamptz
-                          AND recorded_at < %s::timestamptz
-                        RETURNING *
-                    )
-                    INSERT INTO {staging_table}
-                    SELECT * FROM moved_rows;
-                """
-                ).format(default_table=default_table_ref, staging_table=staging_table_ref)
-                execute_sql_query(
-                    query=move_sql, logger=logger, fetch_type=FetchType.NONE, params=(start_date, end_date)
-                )
-                commit(logger=logger)
-
-                total_rows_moved_to_staging += rows_to_move
-                logger.info(f"Moved {rows_to_move} rows (total: {total_rows_moved_to_staging})")
-
-            if move_iteration >= max_move_iterations:
-                raise Exception(
-                    f"Exceeded maximum move iterations ({max_move_iterations}). "
-                    f"Data is still being inserted into default partition. Consider running during low traffic period."
-                )
-
+        else:
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Successfully moved {total_rows_moved_to_staging} rows to staging across {move_iteration} iteration(s)"
+                    f"Fixing partition for {year:04d}-{month:02d} (data range: {start_date} to {end_date})"
                 )
             )
 
-            # Step 3: Use pg_partman to create partition and move data from staging
-            self.stdout.write(self.style.SUCCESS("Running partition_data_time to create partition and move data..."))
+        logger.info(f"Target date range: {start_date} to {end_date}")
+        logger.info(f"Partition table: {partition_table}")
+        logger.info(f"Resume mode: {resume}")
 
-            partition_sql = partman_partition_data_time_query(
-                schema=schema,
-                table_name=table_name,
-                p_batch_count=batch_count,
-                p_batch_interval=batch_interval,
-                p_lock_wait=lock_wait,
-                p_order=order,
-                p_analyze=analyze,
-                p_source_table=staging_table,
-            )
+        # Prepare SQL references
+        partition_table_ref = safe_table_reference(schema, partition_name)
+        parent_table_ref = safe_table_reference(schema, table_name)
+        default_table_ref = safe_table_reference(schema, f"{table_name}_default")
+        check_constraint_name = f"{partition_name}_partition_check"
 
-            logger.info(f'Executing: "{partition_sql}"')
+        try:
+            # Check partition state
+            partition_state = self._get_partition_state(logger, schema, partition_name)
 
-            # Run partition_data_time until it returns 0 (all data moved)
-            total_moved = 0
-            iteration = 0
-            while True:
-                iteration += 1
-                result = execute_sql_query(query=partition_sql, logger=logger, fetch_type=FetchType.ONE)
-                moved = result[0] if result else 0
-                total_moved += moved
-
-                logger.info(f"Iteration {iteration}: Moved {moved} rows (total: {total_moved})")
-
-                if moved == 0:
-                    self.stdout.write(self.style.SUCCESS(f"Completed! Total rows moved: {total_moved}"))
-                    break
-
-                if iteration > 1000:  # Safety limit
-                    raise Exception("Too many iterations (>1000). Possible infinite loop.")
-
-            # Verify staging table is empty
-            count_staging_sql = psycopg2_sql.SQL("SELECT COUNT(*) FROM {staging_table};").format(
-                staging_table=staging_table_ref
-            )
-            staging_count = execute_sql_query(query=count_staging_sql, logger=logger, fetch_type=FetchType.ONE)
-            remaining = staging_count[0] if staging_count else 0
-
-            if remaining > 0:
+            if partition_state == "attached":
                 self.stdout.write(
-                    self.style.WARNING(f"Warning: {remaining} rows remain in staging table. Check for issues.")
+                    self.style.WARNING(f"Partition {partition_table} is already attached to parent table.")
                 )
-                logger.warning(f"Staging table still has {remaining} rows")
-            else:
-                self.stdout.write(self.style.SUCCESS("Staging table is empty - all data moved successfully"))
+                # Just move any remaining data from default
+                total_moved = self._move_remaining_data_to_attached_partition(
+                    logger=logger,
+                    default_table_ref=default_table_ref,
+                    partition_table_ref=partition_table_ref,
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+            elif partition_state == "exists_unattached":
+                if not resume:
+                    raise CommandError(
+                        f"Partition {partition_table} exists but is not attached. Use --resume to continue."
+                    )
+                self.stdout.write(self.style.SUCCESS(f"Found unattached partition: {partition_table}"))
 
-            # Step 4: Clean up staging table
-            self.stdout.write(self.style.SUCCESS(f"Dropping staging table: {staging_table}"))
-            execute_sql_query(query=drop_staging_sql, logger=logger, fetch_type=FetchType.NONE)
-            logger.info(f"Dropped staging table: {staging_table}")
+                # Count existing rows
+                count_sql = psycopg2_sql.SQL("SELECT COUNT(*) FROM {table};").format(table=partition_table_ref)
+                result = execute_sql_query(query=count_sql, logger=logger, fetch_type=FetchType.ONE)
+                existing_rows = result[0] if result else 0
+                self.stdout.write(self.style.SUCCESS(f"Partition already contains {existing_rows:,} rows"))
+
+                # Continue with moving data and attaching
+                total_moved = self._complete_partition_setup(
+                    logger=logger,
+                    schema=schema,
+                    partition_name=partition_name,
+                    partition_table=partition_table,
+                    partition_table_ref=partition_table_ref,
+                    parent_table_ref=parent_table_ref,
+                    default_table_ref=default_table_ref,
+                    start_date=start_date,
+                    end_date=end_date,
+                    check_constraint_name=check_constraint_name,
+                    existing_rows=existing_rows,
+                )
+            else:
+                # Partition doesn't exist - create from scratch
+                if resume:
+                    raise CommandError(
+                        f"Resume mode requires partition {partition_table} to exist, but it was not found. "
+                        f"Run without --resume to start fresh."
+                    )
+
+                total_moved = self._create_partition_from_scratch(
+                    logger=logger,
+                    schema=schema,
+                    partition_name=partition_name,
+                    partition_table=partition_table,
+                    partition_table_ref=partition_table_ref,
+                    parent_table_ref=parent_table_ref,
+                    default_table_ref=default_table_ref,
+                    start_date=start_date,
+                    end_date=end_date,
+                    check_constraint_name=check_constraint_name,
+                )
 
             # Vacuum analyze if enabled
-            if analyze:
+            if analyze and total_moved > 0:
                 self.stdout.write(self.style.SUCCESS("Running VACUUM ANALYZE..."))
                 vacuum_sql = vacuum_analyze_query(schema=schema, table_name=table_name)
                 execute_sql_query(query=vacuum_sql, logger=logger, fetch_type=FetchType.NONE)
@@ -554,7 +391,7 @@ class Command(BaseCommand):
 
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Successfully fixed partition for {year:04d}-{month:02d}. Moved {total_moved} rows."
+                    f"Successfully fixed partition for {year:04d}-{month:02d}. Total rows in partition: {total_moved:,}"
                 )
             )
 
@@ -565,5 +402,320 @@ class Command(BaseCommand):
                 rollback(logger=logger)
                 self.stdout.write(self.style.WARNING("Rolled back transaction"))
             except Exception:
-                logger.exception("Failed to rollback transaction after error fixing partition")
+                pass
             raise
+
+    def _get_partition_state(self, logger, schema: str, partition_name: str) -> str:
+        """Check if partition exists and whether it's attached."""
+        # Check if table exists
+        check_exists_sql = """
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_schema = %s AND table_name = %s;
+        """
+        exists_result = execute_sql_query(
+            query=check_exists_sql, logger=logger, fetch_type=FetchType.ONE, params=(schema, partition_name)
+        )
+
+        if not exists_result or exists_result[0] == 0:
+            return "not_exists"
+
+        # Check if attached
+        check_attached_sql = """
+            SELECT COUNT(*)
+            FROM pg_inherits i
+            JOIN pg_class c ON i.inhrelid = c.oid
+            JOIN pg_namespace n ON c.relnamespace = n.oid
+            WHERE n.nspname = %s AND c.relname = %s;
+        """
+        attached_result = execute_sql_query(
+            query=check_attached_sql, logger=logger, fetch_type=FetchType.ONE, params=(schema, partition_name)
+        )
+
+        if attached_result and attached_result[0] > 0:
+            return "attached"
+        return "exists_unattached"
+
+    def _create_partition_from_scratch(
+        self,
+        logger,
+        schema: str,
+        partition_name: str,
+        partition_table: str,
+        partition_table_ref,
+        parent_table_ref,
+        default_table_ref,
+        start_date: str,
+        end_date: str,
+        check_constraint_name: str,
+    ) -> int:
+        """Create partition from scratch and move data."""
+        # Step 1: Create unattached partition table
+        self.stdout.write(self.style.SUCCESS(f"Step 1/4: Creating unattached partition: {partition_table}"))
+        create_sql = psycopg2_sql.SQL("CREATE TABLE {partition} (LIKE {parent} INCLUDING ALL);").format(
+            partition=partition_table_ref, parent=parent_table_ref
+        )
+        execute_sql_query(query=create_sql, logger=logger, fetch_type=FetchType.NONE)
+        logger.info(f"Created unattached partition: {partition_table}")
+
+        return self._complete_partition_setup(
+            logger=logger,
+            schema=schema,
+            partition_name=partition_name,
+            partition_table=partition_table,
+            partition_table_ref=partition_table_ref,
+            parent_table_ref=parent_table_ref,
+            default_table_ref=default_table_ref,
+            start_date=start_date,
+            end_date=end_date,
+            check_constraint_name=check_constraint_name,
+            existing_rows=0,
+        )
+
+    def _complete_partition_setup(
+        self,
+        logger,
+        schema: str,
+        partition_name: str,
+        partition_table: str,
+        partition_table_ref,
+        parent_table_ref,
+        default_table_ref,
+        start_date: str,
+        end_date: str,
+        check_constraint_name: str,
+        existing_rows: int,
+    ) -> int:
+        """Complete partition setup: move data, add constraint, attach."""
+        # Step 2: Move data from default to partition (loop for concurrent inserts)
+        self.stdout.write(self.style.SUCCESS("Step 2/4: Moving data from default to partition..."))
+
+        total_rows_moved = 0
+        move_iteration = 0
+        max_iterations = 100
+
+        count_default_sql = psycopg2_sql.SQL(
+            """
+            SELECT COUNT(*)
+            FROM ONLY {table}
+            WHERE recorded_at >= %s::timestamptz AND recorded_at < %s::timestamptz;
+        """
+        ).format(table=default_table_ref)
+
+        move_sql = psycopg2_sql.SQL(
+            """
+            WITH moved AS (
+                DELETE FROM ONLY {default_table}
+                WHERE recorded_at >= %s::timestamptz AND recorded_at < %s::timestamptz
+                RETURNING *
+            )
+            INSERT INTO {partition_table}
+            SELECT * FROM moved
+            ON CONFLICT DO NOTHING;
+        """
+        ).format(default_table=default_table_ref, partition_table=partition_table_ref)
+
+        while move_iteration < max_iterations:
+            move_iteration += 1
+
+            # Count rows to move
+            count_result = execute_sql_query(
+                query=count_default_sql, logger=logger, fetch_type=FetchType.ONE, params=(start_date, end_date)
+            )
+            rows_to_move = count_result[0] if count_result else 0
+
+            if rows_to_move == 0:
+                if move_iteration == 1:
+                    self.stdout.write(self.style.SUCCESS("  No data in default partition to move"))
+                else:
+                    self.stdout.write(self.style.SUCCESS(f"  No more rows after {move_iteration - 1} iteration(s)"))
+                break
+
+            self.stdout.write(f"  Iteration {move_iteration}: Moving {rows_to_move:,} rows...")
+            logger.info(f"Move iteration {move_iteration}: {rows_to_move} rows")
+
+            begin(logger=logger)
+            execute_sql_query(query=move_sql, logger=logger, fetch_type=FetchType.NONE, params=(start_date, end_date))
+            commit(logger=logger)
+
+            total_rows_moved += rows_to_move
+
+        if move_iteration >= max_iterations:
+            raise Exception(f"Exceeded {max_iterations} iterations. Run during lower traffic period.")
+
+        # Get total rows in partition
+        count_partition_sql = psycopg2_sql.SQL("SELECT COUNT(*) FROM {table};").format(table=partition_table_ref)
+        result = execute_sql_query(query=count_partition_sql, logger=logger, fetch_type=FetchType.ONE)
+        total_in_partition = result[0] if result else 0
+
+        self.stdout.write(
+            self.style.SUCCESS(f"  Moved {total_rows_moved:,} rows. Partition total: {total_in_partition:,}")
+        )
+
+        # Step 3: Add CHECK constraint to new partition (validates data matches bounds)
+        self.stdout.write(self.style.SUCCESS("Step 3/4: Adding CHECK constraint to new partition..."))
+
+        # Constraint names
+        default_exclude_constraint = f"{partition_name}_default_exclude"
+
+        # Drop partition constraint if exists (for resume scenarios)
+        drop_partition_check_sql = psycopg2_sql.SQL(
+            "ALTER TABLE {partition} DROP CONSTRAINT IF EXISTS {constraint};"
+        ).format(partition=partition_table_ref, constraint=psycopg2_sql.Identifier(check_constraint_name))
+        execute_sql_query(query=drop_partition_check_sql, logger=logger, fetch_type=FetchType.NONE)
+
+        # Add CHECK to new partition (data must be within bounds)
+        add_partition_check_sql = psycopg2_sql.SQL(
+            """
+            ALTER TABLE {partition}
+            ADD CONSTRAINT {constraint}
+            CHECK (recorded_at >= %s::timestamptz AND recorded_at < %s::timestamptz);
+        """
+        ).format(partition=partition_table_ref, constraint=psycopg2_sql.Identifier(check_constraint_name))
+        execute_sql_query(
+            query=add_partition_check_sql, logger=logger, fetch_type=FetchType.NONE, params=(start_date, end_date)
+        )
+        logger.info(f"Added CHECK constraint to partition: {check_constraint_name}")
+
+        # Step 4: Lock table, move final rows, add exclusion CHECK, attach partition
+        # The exclusion CHECK on default must be added INSIDE the lock to prevent race condition
+        self.stdout.write(self.style.SUCCESS("Step 4/4: Locking table, finalizing, and attaching..."))
+
+        lock_sql = psycopg2_sql.SQL("LOCK TABLE {parent} IN ACCESS EXCLUSIVE MODE;").format(parent=parent_table_ref)
+
+        final_move_sql = psycopg2_sql.SQL(
+            """
+            WITH moved AS (
+                DELETE FROM ONLY {default_table}
+                WHERE recorded_at >= %s::timestamptz AND recorded_at < %s::timestamptz
+                RETURNING *
+            )
+            INSERT INTO {partition_table}
+            SELECT * FROM moved
+            ON CONFLICT DO NOTHING;
+        """
+        ).format(default_table=default_table_ref, partition_table=partition_table_ref)
+
+        # Drop default exclusion constraint if exists (for resume scenarios)
+        drop_default_check_sql = psycopg2_sql.SQL(
+            "ALTER TABLE {default_table} DROP CONSTRAINT IF EXISTS {constraint};"
+        ).format(default_table=default_table_ref, constraint=psycopg2_sql.Identifier(default_exclude_constraint))
+
+        # Add CHECK to default partition (data must NOT be within bounds)
+        # This tells PostgreSQL "no conflicting rows exist" so ATTACH skips validation scan
+        add_default_check_sql = psycopg2_sql.SQL(
+            """
+            ALTER TABLE {default_table}
+            ADD CONSTRAINT {constraint}
+            CHECK (NOT (recorded_at >= %s::timestamptz AND recorded_at < %s::timestamptz));
+        """
+        ).format(default_table=default_table_ref, constraint=psycopg2_sql.Identifier(default_exclude_constraint))
+
+        attach_sql = psycopg2_sql.SQL(
+            "ALTER TABLE {parent} ATTACH PARTITION {partition} FOR VALUES FROM (%s) TO (%s);"
+        ).format(parent=parent_table_ref, partition=partition_table_ref)
+
+        # All in one transaction: lock -> final move -> add exclusion CHECK -> attach -> drop CHECK
+        begin(logger=logger)
+
+        self.stdout.write("  Acquiring lock on parent table...")
+        execute_sql_query(query=lock_sql, logger=logger, fetch_type=FetchType.NONE)
+        logger.info("Acquired ACCESS EXCLUSIVE lock on parent table")
+
+        # Move any rows that arrived while we were waiting for the lock
+        self.stdout.write("  Moving any final rows...")
+        execute_sql_query(query=final_move_sql, logger=logger, fetch_type=FetchType.NONE, params=(start_date, end_date))
+
+        # Now add the exclusion CHECK - safe because table is locked, no new rows can arrive
+        self.stdout.write("  Adding exclusion CHECK to default (enables instant attach)...")
+        execute_sql_query(query=drop_default_check_sql, logger=logger, fetch_type=FetchType.NONE)
+        execute_sql_query(
+            query=add_default_check_sql, logger=logger, fetch_type=FetchType.NONE, params=(start_date, end_date)
+        )
+        logger.info(f"Added exclusion CHECK constraint to default: {default_exclude_constraint}")
+
+        self.stdout.write("  Attaching partition (should be instant)...")
+        execute_sql_query(query=attach_sql, logger=logger, fetch_type=FetchType.NONE, params=(start_date, end_date))
+
+        # Drop the temporary exclusion constraint - no longer needed after attach
+        self.stdout.write("  Cleaning up temporary constraint...")
+        execute_sql_query(query=drop_default_check_sql, logger=logger, fetch_type=FetchType.NONE)
+        logger.info(f"Dropped temporary constraint: {default_exclude_constraint}")
+
+        commit(logger=logger)
+        logger.info(f"Attached partition: {partition_table}")
+
+        self.stdout.write(self.style.SUCCESS(f"Partition {partition_table} attached successfully!"))
+
+        # Get final count
+        count_partition_sql = psycopg2_sql.SQL("SELECT COUNT(*) FROM {table};").format(table=partition_table_ref)
+        result = execute_sql_query(query=count_partition_sql, logger=logger, fetch_type=FetchType.ONE)
+        total_in_partition = result[0] if result else 0
+
+        return total_in_partition
+
+    def _move_remaining_data_to_attached_partition(
+        self,
+        logger,
+        default_table_ref,
+        partition_table_ref,
+        start_date: str,
+        end_date: str,
+    ) -> int:
+        """Move any remaining data from default to an already-attached partition."""
+        self.stdout.write(self.style.SUCCESS("Moving any remaining data from default partition..."))
+
+        count_sql = psycopg2_sql.SQL(
+            """
+            SELECT COUNT(*)
+            FROM ONLY {table}
+            WHERE recorded_at >= %s::timestamptz AND recorded_at < %s::timestamptz;
+        """
+        ).format(table=default_table_ref)
+
+        count_result = execute_sql_query(
+            query=count_sql, logger=logger, fetch_type=FetchType.ONE, params=(start_date, end_date)
+        )
+        rows_to_move = count_result[0] if count_result else 0
+
+        if rows_to_move == 0:
+            self.stdout.write(self.style.SUCCESS("No remaining data in default partition"))
+            # Return count from partition
+            partition_count = execute_sql_query(
+                query=psycopg2_sql.SQL("SELECT COUNT(*) FROM {table};").format(table=partition_table_ref),
+                logger=logger,
+                fetch_type=FetchType.ONE,
+            )
+            return partition_count[0] if partition_count else 0
+
+        self.stdout.write(f"Moving {rows_to_move:,} rows...")
+
+        # For attached partition, we need to delete from default and insert to partition
+        # Since partition is attached, inserts to parent with correct recorded_at will route there
+        move_sql = psycopg2_sql.SQL(
+            """
+            WITH moved AS (
+                DELETE FROM ONLY {default_table}
+                WHERE recorded_at >= %s::timestamptz AND recorded_at < %s::timestamptz
+                RETURNING *
+            )
+            INSERT INTO {partition_table}
+            SELECT * FROM moved
+            ON CONFLICT DO NOTHING;
+        """
+        ).format(default_table=default_table_ref, partition_table=partition_table_ref)
+
+        begin(logger=logger)
+        execute_sql_query(query=move_sql, logger=logger, fetch_type=FetchType.NONE, params=(start_date, end_date))
+        commit(logger=logger)
+
+        # Get total in partition
+        partition_count = execute_sql_query(
+            query=psycopg2_sql.SQL("SELECT COUNT(*) FROM {table};").format(table=partition_table_ref),
+            logger=logger,
+            fetch_type=FetchType.ONE,
+        )
+        total = partition_count[0] if partition_count else 0
+
+        self.stdout.write(self.style.SUCCESS(f"Moved {rows_to_move:,} rows. Partition total: {total:,}"))
+        return total

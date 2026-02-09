@@ -56,6 +56,16 @@
                 {
                   "properties": {
                     "incident_location": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "incident_location"
+                  ]
+                },
+                {
+                  "properties": {
+                    "incident_location": {
                       "maxProperties": 0,
                       "type": "object"
                     }

@@ -26,8 +26,29 @@
                 "status": {
                   "anyOf": [
                     {
+                      "type": "array",
+                      "allOf": [
+                        {
+                          "contains": {
+                            "const": "burning"
+                          }
+                        }
+                      ],
+                      "maxItems": 1
+                    },
+                    {
+                      "type": "boolean",
+                      "const": null
+                    },
+                    {
                       "const": null,
                       "type": "number"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {},
+                      "required": [],
+                      "unevaluatedProperties": false
                     },
                     {
                       "const": "burning",

@@ -103,6 +103,9 @@ app.conf.task_routes = {
     "rt_api.tasks.handle_new_subject_observation": {
         "queue": "realtime_p3",
     },
+    "rt_api.tasks.handle_subjectstatus_update": {
+        "queue": "realtime_p3",
+    },
     "rt_api.tasks.handle_delete_patrol": {
         "queue": "realtime_p3",
     },

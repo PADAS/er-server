@@ -24,8 +24,28 @@
             {
               "properties": {
                 "status": {
-                  "pattern": "active",
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "allOf": [
+                        {
+                          "contains": {
+                            "const": "active"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "active"
+                      ]
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "active"
+                    }
+                  ]
                 }
               },
               "required": [

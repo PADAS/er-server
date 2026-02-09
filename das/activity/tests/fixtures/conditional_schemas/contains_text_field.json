@@ -20,8 +20,28 @@
             {
               "properties": {
                 "trigger_field": {
-                  "pattern": "test",
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "allOf": [
+                        {
+                          "contains": {
+                            "const": "test"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "test"
+                      ]
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "test"
+                    }
+                  ]
                 }
               },
               "required": [
