@@ -229,8 +229,8 @@ class ObservationSegmentVectorLayer(VectorLayer):
             "id",
             "subject_id",
             "subject_name",
-            "start_recorded_at",
-            "end_recorded_at",
+            "start_time",
+            "end_time",
             "speed_kmh",
             "time_gap_ms",
             "distance_meters",
@@ -294,9 +294,16 @@ class ObservationSegmentVectorLayer(VectorLayer):
     def _get_vector_tile_annotations(self):
         """
         Return annotations for vector tile output.
+
+        ``start_time`` / ``end_time`` are simple renames of the model
+        timestamp fields; ISO 8601 string formatting is applied in
+        ``as_vector_tile_feature`` so the client receives lexicographically
+        sortable values it can use in Mapbox GL filter expressions.
         """
         return {
             "subject_name": Coalesce(F("subject__name"), Value("", output_field=CharField())),
+            "start_time": F("start_recorded_at"),
+            "end_time": F("end_recorded_at"),
         }
 
     def get_vector_tile_queryset(self, z=None, x=None, y=None):
@@ -357,8 +364,8 @@ class ObservationSegmentVectorLayer(VectorLayer):
             "id": str(obj.id),
             "subject_id": str(obj.subject_id),
             "subject_name": getattr(obj, "subject_name", ""),
-            "start_recorded_at": _iso(obj.start_recorded_at),
-            "end_recorded_at": _iso(obj.end_recorded_at),
+            "start_time": _iso(obj.start_time),
+            "end_time": _iso(obj.end_time),
             "speed_kmh": round(obj.speed_kmh, 2) if obj.speed_kmh else None,
             "time_gap_ms": round(obj.time_gap_ms, 0) if obj.time_gap_ms else None,
             "distance_meters": round(obj.distance_meters, 2) if obj.distance_meters else None,
