@@ -32,8 +32,10 @@ class TestSubjectVectorLayer:
         assert layer.max_zoom == 24
         assert "id" in layer.tile_fields
         assert "name" in layer.tile_fields
-        assert "image" in layer.tile_fields
+        assert "sex" in layer.tile_fields
         assert "color" in layer.tile_fields
+        assert "subject_subtype_value" in layer.tile_fields
+        assert "radio_state" in layer.tile_fields
 
     def test_queryset_includes_geometry_in_web_mercator(self, subject_with_status):
         """Verify subjects have geom field in SRID 3857 (Web Mercator)."""
@@ -55,7 +57,7 @@ class TestSubjectVectorLayer:
         assert not qs.filter(id=subject_without_status.id).exists()
 
     def test_queryset_includes_presentation_properties(self, subject_with_status):
-        """Verify color, radio_state, and other properties are annotated."""
+        """Verify color, radio_state, sex, and other properties are annotated."""
         layer = SubjectVectorLayer()
         qs = layer.get_queryset()
         obj = qs.filter(id=subject_with_status.id).first()
@@ -65,6 +67,7 @@ class TestSubjectVectorLayer:
         assert hasattr(obj, "recorded_at")
         assert hasattr(obj, "subject_type")
         assert hasattr(obj, "subject_subtype_value")
+        assert hasattr(obj, "sex")
 
     def test_default_delay_hours_is_zero(self):
         """Verify default delay_hours is 0 when no request provided."""
@@ -851,6 +854,58 @@ class TestSubjectLayerProperties:
         assert obj is not None
         assert obj.color == "255,255,0"  # Default yellow
 
+    def test_subject_sex_from_additional(self, das_tenant, subject_subtype):
+        """Verify sex is extracted from additional.sex."""
+        subject = Subject.objects.create(
+            name="Sex Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={"sex": "female"},
+        )
+        SubjectStatus.objects.update_or_create(
+            subject=subject,
+            delay_hours=0,
+            das_tenant=das_tenant,
+            defaults={
+                "location": Point(0, 0, srid=4326),
+                "recorded_at": timezone.now(),
+                "radio_state": "online-gps",
+            },
+        )
+
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject.id).first()
+
+        assert obj is not None
+        assert obj.sex == "female"
+
+    def test_subject_default_sex_when_not_set(self, das_tenant, subject_subtype):
+        """Verify default sex is 'male' when not present in additional."""
+        subject = Subject.objects.create(
+            name="No Sex Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={},  # No sex key
+        )
+        SubjectStatus.objects.update_or_create(
+            subject=subject,
+            delay_hours=0,
+            das_tenant=das_tenant,
+            defaults={
+                "location": Point(0, 0, srid=4326),
+                "recorded_at": timezone.now(),
+                "radio_state": "online-gps",
+            },
+        )
+
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject.id).first()
+
+        assert obj is not None
+        assert obj.sex == "male"
+
     def test_subject_type_and_subtype_annotations(self, das_tenant, subject_subtype):
         """Verify subject_type and subject_subtype are properly annotated."""
         subject = Subject.objects.create(
@@ -1185,7 +1240,279 @@ class TestVectorTileEdgeCases:
         assert layer_exclude.get_queryset().count() == 1
 
 
-# Fixtures
+@pytest.mark.django_db
+class TestSubjectGroupPermissionFiltering:
+    """
+    Test that vector tile layers respect subject group permissions.
+
+    Users should only see subjects (and their segments) that belong to
+    subject groups the user has access to via permission sets.
+    """
+
+    def test_subject_layer_excludes_unpermitted_subjects(self, das_tenant, subject_subtype, user_with_group_access):
+        """Non-superuser only sees subjects in their permitted subject groups."""
+        user, allowed_subject, denied_subject = user_with_group_access
+
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = user
+
+        layer = SubjectVectorLayer(request=request)
+        qs = layer.get_queryset()
+        subject_ids = set(qs.values_list("id", flat=True))
+
+        assert allowed_subject.id in subject_ids
+        assert denied_subject.id not in subject_ids
+
+    def test_subject_layer_superuser_sees_all(self, das_tenant, subject_subtype, superuser_with_group_subjects):
+        """Superusers bypass group filtering and see all subjects."""
+        superuser, allowed_subject, denied_subject = superuser_with_group_subjects
+
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = superuser
+
+        layer = SubjectVectorLayer(request=request)
+        qs = layer.get_queryset()
+        subject_ids = set(qs.values_list("id", flat=True))
+
+        assert allowed_subject.id in subject_ids
+        assert denied_subject.id in subject_ids
+
+    def test_subject_layer_no_request_returns_all(self, das_tenant, subject_subtype, superuser_with_group_subjects):
+        """Layer with no request (e.g. no auth context) returns all subjects."""
+        _, allowed_subject, denied_subject = superuser_with_group_subjects
+
+        layer = SubjectVectorLayer(request=None)
+        qs = layer.get_queryset()
+        subject_ids = set(qs.values_list("id", flat=True))
+
+        # No request = no permission filtering applied
+        assert allowed_subject.id in subject_ids
+        assert denied_subject.id in subject_ids
+
+    def test_segment_layer_excludes_unpermitted_segments(
+        self, das_tenant, subject_subtype, user_with_group_access_and_segments
+    ):
+        """Non-superuser only sees segments for subjects in their permitted groups."""
+        from observations.vector_layers import ObservationSegmentVectorLayer
+
+        user, allowed_subject, denied_subject = user_with_group_access_and_segments
+
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = user
+
+        layer = ObservationSegmentVectorLayer(request=request)
+        qs = layer.get_queryset()
+        segment_subject_ids = set(qs.values_list("subject_id", flat=True))
+
+        assert allowed_subject.id in segment_subject_ids
+        assert denied_subject.id not in segment_subject_ids
+
+    def test_segment_layer_superuser_sees_all_segments(
+        self, das_tenant, subject_subtype, superuser_with_group_access_and_segments
+    ):
+        """Superusers bypass group filtering and see all segments."""
+        from observations.vector_layers import ObservationSegmentVectorLayer
+
+        superuser, allowed_subject, denied_subject = superuser_with_group_access_and_segments
+
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = superuser
+
+        layer = ObservationSegmentVectorLayer(request=request)
+        qs = layer.get_queryset()
+        segment_subject_ids = set(qs.values_list("subject_id", flat=True))
+
+        assert allowed_subject.id in segment_subject_ids
+        assert denied_subject.id in segment_subject_ids
+
+    def test_subject_layer_user_with_no_groups_sees_nothing(
+        self, das_tenant, subject_subtype, user_with_no_group_access
+    ):
+        """User with no subject group access sees no subjects."""
+        user, subject_a, subject_b = user_with_no_group_access
+
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = user
+
+        layer = SubjectVectorLayer(request=request)
+        qs = layer.get_queryset()
+
+        assert qs.count() == 0
+
+
+# ------------------------------------------------------------------ #
+# Fixtures: Subject Group Permission Tests
+# ------------------------------------------------------------------ #
+
+
+def _create_subject_with_status(name, subject_subtype, das_tenant, lon=0.0, lat=0.0):
+    """Helper to create a subject with a current SubjectStatus (location)."""
+    subject = Subject.objects.create(
+        name=name,
+        subject_subtype=subject_subtype,
+        is_active=True,
+        das_tenant=das_tenant,
+        additional={"rgb": "0,255,0"},
+    )
+    SubjectStatus.objects.update_or_create(
+        subject=subject,
+        delay_hours=0,
+        das_tenant=das_tenant,
+        defaults={
+            "location": Point(lon, lat, srid=4326),
+            "recorded_at": timezone.now(),
+            "radio_state": "online-gps",
+        },
+    )
+    return subject
+
+
+def _create_segments_for_subject(subject, das_tenant):
+    """Helper to create observations and segments for a subject."""
+    from observations.models import (
+        Observation,
+        ObservationSegment,
+        Source,
+        SourceProvider,
+        SubjectSource,
+    )
+
+    provider, _ = SourceProvider.objects.get_or_create(
+        provider_key=f"perm_test_{subject.id}",
+        display_name="Perm Test",
+        das_tenant=das_tenant,
+    )
+    source = Source.objects.create(
+        manufacturer_id=f"perm_test_{subject.id}",
+        provider=provider,
+        das_tenant=das_tenant,
+    )
+    SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+    now = timezone.now()
+    obs1 = Observation.objects.create(
+        source=source,
+        location=Point(0.0, 0.0, srid=4326),
+        recorded_at=now - timedelta(hours=2),
+        das_tenant=das_tenant,
+    )
+    obs2 = Observation.objects.create(
+        source=source,
+        location=Point(1.0, 1.0, srid=4326),
+        recorded_at=now - timedelta(hours=1),
+        das_tenant=das_tenant,
+    )
+    ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+
+def _setup_group_permission_scenario(das_tenant, subject_subtype, user, *, create_segments=False):
+    """
+    Create two subjects in separate groups, granting the user access to only one.
+
+    Returns (user, allowed_subject, denied_subject).
+    """
+    from accounts.models.permissionset import PermissionSet
+    from observations.models import SubjectGroup
+
+    # Create two subjects with locations
+    allowed_subject = _create_subject_with_status("Allowed Subject", subject_subtype, das_tenant, lon=10.0, lat=10.0)
+    denied_subject = _create_subject_with_status("Denied Subject", subject_subtype, das_tenant, lon=20.0, lat=20.0)
+
+    # Create two subject groups
+    allowed_group = SubjectGroup.objects.create(name="Allowed Group", das_tenant=das_tenant)
+    denied_group = SubjectGroup.objects.create(name="Denied Group", das_tenant=das_tenant)
+
+    # Assign subjects to groups
+    allowed_subject.groups.add(allowed_group)
+    denied_subject.groups.add(denied_group)
+
+    # Create permission set with view_subject permission and assign to allowed group
+    view_perm = Permission.objects.filter(codename="view_subject").first()
+    perm_set = PermissionSet.objects.create(name="allowed_group_view")
+    if view_perm:
+        perm_set.permissions.add(view_perm)
+    allowed_group.permission_sets.add(perm_set)
+
+    # Grant user this permission set (so they can see subjects in allowed_group)
+    user.permission_sets.add(perm_set)
+    user.additional = {}
+    user.save()
+
+    if create_segments:
+        _create_segments_for_subject(allowed_subject, das_tenant)
+        _create_segments_for_subject(denied_subject, das_tenant)
+
+    return user, allowed_subject, denied_subject
+
+
+@pytest.fixture
+def user_with_group_access(db, das_tenant, subject_subtype, user):
+    """Non-superuser with access to one subject group but not another."""
+    return _setup_group_permission_scenario(das_tenant, subject_subtype, user, create_segments=False)
+
+
+@pytest.fixture
+def user_with_group_access_and_segments(db, das_tenant, subject_subtype, user):
+    """Non-superuser with group access, and both subjects have segments."""
+    return _setup_group_permission_scenario(das_tenant, subject_subtype, user, create_segments=True)
+
+
+@pytest.fixture
+def superuser_with_group_subjects(db, das_tenant, subject_subtype, create_user):
+    """Superuser with subjects in separate groups (should see all)."""
+    superuser = create_user(is_superuser=True, username="superuser_vt")
+    superuser.additional = {}
+    superuser.save()
+
+    allowed_subject = _create_subject_with_status("Super Allowed", subject_subtype, das_tenant, lon=10.0, lat=10.0)
+    denied_subject = _create_subject_with_status("Super Denied", subject_subtype, das_tenant, lon=20.0, lat=20.0)
+
+    return superuser, allowed_subject, denied_subject
+
+
+@pytest.fixture
+def superuser_with_group_access_and_segments(db, das_tenant, subject_subtype, create_user):
+    """Superuser with subjects that have segments (should see all)."""
+    superuser = create_user(is_superuser=True, username="superuser_seg_vt")
+    superuser.additional = {}
+    superuser.save()
+
+    allowed_subject = _create_subject_with_status("Super Seg Allowed", subject_subtype, das_tenant, lon=10.0, lat=10.0)
+    denied_subject = _create_subject_with_status("Super Seg Denied", subject_subtype, das_tenant, lon=20.0, lat=20.0)
+
+    _create_segments_for_subject(allowed_subject, das_tenant)
+    _create_segments_for_subject(denied_subject, das_tenant)
+
+    return superuser, allowed_subject, denied_subject
+
+
+@pytest.fixture
+def user_with_no_group_access(db, das_tenant, subject_subtype, create_user):
+    """User with no subject group permissions at all."""
+    from observations.models import SubjectGroup
+
+    no_access_user = create_user(username="no_group_user")
+    no_access_user.additional = {}
+    no_access_user.save()
+
+    subject_a = _create_subject_with_status("No Access A", subject_subtype, das_tenant, lon=10.0, lat=10.0)
+    subject_b = _create_subject_with_status("No Access B", subject_subtype, das_tenant, lon=20.0, lat=20.0)
+
+    group = SubjectGroup.objects.create(name="Restricted Group", das_tenant=das_tenant)
+    subject_a.groups.add(group)
+    subject_b.groups.add(group)
+
+    return no_access_user, subject_a, subject_b
+
+
+# ------------------------------------------------------------------ #
+# Fixtures: Original
+# ------------------------------------------------------------------ #
 
 
 @pytest.fixture

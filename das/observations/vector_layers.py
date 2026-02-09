@@ -5,7 +5,10 @@ Provides Mapbox Vector Tile layers for:
 - Subject positions (Points) from SubjectStatus
 - Track segments (LineStrings) from ObservationSegment
 
-Both layers respect user permissions via delay_hours filtering.
+Both layers respect user permissions via:
+- Subject group membership (users only see subjects in groups they have access to)
+- delay_hours filtering (time-delayed access per permission level)
+- MOU expiry date filtering
 """
 
 import logging
@@ -62,12 +65,20 @@ class SubjectVectorLayer(VectorLayer):
 
     @property
     def tile_fields(self):
-        """Fields to include in vector tiles."""
+        """Fields to include in vector tiles.
+
+        Icon resolution on the client uses subject_subtype_value, radio_state,
+        and sex to construct the same cascade of icon keys that the server uses
+        in Subject._image_keys().  The STATUS_COLORS mapping is:
+            online-gps -> green, online -> blue, offline -> gray,
+            alarm -> red, na -> black
+        """
         return (
             "id",
             "name",
             "subject_type",
             "subject_subtype_value",
+            "sex",
             "color",
             "radio_state",
             "recorded_at",
@@ -89,16 +100,23 @@ class SubjectVectorLayer(VectorLayer):
 
         Returns subjects with their position from SubjectStatus using
         user-specific delay_hours, including icon URLs, colors, and device status.
+
+        Subject group permission filtering is applied for non-superusers via
+        the same ``by_user_subjects`` queryset method used by every other
+        subject endpoint, ensuring a single source of truth for access control.
         """
-        # Get subjects with their status at the user's permitted delay_hours
-        qs = (
-            self.model.objects.all()
-            .annotate_with_subjectstatus(
-                delay_hours=self.delay_hours,
-                mou_expiry_date=self.mou_expiry_date,
-            )
-            .select_related("subject_subtype", "subject_subtype__subject_type")
-        )
+        qs = self.model.objects.all()
+
+        # Apply subject group permission filtering for non-superusers
+        if self.request and hasattr(self.request, "user") and self.request.user.is_authenticated:
+            if not self.request.user.is_superuser:
+                qs = qs.by_user_subjects(self.request.user)
+
+        # Annotate with status at the user's permitted delay_hours
+        qs = qs.annotate_with_subjectstatus(
+            delay_hours=self.delay_hours,
+            mou_expiry_date=self.mou_expiry_date,
+        ).select_related("subject_subtype", "subject_subtype__subject_type")
 
         # Filter out subjects without location at this delay window
         qs = qs.filter(status_location__isnull=False)
@@ -113,11 +131,23 @@ class SubjectVectorLayer(VectorLayer):
             output_field=CharField(),
         )
 
+        # Extract sex from subject.additional["sex"], defaulting to "male"
+        # This mirrors Subject._image_keys() behaviour for icon resolution
+        sex_expr = Case(
+            When(
+                additional__has_key="sex",
+                then=KeyTextTransform("sex", F("additional")),
+            ),
+            default=Value("male"),
+            output_field=CharField(),
+        )
+
         # Annotate with required fields
         return qs.annotate(
             geom=self._get_geometry_field(),
             subject_type=F("subject_subtype__subject_type__value"),
             subject_subtype_value=Coalesce(F("subject_subtype__value"), Value("")),
+            sex=sex_expr,
             color=color_expr,
             radio_state=F("status_radio_state"),
             recorded_at=F("status_recorded_at"),
@@ -197,10 +227,20 @@ class ObservationSegmentVectorLayer(VectorLayer):
         """
         Build queryset for segments with annotations.
 
+        Subject group permission filtering is applied for non-superusers,
+        restricting segments to only those belonging to subjects the user
+        has access to via their permission sets and subject group membership.
+
         By default, excludes segments with non-zero exclusion flags.
         Filters segments to respect user's permitted time window (delay_hours).
         """
         qs = self.model.objects.select_related("subject", "subject__subject_subtype")
+
+        # Apply subject group permission filtering for non-superusers
+        if self.request and hasattr(self.request, "user") and self.request.user.is_authenticated:
+            if not self.request.user.is_superuser:
+                allowed_subjects = Subject.objects.by_user_subjects(self.request.user)
+                qs = qs.filter(subject__in=allowed_subjects)
 
         # Apply default exclusion unless 'show_excluded=true'
         if hasattr(self, "request") and self.request:
