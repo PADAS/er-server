@@ -2,16 +2,12 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "status": {
+      "trigger_field": {
+        "default": "",
         "deprecated": false,
         "description": "",
-        "title": "Status",
-        "type": "string",
-        "anyOf": [
-          {
-            "$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=firerep_status"
-          }
-        ]
+        "title": "Trigger Field",
+        "type": "string"
       }
     },
     "required": [],
@@ -23,14 +19,14 @@
           "allOf": [
             {
               "properties": {
-                "status": {
+                "trigger_field": {
                   "anyOf": [
                     {
                       "type": "array",
                       "allOf": [
                         {
                           "contains": {
-                            "const": "active"
+                            "const": "test"
                           }
                         }
                       ]
@@ -38,18 +34,18 @@
                     {
                       "type": "object",
                       "required": [
-                        "active"
+                        "test"
                       ]
                     },
                     {
-                      "type": "string",
-                      "pattern": "active"
+                      "const": null,
+                      "type": "string"
                     }
                   ]
                 }
               },
               "required": [
-                "status"
+                "trigger_field"
               ]
             }
           ]
@@ -72,24 +68,13 @@
   },
   "ui": {
     "fields": {
-      "status": {
-        "choices": {
-          "eventTypeCategories": [],
-          "existingChoiceList": [
-            "firerep_status"
-          ],
-          "featureCategories": [],
-          "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
-          "subjectGroups": [],
-          "subjectSubtypes": [],
-          "type": "EXISTING_CHOICE_LIST"
-        },
+      "trigger_field": {
         "conditionalDependents": [
           "section-2"
         ],
-        "inputType": "DROPDOWN",
+        "inputType": "SHORT_TEXT",
         "placeholder": "",
-        "type": "CHOICE_LIST",
+        "type": "TEXT",
         "parent": "section-1"
       },
       "conditional_field": {
@@ -113,7 +98,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "status",
+            "name": "trigger_field",
             "type": "field"
           }
         ],
@@ -123,10 +108,10 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "status",
-            "id": "condition-Xj9suFhW-p2PT9G-pJrTw",
+            "field": "trigger_field",
+            "id": "condition-contains-null-1",
             "operator": "CONTAINS",
-            "value": "active"
+            "value": null
           }
         ],
         "isActive": true,

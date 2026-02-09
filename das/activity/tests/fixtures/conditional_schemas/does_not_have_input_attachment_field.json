@@ -39,6 +39,16 @@
                 {
                   "properties": {
                     "photo": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "photo"
+                  ]
+                },
+                {
+                  "properties": {
+                    "photo": {
                       "maxProperties": 0,
                       "type": "object"
                     }
