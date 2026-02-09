@@ -32,7 +32,7 @@ class TestSubjectVectorLayer:
         assert layer.max_zoom == 24
         assert "id" in layer.tile_fields
         assert "name" in layer.tile_fields
-        assert "sex" in layer.tile_fields
+        assert "image_url" in layer.tile_fields
         assert "color" in layer.tile_fields
         assert "subject_subtype_value" in layer.tile_fields
         assert "radio_state" in layer.tile_fields
@@ -57,7 +57,7 @@ class TestSubjectVectorLayer:
         assert not qs.filter(id=subject_without_status.id).exists()
 
     def test_queryset_includes_presentation_properties(self, subject_with_status):
-        """Verify color, radio_state, sex, and other properties are annotated."""
+        """Verify color, radio_state, image_url, and other properties are annotated."""
         layer = SubjectVectorLayer()
         qs = layer.get_queryset()
         obj = qs.filter(id=subject_with_status.id).first()
@@ -67,7 +67,7 @@ class TestSubjectVectorLayer:
         assert hasattr(obj, "recorded_at")
         assert hasattr(obj, "subject_type")
         assert hasattr(obj, "subject_subtype_value")
-        assert hasattr(obj, "sex")
+        assert hasattr(obj, "image_url")
 
     def test_default_delay_hours_is_zero(self):
         """Verify default delay_hours is 0 when no request provided."""
@@ -854,10 +854,10 @@ class TestSubjectLayerProperties:
         assert obj is not None
         assert obj.color == "255,255,0"  # Default yellow
 
-    def test_subject_sex_from_additional(self, das_tenant, subject_subtype):
-        """Verify sex is extracted from additional.sex."""
+    def test_image_url_includes_subtype_color_and_sex(self, das_tenant, subject_subtype):
+        """Verify image_url is built from subtype, radio_state colour, and sex."""
         subject = Subject.objects.create(
-            name="Sex Test",
+            name="Image URL Test",
             subject_subtype=subject_subtype,
             das_tenant=das_tenant,
             additional={"sex": "female"},
@@ -878,15 +878,16 @@ class TestSubjectLayerProperties:
         obj = qs.filter(id=subject.id).first()
 
         assert obj is not None
-        assert obj.sex == "female"
+        subtype = subject_subtype.value.lower()
+        assert obj.image_url == f"/static/sprite-src/{subtype}-green-female.svg"
 
-    def test_subject_default_sex_when_not_set(self, das_tenant, subject_subtype):
-        """Verify default sex is 'male' when not present in additional."""
+    def test_image_url_defaults_sex_to_male(self, das_tenant, subject_subtype):
+        """Verify image_url uses 'male' when sex is not in additional."""
         subject = Subject.objects.create(
-            name="No Sex Test",
+            name="Default Sex Test",
             subject_subtype=subject_subtype,
             das_tenant=das_tenant,
-            additional={},  # No sex key
+            additional={},
         )
         SubjectStatus.objects.update_or_create(
             subject=subject,
@@ -895,7 +896,7 @@ class TestSubjectLayerProperties:
             defaults={
                 "location": Point(0, 0, srid=4326),
                 "recorded_at": timezone.now(),
-                "radio_state": "online-gps",
+                "radio_state": "offline",
             },
         )
 
@@ -904,7 +905,35 @@ class TestSubjectLayerProperties:
         obj = qs.filter(id=subject.id).first()
 
         assert obj is not None
-        assert obj.sex == "male"
+        subtype = subject_subtype.value.lower()
+        assert obj.image_url == f"/static/sprite-src/{subtype}-gray-male.svg"
+
+    def test_image_url_alarm_state(self, das_tenant, subject_subtype):
+        """Verify alarm radio_state maps to red in image_url."""
+        subject = Subject.objects.create(
+            name="Alarm Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={},
+        )
+        SubjectStatus.objects.update_or_create(
+            subject=subject,
+            delay_hours=0,
+            das_tenant=das_tenant,
+            defaults={
+                "location": Point(0, 0, srid=4326),
+                "recorded_at": timezone.now(),
+                "radio_state": "alarm",
+            },
+        )
+
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject.id).first()
+
+        assert obj is not None
+        subtype = subject_subtype.value.lower()
+        assert obj.image_url == f"/static/sprite-src/{subtype}-red-male.svg"
 
     def test_subject_type_and_subtype_annotations(self, das_tenant, subject_subtype):
         """Verify subject_type and subject_subtype are properly annotated."""

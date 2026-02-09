@@ -18,7 +18,7 @@ from vectortiles import VectorLayer
 from django.contrib.gis.db.models.functions import Transform
 from django.db.models import BooleanField, Case, CharField, F, Value, When, Window
 from django.db.models.fields.json import KeyTextTransform
-from django.db.models.functions import Coalesce, RowNumber
+from django.db.models.functions import Coalesce, Concat, Lower, RowNumber
 
 from observations.filters import ObservationSegmentVectorTileFilterSet
 from observations.models import ObservationSegment, Subject
@@ -67,18 +67,15 @@ class SubjectVectorLayer(VectorLayer):
     def tile_fields(self):
         """Fields to include in vector tiles.
 
-        Icon resolution on the client uses subject_subtype_value, radio_state,
-        and sex to construct the same cascade of icon keys that the server uses
-        in Subject._image_keys().  The STATUS_COLORS mapping is:
-            online-gps -> green, online -> blue, offline -> gray,
-            alarm -> red, na -> black
+        ``image_url`` is the resolved icon path built from subtype, radio_state
+        colour, and sex so the client can load it directly via styleimagemissing.
         """
         return (
             "id",
             "name",
             "subject_type",
             "subject_subtype_value",
-            "sex",
+            "image_url",
             "color",
             "radio_state",
             "recorded_at",
@@ -131,8 +128,19 @@ class SubjectVectorLayer(VectorLayer):
             output_field=CharField(),
         )
 
-        # Extract sex from subject.additional["sex"], defaulting to "male"
-        # This mirrors Subject._image_keys() behaviour for icon resolution
+        # Map radio_state → icon colour, matching STATUS_COLORS in models.py
+        icon_color_expr = Case(
+            When(status_radio_state="online-gps", then=Value("green")),
+            When(status_radio_state="online", then=Value("blue")),
+            When(status_radio_state="offline", then=Value("gray")),
+            When(status_radio_state="alarm", then=Value("red")),
+            default=Value("black"),
+            output_field=CharField(),
+        )
+
+        # Build image path: /static/sprite-src/{subtype}-{color}-{sex}.svg
+        # Mirrors Subject._image_keys() primary key; styleimagemissing on
+        # the client handles any fallback if this specific file is missing.
         sex_expr = Case(
             When(
                 additional__has_key="sex",
@@ -142,12 +150,23 @@ class SubjectVectorLayer(VectorLayer):
             output_field=CharField(),
         )
 
+        image_url_expr = Concat(
+            Value("/static/sprite-src/"),
+            Lower(Coalesce(F("subject_subtype__value"), Value("pin"))),
+            Value("-"),
+            icon_color_expr,
+            Value("-"),
+            Lower(sex_expr),
+            Value(".svg"),
+            output_field=CharField(),
+        )
+
         # Annotate with required fields
         return qs.annotate(
             geom=self._get_geometry_field(),
             subject_type=F("subject_subtype__subject_type__value"),
             subject_subtype_value=Coalesce(F("subject_subtype__value"), Value("")),
-            sex=sex_expr,
+            image_url=image_url_expr,
             color=color_expr,
             radio_state=F("status_radio_state"),
             recorded_at=F("status_recorded_at"),
