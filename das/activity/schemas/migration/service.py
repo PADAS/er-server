@@ -143,9 +143,8 @@ class MigrationService:
         return v2_schema
 
     def _build_choices_base_url(self) -> str:
-        """Build the absolute base URL for choice $ref references."""
-        choices_path = reverse("schemas:choices")
-        return self.request.build_absolute_uri(choices_path)
+        """Build the relative path for choice $ref references."""
+        return reverse("schemas:choices")
 
     def process_choices(self, v2_schema: dict, result: MigrationResult) -> dict:
         """Analyze hardcoded choices and rewrite ready fields to $ref."""

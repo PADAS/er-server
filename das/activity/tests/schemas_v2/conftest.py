@@ -242,7 +242,7 @@ def auto_generate_v2_marker_schema():
 # Choices Base URL Fixture
 # =============================================================================
 
-CHOICES_BASE_URL = "http://testserver/api/v2.0/schemas/choices.json"
+CHOICES_BASE_URL = "/api/v2.0/schemas/choices.json"
 
 
 @pytest.fixture

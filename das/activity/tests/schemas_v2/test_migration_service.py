@@ -374,7 +374,7 @@ class TestEndToEndRewrite:
         assert len(severity_field["anyOf"]) == 1
         assert "$ref" in severity_field["anyOf"][0]
         ref_url = severity_field["anyOf"][0]["$ref"]
-        assert ref_url.startswith("http")
+        assert ref_url.startswith("/api/v2.0/schemas/choices.json?field=")
         assert "choices.json?field=" in ref_url
         # Non-choice field should be untouched
         desc_field = result.v2_schema["json"]["properties"]["description"]
