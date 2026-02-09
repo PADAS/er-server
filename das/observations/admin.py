@@ -98,6 +98,7 @@ admin.site.index_template = "admin/standard_admin_index.html"
 
 OBSERVATIONS_HISTORY_LIMIT = timedelta(days=90)
 SUBJECT_REGION_SECTION_NAME = _("WildTracks App")
+MINIMUM_VALID_YEAR = 1971
 
 logger = logging.getLogger(__name__)
 
@@ -1674,7 +1675,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
     _age.admin_order_field = "-recorded_at"
 
     def _radio_state_at(self, o):
-        return o.radio_state_at if o.radio_state_at and o.radio_state_at.year >= 1971 else "-"
+        return o.radio_state_at if o.radio_state_at and o.radio_state_at.year >= MINIMUM_VALID_YEAR else "-"
 
     _radio_state_at.short_description = _("Time of Last State Change")
     _radio_state_at.admin_order_field = "radio_state_at"
@@ -1682,7 +1683,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
     def _age_of_state(self, o):
         default = "-"
         try:
-            if o.radio_state_at and o.radio_state_at.year >= 1971:
+            if o.radio_state_at and o.radio_state_at.year >= MINIMUM_VALID_YEAR:
                 return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.radio_state_at)
         except OverflowError:
             pass
