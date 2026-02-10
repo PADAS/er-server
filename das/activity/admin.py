@@ -354,6 +354,10 @@ class EventTypeAdmin(BaseModelAdminMixin):
                     "icon",
                     "ordernum",
                     "auto_eventtype_resolve",
+                    "is_collection",
+                    "is_active",
+                    "version",
+                    "readonly",
                     "geometry_type",
                 )
             },
@@ -364,8 +368,6 @@ class EventTypeAdmin(BaseModelAdminMixin):
                 "fields": (
                     "default_priority",
                     "default_state",
-                    "is_active",
-                    "is_collection",
                 )
             },
         ),
@@ -379,9 +381,10 @@ class EventTypeAdmin(BaseModelAdminMixin):
     )
 
     def get_readonly_fields(self, request, obj=None):
+        readonly_fields = ["readonly", "version"]
         if obj:
-            return ["geometry_type", "is_collection"]
-        return []
+            readonly_fields.extend(["geometry_type", "is_collection"])
+        return readonly_fields
 
     def _icon_display(self, obj):
         url = models.Event.marker_icon(obj.icon_id, models.Event.PRI_NONE, models.Event.SC_NEW)
