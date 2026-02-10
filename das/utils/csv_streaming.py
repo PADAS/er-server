@@ -146,12 +146,13 @@ class StreamingCSVResponse(StreamingHttpResponse):
             **kwargs,
         )
 
-        # Sanitize filename to prevent header injection (CR/LF) and
-        # broken quoting in Content-Disposition.
+        # Sanitize filename to prevent header injection (CR/LF).
         safe_filename = filename.replace("\r", "").replace("\n", "").replace('"', "")
 
-        # Set headers for file download
-        self["Content-Disposition"] = f'attachment; filename="{safe_filename}"'
+        # Set headers for file download.
+        # NOTE: filename is intentionally unquoted to match the existing API
+        # contract that the frontend's Content-Disposition parser expects.
+        self["Content-Disposition"] = f"attachment; filename={safe_filename}"
         self["x-das-download-filename"] = safe_filename
 
 

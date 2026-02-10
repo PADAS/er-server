@@ -160,7 +160,7 @@ def test_streaming_csv_response_sets_content_disposition():
 
     response = StreamingCSVResponse(rows, fieldnames, filename="export.csv")
 
-    assert response["Content-Disposition"] == 'attachment; filename="export.csv"'
+    assert response["Content-Disposition"] == "attachment; filename=export.csv"
 
 
 def test_streaming_csv_response_sanitizes_filename():
@@ -170,7 +170,7 @@ def test_streaming_csv_response_sanitizes_filename():
 
     response = StreamingCSVResponse(rows, fieldnames, filename='bad\r\nname"here.csv')
 
-    assert response["Content-Disposition"] == 'attachment; filename="badnamehere.csv"'
+    assert response["Content-Disposition"] == "attachment; filename=badnamehere.csv"
     assert response["x-das-download-filename"] == "badnamehere.csv"
 
 
