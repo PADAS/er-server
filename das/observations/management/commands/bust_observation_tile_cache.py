@@ -12,9 +12,10 @@ logger = logging.getLogger(__name__)
 
 class Command(TenantCommandMixin, BaseCommand):
     help = (
-        "Bust the vector tile cache for the current tenant. "
-        "Deletes all cached tiles (subjects + segments) so the next "
-        "request regenerates them from the database."
+        "Bust the observation vector tile cache for the current tenant. "
+        "Deletes cached subject and segment tiles so the next "
+        "request regenerates them from the database. "
+        "Does not affect spatial feature tiles."
     )
 
     def handle(self, *args, **options):
