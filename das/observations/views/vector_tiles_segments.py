@@ -143,32 +143,32 @@ class ObservationSegmentTileView(MVTView):
         vt_cache = get_vector_tile_cache()
         etag_hash = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()[:16]
         etag_value = f'"{etag_hash}"'
+        cache_control_value = (
+            f"public, max-age={self.client_max_age_seconds}, "
+            f"stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
+            f"stale-if-error={self.client_stale_if_error_seconds}"
+        )
 
-        client_etag = request.META.get("HTTP_IF_NONE_MATCH")
-        if client_etag == etag_value:
-            resp = HttpResponse(status=304)
-            resp["ETag"] = etag_value
-            resp["Cache-Control"] = (
-                "public, max-age="
-                f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
-                f"stale-if-error={self.client_stale_if_error_seconds}"
-            )
-            return resp
-
+        # Check server cache FIRST.  Signal handlers delete entries on data
+        # change, so a miss means the tile may be stale — skip the ETag
+        # shortcut and regenerate.  Only return 304 when the entry still exists.
         cached_payload = vt_cache.get(cache_key)
         if cached_payload is not None:
+            client_etag = request.META.get("HTTP_IF_NONE_MATCH")
+            if client_etag == etag_value:
+                resp = HttpResponse(status=304)
+                resp["ETag"] = etag_value
+                resp["Cache-Control"] = cache_control_value
+                return resp
+
             content, content_type = cached_payload
             resp = HttpResponse(content, content_type=content_type)
-            resp["Cache-Control"] = (
-                "public, max-age="
-                f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
-                f"stale-if-error={self.client_stale_if_error_seconds}"
-            )
+            resp["Cache-Control"] = cache_control_value
             resp["ETag"] = etag_value
             resp["X-Cache"] = "HIT"
             return resp
 
-        # Pass request to layers for permission-based filtering (delay_hours, MOU expiry)
+        # Cache miss — regenerate tile from the database.
         self.layers = [lc(request=request) for lc in self.layer_classes]
         response = super().get(request, z, x, y)
         if response.status_code in (200, 204) and response.get("Content-Type", "").startswith(
@@ -180,11 +180,7 @@ class ObservationSegmentTileView(MVTView):
             response["X-Cache"] = "MISS"
         else:
             response["X-Cache"] = "BYPASS"
-        response["Cache-Control"] = (
-            "public, max-age="
-            f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
-            f"stale-if-error={self.client_stale_if_error_seconds}"
-        )
+        response["Cache-Control"] = cache_control_value
         response["ETag"] = etag_value
         return response
 
