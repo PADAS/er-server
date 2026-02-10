@@ -15,6 +15,7 @@ class Migration(migrations.Migration):
             name="override_message",
             field=models.CharField(
                 blank=True,
+                null=True,
                 help_text="If set, this message will be sent instead of the default alert message.",
                 max_length=1024,
             ),
