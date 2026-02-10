@@ -16,9 +16,25 @@ import logging
 from vectortiles import VectorLayer
 
 from django.contrib.gis.db.models.functions import Transform
-from django.db.models import BooleanField, Case, CharField, F, Value, When, Window
+from django.db.models import BooleanField, Case, CharField, F, Func, Value, When, Window
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce, Concat, Lower, RowNumber
+
+
+class _ISOTimestamp(Func):
+    """Format a timestamp as ISO 8601 (``2026-01-19T00:00:00.000Z``) in SQL.
+
+    django-vectortiles generates MVT via ``ST_AsMVT`` entirely in PostgreSQL,
+    so Python-level formatting (``as_vector_tile_feature``) is never invoked.
+    We must format in SQL to give Mapbox GL lexicographically-sortable strings.
+    """
+
+    function = "to_char"
+    template = (
+        "to_char(%(expressions)s AT TIME ZONE 'UTC',"
+        " 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')"
+    )
+    output_field = CharField()
 
 from observations.filters import ObservationSegmentVectorTileFilterSet
 from observations.models import ObservationSegment, Subject
@@ -295,15 +311,14 @@ class ObservationSegmentVectorLayer(VectorLayer):
         """
         Return annotations for vector tile output.
 
-        ``start_time`` / ``end_time`` are simple renames of the model
-        timestamp fields; ISO 8601 string formatting is applied in
-        ``as_vector_tile_feature`` so the client receives lexicographically
-        sortable values it can use in Mapbox GL filter expressions.
+        ``start_time`` / ``end_time`` are ISO 8601 formatted **in SQL** so
+        that ``ST_AsMVT`` emits lexicographically-sortable strings the client
+        can use directly in Mapbox GL filter expressions.
         """
         return {
             "subject_name": Coalesce(F("subject__name"), Value("", output_field=CharField())),
-            "start_time": F("start_recorded_at"),
-            "end_time": F("end_recorded_at"),
+            "start_time": _ISOTimestamp(F("start_recorded_at")),
+            "end_time": _ISOTimestamp(F("end_recorded_at")),
         }
 
     def get_vector_tile_queryset(self, z=None, x=None, y=None):
@@ -354,6 +369,11 @@ class ObservationSegmentVectorLayer(VectorLayer):
     def as_vector_tile_feature(self, obj):
         """
         Return feature dict for vector tile rendering.
+
+        NOTE: django-vectortiles' PostGIS backend generates MVT entirely in SQL
+        via ``ST_AsMVT`` and does NOT call this method.  Timestamp formatting
+        must happen in annotations (see ``_ISOTimestamp``).  This method exists
+        only for non-MVT callers or future backends that iterate Python objects.
         """
 
         # Ensure ISO 8601 with 'T' separator for lexicographic sorting
