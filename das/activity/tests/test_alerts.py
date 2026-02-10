@@ -39,6 +39,7 @@ from activity.alerts import has_alerts_permissionset
 from activity.alerts_views import AlertRuleListView
 from activity.models import (
     NOTIFICATION_METHOD_EMAIL,
+    NOTIFICATION_METHOD_SMS,
     AlertRule,
     Event,
     EventCategory,
@@ -126,7 +127,7 @@ class TestAlerts(BaseAPITest):
         )
 
         self.notification_method = NotificationMethod.objects.create(
-            owner=self.owner, title="Email", method="email", value="test@test.com"
+            owner=self.owner, title="Email", method=NOTIFICATION_METHOD_EMAIL, value="test@test.com"
         )
 
         # create alert rule
@@ -456,7 +457,7 @@ class TestAlerts(BaseAPITest):
         self.assertEqual(mail.outbox[0].to, ["active@test.com"])
 
     @patch("sendsms.api.send_sms")
-    def test_alert_rule_override_message(self, mock_send_sms):
+    def test_alert_rule_override_sms_message(self, mock_send_sms):
 
         alert_rule = AlertRule.objects.create(
             owner=self.owner,
@@ -470,7 +471,7 @@ class TestAlerts(BaseAPITest):
         EventDetails.objects.create(event=event, data={"event_details": {"sex": "Female"}})
 
         notification_method = NotificationMethod.objects.create(
-            owner=self.owner, title="Text", method="sms", value="+14155552671"
+            owner=self.owner, title="Text", method=NOTIFICATION_METHOD_SMS, value="+14155552671"
         )
 
         send_event_alert(alert_rule_id=alert_rule.id, event_id=event.id, notification_method_id=notification_method.id)
@@ -478,6 +479,31 @@ class TestAlerts(BaseAPITest):
         self.assertTrue(mock_send_sms.called)
         _, kwargs = mock_send_sms.call_args
         self.assertEqual(alert_rule.override_message, kwargs.get("body"))
+
+    @patch("activity.alerting.message.send_report")
+    def test_alert_rule_override_email_message(self, mock_send_email):
+
+        alert_rule = AlertRule.objects.create(
+            owner=self.owner,
+            title="Alert",
+            conditions={"all": [{"name": "sex", "value": "Male", "operator": "equal_to"}]},
+            schedule={"timezone": "Africa/Nairobi"},
+            override_message="This is an override message.",
+        )
+        event = Event.objects.create(title="test event", event_type=self.event_type, created_by_user=self.owner)
+
+        EventDetails.objects.create(event=event, data={"event_details": {"sex": "Female"}})
+
+        notification_method = NotificationMethod.objects.create(
+            owner=self.owner, title="Email", method=NOTIFICATION_METHOD_EMAIL, value="test@example.com"
+        )
+
+        send_event_alert(alert_rule_id=alert_rule.id, event_id=event.id, notification_method_id=notification_method.id)
+
+        self.assertTrue(mock_send_email.called)
+        _, kwargs = mock_send_email.call_args
+        self.assertEqual(alert_rule.override_message, kwargs.get("html_content"))
+        self.assertEqual(alert_rule.override_message, kwargs.get("text_content"))
 
 
 @pytest.mark.django_db
