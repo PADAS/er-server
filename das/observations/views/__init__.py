@@ -8,7 +8,6 @@ import dateutil.parser
 import pytz
 from kombu import exceptions
 
-import django
 from django.core.files.storage import default_storage
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import F, Q, QuerySet, Window
@@ -941,24 +940,25 @@ class TrackingDataCsvView(APIView):
         """
         cur_record_serial = record_serial_base
 
-        try:
-            subjects = self.get_queryset(request_subject_id, request_subject_chronofile, request_source_provider)
-            for subject in subjects.iterator(chunk_size=100):
-                # Get observations for this subject and stream them
-                observations_qs = self.get_subject_trackdata_queryset(filter_flag, lower, subject, upper, max_records)
-                for item in observations_qs.values().iterator(chunk_size=2000):
-                    cur_record_serial += 1
-                    yield self.get_csv_observation_data(
-                        cur_record_serial,
-                        dloadtime_label,
-                        fixtime_label,
-                        result_format,
-                        item,
-                        subject.id if request_subject_id else None,
-                        None,
-                    )
-        except django.core.exceptions.ValidationError:
-            raise ValidationError({"Error": f"{request_subject_id} is not a valid UUID"})
+        # UUID validation is handled eagerly in get() before the generator is
+        # constructed, so we don't need to catch ValidationError here.  Doing so
+        # inside a generator would be ineffective anyway — by the time the
+        # generator runs, headers (including HTTP 200) have already been sent.
+        subjects = self.get_queryset(request_subject_id, request_subject_chronofile, request_source_provider)
+        for subject in subjects.iterator(chunk_size=100):
+            # Get observations for this subject and stream them
+            observations_qs = self.get_subject_trackdata_queryset(filter_flag, lower, subject, upper, max_records)
+            for item in observations_qs.values().iterator(chunk_size=2000):
+                cur_record_serial += 1
+                yield self.get_csv_observation_data(
+                    cur_record_serial,
+                    dloadtime_label,
+                    fixtime_label,
+                    result_format,
+                    item,
+                    subject.id if request_subject_id else None,
+                    None,
+                )
 
     def get(self, request, *args, **kwargs):
         from uuid import UUID
@@ -1374,10 +1374,16 @@ class TrackingMetaDataExportView(APIView):
                 continue
 
     def _prepare_subjects_and_groups(self):
-        """Build annotated queryset and subject groups lookup in a single pass."""
-        subjects = self._get_annotated_queryset()
-        subject_ids = list(subjects.values_list("id", flat=True))
+        """Build annotated queryset and subject groups lookup.
+
+        Uses the lightweight base queryset (no JOINs) for the ID fetch so
+        the heavy annotated queryset is only evaluated once during streaming.
+        """
+        # Lightweight query for IDs only — avoids evaluating the annotated queryset twice.
+        subject_ids = list(self.get_queryset().values_list("id", flat=True))
         subject_groups_lookup = self._build_subject_groups_lookup(subject_ids)
+        # The annotated queryset will be evaluated once by the caller (via .iterator()).
+        subjects = self._get_annotated_queryset()
         return subjects, subject_groups_lookup
 
     def get_source_details(self, output_format):
