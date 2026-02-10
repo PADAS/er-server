@@ -470,7 +470,7 @@ class TestAlerts(BaseAPITest):
         EventDetails.objects.create(event=event, data={"event_details": {"sex": "Female"}})
 
         notification_method = NotificationMethod.objects.create(
-            owner=self.owner, title="Text", method="sms", value="12125551212"
+            owner=self.owner, title="Text", method="sms", value="+14155552671"
         )
 
         send_event_alert(alert_rule_id=alert_rule.id, event_id=event.id, notification_method_id=notification_method.id)
