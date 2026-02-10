@@ -623,6 +623,7 @@ class AlertRuleAdmin(ModelAdminDisplayingManyToManyFieldMixin):
                 "fields": (
                     "conditions",
                     "schedule",
+                    "override_message",
                     "id",
                 ),
             },
