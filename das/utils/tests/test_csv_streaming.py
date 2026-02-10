@@ -12,7 +12,6 @@ from utils.csv_streaming import (
     StreamingCSVGenerator,
     StreamingCSVResponse,
     generate_csv_string,
-    iter_csv_from_values_queryset,
     read_streaming_response_content,
 )
 
@@ -196,53 +195,6 @@ def test_streaming_csv_response_content_is_iterable():
     assert "name" in content  # Header
     assert "Alice" in content
     assert "Bob" in content
-
-
-# iter_csv_from_values_queryset tests
-
-
-def test_iter_csv_from_values_queryset_yields_rows_unchanged():
-    """Should yield rows as-is when no transform is provided."""
-    mock_data = [
-        {"id": 1, "name": "Alice"},
-        {"id": 2, "name": "Bob"},
-    ]
-
-    class MockQueryset:
-        def __init__(self, data):
-            self.data = data
-
-        def iterator(self, chunk_size=2000):
-            return iter(self.data)
-
-    qs = MockQueryset(mock_data)
-    result = list(iter_csv_from_values_queryset(qs))
-
-    assert result == mock_data
-
-
-def test_iter_csv_from_values_queryset_applies_transform():
-    """Should apply transform function to each row."""
-    mock_data = [
-        {"id": 1, "name": "alice"},
-        {"id": 2, "name": "bob"},
-    ]
-
-    class MockQueryset:
-        def __init__(self, data):
-            self.data = data
-
-        def iterator(self, chunk_size=2000):
-            return iter(self.data)
-
-    def transform(row):
-        return {"id": row["id"], "name": row["name"].upper()}
-
-    qs = MockQueryset(mock_data)
-    result = list(iter_csv_from_values_queryset(qs, row_transform=transform))
-
-    assert result[0]["name"] == "ALICE"
-    assert result[1]["name"] == "BOB"
 
 
 # generate_csv_string tests

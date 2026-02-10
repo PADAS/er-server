@@ -25,7 +25,7 @@ Usage:
 import csv
 import io
 import logging
-from typing import Callable, Dict, Generator, Iterable, List, Optional, Union
+from typing import Dict, Generator, Iterable, List, Union
 
 from django.http import StreamingHttpResponse
 
@@ -153,33 +153,6 @@ class StreamingCSVResponse(StreamingHttpResponse):
         # Set headers for file download
         self["Content-Disposition"] = f'attachment; filename="{safe_filename}"'
         self["x-das-download-filename"] = safe_filename
-
-
-def iter_csv_from_values_queryset(
-    queryset,
-    row_transform: Optional[Callable] = None,
-    chunk_size: int = 2000,
-) -> Generator[Dict, None, None]:
-    """
-    Iterate over a values() queryset in chunks.
-
-    This is optimized for querysets that already use .values() or .values_list(),
-    which return dictionaries directly.
-
-    Args:
-        queryset: A Django QuerySet (typically with .values() applied).
-        row_transform: Optional callable to transform each row dictionary.
-                      If None, rows are yielded as-is.
-        chunk_size: Number of rows to fetch from the database at a time.
-
-    Yields:
-        Dictionaries suitable for CSV output.
-    """
-    for item in queryset.iterator(chunk_size=chunk_size):
-        if row_transform:
-            yield row_transform(item)
-        else:
-            yield item
 
 
 def generate_csv_string(
