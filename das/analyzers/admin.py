@@ -430,6 +430,56 @@ class LowSpeedPercentileSubjectAnalyzerAdmin(BaseModelAdminMixin):
     )
 
 
+@admin.register(models.ObservationAttributeAnalyzerConfig)
+class ObservationAttributeAnalyzerAdmin(BaseModelAdminMixin):
+    list_display = (
+        "name",
+        "subject_group_name",
+        "attribute_name",
+    )
+    ordering = ("name", "subject_group", "attribute_name")
+    readonly_fields = ("id",)
+    search_fields = ("subject_group__name", "attribute_name")
+
+    def subject_group_name(self, o):
+        return o.subject_group.name
+
+    subject_group_name.admin_order_field = "subject_group"
+    form = SubjectProximityAnalyzerForm
+
+    fieldsets = (
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": (
+                    (
+                        "name",
+                        "subject_group",
+                        "is_active",
+                        "attribute_name",
+                        "aggregation",
+                    )
+                ),
+            },
+        ),
+        (
+            "Advanced Analyzer Attributes",
+            {
+                "classes": ("wide", "collapse"),
+                "fields": (
+                    "id",
+                    "true_if_null",
+                    "adjust_to_order_of_magnitude",
+                    "search_time_hours",
+                    "quiet_period",
+                    "notes",
+                ),
+            },
+        ),
+    )
+
+
 @admin.register(models.SubjectSpeedProfile)
 class SubjectSpeedProfileAdmin(BaseModelAdminMixin):
     pass

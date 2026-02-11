@@ -582,6 +582,7 @@ class AlertRuleAdmin(ModelAdminDisplayingManyToManyFieldMixin):
     list_display = ("owner_username", "title", "is_active", "ordernum")
     ordering = (
         "owner",
+        "created_at",
         "title",
         "is_active",
         "ordernum",

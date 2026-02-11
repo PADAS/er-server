@@ -1,12 +1,21 @@
-from analyzers.immobility import ImmobilityAnalyzer
-from analyzers.geofence import GeofenceAnalyzer
 from analyzers.environmental import EnvironmentalAnalyzer
-from analyzers.speed import LowSpeedPercentileAnalyzer
-from analyzers.speed import LowSpeedWilcoxAnalyzer
+from analyzers.geofence import GeofenceAnalyzer
+from analyzers.immobility import ImmobilityAnalyzer
 from analyzers.proximity import FeatureProximityAnalyzer
+from analyzers.speed import LowSpeedPercentileAnalyzer, LowSpeedWilcoxAnalyzer
 from analyzers.subject_proximity import SubjectProximityAnalyzer
-subject_analyzers = (ImmobilityAnalyzer, EnvironmentalAnalyzer, GeofenceAnalyzer, LowSpeedPercentileAnalyzer,
-                     LowSpeedWilcoxAnalyzer, FeatureProximityAnalyzer, SubjectProximityAnalyzer)
+
+subject_analyzers = (
+    ImmobilityAnalyzer,
+    EnvironmentalAnalyzer,
+    GeofenceAnalyzer,
+    LowSpeedPercentileAnalyzer,
+    LowSpeedWilcoxAnalyzer,
+    FeatureProximityAnalyzer,
+    SubjectProximityAnalyzer,
+    ObservationAttributeAnalyzer,
+)
+
 
 def get_subject_analyzers(subject):
 
