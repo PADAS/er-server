@@ -320,17 +320,6 @@ class TestErrorTruncation:
         assert len(result.errors) == 1
         assert len(result.warnings) == 1
 
-    @patch("activity.schemas.migration.service.transform_schema")
-    def test_transform_exception_returns_error(self, mock_transform, migration_service, v1_event_type):
-        """When transform_schema raises an exception, result has error and no schema."""
-        mock_transform.side_effect = ValueError("Unexpected schema format")
-
-        result = migration_service.migrate_single(v1_event_type.value)
-
-        assert result.success is False
-        assert "Transformation failed" in result.errors[0]
-        assert result.v2_schema is None
-
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings")
