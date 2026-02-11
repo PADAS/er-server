@@ -66,6 +66,7 @@ class MigrationService:
         """
         self.request = request
         self.dry_run = dry_run
+        self.choices_base_url = reverse("schemas:choices")
 
     def migrate(self, event_types: List[str]) -> List[MigrationResult]:
         """
@@ -101,13 +102,13 @@ class MigrationService:
 
         # Transform schema
         v2_schema = self.transform_schema(event_type, result)
-        if v2_schema is None or result.errors:
+        if v2_schema is None or not result.success:
             return result
 
-        # Post-process
+        # Post-process schema (add hard-coded choices)
         v2_schema = self.process_choices(v2_schema, result)
 
-        # Set result schema
+        # Set result schema, only after all schema processing is done, including hard-coded choices
         result.v2_schema = v2_schema
 
         # Persist if not dry_run
@@ -121,38 +122,32 @@ class MigrationService:
         """Transform V1 schema to V2 using schema_migration_tool."""
         log_collector = LogCollector({"event_type": event_type.value})
 
-        try:
-            v1_schema = json.loads(preprocess_template_vars(event_type.schema))
-            v2_schema = transform_schema(v1_schema, log_collector)
-        except Exception as e:
-            logger.exception("Schema transformation failed for %s", event_type.value)
-            result.errors.append(f"Transformation failed: {str(e)}")
-            return None
+        v1_schema = json.loads(preprocess_template_vars(event_type.schema))
+        v2_schema = transform_schema(v1_schema, log_collector)
 
         # Collect warnings/errors from transformation
         for warning in log_collector.get_warnings():
-            result.warnings.append(warning.get("message", str(warning)))
+            result.warnings.append(warning.get("message"))
 
         for error in log_collector.get_errors():
-            result.errors.append(error.get("message", str(error)))
+            result.errors.append(error.get("message"))
 
         # Store transformation metadata
         features = log_collector.get_features()
         result.metadata["ignored_properties"] = features.get("ignoredProperties", [])
+        result.metadata["unsupported_features"] = features.get("unsupportedFeatures", [])
+
+        if len(result.metadata["unsupported_features"]) > 0:
+            result.errors.append("Unsupported features found in schema: look at metadata for details")
 
         return v2_schema
-
-    def _build_choices_base_url(self) -> str:
-        """Build the relative path for choice $ref references."""
-        return reverse("schemas:choices")
 
     def process_choices(self, v2_schema: dict, result: MigrationResult) -> dict:
         """Analyze hardcoded choices and rewrite ready fields to $ref."""
         choice_processor = ChoiceProcessor(event_type_value=result.event_type)
-        choices_base_url = self._build_choices_base_url()
 
         v2_schema, choice_metadata = choice_processor.process_hardcoded_choices(
-            v2_schema, choices_base_url=choices_base_url
+            v2_schema, choices_base_url=self.choices_base_url
         )
 
         if choice_metadata:
