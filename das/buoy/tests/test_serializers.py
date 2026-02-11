@@ -844,6 +844,61 @@ def test_process_gearset_adds_subject_to_subjectgroup(superuser):
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_reuses_source_by_id_when_manufacturer_id_differs(superuser):
+    """Reusing Source by device_id (id) avoids duplicate key when mfr_device_id differs from existing."""
+    from uuid import UUID
+
+    subject_group = SubjectGroup.objects.create(name="ReuseSourceManufacturer")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    # Existing Source with this id but different manufacturer_id (e.g. from an earlier POST)
+    device_uuid = UUID("440fd840-728b-4742-a3e5-7c8f67b5212b")
+    provider = SourceProvider.objects.create(
+        display_name="ReuseSourceManufacturer", provider_key="gundi_reusesourcemanufacturer"
+    )
+    existing_source = Source.objects.create(
+        id=device_uuid,
+        manufacturer_id="original_mfr_id",
+        provider=provider,
+    )
+    assert existing_source.manufacturer_id == "original_mfr_id"
+
+    now = timezone.now()
+    data = {
+        "manufacturer_name": "ReuseSourceManufacturer",
+        "owner_id": "owner123",
+        "mfr_set_id": "SET_REUSE_1",
+        "deployment_type": "single",
+        "initial_deployment_date": now,
+        "devices": [
+            {
+                "device_id": str(device_uuid),
+                "mfr_device_id": "different_mfr_id",
+                "last_deployed": now,
+                "last_updated": now,
+                "device_status": "deployed",
+                "location": {"latitude": 1.0, "longitude": 2.0},
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=data, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+
+    # Should not raise IntegrityError; existing Source is reused by id
+    subject, observations = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    assert len(observations) == 1
+    assert observations[0].source_id == device_uuid
+    # Reused source keeps its original manufacturer_id (we do not overwrite it)
+    existing_source.refresh_from_db()
+    assert existing_source.manufacturer_id == "original_mfr_id"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_process_gearset_updates_existing_subject_keeps_subjectgroup(superuser):
     """Test that process_gearset maintains SubjectGroup membership when updating existing subject."""
     # Create SubjectGroup and assign permission to superuser
