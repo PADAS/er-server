@@ -72,17 +72,19 @@ class MigrationService:
         """
         Migrate multiple EventTypes from V1 to V2.
         """
+        proposed_choices: Dict[str, list] = {}
         results: list[MigrationResult] = []
 
         for event_type_value in event_types:
-            result = self.migrate_single(event_type_value)
+            result = self.migrate_single(event_type_value, proposed_choices=proposed_choices)
             results.append(result)
 
         return results
 
-    def migrate_single(self, event_type_value: str) -> MigrationResult:
-        """Migrate a single EventType."""
-        # result = shared context between phases
+    def migrate_single(
+        self, event_type_value: str, proposed_choices: Optional[Dict[str, list]] = None
+    ) -> MigrationResult:
+        """Analyze a single EventType for migration (no persistence)."""
         result = MigrationResult(event_type=event_type_value)
 
         try:
@@ -106,7 +108,7 @@ class MigrationService:
             return result
 
         # Post-process schema (add hard-coded choices)
-        v2_schema = self.process_choices(v2_schema, result)
+        v2_schema = self.process_choices(v2_schema, result, proposed_choices=proposed_choices)
 
         # Set result schema, only after all schema processing is done, including hard-coded choices
         result.v2_schema = v2_schema
@@ -142,12 +144,14 @@ class MigrationService:
 
         return v2_schema
 
-    def process_choices(self, v2_schema: dict, result: MigrationResult) -> dict:
+    def process_choices(
+        self, v2_schema: dict, result: MigrationResult, proposed_choices: Optional[Dict[str, list]] = None
+    ) -> dict:
         """Analyze hardcoded choices and rewrite ready fields to $ref."""
         choice_processor = ChoiceProcessor(event_type_value=result.event_type)
 
         v2_schema, choice_metadata = choice_processor.process_hardcoded_choices(
-            v2_schema, choices_base_url=self.choices_base_url
+            v2_schema, choices_base_url=self.choices_base_url, proposed_choices=proposed_choices
         )
 
         if choice_metadata:

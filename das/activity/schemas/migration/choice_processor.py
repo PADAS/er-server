@@ -70,7 +70,10 @@ class ChoiceProcessor:
         self.event_type_value = event_type_value
 
     def process_hardcoded_choices(
-        self, v2_schema: Dict[str, Any], choices_base_url: Optional[str] = None
+        self,
+        v2_schema: Dict[str, Any],
+        choices_base_url: Optional[str] = None,
+        proposed_choices: Optional[Dict[str, List[Dict[str, str]]]] = None,
     ) -> Tuple[dict, dict]:
         """
         Process hardcoded choices in a V2 schema.
@@ -103,8 +106,10 @@ class ChoiceProcessor:
         # Track proposed names within this batch to prevent collisions
         reserved_names: set = set()
 
+        # Phase 1: Analyze all fields (no schema mutation)
+        analyzed_fields = []  # list of (field_name, field_schema, result)
+
         for field_name, field_schema in properties.items():
-            # Check if this field has hardcoded choices (anyOf with oneOf inside)
             hardcoded_values = self.extract_hardcoded_values(field_schema)
 
             if not hardcoded_values:
@@ -115,14 +120,24 @@ class ChoiceProcessor:
                 field_schema=field_schema,
                 hardcoded_values=hardcoded_values,
                 reserved_names=reserved_names,
+                proposed_choices=proposed_choices,
             )
 
             # Track proposed names to avoid collisions within batch
             if result.status == "to_create" and result.proposed_name:
                 reserved_names.add(result.proposed_name)
+                # Add to shared registry so subsequent fields can match
+                if proposed_choices is not None:
+                    proposed_choices[result.proposed_name] = [v["value"] for v in hardcoded_values]
 
-            # Rewrite ready fields to $ref
-            if choices_base_url and result.status in ("matched", "to_create"):
+            analyzed_fields.append((field_name, field_schema, result))
+
+        # Phase 2: Rewrite schemas and collect metadata
+        # Only rewrite to $ref if no candidates were found in this schema
+        has_candidates = any(r.status == "candidate" for _, _, r in analyzed_fields)
+
+        for field_name, field_schema, result in analyzed_fields:
+            if not has_candidates and choices_base_url and result.status in ("matched", "to_create"):
                 ref_name = result.existing_choice_field if result.status == "matched" else result.proposed_name
                 self.rewrite_field_to_ref(field_schema, ref_name, choices_base_url)
             elif result.status == "candidate":
@@ -204,6 +219,7 @@ class ChoiceProcessor:
         field_schema: Dict[str, Any],
         hardcoded_values: List[Dict[str, str]],
         reserved_names: Optional[set] = None,
+        proposed_choices: Optional[Dict[str, List[Dict[str, str]]]] = None,
     ) -> ChoiceFieldResult:
         """
         Analyze a single field with hardcoded choices.
@@ -213,8 +229,8 @@ class ChoiceProcessor:
         """
         result = ChoiceFieldResult(field_name=field_name, values=hardcoded_values)
 
-        # 1. Try to find matching existing choice field
-        match = self.find_matching_choice_field(field_name, hardcoded_values)
+        # 1. Try to find matching existing choice field (DB + proposed)
+        match = self.find_matching_choice_field(field_name, hardcoded_values, proposed_choices=proposed_choices)
 
         if match:
             existing_field_name, score, missing_values = match
@@ -280,7 +296,10 @@ class ChoiceProcessor:
         return slugified.strip("_")
 
     def find_matching_choice_field(
-        self, field_name: str, hardcoded_items: List[Dict[str, str]]
+        self,
+        field_name: str,
+        hardcoded_items: List[Dict[str, str]],
+        proposed_choices: Optional[Dict[str, List[Dict[str, str]]]] = None,
     ) -> Optional[Tuple[str, float, List[Dict[str, str]]]]:
         """
         Find an existing choice field that matches the hardcoded values.
@@ -302,6 +321,12 @@ class ChoiceProcessor:
 
         # Get all existing choice fields for events
         existing_fields = self.get_existing_choice_fields()
+
+        # Merge proposed choices into existing fields for matching
+        if proposed_choices:
+            for proposed_name, proposed_values in proposed_choices.items():
+                if proposed_name not in existing_fields:
+                    existing_fields[proposed_name] = proposed_values
 
         best_match: Optional[Tuple[str, float, List[Dict[str, str]]]] = None
 
