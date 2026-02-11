@@ -525,7 +525,7 @@ ui_sections_schema = {
                             "IS_CONTAINED_BY",
                             "IS_EMPTY",
                             "IS_EXACTLY",
-                            "IS_NOT_CONTAINED_BY"
+                            "IS_NOT_CONTAINED_BY",
                             "IS_NOT_EMPTY",
                         ]
                     },
