@@ -1491,10 +1491,11 @@ class TestEventTypeMigration:
         response = superuser_client.post(url, data=data)
 
         assert response.status_code == status.HTTP_200_OK
-        assert "data" in response.data
-        assert len(response.data["data"]) == 1
+        results = response.data
+        assert isinstance(results, list)
+        assert len(results) == 1
 
-        result = response.data["data"][0]
+        result = results[0]
         assert result["event_type"] == v1_event_type.value
         assert "v2_schema" in result
         assert "warnings" in result
@@ -1516,7 +1517,7 @@ class TestEventTypeMigration:
         response = superuser_client.post(url, data=data)
 
         assert response.status_code == status.HTTP_200_OK
-        result = response.data["data"][0]
+        result = response.data[0]
 
         # Check success (no errors)
         if not result["errors"]:
@@ -1534,7 +1535,7 @@ class TestEventTypeMigration:
         response = superuser_client.post(url, data=data)
 
         assert response.status_code == status.HTTP_200_OK
-        result = response.data["data"][0]
+        result = response.data[0]
         assert result["event_type"] == "nonexistent_type"
         assert len(result["errors"]) > 0
         assert "not found" in result["errors"][0]
@@ -1561,9 +1562,9 @@ class TestEventTypeMigration:
         response = superuser_client.post(url, data=data)
 
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data["data"]) == 2
-        assert response.data["data"][0]["event_type"] == v1_event_type.value
-        assert response.data["data"][1]["event_type"] == v1_event_type_2.value
+        assert len(response.data) == 2
+        assert response.data[0]["event_type"] == v1_event_type.value
+        assert response.data[1]["event_type"] == v1_event_type_2.value
 
     def test_migrate_empty_event_types_returns_400(self, superuser_client):
         """Test empty event_types list returns 400."""
@@ -1614,6 +1615,6 @@ class TestEventTypeMigration:
         response = superuser_client.post(url, data=data)
 
         assert response.status_code == status.HTTP_200_OK
-        result = response.data["data"][0]
+        result = response.data[0]
         assert len(result["errors"]) > 0
         assert "not V1" in result["errors"][0]

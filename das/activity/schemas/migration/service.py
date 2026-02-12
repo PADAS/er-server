@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 from schema_migration_tool import LogCollector, transform_schema
 from schema_migration_tool.batch.normalize_export import preprocess_template_vars
 
+from django.db import transaction
 from django.urls import reverse
 
 from activity.models import EventType
@@ -30,6 +31,7 @@ class MigrationResult:
     """Result of migrating a single EventType."""
 
     event_type: str
+    event_type_instance: Optional["EventType"] = field(default=None, repr=False)
     v2_schema: Optional[Dict[str, Any]] = None
     warnings: List[str] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
@@ -71,13 +73,25 @@ class MigrationService:
     def migrate(self, event_types: List[str]) -> List[MigrationResult]:
         """
         Migrate multiple EventTypes from V1 to V2.
+
+        Uses a shared proposed_choices registry so that choices proposed
+        by earlier event types are visible to later ones. Persistence
+        is atomic: all event types commit together or none do.
         """
         proposed_choices: Dict[str, list] = {}
         results: list[MigrationResult] = []
 
+        # Phase 1: Analyze all event types (no DB writes)
         for event_type_value in event_types:
             result = self.migrate_single(event_type_value, proposed_choices=proposed_choices)
             results.append(result)
+
+        # Phase 2: Atomic persistence (all-or-nothing)
+        if not self.dry_run and all(r.success for r in results):
+            with transaction.atomic():
+                for result in results:
+                    self.persist_choices(result)
+                    self.persist_migration(result.event_type_instance, result)
 
         return results
 
@@ -92,6 +106,8 @@ class MigrationService:
         except EventType.DoesNotExist:
             result.errors.append(f"EventType '{event_type_value}' not found")
             return result
+
+        result.event_type_instance = event_type
 
         # Check authorization
         if not self.can_modify_event_type(event_type) and not self.dry_run:
@@ -112,11 +128,6 @@ class MigrationService:
 
         # Set result schema, only after all schema processing is done, including hard-coded choices
         result.v2_schema = v2_schema
-
-        # Persist if not dry_run
-        if not self.dry_run and result.success:
-            self.persist_choices(result)
-            self.persist_migration(event_type, result)
 
         return result
 
@@ -159,6 +170,15 @@ class MigrationService:
             for warning in choice_metadata.get("warnings", []):
                 result.warnings.append(warning)
 
+            # Block migration if any candidate (partial match) fields found
+            candidate_fields = [f for f in choice_metadata.get("fields", []) if f.get("status") == "candidate"]
+            for field_info in candidate_fields:
+                result.errors.append(
+                    f"Field '{field_info['field_name']}' has a partial match with "
+                    f"existing choice list '{field_info['existing_choice_field']}'. "
+                    f"Cannot auto-migrate - manual resolution required."
+                )
+
         return v2_schema
 
     def persist_choices(self, result: MigrationResult) -> None:
@@ -167,8 +187,10 @@ class MigrationService:
 
         Handles:
         - Creating new choice fields (status="to_create")
-        - Adding missing values to existing fields (status="candidate")
         - Reusing choice fields within the same event type migration
+
+        Note: Candidate (partial match) fields are blocked at the process_choices
+        stage and never reach persistence.
         """
         choice_metadata = result.metadata.get("choices", {})
         fields = choice_metadata.get("fields", [])
@@ -220,26 +242,6 @@ class MigrationService:
                         "Failed to create choice field '%s'",
                         proposed_name,
                     )
-
-            elif status == "candidate":
-                values_to_add = field_info.get("values_to_add", [])
-                existing_field = field_info.get("existing_choice_field")
-
-                if values_to_add and existing_field:
-                    try:
-                        added = choice_processor.add_values_to_choice_field(existing_field, values_to_add)
-                        field_info["values_added"] = added
-                        logger.info(
-                            "Added %d values to existing choice field '%s'",
-                            added,
-                            existing_field,
-                        )
-                    except Exception as e:
-                        field_info["error"] = str(e)
-                        logger.exception(
-                            "Failed to add values to choice field '%s'",
-                            existing_field,
-                        )
 
     def _get_values_key(self, values: List[Dict[str, str]], processor: ChoiceProcessor) -> str:
         """Generate a key for a set of values for deduplication."""

@@ -80,9 +80,9 @@ class TestMigrateSingle:
     def test_persists_when_not_dry_run(self, mock_perm, mock_transform, migration_service_live, v1_event_type):
         mock_transform.return_value = {"json": {"properties": {}}, "ui": {}}
 
-        result = migration_service_live.migrate_single(v1_event_type.value)
+        results = migration_service_live.migrate([v1_event_type.value])
 
-        assert result.success is True
+        assert results[0].success is True
         # Reload from DB - should be V2 now
         v1_event_type.refresh_from_db()
         assert v1_event_type.version == EventType.VersionChoices.VERSION_2
@@ -136,31 +136,14 @@ class TestPersistChoices:
         assert field_info["status"] == "created"
         assert field_info["existing_choice_field"] == "test_priority"
 
-    def test_adds_values_to_existing_field(
-        self, migration_service_live, create_choice, hardcoded_values, migration_result_with_choices
-    ):
-        create_choice("status", "open", "Open")
-        values_to_add = hardcoded_values(("closed", "Closed"))
+    def test_skips_non_to_create_fields(self, migration_service_live, migration_result_with_choices):
+        """persist_choices only handles to_create status; other statuses are ignored."""
         result = migration_result_with_choices(
-            [
-                {
-                    "field_name": "status",
-                    "status": "candidate",
-                    "existing_choice_field": "status",
-                    "values_to_add": values_to_add,
-                }
-            ]
+            [{"field_name": "status", "status": "matched", "existing_choice_field": "status"}]
         )
 
+        # Should not raise
         migration_service_live.persist_choices(result)
-
-        # Check new value was added
-        choices = Choice.objects.filter(field="status").order_by("ordernum")
-        assert choices.count() == 2
-        assert choices[1].value == "closed"
-        # Check metadata was updated
-        field_info = result.metadata["choices"]["fields"][0]
-        assert field_info["values_added"] == 1
 
     def test_reuses_choice_field_for_similar_values(
         self, migration_service_live, hardcoded_values, migration_result_with_choices
@@ -257,6 +240,122 @@ class TestProcessChoices:
         migration_service.process_choices(v2_schema, result)
 
         assert result.metadata["choices"]["fields"] == []
+
+    def test_candidate_fields_produce_errors(
+        self, migration_service, create_choice_field, v2_schema_with_fields, migration_result
+    ):
+        """Candidate (partial match) fields should add errors to block migration."""
+        create_choice_field("status", [("open", "Open"), ("closed", "Closed")])
+        v2_schema = v2_schema_with_fields({"status": [("open", "Open"), ("closed", "Closed"), ("pending", "Pending")]})
+        result = migration_result()
+
+        migration_service.process_choices(v2_schema, result)
+
+        assert not result.success
+        assert len(result.errors) == 1
+        assert "partial match" in result.errors[0]
+        assert "Cannot auto-migrate" in result.errors[0]
+
+    def test_matched_fields_do_not_produce_errors(
+        self, migration_service, create_choice_field, v2_schema_with_fields, migration_result
+    ):
+        """100% matched fields should not produce errors."""
+        create_choice_field("priority", [("high", "High"), ("low", "Low")])
+        v2_schema = v2_schema_with_fields({"priority": [("high", "High"), ("low", "Low")]})
+        result = migration_result()
+
+        migration_service.process_choices(v2_schema, result)
+
+        assert result.success
+        assert len(result.errors) == 0
+
+    def test_to_create_fields_do_not_produce_errors(self, migration_service, v2_schema_with_fields, migration_result):
+        """No-match fields (to_create) should not produce errors."""
+        v2_schema = v2_schema_with_fields({"severity": [("low", "Low"), ("high", "High")]})
+        result = migration_result()
+
+        migration_service.process_choices(v2_schema, result)
+
+        assert result.success
+        assert len(result.errors) == 0
+        assert result.metadata["choices"]["fields"][0]["status"] == "to_create"
+
+    def test_batch_conflict_subset_blocks_migration(self, migration_service, v2_schema_with_fields, migration_result):
+        """Field B (b,c,d) is a subset of Field A (a,b,c,d) — Jaccard 3/4=0.75 ≥ 2/3."""
+        v2_schema = v2_schema_with_fields(
+            {
+                "severity": [("a", "A"), ("b", "B"), ("c", "C"), ("d", "D")],
+                "impact": [("b", "B"), ("c", "C"), ("d", "D")],
+            }
+        )
+        result = migration_result()
+
+        migration_service.process_choices(v2_schema, result, proposed_choices={})
+
+        assert not result.success
+        assert any("partial match" in e for e in result.errors)
+
+    def test_batch_conflict_superset_blocks_migration(self, migration_service, v2_schema_with_fields, migration_result):
+        """Field C (a,b,c,d,e) is a superset of Field A (a,b,c,d) — Jaccard 4/5=0.80 ≥ 2/3."""
+        v2_schema = v2_schema_with_fields(
+            {
+                "severity": [("a", "A"), ("b", "B"), ("c", "C"), ("d", "D")],
+                "full_severity": [("a", "A"), ("b", "B"), ("c", "C"), ("d", "D"), ("e", "E")],
+            }
+        )
+        result = migration_result()
+
+        migration_service.process_choices(v2_schema, result, proposed_choices={})
+
+        assert not result.success
+        assert any("partial match" in e for e in result.errors)
+
+    def test_batch_no_conflict_below_threshold(self, migration_service, v2_schema_with_fields, migration_result):
+        """Fields with low overlap (Jaccard 1/7=0.14 < 2/3) should not block."""
+        v2_schema = v2_schema_with_fields(
+            {
+                "field_a": [("a", "A"), ("b", "B"), ("c", "C"), ("d", "D")],
+                "field_b": [("d", "D"), ("e", "E"), ("f", "F"), ("g", "G")],
+            }
+        )
+        result = migration_result()
+
+        migration_service.process_choices(v2_schema, result, proposed_choices={})
+
+        assert result.success
+
+    def test_batch_exact_duplicate_values_allowed(self, migration_service, v2_schema_with_fields, migration_result):
+        """Exact same values (Jaccard=1.0) are allowed — handled by persist_choices dedup."""
+        v2_schema = v2_schema_with_fields(
+            {
+                "field_a": [("a", "A"), ("b", "B")],
+                "field_b": [("a", "A"), ("b", "B")],
+            }
+        )
+        result = migration_result()
+
+        migration_service.process_choices(v2_schema, result, proposed_choices={})
+
+        assert result.success
+
+    def test_batch_conflict_schema_not_rewritten_to_ref(
+        self, migration_service, v2_schema_with_fields, migration_result
+    ):
+        """Conflicting fields should keep hardcoded values (not rewritten to $ref)."""
+        v2_schema = v2_schema_with_fields(
+            {
+                "severity": [("a", "A"), ("b", "B"), ("c", "C"), ("d", "D")],
+                "impact": [("b", "B"), ("c", "C"), ("d", "D")],
+            }
+        )
+        result = migration_result()
+
+        migration_service.process_choices(v2_schema, result, proposed_choices={})
+
+        # Both fields should still have hardcoded oneOf structure
+        for field_name in ("severity", "impact"):
+            field_schema = v2_schema["json"]["properties"][field_name]
+            assert any("oneOf" in opt for opt in field_schema["anyOf"])
 
 
 class TestGetValuesKey:
@@ -386,3 +485,78 @@ class TestEndToEndRewrite:
 
         assert result.success is True
         assert result.v2_schema == clean_schema
+
+    @patch("activity.schemas.migration.service.transform_schema")
+    def test_candidate_field_blocks_migration(
+        self, mock_transform, migration_service, v1_event_type, create_choice_field
+    ):
+        """Candidate (partial match) fields should block migration entirely."""
+        create_choice_field("severity", [("low", "Low"), ("high", "High")])
+        mock_transform.return_value = {
+            "json": {
+                "properties": {
+                    "severity": {
+                        "title": "Severity",
+                        "type": "string",
+                        "anyOf": [
+                            {
+                                "title": "Hardcoded",
+                                "type": "string",
+                                "oneOf": [
+                                    {"const": "low", "title": "Low"},
+                                    {"const": "high", "title": "High"},
+                                    {"const": "critical", "title": "Critical"},
+                                ],
+                            }
+                        ],
+                    },
+                }
+            },
+            "ui": {},
+        }
+
+        result = migration_service.migrate_single(v1_event_type.value)
+
+        assert result.success is False
+        assert any("Cannot auto-migrate" in e for e in result.errors)
+        # Schema is still set for preview purposes
+        assert result.v2_schema is not None
+        # Candidate field should NOT be rewritten to $ref
+        severity = result.v2_schema["json"]["properties"]["severity"]
+        assert any("oneOf" in opt for opt in severity["anyOf"])
+
+    @patch("activity.schemas.migration.service.transform_schema")
+    @patch.object(MigrationService, "can_modify_event_type", return_value=True)
+    def test_candidate_field_prevents_persistence(
+        self, mock_perm, mock_transform, migration_service_live, v1_event_type, create_choice_field
+    ):
+        """Candidate fields should prevent persistence even with dry_run=False."""
+        create_choice_field("severity", [("low", "Low"), ("high", "High")])
+        mock_transform.return_value = {
+            "json": {
+                "properties": {
+                    "severity": {
+                        "title": "Severity",
+                        "anyOf": [
+                            {
+                                "title": "Hardcoded",
+                                "type": "string",
+                                "oneOf": [
+                                    {"const": "low", "title": "Low"},
+                                    {"const": "high", "title": "High"},
+                                    {"const": "critical", "title": "Critical"},
+                                ],
+                            }
+                        ],
+                    },
+                }
+            },
+            "ui": {},
+        }
+
+        result = migration_service_live.migrate_single(v1_event_type.value)
+
+        assert result.success is False
+        # Should NOT persist
+        v1_event_type.refresh_from_db()
+        assert v1_event_type.version == EventType.VersionChoices.VERSION_1

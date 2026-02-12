@@ -82,6 +82,11 @@ class ChoiceProcessor:
             v2_schema: The migrated V2 schema
             choices_base_url: Absolute base URL for choice $ref rewriting
                 (e.g. "https://host/api/v2.0/schemas/choices.json")
+            proposed_choices: Shared registry of choices proposed for creation
+                across the migration batch. Keys are choice field names,
+                values are lists of {value, display} dicts. When a field is
+                'to_create', its values are added here so subsequent fields
+                can match against them.
 
         Returns:
             Tuple of (modified_schema, metadata)
@@ -147,23 +152,24 @@ class ChoiceProcessor:
                 )
 
             metadata["fields"].append(result.to_dict())
-
-            # Update summary
-            if result.status == "matched":
-                metadata["summary"]["matched"] += 1
-            elif result.status == "candidate":
-                metadata["summary"]["candidate"] += 1
-            elif result.status == "to_create":
-                metadata["summary"]["to_create"] += 1
-            elif result.status == "created":
-                metadata["summary"]["created"] += 1
-            elif result.status == "error":
-                metadata["summary"]["errors"] += 1
-
-            # Collect warnings
+            self._update_summary(metadata["summary"], result.status)
             metadata["warnings"].extend(result.warnings)
 
         return v2_schema, metadata
+
+    @staticmethod
+    def _update_summary(summary: Dict[str, int], status: str) -> None:
+        """Increment the appropriate summary counter for a field status."""
+        status_map = {
+            "matched": "matched",
+            "candidate": "candidate",
+            "to_create": "to_create",
+            "created": "created",
+            "error": "errors",
+        }
+        key = status_map.get(status)
+        if key:
+            summary[key] += 1
 
     def extract_hardcoded_values(self, field_schema: Dict[str, Any]) -> List[Dict[str, str]]:
         """
@@ -303,6 +309,9 @@ class ChoiceProcessor:
     ) -> Optional[Tuple[str, float, List[Dict[str, str]]]]:
         """
         Find an existing choice field that matches the hardcoded values.
+
+        Checks both the database and the proposed_choices registry
+        (choices proposed for creation earlier in the migration batch).
 
         Uses normalized comparison (case-insensitive, separator-agnostic).
 
