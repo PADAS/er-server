@@ -21,10 +21,13 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
         self.logger = logging.getLogger(__name__)
 
     @classmethod
-    def subject_analyzers(cls, subject, analyzer_class):
-        subject_groups = subject.get_ancestor_subject_groups()
-        for ac in analyzer_class.objects.filter(subject_group__in=subject_groups, is_active=True):
-            yield cls(subject=subject, config=ac)
+    def get_subject_analyzers(cls, subject=None):
+        if subject:
+            subject_groups = subject.get_ancestor_subject_groups()
+            for ac in ObservationAttributeAnalyzerConfig.objects.filter(
+                subject_group__in=subject_groups, is_active=True
+            ):
+                yield cls(subject=subject, config=ac)
 
     def default_observations(self):
         """
