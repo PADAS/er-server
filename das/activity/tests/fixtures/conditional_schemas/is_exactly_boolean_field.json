@@ -2,12 +2,12 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "event_time": {
+      "is_active": {
         "deprecated": false,
         "description": "",
-        "format": "date-time",
-        "title": "Event Time",
-        "type": "string"
+        "title": "Is Active",
+        "type": "boolean",
+        "default": false
       }
     },
     "required": [],
@@ -18,57 +18,43 @@
         "if": {
           "allOf": [
             {
-              "anyOf": [
-                {
-                  "not": {
-                    "required": [
-                      "event_time"
-                    ]
-                  }
-                },
-                {
-                  "properties": {
-                    "event_time": {
-                      "maxItems": 0,
-                      "type": "array"
-                    }
-                  },
-                  "required": [
-                    "event_time"
-                  ]
-                },
-                {
-                  "properties": {
-                    "event_time": {
-                      "type": "null"
-                    }
-                  },
-                  "required": [
-                    "event_time"
-                  ]
-                },
-                {
-                  "properties": {
-                    "event_time": {
-                      "maxProperties": 0,
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "event_time"
-                  ]
-                },
-                {
-                  "properties": {
-                    "event_time": {
-                      "maxLength": 0,
+              "properties": {
+                "is_active": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "allOf": [
+                        {
+                          "contains": {
+                            "const": "true"
+                          }
+                        }
+                      ],
+                      "maxItems": 1
+                    },
+                    {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    {
+                      "const": null,
+                      "type": "number"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {},
+                      "required": [],
+                      "unevaluatedProperties": false
+                    },
+                    {
+                      "const": "true",
                       "type": "string"
                     }
-                  },
-                  "required": [
-                    "event_time"
                   ]
                 }
+              },
+              "required": [
+                "is_active"
               ]
             }
           ]
@@ -91,12 +77,12 @@
   },
   "ui": {
     "fields": {
-      "event_time": {
+      "is_active": {
         "conditionalDependents": [
           "section-2"
         ],
-        "type": "DATE_TIME",
-        "parent": "section-1"
+        "parent": "section-1",
+        "type": "BOOLEAN"
       },
       "conditional_field": {
         "conditionalDependents": [],
@@ -119,7 +105,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "event_time",
+            "name": "is_active",
             "type": "field"
           }
         ],
@@ -129,10 +115,10 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "event_time",
-            "id": "condition-dbK92wqzFTNU5dq9Kem6o",
-            "operator": "DOES_NOT_HAVE_INPUT",
-            "value": null
+            "field": "is_active",
+            "id": "condition-bool-iie-1",
+            "operator": "IS_EXACTLY",
+            "value": "true"
           }
         ],
         "isActive": true,

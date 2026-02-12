@@ -6,7 +6,6 @@
                 "deprecated": false,
                 "description": "",
                 "items": {
-                    "additionalProperties": false,
                     "properties": {
                         "name": {
                             "default": "",
@@ -17,7 +16,8 @@
                         }
                     },
                     "required": [],
-                    "type": "object"
+                    "type": "object",
+                    "unevaluatedProperties": false
                 },
                 "title": "Items",
                 "type": "array",
@@ -32,41 +32,57 @@
                 "if": {
                     "allOf": [
                         {
-                            "properties": {
-                                "items": {
-                                    "allOf": [
-                                        {
-                                            "not": {
-                                                "type": "null"
-                                            }
-                                        },
-                                        {
-                                            "anyOf": [
-                                                {
-                                                    "minItems": 1,
-                                                    "type": "array"
-                                                },
-                                                {
-                                                    "type": "boolean"
-                                                },
-                                                {
-                                                    "type": "number"
-                                                },
-                                                {
-                                                    "minProperties": 1,
-                                                    "type": "object"
-                                                },
-                                                {
-                                                    "minLength": 1,
-                                                    "type": "string"
-                                                }
-                                            ]
+                            "anyOf": [
+                                {
+                                    "not": {
+                                        "required": [
+                                            "items"
+                                        ]
+                                    }
+                                },
+                                {
+                                    "properties": {
+                                        "items": {
+                                            "maxItems": 0,
+                                            "type": "array"
                                         }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                },
+                                {
+                                    "properties": {
+                                        "items": {
+                                            "type": "null"
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                },
+                                {
+                                    "properties": {
+                                        "items": {
+                                            "maxProperties": 0,
+                                            "type": "object"
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                },
+                                {
+                                    "properties": {
+                                        "items": {
+                                            "maxLength": 0,
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
                                     ]
                                 }
-                            },
-                            "required": [
-                                "items"
                             ]
                         }
                     ]
@@ -90,7 +106,7 @@
     "ui": {
         "fields": {
             "items": {
-                "buttonText": "Add Item",
+                "buttonText": "",
                 "columns": 1,
                 "conditionalDependents": [
                     "section-2"
@@ -105,6 +121,7 @@
                 "parent": "section-1"
             },
             "name": {
+                "conditionalDependents": [],
                 "inputType": "SHORT_TEXT",
                 "placeholder": "",
                 "type": "TEXT",
@@ -142,8 +159,8 @@
                 "conditions": [
                     {
                         "field": "items",
-                        "id": "condition-collection-has-input",
-                        "operator": "HAS_INPUT",
+                        "id": "condition-Vn9rcOky1PBEVW_1t630w",
+                        "operator": "IS_EMPTY",
                         "value": null
                     }
                 ],

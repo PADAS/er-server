@@ -2,12 +2,16 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "trigger_field": {
-        "default": "",
+      "status": {
         "deprecated": false,
         "description": "",
-        "title": "Trigger Field",
-        "type": "string"
+        "title": "Status",
+        "type": "string",
+        "anyOf": [
+          {
+            "$ref": "https://era-12220.dev.pamdas.org/api/v2.0/schemas/choices.json?field=fire_status"
+          }
+        ]
       }
     },
     "required": [],
@@ -19,14 +23,14 @@
           "allOf": [
             {
               "properties": {
-                "trigger_field": {
+                "status": {
                   "anyOf": [
                     {
                       "type": "array",
                       "allOf": [
                         {
                           "contains": {
-                            "const": "Arequipa"
+                            "const": "burning"
                           }
                         }
                       ],
@@ -47,14 +51,14 @@
                       "unevaluatedProperties": false
                     },
                     {
-                      "const": "Arequipa",
+                      "const": "burning",
                       "type": "string"
                     }
                   ]
                 }
               },
               "required": [
-                "trigger_field"
+                "status"
               ]
             }
           ]
@@ -77,21 +81,32 @@
   },
   "ui": {
     "fields": {
-      "trigger_field": {
-        "conditionalDependents": [
-          "section-2"
-        ],
-        "inputType": "SHORT_TEXT",
-        "placeholder": "",
-        "type": "TEXT",
-        "parent": "section-1"
-      },
       "conditional_field": {
         "conditionalDependents": [],
         "inputType": "SHORT_TEXT",
         "placeholder": "",
         "type": "TEXT",
         "parent": "section-2"
+      },
+      "status": {
+        "choices": {
+          "eventTypeCategories": [],
+          "existingChoiceList": [
+            "fire_status"
+          ],
+          "featureCategories": [],
+          "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
+          "subjectGroups": [],
+          "subjectSubtypes": [],
+          "type": "EXISTING_CHOICE_LIST"
+        },
+        "conditionalDependents": [
+          "section-2"
+        ],
+        "inputType": "DROPDOWN",
+        "placeholder": "",
+        "type": "CHOICE_LIST",
+        "parent": "section-1"
       }
     },
     "headers": {},
@@ -107,7 +122,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "trigger_field",
+            "name": "status",
             "type": "field"
           }
         ],
@@ -117,10 +132,10 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "trigger_field",
-            "id": "condition-5Z6_KzhCxgKQk0s_hnCOt",
-            "operator": "INPUT_IS_EXACTLY",
-            "value": "Arequipa"
+            "field": "status",
+            "id": "condition-t1BQvkFjTIikwyqHCYCpf",
+            "operator": "IS_EXACTLY",
+            "value": "burning"
           }
         ],
         "isActive": true,

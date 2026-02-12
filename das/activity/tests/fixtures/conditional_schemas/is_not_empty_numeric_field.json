@@ -19,35 +19,33 @@
             {
               "properties": {
                 "count": {
-                  "anyOf": [
+                  "allOf": [
                     {
-                      "type": "array",
-                      "allOf": [
+                      "not": {
+                        "type": "null"
+                      }
+                    },
+                    {
+                      "anyOf": [
                         {
-                          "contains": {
-                            "const": "0"
-                          }
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "minProperties": 1,
+                          "type": "object"
+                        },
+                        {
+                          "minLength": 1,
+                          "type": "string"
                         }
-                      ],
-                      "maxItems": 1
-                    },
-                    {
-                      "type": "boolean",
-                      "const": null
-                    },
-                    {
-                      "const": 0,
-                      "type": "number"
-                    },
-                    {
-                      "type": "object",
-                      "properties": {},
-                      "required": [],
-                      "unevaluatedProperties": false
-                    },
-                    {
-                      "const": "0",
-                      "type": "string"
+                      ]
                     }
                   ]
                 }
@@ -116,9 +114,9 @@
         "conditions": [
           {
             "field": "count",
-            "id": "condition-RfKpr3sn1hHKhw5QepTsH",
-            "operator": "INPUT_IS_EXACTLY",
-            "value": "0"
+            "id": "condition-ylQwCVxzXY4PRGClFfiR6",
+            "operator": "IS_NOT_EMPTY",
+            "value": null
           }
         ],
         "isActive": true,

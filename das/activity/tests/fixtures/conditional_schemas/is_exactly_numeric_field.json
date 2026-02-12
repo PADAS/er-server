@@ -2,12 +2,11 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "is_active": {
+      "count": {
         "deprecated": false,
         "description": "",
-        "title": "Is Active",
-        "type": "boolean",
-        "default": false
+        "title": "Count",
+        "type": "number"
       }
     },
     "required": [],
@@ -19,40 +18,42 @@
           "allOf": [
             {
               "properties": {
-                "is_active": {
-                  "allOf": [
+                "count": {
+                  "anyOf": [
                     {
-                      "not": {
-                        "type": "null"
-                      }
+                      "type": "array",
+                      "allOf": [
+                        {
+                          "contains": {
+                            "const": "42"
+                          }
+                        }
+                      ],
+                      "maxItems": 1
                     },
                     {
-                      "anyOf": [
-                        {
-                          "minItems": 1,
-                          "type": "array"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "minProperties": 1,
-                          "type": "object"
-                        },
-                        {
-                          "minLength": 1,
-                          "type": "string"
-                        }
-                      ]
+                      "type": "boolean",
+                      "const": null
+                    },
+                    {
+                      "const": 42,
+                      "type": "number"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {},
+                      "required": [],
+                      "unevaluatedProperties": false
+                    },
+                    {
+                      "const": "42",
+                      "type": "string"
                     }
                   ]
                 }
               },
               "required": [
-                "is_active"
+                "count"
               ]
             }
           ]
@@ -75,12 +76,13 @@
   },
   "ui": {
     "fields": {
-      "is_active": {
+      "count": {
         "conditionalDependents": [
           "section-2"
         ],
-        "parent": "section-1",
-        "type": "BOOLEAN"
+        "placeholder": "",
+        "type": "NUMERIC",
+        "parent": "section-1"
       },
       "conditional_field": {
         "conditionalDependents": [],
@@ -103,7 +105,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "is_active",
+            "name": "count",
             "type": "field"
           }
         ],
@@ -113,10 +115,10 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "is_active",
-            "id": "condition-bool-hi-1",
-            "operator": "HAS_INPUT",
-            "value": null
+            "field": "count",
+            "id": "condition-U39kY7wGZh0_17qyfc_ib",
+            "operator": "IS_EXACTLY",
+            "value": "42"
           }
         ],
         "isActive": true,

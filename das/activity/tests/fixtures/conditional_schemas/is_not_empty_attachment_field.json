@@ -2,16 +2,11 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "priority": {
+      "photo": {
         "deprecated": false,
-        "description": "",
-        "title": "Priority",
-        "type": "string",
-        "anyOf": [
-          {
-            "$ref": "https://era-12220.dev.pamdas.org/api/v2.0/schemas/choices.json?field=firerep_status"
-          }
-        ]
+        "format": "uri",
+        "title": "Photo",
+        "type": "string"
       }
     },
     "required": [],
@@ -23,7 +18,7 @@
           "allOf": [
             {
               "properties": {
-                "priority": {
+                "photo": {
                   "allOf": [
                     {
                       "not": {
@@ -56,7 +51,7 @@
                 }
               },
               "required": [
-                "priority"
+                "photo"
               ]
             }
           ]
@@ -79,24 +74,12 @@
   },
   "ui": {
     "fields": {
-      "priority": {
-        "choices": {
-          "eventTypeCategories": [],
-          "existingChoiceList": [
-            "firerep_status"
-          ],
-          "featureCategories": [],
-          "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
-          "subjectGroups": [],
-          "subjectSubtypes": [],
-          "type": "EXISTING_CHOICE_LIST"
-        },
+      "photo": {
+        "allowableFileTypes": [],
         "conditionalDependents": [
           "section-2"
         ],
-        "inputType": "DROPDOWN",
-        "placeholder": "",
-        "type": "CHOICE_LIST",
+        "type": "ATTACHMENT",
         "parent": "section-1"
       },
       "conditional_field": {
@@ -120,7 +103,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "priority",
+            "name": "photo",
             "type": "field"
           }
         ],
@@ -130,9 +113,9 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "priority",
-            "id": "condition-Pyy_k8bEVFMdQ1cRTzw0f",
-            "operator": "HAS_INPUT",
+            "field": "photo",
+            "id": "condition-aO7IdXydSuOln_zP-uEzl",
+            "operator": "IS_NOT_EMPTY",
             "value": null
           }
         ],
@@ -140,8 +123,8 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "conditional_field",
-            "type": "field"
+            "type": "field",
+            "name": "conditional_field"
           }
         ],
         "rightColumn": []

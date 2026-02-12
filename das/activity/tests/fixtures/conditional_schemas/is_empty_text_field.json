@@ -2,11 +2,11 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "event_time": {
+      "trigger_field": {
+        "default": "",
         "deprecated": false,
         "description": "",
-        "format": "date-time",
-        "title": "Event Time",
+        "title": "Trigger Field",
         "type": "string"
       }
     },
@@ -18,41 +18,57 @@
         "if": {
           "allOf": [
             {
-              "properties": {
-                "event_time": {
-                  "allOf": [
-                    {
-                      "not": {
-                        "type": "null"
-                      }
-                    },
-                    {
-                      "anyOf": [
-                        {
-                          "minItems": 1,
-                          "type": "array"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "minProperties": 1,
-                          "type": "object"
-                        },
-                        {
-                          "minLength": 1,
-                          "type": "string"
-                        }
-                      ]
+              "anyOf": [
+                {
+                  "not": {
+                    "required": [
+                      "trigger_field"
+                    ]
+                  }
+                },
+                {
+                  "properties": {
+                    "trigger_field": {
+                      "maxItems": 0,
+                      "type": "array"
                     }
+                  },
+                  "required": [
+                    "trigger_field"
+                  ]
+                },
+                {
+                  "properties": {
+                    "trigger_field": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "trigger_field"
+                  ]
+                },
+                {
+                  "properties": {
+                    "trigger_field": {
+                      "maxProperties": 0,
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "trigger_field"
+                  ]
+                },
+                {
+                  "properties": {
+                    "trigger_field": {
+                      "maxLength": 0,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "trigger_field"
                   ]
                 }
-              },
-              "required": [
-                "event_time"
               ]
             }
           ]
@@ -75,11 +91,13 @@
   },
   "ui": {
     "fields": {
-      "event_time": {
+      "trigger_field": {
         "conditionalDependents": [
           "section-2"
         ],
-        "type": "DATE_TIME",
+        "inputType": "SHORT_TEXT",
+        "placeholder": "",
+        "type": "TEXT",
         "parent": "section-1"
       },
       "conditional_field": {
@@ -103,7 +121,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "event_time",
+            "name": "trigger_field",
             "type": "field"
           }
         ],
@@ -113,9 +131,9 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "event_time",
-            "id": "condition-C5XNFu1GNr9_w6AyzcGBK",
-            "operator": "HAS_INPUT",
+            "field": "trigger_field",
+            "id": "condition-dEIm9qOXbonDIhwfN5S_7",
+            "operator": "IS_EMPTY",
             "value": null
           }
         ],

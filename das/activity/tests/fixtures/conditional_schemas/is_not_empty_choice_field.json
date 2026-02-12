@@ -2,20 +2,16 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "tags": {
+      "priority": {
         "deprecated": false,
         "description": "",
-        "items": {
-          "anyOf": [
-            {
-              "$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=animal_tags"
-            }
-          ],
-          "type": "string"
-        },
-        "title": "Tags",
-        "type": "array",
-        "uniqueItems": true
+        "title": "Priority",
+        "type": "string",
+        "anyOf": [
+          {
+            "$ref": "https://era-12220.dev.pamdas.org/api/v2.0/schemas/choices.json?field=firerep_status"
+          }
+        ]
       }
     },
     "required": [],
@@ -26,57 +22,41 @@
         "if": {
           "allOf": [
             {
-              "anyOf": [
-                {
-                  "not": {
-                    "required": [
-                      "tags"
-                    ]
-                  }
-                },
-                {
-                  "properties": {
-                    "tags": {
-                      "maxItems": 0,
-                      "type": "array"
+              "properties": {
+                "priority": {
+                  "allOf": [
+                    {
+                      "not": {
+                        "type": "null"
+                      }
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "minProperties": 1,
+                          "type": "object"
+                        },
+                        {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      ]
                     }
-                  },
-                  "required": [
-                    "tags"
-                  ]
-                },
-                {
-                  "properties": {
-                    "tags": {
-                      "type": "null"
-                    }
-                  },
-                  "required": [
-                    "tags"
-                  ]
-                },
-                {
-                  "properties": {
-                    "tags": {
-                      "maxProperties": 0,
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "tags"
-                  ]
-                },
-                {
-                  "properties": {
-                    "tags": {
-                      "maxLength": 0,
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "tags"
                   ]
                 }
+              },
+              "required": [
+                "priority"
               ]
             }
           ]
@@ -99,11 +79,11 @@
   },
   "ui": {
     "fields": {
-      "tags": {
+      "priority": {
         "choices": {
           "eventTypeCategories": [],
           "existingChoiceList": [
-            "animal_tags"
+            "firerep_status"
           ],
           "featureCategories": [],
           "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
@@ -140,7 +120,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "tags",
+            "name": "priority",
             "type": "field"
           }
         ],
@@ -150,9 +130,9 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "tags",
-            "id": "condition-ms-dnhi-1",
-            "operator": "DOES_NOT_HAVE_INPUT",
+            "field": "priority",
+            "id": "condition-Pyy_k8bEVFMdQ1cRTzw0f",
+            "operator": "IS_NOT_EMPTY",
             "value": null
           }
         ],
@@ -160,8 +140,8 @@
         "label": "",
         "leftColumn": [
           {
-            "type": "field",
-            "name": "conditional_field"
+            "name": "conditional_field",
+            "type": "field"
           }
         ],
         "rightColumn": []

@@ -2,10 +2,11 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "photo": {
+      "event_time": {
         "deprecated": false,
-        "format": "uri",
-        "title": "Photo",
+        "description": "",
+        "format": "date-time",
+        "title": "Event Time",
         "type": "string"
       }
     },
@@ -21,51 +22,51 @@
                 {
                   "not": {
                     "required": [
-                      "photo"
+                      "event_time"
                     ]
                   }
                 },
                 {
                   "properties": {
-                    "photo": {
+                    "event_time": {
                       "maxItems": 0,
                       "type": "array"
                     }
                   },
                   "required": [
-                    "photo"
+                    "event_time"
                   ]
                 },
                 {
                   "properties": {
-                    "photo": {
+                    "event_time": {
                       "type": "null"
                     }
                   },
                   "required": [
-                    "photo"
+                    "event_time"
                   ]
                 },
                 {
                   "properties": {
-                    "photo": {
+                    "event_time": {
                       "maxProperties": 0,
                       "type": "object"
                     }
                   },
                   "required": [
-                    "photo"
+                    "event_time"
                   ]
                 },
                 {
                   "properties": {
-                    "photo": {
+                    "event_time": {
                       "maxLength": 0,
                       "type": "string"
                     }
                   },
                   "required": [
-                    "photo"
+                    "event_time"
                   ]
                 }
               ]
@@ -90,12 +91,11 @@
   },
   "ui": {
     "fields": {
-      "photo": {
-        "allowableFileTypes": [],
+      "event_time": {
         "conditionalDependents": [
           "section-2"
         ],
-        "type": "ATTACHMENT",
+        "type": "DATE_TIME",
         "parent": "section-1"
       },
       "conditional_field": {
@@ -119,7 +119,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "photo",
+            "name": "event_time",
             "type": "field"
           }
         ],
@@ -129,9 +129,9 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "photo",
-            "id": "condition-QlNWkx6uEoHrfAKx9noPV",
-            "operator": "DOES_NOT_HAVE_INPUT",
+            "field": "event_time",
+            "id": "condition-dbK92wqzFTNU5dq9Kem6o",
+            "operator": "IS_EMPTY",
             "value": null
           }
         ],

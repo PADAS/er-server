@@ -2,20 +2,16 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "tags": {
+      "status": {
         "deprecated": false,
         "description": "",
-        "items": {
-          "anyOf": [
-            {
-              "$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=animal_tags"
-            }
-          ],
-          "type": "string"
-        },
-        "title": "Tags",
-        "type": "array",
-        "uniqueItems": true
+        "title": "Status",
+        "type": "string",
+        "anyOf": [
+          {
+            "$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=firerep_status"
+          }
+        ]
       }
     },
     "required": [],
@@ -26,54 +22,57 @@
         "if": {
           "allOf": [
             {
-              "properties": {
-                "tags": {
-                  "anyOf": [
-                    {
-                      "type": "array",
-                      "allOf": [
-                        {
-                          "contains": {
-                            "const": "endangered"
-                          }
-                        },
-                        {
-                          "contains": {
-                            "const": "protected"
-                          }
-                        }
-                      ],
-                      "maxItems": 2
-                    },
-                    {
-                      "type": "boolean",
-                      "const": null
-                    },
-                    {
-                      "const": null,
-                      "type": "number"
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "endangered": {},
-                        "protected": {}
-                      },
-                      "required": [
-                        "endangered",
-                        "protected"
-                      ],
-                      "unevaluatedProperties": false
-                    },
-                    {
-                      "const": null,
+              "anyOf": [
+                {
+                  "not": {
+                    "required": [
+                      "status"
+                    ]
+                  }
+                },
+                {
+                  "properties": {
+                    "status": {
+                      "maxItems": 0,
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                },
+                {
+                  "properties": {
+                    "status": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                },
+                {
+                  "properties": {
+                    "status": {
+                      "maxProperties": 0,
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                },
+                {
+                  "properties": {
+                    "status": {
+                      "maxLength": 0,
                       "type": "string"
                     }
+                  },
+                  "required": [
+                    "status"
                   ]
                 }
-              },
-              "required": [
-                "tags"
               ]
             }
           ]
@@ -96,11 +95,11 @@
   },
   "ui": {
     "fields": {
-      "tags": {
+      "status": {
         "choices": {
           "eventTypeCategories": [],
           "existingChoiceList": [
-            "animal_tags"
+            "firerep_status"
           ],
           "featureCategories": [],
           "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
@@ -137,7 +136,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "tags",
+            "name": "status",
             "type": "field"
           }
         ],
@@ -147,13 +146,10 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "tags",
-            "id": "condition-ms-iie-1",
-            "operator": "INPUT_IS_EXACTLY",
-            "value": [
-              "endangered",
-              "protected"
-            ]
+            "field": "status",
+            "id": "condition-KanwOyjINKe2cL3UboG7s",
+            "operator": "IS_EMPTY",
+            "value": null
           }
         ],
         "isActive": true,
