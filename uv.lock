@@ -1695,11 +1695,11 @@ wheels = [
 
 [[package]]
 name = "event-type-schema-migration-tool"
-version = "0.1.0"
+version = "0.1.1"
 source = { registry = "https://test.pypi.org/simple/" }
-sdist = { url = "https://test-files.pythonhosted.org/packages/18/3c/99b99079db130b1e3fad517634b29759710a5f27742fa880bf5a4a28c3a3/event_type_schema_migration_tool-0.1.0.tar.gz", hash = "sha256:bcfa59e7e0948832bfbf710319b8ca18e07735188cd81868d1c1f93e1329e6af", size = 18825, upload-time = "2026-02-03T19:19:38.042Z" }
+sdist = { url = "https://test-files.pythonhosted.org/packages/f8/f0/a02f0c849aeaff3dbf32f4d6a38a239fb55b8fba93cde732781ee5bccb9b/event_type_schema_migration_tool-0.1.1.tar.gz", hash = "sha256:f97f959a219fab3012f65dcef9db3490cfcaca0246445bc85a3adfe5f6b9892d", size = 19275, upload-time = "2026-02-10T15:30:55.407Z" }
 wheels = [
-    { url = "https://test-files.pythonhosted.org/packages/d0/3e/e6b8e70ef78e32f1a51b04a8c295f2d4cd0f0aa4d912bc3b2a974b3b578f/event_type_schema_migration_tool-0.1.0-py3-none-any.whl", hash = "sha256:05381ab7b0d053719bf31e183919708af3c1f7b43ad3d5e787fbe769c56f297f", size = 26563, upload-time = "2026-02-03T19:19:36.48Z" },
+    { url = "https://test-files.pythonhosted.org/packages/f8/bd/42fd5e65370671444593109bd1cb6848aa7ff27cb659683816defe297142/event_type_schema_migration_tool-0.1.1-py3-none-any.whl", hash = "sha256:45b45bd6ed3cbcf0a57b03335062cc9212fd86db9ec3227ac01d68f4c2f4ff46", size = 26671, upload-time = "2026-02-10T15:30:54.148Z" },
 ]
 
 [[package]]
