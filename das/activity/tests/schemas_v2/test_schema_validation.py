@@ -4,7 +4,10 @@ import pytest
 
 from rest_framework.serializers import ValidationError
 
-from activity.schemas.eventtype_meta_schemas import main_event_type_schema
+from activity.schemas.eventtype_meta_schemas import (
+    FIELD_SCHEMA_TITLE_MAX_LENGTH,
+    main_event_type_schema,
+)
 from activity.serializers.fields.json_schema import VALID_DRAFT, JSONSchemaField
 from activity.tests.helpers.schema_test_utils import (
     minimal_json_schema,
@@ -151,6 +154,57 @@ class TestJsonSchemaFieldBasics:
         error_message = str(e.value)
         assert error_str_part1 in error_message
         assert error_str_part2 in error_message
+
+
+class TestFieldSchemaTitleMaxLength:
+    """Tests for field schema title maxLength constraint (FIELD_SCHEMA_TITLE_MAX_LENGTH)."""
+
+    def test_field_schema_title_max_length_constant(self):
+        """FIELD_SCHEMA_TITLE_MAX_LENGTH must be 1000."""
+        assert FIELD_SCHEMA_TITLE_MAX_LENGTH == 1000
+
+    def test_valid_text_field_with_title_at_max_length(self):
+        """A text field with title length equal to FIELD_SCHEMA_TITLE_MAX_LENGTH is valid."""
+        schema = {
+            "json": {
+                **copy.deepcopy(minimal_json_schema),
+                "properties": {
+                    "long_title_field": {
+                        "type": "string",
+                        "title": "x" * FIELD_SCHEMA_TITLE_MAX_LENGTH,
+                        "deprecated": False,
+                    }
+                },
+                "required": ["long_title_field"],
+            },
+            "ui": copy.deepcopy(minimal_ui_schema),
+        }
+        field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
+        result = field_schema.to_internal_value(schema)
+        assert result is not None
+
+    def test_invalid_text_field_with_title_over_max_length(self):
+        """A text field with title length exceeding FIELD_SCHEMA_TITLE_MAX_LENGTH is invalid."""
+        schema = {
+            "json": {
+                **copy.deepcopy(minimal_json_schema),
+                "properties": {
+                    "too_long_title_field": {
+                        "type": "string",
+                        "title": "x" * (FIELD_SCHEMA_TITLE_MAX_LENGTH + 1),
+                        "deprecated": False,
+                    }
+                },
+                "required": ["too_long_title_field"],
+            },
+            "ui": copy.deepcopy(minimal_ui_schema),
+        }
+        field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field_schema.to_internal_value(schema)
+        error_message = str(exc_info.value)
+        assert "is not valid under any of the given schemas" in error_message
+        assert "too_long_title_field" in error_message
 
 
 class TestRootSchemaValidation:
