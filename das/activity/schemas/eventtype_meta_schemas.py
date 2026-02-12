@@ -522,11 +522,11 @@ ui_sections_schema = {
                     "operator": {
                         "enum": [
                             "CONTAINS",
-                            "IS_CONTAINED_BY",
-                            "IS_EMPTY",
                             "IS_EXACTLY",
-                            "IS_NOT_CONTAINED_BY",
+                            "IS_EMPTY",
                             "IS_NOT_EMPTY",
+                            "IS_CONTAINED_BY",
+                            "IS_NOT_CONTAINED_BY",
                         ]
                     },
                     "value": {
@@ -1236,11 +1236,11 @@ json_field_schema = {
                                 "items": {
                                     "anyOf": [
                                         {"$ref": "#/$defs/containsCondition"},
-                                        {"$ref": "#/$defs/isContainedByCondition"},
-                                        {"$ref": "#/$defs/isEmptyCondition"},
                                         {"$ref": "#/$defs/isExactlyCondition"},
-                                        {"$ref": "#/$defs/isNotContainedByCondition"},
+                                        {"$ref": "#/$defs/isEmptyCondition"},
                                         {"$ref": "#/$defs/isNotEmptyCondition"},
+                                        {"$ref": "#/$defs/isContainedByCondition"},
+                                        {"$ref": "#/$defs/isNotContainedByCondition"},
                                     ]
                                 },
                             }
@@ -1354,10 +1354,10 @@ main_event_type_schema = {
         "uiHeadersSchema": ui_headers_schema,
         "uiSectionsSchema": ui_sections_schema,
         "containsCondition": contains_condition_schema,
-        "isContainedByCondition": is_contained_by_condition_schema,
-        "isEmptyCondition": is_empty_condition_schema,
         "isExactlyCondition": is_exactly_condition_schema,
-        "isNotContainedByCondition": is_not_contained_by_condition_schema,
+        "isEmptyCondition": is_empty_condition_schema,
         "isNotEmptyCondition": is_not_empty_condition_schema,
+        "isContainedByCondition": is_contained_by_condition_schema,
+        "isNotContainedByCondition": is_not_contained_by_condition_schema,
     },
 }

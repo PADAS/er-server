@@ -5,11 +5,11 @@ Tests complete schema validation (UI + JSON together) for conditional sections.
 
 Operator → Field Type Compatibility:
 - CONTAINS: Text, Choice List, Multi-Select, Null value variant
-- IS_CONTAINED_BY: Multi-Select
-- IS_EMPTY: All field types (incl. Boolean, Multi-Select)
 - IS_EXACTLY: Text, Numeric, Choice List, Boolean, Multi-Select
-- IS_NOT_CONTAINED_BY: Multi-Select
+- IS_EMPTY: All field types (incl. Boolean, Multi-Select)
 - IS_NOT_EMPTY: All field types (Text, Numeric, Choice, DateTime, Location, Attachment, Collection, Boolean, Multi-Select)
+- IS_CONTAINED_BY: Multi-Select
+- IS_NOT_CONTAINED_BY: Multi-Select
 """
 
 import json
