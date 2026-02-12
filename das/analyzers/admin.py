@@ -11,6 +11,7 @@ from analyzers.forms import (
     ImmobilityAnalyzerForm,
     LowSpeedPercentileSubjectAnalyzerForm,
     LowSpeedWilcoxSubjectAnalyzerForm,
+    ObservationAttributeAnalyzerForm,
     SubjectProximityAnalyzerForm,
 )
 from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
@@ -445,7 +446,7 @@ class ObservationAttributeAnalyzerAdmin(BaseModelAdminMixin):
         return o.subject_group.name
 
     subject_group_name.admin_order_field = "subject_group"
-    form = SubjectProximityAnalyzerForm
+    form = ObservationAttributeAnalyzerForm
 
     fieldsets = (
         (
@@ -459,6 +460,9 @@ class ObservationAttributeAnalyzerAdmin(BaseModelAdminMixin):
                         "is_active",
                         "attribute_name",
                         "aggregation",
+                        "comparator",
+                        "warning_value",
+                        "critical_value",
                     )
                 ),
             },
@@ -469,7 +473,6 @@ class ObservationAttributeAnalyzerAdmin(BaseModelAdminMixin):
                 "classes": ("wide", "collapse"),
                 "fields": (
                     "id",
-                    "true_if_null",
                     "adjust_to_order_of_magnitude",
                     "search_time_hours",
                     "quiet_period",

@@ -1,12 +1,17 @@
 import json
 import logging
-import uuid
+import statistics
+
+from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
+from django.contrib.gis.geos import Point as DjangoPoint
+from django.core.cache import cache
 
 from activity.models import Event, EventCategory, EventType
 from analyzers.base import SubjectAnalyzer
-from analyzers.models import CRITICAL, WARNING
-from analyzers.models.base import EVENT_PRIORITY_MAP
+from analyzers.models import ObservationAttributeAnalyzerConfig, SubjectAnalyzerResult
 from analyzers.utils import save_analyzer_event
+
+logger = logging.getLogger(__name__)
 
 
 class ObservationAttributeAnalyzer(SubjectAnalyzer):
@@ -26,36 +31,24 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
         Default set of observation is fetched from the database, based on this analyzer's configuration.
         :return: a queryset of Observations
         """
-        # observations get passed back in temporally descending order
-        if self.config.search_time_hours <= 0:
-            return list(self.subject.observations())[:2]
-        else:
-            return list(self.subject.observations(last_hours=self.config.search_time_hours))[:2]
+        return list(self.subject.observations(last_hours=self.config.search_time_hours or 24))
 
     def save_analyzer_result(self, last_result=None, this_result=None):
-
         if this_result is not None:
-            # Save if result is critical or warning
-            if this_result.level in (CRITICAL, WARNING):
-                this_result.save()
+            this_result.save()
 
     def value_to_display(self, value):
         return " ".join(x.capitalize() or "_" for x in value.split("_"))
 
-    def evaluate_return_value(self, value):
-        if not isinstance(value, str):
-            value = value[0]
+    def verify_event_type(self, this_result: SubjectAnalyzerResult):
+        """Ensures that a target event type for this analyzer exists and, if it doesn't, creates one.
 
-        if isinstance(value, float):
-            value = round(value, 2)
+        Args:
+            this_result (SubjectAnalyzerConfig.Result): The result object to verify event type for.
 
-        return value
-
-    def verify_event_type(self, this_result):
-        from analyzers.subject_proximity import (
-            SUBJECT_PROXIMITY_SCHEMA,
-            SubjectProximityAnalyzerConfig,
-        )
+        Returns:
+            _type_: The value of the event type associated with this analyzer result.
+        """
 
         et_value = this_result.subject_analyzer.analyzer_category
         et_display = self.value_to_display(et_value)
@@ -66,47 +59,249 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
         )
         et, created = EventType.objects.get_or_create(value=et_value, category=ec, defaults=et_defaults_dict)
 
-        if created and isinstance(this_result.subject_analyzer, SubjectProximityAnalyzerConfig):
-            et.schema = json.dumps(SUBJECT_PROXIMITY_SCHEMA, indent=2, default=str)
+        if created and isinstance(this_result.subject_analyzer, ObservationAttributeAnalyzerConfig):
+            et.schema = json.dumps(OBSERVATION_ATTRIBUTE_ANALYZER_SCHEMA, indent=2, default=str)
             et.save()
         return et_value
 
-    def create_analyzer_event(self, last_result=None, this_result=None):
+    @staticmethod
+    def _aggregate(value_list: list, aggregation_function: str) -> any:
+        """
 
-        # no data to create an event so exit
+        Aggregates a list of values based on the specified aggregation function.
+
+        Args:
+            value_list (list): A list of values to aggregate.
+            aggregation_function (str): The aggregation function to apply. Supported values are "mean", "median", "min",
+                                        "max", "range", and "stdev".
+
+        Returns:
+            any: The aggregated value.
+        """
+        try:
+            if aggregation_function == "mean":
+                return statistics.mean(value_list)
+            elif aggregation_function == "median":
+                return statistics.median(value_list)
+            elif aggregation_function == "min":
+                return min(value_list)
+            elif aggregation_function == "max":
+                return max(value_list)
+            elif aggregation_function == "range":
+                return max(value_list) - min(value_list)
+            elif aggregation_function == "stdev":
+                return statistics.stdev(value_list)
+        except TypeError:
+            return None
+
+        return None
+
+    @staticmethod
+    def _compare_value(value: any, comparator: str, target_value: any) -> bool:
+        """
+        Compares a value to a comparison value using the specified comparator.
+
+        Args:
+            value (any): The value to compare.
+            comparator (str): The comparator to use. Supported values are "<", ">", "=", "<=", ">=", and "<>".
+            target_value (any): The value to compare against.
+
+        Returns:
+            bool: True if the comparison is satisfied, False otherwise.
+        """
+        try:
+            if comparator == "<":
+                return value < target_value
+            elif comparator == ">":
+                return value > target_value
+            elif comparator == "=":
+                return value == target_value
+            elif comparator == "<=":
+                return value <= target_value
+            elif comparator == ">=":
+                return value >= target_value
+            elif comparator == "<>":
+                return value != target_value
+
+        except TypeError:
+            return False
+
+        return False
+
+    def create_analyzer_event(self, last_result=None, this_result=None):
+        """
+        Creates an EarthRanger event based on the analyzer result.
+
+        Args:
+            last_result (_type_, optional): The previous analyzer result. This is not used in the current implementation
+                                            but is required by the parent class.  Defaults to None.
+            this_result (_type_, optional): The current analyzer result. Defaults to None.
+
+        Returns:
+            _type_: The created event object, or None if no event was created.
+        """
+
         if not this_result:
             return
 
-        event_data = None
+        event_data = dict(
+            title=this_result.title,
+            priority=this_result.level,
+            time=this_result.estimated_time,
+            provenance=Event.PC_ANALYZER,
+            event_type=self.verify_event_type(this_result),
+            location={
+                "longitude": this_result.geometry_collection[0].x,
+                "latitude": this_result.geometry_collection[0].y,
+            },
+            event_details=this_result.values,
+            related_subjects=[{"id": self.subject.id}],
+        )
+        return save_analyzer_event(event_data)
 
-        event_details = {"name": self.subject.name}
-        event_details.update(this_result.values)
+    def _evaluate_rule(self, value_list: list, target_value) -> (bool, any):
+        """
+        Evaluates the analyzer rule against a list of values and determines whether the rule is triggered.
 
-        # Create a dict() location to satisfy our EventSerializer.
-        event_location_value = {
-            "longitude": this_result.geometry_collection[0].x,
-            "latitude": this_result.geometry_collection[0].y,
-        }
+        Args:
+            value_list (list): The list of values to evaluate.
 
-        event_type = self.verify_event_type(this_result)
-        relate_subjects = [{"id": self.subject.id}]
+        Returns:
+            tuple: A tuple containing a boolean indicating whether the rule was triggered and the evaluated value.
+        """
 
-        if this_result.values.get("subject_2_id"):
-            subject_2_id = self.evaluate_return_value(this_result.values.get("subject_2_id"))
-            relate_subjects.append({"id": uuid.UUID(subject_2_id)})
+        oom = self.config.adjust_to_order_of_magnitude or 0
+        if oom > 0:
+            adjusted_list = []
+            for o_val in value_list:
+                while o_val < oom:
+                    o_val = o_val * 10
+                adjusted_list.append(o_val)
+            value_list = adjusted_list
 
-        # Notify if result is critical or warning
-        if this_result.level in (CRITICAL, WARNING):
-            event_data = dict(
-                title=this_result.title,
-                time=this_result.estimated_time,
-                provenance=Event.PC_ANALYZER,
-                event_type=event_type,
-                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_URGENT),
-                location=event_location_value,
-                event_details=event_details,
-                related_subjects=relate_subjects,
+        evaluated_value = None
+        if self.config.aggregation in ["any", "none", "all"]:
+            for o_val in value_list:
+                evaluated_value = self._compare_value(o_val, self.config.comparator, target_value)
+                if self.config.aggregation == "any" and evaluated_value:
+                    return True, target_value
+
+                elif self.config.aggregation == "none" and evaluated_value:
+                    return False, None
+
+                elif self.config.aggregation == "all" and not evaluated_value:
+                    return False, None
+
+            if self.config.aggregation == "all" or self.config.aggregation == "none":
+                return True, target_value
+        else:
+            evaluated_value = self._aggregate(value_list, self.config.aggregation)
+            if self._compare_value(evaluated_value, self.config.comparator, target_value):
+                return True, evaluated_value
+
+        return False, None
+
+    def analyze(self, observations=None, trajectory_filter=None, analyzer_key=None):
+        """
+
+        Overrides the parent class because this analyzer doesn't analyze a trajectory but rather a set of observations.
+        Analyzes a subject's observations based on this analyzer's configuration and creates an event if the analysis
+        triggers.
+
+        Args:
+            observations (list, optional): The list of observations to analyze. Defaults to None.
+            trajectory_filter (None, optional): Not used. Included to match parent class signature. Defaults to None.
+            analyzer_key (str, optional): The analyzer key to use for evaluating the silent period. Defaults to None.
+
+        Returns:
+            list: A list of tuples containing the analyzer result and resulting ER event if triggered, otherwise None.
+        """
+
+        observations = observations or self.default_observations()
+        value_list = []
+        for o in observations:
+            if self.config.attribute_name in o.additional:
+                value_list.append(o.additional.get(self.config.attribute_name))
+
+        if not value_list:
+            return None
+
+        triggered, evaluated_value = self._evaluate_rule(value_list, self.config.critical_value)
+        level = Event.PRI_URGENT
+
+        if not triggered:
+            triggered, evaluated_value = self._evaluate_rule(value_list, self.config.warning_value)
+            level = Event.PRI_IMPORTANT
+
+        if triggered:
+
+            if isinstance(evaluated_value, float):
+                evaluated_value = round(evaluated_value, 2)
+
+            this_result = SubjectAnalyzerResult(
+                subject_analyzer=self.config,
+                subject=self.subject,
+                level=level,
+                title=f"{self.subject.name} triggered {self.config.name}",
+                estimated_time=observations[-1].recorded_at if observations else None,
+                values={
+                    "subject_name": self.subject.name,
+                    "attribute": self.config.attribute_name,
+                    "comparator": self.config.comparator,
+                    "warning_value": self.config.warning_value,
+                    "critical_value": self.config.critical_value,
+                    "evaluated_value": evaluated_value,
+                    "fix_count": len(observations),
+                },
+                geometry_collection=DjangoGeoColl(
+                    [
+                        DjangoPoint(
+                            observations[-1].location.x if observations else 0,
+                            observations[-1].location.y if observations else 0,
+                        )
+                    ]
+                ),
             )
 
-        if event_data:
-            return save_analyzer_event(event_data)
+            self.save_analyzer_result(this_result=this_result)
+            this_event = self.create_analyzer_event(this_result=this_result)
+
+            if analyzer_key and this_event:
+                logger.info("Pausing analyzer with id=%s", self.config.id)
+                cache.set(analyzer_key, analyzer_key, self.config.quiet_period.total_seconds())
+
+            return [(this_result, this_event)]
+
+
+OBSERVATION_ATTRIBUTE_ANALYZER_SCHEMA = {
+    "schema": {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "title": "Observation Attribute Analyzer Schema",
+        "type": "object",
+        "properties": {
+            "subject_name": {"type": "string", "title": "Subject Name"},
+            "attribute": {"type": "string", "title": "Attribute"},
+            "comparator": {"type": "string", "title": "Comparator"},
+            "warning_value": {"type": "number", "title": "Warning Value"},
+            "critical_value": {"type": "number", "title": "Critical Value"},
+            "evaluated_value": {"type": "number", "title": "Evaluated Value"},
+            "fix_count": {"type": "number", "title": "Total Fix Count"},
+        },
+    },
+    "definition": [
+        {"type": "fieldset", "title": "Analyzer Details", "htmlClass": "col-lg-12", "items": []},
+        {
+            "type": "fieldset",
+            "htmlClass": "col-lg-6",
+            "items": [
+                "subject_name",
+                "attribute",
+                "comparator",
+                "warning_value",
+                "critical_value",
+                "evaluated_value",
+                "fix_count",
+            ],
+        },
+    ],
+}
