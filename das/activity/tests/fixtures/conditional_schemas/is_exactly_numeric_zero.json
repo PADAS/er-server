@@ -17,57 +17,43 @@
         "if": {
           "allOf": [
             {
-              "anyOf": [
-                {
-                  "not": {
-                    "required": [
-                      "count"
-                    ]
-                  }
-                },
-                {
-                  "properties": {
-                    "count": {
-                      "maxItems": 0,
-                      "type": "array"
-                    }
-                  },
-                  "required": [
-                    "count"
-                  ]
-                },
-                {
-                  "properties": {
-                    "count": {
-                      "type": "null"
-                    }
-                  },
-                  "required": [
-                    "count"
-                  ]
-                },
-                {
-                  "properties": {
-                    "count": {
-                      "maxProperties": 0,
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "count"
-                  ]
-                },
-                {
-                  "properties": {
-                    "count": {
-                      "maxLength": 0,
+              "properties": {
+                "count": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "allOf": [
+                        {
+                          "contains": {
+                            "const": "0"
+                          }
+                        }
+                      ],
+                      "maxItems": 1
+                    },
+                    {
+                      "type": "boolean",
+                      "const": null
+                    },
+                    {
+                      "const": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {},
+                      "required": [],
+                      "unevaluatedProperties": false
+                    },
+                    {
+                      "const": "0",
                       "type": "string"
                     }
-                  },
-                  "required": [
-                    "count"
                   ]
                 }
+              },
+              "required": [
+                "count"
               ]
             }
           ]
@@ -130,9 +116,9 @@
         "conditions": [
           {
             "field": "count",
-            "id": "condition-akjVgWCTxqTZhTvR9vUHE",
-            "operator": "DOES_NOT_HAVE_INPUT",
-            "value": null
+            "id": "condition-RfKpr3sn1hHKhw5QepTsH",
+            "operator": "IS_EXACTLY",
+            "value": "0"
           }
         ],
         "isActive": true,

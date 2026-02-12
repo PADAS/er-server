@@ -18,57 +18,41 @@
         "if": {
           "allOf": [
             {
-              "anyOf": [
-                {
-                  "not": {
-                    "required": [
-                      "trigger_field"
-                    ]
-                  }
-                },
-                {
-                  "properties": {
-                    "trigger_field": {
-                      "maxItems": 0,
-                      "type": "array"
+              "properties": {
+                "trigger_field": {
+                  "allOf": [
+                    {
+                      "not": {
+                        "type": "null"
+                      }
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "minProperties": 1,
+                          "type": "object"
+                        },
+                        {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      ]
                     }
-                  },
-                  "required": [
-                    "trigger_field"
-                  ]
-                },
-                {
-                  "properties": {
-                    "trigger_field": {
-                      "type": "null"
-                    }
-                  },
-                  "required": [
-                    "trigger_field"
-                  ]
-                },
-                {
-                  "properties": {
-                    "trigger_field": {
-                      "maxProperties": 0,
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "trigger_field"
-                  ]
-                },
-                {
-                  "properties": {
-                    "trigger_field": {
-                      "maxLength": 0,
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "trigger_field"
                   ]
                 }
+              },
+              "required": [
+                "trigger_field"
               ]
             }
           ]
@@ -132,8 +116,8 @@
         "conditions": [
           {
             "field": "trigger_field",
-            "id": "condition-dEIm9qOXbonDIhwfN5S_7",
-            "operator": "DOES_NOT_HAVE_INPUT",
+            "id": "condition-33R4xiasQ2tmyjTKGBjGt",
+            "operator": "IS_NOT_EMPTY",
             "value": null
           }
         ],
