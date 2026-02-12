@@ -8,6 +8,7 @@ from drf_spectacular.utils import (
 )
 
 from django.db import transaction
+from django.db.utils import IntegrityError
 from django.urls import reverse
 from rest_framework import generics
 from rest_framework import serializers as drf_serializers
@@ -28,7 +29,11 @@ from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import SubjectSource
-from utils.drf import StandardObjectPermissions, StandardResultsSetPagination
+from utils.drf import (
+    StandardObjectPermissions,
+    StandardResultsSetPagination,
+    return_409_response,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +119,8 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
     state, where state is either "deployed" or "hauled".
         example: state=deployed
     updated_since, where updated_since is a date-string to limit on updated_at
+    include_empty_location, where include_empty_location is a boolean to include gear with no location data, 0,0 points. Default is false.
+
     max_nm_range
 
     page, page number
@@ -138,11 +145,20 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
             return serializers.GearCreateSerializer
         return serializers.GearSerializer
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        # Add include_empty_location from validated query params (set in list method)
+        context["include_empty_location"] = getattr(self, "_include_empty_location", False)
+        return context
+
     def list(self, request, *args, **kwargs):
         # Validate query parameters using serializer
         query_serializer = GearsQueryParamsSerializer(data=request.query_params)
         query_serializer.is_valid(raise_exception=True)
         query_params = query_serializer.validated_data
+
+        # Store include_empty_location for get_serializer_context
+        self._include_empty_location = query_params.get("include_empty_location", False)
 
         # First get subject-sources with related data
         queryset = (
@@ -183,14 +199,18 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @transaction.atomic
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data
 
-        subject, observations = BuoyService.process_gearset(validated_data, user=request.user)
+        try:
+            with transaction.atomic():
+                subject, observations = BuoyService.process_gearset(validated_data, user=request.user)
+        except IntegrityError as integrity_error:
+            return return_409_response(message=str(integrity_error))
+
         return Response(
             {
                 "detail": "Gears successfully processed",

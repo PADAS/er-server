@@ -13,13 +13,21 @@ from rest_framework import status
 
 from accounts.models import PermissionSet
 from buoy import views
+from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
 from client_http import HTTPClient
 from das.buoy.tests import (
     generate_devices,
     generate_fake_display_id,
     get_custom_location_gear_subjectsource,
 )
-from observations.models import Observation, SubjectGroup, SubjectSource
+from observations.models import (
+    EMPTY_POINT,
+    Observation,
+    SubjectGroup,
+    SubjectSource,
+    SubjectSubType,
+    SubjectType,
+)
 
 
 @pytest.mark.django_db
@@ -689,3 +697,219 @@ class TestGearsView:
         # Large value (should be accepted)
         response = user_client.get(url + "?lat=0&lon=0&max_nm_range=1000")
         assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestGearsViewPostWithNullLocation:
+    """Integration tests for POST to GearsListCreateView with null location data."""
+
+    base_url = "gear-list-create-view"
+
+    def test_post_gearset_with_edgetech_null_lat_lon_format(self, superuser_client):
+        """Test POST with Edgetech format: location object with null latitude/longitude."""
+
+        # Create SubjectGroup for EdgeTech
+        subject_group = SubjectGroup.objects.create(name="EdgeTech")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser_client.user.permission_sets.add(permission_set)
+
+        now = timezone.now()
+        payload = {
+            "set_id": "04a9431f-e4a0-414d-ae5f-b36cb4dc1a27",
+            "owner_id": "652e7174c0884e7f02ec97d1",
+            "manufacturer_name": "EdgeTech",
+            "deployment_type": "trawl",
+            "devices_in_set": 2,
+            "initial_deployment_date": now.isoformat(),
+            "devices": [
+                {
+                    "device_id": "a5f89d41-d119-4ece-b8f8-d6c8d96d2b40",
+                    "mfr_device_id": "88CE99D7C3_test",
+                    "last_deployed": now.isoformat(),
+                    "last_updated": now.isoformat(),
+                    "recorded_at": now.isoformat(),
+                    "device_status": "deployed",
+                    "location": {"latitude": 40.6014382, "longitude": -70.5142263},
+                },
+                {
+                    "device_id": "f674e7ee-a7c7-4872-a1b9-e218741f9f70",
+                    "mfr_device_id": "88CE99D9A9_test",
+                    "last_deployed": now.isoformat(),
+                    "last_updated": now.isoformat(),
+                    "recorded_at": now.isoformat(),
+                    "device_status": "deployed",
+                    # Edgetech format: location object with null values
+                    "location": {"latitude": None, "longitude": None},
+                },
+            ],
+        }
+
+        url = reverse(self.base_url)
+        response = superuser_client.post(url, data=payload, format="json")
+
+        assert (
+            response.status_code == status.HTTP_201_CREATED
+        ), f"Expected 201, got {response.status_code}: {response.data}"
+        assert "set_id" in response.data
+        assert response.data["set_id"] == "04a9431f-e4a0-414d-ae5f-b36cb4dc1a27"
+
+        # Verify observations were created correctly
+        obs_with_loc = Observation.objects.get(source_id="a5f89d41-d119-4ece-b8f8-d6c8d96d2b40")
+        obs_null_loc = Observation.objects.get(source_id="f674e7ee-a7c7-4872-a1b9-e218741f9f70")
+
+        assert obs_with_loc.location.x == -70.5142263
+        assert obs_with_loc.location.y == 40.6014382
+        assert obs_null_loc.location == EMPTY_POINT
+
+        # Verify SubjectSource locations
+        ss_with_loc = SubjectSource.objects.get(source_id="a5f89d41-d119-4ece-b8f8-d6c8d96d2b40")
+        ss_null_loc = SubjectSource.objects.get(source_id="f674e7ee-a7c7-4872-a1b9-e218741f9f70")
+
+        assert ss_with_loc.location is not None
+        assert ss_null_loc.location is None
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestGearsViewIncludeEmptyLocation:
+    """Tests for include_empty_location query parameter on GET /gears endpoint."""
+
+    base_url = "gear-list-create-view"
+
+    @pytest.fixture
+    def gear_with_mixed_locations(self, superuser_client):
+        """Create a gearset with one device having location and another with EMPTY_POINT."""
+
+        # Ensure SubjectSubType exists for buoy gear
+        subject_type, _ = SubjectType.objects.get_or_create(value="gear", defaults={"display": "Gear"})
+        SubjectSubType.objects.get_or_create(
+            value=BUOY_GEAR_SUBJECT_SUBTYPE, defaults={"display": "Ropeless Buoy Gearset", "subject_type": subject_type}
+        )
+
+        # Create SubjectGroup for EdgeTech
+        subject_group = SubjectGroup.objects.create(name="EdgeTechEmptyLocTest")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser_client.user.permission_sets.add(permission_set)
+
+        now = timezone.now()
+        payload = {
+            "set_id": "14a9431f-e4a0-414d-ae5f-b36cb4dc1a28",
+            "owner_id": "test_owner",
+            "manufacturer_name": "EdgeTechEmptyLocTest",
+            "deployment_type": "trawl",
+            "devices_in_set": 2,
+            "initial_deployment_date": now.isoformat(),
+            "devices": [
+                {
+                    "device_id": "b5f89d41-d119-4ece-b8f8-d6c8d96d2b41",
+                    "mfr_device_id": "device_with_location",
+                    "last_deployed": now.isoformat(),
+                    "last_updated": now.isoformat(),
+                    "recorded_at": now.isoformat(),
+                    "device_status": "deployed",
+                    "location": {"latitude": 40.6014382, "longitude": -70.5142263},
+                },
+                {
+                    "device_id": "c674e7ee-a7c7-4872-a1b9-e218741f9f71",
+                    "mfr_device_id": "device_without_location",
+                    "last_deployed": now.isoformat(),
+                    "last_updated": now.isoformat(),
+                    "recorded_at": now.isoformat(),
+                    "device_status": "deployed",
+                    "location": {"latitude": None, "longitude": None},
+                },
+            ],
+        }
+
+        url = reverse(self.base_url)
+        response = superuser_client.post(url, data=payload, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+
+        return superuser_client, subject_group
+
+    def test_get_gears_excludes_empty_location_devices_by_default(self, gear_with_mixed_locations):
+        """Test that GET /gears excludes devices with EMPTY_POINT location by default."""
+
+        superuser_client, subject_group = gear_with_mixed_locations
+
+        # Give user permission to view gear regardless of location
+        perm, _ = Permission.objects.get_or_create(codename="can_view_gear_regardless_location")
+        perm_set = PermissionSet.objects.create(name="CanViewGearNoLocTest")
+        perm_set.permissions.add(perm)
+        superuser_client.user.permission_sets.add(perm_set)
+
+        url = reverse(self.base_url)
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK, f"Expected 200, got {response.status_code}: {response.data}"
+        results = response.data["results"]
+
+        # Find our gear
+        gear = next((g for g in results if g["id"] == "14a9431f-e4a0-414d-ae5f-b36cb4dc1a28"), None)
+        assert gear is not None, f"Gear not found in results. All gear IDs: {[g['id'] for g in results]}"
+
+        # Only device with location should be included
+        assert len(gear["devices"]) == 1
+        assert gear["devices"][0]["mfr_device_id"] == "device_with_location"
+        assert gear["devices"][0]["location"]["latitude"] == 40.6014382
+
+    def test_get_gears_includes_empty_location_devices_when_flag_true(self, gear_with_mixed_locations):
+        """Test that GET /gears includes devices with EMPTY_POINT when include_empty_location=true."""
+
+        superuser_client, subject_group = gear_with_mixed_locations
+
+        # Give user permission to view gear regardless of location
+        perm, _ = Permission.objects.get_or_create(codename="can_view_gear_regardless_location")
+        perm_set = PermissionSet.objects.create(name="CanViewGearNoLocTest2")
+        perm_set.permissions.add(perm)
+        superuser_client.user.permission_sets.add(perm_set)
+
+        url = reverse(self.base_url)
+        response = superuser_client.get(url + "?include_empty_location=true")
+
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data["results"]
+
+        # Find our gear
+        gear = next((g for g in results if g["id"] == "14a9431f-e4a0-414d-ae5f-b36cb4dc1a28"), None)
+        assert gear is not None, f"Gear not found in results. All gear IDs: {[g['id'] for g in results]}"
+
+        # Both devices should be included
+        assert len(gear["devices"]) == 2
+
+        device_ids = [d["mfr_device_id"] for d in gear["devices"]]
+        assert "device_with_location" in device_ids
+        assert "device_without_location" in device_ids
+
+        # Device without location should have null lat/lon
+        device_without_loc = next(d for d in gear["devices"] if d["mfr_device_id"] == "device_without_location")
+        assert device_without_loc["location"]["latitude"] is None
+        assert device_without_loc["location"]["longitude"] is None
+
+    def test_get_gears_include_empty_location_false_explicit(self, gear_with_mixed_locations):
+        """Test that include_empty_location=false explicitly excludes empty location devices."""
+
+        superuser_client, subject_group = gear_with_mixed_locations
+
+        # Give user permission to view gear regardless of location
+        perm, _ = Permission.objects.get_or_create(codename="can_view_gear_regardless_location")
+        perm_set = PermissionSet.objects.create(name="CanViewGearNoLocTest3")
+        perm_set.permissions.add(perm)
+        superuser_client.user.permission_sets.add(perm_set)
+
+        url = reverse(self.base_url)
+        response = superuser_client.get(url + "?include_empty_location=false")
+
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data["results"]
+
+        # Find our gear
+        gear = next((g for g in results if g["id"] == "14a9431f-e4a0-414d-ae5f-b36cb4dc1a28"), None)
+        assert gear is not None, f"Gear not found in results. All gear IDs: {[g['id'] for g in results]}"
+
+        # Only device with location should be included
+        assert len(gear["devices"]) == 1
+        assert gear["devices"][0]["mfr_device_id"] == "device_with_location"

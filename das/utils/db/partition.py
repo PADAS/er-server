@@ -8,11 +8,15 @@ import pytz
 
 from django.db import ProgrammingError, connection
 
-from .postgresql import PSQLExtension, is_postgresql_extension_installed
+from .postgresql import (
+    PSQLExtension,
+    get_postgresql_extension_version,
+    is_postgresql_extension_installed,
+)
 
 
 class PARTITION_INTERVALS(Enum):
-    MONTHLY = "monthly"
+    MONTHLY = "1 month"
 
 
 class PartitionTableToolProtocol(Protocol):
@@ -24,6 +28,7 @@ class PartitionTableToolProtocol(Protocol):
 class IndexData:
     name: str
     columns: List[str]
+    index_type: str = "btree"  # Support btree, gist, gin, brin, etc.
 
 
 @dataclass
@@ -56,6 +61,7 @@ class TableData:
 
 class PartitionTableTool(PartitionTableToolProtocol):
     logger = logging.getLogger(__name__)
+    MINIMUM_PG_PARTMAN_VERSION = "5.2.4"
 
     def __init__(
         self,
@@ -149,7 +155,6 @@ class PartitionTableTool(PartitionTableToolProtocol):
             SELECT partman.create_parent(
                p_parent_table := 'public.{self.partitioned_table_name}',
                p_control := '{self.partition_column}',
-               p_type := 'native',
                p_interval := '{self.partition_interval}',
                p_template_table := 'public.{self.template_table_name}',
                p_premake := 1
@@ -231,8 +236,8 @@ class PartitionTableTool(PartitionTableToolProtocol):
         migrate_sql = f"""
             CALL partman.partition_data_proc(
             'public.{self.original_table_name}',
-            p_wait:= 2,
-            p_batch := {self.migrate_batch_size}
+            p_loop_count := {self.migrate_batch_size},
+            p_wait := 2
             );
         """
 
@@ -279,6 +284,17 @@ class PartitionTableTool(PartitionTableToolProtocol):
         for unique_constraint in self.table_data.unique_constraints if self.table_data.unique_constraints else []:
             self._create_unique_constraint(table_name=self.original_table_name, constraint_data=unique_constraint)
         self.logger.warning("Triggers restored")
+
+        # Create indexes on the partitioned table
+        for index in self.table_data.indexes if self.table_data.indexes else []:
+            self._create_index(table_name=self.original_table_name, index_data=index)
+        self.logger.warning("Indexes created")
+
+        # Create foreign keys on the partitioned table
+        for foreign_key in self.table_data.foreign_keys if self.table_data.foreign_keys else []:
+            self._create_foreign_key(table_name=self.original_table_name, foreign_key_data=foreign_key)
+        self.logger.warning("Foreign keys created")
+
         self._set_current_step(step=5)
 
     def _validate_data(self) -> None:
@@ -353,6 +369,44 @@ class PartitionTableTool(PartitionTableToolProtocol):
             self.logger.warning("creating pg_partman extension")
             self._execute_sql_command("CREATE EXTENSION pg_partman SCHEMA partman;")
 
+        # Check pg_partman version
+        pg_partman_version = get_postgresql_extension_version(
+            psql_extension=PSQLExtension.PG_PARTMAN, logger=self.logger
+        )
+        if pg_partman_version:
+            if not self._is_version_sufficient(pg_partman_version, self.MINIMUM_PG_PARTMAN_VERSION):
+                self.logger.error(
+                    f"pg_partman version {pg_partman_version} is installed, but version "
+                    f"{self.MINIMUM_PG_PARTMAN_VERSION} or higher is required."
+                )
+                exit(1)
+            self.logger.warning(f"pg_partman version {pg_partman_version} detected.")
+        else:
+            self.logger.error("Could not determine pg_partman version.")
+            exit(1)
+
+    @staticmethod
+    def _is_version_sufficient(current_version: str, minimum_version: str) -> bool:
+        """
+        Compare version strings to check if current_version >= minimum_version.
+
+        Args:
+            current_version: The current version string (e.g., "5.2.4")
+            minimum_version: The minimum required version string (e.g., "5.2.4")
+
+        Returns:
+            bool: True if current_version >= minimum_version, False otherwise
+        """
+
+        def parse_version(version_str: str) -> tuple:
+            """Parse version string into tuple of integers for comparison."""
+            try:
+                return tuple(int(part) for part in version_str.split("."))
+            except (ValueError, AttributeError):
+                return (0, 0, 0)
+
+        return parse_version(current_version) >= parse_version(minimum_version)
+
     def _validate_table_partititon_state(self) -> None:
         sql = f"""SELECT COUNT(c.oid)
                 FROM pg_class AS c
@@ -376,15 +430,6 @@ class PartitionTableTool(PartitionTableToolProtocol):
         """
         self._execute_sql_command(command=create_table_sql)
         self.logger.warning(f"Table: {target_table_name} created successfully.")
-
-        self._create_index(
-            table_name=target_table_name,
-            index_data=IndexData(
-                name=f"{target_table_name}_unique",
-                columns=["das_tenant_id", "source_id", "recorded_at"],
-            ),
-            is_unique=True,
-        )
 
         add_primary_key_sql = f"""
                 ALTER TABLE public.{target_table_name}
@@ -415,7 +460,7 @@ class PartitionTableTool(PartitionTableToolProtocol):
             sql = f"""
             CREATE INDEX IF NOT EXISTS {index_data.name}
             ON {table_name}
-            USING btree
+            USING {index_data.index_type}
             ({', '.join(index_data.columns)});
             """
 

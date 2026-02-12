@@ -4,7 +4,6 @@ from collections import Counter
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from django.db.models.functions import Lower
 from django.utils.dateparse import parse_datetime
 from rest_framework import serializers
 
@@ -26,21 +25,23 @@ logger = logging.getLogger(__name__)
 
 class GeoLocationSerializer(serializers.Serializer):
     latitude = serializers.FloatField(
-        required=True,
+        required=False,
+        allow_null=True,
     )
     longitude = serializers.FloatField(
-        required=True,
+        required=False,
+        allow_null=True,
     )
 
     def validate_latitude(self, value):
-        """Validate latitude is within valid range."""
-        if not -90 <= value <= 90:
+        """Validate latitude is within valid range (if provided)."""
+        if value is not None and not -90 <= value <= 90:
             raise serializers.ValidationError("Latitude must be between -90 and 90 degrees")
         return value
 
     def validate_longitude(self, value):
-        """Validate longitude is within valid range."""
-        if not -180 <= value <= 180:
+        """Validate longitude is within valid range (if provided)."""
+        if value is not None and not -180 <= value <= 180:
             raise serializers.ValidationError("Longitude must be between -180 and 180 degrees")
         return value
 
@@ -67,13 +68,14 @@ class GearDeviceCreateSerializer(serializers.Serializer):
         choices=RELEASE_TYPE_CHOICES,
         required=False,
     )
-    location = GeoLocationSerializer(required=True)
+    location = GeoLocationSerializer(required=False, allow_null=True)
     device_additional_data = serializers.JSONField(
         required=False,
     )
     device_pgn_data = serializers.JSONField(
         required=False,
     )
+    recorded_at = serializers.DateTimeField(required=False)
 
     def validate_last_deployed(self, value):
         if value:
@@ -426,14 +428,19 @@ class GearSerializer(serializers.ModelSerializer):
             devices = []
             now = datetime.now(timezone.utc)
 
+            # Check if we should include devices with empty locations
+            include_empty_location = self.context.get("include_empty_location", False)
+
             # Build base query for related subject sources
+            # Note: We use select_related only for "source" and not "source__provider" because
+            # the default SourceProvider may not exist in test environments, and select_related
+            # uses INNER JOIN which would exclude those rows.
+            # We prefetch last_observation_sources but NOT the observation FK to avoid
+            # expensive queries on the partitioned observations table.
             related_subject_sources_query = (
                 models.SubjectSource.objects.filter(subject__id=subject.id)
-                .annotate(lower=Lower("assigned_range"))
-                .exclude(
-                    lower=datetime.min.replace(tzinfo=now.tzinfo)
-                )  # This prevents including sources that didn't have the lower bound set i.e. deployed
-                .select_related("source", "source__provider")
+                .select_related("source")
+                .prefetch_related("source__last_observation_sources")
             )
 
             if subject.is_active:
@@ -450,11 +457,25 @@ class GearSerializer(serializers.ModelSerializer):
                     # Use prefetched LatestObservationSource data instead of making individual queries
                     # This prevents N+1 query problem when serializing multiple gears
                     latest_obs_source = subject_source.source.last_observation_sources.first()
+                    has_real_location = False
                     if latest_obs_source and latest_obs_source.observation:
                         observation = latest_obs_source.observation
-                        location = {"latitude": observation.location.y, "longitude": observation.location.x}
+                        # Check for EMPTY_POINT (0,0) which indicates no real location data
+                        # Compare coordinates directly to avoid SRID mismatch issues
+                        is_empty_point = not observation.location or (
+                            observation.location.x == 0 and observation.location.y == 0
+                        )
+                        if not is_empty_point:
+                            location = {"latitude": observation.location.y, "longitude": observation.location.x}
+                            has_real_location = True
+                        else:
+                            location = {"latitude": None, "longitude": None}
                     else:
                         location = {"latitude": None, "longitude": None}
+
+                    # Skip devices with empty location unless include_empty_location is True
+                    if not has_real_location and not include_empty_location:
+                        continue
 
                     # Get last_updated from Source's additional field, fallback to updated_at
                     source_additional = subject_source.source.additional or {}
@@ -481,7 +502,7 @@ class GearSerializer(serializers.ModelSerializer):
                     device = {
                         "device_id": device_id,
                         "mfr_device_id": mfr_device_id,
-                        "label": chr(97 + idx),  # 'a', 'b', 'c', etc.
+                        "label": chr(97 + len(devices)),  # 'a', 'b', 'c', etc. based on included devices
                         "location": location,
                         "last_updated": device_last_updated,
                         "last_deployed": last_deployed,

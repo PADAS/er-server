@@ -2,6 +2,8 @@ das/das_server/chrisdo_settings.py
 GENERATED_MANIFEST
 /das/www
 www/static
+# Database backup files (downloaded from GCS during CI)
+circleci-docker/db-backup.sql
 # Created by .ignore support plugin (hsz.mobi)
 ### Python template
 # Byte-compiled / optimized / DLL files
@@ -346,3 +348,6 @@ pyrightconfig.json
 
 application_default_credentials.json
 .claude/settings.local.json
+
+# ln -s AGENTS.md CLAUDE.md to use it in your claude prompt
+CLAUDE.md
