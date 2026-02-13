@@ -17,7 +17,7 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
     """
 
     @classmethod
-    def calc_crossings(cls, geofence_analysis_params=None, trajectories=None):
+    def calc_crossings(cls, geofence_analysis_params=None, trajectories=None, trigger_on_corner_clip=False):
         """
         Run the crossings analysis using the input fences/regions against the various
         :param geofence_analysis_params:
@@ -62,8 +62,9 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
 
                     # if total number of intersection points for a segment
                     # are odd, it's a legitimate crossing, add segment to the
-                    # results
-                    if total_intersection_points > 0 and total_intersection_points % 2 != 0:
+                    # results. If trigger_on_corner_clip is True, also include
+                    # even numbers of intersections (corner clipping)
+                    if total_intersection_points > 0 and (total_intersection_points % 2 != 0 or trigger_on_corner_clip):
 
                         for pnt in _intersectPnts:
                             # Create a GeoPoint at the crossing OGR point
