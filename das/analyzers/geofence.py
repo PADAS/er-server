@@ -151,6 +151,11 @@ class GeofenceAnalyzer(SubjectAnalyzer):
                 "total_fix_count": traj.relocs.fix_count,
                 "subject_speed_kmhr": round(cross.subject_speed_kmhr, 2),
                 "subject_heading": round(cross.subject_heading, 2),
+                "feature_group_name": (
+                    self.config.warning_geofence_group.name
+                    if result.level == WARNING
+                    else self.config.critical_geofence_group.name
+                ),
             }
 
             self.logger.info(result.message)
