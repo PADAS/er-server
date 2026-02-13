@@ -2,12 +2,13 @@ import json
 import logging
 import os
 import urllib
+from datetime import timedelta
 
 import pytest
 import yaml
 from django_multitenant.utils import set_current_tenant
 
-from django.contrib.gis.geos import LineString
+from django.contrib.gis.geos import LineString, Point
 from django.core.files import File
 from django.core.serializers import serialize
 from django.test import TestCase, override_settings
@@ -19,7 +20,12 @@ from analyzers.geofence import GeofenceAnalyzer, GeofenceAnalyzerConfig
 from analyzers.models import SubjectAnalyzerResult
 from analyzers.tasks import analyze_subject_
 from core.utils import DASTenantManagement
-from mapping.models import SpatialFeature, SpatialFeatureFile, SpatialFeatureGroupStatic
+from mapping.models import (
+    SpatialFeature,
+    SpatialFeatureFile,
+    SpatialFeatureGroupStatic,
+    SpatialFeatureType,
+)
 from mapping.spatialfile_utils import process_spatialfile
 from observations.models import (
     DEFAULT_ASSIGNED_RANGE,
@@ -33,8 +39,21 @@ from observations.models import (
     SubjectType,
 )
 
-from .analyzer_test_utils import *
-from .geofence_test_data import *
+from .analyzer_test_utils import (
+    generate_observations,
+    parse_recorded_at,
+    store_observations,
+    time_shift,
+)
+from .geofence_test_data import (
+    CORNER_CLIPPING_TRACK,
+    DUMBO_TRACKS,
+    JOLIE_TRACK,
+    OLCHODA_TRACK,
+    SUBJECT_TRACK_FOR_DOUBLE_FENCE_HOP,
+    TUMBO_TRACKS,
+    ZERO_CROSSINGS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +205,9 @@ class TestGeofenceAnalyzer(TestCase):
         test_observations = list(time_shift(test_observations))
 
         # Create the Geofence Analyzer Config object
-        GeofenceAnalyzerConfig.objects.create(subject_group=sg, critical_geofence_group=gf_grp, search_time_hours=24.0)
+        GeofenceAnalyzerConfig.objects.create(
+            subject_group=sg, critical_geofence_group=gf_grp, search_time_hours=24.0, trigger_on_corner_clip=False
+        )
 
         for idx in range(0, len(test_observations) - 2):
             # Store the entire list of observations.
@@ -311,7 +332,7 @@ class TestGeofenceAnalyzer(TestCase):
 
         # Create the Geofence Analyzer Config object
         config = GeofenceAnalyzerConfig.objects.create(
-            subject_group=sg, critical_geofence_group=gf_grp, containment_regions=cr_grp
+            subject_group=sg, critical_geofence_group=gf_grp, containment_regions=cr_grp, trigger_on_corner_clip=False
         )
 
         # Iterate through the observations adding another point to the
@@ -371,7 +392,7 @@ class TestGeofenceAnalyzer(TestCase):
 
         # Create the Geofence Analyzer Config object
         config = GeofenceAnalyzerConfig.objects.create(
-            subject_group=sg, critical_geofence_group=gf_grp, containment_regions=cr_grp
+            subject_group=sg, critical_geofence_group=gf_grp, containment_regions=cr_grp, trigger_on_corner_clip=False
         )
 
         # Iterate through the observations adding another point to the
@@ -432,7 +453,7 @@ class TestGeofenceAnalyzer(TestCase):
 
         # Create the Geofence Analyzer Config object
         config = GeofenceAnalyzerConfig.objects.create(
-            subject_group=sg, critical_geofence_group=gf_grp, containment_regions=cr_grp
+            subject_group=sg, critical_geofence_group=gf_grp, containment_regions=cr_grp, trigger_on_corner_clip=False
         )
 
         # Iterate through the observations adding another point to the
@@ -492,7 +513,7 @@ class TestGeofenceAnalyzer(TestCase):
 
         # Create the Geofence Analyzer Config object
         config = GeofenceAnalyzerConfig.objects.create(
-            subject_group=sg, critical_geofence_group=gf_grp, containment_regions=cr_grp
+            subject_group=sg, critical_geofence_group=gf_grp, containment_regions=cr_grp, trigger_on_corner_clip=False
         )
 
         # Iterate through the observations adding another point to the
@@ -689,3 +710,89 @@ class TestGeofenceAnalyzerQuietPeriod:
 
         speed = Event.objects.all()[0].event_details.first().data.get("event_details", {}).get("subject_speed_kmhr")
         assert speed == round(speed, 2)
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestCornerClipping(TestCase):
+    """Test corner clipping functionality with trigger_on_corner_clip field"""
+
+    def setUp(self):
+        set_current_tenant(self.das_tenant)
+
+        ec, created = EventCategory.objects.get_or_create(
+            value="analyzer_event", defaults=dict(display="Analyzer Events")
+        )
+
+        EventType.objects.get_or_create(
+            value="geofence_break",
+            category=ec,
+            defaults=dict(display="Geofence Analyzer", schema=TestGeofenceAnalyzer.event_schema_json()),
+        )
+
+        # Create models (Subject, SubjectSource and Source)
+        self.subject = Subject.objects.create(name="corner_test_subject", subject_subtype_id="elephant")
+        source = Source.objects.create(manufacturer_id="008")
+        SubjectSource.objects.create(subject=self.subject, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
+
+        self.subject_group = SubjectGroup.objects.create(name="corner_clipping_group_false")
+        self.subject_group.subjects.add(self.subject)
+        self.subject_group.save()
+
+        # Create a rectangular geofence from lat -1.0 to -0.9, lon 34.9 to 35.1
+        geofence_geom = LineString([(34.9, -1.0), (35.1, -1.0), (35.1, -0.9), (34.9, -0.9), (34.9, -1.0)])
+        spatial_feature_type = SpatialFeatureType.objects.get_or_create(name="test_geofence")[0]
+        gf = SpatialFeature.objects.create(
+            name="Corner Clip Test Fence",
+            feature_geometry=geofence_geom,
+            feature_type=spatial_feature_type,
+        )
+        self.spatial_feature_group = SpatialFeatureGroupStatic.objects.create(name="Corner Clip Fences")
+        self.spatial_feature_group.features.add(gf)
+        self.spatial_feature_group.save()
+
+    def test_corner_clipping_disabled(self):
+        """Test that corner clipping events are NOT triggered when trigger_on_corner_clip=False"""
+
+        # Create analyzer config with trigger_on_corner_clip=False
+        config = GeofenceAnalyzerConfig.objects.create(
+            subject_group=self.subject_group,
+            critical_geofence_group=self.spatial_feature_group,
+            trigger_on_corner_clip=False,
+        )
+
+        # Parse and generate observations for corner clipping track
+        test_observations = [parse_recorded_at(x) for x in CORNER_CLIPPING_TRACK]
+        test_observations = list(generate_observations(test_observations))
+
+        # Run analysis
+        analyzer = GeofenceAnalyzer(config=config, subject=self.subject)
+        analyzer.analyze(observations=test_observations)
+
+        # Should have NO results since corner clipping is disabled
+        results = SubjectAnalyzerResult.objects.filter(subject=self.subject)
+        assert len(results) == 0, f"Expected 0 results with corner clipping disabled, got {len(results)}"
+
+    def test_corner_clipping_enabled(self):
+        """Test that corner clipping events ARE triggered when trigger_on_corner_clip=True"""
+
+        # Create analyzer config with trigger_on_corner_clip=True
+        config = GeofenceAnalyzerConfig.objects.create(
+            subject_group=self.subject_group,
+            critical_geofence_group=self.spatial_feature_group,
+            trigger_on_corner_clip=True,
+        )
+
+        # Parse and generate observations for corner clipping track
+        test_observations = [parse_recorded_at(x) for x in CORNER_CLIPPING_TRACK]
+        test_observations = list(generate_observations(test_observations))
+
+        # Run analysis
+        analyzer = GeofenceAnalyzer(config=config, subject=self.subject)
+        results = analyzer.analyze(observations=test_observations)
+
+        # Should have two results since corner clipping is enabled
+        assert len(results) == 2, f"Expected 2 results with corner clipping enabled, got {len(results)}"
+
+        # Verify the results contain expected geofence crossing locations
+        assert results[0][1].location.coords == (35.1, -0.95)
+        assert results[1][1].location.coords == (34.9, -0.95)

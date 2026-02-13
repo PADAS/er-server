@@ -42,6 +42,8 @@ class GeofenceAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
         read_only=True, view_name="mapping:spatialfeaturegroup-detail", lookup_field="id"
     )
 
+    trigger_on_corner_clip = serializers.BooleanField(required=False)
+
     def to_representation(self, instance):
         rep = super().to_representation(instance)
         critical_group = rep.pop("critical_geofence_group")

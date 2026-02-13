@@ -101,7 +101,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         _analysis_params = self._create_geofence_analysis_param()
 
         # Generate a list of crossings
-        cross_results = DasGeofenceAnalysis.calc_crossings(_analysis_params, [traj])
+        cross_results = DasGeofenceAnalysis.calc_crossings(_analysis_params, [traj], self.config.trigger_on_corner_clip)
 
         das_analyzer_results = []
         for cross in cross_results.geofence_crossings:
