@@ -8,7 +8,7 @@ import pytest
 import yaml
 from django_multitenant.utils import set_current_tenant
 
-from django.contrib.gis.geos import LineString, Point
+from django.contrib.gis.geos import LineString, Point, Polygon
 from django.core.files import File
 from django.core.serializers import serialize
 from django.test import TestCase, override_settings
@@ -774,6 +774,40 @@ class TestCornerClipping(TestCase):
 
     def test_corner_clipping_enabled(self):
         """Test that corner clipping events ARE triggered when trigger_on_corner_clip=True"""
+
+        # Create analyzer config with trigger_on_corner_clip=True
+        config = GeofenceAnalyzerConfig.objects.create(
+            subject_group=self.subject_group,
+            critical_geofence_group=self.spatial_feature_group,
+            trigger_on_corner_clip=True,
+        )
+
+        # Parse and generate observations for corner clipping track
+        test_observations = [parse_recorded_at(x) for x in CORNER_CLIPPING_TRACK]
+        test_observations = list(generate_observations(test_observations))
+
+        # Run analysis
+        analyzer = GeofenceAnalyzer(config=config, subject=self.subject)
+        results = analyzer.analyze(observations=test_observations)
+
+        # Should have two results since corner clipping is enabled
+        assert len(results) == 2, f"Expected 2 results with corner clipping enabled, got {len(results)}"
+
+        # Verify the results contain expected geofence crossing locations
+        assert results[0][1].location.coords == (35.1, -0.95)
+        assert results[1][1].location.coords == (34.9, -0.95)
+
+    def test_polygon_geofence(self):
+        geofence_geom = Polygon([(34.9, -1.0), (35.1, -1.0), (35.1, -0.9), (34.9, -0.9), (34.9, -1.0)])
+        spatial_feature_type = SpatialFeatureType.objects.get_or_create(name="test_polygon_geofence")[0]
+        gf = SpatialFeature.objects.create(
+            name="Polygon Test Fence",
+            feature_geometry=geofence_geom,
+            feature_type=spatial_feature_type,
+        )
+        self.spatial_feature_group = SpatialFeatureGroupStatic.objects.create(name="Polygon Fences")
+        self.spatial_feature_group.features.add(gf)
+        self.spatial_feature_group.save()
 
         # Create analyzer config with trigger_on_corner_clip=True
         config = GeofenceAnalyzerConfig.objects.create(
