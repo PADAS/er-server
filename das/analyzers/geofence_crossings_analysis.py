@@ -52,6 +52,10 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
                     intersect_pnts = trajseg.ogr_geometry.Intersection(fence.ogr_geometry)
 
                     # intersect_pnts can either be None, POINT, or MULTIPOINT if the geofence is a line or multi-line,
+                    if intersect_pnts is None or intersect_pnts.IsEmpty():
+                        continue
+
+                    # empty or one of POINT, MULTIPOINT, LINESTRING, MULTILINESTRING, or GEOMETRYCOLLECTION.
                     _intersectPnts = []
                     if intersect_pnts.GetGeometryName() == "POINT":
                         newPoint = ogr.Geometry(ogr.wkbPoint)
@@ -71,8 +75,12 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
                             x=intersect_pnts.GetPoint(intersect_pnts.GetPointCount() - 1)[0],
                             y=intersect_pnts.GetPoint(intersect_pnts.GetPointCount() - 1)[1],
                         )
+                        # We add the points in reverse order because the intersections are returned in the order they
+                        # are encountered along the fence, but we want them in the order they are encountered along the
+                        # trajectory segment
                         _intersectPnts.append(newPoint2)
                         _intersectPnts.append(newPoint1)
+
                     elif intersect_pnts.GetGeometryName() == "MULTILINESTRING":
                         # For multi-line string, we want to take the start and end
                         # points of each linestring as the crossing points
@@ -89,8 +97,13 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
                                 x=linestring.GetPoint(linestring.GetPointCount() - 1)[0],
                                 y=linestring.GetPoint(linestring.GetPointCount() - 1)[1],
                             )
+
+                            # We add the points in reverse order because the intersections are returned in the order
+                            # they're encountered along the fence but we want them in the order they are encountered
+                            # along the trajectory segment
                             _intersectPnts.append(newPoint2)
                             _intersectPnts.append(newPoint1)
+
                     else:
                         _intersectPnts = intersect_pnts
 

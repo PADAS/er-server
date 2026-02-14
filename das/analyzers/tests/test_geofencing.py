@@ -809,24 +809,4 @@ class TestCornerClipping(TestCase):
         self.spatial_feature_group.features.add(gf)
         self.spatial_feature_group.save()
 
-        # Create analyzer config with trigger_on_corner_clip=True
-        config = GeofenceAnalyzerConfig.objects.create(
-            subject_group=self.subject_group,
-            critical_geofence_group=self.spatial_feature_group,
-            trigger_on_corner_clip=True,
-        )
-
-        # Parse and generate observations for corner clipping track
-        test_observations = [parse_recorded_at(x) for x in CORNER_CLIPPING_TRACK]
-        test_observations = list(generate_observations(test_observations))
-
-        # Run analysis
-        analyzer = GeofenceAnalyzer(config=config, subject=self.subject)
-        results = analyzer.analyze(observations=test_observations)
-
-        # Should have two results since corner clipping is enabled
-        assert len(results) == 2, f"Expected 2 results with corner clipping enabled, got {len(results)}"
-
-        # Verify the results contain expected geofence crossing locations
-        assert results[0][1].location.coords == (35.1, -0.95)
-        assert results[1][1].location.coords == (34.9, -0.95)
+        self.test_corner_clipping_enabled()
