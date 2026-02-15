@@ -1,3 +1,7 @@
 
 # Always keep public version for private-only infra
 terraform/** merge=ours
+
+# Export rules: keep public version for private-only infra
+terraform/** merge=ours
+templated-deployment/** merge=ours
