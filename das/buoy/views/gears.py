@@ -1,4 +1,4 @@
-from drf_spectacular.utils import extend_schema
+import logging
 
 from drf_spectacular.utils import (
     OpenApiResponse,
@@ -11,31 +11,31 @@ from django.db import transaction
 from django.db.utils import IntegrityError
 from django.urls import reverse
 from rest_framework import generics
+from rest_framework import serializers as drf_serializers
+from rest_framework.exceptions import NotFound
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from buoy import serializers
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
-from buoy.views.helpers import (
-    NAUTICAL_MILE_RADIUS,
-    check_valid_date_string,
-    check_valid_state_string,
-    filter_by_bbox,
+from buoy.permissions import (
+    GearLocationPermission,
+    GearSubjectPermission,
+    HasManufacturerSubjectGroupPermission,
 )
-from buoy.views.schemas import GearsViewSchema
-from buoy.permissions import GearLocationPermission, GearSubjectPermission
 from buoy.serializers.query_params import GearsQueryParamsSerializer
+from buoy.services.buoy_service import BuoyService
 from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
-from buoy.views.schemas import GearsViewSchema
+from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import Subject, SubjectSource
-from observations.utils import VIEW_SUBJECT_PERMS, dateparse, get_minimum_allowed_age
+from observations.models import SubjectSource
 from utils.drf import (
-    ForbiddenAPIException,
     StandardObjectPermissions,
     StandardResultsSetPagination,
+    return_409_response,
 )
-from utils.gis import check_valid_lat_lon
 
+logger = logging.getLogger(__name__)
 
 
 @extend_schema_view(
@@ -132,7 +132,7 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         page_size=StandardResultsSetPagination.page_size, max_page_size=StandardResultsSetPagination.max_page_size
     )
 
-    permission_classes = (StandardObjectPermissions,)
+    permission_classes = (StandardObjectPermissions, IsAuthenticated, GearSubjectPermission, GearLocationPermission)
     serializer_class = serializers.GearSerializer
     pagination_class = StandardResultsSetPagination
     schema = GearsViewSchema()
@@ -161,7 +161,13 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         self._include_empty_location = query_params.get("include_empty_location", False)
 
         # First get subject-sources with related data
-        queryset = SubjectSource.objects.all().select_related("source", "subject")
+        queryset = (
+            SubjectSource.objects.filter(
+                subject__subject_subtype__in=["ropeless_buoy_device", BUOY_GEAR_SUBJECT_SUBTYPE]
+            )
+            .select_related("source", "subject")
+            .prefetch_related("source__last_observation_sources", "subject__groups")
+        )
         queryset = queryset.order_by("id")  # Stable sort for pagination
 
         # Apply filters based on validated parameters
@@ -176,10 +182,8 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         lon = query_params.get("lon")
         max_nm_range = query_params.get("max_nm_range", NAUTICAL_MILE_RADIUS)
 
-        if lat is not None and lon is not None:
-            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=max_nm_range)
-        elif not self.request.user.has_perm("observations.can_view_gear_regardless_location"):
-            raise ForbiddenAPIException("lat and lon are required query parameters")
+        if lat and lon:
+            queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=int(max_nm_range))
 
         # Filter queryset by removing subjects where the additional field is the same
         queryset = queryset.order_by("subject__additional__display_id", "subject__name").distinct(
