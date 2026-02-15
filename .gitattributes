@@ -1,0 +1,3 @@
+
+# Always keep public version for private-only infra
+terraform/** merge=ours
