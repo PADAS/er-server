@@ -23,7 +23,8 @@ Contents:
    :caption: Documentation
 
    faq
-   architecture/overview
+   architecture/architecture-overview
+   topics/Developing-ER/README
    topics/browser-and-os-support
    topics/maps
    topics/sensors

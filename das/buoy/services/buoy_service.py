@@ -5,6 +5,8 @@ from typing import List, Tuple
 
 from psycopg2.extras import DateTimeTZRange
 
+from django.db import IntegrityError
+
 from buoy.constants import (
     BUOY_GEAR_SUBJECT_SUBTYPE,
     DEVICE_STATUS_DEPLOYED,
@@ -171,19 +173,31 @@ class BuoyService:
             else:
                 recorded_at = device_data.get("recorded_at")
 
-            # Get or create Source using the unique constraint fields (provider, manufacturer_id)
+            # Get or create Source. Prefer lookup by id (device_id) to avoid duplicate key when
+            # the same device was previously created under a different provider (e.g. after
+            # changing how provider is set). When reusing an existing source by id, we do not
+            # change its provider or other identity fields.
             # The unique constraint is on (das_tenant, provider, manufacturer_id), not on id.
-            # If a Source with this manufacturer_id already exists, reuse it (even if device_id differs).
-            # Pass id in defaults so it's only set when creating a new Source.
-            if provider:
-                source, created = models.Source.objects.get_or_create(
-                    provider=provider, manufacturer_id=mfr_device_id, defaults={"id": device_id}
-                )
+            source = models.Source.objects.filter(id=device_id).first()
+            if source is not None:
+                created = False
+                # Leave source.provider (and manufacturer_id) unchanged; do not overwrite.
             else:
-                # Fallback: create source without provider reference
-                source, created = models.Source.objects.get_or_create(
-                    manufacturer_id=mfr_device_id, defaults={"id": device_id}
-                )
+                try:
+                    if provider:
+                        source, created = models.Source.objects.get_or_create(
+                            provider=provider,
+                            manufacturer_id=mfr_device_id,
+                            defaults={"id": device_id},
+                        )
+                    else:
+                        source, created = models.Source.objects.get_or_create(
+                            manufacturer_id=mfr_device_id,
+                            defaults={"id": device_id},
+                        )
+                except IntegrityError:
+                    # Race: another request created a Source with this id; fetch it.
+                    source = models.Source.objects.get(id=device_id)
 
             # Store last_updated in Source's additional field if provided
             if device_data.get("last_updated"):
