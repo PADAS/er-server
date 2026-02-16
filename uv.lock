@@ -1037,7 +1037,7 @@ requires-dist = [
     { name = "python-socketio" },
     { name = "pytz", specifier = "==2023.3" },
     { name = "pyyaml", specifier = "==6.0" },
-    { name = "rasterio", specifier = "==1.3.7" },
+    { name = "rasterio", specifier = "==1.4.4" },
     { name = "redis", specifier = "==4.5.5" },
     { name = "requests", specifier = "==2.32.5" },
     { name = "rsa" },
@@ -4414,7 +4414,7 @@ wheels = [
 
 [[package]]
 name = "rasterio"
-version = "1.3.7"
+version = "1.4.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "affine" },
@@ -4424,15 +4424,15 @@ dependencies = [
     { name = "click-plugins" },
     { name = "cligj" },
     { name = "numpy" },
-    { name = "setuptools" },
-    { name = "snuggs" },
+    { name = "pyparsing" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7b/d8/7590109d7a62af60754c406ebf67c55f9646919a40096c5373d0f67bb525/rasterio-1.3.7.tar.gz", hash = "sha256:abfdcb8f10210b8fad939f40d545d6c47e9e3b5cf4a43773ca8dd11c58204304", size = 411652, upload-time = "2023-05-22T22:45:10.173Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/fa/fce8dc9f09e5bc6520b6fc1b4ecfa510af9ca06eb42ad7bdff9c9b8989d0/rasterio-1.4.4.tar.gz", hash = "sha256:c95424e2c7f009b8f7df1095d645c52895cd332c0c2e1b4c2e073ea28b930320", size = 445004, upload-time = "2025-12-12T18:01:08.971Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/74/48dc37943289b2290621cd80b5c48cc7ce6051c367869a9c74cdce527dc2/rasterio-1.3.7-cp310-cp310-macosx_10_15_x86_64.whl", hash = "sha256:106e6519f5d2a0d35f0e963a8d07dc313ba7f6595a4c89fe9d6dcd8662a86617", size = 22842689, upload-time = "2023-05-22T22:43:42.541Z" },
-    { url = "https://files.pythonhosted.org/packages/66/b7/9f3d9bb69498e4cc77cb1311953c7667abe1016157ac2cc71137c092283c/rasterio-1.3.7-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:baab6f3ba468d3b3ada05b282574af0f3110830f50888948d50c1f16aa6130af", size = 19488118, upload-time = "2023-05-22T22:43:46.982Z" },
-    { url = "https://files.pythonhosted.org/packages/90/40/d768d5eb5fe8955e56c20cbd51ca19773becb76ef67338a06df24ae344b0/rasterio-1.3.7-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:075731165d26ef33e33e3ab903a0ecabb643893794bea1c78dd6c631713d1820", size = 21268850, upload-time = "2023-05-22T22:43:54.996Z" },
-    { url = "https://files.pythonhosted.org/packages/2a/4b/af3d2222ed3a22715996ebeaed584f72d91962695c3e942d2de523eaeb6f/rasterio-1.3.7-cp310-cp310-win_amd64.whl", hash = "sha256:a8013826cdf540fb4f1507f92bb4ef440b594a4a8895d9038e25498e5b135f52", size = 23055127, upload-time = "2023-05-22T22:43:59.05Z" },
+    { url = "https://files.pythonhosted.org/packages/7e/24/eedb9dfed1706c696b4f43ba9b85e830ce332f4f57ffcb7b6a4c4e66ade9/rasterio-1.4.4-cp310-cp310-macosx_14_0_arm64.whl", hash = "sha256:35401e84d4d0b239bd62b33d4ee68d7bb13b47c3b41078f4aad7ad7964e61c73", size = 21127567, upload-time = "2025-12-12T17:58:42.664Z" },
+    { url = "https://files.pythonhosted.org/packages/67/5f/482a24bf75bcd48236cd223d037f22abc6c08da6961e390e6a35249a9f58/rasterio-1.4.4-cp310-cp310-macosx_15_0_x86_64.whl", hash = "sha256:1f17fc9608b6b6666894a04e0118d3329e831a6347bc3650584d247a9d476fdd", size = 25735929, upload-time = "2025-12-12T17:58:46.503Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/da/b988ffb1bb37cc4cb8a028447ab654a16dbac0b339d977fb9c8adc5bd995/rasterio-1.4.4-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:1f0edb8cb30ff8f5be341583f69c115b7c36ad52bbbe7582345d32af115bc6b3", size = 34040467, upload-time = "2025-12-12T17:58:50.109Z" },
+    { url = "https://files.pythonhosted.org/packages/e0/0a/2eace22e990203d47a8fed4b174b87be50281bf3f5b2509cf3700036cbcc/rasterio-1.4.4-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:5197da0e3dd09907bdb343717a49e8fb5229ffdbff0e583b874959ec41fa9558", size = 35339947, upload-time = "2025-12-12T17:58:53.269Z" },
+    { url = "https://files.pythonhosted.org/packages/40/e5/16acecbbaedd820c5d71f99f3bab73c00455078a414b511f6854364d3e1e/rasterio-1.4.4-cp310-cp310-win_amd64.whl", hash = "sha256:15109134c7b4770e6aeb8d45dc52c2603824805ba734323268a44f5a81756a7a", size = 25708679, upload-time = "2025-12-12T17:58:56.661Z" },
 ]
 
 [[package]]
@@ -4769,19 +4769,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a2/87/a6771e1546d97e7e041b6ae58d80074f81b7d5121207425c964ddf5cfdbd/sniffio-1.3.1.tar.gz", hash = "sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc", size = 20372, upload-time = "2024-02-25T23:20:04.057Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e9/44/75a9c9421471a6c4805dbf2356f7c181a29c1879239abab1ea2cc8f38b40/sniffio-1.3.1-py3-none-any.whl", hash = "sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2", size = 10235, upload-time = "2024-02-25T23:20:01.196Z" },
-]
-
-[[package]]
-name = "snuggs"
-version = "1.4.7"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "pyparsing" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/93/19/0d11ab370735dde61076a0e41644e5593821776e69e3b0344626cfa0e56a/snuggs-1.4.7.tar.gz", hash = "sha256:501cf113fe3892e14e2fee76da5cd0606b7e149c411c271898e6259ebde2617b", size = 8196, upload-time = "2019-09-18T18:54:51.598Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/cc/0e/d27d6e806d6c0d1a2cfdc5d1f088e42339a0a54a09c3343f7f81ec8947ea/snuggs-1.4.7-py3-none-any.whl", hash = "sha256:988dde5d4db88e9d71c99457404773dabcc7a1c45971bfbe81900999942d9f07", size = 5370, upload-time = "2019-09-18T18:54:49.829Z" },
 ]
 
 [[package]]

@@ -244,7 +244,8 @@ class GearCreateSerializer(serializers.Serializer):
             # If device is being deployed: allow even when already deployed at same location so that
             # gearset updates (e.g. one device updated, full set sent) do not fail for unchanged devices.
             # Re-submitting the same deploy state is idempotent in BuoyService.process_gearset.
-
+            if device.get("device_status") == "deployed":
+                pass
             # If device is being hauled, ensure it's currently deployed
             else:
                 # If there's an existing subject_source, ensure it hasn't already been hauled
