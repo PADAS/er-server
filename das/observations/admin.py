@@ -1666,7 +1666,8 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
     def _age(self, o):
         default = "-"
         try:
-            return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.recorded_at) if o.recorded_at else default
+            if o.recorded_at and o.recorded_at.year >= MINIMUM_VALID_YEAR:
+                return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.recorded_at)
         except OverflowError:
             pass
         return default
@@ -1723,7 +1724,14 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
     _location.admin_order_field = "location"
 
     def _recorded_at(self, o):
-        return o.recorded_at
+        default = "-"
+        try:
+            if o.recorded_at and o.recorded_at.year >= MINIMUM_VALID_YEAR:
+                return o.recorded_at
+        except OverflowError:
+            # Some stored timestamps may be out of range for datetime; treat them as missing.
+            pass
+        return default
 
     _recorded_at.short_description = "recorded at %s" % TIMEZONE_USED
     _recorded_at.admin_order_field = "recorded_at"
