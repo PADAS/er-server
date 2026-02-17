@@ -2,11 +2,10 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "trigger_field": {
-        "default": "",
+      "photo": {
         "deprecated": false,
-        "description": "",
-        "title": "Trigger Field",
+        "format": "uri",
+        "title": "Photo",
         "type": "string"
       }
     },
@@ -18,41 +17,57 @@
         "if": {
           "allOf": [
             {
-              "properties": {
-                "trigger_field": {
-                  "allOf": [
-                    {
-                      "not": {
-                        "type": "null"
-                      }
-                    },
-                    {
-                      "anyOf": [
-                        {
-                          "minItems": 1,
-                          "type": "array"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "minProperties": 1,
-                          "type": "object"
-                        },
-                        {
-                          "minLength": 1,
-                          "type": "string"
-                        }
-                      ]
+              "anyOf": [
+                {
+                  "not": {
+                    "required": [
+                      "photo"
+                    ]
+                  }
+                },
+                {
+                  "properties": {
+                    "photo": {
+                      "maxItems": 0,
+                      "type": "array"
                     }
+                  },
+                  "required": [
+                    "photo"
+                  ]
+                },
+                {
+                  "properties": {
+                    "photo": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "photo"
+                  ]
+                },
+                {
+                  "properties": {
+                    "photo": {
+                      "maxProperties": 0,
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "photo"
+                  ]
+                },
+                {
+                  "properties": {
+                    "photo": {
+                      "maxLength": 0,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "photo"
                   ]
                 }
-              },
-              "required": [
-                "trigger_field"
               ]
             }
           ]
@@ -75,13 +90,12 @@
   },
   "ui": {
     "fields": {
-      "trigger_field": {
+      "photo": {
+        "allowableFileTypes": [],
         "conditionalDependents": [
           "section-2"
         ],
-        "inputType": "SHORT_TEXT",
-        "placeholder": "",
-        "type": "TEXT",
+        "type": "ATTACHMENT",
         "parent": "section-1"
       },
       "conditional_field": {
@@ -105,7 +119,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "trigger_field",
+            "name": "photo",
             "type": "field"
           }
         ],
@@ -115,9 +129,9 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "trigger_field",
-            "id": "condition-33R4xiasQ2tmyjTKGBjGt",
-            "operator": "HAS_INPUT",
+            "field": "photo",
+            "id": "condition-QlNWkx6uEoHrfAKx9noPV",
+            "operator": "IS_EMPTY",
             "value": null
           }
         ],

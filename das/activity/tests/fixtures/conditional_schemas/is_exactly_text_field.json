@@ -2,11 +2,12 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "count": {
+      "trigger_field": {
+        "default": "",
         "deprecated": false,
         "description": "",
-        "title": "Count",
-        "type": "number"
+        "title": "Trigger Field",
+        "type": "string"
       }
     },
     "required": [],
@@ -18,40 +19,42 @@
           "allOf": [
             {
               "properties": {
-                "count": {
-                  "allOf": [
+                "trigger_field": {
+                  "anyOf": [
                     {
-                      "not": {
-                        "type": "null"
-                      }
+                      "type": "array",
+                      "allOf": [
+                        {
+                          "contains": {
+                            "const": "Arequipa"
+                          }
+                        }
+                      ],
+                      "maxItems": 1
                     },
                     {
-                      "anyOf": [
-                        {
-                          "minItems": 1,
-                          "type": "array"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "minProperties": 1,
-                          "type": "object"
-                        },
-                        {
-                          "minLength": 1,
-                          "type": "string"
-                        }
-                      ]
+                      "type": "boolean",
+                      "const": null
+                    },
+                    {
+                      "const": null,
+                      "type": "number"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {},
+                      "required": [],
+                      "unevaluatedProperties": false
+                    },
+                    {
+                      "const": "Arequipa",
+                      "type": "string"
                     }
                   ]
                 }
               },
               "required": [
-                "count"
+                "trigger_field"
               ]
             }
           ]
@@ -74,12 +77,13 @@
   },
   "ui": {
     "fields": {
-      "count": {
+      "trigger_field": {
         "conditionalDependents": [
           "section-2"
         ],
+        "inputType": "SHORT_TEXT",
         "placeholder": "",
-        "type": "NUMERIC",
+        "type": "TEXT",
         "parent": "section-1"
       },
       "conditional_field": {
@@ -103,7 +107,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "count",
+            "name": "trigger_field",
             "type": "field"
           }
         ],
@@ -113,10 +117,10 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "count",
-            "id": "condition-ylQwCVxzXY4PRGClFfiR6",
-            "operator": "HAS_INPUT",
-            "value": null
+            "field": "trigger_field",
+            "id": "condition-5Z6_KzhCxgKQk0s_hnCOt",
+            "operator": "IS_EXACTLY",
+            "value": "Arequipa"
           }
         ],
         "isActive": true,

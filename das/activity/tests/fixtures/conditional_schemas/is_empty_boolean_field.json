@@ -2,11 +2,12 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "photo": {
+      "is_active": {
         "deprecated": false,
-        "format": "uri",
-        "title": "Photo",
-        "type": "string"
+        "description": "",
+        "title": "Is Active",
+        "type": "boolean",
+        "default": false
       }
     },
     "required": [],
@@ -17,41 +18,57 @@
         "if": {
           "allOf": [
             {
-              "properties": {
-                "photo": {
-                  "allOf": [
-                    {
-                      "not": {
-                        "type": "null"
-                      }
-                    },
-                    {
-                      "anyOf": [
-                        {
-                          "minItems": 1,
-                          "type": "array"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "minProperties": 1,
-                          "type": "object"
-                        },
-                        {
-                          "minLength": 1,
-                          "type": "string"
-                        }
-                      ]
+              "anyOf": [
+                {
+                  "not": {
+                    "required": [
+                      "is_active"
+                    ]
+                  }
+                },
+                {
+                  "properties": {
+                    "is_active": {
+                      "maxItems": 0,
+                      "type": "array"
                     }
+                  },
+                  "required": [
+                    "is_active"
+                  ]
+                },
+                {
+                  "properties": {
+                    "is_active": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "is_active"
+                  ]
+                },
+                {
+                  "properties": {
+                    "is_active": {
+                      "maxProperties": 0,
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "is_active"
+                  ]
+                },
+                {
+                  "properties": {
+                    "is_active": {
+                      "maxLength": 0,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "is_active"
                   ]
                 }
-              },
-              "required": [
-                "photo"
               ]
             }
           ]
@@ -74,13 +91,12 @@
   },
   "ui": {
     "fields": {
-      "photo": {
-        "allowableFileTypes": [],
+      "is_active": {
         "conditionalDependents": [
           "section-2"
         ],
-        "type": "ATTACHMENT",
-        "parent": "section-1"
+        "parent": "section-1",
+        "type": "BOOLEAN"
       },
       "conditional_field": {
         "conditionalDependents": [],
@@ -103,7 +119,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "photo",
+            "name": "is_active",
             "type": "field"
           }
         ],
@@ -113,9 +129,9 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "photo",
-            "id": "condition-aO7IdXydSuOln_zP-uEzl",
-            "operator": "HAS_INPUT",
+            "field": "is_active",
+            "id": "condition-bool-dnhi-1",
+            "operator": "IS_EMPTY",
             "value": null
           }
         ],

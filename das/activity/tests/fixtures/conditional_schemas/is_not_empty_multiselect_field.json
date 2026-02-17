@@ -2,16 +2,20 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "status": {
+      "tags": {
         "deprecated": false,
         "description": "",
-        "title": "Status",
-        "type": "string",
-        "anyOf": [
-          {
-            "$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=firerep_status"
-          }
-        ]
+        "items": {
+          "anyOf": [
+            {
+              "$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=animal_tags"
+            }
+          ],
+          "type": "string"
+        },
+        "title": "Tags",
+        "type": "array",
+        "uniqueItems": true
       }
     },
     "required": [],
@@ -22,57 +26,41 @@
         "if": {
           "allOf": [
             {
-              "anyOf": [
-                {
-                  "not": {
-                    "required": [
-                      "status"
-                    ]
-                  }
-                },
-                {
-                  "properties": {
-                    "status": {
-                      "maxItems": 0,
-                      "type": "array"
+              "properties": {
+                "tags": {
+                  "allOf": [
+                    {
+                      "not": {
+                        "type": "null"
+                      }
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "minProperties": 1,
+                          "type": "object"
+                        },
+                        {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      ]
                     }
-                  },
-                  "required": [
-                    "status"
-                  ]
-                },
-                {
-                  "properties": {
-                    "status": {
-                      "type": "null"
-                    }
-                  },
-                  "required": [
-                    "status"
-                  ]
-                },
-                {
-                  "properties": {
-                    "status": {
-                      "maxProperties": 0,
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "status"
-                  ]
-                },
-                {
-                  "properties": {
-                    "status": {
-                      "maxLength": 0,
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "status"
                   ]
                 }
+              },
+              "required": [
+                "tags"
               ]
             }
           ]
@@ -95,11 +83,11 @@
   },
   "ui": {
     "fields": {
-      "status": {
+      "tags": {
         "choices": {
           "eventTypeCategories": [],
           "existingChoiceList": [
-            "firerep_status"
+            "animal_tags"
           ],
           "featureCategories": [],
           "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
@@ -136,7 +124,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "status",
+            "name": "tags",
             "type": "field"
           }
         ],
@@ -146,9 +134,9 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "status",
-            "id": "condition-KanwOyjINKe2cL3UboG7s",
-            "operator": "DOES_NOT_HAVE_INPUT",
+            "field": "tags",
+            "id": "condition-ms-hi-1",
+            "operator": "IS_NOT_EMPTY",
             "value": null
           }
         ],

@@ -34,41 +34,57 @@
         "if": {
           "allOf": [
             {
-              "properties": {
-                "incident_location": {
-                  "allOf": [
-                    {
-                      "not": {
-                        "type": "null"
-                      }
-                    },
-                    {
-                      "anyOf": [
-                        {
-                          "minItems": 1,
-                          "type": "array"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "minProperties": 1,
-                          "type": "object"
-                        },
-                        {
-                          "minLength": 1,
-                          "type": "string"
-                        }
-                      ]
+              "anyOf": [
+                {
+                  "not": {
+                    "required": [
+                      "incident_location"
+                    ]
+                  }
+                },
+                {
+                  "properties": {
+                    "incident_location": {
+                      "maxItems": 0,
+                      "type": "array"
                     }
+                  },
+                  "required": [
+                    "incident_location"
+                  ]
+                },
+                {
+                  "properties": {
+                    "incident_location": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "incident_location"
+                  ]
+                },
+                {
+                  "properties": {
+                    "incident_location": {
+                      "maxProperties": 0,
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "incident_location"
+                  ]
+                },
+                {
+                  "properties": {
+                    "incident_location": {
+                      "maxLength": 0,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "incident_location"
                   ]
                 }
-              },
-              "required": [
-                "incident_location"
               ]
             }
           ]
@@ -130,8 +146,8 @@
         "conditions": [
           {
             "field": "incident_location",
-            "id": "condition-pQeJQLwB6mry_Y9tgt0e9",
-            "operator": "HAS_INPUT",
+            "id": "condition-1gcYP1EordORgyrp-QuMw",
+            "operator": "IS_EMPTY",
             "value": null
           }
         ],

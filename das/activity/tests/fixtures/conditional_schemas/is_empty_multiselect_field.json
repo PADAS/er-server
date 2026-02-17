@@ -2,12 +2,20 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "is_active": {
+      "tags": {
         "deprecated": false,
         "description": "",
-        "title": "Is Active",
-        "type": "boolean",
-        "default": false
+        "items": {
+          "anyOf": [
+            {
+              "$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=animal_tags"
+            }
+          ],
+          "type": "string"
+        },
+        "title": "Tags",
+        "type": "array",
+        "uniqueItems": true
       }
     },
     "required": [],
@@ -22,51 +30,51 @@
                 {
                   "not": {
                     "required": [
-                      "is_active"
+                      "tags"
                     ]
                   }
                 },
                 {
                   "properties": {
-                    "is_active": {
+                    "tags": {
                       "maxItems": 0,
                       "type": "array"
                     }
                   },
                   "required": [
-                    "is_active"
+                    "tags"
                   ]
                 },
                 {
                   "properties": {
-                    "is_active": {
+                    "tags": {
                       "type": "null"
                     }
                   },
                   "required": [
-                    "is_active"
+                    "tags"
                   ]
                 },
                 {
                   "properties": {
-                    "is_active": {
+                    "tags": {
                       "maxProperties": 0,
                       "type": "object"
                     }
                   },
                   "required": [
-                    "is_active"
+                    "tags"
                   ]
                 },
                 {
                   "properties": {
-                    "is_active": {
+                    "tags": {
                       "maxLength": 0,
                       "type": "string"
                     }
                   },
                   "required": [
-                    "is_active"
+                    "tags"
                   ]
                 }
               ]
@@ -91,12 +99,25 @@
   },
   "ui": {
     "fields": {
-      "is_active": {
+      "tags": {
+        "choices": {
+          "eventTypeCategories": [],
+          "existingChoiceList": [
+            "animal_tags"
+          ],
+          "featureCategories": [],
+          "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
+          "subjectGroups": [],
+          "subjectSubtypes": [],
+          "type": "EXISTING_CHOICE_LIST"
+        },
         "conditionalDependents": [
           "section-2"
         ],
-        "parent": "section-1",
-        "type": "BOOLEAN"
+        "inputType": "DROPDOWN",
+        "placeholder": "",
+        "type": "CHOICE_LIST",
+        "parent": "section-1"
       },
       "conditional_field": {
         "conditionalDependents": [],
@@ -119,7 +140,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "is_active",
+            "name": "tags",
             "type": "field"
           }
         ],
@@ -129,9 +150,9 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "is_active",
-            "id": "condition-bool-dnhi-1",
-            "operator": "DOES_NOT_HAVE_INPUT",
+            "field": "tags",
+            "id": "condition-ms-dnhi-1",
+            "operator": "IS_EMPTY",
             "value": null
           }
         ],

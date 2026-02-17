@@ -2,20 +2,12 @@
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "properties": {
-      "tags": {
+      "is_active": {
         "deprecated": false,
         "description": "",
-        "items": {
-          "anyOf": [
-            {
-              "$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=animal_tags"
-            }
-          ],
-          "type": "string"
-        },
-        "title": "Tags",
-        "type": "array",
-        "uniqueItems": true
+        "title": "Is Active",
+        "type": "boolean",
+        "default": false
       }
     },
     "required": [],
@@ -27,7 +19,7 @@
           "allOf": [
             {
               "properties": {
-                "tags": {
+                "is_active": {
                   "allOf": [
                     {
                       "not": {
@@ -60,7 +52,7 @@
                 }
               },
               "required": [
-                "tags"
+                "is_active"
               ]
             }
           ]
@@ -83,25 +75,12 @@
   },
   "ui": {
     "fields": {
-      "tags": {
-        "choices": {
-          "eventTypeCategories": [],
-          "existingChoiceList": [
-            "animal_tags"
-          ],
-          "featureCategories": [],
-          "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
-          "subjectGroups": [],
-          "subjectSubtypes": [],
-          "type": "EXISTING_CHOICE_LIST"
-        },
+      "is_active": {
         "conditionalDependents": [
           "section-2"
         ],
-        "inputType": "DROPDOWN",
-        "placeholder": "",
-        "type": "CHOICE_LIST",
-        "parent": "section-1"
+        "parent": "section-1",
+        "type": "BOOLEAN"
       },
       "conditional_field": {
         "conditionalDependents": [],
@@ -124,7 +103,7 @@
         "label": "",
         "leftColumn": [
           {
-            "name": "tags",
+            "name": "is_active",
             "type": "field"
           }
         ],
@@ -134,9 +113,9 @@
         "columns": 1,
         "conditions": [
           {
-            "field": "tags",
-            "id": "condition-ms-hi-1",
-            "operator": "HAS_INPUT",
+            "field": "is_active",
+            "id": "condition-bool-hi-1",
+            "operator": "IS_NOT_EMPTY",
             "value": null
           }
         ],
