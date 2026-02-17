@@ -4,7 +4,10 @@ Tests for ChoiceProcessor - hardcoded choice analysis and matching.
 
 import pytest
 
-from activity.schemas.migration.choice_processor import ChoiceFieldResult
+from activity.schemas.migration.choice_processor import (
+    ChoiceFieldResult,
+    ChoiceProcessor,
+)
 from choices.models import Choice
 
 
@@ -102,12 +105,13 @@ class TestChoiceFieldResult:
 class TestFindMatchingChoiceField:
     """Tests for finding matching existing choice fields."""
 
-    def test_exact_match(self, choice_processor, create_choice_field, hardcoded_values):
+    def test_exact_match(self, make_choice_processor, create_choice_field, hardcoded_values):
         """Test matching when all values exist."""
         create_choice_field("priority", [("high", "High"), ("low", "Low")])
         hardcoded = hardcoded_values(("high", "High"), ("low", "Low"))
+        processor = make_choice_processor()
 
-        match = choice_processor.find_matching_choice_field("priority", hardcoded)
+        match = processor.find_matching_choice_field("priority", hardcoded)
 
         assert match is not None
         field_name, score, missing = match
@@ -115,12 +119,13 @@ class TestFindMatchingChoiceField:
         assert score >= 0.9
         assert missing == []
 
-    def test_partial_match_with_missing_values(self, choice_processor, create_choice_field, hardcoded_values):
+    def test_partial_match_with_missing_values(self, make_choice_processor, create_choice_field, hardcoded_values):
         """Test matching where hardcoded has extra values but still above threshold."""
         create_choice_field("status", [("open", "Open"), ("closed", "Closed")])
         hardcoded = hardcoded_values(("open", "Open"), ("closed", "Closed"), ("pending", "Pending"))
+        processor = make_choice_processor()
 
-        match = choice_processor.find_matching_choice_field("status", hardcoded)
+        match = processor.find_matching_choice_field("status", hardcoded)
 
         # Jaccard: intersection=2, union=3, score=0.66 >= MATCH_THRESHOLD (2/3)
         assert match is not None
@@ -129,38 +134,41 @@ class TestFindMatchingChoiceField:
         assert len(missing) == 1
         assert missing[0]["value"] == "pending"
 
-    def test_below_threshold_no_match(self, choice_processor, create_choice, hardcoded_values):
+    def test_below_threshold_no_match(self, make_choice_processor, create_choice, hardcoded_values):
         """Test that low overlap doesn't match (below 2/3 threshold)."""
         create_choice("status", "open", "Open")
         # 1 match out of 4 = 0.25 Jaccard, well below 2/3 threshold
         hardcoded = hardcoded_values(
             ("open", "Open"), ("closed", "Closed"), ("pending", "Pending"), ("archived", "Archived")
         )
+        processor = make_choice_processor()
 
-        match = choice_processor.find_matching_choice_field("status", hardcoded)
+        match = processor.find_matching_choice_field("status", hardcoded)
 
         # Jaccard: intersection=1, union=4, score=0.25 < MATCH_THRESHOLD (2/3)
         assert match is None
 
-    def test_normalized_matching(self, choice_processor, create_choice_field, hardcoded_values):
+    def test_normalized_matching(self, make_choice_processor, create_choice_field, hardcoded_values):
         """Test that matching works with different casing/separators."""
         create_choice_field("priority_level", [("HIGH_PRIORITY", "High Priority"), ("low-priority", "Low Priority")])
         # Different formats should still match after normalization
         hardcoded = hardcoded_values(("high priority", "High Priority"), ("Low_Priority", "Low Priority"))
+        processor = make_choice_processor()
 
-        match = choice_processor.find_matching_choice_field("priority_level", hardcoded)
+        match = processor.find_matching_choice_field("priority_level", hardcoded)
 
         assert match is not None
         field_name, score, missing = match
         assert field_name == "priority_level"
         assert missing == []
 
-    def test_no_match_found(self, choice_processor, create_choice, hardcoded_values):
+    def test_no_match_found(self, make_choice_processor, create_choice, hardcoded_values):
         """Test when no existing field matches."""
         create_choice("unrelated", "value1", "Value 1")
         hardcoded = hardcoded_values(("completely", "Completely"), ("different", "Different"))
+        processor = make_choice_processor()
 
-        match = choice_processor.find_matching_choice_field("new_field", hardcoded)
+        match = processor.find_matching_choice_field("new_field", hardcoded)
 
         assert match is None
 
@@ -179,22 +187,24 @@ class TestProcessSingleField:
         assert result.proposed_name is not None
         assert result.existing_choice_field is None
 
-    def test_exact_match_returns_matched(self, choice_processor, create_choice_field, hardcoded_values):
+    def test_exact_match_returns_matched(self, make_choice_processor, create_choice_field, hardcoded_values):
         create_choice_field("outcome", [("success", "Success"), ("failure", "Failure")])
         hardcoded = hardcoded_values(("success", "Success"), ("failure", "Failure"))
+        processor = make_choice_processor()
 
-        result = choice_processor.process_single_field("outcome", {}, hardcoded)
+        result = processor.process_single_field("outcome", {}, hardcoded)
 
         assert result.status == "matched"
         assert result.existing_choice_field == "outcome"
         assert result.values_to_add == []
 
-    def test_match_with_additions(self, choice_processor, create_choice_field, hardcoded_values):
+    def test_match_with_additions(self, make_choice_processor, create_choice_field, hardcoded_values):
         create_choice_field("category", [("cat_a", "Category A"), ("cat_b", "Category B")])
         # 2 existing + 1 new = 2/3 overlap (meets threshold)
         hardcoded = hardcoded_values(("cat_a", "Category A"), ("cat_b", "Category B"), ("cat_new", "New Category"))
+        processor = make_choice_processor()
 
-        result = choice_processor.process_single_field("category", {}, hardcoded)
+        result = processor.process_single_field("category", {}, hardcoded)
 
         assert result.status == "candidate"
         assert result.existing_choice_field == "category"
@@ -291,23 +301,25 @@ class TestProcessHardcodedChoices:
         assert metadata["fields"] == []
         assert metadata["summary"]["to_create"] == 0
 
-    def test_summary_tracks_matched_status(self, choice_processor, create_choice_field, v2_schema_with_fields):
+    def test_summary_tracks_matched_status(self, make_choice_processor, create_choice_field, v2_schema_with_fields):
         """Test that exact matches are tracked in summary."""
         create_choice_field("priority", [("high", "High"), ("low", "Low")])
         v2_schema = v2_schema_with_fields({"priority": [("high", "High"), ("low", "Low")]})
+        processor = make_choice_processor()
 
-        _, metadata = choice_processor.process_hardcoded_choices(v2_schema)
+        _, metadata = processor.process_hardcoded_choices(v2_schema)
 
         assert metadata["summary"]["matched"] == 1
         assert metadata["summary"]["candidate"] == 0
         assert metadata["summary"]["to_create"] == 0
 
-    def test_summary_tracks_candidate_status(self, choice_processor, create_choice_field, v2_schema_with_fields):
+    def test_summary_tracks_candidate_status(self, make_choice_processor, create_choice_field, v2_schema_with_fields):
         """Test that partial matches (candidate) are tracked in summary."""
         create_choice_field("status", [("open", "Open"), ("closed", "Closed")])
         v2_schema = v2_schema_with_fields({"status": [("open", "Open"), ("closed", "Closed"), ("pending", "Pending")]})
+        processor = make_choice_processor()
 
-        _, metadata = choice_processor.process_hardcoded_choices(v2_schema)
+        _, metadata = processor.process_hardcoded_choices(v2_schema)
 
         assert metadata["summary"]["matched"] == 0
         assert metadata["summary"]["candidate"] == 1
@@ -322,10 +334,11 @@ class TestGenerateUniqueName:
         name = choice_processor.generate_unique_name("my_field", {})
         assert name == "my_field"
 
-    def test_uses_title_when_field_name_taken(self, choice_processor, create_choice):
+    def test_uses_title_when_field_name_taken(self, make_choice_processor, create_choice):
         create_choice("my_field", "val", "Val")
+        processor = make_choice_processor()
 
-        name = choice_processor.generate_unique_name("my_field", {"title": "Better Name"})
+        name = processor.generate_unique_name("my_field", {"title": "Better Name"})
         assert name == "better_name"
 
     def test_uses_event_type_prefix_when_others_taken(self, choice_processor_with_event_type, create_choice):
@@ -369,7 +382,7 @@ class TestRewriteFieldToRef:
     def test_replaces_hardcoded_anyof_with_ref(self, choice_processor, hardcoded_field_schema, choices_base_url):
         field_schema = hardcoded_field_schema(("high", "High"), ("low", "Low"))
 
-        choice_processor.rewrite_field_to_ref(field_schema, "priority", choices_base_url)
+        choice_processor.rewrite_field_to_ref(field_schema, "priority")
 
         assert field_schema["anyOf"] == [{"$ref": f"{choices_base_url}?field=priority"}]
 
@@ -381,7 +394,7 @@ class TestRewriteFieldToRef:
             "anyOf": [{"title": "Hardcoded", "type": "string", "oneOf": [{"const": "low"}]}],
         }
 
-        choice_processor.rewrite_field_to_ref(field_schema, "severity", choices_base_url)
+        choice_processor.rewrite_field_to_ref(field_schema, "severity")
 
         assert field_schema["title"] == "Severity"
         assert field_schema["type"] == "string"
@@ -394,15 +407,14 @@ class TestSchemaRewriteInProcessHardcodedChoices:
     """Tests for $ref rewriting within process_hardcoded_choices."""
 
     def test_matched_field_rewritten_to_ref(
-        self, choice_processor, create_choice_field, v2_schema_with_fields, choices_base_url
+        self, make_choice_processor, create_choice_field, v2_schema_with_fields, choices_base_url
     ):
         """Matched fields should have their hardcoded anyOf replaced with $ref."""
         create_choice_field("priority", [("high", "High"), ("low", "Low")])
         v2_schema = v2_schema_with_fields({"priority": [("high", "High"), ("low", "Low")]})
+        processor = make_choice_processor()
 
-        result_schema, metadata = choice_processor.process_hardcoded_choices(
-            v2_schema, choices_base_url=choices_base_url
-        )
+        result_schema, metadata = processor.process_hardcoded_choices(v2_schema)
 
         field_schema = result_schema["json"]["properties"]["priority"]
         assert field_schema["anyOf"] == [{"$ref": f"{choices_base_url}?field=priority"}]
@@ -415,7 +427,7 @@ class TestSchemaRewriteInProcessHardcodedChoices:
         processor = choice_processor_with_event_type("test_event")
         v2_schema = v2_schema_with_fields({"severity": [("low", "Low"), ("high", "High")]})
 
-        result_schema, metadata = processor.process_hardcoded_choices(v2_schema, choices_base_url=choices_base_url)
+        result_schema, metadata = processor.process_hardcoded_choices(v2_schema)
 
         proposed_name = metadata["fields"][0]["proposed_name"]
         field_schema = result_schema["json"]["properties"]["severity"]
@@ -423,15 +435,14 @@ class TestSchemaRewriteInProcessHardcodedChoices:
         assert metadata["summary"]["to_create"] == 1
 
     def test_candidate_field_not_rewritten(
-        self, choice_processor, create_choice_field, v2_schema_with_fields, choices_base_url
+        self, make_choice_processor, create_choice_field, v2_schema_with_fields, choices_base_url
     ):
         """Candidate fields should keep their hardcoded values."""
         create_choice_field("status", [("open", "Open"), ("closed", "Closed")])
         v2_schema = v2_schema_with_fields({"status": [("open", "Open"), ("closed", "Closed"), ("pending", "Pending")]})
+        processor = make_choice_processor()
 
-        result_schema, metadata = choice_processor.process_hardcoded_choices(
-            v2_schema, choices_base_url=choices_base_url
-        )
+        result_schema, metadata = processor.process_hardcoded_choices(v2_schema)
 
         field_schema = result_schema["json"]["properties"]["status"]
         # Should still have the hardcoded oneOf structure
@@ -440,9 +451,9 @@ class TestSchemaRewriteInProcessHardcodedChoices:
         # Should have a warning about manual review
         assert any("Manual review" in w for w in metadata["warnings"])
 
-    def test_no_rewrite_without_base_url(self, choice_processor_with_event_type, v2_schema_with_fields):
+    def test_no_rewrite_without_base_url(self, v2_schema_with_fields):
         """Without choices_base_url, schema should not be rewritten."""
-        processor = choice_processor_with_event_type("test_event")
+        processor = ChoiceProcessor(event_type_value="test_event", choices_base_url="")
         v2_schema = v2_schema_with_fields({"priority": [("high", "High"), ("low", "Low")]})
 
         result_schema, metadata = processor.process_hardcoded_choices(v2_schema)
@@ -489,7 +500,7 @@ class TestNameCollisionWithinBatch:
             }
         }
 
-        _, metadata = processor.process_hardcoded_choices(v2_schema, choices_base_url=choices_base_url)
+        _, metadata = processor.process_hardcoded_choices(v2_schema)
 
         proposed_names = [f["proposed_name"] for f in metadata["fields"] if f["status"] == "to_create"]
         assert len(proposed_names) == 2

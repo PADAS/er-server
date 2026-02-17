@@ -53,20 +53,12 @@ class MigrationResult:
 
 
 class MigrationService:
-    """
-    Service for migrating V1 EventType schemas to V2.
+    """Orchestrates V1 → V2 EventType schema migration.
 
-    Usage:
-        service = MigrationService(request=request)
-        results = service.migrate(event_types=["snare_rep", "fence_rep"], dry_run=True)
+    Two-phase: analyze all event types first, then persist atomically.
     """
 
     def __init__(self, request, dry_run: bool = True):
-        """
-        Args:
-            request: DRF request, required for authorization and URL context
-            dry_run: If True, don't persist changes to database
-        """
         self.request = request
         self.dry_run = dry_run
         self.choices_base_url = reverse("schemas:choices")
@@ -133,7 +125,6 @@ class MigrationService:
         return result
 
     def transform_schema(self, event_type: EventType, result: MigrationResult) -> Optional[dict]:
-        """Transform V1 schema to V2 using schema_migration_tool."""
         log_collector = LogCollector({"event_type": event_type.value})
 
         v1_schema = json.loads(preprocess_template_vars(event_type.schema))
@@ -184,15 +175,8 @@ class MigrationService:
         return v2_schema
 
     def persist_choices(self, result: MigrationResult) -> None:
-        """
-        Persist choice fields to the database.
-
-        Handles:
-        - Creating new choice fields (status="to_create")
-        - Reusing choice fields within the same event type migration
-
-        Note: Candidate (partial match) fields are blocked at the process_choices
-        stage and never reach persistence.
+        """Create Choice objects for 'to_create' fields. Deduplicates by
+        normalized values so identical choice sets share one DB field.
         """
         choice_metadata = result.metadata.get("choices", {})
         fields = choice_metadata.get("fields", [])
@@ -252,12 +236,10 @@ class MigrationService:
                     )
 
     def _get_values_key(self, values: List[Dict[str, str]], processor: ChoiceProcessor) -> str:
-        """Generate a key for a set of values for deduplication."""
         normalized = sorted(processor.normalize_for_matching(v.get("value", "")) for v in values)
         return "|".join(normalized)
 
     def persist_migration(self, event_type: EventType, result: MigrationResult) -> None:
-        """Persist the migrated schema to the database."""
         event_type.schema = json.dumps(result.v2_schema, indent=2)
         event_type.version = EventType.VersionChoices.VERSION_2
         event_type.save(update_fields=["schema", "version", "updated_at"])
@@ -265,10 +247,7 @@ class MigrationService:
         logger.info("Successfully migrated EventType '%s' to V2", event_type.value)
 
     def can_modify_event_type(self, event_type: EventType) -> bool:
-        """
-        Check if the current user can modify the given EventType.
-        """
-        # Simulate a PATCH request for update permission check
+        # Simulate PATCH to reuse DRF object-level permission check
         original_method = self.request.method
         try:
             self.request.method = "PATCH"

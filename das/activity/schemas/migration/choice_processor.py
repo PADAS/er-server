@@ -1,12 +1,4 @@
-"""
-Hardcoded choice processing for migrated V2 schemas.
-
-This module handles:
-- Extracting hardcoded values from anyOf/oneOf structures in V2 schemas
-- Finding matching Choice objects in the database
-- Generating unique names for new choice fields
-- Creating new Choice objects when needed (respects dry_run)
-"""
+"""Hardcoded choice processing for migrated V2 schemas."""
 
 import logging
 import re
@@ -49,14 +41,13 @@ class ChoiceFieldResult:
 
 
 class ChoiceProcessor:
-    """
-    Processes hardcoded choices in migrated V2 schemas.
+    """Detects inline choice values in V2 schemas and matches them against
+    existing Choice objects and proposed choices from the current batch.
 
-    Detects inline choice values and matches them against existing Choice
-    objects in the database, or flags them for creation.
+    Statuses: matched (100%), candidate (partial, blocks migration), to_create (new).
     """
 
-    # Minimum overlap ratio to consider an existing choice field a "match"
+    # Minimum overlap ratio to consider an existing (or proposed) choice field a "match"
     MATCH_THRESHOLD = 2 / 3
 
     # Separator normalization pattern for matching
@@ -244,26 +235,13 @@ class ChoiceProcessor:
         return result
 
     def normalize_for_matching(self, value: str) -> str:
-        """
-        Normalize a string for comparison during matching.
-
-        - Lowercase
-        - Replace separators (dash, underscore, dot, space) with a single dash
-        - Strip leading/trailing separators
-        """
+        """Lowercase and collapse separators to a single dash for fuzzy comparison."""
         normalized = value.lower()
         normalized = self.SEPARATOR_PATTERN.sub("-", normalized)
         return normalized.strip("-")
 
     def slugify_for_choice(self, value: str) -> str:
-        """
-        Convert a string to a valid choice field name.
-
-        - Lowercase
-        - Replace non-alphanumeric characters with underscores
-        - Strip leading/trailing underscores
-        - Collapse multiple underscores
-        """
+        """Convert a string to a valid choice field name (lowercase, underscores only)."""
         slugified = value.lower()
         slugified = re.sub(r"[^a-z0-9]+", "_", slugified)
         slugified = re.sub(r"_+", "_", slugified)
@@ -274,21 +252,10 @@ class ChoiceProcessor:
         field_name: str,
         hardcoded_items: List[Dict[str, str]],
     ) -> Optional[Tuple[str, float, List[Dict[str, str]]]]:
-        """
-        Find an existing choice field that matches the hardcoded values.
+        """Find an existing or proposed choice field matching the hardcoded values.
 
-        Checks both the database and the proposed_choices registry
-        (choices proposed for creation earlier in the migration batch).
-
-        Uses normalized comparison (case-insensitive, separator-agnostic).
-
-        Matching strategies:
-        1. Exact name match with high value overlap
-        2. Any field with high value overlap
-
-        Returns:
-            Tuple of (field_name, match_score, missing_values) or None if no match
-            - missing_values: hardcoded values not found in existing field
+        Uses Jaccard similarity on normalized values for treshhold comparison and name-match for real comparison.
+        Returns (field_name, score, missing_values) or None.
         """
         # Build normalized -> original mapping for hardcoded values
         hardcoded_by_normalized = {self.normalize_for_matching(v["value"]): v for v in hardcoded_items}
@@ -382,13 +349,7 @@ class ChoiceProcessor:
             counter += 1
 
     def create_choice_field(self, field_name: str, values: List[Dict[str, str]]) -> None:
-        """
-        Create Choice objects for a new choice field.
-
-        Args:
-            field_name: The choice field name
-            values: List of {value, display} dicts from extract_hardcoded_values
-        """
+        """Create Choice objects for a new choice field."""
         for i, item in enumerate(values):
             value = item["value"]
             if not value:
@@ -404,16 +365,7 @@ class ChoiceProcessor:
             )
 
     def add_values_to_choice_field(self, field_name: str, values: List[Dict[str, str]]) -> int:
-        """
-        Add missing values to an existing choice field.
-
-        Args:
-            field_name: The existing choice field name
-            values: List of {value, display} dicts from extract_hardcoded_values
-
-        Returns:
-            Number of values actually added
-        """
+        """Add missing values to an existing choice field. Returns count added."""
         # Get next ordernum for this field
         max_order = Choice.objects.filter(
             model=Choice.EVENT_MODEL,

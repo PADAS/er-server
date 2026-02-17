@@ -16,18 +16,63 @@ from factories import EventTypeFactory
 # =============================================================================
 
 
-@pytest.fixture
-def choice_processor():
-    """Basic ChoiceProcessor instance."""
-    return ChoiceProcessor()
+CHOICES_BASE_URL = "/api/v2.0/schemas/choices.json"
 
 
 @pytest.fixture
-def choice_processor_with_event_type():
-    """Factory fixture for ChoiceProcessor with event_type_value."""
+def choices_base_url():
+    """The absolute base URL used for $ref rewriting in tests."""
+    return CHOICES_BASE_URL
 
-    def _create(event_type_value="test_event"):
-        return ChoiceProcessor(event_type_value=event_type_value)
+
+def _load_existing_choices():
+    """Load existing choice fields from the DB (mirrors MigrationService.get_existing_choice_fields)."""
+    fields = {}
+    for field_name, value in Choice.objects.filter(model=Choice.EVENT_MODEL, is_active=True).values_list(
+        "field", "value"
+    ):
+        fields.setdefault(field_name, []).append(value)
+    return fields
+
+
+@pytest.fixture
+def choice_processor(choices_base_url):
+    """Eager ChoiceProcessor instance (no DB choices loaded)."""
+    return ChoiceProcessor(event_type_value="", choices_base_url=choices_base_url)
+
+
+@pytest.fixture
+def make_choice_processor(choices_base_url):
+    """Factory fixture that loads existing choices from DB at call time.
+
+    Use this instead of choice_processor when the test creates DB Choice
+    objects before building the processor.
+    """
+
+    def _create(event_type_value="", **kwargs):
+        defaults = {
+            "event_type_value": event_type_value,
+            "choices_base_url": choices_base_url,
+            "existing_choices": _load_existing_choices(),
+        }
+        defaults.update(kwargs)
+        return ChoiceProcessor(**defaults)
+
+    return _create
+
+
+@pytest.fixture
+def choice_processor_with_event_type(choices_base_url):
+    """Factory fixture for ChoiceProcessor with event_type_value (loads DB choices)."""
+
+    def _create(event_type_value="test_event", **kwargs):
+        defaults = {
+            "event_type_value": event_type_value,
+            "choices_base_url": choices_base_url,
+            "existing_choices": _load_existing_choices(),
+        }
+        defaults.update(kwargs)
+        return ChoiceProcessor(**defaults)
 
     return _create
 
@@ -239,19 +284,6 @@ def auto_generate_v2_marker_schema():
 
 
 # =============================================================================
-# Choices Base URL Fixture
-# =============================================================================
-
-CHOICES_BASE_URL = "/api/v2.0/schemas/choices.json"
-
-
-@pytest.fixture
-def choices_base_url():
-    """The absolute base URL used for $ref rewriting in tests."""
-    return CHOICES_BASE_URL
-
-
-# =============================================================================
 # MigrationService Fixtures
 # =============================================================================
 
@@ -270,6 +302,22 @@ def mock_request(admin_user):
 def migration_service(mock_request):
     """Basic MigrationService with dry_run=True (default)."""
     return MigrationService(request=mock_request)
+
+
+@pytest.fixture
+def make_migration_service(mock_request):
+    """Factory fixture that loads existing choices from DB at call time.
+
+    Use this instead of migration_service when the test creates DB Choice
+    objects before calling process_choices() directly.
+    """
+
+    def _create(dry_run=True):
+        service = MigrationService(request=mock_request, dry_run=dry_run)
+        service.existing_choices = service.get_existing_choice_fields()
+        return service
+
+    return _create
 
 
 @pytest.fixture

@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from activity.models import EventType
+from activity.schemas.migration.choice_processor import ChoiceProcessor
 from activity.schemas.migration.service import MigrationResult, MigrationService
 from choices.models import Choice
 
@@ -189,6 +190,23 @@ class TestPersistChoices:
         # Should not raise
         migration_service_live.persist_choices(result)
 
+    def test_creation_error_propagates_to_result(
+        self, migration_service_live, hardcoded_values, migration_result_with_choices
+    ):
+        """If create_choice_field fails, the error should propagate to result.errors."""
+        values = hardcoded_values(("high", "High"), ("low", "Low"))
+        result = migration_result_with_choices(
+            [{"field_name": "priority", "status": "to_create", "proposed_name": "test_priority", "values": values}]
+        )
+
+        with patch.object(ChoiceProcessor, "create_choice_field", side_effect=Exception("DB error")):
+            migration_service_live.persist_choices(result)
+
+        assert not result.success
+        assert any("Failed to create choice field" in e for e in result.errors)
+        field_info = result.metadata["choices"]["fields"][0]
+        assert field_info["status"] == "error"
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings")
@@ -242,14 +260,15 @@ class TestProcessChoices:
         assert result.metadata["choices"]["fields"] == []
 
     def test_candidate_fields_produce_errors(
-        self, migration_service, create_choice_field, v2_schema_with_fields, migration_result
+        self, make_migration_service, create_choice_field, v2_schema_with_fields, migration_result
     ):
         """Candidate (partial match) fields should add errors to block migration."""
         create_choice_field("status", [("open", "Open"), ("closed", "Closed")])
+        service = make_migration_service()
         v2_schema = v2_schema_with_fields({"status": [("open", "Open"), ("closed", "Closed"), ("pending", "Pending")]})
         result = migration_result()
 
-        migration_service.process_choices(v2_schema, result)
+        service.process_choices(v2_schema, result)
 
         assert not result.success
         assert len(result.errors) == 1
@@ -257,14 +276,15 @@ class TestProcessChoices:
         assert "Cannot auto-migrate" in result.errors[0]
 
     def test_matched_fields_do_not_produce_errors(
-        self, migration_service, create_choice_field, v2_schema_with_fields, migration_result
+        self, make_migration_service, create_choice_field, v2_schema_with_fields, migration_result
     ):
         """100% matched fields should not produce errors."""
         create_choice_field("priority", [("high", "High"), ("low", "Low")])
+        service = make_migration_service()
         v2_schema = v2_schema_with_fields({"priority": [("high", "High"), ("low", "Low")]})
         result = migration_result()
 
-        migration_service.process_choices(v2_schema, result)
+        service.process_choices(v2_schema, result)
 
         assert result.success
         assert len(result.errors) == 0
@@ -290,7 +310,7 @@ class TestProcessChoices:
         )
         result = migration_result()
 
-        migration_service.process_choices(v2_schema, result, proposed_choices={})
+        migration_service.process_choices(v2_schema, result)
 
         assert not result.success
         assert any("partial match" in e for e in result.errors)
@@ -305,7 +325,7 @@ class TestProcessChoices:
         )
         result = migration_result()
 
-        migration_service.process_choices(v2_schema, result, proposed_choices={})
+        migration_service.process_choices(v2_schema, result)
 
         assert not result.success
         assert any("partial match" in e for e in result.errors)
@@ -320,7 +340,7 @@ class TestProcessChoices:
         )
         result = migration_result()
 
-        migration_service.process_choices(v2_schema, result, proposed_choices={})
+        migration_service.process_choices(v2_schema, result)
 
         assert result.success
 
@@ -334,7 +354,7 @@ class TestProcessChoices:
         )
         result = migration_result()
 
-        migration_service.process_choices(v2_schema, result, proposed_choices={})
+        migration_service.process_choices(v2_schema, result)
 
         assert result.success
 
@@ -350,7 +370,7 @@ class TestProcessChoices:
         )
         result = migration_result()
 
-        migration_service.process_choices(v2_schema, result, proposed_choices={})
+        migration_service.process_choices(v2_schema, result)
 
         # Both fields should still have hardcoded oneOf structure
         for field_name in ("severity", "impact"):
@@ -488,10 +508,11 @@ class TestEndToEndRewrite:
 
     @patch("activity.schemas.migration.service.transform_schema")
     def test_candidate_field_blocks_migration(
-        self, mock_transform, migration_service, v1_event_type, create_choice_field
+        self, mock_transform, make_migration_service, v1_event_type, create_choice_field
     ):
         """Candidate (partial match) fields should block migration entirely."""
         create_choice_field("severity", [("low", "Low"), ("high", "High")])
+        service = make_migration_service()
         mock_transform.return_value = {
             "json": {
                 "properties": {
@@ -515,7 +536,7 @@ class TestEndToEndRewrite:
             "ui": {},
         }
 
-        result = migration_service.migrate_single(v1_event_type.value)
+        result = service.migrate_single(v1_event_type.value)
 
         assert result.success is False
         assert any("Cannot auto-migrate" in e for e in result.errors)
@@ -528,10 +549,11 @@ class TestEndToEndRewrite:
     @patch("activity.schemas.migration.service.transform_schema")
     @patch.object(MigrationService, "can_modify_event_type", return_value=True)
     def test_candidate_field_prevents_persistence(
-        self, mock_perm, mock_transform, migration_service_live, v1_event_type, create_choice_field
+        self, mock_perm, mock_transform, make_migration_service, v1_event_type, create_choice_field
     ):
         """Candidate fields should prevent persistence even with dry_run=False."""
         create_choice_field("severity", [("low", "Low"), ("high", "High")])
+        service = make_migration_service(dry_run=False)
         mock_transform.return_value = {
             "json": {
                 "properties": {
@@ -554,7 +576,7 @@ class TestEndToEndRewrite:
             "ui": {},
         }
 
-        result = migration_service_live.migrate_single(v1_event_type.value)
+        result = service.migrate_single(v1_event_type.value)
 
         assert result.success is False
         # Should NOT persist
