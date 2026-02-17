@@ -4,11 +4,15 @@ EarthRanger documentation
 
 Contents:
 
-* :ref:`Overview`
+* :ref:`overview`
+* :ref:`guides`
+* :ref:`api`
 * `Interactive API Documentation <interactive/>`__
-* :ref:`API`
 
 .. _overview:
+
+Overview
+--------
 
 .. toctree::
    :maxdepth: 2
@@ -16,11 +20,14 @@ Contents:
 
    about
 
-.. _documentation:
+.. _guides:
+
+Guides
+------
 
 .. toctree::
    :maxdepth: 2
-   :caption: Documentation
+   :caption: Guides
 
    faq
    architecture/architecture-overview
@@ -31,8 +38,10 @@ Contents:
    writers
    glossary
 
-
 .. _api:
+
+API
+---
 
 .. toctree::
    :maxdepth: 2
@@ -47,14 +56,3 @@ Contents:
    api/activity
    api/realtime
    api/sensors
-
-
-.. Indices and tables
-
-.. ==================
-
-.. * :ref:`genindex`
-
-.. * :ref:`modindex`
-
-.. * :ref:`search`
