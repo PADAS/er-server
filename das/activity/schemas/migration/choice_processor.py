@@ -62,36 +62,34 @@ class ChoiceProcessor:
     # Separator normalization pattern for matching
     SEPARATOR_PATTERN = re.compile(r"[-_.\s]+")
 
-    def __init__(self, event_type_value: Optional[str] = None):
+    def __init__(
+        self,
+        event_type_value: str,
+        choices_base_url: str,
+        proposed_choices: Optional[dict] = None,
+        existing_choices: Optional[dict] = None,
+    ):
         """
         Args:
-            event_type_value: The event type value, used for generating unique names
+            event_type_value: Used for generating unique choice field names.
+            choices_base_url: Base URL for $ref rewriting.
+            proposed_choices: Shared mutable registry across the migration batch.
+                When a field is 'to_create', its values are added here so
+                subsequent event types can match against them.
+            existing_choices: Pre-loaded map of field_name -> [values] from DB.
         """
         self.event_type_value = event_type_value
+        self.choices_base_url = choices_base_url
+        self.proposed_choices = proposed_choices or {}
+        self.existing_choices = existing_choices or {}
 
-    def process_hardcoded_choices(
-        self,
-        v2_schema: Dict[str, Any],
-        choices_base_url: Optional[str] = None,
-        proposed_choices: Optional[Dict[str, List[Dict[str, str]]]] = None,
-    ) -> Tuple[dict, dict]:
-        """
-        Process hardcoded choices in a V2 schema.
+    def process_hardcoded_choices(self, v2_schema: Dict[str, Any]) -> Tuple[dict, dict]:
+        """Analyze all fields, then rewrite ready ones to $ref.
 
-        Args:
-            v2_schema: The migrated V2 schema
-            choices_base_url: Absolute base URL for choice $ref rewriting
-                (e.g. "https://host/api/v2.0/schemas/choices.json")
-            proposed_choices: Shared registry of choices proposed for creation
-                across the migration batch. Keys are choice field names,
-                values are lists of {value, display} dicts. When a field is
-                'to_create', its values are added here so subsequent fields
-                can match against them.
+        Two-phase approach: analyze all fields first so that the presence of
+        any 'candidate' field blocks $ref rewriting for the entire schema.
 
-        Returns:
-            Tuple of (modified_schema, metadata)
-            - modified_schema: Schema with ready choices rewritten to $ref
-            - metadata: Dict with results per field, warnings, summary
+        Returns (modified_schema, metadata).
         """
         metadata = {
             "fields": [],
@@ -125,15 +123,14 @@ class ChoiceProcessor:
                 field_schema=field_schema,
                 hardcoded_values=hardcoded_values,
                 reserved_names=reserved_names,
-                proposed_choices=proposed_choices,
             )
 
             # Track proposed names to avoid collisions within batch
             if result.status == "to_create" and result.proposed_name:
                 reserved_names.add(result.proposed_name)
                 # Add to shared registry so subsequent fields can match
-                if proposed_choices is not None:
-                    proposed_choices[result.proposed_name] = [v["value"] for v in hardcoded_values]
+                if self.proposed_choices is not None:
+                    self.proposed_choices[result.proposed_name] = [v["value"] for v in hardcoded_values]
 
             analyzed_fields.append((field_name, field_schema, result))
 
@@ -142,9 +139,9 @@ class ChoiceProcessor:
         has_candidates = any(r.status == "candidate" for _, _, r in analyzed_fields)
 
         for field_name, field_schema, result in analyzed_fields:
-            if not has_candidates and choices_base_url and result.status in ("matched", "to_create"):
+            if not has_candidates and self.choices_base_url and result.status in ("matched", "to_create"):
                 ref_name = result.existing_choice_field if result.status == "matched" else result.proposed_name
-                self.rewrite_field_to_ref(field_schema, ref_name, choices_base_url)
+                self.rewrite_field_to_ref(field_schema, ref_name)
             elif result.status == "candidate":
                 result.warnings.append(
                     f"Field '{field_name}' has a partial match with '{result.existing_choice_field}' "
@@ -159,7 +156,6 @@ class ChoiceProcessor:
 
     @staticmethod
     def _update_summary(summary: Dict[str, int], status: str) -> None:
-        """Increment the appropriate summary counter for a field status."""
         status_map = {
             "matched": "matched",
             "candidate": "candidate",
@@ -172,23 +168,8 @@ class ChoiceProcessor:
             summary[key] += 1
 
     def extract_hardcoded_values(self, field_schema: Dict[str, Any]) -> List[Dict[str, str]]:
-        """
-        Extract hardcoded choice values from a V2 field schema.
-
-        V2 hardcoded format:
-        {
-            "anyOf": [{
-                "title": "Hardcoded",
-                "type": "string",
-                "oneOf": [
-                    {"const": "value1", "title": "Display 1"},
-                    {"const": "value2", "title": "Display 2"}
-                ]
-            }]
-        }
-
-        Returns:
-            List of {value, display} dicts, or empty list if not hardcoded
+        """Extract hardcoded values from anyOf > {title: "Hardcoded", oneOf: [...]}
+        structure produced by transform_schema. Returns [{value, display}, ...].
         """
         any_of = field_schema.get("anyOf", [])
         if not any_of:
@@ -207,16 +188,9 @@ class ChoiceProcessor:
 
         return []
 
-    def rewrite_field_to_ref(self, field_schema: Dict[str, Any], choice_field_name: str, choices_base_url: str) -> None:
-        """
-        Rewrite a hardcoded choice field schema to use a $ref.
-
-        Replaces the anyOf containing {title: "Hardcoded", oneOf: [...]}
-        with anyOf containing {"$ref": "<choices_base_url>?field=<choice_field_name>"}.
-
-        Mutates field_schema in-place.
-        """
-        ref_url = f"{choices_base_url}?field={choice_field_name}"
+    def rewrite_field_to_ref(self, field_schema: Dict[str, Any], choice_field_name: str) -> None:
+        """Replace hardcoded anyOf/oneOf with a $ref to the choices endpoint. Mutates in-place."""
+        ref_url = f"{self.choices_base_url}?field={choice_field_name}"
         field_schema["anyOf"] = [{"$ref": ref_url}]
 
     def process_single_field(
@@ -225,18 +199,12 @@ class ChoiceProcessor:
         field_schema: Dict[str, Any],
         hardcoded_values: List[Dict[str, str]],
         reserved_names: Optional[set] = None,
-        proposed_choices: Optional[Dict[str, List[Dict[str, str]]]] = None,
     ) -> ChoiceFieldResult:
-        """
-        Analyze a single field with hardcoded choices.
-
-        This method only analyzes and proposes actions - no DB writes.
-        The service's persist_choices() handles actual persistence.
-        """
+        """Analyze a single field: match against existing/proposed choices or propose a new name."""
         result = ChoiceFieldResult(field_name=field_name, values=hardcoded_values)
 
         # 1. Try to find matching existing choice field (DB + proposed)
-        match = self.find_matching_choice_field(field_name, hardcoded_values, proposed_choices=proposed_choices)
+        match = self.find_matching_choice_field(field_name, hardcoded_values)
 
         if match:
             existing_field_name, score, missing_values = match
@@ -305,7 +273,6 @@ class ChoiceProcessor:
         self,
         field_name: str,
         hardcoded_items: List[Dict[str, str]],
-        proposed_choices: Optional[Dict[str, List[Dict[str, str]]]] = None,
     ) -> Optional[Tuple[str, float, List[Dict[str, str]]]]:
         """
         Find an existing choice field that matches the hardcoded values.
@@ -328,18 +295,17 @@ class ChoiceProcessor:
         hardcoded_normalized = set(hardcoded_by_normalized.keys())
         hardcoded_values = [v["value"] for v in hardcoded_items]
 
-        # Get all existing choice fields for events
-        existing_fields = self.get_existing_choice_fields()
+        all_choice_fields = self.existing_choices.copy()
 
         # Merge proposed choices into existing fields for matching
-        if proposed_choices:
-            for proposed_name, proposed_values in proposed_choices.items():
-                if proposed_name not in existing_fields:
-                    existing_fields[proposed_name] = proposed_values
+        if self.proposed_choices:
+            for proposed_name, proposed_values in self.proposed_choices.items():
+                if proposed_name not in all_choice_fields:
+                    all_choice_fields[proposed_name] = proposed_values
 
         best_match: Optional[Tuple[str, float, List[Dict[str, str]]]] = None
 
-        for existing_field_name, existing_values in existing_fields.items():
+        for existing_field_name, existing_values in all_choice_fields.items():
             # Normalize existing values for comparison
             existing_normalized = {self.normalize_for_matching(v) for v in existing_values}
 
@@ -376,41 +342,13 @@ class ChoiceProcessor:
 
         return best_match
 
-    def get_existing_choice_fields(self) -> Dict[str, List[str]]:
-        """
-        Get all existing choice fields and their values for the Event model.
-
-        Returns:
-            Dict mapping field_name -> list of values
-        """
-        choices = Choice.objects.filter(model=Choice.EVENT_MODEL, is_active=True).values_list("field", "value")
-
-        fields: Dict[str, List[str]] = {}
-        for field_name, value in choices:
-            if field_name not in fields:
-                fields[field_name] = []
-            fields[field_name].append(value)
-
-        return fields
-
     def generate_unique_name(
         self, field_name: str, field_schema: Dict[str, Any], reserved_names: set = frozenset()
     ) -> str:
-        """
-        Generate a unique name for a new choice field.
+        """Generate a unique choice field name.
 
-        Name generation strategy:
-        1. Try field_name directly
-        2. Try field title (slugified)
-        3. Try event_type_value + field_name
-        4. Add numeric suffix if needed
-
-        Args:
-            reserved_names: Names already proposed within the current batch,
-                to prevent collisions between fields processed in the same cycle.
-
-        Returns:
-            A unique choice field name (alphanumeric + underscore only)
+        Tries: field_name, field title, event_type + field_name, then numeric suffix.
+        Checks against existing_choices and reserved_names (current batch).
         """
         candidates = []
 
@@ -427,7 +365,7 @@ class ChoiceProcessor:
             candidates.append(self.slugify_for_choice(f"{self.event_type_value}_{field_name}"))
 
         # Check against both DB names and batch-reserved names
-        existing_names = set(self.get_existing_choice_fields().keys()) | set(reserved_names)
+        existing_names = set(self.existing_choices.keys()) | set(reserved_names)
 
         # Try each candidate
         for candidate in candidates:
