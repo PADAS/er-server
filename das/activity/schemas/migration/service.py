@@ -90,6 +90,10 @@ class MigrationService:
             with transaction.atomic():
                 for result in results:
                     self.persist_choices(result)
+                    if not result.success:
+                        # Choice creation failed — abort the entire batch
+                        transaction.set_rollback(True)
+                        return results
                     self.persist_migration(result.event_type_instance, result)
 
         return results
@@ -241,6 +245,7 @@ class MigrationService:
                 except Exception as e:
                     field_info["status"] = "error"
                     field_info["error"] = str(e)
+                    result.errors.append(f"Failed to create choice field '{proposed_name}': {e}")
                     logger.exception(
                         "Failed to create choice field '%s'",
                         proposed_name,
