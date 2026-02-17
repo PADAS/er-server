@@ -22,12 +22,13 @@ class TileLayersMixin:
     def _get_tile_layers(self):
         layers = []
         for configuration in TileLayer.objects.values("attributes"):
-            attributes = configuration["attributes"]
-            title = attributes.get("title")
+            attributes = dict(configuration["attributes"] or {})
+            title = attributes.get("title") or ""
+            attributes["title"] = title
             if title in self.TOKENS:
-                url = attributes["url"]
-                configuration["attributes"]["url"] = self._get_url(title, url)
-            layers.append(configuration)
+                url = attributes.get("url") or ""
+                attributes["url"] = self._get_url(title, url)
+            layers.append({"attributes": attributes})
         return layers
 
     def _get_url(self, title: str, url: str) -> str:
@@ -67,7 +68,6 @@ class SerialNumberModelMixin:
         serial_number_field_name = self._get_serial_number_field_name()
         max_retries = 40
         retries = 0
-        exception = None
 
         while retries < max_retries:
             try:
@@ -93,7 +93,6 @@ class SerialNumberModelMixin:
                 return result
 
             except IntegrityError as exc:
-                exception = exc
                 retries += 1
                 if retries < max_retries:
                     # Log the retry attempt
@@ -114,7 +113,6 @@ class SerialNumberModelMixin:
                     raise FailedToSetSerialNumberError(
                         f"Failed to set serial number after {max_retries} retries: {exc}"
                     )
-
 
     def _get_serial_number_field_name(self):
         if hasattr(self, "serial_number_field"):
