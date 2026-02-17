@@ -39,6 +39,8 @@ Contents:
    :caption: API
 
    topics/api_primer
+   topics/eventtype-sync
+   topics/patrol-sync
    api/oauth2
    api/user
    api/assets
