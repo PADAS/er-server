@@ -69,6 +69,13 @@ CARCASS_V2_EVENTTYPE_SCHEMA = {
                 "type": "string",
                 "anyOf": [{"$ref": f"{BASE_URL}/choices.json?field=carcassrep_causeofdeath"}],
             },
+            "carcassrep_sampledatetime": {
+                "deprecated": False,
+                "description": "",
+                "title": "Sample Date Time",
+                "type": "string",
+                "format": "date-time",
+            },
             "animal_groups": {
                 "deprecated": False,
                 "description": "",
@@ -197,6 +204,10 @@ CARCASS_V2_EVENTTYPE_SCHEMA = {
                 "inputType": "DROPDOWN",
                 "placeholder": "",
                 "type": "CHOICE_LIST",
+                "parent": "section-1",
+            },
+            "carcassrep_sampledatetime": {
+                "type": "DATE_TIME",
                 "parent": "section-1",
             },
             "animal_groups": {
@@ -429,7 +440,10 @@ class TestEventExport:
         my_data_data = {
             "event_type": "carcass_v2_rep",
             "priority": 200,
-            "event_details": {"signed_off_by": [str(ranger.id)]},
+            "event_details": {
+                "signed_off_by": [str(ranger.id)],
+                "carcassrep_sampledatetime": "2026-02-17T01:23:00-07:00",
+            },
         }
 
         url = reverse("events")
@@ -454,3 +468,6 @@ class TestEventExport:
 
         assert "Signed_Off_By" in target_row.keys()
         assert ranger.name in target_row.get("Signed_Off_By")
+
+        # Make sure dates get formatted properly and converted to system timezone
+        assert target_row.get("Sample_Date_Time") == "2026-02-17 00:23"
