@@ -9,6 +9,10 @@ on:
       image:
         required: true
         type: string
+      environment:
+        type: string
+        default: "padas-app"
+        description: "GitHub environment for WIF auth (pass empty string to use repo-level vars)"
 
 jobs:
   vars:
@@ -18,7 +22,7 @@ jobs:
       id-token: 'write'
     outputs:
       token: ${{ steps.vars.outputs.token }}
-    environment: padas-app
+    environment: ${{ inputs.environment || '' }}
     steps:
       - name: GCP Auth
         id: auth
