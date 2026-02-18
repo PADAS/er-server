@@ -142,6 +142,58 @@ class TestAdminLoginEntrypoint:
         assert "next=/admin/" in result.url
         assert "org_id=org_test123" in result.url
 
+    def test_authenticated_staff_user_skips_auth0_and_sets_efb_cookie(
+        self, request_factory, mock_tenant_settings_require_idp_true, admin_user_with_auth0_id
+    ):
+        """When require_idp=True and user is already authenticated, skip Auth0 and set EFB cookie."""
+        request = request_factory.get("/admin/login/?next=/admin/form-builder/")
+        request.user = admin_user_with_auth0_id
+
+        with patch("accounts.auth0_admin.set_efb_token_cookie") as mock_set_cookie:
+            result = admin_login_entrypoint(request)
+
+            assert result.status_code == 302
+            assert result.url == "/admin/form-builder/"
+            mock_set_cookie.assert_called_once_with(request, result)
+
+    def test_authenticated_staff_user_default_next(
+        self, request_factory, mock_tenant_settings_require_idp_true, admin_user_with_auth0_id
+    ):
+        """When no next parameter, authenticated user redirects to /admin/."""
+        request = request_factory.get("/admin/login/")
+        request.user = admin_user_with_auth0_id
+
+        with patch("accounts.auth0_admin.set_efb_token_cookie"):
+            result = admin_login_entrypoint(request)
+
+            assert result.status_code == 302
+            assert result.url == "/admin/"
+
+    def test_authenticated_non_staff_user_redirects_to_auth0(
+        self, request_factory, mock_tenant_settings_require_idp_true
+    ):
+        """When require_idp=True and user is authenticated but not staff, redirect to Auth0."""
+        non_staff_user = User.objects.create_user(
+            username="regularuser", email="regular@example.com", is_staff=False, is_active=True
+        )
+        request = request_factory.get("/admin/login/?next=/admin/")
+        request.user = non_staff_user
+
+        result = admin_login_entrypoint(request)
+
+        assert result.status_code == 302
+        assert reverse("auth0_admin_login") in result.url
+
+    def test_unauthenticated_user_redirects_to_auth0(self, request_factory, mock_tenant_settings_require_idp_true):
+        """When require_idp=True and user is not authenticated, redirect to Auth0."""
+        request = request_factory.get("/admin/login/?next=/admin/form-builder/")
+
+        result = admin_login_entrypoint(request)
+
+        assert result.status_code == 302
+        assert reverse("auth0_admin_login") in result.url
+        assert "next=/admin/form-builder/" in result.url
+
 
 @pytest.mark.django_db
 class TestInitiateAuth0AdminLogin:

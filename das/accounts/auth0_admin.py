@@ -24,6 +24,7 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 
 from accounts.backends import Auth0BackendForStaffUsers
+from utils.efb_token import set_efb_token_cookie
 from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,11 @@ def admin_login_entrypoint(request):
     """
     Conditional admin login entrypoint that checks the tenant's require_idp flag.
 
-    If require_idp=True, redirects to Auth0 login initiation.
+    If require_idp=True and the user is already authenticated (e.g. the form builder
+    bounced them here to bootstrap an EFB token), creates the token cookie and redirects
+    to the intended destination without a redundant Auth0 round-trip.
+
+    If require_idp=True and the user is not authenticated, redirects to Auth0 login.
     If require_idp=False, uses Django's default admin login.
 
     This function replaces the default admin login URL handler.
@@ -57,12 +62,17 @@ def admin_login_entrypoint(request):
         org_id = tenant_settings.feature_flags.idp_org_id
     except Exception as e:
         logger.error("Failed to get tenant settings in admin login: %s", e)
-        # Fail safely to Django default admin login
         return _use_default_django_admin_login(request)
 
     if require_idp and org_id:
-        logger.debug("Redirecting to Auth0 admin login for tenant with require_idp=True")
         next_param = request.GET.get("next", "/admin/")
+
+        if request.user.is_authenticated and request.user.is_staff:
+            response = redirect(next_param)
+            set_efb_token_cookie(request, response)
+            return response
+
+        logger.debug("Redirecting to Auth0 admin login for tenant with require_idp=True")
         return redirect(f"{reverse('auth0_admin_login')}?next={next_param}&org_id={org_id}")
     else:
         return _use_default_django_admin_login(request)

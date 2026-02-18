@@ -204,3 +204,6 @@ dev = [
     "sort-requirements",
     "xmlunittest",
 ]
+
+[tool.uv]
+no-build-isolation-package = ["rasterio"]

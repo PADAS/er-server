@@ -56,14 +56,20 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Install Google Cloud SDK
 RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && apt-get update -y && apt-get install google-cloud-cli -y
 
-WORKDIR /workspaces/${WORKSPACE_FOLDERNAME}
-ADD ./dependencies /workspaces/${WORKSPACE_FOLDERNAME}/dependencies
-ADD ./pyproject.toml /workspaces/${WORKSPACE_FOLDERNAME}/
-ADD ./uv.lock /workspaces/${WORKSPACE_FOLDERNAME}/
-
 USER vscode
 
-RUN uv sync --group dev --no-install-project
+WORKDIR /workspaces/${WORKSPACE_FOLDERNAME}
+ADD --chown=vscode:vscode ./dependencies /workspaces/${WORKSPACE_FOLDERNAME}/dependencies
+ADD --chown=vscode:vscode ./pyproject.toml /workspaces/${WORKSPACE_FOLDERNAME}/
+ADD --chown=vscode:vscode ./uv.lock /workspaces/${WORKSPACE_FOLDERNAME}/
+ADD --chown=vscode:vscode ./das/__init__.py /workspaces/${WORKSPACE_FOLDERNAME}/das/__init__.py
+ADD --chown=vscode:vscode ./das/_version.py /workspaces/${WORKSPACE_FOLDERNAME}/das/_version.py
+
+RUN uv venv ${UV_PROJECT_ENVIRONMENT} && \
+    . ${UV_PROJECT_ENVIRONMENT}/bin/activate && \
+    uv pip install setuptools && \
+    uv sync --group dev --no-install-project
+
 ENV VIRTUAL_ENV=${UV_PROJECT_ENVIRONMENT}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
