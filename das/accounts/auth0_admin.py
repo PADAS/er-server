@@ -47,8 +47,7 @@ def admin_login_entrypoint(request):
     """
     Conditional admin login entrypoint that checks the tenant's require_idp flag.
 
-    If require_idp=True and the user is already authenticated (e.g. the form builder
-    bounced them here to bootstrap an EFB token), creates the token cookie and redirects
+    If require_idp=True and the user is already authenticated, creates the token cookie and redirects
     to the intended destination without a redundant Auth0 round-trip.
 
     If require_idp=True and the user is not authenticated, redirects to Auth0 login.
