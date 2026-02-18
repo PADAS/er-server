@@ -218,8 +218,50 @@ class EventsExportView(APIView):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._content_type_cache = {}
-        self._file_model_cache = {}
+        # Cache containers are request-scoped via the properties below to avoid
+        # leaking data if a view instance is ever reused across requests.
+
+    @property
+    def _content_type_cache(self):
+        """
+        Request-scoped cache for content types.
+
+        The underlying dict is stored on the DRF Request instance so that
+        each HTTP request gets an isolated cache, even if the view instance
+        is reused.
+        """
+        request = getattr(self, "request", None)
+        if request is not None:
+            cache = getattr(request, "_events_export_content_type_cache", None)
+            if cache is None:
+                cache = {}
+                setattr(request, "_events_export_content_type_cache", cache)
+            return cache
+        # Fallback for code paths where self.request is not yet set
+        if not hasattr(self, "__content_type_cache"):
+            self.__content_type_cache = {}
+        return self.__content_type_cache
+
+    @property
+    def _file_model_cache(self):
+        """
+        Request-scoped cache for file models.
+
+        The underlying dict is stored on the DRF Request instance so that
+        each HTTP request gets an isolated cache, even if the view instance
+        is reused.
+        """
+        request = getattr(self, "request", None)
+        if request is not None:
+            cache = getattr(request, "_events_export_file_model_cache", None)
+            if cache is None:
+                cache = {}
+                setattr(request, "_events_export_file_model_cache", cache)
+            return cache
+        # Fallback for code paths where self.request is not yet set
+        if not hasattr(self, "__file_model_cache"):
+            self.__file_model_cache = {}
+        return self.__file_model_cache
 
     def _get_default_headers(self, reported_at_label):
         """Get the default (non-custom) CSV headers."""
@@ -470,11 +512,11 @@ class EventsExportView(APIView):
         reported_by_map = generate_reported_by_lookup()
         event_type_map = generate_event_type_cache()
 
-        # Build annotated queryset once and reuse for both header computation and row generation
-        queryset = self._get_annotated_queryset()
+        # Lightweight query for event type IDs (same filters, no heavy annotations).
+        event_type_ids_in_export = set(self.get_queryset().values_list("event_type_id", flat=True).distinct())
 
-        # Only build custom headers from event types that have matching events
-        event_type_ids_in_export = set(queryset.values_list("event_type_id", flat=True).distinct())
+        # Build annotated queryset once for row generation only.
+        queryset = self._get_annotated_queryset()
 
         default_headers = self._get_default_headers(f"Reported At ({tz_offset})")
         custom_headers = self._build_custom_headers(event_type_map, event_type_ids_in_export)

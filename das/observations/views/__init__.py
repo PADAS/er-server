@@ -868,10 +868,14 @@ class TrackingDataCsvView(APIView):
             )
         return queryset
 
-    def _get_fieldnames(self, result_format, request_subject_id):
-        """Get CSV field names with timezone-aware labels."""
-        fixtime_label = "fixtime ({})".format(tz_offset) if result_format == "csv" else "fixtime"
-        dloadtime_label = "dloadtime ({})".format(tz_offset) if result_format == "csv" else "dloadtime"
+    def _get_fieldnames(self, result_format, request_subject_id, tz_offset=None):
+        """Get CSV field names with optional timezone-aware labels."""
+        if result_format == "csv" and tz_offset:
+            fixtime_label = "fixtime ({})".format(tz_offset)
+            dloadtime_label = "dloadtime ({})".format(tz_offset)
+        else:
+            fixtime_label = "fixtime"
+            dloadtime_label = "dloadtime"
         fieldnames = [
             "chronofile",
             "recordserial",
@@ -1021,7 +1025,19 @@ class TrackingDataCsvView(APIView):
         upper = request_date_before if request_date_before is not None and request_date_before < upper else upper
         lower = request_date_after if request_date_after is not None and request_date_after > lower else lower
 
-        fieldnames, fixtime_label, dloadtime_label = self._get_fieldnames(result_format, request_subject_id)
+        # Compute timezone offset for CSV column labels (explicit param for testability).
+        _now = datetime.datetime.utcnow().astimezone(current_tz)
+        _tz_diff = _now.utcoffset().total_seconds() / 60 / 60
+        request_tz_offset = (
+            "GMT"
+            + ("+" if _tz_diff >= 0 else "")
+            + str(int(_tz_diff))
+            + ":"
+            + str(int((_tz_diff - int(_tz_diff)) * 60))
+        )
+        fieldnames, fixtime_label, dloadtime_label = self._get_fieldnames(
+            result_format, request_subject_id, tz_offset=request_tz_offset
+        )
 
         # JSON format cannot be streamed - must return full list
         if result_format != "csv":
@@ -1376,11 +1392,11 @@ class TrackingMetaDataExportView(APIView):
     def _prepare_subjects_and_groups(self):
         """Build annotated queryset and subject groups lookup.
 
-        Uses the lightweight base queryset (no JOINs) for the ID fetch so
-        the heavy annotated queryset is only evaluated once during streaming.
+        Uses a queryset of IDs (no list materialization) for the groups lookup
+        so the DB can use a subquery; the heavy annotated queryset is evaluated
+        once during streaming.
         """
-        # Lightweight query for IDs only — avoids evaluating the annotated queryset twice.
-        subject_ids = list(self.get_queryset().values_list("id", flat=True))
+        subject_ids = self.get_queryset().values_list("id", flat=True)
         subject_groups_lookup = self._build_subject_groups_lookup(subject_ids)
         # The annotated queryset will be evaluated once by the caller (via .iterator()).
         subjects = self._get_annotated_queryset()
