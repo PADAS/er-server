@@ -178,7 +178,7 @@ class V2SchemaAdapter:
             display = self._find_choice_display(schema_item["anyOf"], value)
             return title, value, display if display is not None else str(value)
 
-        if isinstance(value, str):
+        if schema_item.get("format") == "date-time" and isinstance(value, str):
             display = schema_utils.change_format_date_string(value)
             return title, value, display
 

@@ -9,6 +9,7 @@ from collections import OrderedDict
 
 import dateutil.parser as dateparser
 import jsonschema
+from dateutil.parser import ParserError
 
 from django.apps import apps
 from django.template import Context, Template
@@ -344,10 +345,12 @@ def change_format_date_string(date_string: str, _format: str = "%Y-%m-%d %H:%M")
     """
     try:
         date_obj = dateparser.parse(date_string)
+        if date_obj is None:
+            return date_string
         date_obj = convert_to_timezone(date_obj)
 
         return date_obj.strftime(_format)
-    except (ValueError, dateparser.ParserError):
+    except (ValueError, ParserError):
         return date_string
 
 
