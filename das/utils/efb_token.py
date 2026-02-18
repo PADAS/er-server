@@ -42,7 +42,7 @@ def get_or_create_efb_token(user):
 
     try:
         oauth2_settings = getattr(settings, "OAUTH2_PROVIDER", {})
-        expire_in_secs = oauth2_settings.get("ACCESS_TOKEN_EXPIRE_SECONDS")
+        expire_in_secs = oauth2_settings.get("ACCESS_TOKEN_EXPIRE_SECONDS", 36000)
         expires = timezone.now() + timedelta(seconds=expire_in_secs)
 
         token = DASAccessToken.objects.create(

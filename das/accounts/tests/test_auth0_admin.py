@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
 from django.http import HttpResponse
 from django.test import RequestFactory
 from django.urls import reverse
@@ -135,6 +136,7 @@ class TestAdminLoginEntrypoint:
     def test_default_next_parameter(self, request_factory, mock_tenant_settings_require_idp_true):
         """Test that missing next parameter defaults to /admin/."""
         request = request_factory.get("/admin/login/")
+        request.user = AnonymousUser()
 
         result = admin_login_entrypoint(request)
 
@@ -187,6 +189,7 @@ class TestAdminLoginEntrypoint:
     def test_unauthenticated_user_redirects_to_auth0(self, request_factory, mock_tenant_settings_require_idp_true):
         """When require_idp=True and user is not authenticated, redirect to Auth0."""
         request = request_factory.get("/admin/login/?next=/admin/form-builder/")
+        request.user = AnonymousUser()
 
         result = admin_login_entrypoint(request)
 

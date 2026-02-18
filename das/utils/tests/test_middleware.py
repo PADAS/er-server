@@ -17,8 +17,8 @@ from client_http import HTTPClient
 from core.models.oauth import DASAccessToken, DASApplication
 from factories import SubjectFactory
 from utils.features import features
+from utils.efb_token import EFB_COOKIE_NAME
 from utils.middleware import (
-    EFB_ACCESS_TOKEN_NAME,
     EFB_APPLICATION_ID,
     ManageAdminEFBTokenMiddleware,
     TenantSettingsMiddleware,
@@ -156,16 +156,16 @@ class TestManageAdminEFBTokenMiddleware:
         response = self.client.get("/admin/login")
         response = self.middleware.process_response(request, response)
 
-        assert EFB_ACCESS_TOKEN_NAME in response.cookies
+        assert EFB_COOKIE_NAME in response.cookies
         token = DASAccessToken.objects.get(user=self.superuser, application__client_id=EFB_APPLICATION_ID)
-        assert response.cookies[EFB_ACCESS_TOKEN_NAME].value == token.token
+        assert response.cookies[EFB_COOKIE_NAME].value == token.token
 
     def test_generated_token_can_access_api(self, user_client):
         admin_request = self._create_admin_request()
         admin_response = self.client.get("/admin/login")
         admin_response = self.middleware.process_response(admin_request, admin_response)
 
-        token = admin_response.cookies[EFB_ACCESS_TOKEN_NAME].value
+        token = admin_response.cookies[EFB_COOKIE_NAME].value
         user_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
 
         SubjectFactory.create_batch(5)
@@ -188,7 +188,7 @@ class TestManageAdminEFBTokenMiddleware:
         tokens = DASAccessToken.objects.filter(user=self.superuser, application__client_id=EFB_APPLICATION_ID)
         assert tokens.count() == 1
         assert tokens.first().token == "existing_token"
-        assert EFB_ACCESS_TOKEN_NAME in response.cookies  # This means existing valid token is re-setted on response
+        assert EFB_COOKIE_NAME in response.cookies  # This means existing valid token is re-setted on response
 
     def test_token_invalidation_with_cookie(self):
         test_token = "test_token_123"
@@ -197,14 +197,14 @@ class TestManageAdminEFBTokenMiddleware:
         )
 
         request = self._create_admin_request("/admin/logout")
-        request.COOKIES = {EFB_ACCESS_TOKEN_NAME: test_token}
+        request.COOKIES = {EFB_COOKIE_NAME: test_token}
 
         response = self.client.get("/admin/logout")
         response = self.middleware.process_response(request, response)
 
         assert not DASAccessToken.objects.filter(token=test_token).exists()
-        assert EFB_ACCESS_TOKEN_NAME in response.cookies
-        assert response.cookies[EFB_ACCESS_TOKEN_NAME].value == ""
+        assert EFB_COOKIE_NAME in response.cookies
+        assert response.cookies[EFB_COOKIE_NAME].value == ""
 
     def test_token_cleanup_without_cookie(self):
         DASAccessToken.objects.create(
@@ -227,28 +227,28 @@ class TestManageAdminEFBTokenMiddleware:
     def test_no_token_cleanup_for_anonymous(self):
         request = self.factory.get("/admin/logout")
         request.user = AnonymousUser()
-        request.COOKIES = {EFB_ACCESS_TOKEN_NAME: "any_token"}
+        request.COOKIES = {EFB_COOKIE_NAME: "any_token"}
 
         response = self.client.get("/admin/logout")
         response = self.middleware.process_response(request, response)
 
-        assert EFB_ACCESS_TOKEN_NAME in response.cookies
-        assert response.cookies[EFB_ACCESS_TOKEN_NAME].value == ""
+        assert EFB_COOKIE_NAME in response.cookies
+        assert response.cookies[EFB_COOKIE_NAME].value == ""
 
     @patch("utils.middleware.ManageAdminEFBTokenMiddleware._should_create_efb_token", return_value=False)
     def test_error_handling_during_token_deletion(self, caplog):
         with patch("core.models.oauth.DASAccessToken.objects.filter", side_effect=Exception("DB Error")) as mock_delete:
             with pytest.raises(Exception):
                 request = self._create_admin_request("/admin/logout")
-                request.COOKIES = {EFB_ACCESS_TOKEN_NAME: "test_token"}
+                request.COOKIES = {EFB_COOKIE_NAME: "test_token"}
 
                 response = self.client.get("/admin/logout")
                 response = self.middleware.process_response(request, response)
 
                 assert "Error: DB Error invalidating" in caplog.text
 
-                assert EFB_ACCESS_TOKEN_NAME in response.cookies
-                assert response.cookies[EFB_ACCESS_TOKEN_NAME].value == ""
+                assert EFB_COOKIE_NAME in response.cookies
+                assert response.cookies[EFB_COOKIE_NAME].value == ""
                 mock_delete.assert_called_once()
 
     def test_expired_token_replacement(self):
@@ -266,7 +266,7 @@ class TestManageAdminEFBTokenMiddleware:
         tokens = DASAccessToken.objects.filter(user=self.superuser, application__client_id=EFB_APPLICATION_ID)
         assert tokens.count() == 2
         assert "expired_token" in [t.token for t in tokens]
-        assert EFB_ACCESS_TOKEN_NAME in response.cookies
+        assert EFB_COOKIE_NAME in response.cookies
 
     def test_token_not_created_for_non_staff_user(self, user, user_client):
         user.is_staff = False
@@ -280,4 +280,4 @@ class TestManageAdminEFBTokenMiddleware:
         response = self.middleware.process_response(request, response)
 
         assert not DASAccessToken.objects.filter(user=user, application__client_id=EFB_APPLICATION_ID).exists()
-        assert EFB_ACCESS_TOKEN_NAME not in response.cookies
+        assert EFB_COOKIE_NAME not in response.cookies

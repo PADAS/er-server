@@ -28,7 +28,7 @@ from observations.utils import (
 )
 from utils import add_base_url, stats
 from utils.categories import should_apply_geographic_features
-from utils.efb_token import EFB_APPLICATION_ID, set_efb_token_cookie
+from utils.efb_token import EFB_APPLICATION_ID, EFB_COOKIE_NAME, set_efb_token_cookie
 from utils.gis import convert_to_point
 from utils.tenant import get_tenant_settings
 from utils.tenant.exceptions import TenantNotFoundException
@@ -43,7 +43,6 @@ request_data = local()
 ACTIVITY_EVENTS_PATH_REGEX = (
     r"^\/api\/v1.0\/activity\/events?\/?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?\/?$"
 )
-EFB_ACCESS_TOKEN_NAME = "efb_access_token"
 
 
 class RequestLoggingMiddleware(object):
@@ -313,20 +312,20 @@ class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
     def _invalidate_efb_token(self, request, response):
         user = request.user
 
-        if EFB_ACCESS_TOKEN_NAME not in request.COOKIES:
+        if EFB_COOKIE_NAME not in request.COOKIES:
             if user.is_authenticated:
                 DASAccessToken.objects.filter(application__client_id=EFB_APPLICATION_ID, user=user).delete()
             return
 
         try:
             DASAccessToken.objects.filter(
-                application__client_id=EFB_APPLICATION_ID, token=request.COOKIES.get(EFB_ACCESS_TOKEN_NAME)
+                application__client_id=EFB_APPLICATION_ID, token=request.COOKIES.get(EFB_COOKIE_NAME)
             ).delete()
 
-            response.delete_cookie(EFB_ACCESS_TOKEN_NAME)
-            del request.COOKIES[EFB_ACCESS_TOKEN_NAME]
+            response.delete_cookie(EFB_COOKIE_NAME)
+            del request.COOKIES[EFB_COOKIE_NAME]
 
-            logger.info(f"Invalidated access token {EFB_ACCESS_TOKEN_NAME} for user {user.username}")
+            logger.info(f"Invalidated access token {EFB_COOKIE_NAME} for user {user.username}")
 
         except Exception as e:
-            logger.warning(f"Error: {e} invalidating {EFB_ACCESS_TOKEN_NAME} {e}")
+            logger.warning(f"Error: {e} invalidating {EFB_COOKIE_NAME} {e}")
