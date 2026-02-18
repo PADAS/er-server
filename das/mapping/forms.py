@@ -200,9 +200,24 @@ class DisplayCategoryForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             self.fields["feature_classes"].initial = self.instance.spatialfeaturetype_set.all()
 
+    def clean_name(self):
+        name = self.cleaned_data.get("name")
+        if not name:
+            return name
+        qs = DisplayCategory.objects.filter(name=name)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError(
+                _("A display category with this name already exists for this tenant."),
+                code="unique",
+            )
+        return name
+
     def save(self, commit=True):
         instance = super().save(commit)
-        instance.spatialfeaturetype_set.set(self.cleaned_data["feature_classes"])
+        if commit:
+            instance.spatialfeaturetype_set.set(self.cleaned_data["feature_classes"])
         return instance
 
 
