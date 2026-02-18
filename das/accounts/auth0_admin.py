@@ -21,6 +21,7 @@ from django.contrib.auth import logout as django_logout
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_exempt
 
 from accounts.backends import Auth0BackendForStaffUsers
@@ -41,6 +42,17 @@ _admin_auth0_client.register(
 )
 
 _auth0_admin_backend = Auth0BackendForStaffUsers()
+
+DEFAULT_ADMIN_NEXT = "/admin/"
+
+
+def _get_safe_next_url(request, default=None):
+    if default is None:
+        default = DEFAULT_ADMIN_NEXT
+    next_param = request.GET.get("next", default)
+    if url_has_allowed_host_and_scheme(next_param, allowed_hosts=request.get_host()):
+        return next_param
+    return default
 
 
 def admin_login_entrypoint(request):
@@ -64,7 +76,7 @@ def admin_login_entrypoint(request):
         return _use_default_django_admin_login(request)
 
     if require_idp and org_id:
-        next_param = request.GET.get("next", "/admin/")
+        next_param = _get_safe_next_url(request)
 
         if request.user.is_authenticated and request.user.is_staff:
             response = redirect(next_param)
@@ -72,7 +84,8 @@ def admin_login_entrypoint(request):
             return response
 
         logger.debug("Redirecting to Auth0 admin login for tenant with require_idp=True")
-        return redirect(f"{reverse('auth0_admin_login')}?next={next_param}&org_id={org_id}")
+        query = urllib.parse.urlencode({"next": next_param, "org_id": org_id})
+        return redirect(f"{reverse('auth0_admin_login')}?{query}")
     else:
         return _use_default_django_admin_login(request)
 
@@ -119,7 +132,7 @@ def initiate_auth0_admin_login(request):
     Initiates Auth0 login for Django Admin.
     Stores the 'next' parameter in session for retrieval after OAuth callback.
     """
-    next_param = request.GET.get("next", "/admin/")
+    next_param = _get_safe_next_url(request)
     request.session["auth0_admin_next"] = next_param
 
     org_id = request.GET.get("org_id")
@@ -163,7 +176,9 @@ def auth0_callback(request):
                 "Successfully authenticated user %s via Auth0 for admin access",
                 admin_user.username,
             )
-            next_url = request.session.pop("auth0_admin_next", "/admin/")
+            next_url = request.session.pop("auth0_admin_next", DEFAULT_ADMIN_NEXT)
+            if not url_has_allowed_host_and_scheme(next_url, allowed_hosts=request.get_host()):
+                next_url = DEFAULT_ADMIN_NEXT
             return redirect(next_url)
         else:
             logger.error("Auth0 authentication failed or user lacks admin privileges")

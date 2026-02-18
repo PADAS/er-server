@@ -28,7 +28,7 @@ from observations.utils import (
 )
 from utils import add_base_url, stats
 from utils.categories import should_apply_geographic_features
-from utils.efb_token import EFB_APPLICATION_ID, EFB_COOKIE_NAME, get_or_create_efb_token
+from utils.efb_token import EFB_APPLICATION_ID, set_efb_token_cookie
 from utils.gis import convert_to_point
 from utils.tenant import get_tenant_settings
 from utils.tenant.exceptions import TenantNotFoundException
@@ -293,9 +293,7 @@ def is_check_eula_path(path):
 class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
     def process_response(self, request, response):
         if self._should_create_efb_token(request, response):
-            token = get_or_create_efb_token(request.user)
-            if token:
-                response.set_cookie(EFB_COOKIE_NAME, token.token, samesite="Lax", secure=True)
+            set_efb_token_cookie(request, response)
 
         if "/admin/logout" in request.path:
             self._invalidate_efb_token(request, response)

@@ -71,4 +71,13 @@ def set_efb_token_cookie(request, response):
 
     token = get_or_create_efb_token(request.user)
     if token:
-        response.set_cookie(EFB_COOKIE_NAME, token.token, samesite="Lax", secure=True)
+        max_age = max(0, int((token.expires - timezone.now()).total_seconds()))
+        response.set_cookie(
+            EFB_COOKIE_NAME,
+            token.token,
+            samesite="Lax",
+            secure=True,
+            httponly=True,
+            max_age=max_age,
+            path="/",
+        )
