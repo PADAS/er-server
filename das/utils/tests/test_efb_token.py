@@ -15,12 +15,28 @@ from utils.efb_token import (
 )
 
 
+@pytest.fixture
+def efb_app(superuser):
+    """Ensure EFB application exists for the test tenant (fixture only)."""
+    app, _ = DASApplication.objects.get_or_create(
+        client_id=EFB_APPLICATION_ID,
+        defaults={
+            "client_type": "Confidential",
+            "authorization_grant_type": "password",
+            "client_secret": "",
+            "name": "Event Form Builder Admin App",
+            "skip_authorization": True,
+        },
+    )
+    return app
+
+
 @pytest.mark.django_db
 class TestGetOrCreateEfbToken:
     @pytest.fixture(autouse=True)
-    def setup(self, superuser):
+    def setup(self, superuser, efb_app):
         self.superuser = superuser
-        self.efb_app = DASApplication.objects.get(client_id=EFB_APPLICATION_ID)
+        self.efb_app = efb_app
 
     def test_returns_existing_valid_token(self):
         existing = DASAccessToken.objects.create(
@@ -70,7 +86,7 @@ class TestGetOrCreateEfbToken:
 @pytest.mark.django_db
 class TestSetEfbTokenCookie:
     @pytest.fixture(autouse=True)
-    def setup(self, superuser):
+    def setup(self, superuser, efb_app):
         self.superuser = superuser
         self.factory = RequestFactory()
 
