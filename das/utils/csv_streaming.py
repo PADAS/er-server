@@ -89,6 +89,9 @@ class StreamingCSVGenerator:
 
         # Yield header row
         if self.include_header:
+            # Note: We intentionally use writer.writerow instead of writer.writeheader
+            # because writeheader() returns None, while writerow() returns the
+            # CSV-formatted string via the Echo buffer, which we need to yield.
             yield writer.writerow(dict(zip(self.fieldnames, self.fieldnames)))
 
         # Yield data rows
