@@ -179,7 +179,9 @@ def auth0_callback(request):
             next_url = request.session.pop("auth0_admin_next", DEFAULT_ADMIN_NEXT)
             if not url_has_allowed_host_and_scheme(next_url, allowed_hosts=request.get_host()):
                 next_url = DEFAULT_ADMIN_NEXT
-            return redirect(next_url)
+            response = redirect(next_url)
+            set_efb_token_cookie(request, response)
+            return response
         else:
             logger.error("Auth0 authentication failed or user lacks admin privileges")
             return HttpResponse("Authentication failed - insufficient privileges", status=403)

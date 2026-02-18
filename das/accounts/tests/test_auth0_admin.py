@@ -275,24 +275,27 @@ class TestAuth0Callback:
         with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token") as mock_token_exchange:
             with patch("accounts.auth0_admin._auth0_admin_backend.authenticate") as mock_authenticate:
                 with patch("accounts.auth0_admin.login") as mock_login:
+                    with patch("accounts.auth0_admin.set_efb_token_cookie") as mock_set_efb_cookie:
 
-                    mock_token_exchange.return_value = mock_token
-                    mock_authenticate.return_value = admin_user_with_auth0_id
+                        mock_token_exchange.return_value = mock_token
+                        mock_authenticate.return_value = admin_user_with_auth0_id
 
-                    result = auth0_callback(request)
+                        result = auth0_callback(request)
 
-                    mock_token_exchange.assert_called_once_with(request)
+                        mock_token_exchange.assert_called_once_with(request)
 
-                    mock_authenticate.assert_called_once_with(request, token=mock_token)
+                        mock_authenticate.assert_called_once_with(request, token=mock_token)
 
-                    mock_login.assert_called_once_with(
-                        request, admin_user_with_auth0_id, backend="accounts.backends.Auth0BackendForStaffUsers"
-                    )
+                        mock_login.assert_called_once_with(
+                            request, admin_user_with_auth0_id, backend="accounts.backends.Auth0BackendForStaffUsers"
+                        )
 
-                    assert result.status_code == 302
-                    assert result.url == "/admin/target"
+                        mock_set_efb_cookie.assert_called_once_with(request, result)
 
-                    assert "auth0_admin_next" not in request.session
+                        assert result.status_code == 302
+                        assert result.url == "/admin/target"
+
+                        assert "auth0_admin_next" not in request.session
 
     def test_authentication_failure_returns_403(self, request_factory):
         """Test that authentication failure returns 403."""
