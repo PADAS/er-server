@@ -78,7 +78,8 @@ def admin_login_entrypoint(request):
     if require_idp and org_id:
         next_param = _get_safe_next_url(request)
 
-        if request.user.is_authenticated and request.user.is_staff:
+        user = getattr(request, "user", None)
+        if user and user.is_authenticated and user.is_staff:
             response = redirect(next_param)
             set_efb_token_cookie(request, response)
             return response

@@ -66,10 +66,11 @@ def set_efb_token_cookie(request, response):
 
     No-op if the user is not an authenticated staff member.
     """
-    if not request.user.is_authenticated or not request.user.is_staff:
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated or not user.is_staff:
         return
 
-    token = get_or_create_efb_token(request.user)
+    token = get_or_create_efb_token(user)
     if token:
         max_age = max(0, int((token.expires - timezone.now()).total_seconds()))
         response.set_cookie(

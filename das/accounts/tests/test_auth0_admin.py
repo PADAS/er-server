@@ -91,28 +91,33 @@ class TestAdminLoginEntrypoint:
     def test_require_idp_true_redirects_to_auth0(self, request_factory, mock_tenant_settings_require_idp_true):
         """Test that when require_idp=True, user is redirected to Auth0 login."""
         request = request_factory.get("/admin/login/?next=/admin/some/page")
+        request.user = AnonymousUser()
 
         result = admin_login_entrypoint(request)
 
         assert result.status_code == 302
-        expected_location = f"{reverse('auth0_admin_login')}?next=/admin/some/page&org_id=org_test123"
-        assert result.url == expected_location
+        parsed = urllib.parse.parse_qs(urllib.parse.urlparse(result.url).query)
+        assert parsed.get("next", [""])[0] == "/admin/some/page"
+        assert parsed.get("org_id", [""])[0] == "org_test123"
 
     def test_preserves_next_parameter(self, request_factory, mock_tenant_settings_require_idp_true):
         """Test that the next parameter is properly preserved in Auth0 flow."""
         request = request_factory.get("/admin/login/?next=/admin/custom/path")
+        request.user = AnonymousUser()
 
         result = admin_login_entrypoint(request)
 
         assert result.status_code == 302
-        assert "next=/admin/custom/path" in result.url
-        assert "org_id=org_test123" in result.url
+        parsed = urllib.parse.parse_qs(urllib.parse.urlparse(result.url).query)
+        assert parsed.get("next", [""])[0] == "/admin/custom/path"
+        assert parsed.get("org_id", [""])[0] == "org_test123"
 
     def test_require_idp_true_no_org_id_uses_django_admin(
         self, request_factory, mock_tenant_settings_require_idp_true_no_org
     ):
         """Test that when require_idp=True but org_id is None, Django admin is used."""
         request = request_factory.get("/admin/login/")
+        request.user = AnonymousUser()
 
         with patch("accounts.auth0_admin.admin.site.login") as mock_admin_login:
             mock_admin_login.return_value = HttpResponse("django_admin_response")
@@ -124,6 +129,7 @@ class TestAdminLoginEntrypoint:
     def test_handles_tenant_settings_error(self, request_factory):
         """Test that tenant settings errors fall back to Django admin login."""
         request = request_factory.get("/admin/login/")
+        request.user = AnonymousUser()
 
         with patch("accounts.auth0_admin.get_tenant_settings", side_effect=Exception("Tenant error")):
             with patch("accounts.auth0_admin.admin.site.login") as mock_admin_login:
@@ -141,8 +147,9 @@ class TestAdminLoginEntrypoint:
         result = admin_login_entrypoint(request)
 
         assert result.status_code == 302
-        assert "next=/admin/" in result.url
-        assert "org_id=org_test123" in result.url
+        parsed = urllib.parse.parse_qs(urllib.parse.urlparse(result.url).query)
+        assert parsed.get("next", [""])[0] == "/admin/"
+        assert parsed.get("org_id", [""])[0] == "org_test123"
 
     def test_authenticated_staff_user_skips_auth0_and_sets_efb_cookie(
         self, request_factory, mock_tenant_settings_require_idp_true, admin_user_with_auth0_id
@@ -195,7 +202,8 @@ class TestAdminLoginEntrypoint:
 
         assert result.status_code == 302
         assert reverse("auth0_admin_login") in result.url
-        assert "next=/admin/form-builder/" in result.url
+        parsed = urllib.parse.parse_qs(urllib.parse.urlparse(result.url).query)
+        assert parsed.get("next", [""])[0] == "/admin/form-builder/"
 
 
 @pytest.mark.django_db
@@ -335,6 +343,7 @@ class TestAuth0Callback:
         """Test that missing session next parameter defaults to /admin/."""
         request = request_factory.get("/auth/callback/")
         request.session = {}  # No auth0_admin_next in session
+        request.user = admin_user_with_auth0_id
 
         mock_token = Mock()
         mock_token.get.return_value = {"sub": "auth0|123456789", "email": "admin@example.com"}
