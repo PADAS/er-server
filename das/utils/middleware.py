@@ -329,3 +329,8 @@ class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
 
         except Exception as e:
             logger.warning(f"Error: {e} invalidating {EFB_COOKIE_NAME} {e}")
+            try:
+                response.delete_cookie(EFB_COOKIE_NAME)
+                request.COOKIES.pop(EFB_COOKIE_NAME, None)
+            except Exception:
+                pass

@@ -33,10 +33,14 @@ def get_or_create_efb_token(user):
     try:
         efb_app = DASApplication.objects.get(client_id=EFB_APPLICATION_ID)
     except DASApplication.DoesNotExist:
+        try:
+            tenant_domain = get_tenant_settings().domain
+        except Exception:
+            tenant_domain = "unknown"
         logger.warning(
             "EFB application with client_id %s does not exist in tenant %s",
             EFB_APPLICATION_ID,
-            get_tenant_settings().domain,
+            tenant_domain,
         )
         return None
 

@@ -32,6 +32,7 @@ def efb_app(superuser):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestGetOrCreateEfbToken:
     @pytest.fixture(autouse=True)
     def setup(self, superuser, efb_app):

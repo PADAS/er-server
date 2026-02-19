@@ -80,6 +80,7 @@ class TestAdminLoginEntrypoint:
     def test_require_idp_false_uses_django_admin(self, request_factory, mock_tenant_settings_require_idp_false):
         """Test that when require_idp=False, Django's default admin login is used."""
         request = request_factory.get("/admin/login/")
+        request.user = AnonymousUser()
 
         with patch("accounts.auth0_admin.admin.site.login") as mock_admin_login:
             mock_admin_login.return_value = HttpResponse("django_admin_response")

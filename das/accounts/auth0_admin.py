@@ -50,7 +50,7 @@ def _get_safe_next_url(request, default=None):
     if default is None:
         default = DEFAULT_ADMIN_NEXT
     next_param = request.GET.get("next", default)
-    if url_has_allowed_host_and_scheme(next_param, allowed_hosts=request.get_host()):
+    if url_has_allowed_host_and_scheme(next_param, allowed_hosts={request.get_host()}):
         return next_param
     return default
 
@@ -178,7 +178,7 @@ def auth0_callback(request):
                 admin_user.username,
             )
             next_url = request.session.pop("auth0_admin_next", DEFAULT_ADMIN_NEXT)
-            if not url_has_allowed_host_and_scheme(next_url, allowed_hosts=request.get_host()):
+            if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
                 next_url = DEFAULT_ADMIN_NEXT
             response = redirect(next_url)
             set_efb_token_cookie(request, response)

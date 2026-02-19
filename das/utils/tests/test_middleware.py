@@ -16,8 +16,8 @@ from django.utils import timezone
 from client_http import HTTPClient
 from core.models.oauth import DASAccessToken, DASApplication
 from factories import SubjectFactory
-from utils.features import features
 from utils.efb_token import EFB_COOKIE_NAME
+from utils.features import features
 from utils.middleware import (
     EFB_APPLICATION_ID,
     ManageAdminEFBTokenMiddleware,
@@ -238,18 +238,16 @@ class TestManageAdminEFBTokenMiddleware:
     @patch("utils.middleware.ManageAdminEFBTokenMiddleware._should_create_efb_token", return_value=False)
     def test_error_handling_during_token_deletion(self, caplog):
         with patch("core.models.oauth.DASAccessToken.objects.filter", side_effect=Exception("DB Error")) as mock_delete:
-            with pytest.raises(Exception):
-                request = self._create_admin_request("/admin/logout")
-                request.COOKIES = {EFB_COOKIE_NAME: "test_token"}
+            request = self._create_admin_request("/admin/logout")
+            request.COOKIES = {EFB_COOKIE_NAME: "test_token"}
 
-                response = self.client.get("/admin/logout")
-                response = self.middleware.process_response(request, response)
+            response = self.client.get("/admin/logout")
+            response = self.middleware.process_response(request, response)
 
-                assert "Error: DB Error invalidating" in caplog.text
-
-                assert EFB_COOKIE_NAME in response.cookies
-                assert response.cookies[EFB_COOKIE_NAME].value == ""
-                mock_delete.assert_called_once()
+            assert "Error: DB Error invalidating" in caplog.text
+            assert EFB_COOKIE_NAME in response.cookies
+            assert response.cookies[EFB_COOKIE_NAME].value == ""
+            mock_delete.assert_called_once()
 
     def test_expired_token_replacement(self):
         DASAccessToken.objects.create(
