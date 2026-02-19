@@ -1121,7 +1121,8 @@ class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset
         time_delta = abs((end_obs.recorded_at - start_obs.recorded_at).total_seconds())
         time_gap_ms = time_delta * 1000.0
 
-        # Pre-compute distance using PostGIS to avoid N+1 queries in save()
+        # Pre-compute distance using PostGIS to avoid N+1 queries in save().
+        # Coordinates passed as parameter list to execute(); no string interpolation.
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -1287,6 +1288,7 @@ class ObservationSegment(TenantModelMixin, models.Model):
         should_compute_bearing = self.bearing_deg is None
 
         if should_compute_distance:
+            # Coordinates passed as parameter list to execute(); no string interpolation.
             with connection.cursor() as cursor:
                 cursor.execute(
                     """

@@ -206,7 +206,7 @@ class ObservationAnnotator(Annotator):
         if not observation_ids:
             return queryset.none()
 
-        # Create placeholder string for IN clause to prevent SQL injection
+        # IN clause: placeholders only in SQL; observation_ids passed as params to execute() (no interpolation).
         placeholders = ",".join(["%s"] * len(observation_ids))
         sql = f"""
         WITH track_analysis AS (
