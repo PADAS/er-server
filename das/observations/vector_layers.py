@@ -252,7 +252,7 @@ class ObservationSegmentVectorLayer(VectorLayer):
             "distance_meters",
             "bearing_deg",
             "exclusion_flags",
-            "is_latest",
+            "is_latest",  # computed in get_vector_tile_queryset via Window/RowNumber, not in _get_vector_tile_annotations
         )
 
     # ------------------------------------------------------------------ #
@@ -375,9 +375,9 @@ class ObservationSegmentVectorLayer(VectorLayer):
         entirely in SQL via ``ST_AsMVT``, so that code path does not call this
         method; timestamp formatting is done in annotations (see ``_ISOTimestamp``).
         This method is for non-MVT callers (e.g. tests or other backends that
-        iterate Python objects). Such callers must ensure the same annotations
-        from ``_get_vector_tile_annotations`` (including ``start_time`` and
-        ``end_time``) are present on ``obj`` before calling.
+        iterate Python objects). Callers must ensure the same annotations from
+        ``_get_vector_tile_annotations`` (including ``start_time`` and ``end_time``)
+        are present on ``obj`` before calling, or AttributeError may occur.
         """
 
         # Ensure ISO 8601 with 'T' separator for lexicographic sorting

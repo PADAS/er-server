@@ -422,6 +422,8 @@ def observation_segment_post_save(sender, instance, created, **kwargs):
     """
     Signal handler to maintain ObservationSegments when observations are created or updated.
     This handler updates only the 2 affected segments (O(1) update).
+    Uses transaction.on_commit(); in tests that roll back transactions, call
+    update_segments_for_observation() directly if segment state is needed.
     """
     # Skip during fixture loading
     if kwargs.get("raw", False):
@@ -431,7 +433,9 @@ def observation_segment_post_save(sender, instance, created, **kwargs):
     if not instance.location:
         return
 
-    # Schedule segment update after transaction commits
+    # Schedule segment update after transaction commits. In test environments
+    # that roll back transactions, on_commit hooks do not run; tests that need
+    # segment updates should call update_segments_for_observation() directly.
     transaction.on_commit(lambda: update_segments_for_observation(instance, created=created))
 
 

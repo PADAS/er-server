@@ -54,8 +54,15 @@ class ObservationSegmentVectorTileFilterSet(filters.FilterSet):
 
     def filter_exclusion_flags(self, queryset, _name, value):
         """Boolean control: include flagged segments when True; exclude when False or None."""
-        if value:
+        if value is True:
             return queryset
+        if value is None or value is False:
+            return queryset.filter(exclusion_flags=0)
+        logger.warning(
+            "Unexpected value for show_excluded filter: %r (type %s); excluding flagged segments.",
+            value,
+            type(value).__name__,
+        )
         return queryset.filter(exclusion_flags=0)
 
 

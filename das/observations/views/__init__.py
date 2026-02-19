@@ -444,18 +444,22 @@ class SubjectTrackSegmentsV2View(generics.RetrieveAPIView):
             self._cached_object = super().get_object()
             return self._cached_object
 
-    def _parse_dt(self, value):
+    def _parse_dt(self, name, value):
+        """Parse a datetime query parameter. Returns None if omitted/empty. Raises ParseError if invalid."""
         if not value:
             return None
         try:
-            return dateparse(value)
+            dt = dateparse(value)
         except Exception:
-            return None
+            raise ParseError(detail=f'Invalid datetime format for "{name}" parameter.')
+        if dt is None:
+            raise ParseError(detail=f'Invalid datetime format for "{name}" parameter.')
+        return dt
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        since = self._parse_dt(self.request.query_params.get("since"))
-        until = self._parse_dt(self.request.query_params.get("until"))
+        since = self._parse_dt("since", self.request.query_params.get("since"))
+        until = self._parse_dt("until", self.request.query_params.get("until"))
         # Whether to include observations/segments marked with any exclusion flag.
         show_excluded = self.request.query_params.get("show_excluded", "false").lower() == "true"
         group_by_flags = self.request.query_params.get("group_by_flags", "false").lower() == "true"

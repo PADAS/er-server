@@ -453,19 +453,19 @@ class TestObservationSegmentVectorTiles:
         qs = layer.get_vector_tile_queryset()
         features = [layer.as_vector_tile_feature(obj) for obj in qs]
 
-        # Extract timestamp strings
-        starts = [f["properties"]["start_recorded_at"] for f in features]
-        ends = [f["properties"]["end_recorded_at"] for f in features]
+        # Extract timestamp strings (vector tile uses start_time/end_time from annotations)
+        starts = [f["properties"]["start_time"] for f in features]
+        ends = [f["properties"]["end_time"] for f in features]
 
         # All timestamps must contain 'T' separator and end with timezone offset
         assert all("T" in s for s in starts)
         assert all("T" in e for e in ends)
 
-        # Lexicographic ordering of 'end_recorded_at' should match chronological ordering
+        # Lexicographic ordering of 'end_time' should match chronological ordering
         lex_sorted = sorted(ends)
         chrono_sorted = [
-            f["properties"]["end_recorded_at"]
-            for f in sorted(features, key=lambda f: f["properties"]["end_recorded_at"])
+            f["properties"]["end_time"]
+            for f in sorted(features, key=lambda f: f["properties"]["end_time"])
         ]
         assert lex_sorted == chrono_sorted
 
