@@ -41,7 +41,7 @@ from django.contrib.gis.geos import LineString, Point, Polygon
 from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.db import connection, transaction
+from django.db import connection, connections, transaction
 from django.db.models import (
     BooleanField,
     Case,
