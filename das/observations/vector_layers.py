@@ -311,9 +311,10 @@ class ObservationSegmentVectorLayer(VectorLayer):
         """
         Return annotations for vector tile output.
 
-        ``start_time`` / ``end_time`` are ISO 8601 formatted **in SQL** so
-        that ``ST_AsMVT`` emits lexicographically-sortable strings the client
-        can use directly in Mapbox GL filter expressions.
+        ``start_time`` / ``end_time`` are ISO 8601-formatted aliases for the
+        segment's ``start_recorded_at`` / ``end_recorded_at``, computed **in SQL**
+        so that ``ST_AsMVT`` emits lexicographically-sortable strings the client
+        can use in Mapbox GL filter expressions.
         """
         return {
             "subject_name": Coalesce(F("subject__name"), Value("", output_field=CharField())),
@@ -370,10 +371,13 @@ class ObservationSegmentVectorLayer(VectorLayer):
         """
         Return feature dict for vector tile rendering.
 
-        NOTE: django-vectortiles' PostGIS backend generates MVT entirely in SQL
-        via ``ST_AsMVT`` and does NOT call this method.  Timestamp formatting
-        must happen in annotations (see ``_ISOTimestamp``).  This method exists
-        only for non-MVT callers or future backends that iterate Python objects.
+        With the default django-vectortiles PostGIS backend, MVT is generated
+        entirely in SQL via ``ST_AsMVT``, so that code path does not call this
+        method; timestamp formatting is done in annotations (see ``_ISOTimestamp``).
+        This method is for non-MVT callers (e.g. tests or other backends that
+        iterate Python objects). Such callers must ensure the same annotations
+        from ``_get_vector_tile_annotations`` (including ``start_time`` and
+        ``end_time``) are present on ``obj`` before calling.
         """
 
         # Ensure ISO 8601 with 'T' separator for lexicographic sorting
