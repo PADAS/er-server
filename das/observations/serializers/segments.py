@@ -269,9 +269,9 @@ class SubjectTrackSegmentsGroupedSerializer(serializers.Serializer):
         # Aggregate properties
         total_distance = sum(seg.distance_meters for seg in segments)
         total_duration = sum(seg.time_gap_ms for seg in segments)
-        # Guard against extremely small durations that can cause numerical instability
+        # Guard against zero or very small durations that can cause numerical instability
         # Use a minimum threshold of 1 ms before computing average speed
-        if total_duration and total_duration >= 1.0:
+        if total_duration and total_duration >= 0.001:
             avg_speed = total_distance / (total_duration / 1000.0 / 3600.0)
         else:
             avg_speed = 0  # km/h

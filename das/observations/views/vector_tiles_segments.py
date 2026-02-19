@@ -108,6 +108,19 @@ class ObservationSegmentTileView(MVTView):
         Handle GET request for vector tiles.
         Implements tenant validation, permission checks, caching, and error handling.
         """
+        # Validate tile coordinates: z in 0-24, x/y within valid range for zoom
+        try:
+            z = int(z)
+            x = int(x)
+            y = int(y)
+        except (TypeError, ValueError):
+            return HttpResponse("Invalid tile coordinates", status=400)
+        if z < 0 or z > 24:
+            return HttpResponse("Invalid zoom level", status=400)
+        max_tile = (1 << z) - 1
+        if x < 0 or x > max_tile or y < 0 or y > max_tile:
+            return HttpResponse("Tile out of range for zoom level", status=400)
+
         host = request.get_host().split(":")[0]
         try:
             tenant_data = get_tenant_data_by_host(host)
