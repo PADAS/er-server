@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="test">
+  <trk>
+    <name>Multi-segment</name>
+    <trkseg>
+      <trkpt lat="47.66" lon="-122.31">
+        <ele>100</ele>
+        <time>2024-01-01T10:00:00Z</time>
+      </trkpt>
+    </trkseg>
+    <trkseg>
+      <trkpt lat="47.67" lon="-122.32">
+        <ele>101</ele>
+        <time>2024-01-01T10:05:00Z</time>
+      </trkpt>
+      <trkpt lat="47.68" lon="-122.33">
+        <ele>102</ele>
+        <time>2024-01-01T10:10:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
