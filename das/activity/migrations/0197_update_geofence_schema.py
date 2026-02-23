@@ -1,7 +1,12 @@
+import logging
+
 from django.apps import apps
 from django.db import migrations
 
-from utils.tenant.managers import TenantContextManager
+from utils.tenant.exceptions import TenantNotFoundException
+from utils.tenant.managers import TenantContextManager, UnsetDASTenantContextManager
+
+logger = logging.getLogger(__name__)
 
 GEOFENCE_SCHEMA = """
 {
@@ -118,15 +123,19 @@ def update_geofence_event_types(_migration_apps, _):
     EventType = apps.get_model("activity", "EventType")
     DASTenant = apps.get_model("core", "DASTenant")
 
-    for tenant in DASTenant.objects.all():
-        with TenantContextManager(domain=tenant.domain):
-            EventType.objects.filter(
-                das_tenant_id=tenant.id, id="57943092-b817-43cc-a67c-c7704e59f6ea", value="geofence_break"
-            ).update(schema=GEOFENCE_SCHEMA)
+    with UnsetDASTenantContextManager():
+        das_tenants = DASTenant.objects.all()
 
-            EventType.objects.filter(
-                das_tenant_id=tenant.id, id="c96620be-9d3d-416c-86e6-c0daa64a7063", value="proximity"
-            ).update(schema=PROXIMITY_SCHEMA)
+    for tenant in das_tenants:
+        try:
+            with TenantContextManager(domain=tenant.domain):
+                EventType.objects.filter(das_tenant_id=tenant.id, value="geofence_break").update(schema=GEOFENCE_SCHEMA)
+
+                EventType.objects.filter(das_tenant_id=tenant.id, value="proximity").update(schema=PROXIMITY_SCHEMA)
+        except TenantNotFoundException:
+            logger.warning(
+                "Tenant with domain %s found in current cluster domain list does not exist in TMS", tenant.domain
+            )
 
 
 class Migration(migrations.Migration):
