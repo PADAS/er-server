@@ -1,13 +1,15 @@
-import re
+import unicodedata
 from itertools import chain
 
+from django_multitenant.fields import TenantForeignKey
+
 import django.db.models as models
-from accounts.models.permissionset import PermissionSet
 from django.contrib import auth
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import UniqueConstraint
 from django.utils.translation import gettext_lazy as _
-from django_multitenant.fields import TenantForeignKey
+
+from accounts.models.permissionset import PermissionSet
 from utils.tenant.models import TenantThroughModel
 
 
@@ -306,6 +308,15 @@ class UserFormValidatorMixin:
         return users
 
     def _validate_value_contains_special_characters(self, value):
-        filtered_value = re.sub(r"-|[a-zA-Z0-9().,_']|\s", "", value.strip())
-        if filtered_value != "":
+        if value is None or not value.strip():
+            return
+        # Allow Unicode letters and marks (any language), digits, and safe punctuation/whitespace.
+        # Block weird/dangerous ASCII (e.g. < > ; $ @ { } " `) and control characters.
+        allowed_ascii = set("-().,_' \t\n") | set("0123456789")
+        for char in value:
+            if char in allowed_ascii:
+                continue
+            cat = unicodedata.category(char)
+            if cat.startswith("L") or cat.startswith("M"):
+                continue
             raise ValidationError("The field contains invalid characters.")

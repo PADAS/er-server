@@ -12,6 +12,12 @@ COMPLEX_NAMES = (
 
 INVALID_CHARACTERS_FOR_NAMES = ("`", "<", ">", ";", "$", "@", "{", "}", '"')
 
+# Thai names (สมชาย = Somchai, ใจดี = Chaidee; วรรณา = Wanida, ศรีสุข = Srisuk)
+THAI_NAMES = (
+    ("สมชาย", "ใจดี"),
+    ("วรรณา", "ศรีสุข"),
+)
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
@@ -76,6 +82,13 @@ class TestCustomUserCreationForm:
         form.is_valid()
 
         assert not form.errors
+
+    @pytest.mark.parametrize("first_name,last_name", THAI_NAMES)
+    def test_create_user_accepts_thai_characters_in_first_and_last_name(self, first_name, last_name):
+        """Thai characters in first_name and last_name should be accepted (admin add user)."""
+        form = CustomUserCreationForm(data={"username": "username", "first_name": first_name, "last_name": last_name})
+        form.is_valid()
+        assert not form.errors, "Thai names rejected: %s" % form.errors
 
     def test_create_user_with_duplicate_pin(self, ops_user):
         ops_user.pin = "1234"
@@ -150,6 +163,13 @@ class TestUserAdditionalForm:
         form.is_valid()
 
         assert not form.errors
+
+    @pytest.mark.parametrize("first_name,last_name", THAI_NAMES)
+    def test_edit_user_accepts_thai_characters_in_first_and_last_name(self, first_name, last_name):
+        """Thai characters in first_name and last_name should be accepted (admin change user)."""
+        form = UserAdditionalForm(data={"username": "username", "first_name": first_name, "last_name": last_name})
+        form.is_valid()
+        assert not form.errors, "Thai names rejected: %s" % form.errors
 
     def test_create_user_with_duplicate_pin(self, ops_user):
         ops_user.pin = "1234"
