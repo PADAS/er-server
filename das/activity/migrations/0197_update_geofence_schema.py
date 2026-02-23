@@ -129,9 +129,9 @@ def update_geofence_event_types(_migration_apps, _):
     for tenant in das_tenants:
         try:
             with TenantContextManager(domain=tenant.domain):
-                EventType.objects.filter(das_tenant_id=tenant.id, value="geofence_break").update(schema=GEOFENCE_SCHEMA)
+                EventType.objects.filter(value="geofence_break").update(schema=GEOFENCE_SCHEMA)
 
-                EventType.objects.filter(das_tenant_id=tenant.id, value="proximity").update(schema=PROXIMITY_SCHEMA)
+                EventType.objects.filter(value="proximity").update(schema=PROXIMITY_SCHEMA)
         except TenantNotFoundException:
             logger.warning(
                 "Tenant with domain %s found in current cluster domain list does not exist in TMS", tenant.domain
