@@ -60,11 +60,14 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
 
                     total_intersection_points = len([pt for pt in _intersectPnts])
 
+                    if total_intersection_points == 0:
+                        continue
+
                     # if total number of intersection points for a segment
                     # are odd, it's a legitimate crossing, add segment to the
                     # results. If trigger_on_corner_clip is True, also include
                     # even numbers of intersections (corner clipping)
-                    if total_intersection_points > 0 and (total_intersection_points % 2 != 0 or trigger_on_corner_clip):
+                    if total_intersection_points % 2 != 0 or trigger_on_corner_clip:
 
                         for pnt in _intersectPnts:
                             # Create a GeoPoint at the crossing OGR point
