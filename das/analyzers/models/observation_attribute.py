@@ -15,6 +15,7 @@ class ObservationAttributeAnalyzerConfig(SubjectAnalyzerConfig):
         ("median", _("Median")),
         ("min", _("Minimum")),
         ("max", _("Maximum")),
+        ("none", _("None")),
         ("range", _("Range")),
         ("stdev", _("Standard Deviation")),
     )
@@ -75,9 +76,7 @@ class ObservationAttributeAnalyzerConfig(SubjectAnalyzerConfig):
         null=True,
         blank=True,
         help_text=_(
-            _(
-                "If present, non-zero attribute values are multiplied by successive powers of 10 until "
-                "they are above this threshold before evaluating their values."
-            )
+            "If present, non-zero attribute values are multiplied by successive powers of 10 until "
+            "they are above this threshold before evaluating their values."
         ),
     )
