@@ -138,7 +138,7 @@ def update_geofence_event_types(_migration_apps, _):
                 except EventType.DoesNotExist:
                     logger.warning("EventType with value 'proximity' does not exist for tenant %s", tenant.domain)
 
-        except TenantNotFoundException:
+        except (TenantNotFoundException, DASTenant.DoesNotExist):
             logger.warning(
                 "Tenant with domain %s found in current cluster domain list does not exist in TMS", tenant.domain
             )
