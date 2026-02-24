@@ -87,6 +87,8 @@ class Migration(migrations.Migration):
                     models.CharField(
                         choices=[
                             ("all", "All"),
+                            ("none", "None"),
+                            ("any", "Any"),
                             ("mean", "Mean"),
                             ("median", "Median"),
                             ("min", "Minimum"),

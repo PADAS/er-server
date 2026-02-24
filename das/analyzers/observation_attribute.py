@@ -1,6 +1,7 @@
 import json
 import logging
 import statistics
+from typing import Optional
 
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.contrib.gis.geos import Point as DjangoPoint
@@ -9,7 +10,9 @@ from django.core.cache import cache
 from activity.models import Event, EventCategory, EventType
 from analyzers.base import SubjectAnalyzer
 from analyzers.models import ObservationAttributeAnalyzerConfig, SubjectAnalyzerResult
+from analyzers.models.base import CRITICAL, EVENT_PRIORITY_MAP, WARNING
 from analyzers.utils import save_analyzer_event
+from observations.models import Observation
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +20,7 @@ logger = logging.getLogger(__name__)
 class ObservationAttributeAnalyzer(SubjectAnalyzer):
 
     def __init__(self, subject=None, config=None):
-        SubjectAnalyzer.__init__(self, subject=subject, config=config)
+        super().__init__(subject=subject, config=config)
         self.logger = logging.getLogger(__name__)
 
     @classmethod
@@ -29,21 +32,21 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
             ):
                 yield cls(subject=subject, config=ac)
 
-    def default_observations(self):
+    def default_observations(self) -> list[Observation]:
         """
         Default set of observation is fetched from the database, based on this analyzer's configuration.
         :return: a queryset of Observations
         """
         return list(self.subject.observations(last_hours=self.config.search_time_hours or 24))
 
-    def save_analyzer_result(self, last_result=None, this_result=None):
+    def save_analyzer_result(self, last_result=None, this_result=None) -> None:
         if this_result is not None:
             this_result.save()
 
-    def value_to_display(self, value):
+    def value_to_display(self, value) -> str:
         return " ".join(x.capitalize() or "_" for x in value.split("_"))
 
-    def verify_event_type(self, this_result: SubjectAnalyzerResult):
+    def verify_event_type(self, this_result: SubjectAnalyzerResult) -> str:
         """Ensures that a target event type for this analyzer exists and, if it doesn't, creates one.
 
         Args:
@@ -68,7 +71,7 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
         return et_value
 
     @staticmethod
-    def _aggregate(value_list: list, aggregation_function: str) -> any:
+    def _aggregate(value_list: list, aggregation_function: str) -> Optional[float]:
         """
 
         Aggregates a list of values based on the specified aggregation function.
@@ -79,7 +82,7 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
                                         "max", "range", and "stdev".
 
         Returns:
-            any: The aggregated value.
+            Optional[float]: The aggregated value, or None if aggregation fails.
         """
         try:
             if aggregation_function == "mean":
@@ -131,7 +134,7 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
 
         return False
 
-    def create_analyzer_event(self, last_result=None, this_result=None):
+    def create_analyzer_event(self, last_result=None, this_result=None) -> Optional[Event]:
         """
         Creates an EarthRanger event based on the analyzer result.
 
@@ -149,7 +152,7 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
 
         event_data = dict(
             title=this_result.title,
-            priority=this_result.level,
+            priority=this_result.level or Event.PRI_URGENT,
             time=this_result.estimated_time,
             provenance=Event.PC_ANALYZER,
             event_type=self.verify_event_type(this_result),
@@ -162,12 +165,13 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
         )
         return save_analyzer_event(event_data)
 
-    def _evaluate_rule(self, value_list: list, target_value) -> (bool, any):
+    def _evaluate_rule(self, value_list: list, target_value) -> tuple[bool, any]:
         """
         Evaluates the analyzer rule against a list of values and determines whether the rule is triggered.
 
         Args:
             value_list (list): The list of values to evaluate.
+            target_value (any): The target value to compare against.
 
         Returns:
             tuple: A tuple containing a boolean indicating whether the rule was triggered and the evaluated value.
@@ -177,8 +181,10 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
         if oom > 0:
             adjusted_list = []
             for o_val in value_list:
-                while o_val < oom:
-                    o_val = o_val * 10
+                # To avoid an infitine loop, only adjust if the value is greater than 0
+                if o_val > 0:
+                    while o_val < oom:
+                        o_val = o_val * 10
                 adjusted_list.append(o_val)
             value_list = adjusted_list
 
@@ -199,12 +205,16 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
                 return True, target_value
         else:
             evaluated_value = self._aggregate(value_list, self.config.aggregation)
-            if self._compare_value(evaluated_value, self.config.comparator, target_value):
+            if evaluated_value is not None and self._compare_value(
+                evaluated_value, self.config.comparator, target_value
+            ):
                 return True, evaluated_value
 
         return False, None
 
-    def analyze(self, observations=None, trajectory_filter=None, analyzer_key=None):
+    def analyze(
+        self, observations=None, trajectory_filter=None, analyzer_key=None
+    ) -> list[tuple[SubjectAnalyzerResult, Event]]:
         """
 
         Overrides the parent class because this analyzer doesn't analyze a trajectory but rather a set of observations.
@@ -217,7 +227,8 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
             analyzer_key (str, optional): The analyzer key to use for evaluating the silent period. Defaults to None.
 
         Returns:
-            list: A list of tuples containing the analyzer result and resulting ER event if triggered, otherwise None.
+            list[tuple[SubjectAnalyzerResult, Event]]: A list of tuples containing the analyzer result and resulting ER
+            event if triggered, otherwise None.
         """
 
         observations = observations or self.default_observations()
@@ -227,14 +238,18 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
                 value_list.append(o.additional.get(self.config.attribute_name))
 
         if not value_list:
-            return None
+            return []
 
         triggered, evaluated_value = self._evaluate_rule(value_list, self.config.critical_value)
-        level = Event.PRI_URGENT
+        level = EVENT_PRIORITY_MAP.get(CRITICAL)
 
         if not triggered:
             triggered, evaluated_value = self._evaluate_rule(value_list, self.config.warning_value)
-            level = Event.PRI_IMPORTANT
+
+            if not triggered:
+                return []
+
+            level = EVENT_PRIORITY_MAP.get(WARNING)
 
         if triggered:
 
@@ -254,7 +269,7 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
                     "warning_value": self.config.warning_value,
                     "critical_value": self.config.critical_value,
                     "evaluated_value": evaluated_value,
-                    "fix_count": len(observations),
+                    "total_fix_count": len(observations),
                 },
                 geometry_collection=DjangoGeoColl(
                     [
@@ -269,7 +284,7 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
             self.save_analyzer_result(this_result=this_result)
             this_event = self.create_analyzer_event(this_result=this_result)
 
-            if analyzer_key and this_event:
+            if analyzer_key and this_event and self.config.quiet_period:
                 logger.info("Pausing analyzer with id=%s", self.config.id)
                 cache.set(analyzer_key, analyzer_key, self.config.quiet_period.total_seconds())
 
@@ -288,7 +303,7 @@ OBSERVATION_ATTRIBUTE_ANALYZER_SCHEMA = {
             "warning_value": {"type": "number", "title": "Warning Value"},
             "critical_value": {"type": "number", "title": "Critical Value"},
             "evaluated_value": {"type": "number", "title": "Evaluated Value"},
-            "fix_count": {"type": "number", "title": "Total Fix Count"},
+            "total_fix_count": {"type": "number", "title": "Total Fix Count"},
         },
     },
     "definition": [
@@ -303,7 +318,7 @@ OBSERVATION_ATTRIBUTE_ANALYZER_SCHEMA = {
                 "warning_value",
                 "critical_value",
                 "evaluated_value",
-                "fix_count",
+                "total_fix_count",
             ],
         },
     ],
