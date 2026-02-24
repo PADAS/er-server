@@ -1,10 +1,10 @@
 from analyzers.environmental import EnvironmentalAnalyzer
 from analyzers.geofence import GeofenceAnalyzer
 from analyzers.immobility import ImmobilityAnalyzer
+from analyzers.observation_attribute import ObservationAttributeAnalyzer
 from analyzers.proximity import FeatureProximityAnalyzer
 from analyzers.speed import LowSpeedPercentileAnalyzer, LowSpeedWilcoxAnalyzer
 from analyzers.subject_proximity import SubjectProximityAnalyzer
-from das.analyzers.observation_attribute import ObservationAttributeAnalyzer
 
 subject_analyzers = (
     ImmobilityAnalyzer,
