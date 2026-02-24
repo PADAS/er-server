@@ -317,7 +317,7 @@ class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
                 try:
                     DASAccessToken.objects.filter(application__client_id=EFB_APPLICATION_ID, user=user).delete()
                 except Exception as e:
-                    logger.warning(f"Error: {e} invalidating {EFB_COOKIE_NAME} {e}")
+                    logger.warning(f"Error: {e} invalidating {EFB_COOKIE_NAME}")
             return
 
         try:
@@ -331,7 +331,7 @@ class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
             logger.info(f"Invalidated access token {EFB_COOKIE_NAME} for user {user.username}")
 
         except Exception as e:
-            logger.warning(f"Error: {e} invalidating {EFB_COOKIE_NAME} {e}")
+            logger.warning(f"Error: {e} invalidating {EFB_COOKIE_NAME}")
             try:
                 response.delete_cookie(EFB_COOKIE_NAME)
                 request.COOKIES.pop(EFB_COOKIE_NAME, None)
