@@ -231,6 +231,10 @@ def get_neighbor_observations(observation, subject):
     """
     Get the previous and next observations for a subject relative to a given observation.
 
+    Uses a per-subject neighbor map cache so that when many observations for the same
+    subject are processed in sequence (e.g. real-time or bulk import via signal), we
+    do one ordered-id query per subject instead of two queries per observation.
+
     Args:
         observation: Observation instance
         subject: Subject instance
@@ -238,32 +242,40 @@ def get_neighbor_observations(observation, subject):
     Returns:
         tuple: (prev_observation, next_observation) - either can be None
     """
-    # Get all observations for this subject through all their sources, using cache
-    cache_key = f"subject_sources_{subject.id}"
-    subject_sources = cache.get(cache_key)
+    # Get source IDs for this subject (shared with subject_sources cache)
+    cache_key_sources = f"subject_sources_{subject.id}"
+    subject_sources = cache.get(cache_key_sources)
     if subject_sources is None:
         subject_sources = list(SubjectSource.objects.filter(subject=subject).values_list("source_id", flat=True))
-        cache.set(cache_key, subject_sources, 300)  # Cache for 5 minutes
+        cache.set(cache_key_sources, subject_sources, 300)  # 5 minutes
 
-    # Find previous observation (most recent before this one)
-    prev_obs = (
-        Observation.objects.filter(
-            source_id__in=subject_sources, recorded_at__lt=observation.recorded_at, location__isnull=False
+    # Get or build neighbor map: observation_id -> (prev_id, next_id)
+    cache_key_map = f"subject_neighbor_map_{subject.id}"
+    neighbor_map = cache.get(cache_key_map)
+    if neighbor_map is None or observation.id not in neighbor_map:
+        # Rebuild so map includes current observation (e.g. just committed)
+        if neighbor_map is not None:
+            cache.delete(cache_key_map)
+        ordered_ids = list(
+            Observation.objects.filter(source_id__in=subject_sources, location__isnull=False)
+            .order_by("recorded_at")
+            .values_list("id", flat=True)
         )
-        .order_by("-recorded_at")
-        .first()
-    )
+        neighbor_map = {}
+        for i, obs_id in enumerate(ordered_ids):
+            prev_id = ordered_ids[i - 1] if i > 0 else None
+            next_id = ordered_ids[i + 1] if i < len(ordered_ids) - 1 else None
+            neighbor_map[obs_id] = (prev_id, next_id)
+        cache.set(cache_key_map, neighbor_map, 300)  # 5 minutes
 
-    # Find next observation (earliest after this one)
-    next_obs = (
-        Observation.objects.filter(
-            source_id__in=subject_sources, recorded_at__gt=observation.recorded_at, location__isnull=False
-        )
-        .order_by("recorded_at")
-        .first()
-    )
+    prev_id, next_id = neighbor_map.get(observation.id, (None, None))
 
-    return prev_obs, next_obs
+    # Fetch full Observation instances for prev/next when present
+    neighbor_ids = [x for x in (prev_id, next_id) if x is not None]
+    if not neighbor_ids:
+        return None, None
+    observations_by_id = {obs.id: obs for obs in Observation.objects.filter(id__in=neighbor_ids)}
+    return observations_by_id.get(prev_id), observations_by_id.get(next_id)
 
 
 def _delete_observation_segments(observation):
@@ -413,6 +425,8 @@ def update_segments_for_observation(observation, created=False, deleted=False):
     # Handle deletion or create/update
     if deleted:
         _handle_observation_deletion(observation, subject, prev_obs, next_obs)
+        # Invalidate neighbor map so next call does not see the deleted observation
+        cache.delete(f"subject_neighbor_map_{subject.id}")
     else:
         _handle_observation_create_or_update(observation, subject, prev_obs, next_obs, created)
 

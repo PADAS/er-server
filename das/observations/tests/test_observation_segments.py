@@ -464,8 +464,7 @@ class TestObservationSegmentVectorTiles:
         # Lexicographic ordering of 'end_time' should match chronological ordering
         lex_sorted = sorted(ends)
         chrono_sorted = [
-            f["properties"]["end_time"]
-            for f in sorted(features, key=lambda f: f["properties"]["end_time"])
+            f["properties"]["end_time"] for f in sorted(features, key=lambda f: f["properties"]["end_time"])
         ]
         assert lex_sorted == chrono_sorted
 
@@ -595,14 +594,16 @@ class TestObservationSegmentVectorTiles:
             source=source, recorded_at=base_time + timedelta(minutes=10), location=Point(1, 0), das_tenant=tenant
         )
 
-        segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
 
-        # Get feature from vector layer
+        # Get feature from vector layer (use annotated queryset so start_time/end_time exist)
         layer = ObservationSegmentVectorLayer()
         factory = APIRequestFactory()
         request = factory.get("/tiles")
         layer.request = request
-
+        qs = layer.get_vector_tile_queryset()
+        segment = qs.filter(subject=subject).first()
+        assert segment is not None, "segment should exist in vector tile queryset"
         feature = layer.as_vector_tile_feature(segment)
 
         # Verify bearing_deg is in properties

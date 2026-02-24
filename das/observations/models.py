@@ -1283,7 +1283,9 @@ class ObservationSegment(TenantModelMixin, models.Model):
         return round(bearing, 2)
 
     def save(self, *args, **kwargs):
-        """Override save to calculate accurate distance and bearing using PostGIS/geometry when missing."""
+        """Override save to calculate accurate distance and bearing using PostGIS/geometry when missing.
+        Prefer create_segment for bulk; direct save() may run per-row queries if distance/bearing not set.
+        """
         should_compute_distance = (self.distance_meters is None) or (self.distance_meters == 0.0)
         should_compute_bearing = self.bearing_deg is None
 

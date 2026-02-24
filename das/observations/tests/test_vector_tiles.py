@@ -65,7 +65,7 @@ class TestSubjectVectorLayer:
         assert hasattr(obj, "color")
         assert hasattr(obj, "radio_state")
         assert hasattr(obj, "recorded_at")
-        assert hasattr(obj, "subject_type")
+        assert hasattr(obj, "subject_type_value")
         assert hasattr(obj, "subject_subtype_value")
         assert hasattr(obj, "image_url")
 
@@ -79,12 +79,14 @@ class TestSubjectVectorLayer:
         factory = APIRequestFactory()
         request = factory.get("/observations/segments/tiles/10/512/512.pbf")
         request.user = user_with_realtime_access
+        request.user.is_superuser = True  # So queryset is not filtered by by_user_subjects
 
         layer = SubjectVectorLayer(request=request)
         assert layer.delay_hours == 0
 
         qs = layer.get_queryset()
         obj = qs.filter(id=subject_with_multiple_statuses.id).first()
+        assert obj is not None, "Subject should be in queryset (superuser sees all)"
 
         # Should use the status with delay_hours=0 (latest)
         status_latest = SubjectStatus.objects.get(subject=subject_with_multiple_statuses, delay_hours=0)
@@ -95,12 +97,14 @@ class TestSubjectVectorLayer:
         factory = APIRequestFactory()
         request = factory.get("/observations/segments/tiles/10/512/512.pbf")
         request.user = user_with_delayed_access
+        request.user.is_superuser = True  # So queryset is not filtered by by_user_subjects
 
         layer = SubjectVectorLayer(request=request)
         assert layer.delay_hours == 168  # 7 days * 24 hours
 
         qs = layer.get_queryset()
         obj = qs.filter(id=subject_with_multiple_statuses.id).first()
+        assert obj is not None, "Subject should be in queryset (superuser sees all)"
 
         # Should use the status with delay_hours=168
         status_delayed = SubjectStatus.objects.get(subject=subject_with_multiple_statuses, delay_hours=168)
@@ -121,26 +125,20 @@ class TestConsolidatedVectorTiles:
 
     def test_realtime_user_sees_all_segments(self, subject_with_segments_and_status, user_with_realtime_access):
         """Verify users with access_ends_0 see all segments up to now."""
-        from rest_framework.authtoken.models import Token
-
         url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
 
-        token, _ = Token.objects.get_or_create(user=user_with_realtime_access)
         client = APIClient()
-        client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+        client.force_login(user_with_realtime_access)
         response = client.get(url)
 
         assert response.status_code in (200, 204)
 
     def test_delayed_user_sees_filtered_segments(self, subject_with_segments_and_status, user_with_delayed_access):
         """Verify users with access_ends_7 only see segments from ≥7 days ago."""
-        from rest_framework.authtoken.models import Token
-
         url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
 
-        token, _ = Token.objects.get_or_create(user=user_with_delayed_access)
         client = APIClient()
-        client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+        client.force_login(user_with_delayed_access)
         response = client.get(url)
 
         # Should get filtered data (may be empty if no old enough segments)
@@ -150,20 +148,16 @@ class TestConsolidatedVectorTiles:
         self, subject_with_segments_and_status, user_with_realtime_access, user_with_delayed_access
     ):
         """Verify users with different permissions get different cached tiles."""
-        from rest_framework.authtoken.models import Token
-
         url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
 
         # Realtime user request
-        token1, _ = Token.objects.get_or_create(user=user_with_realtime_access)
         client1 = APIClient()
-        client1.credentials(HTTP_AUTHORIZATION=f"Token {token1.key}")
+        client1.force_login(user_with_realtime_access)
         response1 = client1.get(url)
 
         # Delayed user request
-        token2, _ = Token.objects.get_or_create(user=user_with_delayed_access)
         client2 = APIClient()
-        client2.credentials(HTTP_AUTHORIZATION=f"Token {token2.key}")
+        client2.force_login(user_with_delayed_access)
         response2 = client2.get(url)
 
         # Both should succeed but have different ETags (different cache keys)
@@ -191,42 +185,54 @@ class TestSegmentPermissionFiltering:
         """Verify segment layer filters by delay_hours."""
         from rest_framework.test import APIRequestFactory
 
-        from observations.models import Observation, ObservationSegment, Subject
+        from observations.models import (
+            Observation,
+            ObservationSegment,
+            Source,
+            SourceProvider,
+            Subject,
+            SubjectSource,
+        )
         from observations.vector_layers import ObservationSegmentVectorLayer
 
-        # Create subject
+        # Create subject and source (observations use source, not subject)
         subject = Subject.objects.create(
             name="Test Subject",
             subject_subtype=subject_subtype,
             is_active=True,
             das_tenant=das_tenant,
         )
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_delay_seg", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="delay_seg_collar", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
 
         # Create observations: one recent, one old
         now = timezone.now()
         old_time = now - timedelta(days=10)
 
         obs_old_1 = Observation.objects.create(
-            subject=subject,
+            source=source,
             location=Point(0.0, 0.0, srid=4326),
             recorded_at=old_time,
             das_tenant=das_tenant,
         )
         obs_old_2 = Observation.objects.create(
-            subject=subject,
+            source=source,
             location=Point(0.1, 0.1, srid=4326),
             recorded_at=old_time + timedelta(hours=1),
             das_tenant=das_tenant,
         )
 
         obs_recent_1 = Observation.objects.create(
-            subject=subject,
+            source=source,
             location=Point(1.0, 1.0, srid=4326),
             recorded_at=now - timedelta(hours=1),
             das_tenant=das_tenant,
         )
         obs_recent_2 = Observation.objects.create(
-            subject=subject,
+            source=source,
             location=Point(1.1, 1.1, srid=4326),
             recorded_at=now,
             das_tenant=das_tenant,
@@ -810,15 +816,10 @@ class TestSubjectLayerProperties:
             das_tenant=das_tenant,
             additional={"rgb": "255,128,0"},
         )
-        SubjectStatus.objects.update_or_create(
-            subject=subject,
-            delay_hours=0,
-            das_tenant=das_tenant,
-            defaults={
-                "location": Point(0, 0, srid=4326),
-                "recorded_at": timezone.now(),
-                "radio_state": "online-gps",
-            },
+        SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            radio_state="online-gps",
         )
 
         layer = SubjectVectorLayer()
@@ -836,15 +837,10 @@ class TestSubjectLayerProperties:
             das_tenant=das_tenant,
             additional={},  # No rgb key
         )
-        SubjectStatus.objects.update_or_create(
-            subject=subject,
-            delay_hours=0,
-            das_tenant=das_tenant,
-            defaults={
-                "location": Point(0, 0, srid=4326),
-                "recorded_at": timezone.now(),
-                "radio_state": "online-gps",
-            },
+        SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            radio_state="online-gps",
         )
 
         layer = SubjectVectorLayer()
@@ -862,15 +858,10 @@ class TestSubjectLayerProperties:
             das_tenant=das_tenant,
             additional={"sex": "female"},
         )
-        SubjectStatus.objects.update_or_create(
-            subject=subject,
-            delay_hours=0,
-            das_tenant=das_tenant,
-            defaults={
-                "location": Point(0, 0, srid=4326),
-                "recorded_at": timezone.now(),
-                "radio_state": "online-gps",
-            },
+        SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            radio_state="online-gps",
         )
 
         layer = SubjectVectorLayer()
@@ -889,15 +880,10 @@ class TestSubjectLayerProperties:
             das_tenant=das_tenant,
             additional={},
         )
-        SubjectStatus.objects.update_or_create(
-            subject=subject,
-            delay_hours=0,
-            das_tenant=das_tenant,
-            defaults={
-                "location": Point(0, 0, srid=4326),
-                "recorded_at": timezone.now(),
-                "radio_state": "offline",
-            },
+        SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            radio_state="offline",
         )
 
         layer = SubjectVectorLayer()
@@ -916,15 +902,10 @@ class TestSubjectLayerProperties:
             das_tenant=das_tenant,
             additional={},
         )
-        SubjectStatus.objects.update_or_create(
-            subject=subject,
-            delay_hours=0,
-            das_tenant=das_tenant,
-            defaults={
-                "location": Point(0, 0, srid=4326),
-                "recorded_at": timezone.now(),
-                "radio_state": "alarm",
-            },
+        SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            radio_state="alarm",
         )
 
         layer = SubjectVectorLayer()
@@ -942,15 +923,10 @@ class TestSubjectLayerProperties:
             subject_subtype=subject_subtype,
             das_tenant=das_tenant,
         )
-        SubjectStatus.objects.update_or_create(
-            subject=subject,
-            delay_hours=0,
-            das_tenant=das_tenant,
-            defaults={
-                "location": Point(0, 0, srid=4326),
-                "recorded_at": timezone.now(),
-                "radio_state": "online-gps",
-            },
+        SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            radio_state="online-gps",
         )
 
         layer = SubjectVectorLayer()
@@ -958,7 +934,7 @@ class TestSubjectLayerProperties:
         obj = qs.filter(id=subject.id).first()
 
         assert obj is not None
-        assert obj.subject_type == subject_subtype.subject_type.value
+        assert obj.subject_type_value == subject_subtype.subject_type.value
         assert obj.subject_subtype_value == subject_subtype.value
 
 
@@ -1388,15 +1364,10 @@ def _create_subject_with_status(name, subject_subtype, das_tenant, lon=0.0, lat=
         das_tenant=das_tenant,
         additional={"rgb": "0,255,0"},
     )
-    SubjectStatus.objects.update_or_create(
-        subject=subject,
-        delay_hours=0,
-        das_tenant=das_tenant,
-        defaults={
-            "location": Point(lon, lat, srid=4326),
-            "recorded_at": timezone.now(),
-            "radio_state": "online-gps",
-        },
+    SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+        location=Point(lon, lat, srid=4326),
+        recorded_at=timezone.now(),
+        radio_state="online-gps",
     )
     return subject
 
@@ -1565,16 +1536,11 @@ def subject_with_segments_and_status(db, das_tenant, subject_subtype):
         additional={"rgb": "255,0,0"},
     )
 
-    # Create current status using update_or_create to avoid duplicates
-    SubjectStatus.objects.update_or_create(
-        subject=subject,
-        delay_hours=0,
-        das_tenant=das_tenant,
-        defaults={
-            "location": Point(1.0, 1.0, srid=4326),
-            "recorded_at": timezone.now(),
-            "radio_state": "online-gps",
-        },
+    # ensure_subject_status_exists signal already created the row; update in place
+    SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+        location=Point(1.0, 1.0, srid=4326),
+        recorded_at=timezone.now(),
+        radio_state="online-gps",
     )
 
     # Create source for observations
@@ -1626,27 +1592,35 @@ def user_with_realtime_access(db, user):
 
 
 @pytest.fixture
-def user_with_delayed_access(db, user):
-    """Create a user with 7-day delayed access permission (access_ends_7)."""
+def user_with_delayed_access(db, create_user):
+    """Create a *separate* user with 7-day delayed access permission (access_ends_7).
+
+    Uses create_user instead of the shared ``user`` fixture so that tests
+    combining both ``user_with_realtime_access`` and ``user_with_delayed_access``
+    get distinct user instances (different user.id → different cache keys).
+    """
     from accounts.models.permissionset import PermissionSet
 
+    delayed_user = create_user(username="delayed_access_user")
     permission = Permission.objects.get(codename="access_ends_7")
     perm_set = PermissionSet.objects.create(name="delayed_access_test")
     perm_set.permissions.add(permission)
-    user.permission_sets.add(perm_set)
-    user.additional = {}
-    user.save()
-    return user
+    delayed_user.permission_sets.add(perm_set)
+    delayed_user.additional = {}
+    delayed_user.save()
+    return delayed_user
 
 
 @pytest.fixture
 def api_client_with_user(db, user_with_realtime_access):
-    """Create an authenticated API client with real-time access."""
-    from rest_framework.authtoken.models import Token
+    """Create an authenticated API client with real-time access.
 
-    token, _ = Token.objects.get_or_create(user=user_with_realtime_access)
+    Uses force_login (session auth) because ObservationSegmentTileView is a
+    plain Django View, not a DRF APIView — force_authenticate only injects
+    the user for APIView subclasses.
+    """
     client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+    client.force_login(user_with_realtime_access)
     return client
 
 
@@ -1660,15 +1634,12 @@ def subject_with_status(db, das_tenant, subject_subtype):
         das_tenant=das_tenant,
         additional={"rgb": "255,0,0"},
     )
-    SubjectStatus.objects.update_or_create(
-        subject=subject,
-        delay_hours=0,
-        das_tenant=das_tenant,
-        defaults={
-            "location": Point(0.0, 0.0, srid=4326),
-            "recorded_at": timezone.now(),
-            "radio_state": "online-gps",
-        },
+    # ensure_subject_status_exists signal already created the SubjectStatus row;
+    # update it in place to set the location and radio state we need for tests.
+    SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+        location=Point(0.0, 0.0, srid=4326),
+        recorded_at=timezone.now(),
+        radio_state="online-gps",
     )
     return subject
 
@@ -1693,26 +1664,16 @@ def subject_with_multiple_statuses(db, das_tenant, subject_subtype):
         is_active=True,
         das_tenant=das_tenant,
     )
-    # Latest status (delay_hours=0)
-    SubjectStatus.objects.update_or_create(
-        subject=subject,
-        delay_hours=0,
-        das_tenant=das_tenant,
-        defaults={
-            "location": Point(1.0, 1.0, srid=4326),
-            "recorded_at": timezone.now(),
-            "radio_state": "online-gps",
-        },
+    # ensure_subject_status_exists signal already created rows for all
+    # VIEW_END_WINDOWS delay tiers; update them with the locations we need.
+    SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+        location=Point(1.0, 1.0, srid=4326),
+        recorded_at=timezone.now(),
+        radio_state="online-gps",
     )
-    # Delayed status (delay_hours=168 = 7 days)
-    SubjectStatus.objects.update_or_create(
-        subject=subject,
-        delay_hours=168,
-        das_tenant=das_tenant,
-        defaults={
-            "location": Point(2.0, 2.0, srid=4326),
-            "recorded_at": timezone.now() - timedelta(days=7),
-            "radio_state": "offline",
-        },
+    SubjectStatus.objects.filter(subject=subject, delay_hours=168).update(
+        location=Point(2.0, 2.0, srid=4326),
+        recorded_at=timezone.now() - timedelta(days=7),
+        radio_state="offline",
     )
     return subject

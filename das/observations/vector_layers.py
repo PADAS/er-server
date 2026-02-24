@@ -30,11 +30,9 @@ class _ISOTimestamp(Func):
     """
 
     function = "to_char"
-    template = (
-        "to_char(%(expressions)s AT TIME ZONE 'UTC',"
-        " 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')"
-    )
+    template = "to_char(%(expressions)s AT TIME ZONE 'UTC'," ' \'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"\')'
     output_field = CharField()
+
 
 from observations.filters import ObservationSegmentVectorTileFilterSet
 from observations.models import ObservationSegment, Subject
@@ -89,7 +87,7 @@ class SubjectVectorLayer(VectorLayer):
         return (
             "id",
             "name",
-            "subject_type",
+            "subject_type_value",
             "subject_subtype_value",
             "image_url",
             "color",
@@ -129,7 +127,7 @@ class SubjectVectorLayer(VectorLayer):
         qs = qs.annotate_with_subjectstatus(
             delay_hours=self.delay_hours,
             mou_expiry_date=self.mou_expiry_date,
-        ).select_related("subject_subtype", "subject_subtype__subject_type")
+        ).select_related("subject_subtype")
 
         # Filter out subjects without location at this delay window
         qs = qs.filter(status_location__isnull=False)
@@ -177,10 +175,10 @@ class SubjectVectorLayer(VectorLayer):
             output_field=CharField(),
         )
 
-        # Annotate with required fields
+        # Annotate with required fields (subject_type_value avoids shadowing Subject.subject_type FK)
         return qs.annotate(
             geom=self._get_geometry_field(),
-            subject_type=F("subject_subtype__subject_type__value"),
+            subject_type_value=F("subject_subtype__subject_type__value"),
             subject_subtype_value=Coalesce(F("subject_subtype__value"), Value("")),
             image_url=image_url_expr,
             color=color_expr,
@@ -380,16 +378,22 @@ class ObservationSegmentVectorLayer(VectorLayer):
         are present on ``obj`` before calling, or AttributeError may occur.
         """
 
-        # Ensure ISO 8601 with 'T' separator for lexicographic sorting
-        def _iso(dt):
-            return dt.isoformat(sep="T", timespec="milliseconds") if dt else None
+        def _iso(val):
+            """Format a datetime (or pre-formatted string) as ISO 8601."""
+            if val is None:
+                return None
+            if isinstance(val, str):
+                return val
+            return val.isoformat(sep="T", timespec="milliseconds")
 
+        start_time = obj.start_recorded_at
+        end_time = obj.end_recorded_at
         props = {
             "id": str(obj.id),
             "subject_id": str(obj.subject_id),
             "subject_name": getattr(obj, "subject_name", ""),
-            "start_time": _iso(obj.start_time),
-            "end_time": _iso(obj.end_time),
+            "start_time": _iso(start_time),
+            "end_time": _iso(end_time),
             "speed_kmh": round(obj.speed_kmh, 2) if obj.speed_kmh else None,
             "time_gap_ms": round(obj.time_gap_ms, 0) if obj.time_gap_ms else None,
             "distance_meters": round(obj.distance_meters, 2) if obj.distance_meters else None,
