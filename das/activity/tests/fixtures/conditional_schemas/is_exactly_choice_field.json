@@ -1,0 +1,153 @@
+{
+  "json": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "properties": {
+      "status": {
+        "deprecated": false,
+        "description": "",
+        "title": "Status",
+        "type": "string",
+        "anyOf": [
+          {
+            "$ref": "https://era-12220.dev.pamdas.org/api/v2.0/schemas/choices.json?field=fire_status"
+          }
+        ]
+      }
+    },
+    "required": [],
+    "type": "object",
+    "unevaluatedProperties": false,
+    "allOf": [
+      {
+        "if": {
+          "allOf": [
+            {
+              "properties": {
+                "status": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "allOf": [
+                        {
+                          "contains": {
+                            "const": "burning"
+                          }
+                        }
+                      ],
+                      "maxItems": 1
+                    },
+                    {
+                      "type": "boolean",
+                      "const": null
+                    },
+                    {
+                      "const": null,
+                      "type": "number"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {},
+                      "required": [],
+                      "unevaluatedProperties": false
+                    },
+                    {
+                      "const": "burning",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "status"
+              ]
+            }
+          ]
+        },
+        "then": {
+          "properties": {
+            "conditional_field": {
+              "default": "",
+              "deprecated": false,
+              "description": "",
+              "title": "Conditional Field",
+              "type": "string"
+            }
+          },
+          "required": []
+        },
+        "x-section": "section-2"
+      }
+    ]
+  },
+  "ui": {
+    "fields": {
+      "conditional_field": {
+        "conditionalDependents": [],
+        "inputType": "SHORT_TEXT",
+        "placeholder": "",
+        "type": "TEXT",
+        "parent": "section-2"
+      },
+      "status": {
+        "choices": {
+          "eventTypeCategories": [],
+          "existingChoiceList": [
+            "fire_status"
+          ],
+          "featureCategories": [],
+          "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
+          "subjectGroups": [],
+          "subjectSubtypes": [],
+          "type": "EXISTING_CHOICE_LIST"
+        },
+        "conditionalDependents": [
+          "section-2"
+        ],
+        "inputType": "DROPDOWN",
+        "placeholder": "",
+        "type": "CHOICE_LIST",
+        "parent": "section-1"
+      }
+    },
+    "headers": {},
+    "order": [
+      "section-1",
+      "section-2"
+    ],
+    "sections": {
+      "section-1": {
+        "columns": 1,
+        "conditions": [],
+        "isActive": true,
+        "label": "",
+        "leftColumn": [
+          {
+            "name": "status",
+            "type": "field"
+          }
+        ],
+        "rightColumn": []
+      },
+      "section-2": {
+        "columns": 1,
+        "conditions": [
+          {
+            "field": "status",
+            "id": "condition-t1BQvkFjTIikwyqHCYCpf",
+            "operator": "IS_EXACTLY",
+            "value": "burning"
+          }
+        ],
+        "isActive": true,
+        "label": "",
+        "leftColumn": [
+          {
+            "type": "field",
+            "name": "conditional_field"
+          }
+        ],
+        "rightColumn": []
+      }
+    }
+  }
+}

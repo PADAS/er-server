@@ -5,9 +5,9 @@ Tests complete schema validation (UI + JSON together) for conditional sections.
 
 Operator → Field Type Compatibility:
 - CONTAINS: Text, Choice List, Multi-Select, Null value variant
-- HAS_INPUT: All field types (Text, Numeric, Choice, DateTime, Location, Attachment, Collection, Boolean, Multi-Select)
-- DOES_NOT_HAVE_INPUT: All field types (incl. Boolean, Multi-Select)
-- INPUT_IS_EXACTLY: Text, Numeric, Choice List, Boolean, Multi-Select
+- IS_EXACTLY: Text, Numeric, Choice List, Boolean, Multi-Select
+- IS_EMPTY: All field types (incl. Boolean, Multi-Select)
+- IS_NOT_EMPTY: All field types (Text, Numeric, Choice, DateTime, Location, Attachment, Collection, Boolean, Multi-Select)
 - IS_CONTAINED_BY: Multi-Select
 - IS_NOT_CONTAINED_BY: Multi-Select
 """
@@ -66,29 +66,29 @@ class TestContainsCondition:
 
 
 # =============================================================================
-# HAS_INPUT Operator Tests
+# IS_NOT_EMPTY Operator Tests
 # =============================================================================
 
 
-class TestHasInputCondition:
-    """HAS_INPUT operator: show section when field has any meaningful value."""
+class TestIsNotEmptyCondition:
+    """IS_NOT_EMPTY operator: show section when field has any meaningful value."""
 
     @pytest.mark.parametrize(
         "fixture_name",
         [
-            pytest.param("has_input_text_field", id="text"),
-            pytest.param("has_input_numeric_field", id="numeric"),
-            pytest.param("has_input_choice_field", id="choice"),
-            pytest.param("has_input_datetime_field", id="datetime"),
-            pytest.param("has_input_location_field", id="location"),
-            pytest.param("has_input_attachment_field", id="attachment"),
-            pytest.param("has_input_collection_field", id="collection"),
-            pytest.param("has_input_boolean_field", id="boolean"),
-            pytest.param("has_input_multiselect_field", id="multiselect"),
+            pytest.param("is_not_empty_text_field", id="text"),
+            pytest.param("is_not_empty_numeric_field", id="numeric"),
+            pytest.param("is_not_empty_choice_field", id="choice"),
+            pytest.param("is_not_empty_datetime_field", id="datetime"),
+            pytest.param("is_not_empty_location_field", id="location"),
+            pytest.param("is_not_empty_attachment_field", id="attachment"),
+            pytest.param("is_not_empty_collection_field", id="collection"),
+            pytest.param("is_not_empty_boolean_field", id="boolean"),
+            pytest.param("is_not_empty_multiselect_field", id="multiselect"),
         ],
     )
-    def test_valid_has_input_condition(self, schema_field, fixture_name):
-        """Valid schema with HAS_INPUT condition on all field types."""
+    def test_valid_is_not_empty_condition(self, schema_field, fixture_name):
+        """Valid schema with IS_NOT_EMPTY condition on all field types."""
         schema = load_fixture(fixture_name)
         result = schema_field.to_internal_value(schema)
         assert result is not None
@@ -96,29 +96,29 @@ class TestHasInputCondition:
 
 
 # =============================================================================
-# DOES_NOT_HAVE_INPUT Operator Tests
+# IS_EMPTY Operator Tests
 # =============================================================================
 
 
-class TestDoesNotHaveInputCondition:
-    """DOES_NOT_HAVE_INPUT operator: show section when field is empty/null."""
+class TestIsEmptyCondition:
+    """IS_EMPTY operator: show section when field is empty/null."""
 
     @pytest.mark.parametrize(
         "fixture_name",
         [
-            pytest.param("does_not_have_input_text_field", id="text"),
-            pytest.param("does_not_have_input_numeric_field", id="numeric"),
-            pytest.param("does_not_have_input_choice_field", id="choice"),
-            pytest.param("does_not_have_input_datetime_field", id="datetime"),
-            pytest.param("does_not_have_input_location_field", id="location"),
-            pytest.param("does_not_have_input_attachment_field", id="attachment"),
-            pytest.param("does_not_have_input_collection_field", id="collection"),
-            pytest.param("does_not_have_input_multiselect_field", id="multiselect"),
-            pytest.param("does_not_have_input_boolean_field", id="boolean"),
+            pytest.param("is_empty_text_field", id="text"),
+            pytest.param("is_empty_numeric_field", id="numeric"),
+            pytest.param("is_empty_choice_field", id="choice"),
+            pytest.param("is_empty_datetime_field", id="datetime"),
+            pytest.param("is_empty_location_field", id="location"),
+            pytest.param("is_empty_attachment_field", id="attachment"),
+            pytest.param("is_empty_collection_field", id="collection"),
+            pytest.param("is_empty_multiselect_field", id="multiselect"),
+            pytest.param("is_empty_boolean_field", id="boolean"),
         ],
     )
-    def test_valid_does_not_have_input_condition(self, schema_field, fixture_name):
-        """Valid schema with DOES_NOT_HAVE_INPUT condition on all field types."""
+    def test_valid_is_empty_condition(self, schema_field, fixture_name):
+        """Valid schema with IS_EMPTY condition on all field types."""
         schema = load_fixture(fixture_name)
         result = schema_field.to_internal_value(schema)
         assert result is not None
@@ -126,26 +126,26 @@ class TestDoesNotHaveInputCondition:
 
 
 # =============================================================================
-# INPUT_IS_EXACTLY Operator Tests
+# IS_EXACTLY Operator Tests
 # =============================================================================
 
 
-class TestInputIsExactlyCondition:
-    """INPUT_IS_EXACTLY operator: show section when field equals specific value."""
+class TestIsExactlyCondition:
+    """IS_EXACTLY operator: show section when field equals specific value."""
 
     @pytest.mark.parametrize(
         "fixture_name",
         [
-            pytest.param("input_is_exactly_text_field", id="text"),
-            pytest.param("input_is_exactly_numeric_field", id="numeric"),
-            pytest.param("input_is_exactly_choice_field", id="choice"),
-            pytest.param("input_is_exactly_numeric_zero", id="numeric_zero"),
-            pytest.param("input_is_exactly_multiselect_field", id="multiselect"),
-            pytest.param("input_is_exactly_boolean_field", id="boolean"),
+            pytest.param("is_exactly_text_field", id="text"),
+            pytest.param("is_exactly_numeric_field", id="numeric"),
+            pytest.param("is_exactly_choice_field", id="choice"),
+            pytest.param("is_exactly_numeric_zero", id="numeric_zero"),
+            pytest.param("is_exactly_multiselect_field", id="multiselect"),
+            pytest.param("is_exactly_boolean_field", id="boolean"),
         ],
     )
-    def test_valid_input_is_exactly_condition(self, schema_field, fixture_name):
-        """Valid schema with INPUT_IS_EXACTLY condition on supported field types."""
+    def test_valid_is_exactly_condition(self, schema_field, fixture_name):
+        """Valid schema with IS_EXACTLY condition on supported field types."""
         schema = load_fixture(fixture_name)
         result = schema_field.to_internal_value(schema)
         assert result is not None

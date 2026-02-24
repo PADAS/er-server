@@ -1,0 +1,152 @@
+{
+  "json": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "properties": {
+      "trigger_field": {
+        "default": "",
+        "deprecated": false,
+        "description": "",
+        "title": "Trigger Field",
+        "type": "string"
+      }
+    },
+    "required": [],
+    "type": "object",
+    "unevaluatedProperties": false,
+    "allOf": [
+      {
+        "if": {
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "not": {
+                    "required": [
+                      "trigger_field"
+                    ]
+                  }
+                },
+                {
+                  "properties": {
+                    "trigger_field": {
+                      "maxItems": 0,
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "trigger_field"
+                  ]
+                },
+                {
+                  "properties": {
+                    "trigger_field": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "trigger_field"
+                  ]
+                },
+                {
+                  "properties": {
+                    "trigger_field": {
+                      "maxProperties": 0,
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "trigger_field"
+                  ]
+                },
+                {
+                  "properties": {
+                    "trigger_field": {
+                      "maxLength": 0,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "trigger_field"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "then": {
+          "properties": {
+            "conditional_field": {
+              "default": "",
+              "deprecated": false,
+              "description": "",
+              "title": "Conditional Field",
+              "type": "string"
+            }
+          },
+          "required": []
+        },
+        "x-section": "section-2"
+      }
+    ]
+  },
+  "ui": {
+    "fields": {
+      "trigger_field": {
+        "conditionalDependents": [
+          "section-2"
+        ],
+        "inputType": "SHORT_TEXT",
+        "placeholder": "",
+        "type": "TEXT",
+        "parent": "section-1"
+      },
+      "conditional_field": {
+        "conditionalDependents": [],
+        "inputType": "SHORT_TEXT",
+        "placeholder": "",
+        "type": "TEXT",
+        "parent": "section-2"
+      }
+    },
+    "headers": {},
+    "order": [
+      "section-1",
+      "section-2"
+    ],
+    "sections": {
+      "section-1": {
+        "columns": 1,
+        "conditions": [],
+        "isActive": true,
+        "label": "",
+        "leftColumn": [
+          {
+            "name": "trigger_field",
+            "type": "field"
+          }
+        ],
+        "rightColumn": []
+      },
+      "section-2": {
+        "columns": 1,
+        "conditions": [
+          {
+            "field": "trigger_field",
+            "id": "condition-dEIm9qOXbonDIhwfN5S_7",
+            "operator": "IS_EMPTY",
+            "value": null
+          }
+        ],
+        "isActive": true,
+        "label": "",
+        "leftColumn": [
+          {
+            "type": "field",
+            "name": "conditional_field"
+          }
+        ],
+        "rightColumn": []
+      }
+    }
+  }
+}

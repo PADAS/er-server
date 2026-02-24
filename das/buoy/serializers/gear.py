@@ -234,11 +234,6 @@ class GearCreateSerializer(serializers.Serializer):
         device_errors = {}
         for idx, device in enumerate(devices):
             device_id = str(device.get("device_id"))
-            # Build a Point to compare locations if needed
-            loc = device.get("location") or {}
-            device_location = None
-            if "longitude" in loc and "latitude" in loc:
-                device_location = models.Point(loc["longitude"], loc["latitude"])
 
             # Try to find an existing Source/SubjectSource for checks. Absence is valid for deployments
             source = models.Source.objects.filter(id=device_id).first()
@@ -246,27 +241,11 @@ class GearCreateSerializer(serializers.Serializer):
             if subject and source:
                 subject_source = SubjectSource.objects.filter(subject=subject, source=source).first()
 
-            # If device is being deployed, ensure we're not redeploying same device at same location
+            # If device is being deployed: allow even when already deployed at same location so that
+            # gearset updates (e.g. one device updated, full set sent) do not fail for unchanged devices.
+            # Re-submitting the same deploy state is idempotent in BuoyService.process_gearset.
             if device.get("device_status") == "deployed":
-                if subject_source is not None:
-                    # Check if device is currently deployed by checking if has assigned lower range (deployment time)
-                    # and that the current time is within the assigned range (i.e., is_current) considering that the default
-                    # upper bound is datetime.max and therefore the device is still deployed.
-                    is_currently_deployed = subject_source.has_assigned_lower_range and subject_source.is_current
-                    if is_currently_deployed:
-                        # If it's already deployed at same location, collect error
-                        device_latitude = subject_source.location.y if subject_source.location else None
-                        device_longitude = subject_source.location.x if subject_source.location else None
-                        current_latitude = device_location.y if device_location is not None else None
-                        current_longitude = device_location.x if device_location is not None else None
-                        if device_location is not None and (device_latitude, device_longitude) == (
-                            current_latitude,
-                            current_longitude,
-                        ):
-                            device_errors.setdefault(idx, []).append(
-                                f"Device {subject_source.source.manufacturer_id} is already deployed at this location."
-                            )
-
+                pass
             # If device is being hauled, ensure it's currently deployed
             else:
                 # If there's an existing subject_source, ensure it hasn't already been hauled

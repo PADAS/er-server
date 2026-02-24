@@ -26,11 +26,15 @@ def add_new_tenant_domains_to_settings() -> None:
     if not new_tenant_domains:
         return
 
+    # Extend each list only once; ALLOWED_HOSTS and SERVER_NAMES may be the same list
+    # (e.g. in local_settings_docker.py ALLOWED_HOSTS = SERVER_NAMES).
     settings.ALLOWED_HOSTS.extend(new_tenant_domains)
-    settings.SERVER_NAMES.extend(new_tenant_domains)
+    if settings.SERVER_NAMES is not settings.ALLOWED_HOSTS:
+        settings.SERVER_NAMES.extend(new_tenant_domains)
     settings.ALT_SERVER_NAMES.extend(new_tenant_domains)
 
     new_cors_origins = build_http_urls_from_domains(new_tenant_domains)
     settings.CORS_ALLOWED_ORIGINS.extend(new_cors_origins)
-    settings.CORS_ORIGIN_WHITELIST.extend(new_cors_origins)
+    if settings.CORS_ORIGIN_WHITELIST is not settings.CORS_ALLOWED_ORIGINS:
+        settings.CORS_ORIGIN_WHITELIST.extend(new_cors_origins)
     settings.CSRF_TRUSTED_ORIGINS.extend(new_tenant_domains)

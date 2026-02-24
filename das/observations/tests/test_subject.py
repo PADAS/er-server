@@ -762,6 +762,67 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(float(trkpoint_lat), obs_latitude)
         self.assertEqual(float(trkpoint_lon), obs_longitude)
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_process_gpx_file_upload_garmin_inreach_track(self, get_main_thread):
+        """Import Garmin inReach GPX track and verify no error (track-only, Garmin extensions)."""
+        get_main_thread.return_value = self.thread
+        subject = Subject.objects.get(name="Topsy")
+        subject_source = SubjectSource.objects.get(subject=subject)
+        file = File(open(os.path.join(TESTS_PATH, "testdata/garmin_inreach_track.gpx"), "rb"))
+
+        data = dict(gpx_file=file)
+
+        url = reverse("gpx-upload", kwargs={"id": str(subject_source.source_id)})
+        request = self.factory.post(url, data, format="multipart")
+        self.force_authenticate(request, self.user)
+
+        response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
+        self.assertEqual(response.status_code, 201, response.data)
+
+        # Expect 3 trackpoints from garmin_inreach_track.gpx (source may have other obs from fixtures)
+        trkpoint_time = dateparser.parse("2024-12-09T07:23:18Z")
+        trkpoint_obs = Observation.objects.filter(recorded_at=trkpoint_time, source__id=subject_source.source_id)
+        self.assertTrue(trkpoint_obs.exists())
+        # All three GPX trackpoint times should be present
+        for t_str in ("2024-12-09T07:23:18Z", "2024-12-09T07:33:13Z", "2024-12-09T07:33:18Z"):
+            self.assertTrue(
+                Observation.objects.filter(
+                    recorded_at=dateparser.parse(t_str),
+                    source__id=subject_source.source_id,
+                ).exists(),
+                f"Expected observation at {t_str}",
+            )
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_process_gpx_file_upload_multi_trkseg(self, get_main_thread):
+        """Import GPX with multiple trkseg elements (avoids 'list indices must be integers or slices, not str')."""
+        get_main_thread.return_value = self.thread
+        subject = Subject.objects.get(name="Topsy")
+        subject_source = SubjectSource.objects.get(subject=subject)
+        file = File(open(os.path.join(TESTS_PATH, "testdata/multi_trkseg.gpx"), "rb"))
+        data = dict(gpx_file=file)
+        url = reverse("gpx-upload", kwargs={"id": str(subject_source.source_id)})
+        request = self.factory.post(url, data, format="multipart")
+        self.force_authenticate(request, self.user)
+
+        response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
+        self.assertEqual(response.status_code, 201, response.data)
+
+        for t_str in (
+            "2024-01-01T10:00:00Z",
+            "2024-01-01T10:05:00Z",
+            "2024-01-01T10:10:00Z",
+        ):
+            self.assertTrue(
+                Observation.objects.filter(
+                    recorded_at=dateparser.parse(t_str),
+                    source__id=subject_source.source_id,
+                ).exists(),
+                f"Expected observation at {t_str}",
+            )
+
     def test_process_gpx_file_upload_with_no_trackpoints_time(self):
         source = Source.objects.first()
         trkpoints = [

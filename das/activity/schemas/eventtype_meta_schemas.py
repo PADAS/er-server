@@ -1,3 +1,5 @@
+FIELD_SCHEMA_TITLE_MAX_LENGTH = 1000
+
 text_field_schema = {
     "type": "object",
     "title": "Text field schema for EventType Builder",
@@ -5,7 +7,7 @@ text_field_schema = {
         "default": {"type": "string"},
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
-        "title": {"type": "string", "maxLength": 140},
+        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
         "type": {"const": "string"},
     },
     "additionalProperties": False,
@@ -18,7 +20,7 @@ attachment_field_schema = {
     "properties": {
         "deprecated": {"type": "boolean"},
         "format": {"const": "uri"},
-        "title": {"type": "string", "maxLength": 140},
+        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
         "type": {"const": "string"},
     },
     "required": ["deprecated", "format", "title", "type"],
@@ -33,7 +35,7 @@ date_time_field_schema = {
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
         "format": {"enum": ["date-time", "date", "time"]},
-        "title": {"type": "string", "maxLength": 140},
+        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
         "type": {"const": "string"},
     },
     "required": ["deprecated", "format", "title", "type"],
@@ -74,7 +76,7 @@ location_field_schema = {
             "additionalProperties": False,
         },
         "required": {"const": ["latitude", "longitude"]},
-        "title": {"type": "string", "maxLength": 140},
+        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
         "type": {"const": "object"},
         "unevaluatedProperties": {"const": False},
     },
@@ -91,7 +93,7 @@ numeric_field_schema = {
         "description": {"type": "string"},
         "maximum": {"type": "number"},
         "minimum": {"type": "number"},
-        "title": {"type": "string", "maxLength": 140},
+        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
         "type": {"const": "number"},
     },
     "required": ["deprecated", "title", "type"],
@@ -105,7 +107,7 @@ boolean_field_schema = {
         "default": {"type": "boolean"},
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
-        "title": {"type": "string", "maxLength": 140},
+        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
         "type": {"const": "boolean"},
     },
     "required": ["deprecated", "title", "type"],
@@ -131,7 +133,7 @@ choice_field_schema = {
         "anyOf": reference_choice_object_schema_in_anyOf,
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
-        "title": {"type": "string", "maxLength": 140},
+        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
         "type": {"const": "string"},
     },
     "required": ["anyOf", "deprecated", "title", "type"],
@@ -153,7 +155,7 @@ choice_list_field_schema = {
             "required": ["anyOf", "type"],
             "additionalItems": False,
         },
-        "title": {"type": "string", "maxLength": 140},
+        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
         "type": {"const": "array"},
         "uniqueItems": {"const": True},
     },
@@ -283,7 +285,7 @@ collection_field_schema = {
         },
         "maxItems": {"type": "integer"},
         "minItems": {"type": "integer"},
-        "title": {"type": "string", "maxLength": 140},
+        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
         "type": {"const": "array"},
         "unevaluatedItems": {"const": False},
     },
@@ -521,12 +523,12 @@ ui_sections_schema = {
                     "id": {"type": "string", "pattern": "^condition-.*"},
                     "operator": {
                         "enum": [
-                            "INPUT_IS_EXACTLY",
-                            "HAS_INPUT",
-                            "DOES_NOT_HAVE_INPUT",
                             "CONTAINS",
+                            "IS_EXACTLY",
+                            "IS_EMPTY",
+                            "IS_NOT_EMPTY",
                             "IS_CONTAINED_BY",
-                            "IS_NOT_CONTAINED_BY"
+                            "IS_NOT_CONTAINED_BY",
                         ]
                     },
                     "value": {
@@ -633,9 +635,9 @@ contains_condition_schema = {
     "additionalProperties": False,
 }
 
-does_not_have_input_condition_schema = {
+is_empty_condition_schema = {
     "type": "object",
-    "title": "Does Not Have Input condition schema for EventType Builder",
+    "title": "Is Empty condition schema for EventType Builder",
     "properties": {
         "anyOf": {
             "type": "array",
@@ -751,9 +753,9 @@ does_not_have_input_condition_schema = {
     "additionalProperties": False,
 }
 
-has_input_condition_schema = {
+is_not_empty_condition_schema = {
     "type": "object",
-    "title": "Has Input condition schema for EventType Builder",
+    "title": "Is Not Empty condition schema for EventType Builder",
     "properties": {
         "properties": {
             "type": "object",
@@ -851,9 +853,9 @@ has_input_condition_schema = {
     "additionalProperties": False,
 }
 
-input_is_exactly_condition_schema = {
+is_exactly_condition_schema = {
     "type": "object",
-    "title": "Input Is Exactly condition schema for EventType Builder",
+    "title": "Is Exactly condition schema for EventType Builder",
     "properties": {
         "properties": {
             "type": "object",
@@ -1236,9 +1238,9 @@ json_field_schema = {
                                 "items": {
                                     "anyOf": [
                                         {"$ref": "#/$defs/containsCondition"},
-                                        {"$ref": "#/$defs/doesNotHaveInputCondition"},
-                                        {"$ref": "#/$defs/hasInputCondition"},
-                                        {"$ref": "#/$defs/inputIsExactlyCondition"},
+                                        {"$ref": "#/$defs/isExactlyCondition"},
+                                        {"$ref": "#/$defs/isEmptyCondition"},
+                                        {"$ref": "#/$defs/isNotEmptyCondition"},
                                         {"$ref": "#/$defs/isContainedByCondition"},
                                         {"$ref": "#/$defs/isNotContainedByCondition"},
                                     ]
@@ -1354,9 +1356,9 @@ main_event_type_schema = {
         "uiHeadersSchema": ui_headers_schema,
         "uiSectionsSchema": ui_sections_schema,
         "containsCondition": contains_condition_schema,
-        "doesNotHaveInputCondition": does_not_have_input_condition_schema,
-        "hasInputCondition": has_input_condition_schema,
-        "inputIsExactlyCondition": input_is_exactly_condition_schema,
+        "isExactlyCondition": is_exactly_condition_schema,
+        "isEmptyCondition": is_empty_condition_schema,
+        "isNotEmptyCondition": is_not_empty_condition_schema,
         "isContainedByCondition": is_contained_by_condition_schema,
         "isNotContainedByCondition": is_not_contained_by_condition_schema,
     },

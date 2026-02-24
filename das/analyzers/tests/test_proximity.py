@@ -167,6 +167,8 @@ class TestProximityAnalyzer(TestCase):
 
         for event in Event.objects.all():
             self.assertTrue(event.event_details.all().exists())
+            ed = event.event_details.all().first().data["event_details"]
+            assert ed["feature_group_name"] == sf_grp.name
 
         for event in Event.objects.all():
             for event_details in event.event_details.all():
