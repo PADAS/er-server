@@ -181,7 +181,7 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
         if oom > 0:
             adjusted_list = []
             for o_val in value_list:
-                # To avoid an infitine loop, only adjust if the value is greater than 0
+                # To avoid an infinite loop, only adjust if the value is greater than 0
                 if o_val > 0:
                     while o_val < oom:
                         o_val = o_val * 10
