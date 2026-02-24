@@ -9,7 +9,9 @@ from django_multitenant.utils import set_current_tenant
 
 from django.contrib.gis.geos import LineString, Point
 from django.core.files import File
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from activity.models import Event, EventCategory, EventType
@@ -506,3 +508,84 @@ class TestProximityAnalyzerConfig:
         for result in results:
             logger.info(f"Proximity Result: {result}")
             assert result.values.get("proximity_dist_meters") < dist_meters_threshold
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestDefaultObservations:
+    """Regression tests for ProximityAnalyzer.default_observations().
+
+    Ensures the method fetches at most two observations from the DB and that
+    the LIMIT is pushed down to the database query rather than being applied
+    in Python after loading all rows.
+    """
+
+    def _create_observations(self, source, count=5):
+        recorded_at = timezone.now()
+        for i in range(count):
+            Observation.objects.create(
+                recorded_at=recorded_at - timedelta(minutes=i),
+                location=Point(-103.313486, 20.420935),
+                source=source,
+                additional={},
+            )
+
+    def test_default_observations_no_time_window_returns_two(self, subject_source, feature_proximity_analyzer_config):
+        """When search_time_hours <= 0, default_observations() returns exactly 2 items."""
+        self._create_observations(subject_source.source, count=5)
+
+        feature_proximity_analyzer_config.search_time_hours = 0
+        feature_proximity_analyzer_config.save()
+
+        analyzer = FeatureProximityAnalyzer(subject=subject_source.subject, config=feature_proximity_analyzer_config)
+
+        result = analyzer.default_observations()
+
+        assert len(result) == 2
+
+    def test_default_observations_with_time_window_returns_two(self, subject_source, feature_proximity_analyzer_config):
+        """When search_time_hours > 0, default_observations() returns exactly 2 items."""
+        self._create_observations(subject_source.source, count=5)
+
+        feature_proximity_analyzer_config.search_time_hours = 24.0
+        feature_proximity_analyzer_config.save()
+
+        analyzer = FeatureProximityAnalyzer(subject=subject_source.subject, config=feature_proximity_analyzer_config)
+
+        result = analyzer.default_observations()
+
+        assert len(result) == 2
+
+    def test_default_observations_no_time_window_queries_db_with_limit(
+        self, subject_source, feature_proximity_analyzer_config
+    ):
+        """The DB query from default_observations() (no time window) contains LIMIT 2."""
+        self._create_observations(subject_source.source, count=5)
+
+        feature_proximity_analyzer_config.search_time_hours = 0
+        feature_proximity_analyzer_config.save()
+
+        analyzer = FeatureProximityAnalyzer(subject=subject_source.subject, config=feature_proximity_analyzer_config)
+
+        with CaptureQueriesContext(connection) as ctx:
+            analyzer.default_observations()
+
+        combined_sql = " ".join(q["sql"] for q in ctx.captured_queries)
+        assert "LIMIT 2" in combined_sql
+
+    def test_default_observations_with_time_window_queries_db_with_limit(
+        self, subject_source, feature_proximity_analyzer_config
+    ):
+        """The DB query from default_observations() (with time window) contains LIMIT 2."""
+        self._create_observations(subject_source.source, count=5)
+
+        feature_proximity_analyzer_config.search_time_hours = 24.0
+        feature_proximity_analyzer_config.save()
+
+        analyzer = FeatureProximityAnalyzer(subject=subject_source.subject, config=feature_proximity_analyzer_config)
+
+        with CaptureQueriesContext(connection) as ctx:
+            analyzer.default_observations()
+
+        combined_sql = " ".join(q["sql"] for q in ctx.captured_queries)
+        assert "LIMIT 2" in combined_sql
