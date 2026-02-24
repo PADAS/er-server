@@ -8,7 +8,7 @@ import pytest
 import yaml
 from django_multitenant.utils import set_current_tenant
 
-from django.contrib.gis.geos import LineString, Point
+from django.contrib.gis.geos import LineString, Point, Polygon
 from django.core.files import File
 from django.core.serializers import serialize
 from django.test import TestCase, override_settings
@@ -796,3 +796,17 @@ class TestCornerClipping(TestCase):
         # Verify the results contain expected geofence crossing locations
         assert results[0][1].location.coords == (35.1, -0.95)
         assert results[1][1].location.coords == (34.9, -0.95)
+
+    def test_polygon_geofence(self):
+        geofence_geom = Polygon([(34.9, -1.0), (35.1, -1.0), (35.1, -0.9), (34.9, -0.9), (34.9, -1.0)])
+        spatial_feature_type = SpatialFeatureType.objects.get_or_create(name="test_polygon_geofence")[0]
+        gf = SpatialFeature.objects.create(
+            name="Polygon Test Fence",
+            feature_geometry=geofence_geom,
+            feature_type=spatial_feature_type,
+        )
+        self.spatial_feature_group = SpatialFeatureGroupStatic.objects.create(name="Polygon Fences")
+        self.spatial_feature_group.features.add(gf)
+        self.spatial_feature_group.save()
+
+        self.test_corner_clipping_enabled()
