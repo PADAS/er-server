@@ -67,7 +67,7 @@ class TestObservationAttributeAnalyzer(TestCase):
         assert len(results) == 1
         result, event = results[0]
         ed = event.event_details.latest("updated_at").data["event_details"]
-        assert ed["evaluated_value"] == 3
+        assert ed["evaluated_value"] == 3.0
         assert event.priority == PRI_URGENT
 
         self.oaa.config.comparator = "<="
@@ -164,7 +164,7 @@ class TestObservationAttributeAnalyzer(TestCase):
     def test_wrong_variable_type_in_obs_data(self):
         test_observations = [parse_recorded_at(x) for x in TEST_OBSERVATIONS]
         test_observations[0]["additional"]["battery"] = "whoa there"
-        test_observations = list(generate_observations(test_observations))
+        list(generate_observations(test_observations))
         self.oaa.config.comparator = ">"
         self.oaa.config.aggregation = "min"
         self.oaa.config.critical_value = 0
