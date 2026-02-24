@@ -333,9 +333,15 @@ def extract_from_dict_or_string(schema_item, value):
                 display = subject.first().name
 
     if isinstance(value, str):
-        display = change_format_date_string(value)
+        if looks_like_date(value_string=value):
+            display = change_format_date_string(value)
 
     return value, display
+
+
+def looks_like_date(value_string: str) -> bool:
+    regex = r"^\d{4}-\d{2}-\d{2}"
+    return bool(re.match(regex, value_string))
 
 
 def change_format_date_string(date_string: str, _format: str = "%Y-%m-%d %H:%M") -> str:
