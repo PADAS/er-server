@@ -3,6 +3,7 @@ from django.core.management import call_command
 from accounts.models import User
 from accounts.views import UsersCsvView
 from core.tests import BaseAPITest
+from utils.csv_streaming import read_streaming_response_content
 
 
 class UsersCSVExportTest(BaseAPITest):
@@ -22,7 +23,7 @@ class UsersCSVExportTest(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
         # Test CSV file export content
-        csv_data = response.content.decode("utf-8").split("\r\n")
+        csv_data = read_streaming_response_content(response).split("\r\n")
         # Remove header and empty line from csv_data to get actual values.
         csv_data = csv_data[1:-1]
         self.assertEqual(len(csv_data), 1)

@@ -1,4 +1,3 @@
-import csv
 import datetime
 import logging
 
@@ -7,7 +6,6 @@ from django_filters import rest_framework as filters
 from rest_framework_condition import etag
 
 from django.contrib.auth import get_user_model
-from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -21,6 +19,7 @@ from accounts.permissions import EulaPermission, UserObjectPermissions
 from accounts.serializers import AcceptEulaSerializer, EulaSerializer, UserSerializer
 from accounts.utils import allowed_permissions
 from schemas.view_mixins import DynamicSchemaDataMixin
+from utils.csv_streaming import StreamingCSVResponse
 from utils.tenant import get_tenant_settings
 
 from .utils import get_user_etag
@@ -87,38 +86,39 @@ class UserProfilesView(generics.ListAPIView):
 class UsersCsvView(APIView):
     permission_classes = (UserObjectPermissions,)
 
+    FIELDNAMES = ["Given Name", "Family Name", "Group Membership", "E-mail 1 - Type", "E-mail 1 - Value"]
+
     def get_queryset(self):
-        # Filter users based on tech if filter parameter is persent.
+        # Filter users based on tech if filter parameter is present.
         if self.request.GET.get("additional.tech"):
             return get_user_model().objects.filter(additional__tech__icontains=self.request.GET.get("additional.tech"))
         else:
             return get_user_model().objects.all()
 
-    def get(self, request, *args, **kwargs):
-        fieldnames = ["Given Name", "Family Name", "Group Membership", "E-mail 1 - Type", "E-mail 1 - Value"]
-        users = self.get_queryset()
-        csv_data = [
-            {
+    def _generate_rows(self, users, group_membership):
+        """Generate CSV rows from users queryset."""
+        for user in users.iterator(chunk_size=2000):
+            yield {
                 "Given Name": user.first_name,
                 "Family Name": user.last_name,
-                "Group Membership": self.request.GET.get("additional.tech"),
+                "Group Membership": group_membership,
                 "E-mail 1 - Type": "other",
                 "E-mail 1 - Value": user.email,
             }
-            for user in users
-        ]
 
-        # Generate CSV attachment and send it with response.
+    def get(self, request, *args, **kwargs):
+        users = self.get_queryset()
+        group_membership = request.GET.get("additional.tech", "")
+
         current_tz = pytz.timezone(timezone.get_current_timezone_name())
         timestamp = current_tz.localize(datetime.datetime.utcnow()).strftime("%Y-%m-%d %H:%M:%S")
-        additional_tech = self.request.GET.get("additional.tech", "")
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = "attachment;" f"filename=DAS Users({additional_tech}) {timestamp}.csv"
-        writer = csv.DictWriter(response, fieldnames=fieldnames)
-        writer.writeheader()
-        if csv_data:
-            writer.writerows(csv_data)
-        return response
+        filename = f"DAS Users({group_membership}) {timestamp}.csv"
+
+        return StreamingCSVResponse(
+            row_generator=self._generate_rows(users, group_membership),
+            fieldnames=self.FIELDNAMES,
+            filename=filename,
+        )
 
 
 class AcceptEulaAPIView(generics.CreateAPIView):
