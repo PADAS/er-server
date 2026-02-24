@@ -248,6 +248,18 @@ class TestManageAdminEFBTokenMiddleware:
             assert response.cookies[EFB_COOKIE_NAME].value == ""
             mock_delete.assert_called_once()
 
+    @patch("utils.middleware.ManageAdminEFBTokenMiddleware._should_create_efb_token", return_value=False)
+    def test_error_handling_during_token_deletion_without_cookie(self, _, caplog):
+        """DB error on the no-cookie cleanup path should not crash the logout request."""
+        with patch("core.models.oauth.DASAccessToken.objects.filter", side_effect=Exception("DB Error")):
+            request = self._create_admin_request("/admin/logout")
+            request.COOKIES = {}
+
+            response = self.middleware.process_response(request, HttpResponse())
+
+            assert response.status_code == 200
+            assert "Error: DB Error invalidating" in caplog.text
+
     def test_expired_token_replacement(self):
         DASAccessToken.objects.create(
             user=self.superuser,

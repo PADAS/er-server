@@ -314,7 +314,10 @@ class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
 
         if EFB_COOKIE_NAME not in request.COOKIES:
             if user.is_authenticated:
-                DASAccessToken.objects.filter(application__client_id=EFB_APPLICATION_ID, user=user).delete()
+                try:
+                    DASAccessToken.objects.filter(application__client_id=EFB_APPLICATION_ID, user=user).delete()
+                except Exception as e:
+                    logger.warning(f"Error: {e} invalidating {EFB_COOKIE_NAME} {e}")
             return
 
         try:
