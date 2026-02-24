@@ -160,7 +160,7 @@ var ChangeCoordinate = function(event){
 var CreateTileLayer = function(){
     TileLayers = {{ module }}.tile_layers;
     var array = [];
-    TileLayers.forEach(function(tile){
+    TileLayers.forEach(function(tile, index){
         var tile_link = tile.attributes.url;
         var TileLayer = new ol.layer.Tile({
             source: new ol.source.XYZ({
@@ -168,7 +168,8 @@ var CreateTileLayer = function(){
             })
         });
         object = {};
-        var id = tile.attributes.title.replace(/\s/g, "").toLowerCase() + '_{{ id }}';
+        var title = tile.attributes.title || '';
+        var id = (title ? title.replace(/\s/g, "").toLowerCase() : 'layer') + '-' + index + '_{{ id }}';
         object[id] = TileLayer;
         array.push(object);
     });
@@ -478,11 +479,11 @@ var tileLayerSession = function(id){
 
 var defaultIcon = "https://img.icons8.com/cotton/256/000000/globe.png";
 
-{{ module }}.tile_layers.forEach( function(layer){
+{{ module }}.tile_layers.forEach( function(layer, index){
     if (layer.attributes.type == "tile_server"){
-        var id = layer.attributes.title.replace(/\s/g, "").toLowerCase()+'_{{ id }}';
-        var name = layer.attributes.title.toLowerCase();
-        var title = layer.attributes.title;
+        var title = layer.attributes.title || '';
+        var id = (title ? title.replace(/\s/g, "").toLowerCase() : 'layer') + '-' + index + '_{{ id }}';
+        var name = title ? title.toLowerCase() : 'layer-' + index;
         var icon_url = layer.attributes.icon_url;
         if( icon_url != undefined){
             icon_url = icon_url;

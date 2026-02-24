@@ -18,5 +18,5 @@ ln -s AGENTS.md .cursorrules
 
 ## Onboarding
 
-See the ER Onboarding documents hosted in Confluence for help on setting up your developer workstation.
-[OnBoarding](https://allenai.atlassian.net/wiki/spaces/ER/pages/19312935978/Onboarding)
+See the ER Onboarding documentation for help on setting up your developer workstation.
+[OnBoarding](https://root.dev.pamdas.org/api/v1.0/docs/topics/Developing-ER/README.html)

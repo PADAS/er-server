@@ -98,6 +98,7 @@ admin.site.index_template = "admin/standard_admin_index.html"
 
 OBSERVATIONS_HISTORY_LIMIT = timedelta(days=90)
 SUBJECT_REGION_SECTION_NAME = _("WildTracks App")
+MINIMUM_VALID_YEAR = 1971
 
 logger = logging.getLogger(__name__)
 
@@ -1638,7 +1639,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
     # readonly_fields = ('recorded_at', 'subject','delay_hours', 'additional')
     list_display = (
         "_status",
-        "radio_state_at",
+        "_radio_state_at",
         "_age_of_state",
         "subject_link",
         "_recorded_at",
@@ -1663,9 +1664,10 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
     subject_link.admin_order_field = "subject"
 
     def _age(self, o):
-        default = "n/a"
+        default = "-"
         try:
-            return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.recorded_at) if o.recorded_at else default
+            if o.recorded_at and o.recorded_at.year >= MINIMUM_VALID_YEAR:
+                return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.recorded_at)
         except OverflowError:
             pass
         return default
@@ -1673,10 +1675,17 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
     _age.short_description = _("Age of Observation")
     _age.admin_order_field = "-recorded_at"
 
+    def _radio_state_at(self, o):
+        return o.radio_state_at if o.radio_state_at and o.radio_state_at.year >= MINIMUM_VALID_YEAR else "-"
+
+    _radio_state_at.short_description = _("Time of Last State Change")
+    _radio_state_at.admin_order_field = "radio_state_at"
+
     def _age_of_state(self, o):
-        default = "n/a"
+        default = "-"
         try:
-            return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.radio_state_at) if o.radio_state_at else default
+            if o.radio_state_at and o.radio_state_at.year >= MINIMUM_VALID_YEAR:
+                return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.radio_state_at)
         except OverflowError:
             pass
         return default
@@ -1715,7 +1724,14 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
     _location.admin_order_field = "location"
 
     def _recorded_at(self, o):
-        return o.recorded_at
+        default = "-"
+        try:
+            if o.recorded_at and o.recorded_at.year >= MINIMUM_VALID_YEAR:
+                return o.recorded_at
+        except OverflowError:
+            # Some stored timestamps may be out of range for datetime; treat them as missing.
+            pass
+        return default
 
     _recorded_at.short_description = "recorded at %s" % TIMEZONE_USED
     _recorded_at.admin_order_field = "recorded_at"

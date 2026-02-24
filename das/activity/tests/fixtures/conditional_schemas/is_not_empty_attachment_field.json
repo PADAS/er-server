@@ -1,0 +1,134 @@
+{
+  "json": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "properties": {
+      "photo": {
+        "deprecated": false,
+        "format": "uri",
+        "title": "Photo",
+        "type": "string"
+      }
+    },
+    "required": [],
+    "type": "object",
+    "unevaluatedProperties": false,
+    "allOf": [
+      {
+        "if": {
+          "allOf": [
+            {
+              "properties": {
+                "photo": {
+                  "allOf": [
+                    {
+                      "not": {
+                        "type": "null"
+                      }
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "minProperties": 1,
+                          "type": "object"
+                        },
+                        {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "photo"
+              ]
+            }
+          ]
+        },
+        "then": {
+          "properties": {
+            "conditional_field": {
+              "default": "",
+              "deprecated": false,
+              "description": "",
+              "title": "Conditional Field",
+              "type": "string"
+            }
+          },
+          "required": []
+        },
+        "x-section": "section-2"
+      }
+    ]
+  },
+  "ui": {
+    "fields": {
+      "photo": {
+        "allowableFileTypes": [],
+        "conditionalDependents": [
+          "section-2"
+        ],
+        "type": "ATTACHMENT",
+        "parent": "section-1"
+      },
+      "conditional_field": {
+        "conditionalDependents": [],
+        "inputType": "SHORT_TEXT",
+        "placeholder": "",
+        "type": "TEXT",
+        "parent": "section-2"
+      }
+    },
+    "headers": {},
+    "order": [
+      "section-1",
+      "section-2"
+    ],
+    "sections": {
+      "section-1": {
+        "columns": 1,
+        "conditions": [],
+        "isActive": true,
+        "label": "",
+        "leftColumn": [
+          {
+            "name": "photo",
+            "type": "field"
+          }
+        ],
+        "rightColumn": []
+      },
+      "section-2": {
+        "columns": 1,
+        "conditions": [
+          {
+            "field": "photo",
+            "id": "condition-aO7IdXydSuOln_zP-uEzl",
+            "operator": "IS_NOT_EMPTY",
+            "value": null
+          }
+        ],
+        "isActive": true,
+        "label": "",
+        "leftColumn": [
+          {
+            "type": "field",
+            "name": "conditional_field"
+          }
+        ],
+        "rightColumn": []
+      }
+    }
+  }
+}

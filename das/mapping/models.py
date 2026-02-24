@@ -836,8 +836,8 @@ class SpatialFeatureType(TenantModelMixin, TimestampedModel):
     # Polygons: https://www.mapbox.com/mapbox-gl-style-spec/#layers-fill
 
     class Meta:
-        verbose_name = "Feature Class"
-        verbose_name_plural = "Feature Classes"
+        verbose_name = "Feature Type"
+        verbose_name_plural = "Feature Types"
         base_manager_name = "objects"
         default_manager_name = "objects"
         ordering = ["name"]

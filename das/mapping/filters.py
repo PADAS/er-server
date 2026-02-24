@@ -10,7 +10,7 @@ class SpatialFeatureFilterSet(filters.FilterSet):
         field_name="feature_type",
         queryset=lambda request: SpatialFeatureType.objects.all(),
         widget=CSVWidget(),
-        label="Feature Class",
+        label="Feature Type",
     )
     feature_set = filters.ModelMultipleChoiceFilter(
         field_name="feature_type__display_category",

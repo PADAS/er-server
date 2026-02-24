@@ -139,17 +139,41 @@ def parse_xml_to_dict(xml):
         return json.loads(to_json)
 
 
+def _collect_trkpts(seg):
+    """Return a list of trackpoint dicts from a trkseg (segment) dict."""
+    trkpt = seg.get("trkpt")
+    if trkpt is None:
+        return []
+    if isinstance(trkpt, dict):
+        return [trkpt]
+    return list(trkpt)
+
+
 def get_track_points(gpx):
+    """Extract trackpoints from parsed GPX. Handles multiple trk/trkseg (xmltodict lists)."""
     try:
-        trkpoint = gpx["gpx"]["trk"]["trkseg"]["trkpt"]
-    except KeyError:
-        message = "No track points were found in the file."
+        root = gpx.get("gpx") or gpx
+        trk = root.get("trk")
+        if trk is None:
+            return "No track points were found in the file."
+
+        tracks = trk if isinstance(trk, list) else [trk]
+        points = []
+        for t in tracks:
+            seg = t.get("trkseg")
+            if seg is None:
+                continue
+            segments = seg if isinstance(seg, list) else [seg]
+            for s in segments:
+                points.extend(_collect_trkpts(s))
+
+        if not points:
+            return "No track points were found in the file."
+        return points
     except Exception as exc:
         message = f"Error occurred when getting trackpoints from gpx file: {str(exc)}"
         logger.exception(message)
-    else:
-        return trkpoint
-    return message
+        return message
 
 
 def get_array_recorded_time(src, array_recorded_at):
