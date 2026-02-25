@@ -81,7 +81,7 @@ class SubjectVectorLayer(VectorLayer):
     def tile_fields(self):
         """Fields to include in vector tiles.
 
-        ``image_url`` is the resolved icon path built from subtype, radio_state
+        ``icon_url`` is the resolved icon path built from subtype, radio_state
         colour, and sex so the client can load it directly via styleimagemissing.
         """
         return (
@@ -89,7 +89,7 @@ class SubjectVectorLayer(VectorLayer):
             "name",
             "subject_type_value",
             "subject_subtype_value",
-            "image_url",
+            "icon_url",
             "color",
             "radio_state",
             "recorded_at",
@@ -176,11 +176,12 @@ class SubjectVectorLayer(VectorLayer):
         )
 
         # Annotate with required fields (subject_type_value avoids shadowing Subject.subject_type FK)
+        # Use icon_url (not image_url) to avoid shadowing Subject's read-only image_url property.
         return qs.annotate(
             geom=self._get_geometry_field(),
             subject_type_value=F("subject_subtype__subject_type__value"),
             subject_subtype_value=Coalesce(F("subject_subtype__value"), Value("")),
-            image_url=image_url_expr,
+            icon_url=image_url_expr,
             color=color_expr,
             radio_state=F("status_radio_state"),
             recorded_at=F("status_recorded_at"),

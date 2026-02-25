@@ -32,7 +32,7 @@ class TestSubjectVectorLayer:
         assert layer.max_zoom == 24
         assert "id" in layer.tile_fields
         assert "name" in layer.tile_fields
-        assert "image_url" in layer.tile_fields
+        assert "icon_url" in layer.tile_fields
         assert "color" in layer.tile_fields
         assert "subject_subtype_value" in layer.tile_fields
         assert "radio_state" in layer.tile_fields
@@ -57,7 +57,7 @@ class TestSubjectVectorLayer:
         assert not qs.filter(id=subject_without_status.id).exists()
 
     def test_queryset_includes_presentation_properties(self, subject_with_status):
-        """Verify color, radio_state, image_url, and other properties are annotated."""
+        """Verify color, radio_state, icon_url, and other properties are annotated."""
         layer = SubjectVectorLayer()
         qs = layer.get_queryset()
         obj = qs.filter(id=subject_with_status.id).first()
@@ -67,7 +67,7 @@ class TestSubjectVectorLayer:
         assert hasattr(obj, "recorded_at")
         assert hasattr(obj, "subject_type_value")
         assert hasattr(obj, "subject_subtype_value")
-        assert hasattr(obj, "image_url")
+        assert hasattr(obj, "icon_url")
 
     def test_default_delay_hours_is_zero(self):
         """Verify default delay_hours is 0 when no request provided."""
@@ -191,6 +191,7 @@ class TestSegmentPermissionFiltering:
             Source,
             SourceProvider,
             Subject,
+            SubjectGroup,
             SubjectSource,
         )
         from observations.vector_layers import ObservationSegmentVectorLayer
@@ -207,6 +208,13 @@ class TestSegmentPermissionFiltering:
         )
         source = Source.objects.create(manufacturer_id="delay_seg_collar", provider=provider, das_tenant=das_tenant)
         SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        # Grant user visibility to this subject via subject group (business logic:
+        # segment layer only shows segments for subjects the user can see)
+        group = SubjectGroup.objects.create(name="Delay Test Group", das_tenant=das_tenant)
+        subject.groups.add(group)
+        perm_set = user_with_delayed_access.permission_sets.get(name="delayed_access_test")
+        group.permission_sets.add(perm_set)
 
         # Create observations: one recent, one old
         now = timezone.now()
@@ -688,12 +696,14 @@ class TestMOUExpiryFiltering:
 
     def test_segment_layer_filters_by_mou_expiry(self, das_tenant, subject_subtype, user):
         """Verify segment layer filters segments by MOU expiry date."""
+        from accounts.models.permissionset import PermissionSet
         from observations.models import (
             Observation,
             ObservationSegment,
             Source,
             SourceProvider,
             Subject,
+            SubjectGroup,
             SubjectSource,
         )
         from observations.vector_layers import ObservationSegmentVectorLayer
@@ -704,6 +714,15 @@ class TestMOUExpiryFiltering:
         )
         source = Source.objects.create(manufacturer_id="mou_test", provider=provider, das_tenant=das_tenant)
         SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        # Grant user visibility to this subject via subject group
+        view_subject = Permission.objects.get_by_natural_key("view_subject", "observations", "subject")
+        mou_perm_set = PermissionSet.objects.create(name="mou_test_view")
+        mou_perm_set.permissions.add(view_subject)
+        user.permission_sets.add(mou_perm_set)
+        group = SubjectGroup.objects.create(name="MOU Test Group", das_tenant=das_tenant)
+        subject.groups.add(group)
+        group.permission_sets.add(mou_perm_set)
 
         now = timezone.now()
 
@@ -748,12 +767,14 @@ class TestMOUExpiryFiltering:
 
     def test_segment_layer_no_mou_expiry_shows_all(self, das_tenant, subject_subtype, user):
         """Verify segment layer shows all segments when no MOU expiry is set."""
+        from accounts.models.permissionset import PermissionSet
         from observations.models import (
             Observation,
             ObservationSegment,
             Source,
             SourceProvider,
             Subject,
+            SubjectGroup,
             SubjectSource,
         )
         from observations.vector_layers import ObservationSegmentVectorLayer
@@ -764,6 +785,15 @@ class TestMOUExpiryFiltering:
         )
         source = Source.objects.create(manufacturer_id="no_mou_test", provider=provider, das_tenant=das_tenant)
         SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        # Grant user visibility to this subject via subject group
+        view_subject = Permission.objects.get_by_natural_key("view_subject", "observations", "subject")
+        no_mou_perm_set = PermissionSet.objects.create(name="no_mou_test_view")
+        no_mou_perm_set.permissions.add(view_subject)
+        user.permission_sets.add(no_mou_perm_set)
+        group = SubjectGroup.objects.create(name="No MOU Test Group", das_tenant=das_tenant)
+        subject.groups.add(group)
+        group.permission_sets.add(no_mou_perm_set)
 
         now = timezone.now()
 
@@ -870,7 +900,7 @@ class TestSubjectLayerProperties:
 
         assert obj is not None
         subtype = subject_subtype.value.lower()
-        assert obj.image_url == f"/static/sprite-src/{subtype}-green-female.svg"
+        assert obj.icon_url == f"/static/sprite-src/{subtype}-green-female.svg"
 
     def test_image_url_defaults_sex_to_male(self, das_tenant, subject_subtype):
         """Verify image_url uses 'male' when sex is not in additional."""
@@ -892,7 +922,7 @@ class TestSubjectLayerProperties:
 
         assert obj is not None
         subtype = subject_subtype.value.lower()
-        assert obj.image_url == f"/static/sprite-src/{subtype}-gray-male.svg"
+        assert obj.icon_url == f"/static/sprite-src/{subtype}-gray-male.svg"
 
     def test_image_url_alarm_state(self, das_tenant, subject_subtype):
         """Verify alarm radio_state maps to red in image_url."""
@@ -914,7 +944,7 @@ class TestSubjectLayerProperties:
 
         assert obj is not None
         subtype = subject_subtype.value.lower()
-        assert obj.image_url == f"/static/sprite-src/{subtype}-red-male.svg"
+        assert obj.icon_url == f"/static/sprite-src/{subtype}-red-male.svg"
 
     def test_subject_type_and_subtype_annotations(self, das_tenant, subject_subtype):
         """Verify subject_type and subject_subtype are properly annotated."""
@@ -1579,12 +1609,19 @@ def subject_with_segments_and_status(db, das_tenant, subject_subtype):
 
 @pytest.fixture
 def user_with_realtime_access(db, user):
-    """Create a user with real-time access permission (access_ends_0)."""
+    """Create a user with real-time access (access_ends_0) and tile endpoint perms.
+
+    Grant view_subject and view_observation so ObservationSegmentTileView
+    permission checks pass; grant only access_ends_0 so get_minimum_allowed_age
+    returns 0 (real-time).
+    """
     from accounts.models.permissionset import PermissionSet
 
-    permission = Permission.objects.get(codename="access_ends_0")
+    view_subject = Permission.objects.get_by_natural_key("view_subject", "observations", "subject")
+    view_observation = Permission.objects.get(codename="view_observation")
+    access_ends_0 = Permission.objects.get_by_natural_key("access_ends_0", "observations", "subject")
     perm_set = PermissionSet.objects.create(name="realtime_access_test")
-    perm_set.permissions.add(permission)
+    perm_set.permissions.add(view_subject, view_observation, access_ends_0)
     user.permission_sets.add(perm_set)
     user.additional = {}
     user.save()
@@ -1593,18 +1630,22 @@ def user_with_realtime_access(db, user):
 
 @pytest.fixture
 def user_with_delayed_access(db, create_user):
-    """Create a *separate* user with 7-day delayed access permission (access_ends_7).
+    """Create a *separate* user with 7-day delayed access (access_ends_7) and tile perms.
 
     Uses create_user instead of the shared ``user`` fixture so that tests
     combining both ``user_with_realtime_access`` and ``user_with_delayed_access``
     get distinct user instances (different user.id → different cache keys).
+    Grant view_subject and view_observation for the tile view. Grant only
+    access_ends_7 so get_minimum_allowed_age returns 7 (delay_hours=168).
     """
     from accounts.models.permissionset import PermissionSet
 
     delayed_user = create_user(username="delayed_access_user")
-    permission = Permission.objects.get(codename="access_ends_7")
+    view_subject = Permission.objects.get_by_natural_key("view_subject", "observations", "subject")
+    view_observation = Permission.objects.get(codename="view_observation")
+    access_ends_7 = Permission.objects.get_by_natural_key("access_ends_7", "observations", "subject")
     perm_set = PermissionSet.objects.create(name="delayed_access_test")
-    perm_set.permissions.add(permission)
+    perm_set.permissions.add(view_subject, view_observation, access_ends_7)
     delayed_user.permission_sets.add(perm_set)
     delayed_user.additional = {}
     delayed_user.save()

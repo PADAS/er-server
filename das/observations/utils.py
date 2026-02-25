@@ -65,6 +65,13 @@ def get_maximum_allowed_age(user):
 
 
 def get_minimum_allowed_age(user):
+    """Return the minimum (most permissive) delay in days for the user's track view.
+
+    Checks access_ends_0, access_ends_1, access_ends_3, access_ends_7 and returns
+    the smallest delay the user has. Returns None if the user has no access_ends_*
+    permission. Callers typically use ``get_minimum_allowed_age(user) or 0`` so
+    None is treated as real-time (0); product may later treat None as "no access".
+    """
     minimum_allowed_age = None
     for permission_tuple in sorted(VIEW_END_WINDOWS, key=lambda _: _[1]):
         if user.has_perm(permission_tuple[0]) and (
