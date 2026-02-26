@@ -458,6 +458,10 @@ def dummy_cache(settings):
             "LOCATION": "shared-cache",
             "KEY_PREFIX": "shared",
         },
+        "vector_tiles": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "vector-tiles-test",
+        },
     }
 
 

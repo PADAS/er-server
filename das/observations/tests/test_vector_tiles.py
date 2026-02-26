@@ -113,14 +113,27 @@ class TestSubjectVectorLayer:
 
 @pytest.mark.django_db
 class TestConsolidatedVectorTiles:
-    """Test consolidated vector tiles with both segments and subjects."""
+    """Test consolidated vector tiles with both segments and subjects.
+
+    Calls the tile view directly with request.user set to avoid depending on
+    session auth in CI (where request.user can be AnonymousUser with client.get).
+    """
+
+    def _tile_response(self, user, patch_vector_tile_tenant):
+        """Return tile view response for the given user (request.user set directly)."""
+        from observations.views.vector_tiles_segments import ObservationSegmentTileView
+
+        url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
+        request = APIRequestFactory().get(url)
+        request.user = user
+        view = ObservationSegmentTileView.as_view()
+        return view(request, 10, 512, 512)
 
     def test_tile_includes_both_layers(
-        self, api_client_with_user, subject_with_segments_and_status, patch_vector_tile_tenant
+        self, subject_with_segments_and_status, user_with_realtime_access, patch_vector_tile_tenant
     ):
         """Verify tile response includes both observation_segments and subjects layers."""
-        url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
-        response = api_client_with_user.get(url)
+        response = self._tile_response(user_with_realtime_access, patch_vector_tile_tenant)
 
         assert response.status_code in (200, 204)
         assert response["Content-Type"] == "application/vnd.mapbox-vector-tile"
@@ -129,11 +142,7 @@ class TestConsolidatedVectorTiles:
         self, subject_with_segments_and_status, user_with_realtime_access, patch_vector_tile_tenant
     ):
         """Verify users with access_ends_0 see all segments up to now."""
-        url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
-
-        client = APIClient()
-        client.force_login(user_with_realtime_access)
-        response = client.get(url)
+        response = self._tile_response(user_with_realtime_access, patch_vector_tile_tenant)
 
         assert response.status_code in (200, 204)
 
@@ -141,11 +150,7 @@ class TestConsolidatedVectorTiles:
         self, subject_with_segments_and_status, user_with_delayed_access, patch_vector_tile_tenant
     ):
         """Verify users with access_ends_7 only see segments from ≥7 days ago."""
-        url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
-
-        client = APIClient()
-        client.force_login(user_with_delayed_access)
-        response = client.get(url)
+        response = self._tile_response(user_with_delayed_access, patch_vector_tile_tenant)
 
         # Should get filtered data (may be empty if no old enough segments)
         assert response.status_code in (200, 204)
@@ -158,17 +163,8 @@ class TestConsolidatedVectorTiles:
         patch_vector_tile_tenant,
     ):
         """Verify users with different permissions get different cached tiles."""
-        url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
-
-        # Realtime user request
-        client1 = APIClient()
-        client1.force_login(user_with_realtime_access)
-        response1 = client1.get(url)
-
-        # Delayed user request
-        client2 = APIClient()
-        client2.force_login(user_with_delayed_access)
-        response2 = client2.get(url)
+        response1 = self._tile_response(user_with_realtime_access, patch_vector_tile_tenant)
+        response2 = self._tile_response(user_with_delayed_access, patch_vector_tile_tenant)
 
         # Both should succeed but have different ETags (different cache keys)
         assert response1.status_code in (200, 204)
@@ -177,11 +173,10 @@ class TestConsolidatedVectorTiles:
         assert response1.get("ETag") != response2.get("ETag")
 
     def test_tile_respects_cache_headers(
-        self, api_client_with_user, subject_with_segments_and_status, patch_vector_tile_tenant
+        self, subject_with_segments_and_status, user_with_realtime_access, patch_vector_tile_tenant
     ):
         """Verify cache control headers are set correctly."""
-        url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
-        response = api_client_with_user.get(url)
+        response = self._tile_response(user_with_realtime_access, patch_vector_tile_tenant)
 
         assert "Cache-Control" in response
         assert "ETag" in response
@@ -1133,8 +1128,9 @@ class TestVectorTileEdgeCases:
 
     def test_subject_layer_empty_when_no_status(self, das_tenant, subject_subtype):
         """Verify subject layer excludes subjects without status."""
-        # Create subject without status
+        # Create subject; signal creates SubjectStatus rows, so delete them to get "no status"
         subject = Subject.objects.create(name="No Status Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        SubjectStatus.objects.filter(subject=subject).delete()
 
         layer = SubjectVectorLayer()
         qs = layer.get_queryset()
@@ -1661,6 +1657,9 @@ def user_with_delayed_access(db, create_user):
     delayed_user.permission_sets.add(perm_set)
     delayed_user.additional = {}
     delayed_user.save()
+    # Clear permission cache so get_minimum_allowed_age() sees access_ends_7 (delay_hours=168)
+    if getattr(delayed_user, "_group_perm_cache", None) is not None:
+        del delayed_user._group_perm_cache
     return delayed_user
 
 
