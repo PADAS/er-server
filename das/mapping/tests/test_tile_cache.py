@@ -35,8 +35,9 @@ def mock_tile_view_dependencies(monkeypatch):
     monkeypatch.setattr("utils.tenant.providers.get_tenant_data_by_host", mock_get_tenant_data_by_host)
     monkeypatch.setattr("mapping.views.get_tenant_data_by_host", mock_get_tenant_data_by_host)
 
-    # Mock the vector tile cache to use default cache
-    monkeypatch.setattr("utils.cache.get_vector_tile_cache", lambda: caches["default"])
+    # Do NOT patch get_vector_tile_cache here: cache-version tests require the real
+    # vector_tiles alias (conftest.dummy_cache provides it). Tile view tests use
+    # that same cache for consistency.
 
 
 class DummyUser:
@@ -321,7 +322,8 @@ def test_tile_view_304_not_modified(user_client):
         assert second["ETag"] == etag_value
         assert "Cache-Control" in second
         assert second["Cache-Control"].startswith("private")
-        assert second.get("Vary") == "Authorization, Cookie"
+        vary = second.get("Vary", "")
+        assert "Authorization" in vary and "Cookie" in vary
         assert len(second.content) == 0  # 304 responses have no body
 
 

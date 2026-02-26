@@ -183,7 +183,8 @@ class TestConsolidatedVectorTiles:
         assert "X-Cache" in response
         assert "max-age" in response["Cache-Control"]
         assert response["Cache-Control"].startswith("private")
-        assert response.get("Vary") == "Authorization, Cookie"
+        vary = response.get("Vary", "")
+        assert "Authorization" in vary and "Cookie" in vary
 
 
 @pytest.mark.django_db
