@@ -470,9 +470,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                 )
             else:
                 # When filter_flag is 0, filter for exact match on system bits only
-                queryset = queryset.annotate(
-                    system_flags=F("exclusion_flags").bitand(Observation.SYSTEM_FLAGS_MASK)
-                )
+                queryset = queryset.annotate(system_flags=F("exclusion_flags").bitand(Observation.SYSTEM_FLAGS_MASK))
                 if include_empty_location:
                     # Include auto-excluded (0,0) observations so include_empty_location has effect
                     # when upstream applies EXCLUDED_AUTOMATICALLY to empty locations
@@ -2293,10 +2291,17 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
 
     @property
     def color(self):
+        # Allow queryset annotations to override (e.g. SubjectVectorLayer); they set via the setter.
+        if "color" in self.__dict__:
+            return self.__dict__["color"]
         color = self.additional.get("rgb", DEFAULT_COLOR)
         if color:
             color = to_rgb(color)
         return color
+
+    @color.setter
+    def color(self, val):
+        self.__dict__["color"] = val
 
     def clean(self):
         if self.name != escape(self.name):

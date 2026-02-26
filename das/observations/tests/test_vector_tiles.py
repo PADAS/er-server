@@ -115,7 +115,9 @@ class TestSubjectVectorLayer:
 class TestConsolidatedVectorTiles:
     """Test consolidated vector tiles with both segments and subjects."""
 
-    def test_tile_includes_both_layers(self, api_client_with_user, subject_with_segments_and_status):
+    def test_tile_includes_both_layers(
+        self, api_client_with_user, subject_with_segments_and_status, patch_vector_tile_tenant
+    ):
         """Verify tile response includes both observation_segments and subjects layers."""
         url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
         response = api_client_with_user.get(url)
@@ -123,7 +125,9 @@ class TestConsolidatedVectorTiles:
         assert response.status_code in (200, 204)
         assert response["Content-Type"] == "application/vnd.mapbox-vector-tile"
 
-    def test_realtime_user_sees_all_segments(self, subject_with_segments_and_status, user_with_realtime_access):
+    def test_realtime_user_sees_all_segments(
+        self, subject_with_segments_and_status, user_with_realtime_access, patch_vector_tile_tenant
+    ):
         """Verify users with access_ends_0 see all segments up to now."""
         url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
 
@@ -133,7 +137,9 @@ class TestConsolidatedVectorTiles:
 
         assert response.status_code in (200, 204)
 
-    def test_delayed_user_sees_filtered_segments(self, subject_with_segments_and_status, user_with_delayed_access):
+    def test_delayed_user_sees_filtered_segments(
+        self, subject_with_segments_and_status, user_with_delayed_access, patch_vector_tile_tenant
+    ):
         """Verify users with access_ends_7 only see segments from ≥7 days ago."""
         url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
 
@@ -145,7 +151,11 @@ class TestConsolidatedVectorTiles:
         assert response.status_code in (200, 204)
 
     def test_different_users_get_different_cache(
-        self, subject_with_segments_and_status, user_with_realtime_access, user_with_delayed_access
+        self,
+        subject_with_segments_and_status,
+        user_with_realtime_access,
+        user_with_delayed_access,
+        patch_vector_tile_tenant,
     ):
         """Verify users with different permissions get different cached tiles."""
         url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
@@ -166,7 +176,9 @@ class TestConsolidatedVectorTiles:
         # Different permissions = different data = different ETags
         assert response1.get("ETag") != response2.get("ETag")
 
-    def test_tile_respects_cache_headers(self, api_client_with_user, subject_with_segments_and_status):
+    def test_tile_respects_cache_headers(
+        self, api_client_with_user, subject_with_segments_and_status, patch_vector_tile_tenant
+    ):
         """Verify cache control headers are set correctly."""
         url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
         response = api_client_with_user.get(url)
@@ -1620,7 +1632,7 @@ def user_with_realtime_access(db, user):
     view_subject = Permission.objects.get_by_natural_key("view_subject", "observations", "subject")
     view_observation = Permission.objects.get(codename="view_observation")
     access_ends_0 = Permission.objects.get_by_natural_key("access_ends_0", "observations", "subject")
-    perm_set = PermissionSet.objects.create(name="realtime_access_test")
+    perm_set = PermissionSet.objects.create(name="realtime_access_test", das_tenant=user.das_tenant)
     perm_set.permissions.add(view_subject, view_observation, access_ends_0)
     user.permission_sets.add(perm_set)
     user.additional = {}
@@ -1644,7 +1656,7 @@ def user_with_delayed_access(db, create_user):
     view_subject = Permission.objects.get_by_natural_key("view_subject", "observations", "subject")
     view_observation = Permission.objects.get(codename="view_observation")
     access_ends_7 = Permission.objects.get_by_natural_key("access_ends_7", "observations", "subject")
-    perm_set = PermissionSet.objects.create(name="delayed_access_test")
+    perm_set = PermissionSet.objects.create(name="delayed_access_test", das_tenant=delayed_user.das_tenant)
     perm_set.permissions.add(view_subject, view_observation, access_ends_7)
     delayed_user.permission_sets.add(perm_set)
     delayed_user.additional = {}
@@ -1663,6 +1675,15 @@ def api_client_with_user(db, user_with_realtime_access):
     client = APIClient()
     client.force_login(user_with_realtime_access)
     return client
+
+
+@pytest.fixture
+def patch_vector_tile_tenant(monkeypatch, das_tenant):
+    """Stub tenant resolution so the tile view accepts requests from test client (host=testserver)."""
+    monkeypatch.setattr(
+        "observations.views.vector_tiles_segments.get_tenant_data_by_host",
+        lambda host: {"domain": das_tenant.domain},
+    )
 
 
 @pytest.fixture
@@ -1687,13 +1708,20 @@ def subject_with_status(db, das_tenant, subject_subtype):
 
 @pytest.fixture
 def subject_without_status(db, das_tenant, subject_subtype):
-    """Create a subject without any status."""
-    return Subject.objects.create(
+    """Create a subject without any status in the tile queryset.
+
+    ensure_subject_status_exists signal creates SubjectStatus rows on Subject save;
+    we delete them so the subject has no status and is correctly excluded by
+    status_location__isnull=False in SubjectVectorLayer.get_queryset().
+    """
+    subject = Subject.objects.create(
         name="Subject No Status",
         subject_subtype=subject_subtype,
         is_active=True,
         das_tenant=das_tenant,
     )
+    SubjectStatus.objects.filter(subject=subject).delete()
+    return subject
 
 
 @pytest.fixture
