@@ -35,13 +35,8 @@ def test_echo_write_with_csv_content():
 # StreamingCSVGenerator tests
 
 
-def _decode_chunk(chunk):
-    """Decode a chunk (bytes or str) to str for assertions."""
-    return chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk
-
-
 def test_streaming_csv_generator_yields_header_and_rows():
-    """Generator should yield header followed by data rows (as bytes)."""
+    """Generator should yield header followed by data rows."""
     rows = [
         {"name": "Alice", "age": "30"},
         {"name": "Bob", "age": "25"},
@@ -52,10 +47,9 @@ def test_streaming_csv_generator_yields_header_and_rows():
     output = list(generator)
 
     assert len(output) == 3  # header + 2 rows
-    assert all(isinstance(chunk, bytes) for chunk in output)
-    assert "name,age" in _decode_chunk(output[0])
-    assert "Alice,30" in _decode_chunk(output[1])
-    assert "Bob,25" in _decode_chunk(output[2])
+    assert "name,age" in output[0]
+    assert "Alice,30" in output[1]
+    assert "Bob,25" in output[2]
 
 
 def test_streaming_csv_generator_no_header_when_disabled():
@@ -67,7 +61,7 @@ def test_streaming_csv_generator_no_header_when_disabled():
     output = list(generator)
 
     assert len(output) == 1
-    assert "Alice,30" in _decode_chunk(output[0])
+    assert "Alice,30" in output[0]
 
 
 def test_streaming_csv_generator_handles_empty_rows():
@@ -79,7 +73,7 @@ def test_streaming_csv_generator_handles_empty_rows():
     output = list(generator)
 
     assert len(output) == 1  # Just header
-    assert "name,age" in _decode_chunk(output[0])
+    assert "name,age" in output[0]
 
 
 def test_streaming_csv_generator_ignores_extra_keys():
@@ -91,8 +85,8 @@ def test_streaming_csv_generator_ignores_extra_keys():
     output = list(generator)
 
     assert len(output) == 2
-    assert "ignored" not in _decode_chunk(output[1])
-    assert "Alice,30" in _decode_chunk(output[1])
+    assert "ignored" not in output[1]
+    assert "Alice,30" in output[1]
 
 
 def test_streaming_csv_generator_handles_missing_keys():
@@ -104,7 +98,7 @@ def test_streaming_csv_generator_handles_missing_keys():
     output = list(generator)
 
     assert len(output) == 2
-    assert "Alice," in _decode_chunk(output[1])  # Empty value for missing key
+    assert "Alice," in output[1]  # Empty value for missing key
 
 
 def test_streaming_csv_generator_escapes_special_characters():
@@ -117,8 +111,7 @@ def test_streaming_csv_generator_escapes_special_characters():
 
     assert len(output) == 2
     # The quotes and newlines should be escaped/quoted
-    decoded = _decode_chunk(output[1])
-    assert '"' in decoded or "Alice" in decoded
+    assert '"' in output[1] or "Alice" in output[1]
 
 
 def test_streaming_csv_generator_works_with_generator_input():
@@ -133,8 +126,8 @@ def test_streaming_csv_generator_works_with_generator_input():
     output = list(generator)
 
     assert len(output) == 3
-    assert "Alice,30" in _decode_chunk(output[1])
-    assert "Bob,25" in _decode_chunk(output[2])
+    assert "Alice,30" in output[1]
+    assert "Bob,25" in output[2]
 
 
 # StreamingCSVResponse tests
@@ -151,13 +144,13 @@ def test_streaming_csv_response_is_streaming_http_response():
 
 
 def test_streaming_csv_response_sets_content_type():
-    """Response should have text/csv content type with charset."""
+    """Response should have text/csv content type."""
     rows = [{"name": "Alice"}]
     fieldnames = ["name"]
 
     response = StreamingCSVResponse(rows, fieldnames, filename="test.csv")
 
-    assert response["Content-Type"] == "text/csv; charset=utf-8"
+    assert response["Content-Type"] == "text/csv"
 
 
 def test_streaming_csv_response_sets_content_disposition():
