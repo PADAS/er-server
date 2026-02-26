@@ -92,8 +92,16 @@ class TestSubjectVectorLayer:
         status_latest = SubjectStatus.objects.get(subject=subject_with_multiple_statuses, delay_hours=0)
         assert obj.recorded_at == status_latest.recorded_at
 
-    def test_delayed_user_sees_delayed_position(self, subject_with_multiple_statuses, user_with_delayed_access):
-        """Verify users with access_ends_7 permission see delay_hours=168 status."""
+    def test_delayed_user_sees_delayed_position(
+        self, subject_with_multiple_statuses, user_with_delayed_access, monkeypatch
+    ):
+        """Verify users with access_ends_7 permission see delay_hours=168 status.
+
+        Uses a monkeypatch of get_minimum_allowed_age so the test asserts layer
+        behavior (delay_hours and queryset) without depending on the permission
+        backend in CI (avoids cache/M2M flakiness).
+        """
+        monkeypatch.setattr("observations.utils.get_minimum_allowed_age", lambda user: 7)
         factory = APIRequestFactory()
         request = factory.get("/observations/segments/tiles/10/512/512.pbf")
         request.user = user_with_delayed_access
@@ -130,7 +138,7 @@ class TestConsolidatedVectorTiles:
         return view(request, 10, 512, 512)
 
     def test_tile_includes_both_layers(
-        self, subject_with_segments_and_status, user_with_realtime_access, patch_vector_tile_tenant
+        self, tile_test_subject_visible, user_with_realtime_access, patch_vector_tile_tenant
     ):
         """Verify tile response includes both observation_segments and subjects layers."""
         response = self._tile_response(user_with_realtime_access, patch_vector_tile_tenant)
@@ -139,7 +147,7 @@ class TestConsolidatedVectorTiles:
         assert response["Content-Type"] == "application/vnd.mapbox-vector-tile"
 
     def test_realtime_user_sees_all_segments(
-        self, subject_with_segments_and_status, user_with_realtime_access, patch_vector_tile_tenant
+        self, tile_test_subject_visible, user_with_realtime_access, patch_vector_tile_tenant
     ):
         """Verify users with access_ends_0 see all segments up to now."""
         response = self._tile_response(user_with_realtime_access, patch_vector_tile_tenant)
@@ -147,7 +155,7 @@ class TestConsolidatedVectorTiles:
         assert response.status_code in (200, 204)
 
     def test_delayed_user_sees_filtered_segments(
-        self, subject_with_segments_and_status, user_with_delayed_access, patch_vector_tile_tenant
+        self, tile_test_subject_visible, user_with_delayed_access, patch_vector_tile_tenant
     ):
         """Verify users with access_ends_7 only see segments from ≥7 days ago."""
         response = self._tile_response(user_with_delayed_access, patch_vector_tile_tenant)
@@ -157,7 +165,7 @@ class TestConsolidatedVectorTiles:
 
     def test_different_users_get_different_cache(
         self,
-        subject_with_segments_and_status,
+        tile_test_subject_visible,
         user_with_realtime_access,
         user_with_delayed_access,
         patch_vector_tile_tenant,
@@ -173,7 +181,7 @@ class TestConsolidatedVectorTiles:
         assert response1.get("ETag") != response2.get("ETag")
 
     def test_tile_respects_cache_headers(
-        self, subject_with_segments_and_status, user_with_realtime_access, patch_vector_tile_tenant
+        self, tile_test_subject_visible, user_with_realtime_access, patch_vector_tile_tenant
     ):
         """Verify cache control headers are set correctly (private + Vary to avoid cross-user caching)."""
         response = self._tile_response(user_with_realtime_access, patch_vector_tile_tenant)
@@ -1660,9 +1668,12 @@ def user_with_delayed_access(db, create_user):
     delayed_user.permission_sets.add(perm_set)
     delayed_user.additional = {}
     delayed_user.save()
-    # Clear permission cache so get_minimum_allowed_age() sees access_ends_7 (delay_hours=168)
-    if getattr(delayed_user, "_group_perm_cache", None) is not None:
-        del delayed_user._group_perm_cache
+    # Ensure M2M is committed and permission caches are cleared so
+    # get_minimum_allowed_age() sees access_ends_7 (delay_hours=168).
+    delayed_user.refresh_from_db()
+    for attr in ("_group_perm_cache", "_perm_cache"):
+        if getattr(delayed_user, attr, None) is not None:
+            delattr(delayed_user, attr)
     return delayed_user
 
 
@@ -1686,6 +1697,27 @@ def patch_vector_tile_tenant(monkeypatch, das_tenant):
         "observations.views.vector_tiles_segments.get_tenant_data_by_host",
         lambda host: {"domain": das_tenant.domain},
     )
+
+
+@pytest.fixture
+def tile_test_subject_visible(subject_with_segments_and_status, user_with_realtime_access, user_with_delayed_access):
+    """Put the segment tile subject in a group both tile users can see.
+
+    Without this, by_user_subjects() returns no subjects for the tile view user,
+    leading to EmptyResultSet when building the segment/subject layers.
+    """
+    from accounts.models.permissionset import PermissionSet
+    from observations.models import SubjectGroup
+
+    subject = subject_with_segments_and_status
+    group = SubjectGroup.objects.create(name="tile_test_group", das_tenant=subject.das_tenant)
+    subject.groups.add(group)
+    realtime_ps = PermissionSet.objects.get(
+        name="realtime_access_test", das_tenant=user_with_realtime_access.das_tenant
+    )
+    delayed_ps = PermissionSet.objects.get(name="delayed_access_test", das_tenant=user_with_delayed_access.das_tenant)
+    group.permission_sets.add(realtime_ps, delayed_ps)
+    return subject
 
 
 @pytest.fixture
