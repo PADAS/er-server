@@ -320,6 +320,8 @@ def test_tile_view_304_not_modified(user_client):
         assert second.status_code == 304
         assert second["ETag"] == etag_value
         assert "Cache-Control" in second
+        assert second["Cache-Control"].startswith("private")
+        assert second.get("Vary") == "Authorization, Cookie"
         assert len(second.content) == 0  # 304 responses have no body
 
 

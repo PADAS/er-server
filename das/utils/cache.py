@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import time
-from typing import Iterable, List, Mapping, Protocol, Sequence, Union
+from typing import Iterable, List, Protocol, Sequence
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -81,9 +81,6 @@ def _hash_user(request: HttpRequest) -> str:
     ]  # Use first 8 chars for a shorter hash; sufficient for UUID uniqueness in this context
 
 
-QueryParams = Union["_QueryDictLike", Mapping[str, Sequence[str]]]
-
-
 class _QueryDictLike(Protocol):  # pragma: no cover - structural typing only
     """Subset of django.http.QueryDict we rely on (lists() method)."""
 
@@ -91,7 +88,7 @@ class _QueryDictLike(Protocol):  # pragma: no cover - structural typing only
         ...
 
 
-def _hash_query_params(get_params: QueryParams) -> str:
+def _hash_query_params(get_params: _QueryDictLike) -> str:
     """Produce stable short hash of GET params (multi-value aware)
     parameter order differences do not affect/change hash
     """

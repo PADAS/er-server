@@ -86,7 +86,7 @@ class ObservationSegmentTileView(MVTView):
     - Server-side TTL ~ 15 minutes (segments update when observations change)
     - Client: 5 minutes fresh (max-age), then 5 minutes stale-while-revalidate window
     - Client: stale-if-error for same 5 minute window to mask transient origin faults
-    - Authorization varied so per-user/tenant isolation is preserved
+    - Authorization: private + Vary so shared caches do not serve one user's tile to another
     """
 
     layer_classes = [ObservationSegmentVectorLayer, SubjectVectorLayer]
@@ -102,6 +102,9 @@ class ObservationSegmentTileView(MVTView):
     client_max_age_seconds = 300  # 5 minutes fresh
     client_stale_while_revalidate_seconds = 300  # serve stale up to another 5 minutes while revalidating
     client_stale_if_error_seconds = 300  # serve stale if origin errors for same 5 minutes
+
+    # Response varies by auth so shared caches do not serve one user's tile to another
+    VARY_HEADER = "Authorization, Cookie"
 
     def get(self, request, z, x, y):
         """
@@ -157,7 +160,7 @@ class ObservationSegmentTileView(MVTView):
         etag_hash = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()[:16]
         etag_value = f'"{etag_hash}"'
         cache_control_value = (
-            f"public, max-age={self.client_max_age_seconds}, "
+            f"private, max-age={self.client_max_age_seconds}, "
             f"stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
             f"stale-if-error={self.client_stale_if_error_seconds}"
         )
@@ -172,12 +175,14 @@ class ObservationSegmentTileView(MVTView):
                 resp = HttpResponse(status=304)
                 resp["ETag"] = etag_value
                 resp["Cache-Control"] = cache_control_value
+                resp["Vary"] = self.VARY_HEADER
                 return resp
 
             content, content_type = cached_payload
             resp = HttpResponse(content, content_type=content_type)
             resp["Cache-Control"] = cache_control_value
             resp["ETag"] = etag_value
+            resp["Vary"] = self.VARY_HEADER
             resp["X-Cache"] = "HIT"
             return resp
 
@@ -195,6 +200,7 @@ class ObservationSegmentTileView(MVTView):
             response["X-Cache"] = "BYPASS"
         response["Cache-Control"] = cache_control_value
         response["ETag"] = etag_value
+        response["Vary"] = self.VARY_HEADER
         return response
 
     def _check_observation_permissions(self, request):

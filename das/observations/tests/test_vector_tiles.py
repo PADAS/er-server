@@ -175,13 +175,15 @@ class TestConsolidatedVectorTiles:
     def test_tile_respects_cache_headers(
         self, subject_with_segments_and_status, user_with_realtime_access, patch_vector_tile_tenant
     ):
-        """Verify cache control headers are set correctly."""
+        """Verify cache control headers are set correctly (private + Vary to avoid cross-user caching)."""
         response = self._tile_response(user_with_realtime_access, patch_vector_tile_tenant)
 
         assert "Cache-Control" in response
         assert "ETag" in response
         assert "X-Cache" in response
         assert "max-age" in response["Cache-Control"]
+        assert response["Cache-Control"].startswith("private")
+        assert response.get("Vary") == "Authorization, Cookie"
 
 
 @pytest.mark.django_db
