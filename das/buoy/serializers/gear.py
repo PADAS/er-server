@@ -17,6 +17,7 @@ from buoy.constants import (
     POSITIONING_TYPE_GPS,
     RELEASE_TYPE_CHOICES,
 )
+from core.fields import StrictUUIDField
 from observations import models
 from observations.models import SubjectSource
 
@@ -47,7 +48,7 @@ class GeoLocationSerializer(serializers.Serializer):
 
 
 class GearDeviceCreateSerializer(serializers.Serializer):
-    device_id = serializers.UUIDField(required=True)
+    device_id = StrictUUIDField(required=True)
     mfr_device_id = serializers.CharField(max_length=100, required=False)
     last_deployed = serializers.DateTimeField(
         required=True,
@@ -103,7 +104,7 @@ class GearDeviceCreateSerializer(serializers.Serializer):
 
 
 class GearCreateSerializer(serializers.Serializer):
-    set_id = serializers.UUIDField(required=False)
+    set_id = StrictUUIDField(required=False)
     mfr_set_id = serializers.CharField(max_length=100, required=False)
     set_display_id = serializers.CharField(max_length=100, required=False)
     manufacturer_name = serializers.CharField(max_length=100, required=True)
@@ -339,7 +340,7 @@ class GearSerializer(serializers.ModelSerializer):
     }
     """
 
-    id = serializers.UUIDField(source="subject.id")
+    id = StrictUUIDField(source="subject.id")
     display_id = serializers.SerializerMethodField()
     last_updated = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()

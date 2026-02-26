@@ -472,7 +472,19 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                 # When filter_flag is 0, filter for exact match on system bits only
                 queryset = queryset.annotate(
                     system_flags=F("exclusion_flags").bitand(Observation.SYSTEM_FLAGS_MASK)
-                ).filter(system_flags=system_filter_flag)
+                )
+                if include_empty_location:
+                    # Include auto-excluded (0,0) observations so include_empty_location has effect
+                    # when upstream applies EXCLUDED_AUTOMATICALLY to empty locations
+                    queryset = queryset.filter(
+                        Q(system_flags=system_filter_flag)
+                        | Q(
+                            system_flags=Observation.EXCLUDED_AUTOMATICALLY,
+                            location=EMPTY_POINT,
+                        )
+                    )
+                else:
+                    queryset = queryset.filter(system_flags=system_filter_flag)
         else:
             # Value has 3rd-party flags (upper 16 bits): use full 64-bit filtering
             if filter_flag > 0:

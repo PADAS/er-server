@@ -14,6 +14,7 @@ from core.tests import API_BASE, BaseAPITest
 from observations.models import Observation, SubjectGroup
 from observations.serializers import ObservationSerializer
 from observations.views import TrackingDataCsvView, TrackingMetaDataExportView
+from utils.csv_streaming import read_streaming_response_content
 
 current_tz_name = timezone.get_current_timezone_name()
 current_tz = pytz.timezone(current_tz_name)
@@ -58,7 +59,7 @@ class TrackingMetaDataExportViewTest(BaseAPITest):
         self.force_authenticate(self.request, self.user)
         response = TrackingMetaDataExportView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)
-        csv_file_data = response.content.decode("utf-8").split("\r\n")
+        csv_file_data = read_streaming_response_content(response).split("\r\n")
 
         # Header from first line of csv file data
         header = csv_file_data[0].split(",")
@@ -87,7 +88,7 @@ class TrackingMetaDataExportViewTest(BaseAPITest):
         self.force_authenticate(self.request, self.user)
         response = TrackingMetaDataExportView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)
-        csv_file_data = response.content.decode("utf-8").split("\r\n")
+        csv_file_data = read_streaming_response_content(response).split("\r\n")
 
         # Header from first line of csv file data
         header = csv_file_data[0].split(",")
@@ -125,7 +126,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
         self.force_authenticate(self.request, self.superuser)
         response = TrackingDataCsvView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)
-        csv_data = response.content.decode("utf-8").split("\r\n")
+        csv_data = read_streaming_response_content(response).split("\r\n")
         # Remove header and empty line from csv_data to get actual values
         csv_data = csv_data[1:-1]
         self.assertEqual(
@@ -140,7 +141,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
         self.force_authenticate(self.request, self.superuser)
         response = TrackingDataCsvView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)
-        csv_data = response.content.decode("utf-8").split("\r\n")
+        csv_data = read_streaming_response_content(response).split("\r\n")
 
         # Remove header and empty line from csv_data to get actual values
         csv_data = csv_data[1:-1]
@@ -205,7 +206,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
         response = TrackingDataCsvView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)
 
-        csv_file_data = response.content.decode("utf-8").split("\r\n")
+        csv_file_data = read_streaming_response_content(response).split("\r\n")
 
         # Header from first line of csv file data
         header = csv_file_data[0].split(",")
@@ -237,7 +238,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
         response = TrackingDataCsvView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)
 
-        csv_file_data = response.content.decode("utf-8").split("\r\n")
+        csv_file_data = read_streaming_response_content(response).split("\r\n")
 
         # Header from first line of csv file data
         header = csv_file_data[0].split(",")
@@ -318,7 +319,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = TrackingDataCsvView.as_view()(request)
         self.assertEqual(response.status_code, 200)
-        csv_file_data = response.content.decode("utf-8").split("\r\n")
+        csv_file_data = read_streaming_response_content(response).split("\r\n")
         # Header from first line of csv file data
         header = csv_file_data[0].split(",")
 
@@ -335,7 +336,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = TrackingDataCsvView.as_view()(request)
         self.assertEqual(response.status_code, 200)
-        csv_data = response.content.decode("utf-8").split("\r\n")
+        csv_data = read_streaming_response_content(response).split("\r\n")
 
         # Header from first line of csv file data
         header = csv_data[0].split(",")
