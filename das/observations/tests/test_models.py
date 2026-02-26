@@ -691,7 +691,33 @@ class TestExclusionFlagsFiltering:
         finally:
             empty_obs.delete()
 
-    def test_system_flags_mask_constant(self):
+    def test_include_empty_location_includes_auto_excluded_observations(self, exclusion_flags_test_data):
+        """With include_empty_location=True, observations at (0,0) that have EXCLUDED_AUTOMATICALLY
+        (as applied on ingest) are included when filter_flag=0. ERA-12387."""
+        source = exclusion_flags_test_data["source"]
+        now = datetime.now(tz=pytz.utc)
+
+        # Simulate ingest: 0,0 observations get EXCLUDED_AUTOMATICALLY set upstream
+        auto_excluded_empty = Observation.objects.create(
+            source=source,
+            location=Point(0, 0),
+            recorded_at=now - timedelta(minutes=1),
+            exclusion_flags=Observation.EXCLUDED_AUTOMATICALLY,
+        )
+
+        try:
+            # Without include_empty_location, auto-excluded (0,0) are not returned
+            queryset = Observation.objects.filter(source=source).by_exclusion_flags(filter_flag=0)
+            assert auto_excluded_empty.id not in queryset.values_list("id", flat=True)
+
+            # With include_empty_location=True, they are included
+            queryset = Observation.objects.filter(source=source).by_exclusion_flags(
+                filter_flag=0, include_empty_location=True
+            )
+            assert auto_excluded_empty.id in queryset.values_list("id", flat=True)
+        finally:
+            auto_excluded_empty.delete()
+
         """Verify the SYSTEM_FLAGS_MASK constant is correctly defined."""
         assert Observation.SYSTEM_FLAGS_MASK == 0x0000FFFFFFFFFFFF
 
