@@ -4,13 +4,13 @@ Used in our production docker images
 
 import os
 
-from .settings import *
 from .settings import (
     BASE_DIR,
     CACHES,
     DEFAULT_CACHE_ALIAS,
     REDIS_SERVER,
     SHARED_CACHE_ALIAS,
+    UPLOAD_SESSION_CACHE_ALIAS,
     env,
 )
 
@@ -26,6 +26,13 @@ CACHES[SHARED_CACHE_ALIAS] = {
     "LOCATION": REDIS_SERVER,
     "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
     "KEY_PREFIX": "shared",
+}
+
+CACHES[UPLOAD_SESSION_CACHE_ALIAS] = {
+    "BACKEND": "django_redis.cache.RedisCache",
+    "LOCATION": REDIS_SERVER,
+    "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+    "KEY_PREFIX": "upload_session",
 }
 
 

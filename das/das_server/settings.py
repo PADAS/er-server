@@ -433,6 +433,7 @@ CELERY_TASK_TRACK_STARTED = True
 DEFAULT_CACHE_ALIAS = "default"
 SHARED_CACHE_ALIAS = "shared"
 VECTOR_TILE_CACHE_ALIAS = "vector_tiles"
+UPLOAD_SESSION_CACHE_ALIAS = "upload_sessions"
 
 
 # Vector tiles cache Redis location (dedicated in deployed contexts)
@@ -456,6 +457,11 @@ CACHES = {
         "LOCATION": _vt_redis_server,
         "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
         "KEY_PREFIX": "vector-tiles",
+    },
+    UPLOAD_SESSION_CACHE_ALIAS: {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "upload-sessions",
+        "KEY_PREFIX": "upload_session",
     },
 }
 
@@ -579,6 +585,11 @@ USERCONTENT_SETTINGS = {
         "msm",
     ),
 }
+
+# Chunked, resumable file upload (ERA-9210)
+CHUNKED_UPLOAD_CHUNK_SIZE = env.int("CHUNKED_UPLOAD_CHUNK_SIZE", 5 * 1024 * 1024)  # 5 MiB
+CHUNKED_UPLOAD_MAX_FILE_SIZE = env.int("CHUNKED_UPLOAD_MAX_FILE_SIZE", 500 * 1024 * 1024)  # 500 MiB
+CHUNKED_UPLOAD_SESSION_TTL_SECONDS = env.int("CHUNKED_UPLOAD_SESSION_TTL_SECONDS", 86400)  # 24 hours
 
 SHOW_TRACK_DAYS = 16
 DEFAULT_EVENT_FILTER_FROM_DAYS = -1
