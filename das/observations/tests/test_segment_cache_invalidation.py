@@ -6,6 +6,20 @@ import pytest
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 
+from observations.models import (
+    DASTenant,
+    Observation,
+    ObservationSegment,
+    Source,
+    SourceProvider,
+    Subject,
+    SubjectSource,
+)
+from observations.signals_segments_cache import (
+    TILE_LAYER_IDS,
+    _invalidate_for_point,
+    invalidate_subject_tiles_on_status_change,
+)
 from utils import cache as cache_utils
 
 
@@ -98,11 +112,6 @@ def test_invalidate_tile_cache_keys_deletes_matching_prefix(fake_vector_tile_cac
 
 @pytest.mark.django_db
 def test_observation_signal_invalidation(monkeypatch, fake_vector_tile_cache):
-    from observations.signals_segments_cache import (
-        TILE_LAYER_IDS,
-        _invalidate_for_point,
-    )
-
     lon, lat = 12.5, -1.25
     z = 10
     x, y = lonlat_to_tile_xy(lon, lat, z)
@@ -120,17 +129,6 @@ def test_observation_signal_invalidation(monkeypatch, fake_vector_tile_cache):
 
 @pytest.mark.django_db
 def test_segment_signal_invalidation(monkeypatch, fake_vector_tile_cache):
-    from observations.models import (
-        DASTenant,
-        Observation,
-        ObservationSegment,
-        Source,
-        SourceProvider,
-        Subject,
-        SubjectSource,
-    )
-    from observations.signals_segments_cache import TILE_LAYER_IDS
-
     tenant = DASTenant.objects.first()
     subject = Subject.objects.create(name="S", das_tenant=tenant)
     # Ensure a provider exists for Source creation
@@ -172,8 +170,6 @@ def test_segment_signal_invalidation(monkeypatch, fake_vector_tile_cache):
         rc.keys.add(build_vt_key(str(tenant.id), layers_part, version, 10, x, y, "aaaa", "noquery"))
         rc.keys.add(build_vt_key(str(tenant.id), layers_part, version, 10, x, y, "bbbb", "noquery"))
 
-    from observations.signals_segments_cache import _invalidate_for_point
-
     # Compute tiles to determine overlap
     xa, ya = lonlat_to_tile_xy(12.5, -1.25, 10)
     xb, yb = lonlat_to_tile_xy(12.51, -1.26, 10)
@@ -192,12 +188,6 @@ def test_segment_signal_invalidation(monkeypatch, fake_vector_tile_cache):
 @pytest.mark.django_db
 def test_subject_status_signal_invalidation(fake_vector_tile_cache):
     """Verify SubjectStatus post_save invalidates the tile cache for its location."""
-    from observations.models import DASTenant, Subject
-    from observations.signals_segments_cache import (
-        TILE_LAYER_IDS,
-        _invalidate_for_point,
-    )
-
     tenant = DASTenant.objects.first()
     subject = Subject.objects.create(name="Status Signal Test", das_tenant=tenant)
 
@@ -220,9 +210,6 @@ def test_subject_status_signal_invalidation(fake_vector_tile_cache):
 @pytest.mark.django_db
 def test_subject_status_signal_skips_null_location(fake_vector_tile_cache):
     """Verify SubjectStatus signal handler gracefully skips null locations."""
-    from observations.signals_segments_cache import (
-        invalidate_subject_tiles_on_status_change,
-    )
 
     # Create a mock instance without location -- should not raise
     class FakeStatus:

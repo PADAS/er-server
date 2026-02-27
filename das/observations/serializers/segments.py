@@ -5,6 +5,7 @@ Serializers for ObservationSegment models.
 from rest_framework import serializers
 
 from observations.models import ObservationSegment
+from observations.serializers import add_base_url
 from utils import json as utils_json
 
 
@@ -108,8 +109,6 @@ class SubjectTrackSegmentsSerializer(serializers.Serializer):
                 feature["properties"]["stroke-width"] = 2
 
             if subject.image_url:
-                from observations.serializers import add_base_url
-
                 feature["properties"]["image"] = add_base_url(request, subject.image_url)
 
             features.append(feature)
@@ -302,8 +301,6 @@ class SubjectTrackSegmentsGroupedSerializer(serializers.Serializer):
             properties["stroke-width"] = 2
 
         if subject.image_url:
-            from observations.serializers import add_base_url
-
             properties["image"] = add_base_url(request, subject.image_url)
 
         return {

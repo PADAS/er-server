@@ -15,6 +15,7 @@ GIS
 from __future__ import annotations
 
 import logging
+import math
 import random
 import re
 import uuid
@@ -1280,8 +1281,6 @@ class ObservationSegment(TenantModelMixin, models.Model):
     @staticmethod
     def compute_bearing_deg(lat1, lon1, lat2, lon2):
         """Compute initial bearing from (lat1, lon1) to (lat2, lon2) in degrees [0,360)."""
-        import math
-
         phi1 = math.radians(lat1)
         phi2 = math.radians(lat2)
         d_lambda = math.radians(lon2 - lon1)

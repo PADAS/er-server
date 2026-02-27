@@ -3,11 +3,13 @@ import json
 import logging
 import re
 import urllib
+import uuid
 
 import dateutil.parser
 import pytz
 from kombu import exceptions
 
+from django.contrib.postgres.aggregates import StringAgg
 from django.core.files.storage import default_storage
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import F, Q, QuerySet, Window
@@ -92,6 +94,7 @@ from observations.views.utils import (
     get_track_days,
 )
 from utils import add_base_url
+from utils.csv_streaming import StreamingCSVResponse
 from utils.drf import (
     ForbiddenAPIException,
     StandardObjectPermissions,
@@ -1065,10 +1068,6 @@ class TrackingDataCsvView(APIView):
                 )
 
     def get(self, request, *args, **kwargs):
-        from uuid import UUID
-
-        from utils.csv_streaming import StreamingCSVResponse
-
         # Set exclusion flag value
         filter_flag = 0
         qparam = self.request.GET.get("filter", 0)
@@ -1096,7 +1095,7 @@ class TrackingDataCsvView(APIView):
         # Validate UUID eagerly so errors surface before streaming begins
         if request_subject_id:
             try:
-                UUID(request_subject_id)
+                uuid.UUID(request_subject_id)
             except (ValueError, AttributeError):
                 raise ValidationError({"Error": f"{request_subject_id} is not a valid UUID"})
 
@@ -1370,8 +1369,6 @@ class TrackingMetaDataExportView(APIView):
         Build a lookup dict mapping subject_id -> comma-separated group names.
         This eliminates the N+1 query problem by fetching all groups in one query.
         """
-        from django.contrib.postgres.aggregates import StringAgg
-
         # Get all subject-group relationships in one query
         subject_groups_qs = (
             SubjectGroup.objects.filter(subjects__id__in=subject_ids)
@@ -1514,8 +1511,6 @@ class TrackingMetaDataExportView(APIView):
         return tracking_metadata, headers
 
     def get(self, request, *args, **kwargs):
-        from utils.csv_streaming import StreamingCSVResponse
-
         local_tz = pytz.timezone(timezone.get_current_timezone_name())
         timestamp = local_tz.localize(datetime.datetime.utcnow())
         output_format = self.request.GET.get("format", "").lower()

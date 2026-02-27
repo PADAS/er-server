@@ -5,6 +5,7 @@ Verifies that both observation segments and subject positions are included
 in a single .pbf response, with consistent permission-based filtering.
 """
 
+import uuid
 from datetime import timedelta
 
 import pytest
@@ -15,8 +16,20 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
 
-from observations.models import Subject, SubjectStatus
-from observations.vector_layers import SubjectVectorLayer
+from accounts.models.permissionset import PermissionSet
+from observations.filters import ObservationSegmentVectorTileFilterSet
+from observations.models import (
+    Observation,
+    ObservationSegment,
+    Source,
+    SourceProvider,
+    Subject,
+    SubjectGroup,
+    SubjectSource,
+    SubjectStatus,
+)
+from observations.vector_layers import ObservationSegmentVectorLayer, SubjectVectorLayer
+from observations.views.vector_tiles_segments import ObservationSegmentTileView
 
 
 @pytest.mark.django_db
@@ -129,8 +142,6 @@ class TestConsolidatedVectorTiles:
 
     def _tile_response(self, user, patch_vector_tile_tenant):
         """Return tile view response for the given user (request.user set directly)."""
-        from observations.views.vector_tiles_segments import ObservationSegmentTileView
-
         url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
         request = APIRequestFactory().get(url)
         request.user = user
@@ -201,19 +212,6 @@ class TestSegmentPermissionFiltering:
 
     def test_segment_layer_respects_delay_hours(self, das_tenant, subject_subtype, user_with_delayed_access):
         """Verify segment layer filters by delay_hours."""
-        from rest_framework.test import APIRequestFactory
-
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectGroup,
-            SubjectSource,
-        )
-        from observations.vector_layers import ObservationSegmentVectorLayer
-
         # Create subject and source (observations use source, not subject)
         subject = Subject.objects.create(
             name="Test Subject",
@@ -294,16 +292,6 @@ class TestSegmentQueryParameterFiltering:
 
     def test_filter_by_subject_id(self, das_tenant, subject_subtype):
         """Verify subject_id filter returns only segments for that subject."""
-        from observations.filters import ObservationSegmentVectorTileFilterSet
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectSource,
-        )
-
         # Create two subjects
         subject1 = Subject.objects.create(name="Subject 1", subject_subtype=subject_subtype, das_tenant=das_tenant)
         subject2 = Subject.objects.create(name="Subject 2", subject_subtype=subject_subtype, das_tenant=das_tenant)
@@ -344,16 +332,6 @@ class TestSegmentQueryParameterFiltering:
 
     def test_filter_by_subject_ids(self, das_tenant, subject_subtype):
         """Verify subject_ids filter returns segments for multiple subjects."""
-        from observations.filters import ObservationSegmentVectorTileFilterSet
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectSource,
-        )
-
         # Create three subjects
         subjects = [
             Subject.objects.create(name=f"Subject {i}", subject_subtype=subject_subtype, das_tenant=das_tenant)
@@ -391,16 +369,6 @@ class TestSegmentQueryParameterFiltering:
 
     def test_filter_by_since(self, das_tenant, subject_subtype):
         """Verify since filter returns segments starting after the given time."""
-        from observations.filters import ObservationSegmentVectorTileFilterSet
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectSource,
-        )
-
         subject = Subject.objects.create(name="Since Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_since", display_name="Test", das_tenant=das_tenant
@@ -442,16 +410,6 @@ class TestSegmentQueryParameterFiltering:
 
     def test_filter_by_until(self, das_tenant, subject_subtype):
         """Verify until filter returns segments ending before the given time."""
-        from observations.filters import ObservationSegmentVectorTileFilterSet
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectSource,
-        )
-
         subject = Subject.objects.create(name="Until Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_until", display_name="Test", das_tenant=das_tenant
@@ -493,16 +451,6 @@ class TestSegmentQueryParameterFiltering:
 
     def test_filter_by_created_after(self, das_tenant, subject_subtype):
         """Verify created_after filter returns segments created after the given time."""
-        from observations.filters import ObservationSegmentVectorTileFilterSet
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectSource,
-        )
-
         subject = Subject.objects.create(name="Created Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_created", display_name="Test", das_tenant=das_tenant
@@ -540,16 +488,6 @@ class TestSegmentQueryParameterFiltering:
 
     def test_filter_show_excluded_false_excludes_flagged(self, das_tenant, subject_subtype):
         """Verify show_excluded=false excludes segments with exclusion flags."""
-        from observations.filters import ObservationSegmentVectorTileFilterSet
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectSource,
-        )
-
         subject = Subject.objects.create(name="Excluded Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_excluded", display_name="Test", das_tenant=das_tenant
@@ -590,16 +528,6 @@ class TestSegmentQueryParameterFiltering:
 
     def test_filter_show_excluded_true_includes_flagged(self, das_tenant, subject_subtype):
         """Verify show_excluded=true includes segments with exclusion flags."""
-        from observations.filters import ObservationSegmentVectorTileFilterSet
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectSource,
-        )
-
         subject = Subject.objects.create(name="Include Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_include", display_name="Test", das_tenant=das_tenant
@@ -639,16 +567,6 @@ class TestSegmentQueryParameterFiltering:
 
     def test_combined_filters(self, das_tenant, subject_subtype):
         """Verify multiple filters can be combined."""
-        from observations.filters import ObservationSegmentVectorTileFilterSet
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectSource,
-        )
-
         subject = Subject.objects.create(name="Combined Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_combined", display_name="Test", das_tenant=das_tenant
@@ -714,18 +632,6 @@ class TestMOUExpiryFiltering:
 
     def test_segment_layer_filters_by_mou_expiry(self, das_tenant, subject_subtype, user):
         """Verify segment layer filters segments by MOU expiry date."""
-        from accounts.models.permissionset import PermissionSet
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectGroup,
-            SubjectSource,
-        )
-        from observations.vector_layers import ObservationSegmentVectorLayer
-
         subject = Subject.objects.create(name="MOU Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_mou", display_name="Test", das_tenant=das_tenant
@@ -785,18 +691,6 @@ class TestMOUExpiryFiltering:
 
     def test_segment_layer_no_mou_expiry_shows_all(self, das_tenant, subject_subtype, user):
         """Verify segment layer shows all segments when no MOU expiry is set."""
-        from accounts.models.permissionset import PermissionSet
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectGroup,
-            SubjectSource,
-        )
-        from observations.vector_layers import ObservationSegmentVectorLayer
-
         subject = Subject.objects.create(name="No MOU Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_no_mou", display_name="Test", das_tenant=das_tenant
@@ -992,16 +886,6 @@ class TestSegmentPresentationProperties:
 
     def test_presentation_uses_subject_rgb(self, das_tenant, subject_subtype):
         """Verify presentation stroke uses subject's RGB color."""
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectSource,
-        )
-        from observations.vector_layers import ObservationSegmentVectorLayer
-
         subject = Subject.objects.create(
             name="RGB Test",
             subject_subtype=subject_subtype,
@@ -1032,16 +916,6 @@ class TestSegmentPresentationProperties:
 
     def test_presentation_default_stroke_color(self, das_tenant, subject_subtype):
         """Verify default stroke color when subject has no RGB."""
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectSource,
-        )
-        from observations.vector_layers import ObservationSegmentVectorLayer
-
         subject = Subject.objects.create(
             name="Default Color Test",
             subject_subtype=subject_subtype,
@@ -1072,16 +946,6 @@ class TestSegmentPresentationProperties:
 
     def test_feature_includes_presentation_properties(self, das_tenant, subject_subtype):
         """Verify as_vector_tile_feature includes presentation properties."""
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectSource,
-        )
-        from observations.vector_layers import ObservationSegmentVectorLayer
-
         subject = Subject.objects.create(
             name="Feature Props Test",
             subject_subtype=subject_subtype,
@@ -1127,8 +991,6 @@ class TestVectorTileEdgeCases:
 
     def test_segment_layer_empty_when_no_segments(self, das_tenant, subject_subtype):
         """Verify layer returns empty queryset when no segments exist."""
-        from observations.vector_layers import ObservationSegmentVectorLayer
-
         # Create subject but no segments
         Subject.objects.create(name="Empty Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
 
@@ -1150,18 +1012,6 @@ class TestVectorTileEdgeCases:
 
     def test_filter_with_nonexistent_subject_id(self, das_tenant, subject_subtype):
         """Verify filter returns empty when subject_id doesn't exist."""
-        import uuid
-
-        from observations.filters import ObservationSegmentVectorTileFilterSet
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectSource,
-        )
-
         subject = Subject.objects.create(name="Exists", subject_subtype=subject_subtype, das_tenant=das_tenant)
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_nonexist", display_name="Test", das_tenant=das_tenant
@@ -1186,16 +1036,6 @@ class TestVectorTileEdgeCases:
 
     def test_multiple_exclusion_flags_combined(self, das_tenant, subject_subtype):
         """Verify segments with multiple exclusion flags are handled correctly."""
-        from observations.filters import ObservationSegmentVectorTileFilterSet
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectSource,
-        )
-
         subject = Subject.objects.create(name="Multi Flag Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_multiflag", display_name="Test", das_tenant=das_tenant
@@ -1233,16 +1073,6 @@ class TestVectorTileEdgeCases:
 
     def test_layer_show_excluded_from_request_params(self, das_tenant, subject_subtype):
         """Verify ObservationSegmentVectorLayer respects show_excluded query param."""
-        from observations.models import (
-            Observation,
-            ObservationSegment,
-            Source,
-            SourceProvider,
-            Subject,
-            SubjectSource,
-        )
-        from observations.vector_layers import ObservationSegmentVectorLayer
-
         subject = Subject.objects.create(
             name="Request Param Test", subject_subtype=subject_subtype, das_tenant=das_tenant
         )
@@ -1349,8 +1179,6 @@ class TestSubjectGroupPermissionFiltering:
         self, das_tenant, subject_subtype, user_with_group_access_and_segments
     ):
         """Non-superuser only sees segments for subjects in their permitted groups."""
-        from observations.vector_layers import ObservationSegmentVectorLayer
-
         user, allowed_subject, denied_subject = user_with_group_access_and_segments
 
         factory = APIRequestFactory()
@@ -1368,8 +1196,6 @@ class TestSubjectGroupPermissionFiltering:
         self, das_tenant, subject_subtype, superuser_with_group_access_and_segments
     ):
         """Superusers bypass group filtering and see all segments."""
-        from observations.vector_layers import ObservationSegmentVectorLayer
-
         superuser, allowed_subject, denied_subject = superuser_with_group_access_and_segments
 
         factory = APIRequestFactory()
@@ -1423,14 +1249,6 @@ def _create_subject_with_status(name, subject_subtype, das_tenant, lon=0.0, lat=
 
 def _create_segments_for_subject(subject, das_tenant):
     """Helper to create observations and segments for a subject."""
-    from observations.models import (
-        Observation,
-        ObservationSegment,
-        Source,
-        SourceProvider,
-        SubjectSource,
-    )
-
     provider, _ = SourceProvider.objects.get_or_create(
         provider_key=f"perm_test_{subject.id}",
         display_name="Perm Test",
@@ -1465,9 +1283,6 @@ def _setup_group_permission_scenario(das_tenant, subject_subtype, user, *, creat
 
     Returns (user, allowed_subject, denied_subject).
     """
-    from accounts.models.permissionset import PermissionSet
-    from observations.models import SubjectGroup
-
     # Create two subjects with locations
     allowed_subject = _create_subject_with_status("Allowed Subject", subject_subtype, das_tenant, lon=10.0, lat=10.0)
     denied_subject = _create_subject_with_status("Denied Subject", subject_subtype, das_tenant, lon=20.0, lat=20.0)
@@ -1543,8 +1358,6 @@ def superuser_with_group_access_and_segments(db, das_tenant, subject_subtype, cr
 @pytest.fixture
 def user_with_no_group_access(db, das_tenant, subject_subtype, create_user):
     """User with no subject group permissions at all."""
-    from observations.models import SubjectGroup
-
     no_access_user = create_user(username="no_group_user")
     no_access_user.additional = {}
     no_access_user.save()
@@ -1567,16 +1380,6 @@ def user_with_no_group_access(db, das_tenant, subject_subtype, create_user):
 @pytest.fixture
 def subject_with_segments_and_status(db, das_tenant, subject_subtype):
     """Create a subject with segments and a current status."""
-    from observations.models import (
-        Observation,
-        ObservationSegment,
-        Source,
-        SourceProvider,
-        Subject,
-        SubjectSource,
-        SubjectStatus,
-    )
-
     subject = Subject.objects.create(
         name="Test Subject with Segments",
         subject_subtype=subject_subtype,
@@ -1634,8 +1437,6 @@ def user_with_realtime_access(db, user):
     permission checks pass; grant only access_ends_0 so get_minimum_allowed_age
     returns 0 (real-time).
     """
-    from accounts.models.permissionset import PermissionSet
-
     view_subject = Permission.objects.get_by_natural_key("view_subject", "observations", "subject")
     view_observation = Permission.objects.get(codename="view_observation")
     access_ends_0 = Permission.objects.get_by_natural_key("access_ends_0", "observations", "subject")
@@ -1657,8 +1458,6 @@ def user_with_delayed_access(db, create_user):
     Grant view_subject and view_observation for the tile view. Grant only
     access_ends_7 so get_minimum_allowed_age returns 7 (delay_hours=168).
     """
-    from accounts.models.permissionset import PermissionSet
-
     delayed_user = create_user(username="delayed_access_user")
     view_subject = Permission.objects.get_by_natural_key("view_subject", "observations", "subject")
     view_observation = Permission.objects.get(codename="view_observation")
@@ -1706,9 +1505,6 @@ def tile_test_subject_visible(subject_with_segments_and_status, user_with_realti
     Without this, by_user_subjects() returns no subjects for the tile view user,
     leading to EmptyResultSet when building the segment/subject layers.
     """
-    from accounts.models.permissionset import PermissionSet
-    from observations.models import SubjectGroup
-
     subject = subject_with_segments_and_status
     group = SubjectGroup.objects.create(name="tile_test_group", das_tenant=subject.das_tenant)
     subject.groups.add(group)

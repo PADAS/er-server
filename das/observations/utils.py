@@ -12,6 +12,7 @@ from geopy.distance import geodesic
 from pytz import timezone
 
 from django.conf import settings
+from django.contrib.gis.geos import Point
 from django.core.exceptions import PermissionDenied
 from django.db import connection
 from django.db.models import Aggregate
@@ -244,8 +245,6 @@ def dateparse(date_str: str, default_tz=pytz.utc):
 
 
 def get_null_point():
-    from django.contrib.gis.geos import Point
-
     point = Point(0, 0)
     return point
 

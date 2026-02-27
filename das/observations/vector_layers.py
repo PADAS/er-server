@@ -12,6 +12,7 @@ Both layers respect user permissions via:
 """
 
 import logging
+from datetime import timedelta
 
 from vectortiles import VectorLayer
 
@@ -19,6 +20,14 @@ from django.contrib.gis.db.models.functions import Transform
 from django.db.models import BooleanField, Case, CharField, F, Func, Value, When, Window
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce, Concat, Lower, RowNumber
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+
+from observations.filters import ObservationSegmentVectorTileFilterSet
+from observations.models import ObservationSegment, Subject
+from observations.utils import get_minimum_allowed_age
+
+logger = logging.getLogger(__name__)
 
 
 class _ISOTimestamp(Func):
@@ -32,12 +41,6 @@ class _ISOTimestamp(Func):
     function = "to_char"
     template = "to_char(%(expressions)s AT TIME ZONE 'UTC'," ' \'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"\')'
     output_field = CharField()
-
-
-from observations.filters import ObservationSegmentVectorTileFilterSet
-from observations.models import ObservationSegment, Subject
-
-logger = logging.getLogger(__name__)
 
 
 class SubjectVectorLayer(VectorLayer):
@@ -68,8 +71,6 @@ class SubjectVectorLayer(VectorLayer):
 
         # Calculate user-specific delay_hours from permissions
         if request and hasattr(request, "user") and request.user.is_authenticated:
-            from observations.utils import get_minimum_allowed_age
-
             min_age_days = get_minimum_allowed_age(request.user) or 0
             self.delay_hours = min_age_days * 24  # Convert days to hours
 
@@ -222,8 +223,6 @@ class ObservationSegmentVectorLayer(VectorLayer):
 
         # Calculate user-specific delay_hours from permissions
         if request and hasattr(request, "user") and request.user.is_authenticated:
-            from observations.utils import get_minimum_allowed_age
-
             min_age_days = get_minimum_allowed_age(request.user) or 0
             self.delay_hours = min_age_days * 24  # Convert days to hours
 
@@ -285,10 +284,6 @@ class ObservationSegmentVectorLayer(VectorLayer):
         # Apply permission-based time filtering
         # Filter segments to only show data up to the user's permitted time window
         if self.delay_hours > 0:
-            from datetime import timedelta
-
-            from django.utils import timezone
-
             # Calculate cutoff: now minus delay_hours = furthest "present" the user can see
             cutoff_time = timezone.now() - timedelta(hours=self.delay_hours)
             # Only show segments that ended before the cutoff
@@ -296,8 +291,6 @@ class ObservationSegmentVectorLayer(VectorLayer):
 
         # Apply MOU expiry date filtering if present
         if self.mou_expiry_date:
-            from django.utils.dateparse import parse_datetime
-
             expiry_dt = (
                 parse_datetime(self.mou_expiry_date) if isinstance(self.mou_expiry_date, str) else self.mou_expiry_date
             )

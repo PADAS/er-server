@@ -407,15 +407,6 @@ class TestObservationSegmentVectorTiles:
 
     def test_iso_timestamps_are_lexicographically_sortable(self, db):
         """Ensure vector layer uses ISO 8601 with 'T' and millisecond precision so strings sort consistently."""
-        from datetime import datetime, timedelta, timezone
-
-        from django.contrib.gis.geos import Point
-        from rest_framework.test import APIRequestFactory
-
-        from core.models import DASTenant
-        from observations.vector_layers import ObservationSegmentVectorLayer
-        from utils.migrations.columns import default_tenant_id
-
         tenant = DASTenant.objects.get(id=default_tenant_id())
         # Minimal subject/source setup
         subject_type, _ = SubjectType.objects.get_or_create(value="wildlife", display="Wildlife", das_tenant=tenant)
