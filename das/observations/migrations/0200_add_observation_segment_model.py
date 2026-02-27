@@ -62,9 +62,10 @@ ON "observations_observationsegment" ("das_tenant_id", "subject_id", "end_record
 CREATE INDEX "observation_das_ten_aee6b0_idx"
 ON "observations_observationsegment" ("das_tenant_id", "subject_id", "exclusion_flags");
 
+-- Unique constraint must include partition key (start_recorded_at) per PostgreSQL rules
 ALTER TABLE "observations_observationsegment"
 ADD CONSTRAINT "observations_observationsegment_unique_segment"
-UNIQUE ("start_observation_id", "end_observation_id");
+UNIQUE ("start_observation_id", "end_observation_id", "start_recorded_at");
 
 -- 3. Register with pg_partman (creates default partition and template)
 SELECT partman.create_parent(
