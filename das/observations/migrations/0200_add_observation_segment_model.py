@@ -8,6 +8,10 @@ import django.contrib.gis.db.models as gis_models
 from django.db import migrations, models
 
 FORWARD_SQL = """
+-- 0. Ensure partman schema and extension exist (mirrors PartitionTableTool._pre_requirements_check)
+CREATE SCHEMA IF NOT EXISTS partman;
+CREATE EXTENSION IF NOT EXISTS pg_partman SCHEMA partman;
+
 -- 1. Create parent table partitioned by start_recorded_at (monthly).
 -- PK (das_tenant_id, id, start_recorded_at) for constraint exclusion and consistency with Observation.
 CREATE TABLE IF NOT EXISTS "observations_observationsegment" (
