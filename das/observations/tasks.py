@@ -410,3 +410,20 @@ def run_partition_table_check() -> None:
     schema = "public"
     logger.info(f"Running partition table check for '{schema}.{table_name}'")
     utils_db_task_helpers.run_partition_table_check(schema=schema, table_name=table_name, logger=logger)
+
+
+@celery.app.task(
+    base=QueueOnce,
+    default_retry_delay=60,
+    max_retries=5,
+    retry_backoff=30,
+    retry_backoff_max=10 * 60,
+)
+def run_observation_segment_partition_table_check() -> None:
+    """
+    Run the partition table check on the observations_observationsegment table.
+    """
+    table_name = "observations_observationsegment"
+    schema = "public"
+    logger.info(f"Running partition table check for '{schema}.{table_name}'")
+    utils_db_task_helpers.run_partition_table_check(schema=schema, table_name=table_name, logger=logger)
