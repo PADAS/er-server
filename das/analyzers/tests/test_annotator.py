@@ -41,7 +41,7 @@ class TestAnnotator(BaseAPITest):
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-class TestObservationAnnotatorNewMethods(BaseAPITest):
+class TestObservationAnnotatorQuerysetAndSegmentation(BaseAPITest):
     """Test annotate_queryset and annotate_with_segmentation methods."""
 
     def setUp(self):
