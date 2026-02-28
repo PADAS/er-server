@@ -22,6 +22,7 @@ from analyzers.proximity import FeatureProximityAnalyzer
 from client_http import HTTPClient
 from mapping.models import SpatialFeature
 from observations.models import Subject, SubjectSubType
+from utils.csv_streaming import read_streaming_response_content
 from utils.gis import get_polygon_info
 
 
@@ -353,7 +354,7 @@ class TestEventGeometryView:
         )
         event_geometry_with_polygon.save()
         response = superuser_client.get(url)
-        content = response.content.decode("utf-8")
+        content = read_streaming_response_content(response)
 
         assert response.status_code == status.HTTP_200_OK
         assert "Area" in content
@@ -470,10 +471,11 @@ class TestEventsExportView:
             analyzer.analyze()
 
     def _get_response_content(self, response):
-        return [line.decode() for line in response.content.split(b"\r\n") if line]
+        content = read_streaming_response_content(response)
+        return [line for line in content.split("\r\n") if line]
 
     def _response_to_dict(self, response):
-        csv_content = response.content.decode("utf-8")  # Decode the byte content into a string
+        csv_content = read_streaming_response_content(response)
         csv_file_like = StringIO(csv_content)
         return [row for row in csv.DictReader(csv_file_like)]
 

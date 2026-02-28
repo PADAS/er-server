@@ -9,10 +9,8 @@ from threading import local
 
 import pytz
 from oauth2_provider.models import get_access_token_model
-from oauthlib.common import generate_token
 from opentelemetry import trace
 
-from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -20,7 +18,7 @@ from django.utils.deprecation import MiddlewareMixin
 from rest_framework import status
 
 from core import persistent_storage
-from core.models.oauth import DASAccessToken, DASApplication
+from core.models.oauth import DASAccessToken
 from observations.utils import (
     LOCATION,
     block_user_temp,
@@ -30,6 +28,7 @@ from observations.utils import (
 )
 from utils import add_base_url, stats
 from utils.categories import should_apply_geographic_features
+from utils.efb_token import EFB_APPLICATION_ID, EFB_COOKIE_NAME, set_efb_token_cookie
 from utils.gis import convert_to_point
 from utils.tenant import get_tenant_settings
 from utils.tenant.exceptions import TenantNotFoundException
@@ -44,9 +43,6 @@ request_data = local()
 ACTIVITY_EVENTS_PATH_REGEX = (
     r"^\/api\/v1.0\/activity\/events?\/?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?\/?$"
 )
-EFB_APPLICATION_ID = "EFB_APPLICATION_ID"
-EFB_ACCESS_TOKEN_NAME = "efb_access_token"
-EFB_COOKIE_NAME = "efb_access_token"
 
 
 class RequestLoggingMiddleware(object):
@@ -296,15 +292,7 @@ def is_check_eula_path(path):
 class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
     def process_response(self, request, response):
         if self._should_create_efb_token(request, response):
-            if token := DASAccessToken.objects.filter(
-                application__client_id=EFB_APPLICATION_ID,
-                user=request.user,
-                expires__gt=timezone.now(),
-            ).first():
-                response.set_cookie(EFB_COOKIE_NAME, token.token, samesite="Lax", secure=True)
-
-            else:
-                self._create_efb_token(request, response)
+            set_efb_token_cookie(request, response)
 
         if "/admin/logout" in request.path:
             self._invalidate_efb_token(request, response)
@@ -324,57 +312,28 @@ class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
     def _invalidate_efb_token(self, request, response):
         user = request.user
 
-        if EFB_ACCESS_TOKEN_NAME not in request.COOKIES:
+        if EFB_COOKIE_NAME not in request.COOKIES:
             if user.is_authenticated:
-                DASAccessToken.objects.filter(application__client_id=EFB_APPLICATION_ID, user=user).delete()
+                try:
+                    DASAccessToken.objects.filter(application__client_id=EFB_APPLICATION_ID, user=user).delete()
+                except Exception as e:
+                    logger.warning(f"Error: {e} invalidating {EFB_COOKIE_NAME}")
             return
 
         try:
             DASAccessToken.objects.filter(
-                application__client_id=EFB_APPLICATION_ID, token=request.COOKIES.get(EFB_ACCESS_TOKEN_NAME)
+                application__client_id=EFB_APPLICATION_ID, token=request.COOKIES.get(EFB_COOKIE_NAME)
             ).delete()
 
-            response.delete_cookie(EFB_ACCESS_TOKEN_NAME)
-            del request.COOKIES[EFB_ACCESS_TOKEN_NAME]
+            response.delete_cookie(EFB_COOKIE_NAME)
+            del request.COOKIES[EFB_COOKIE_NAME]
 
-            logger.info(f"Invalidated access token {EFB_ACCESS_TOKEN_NAME} for user {user.username}")
-
-        except Exception as e:
-            logger.warning(f"Error: {e} invalidating {EFB_ACCESS_TOKEN_NAME} {e}")
-
-    def _create_efb_token(self, request, response):
-        try:
-            efb_app = DASApplication.objects.get(
-                client_id=EFB_APPLICATION_ID,
-            )
-        except DASApplication.DoesNotExist:
-            logger.warning(
-                "EFB application with client_id %s does not exist in tenant %s",
-                EFB_APPLICATION_ID,
-                get_tenant_settings().domain,
-            )
-            return
-
-        try:
-            oauth2_settings = getattr(settings, "OAUTH2_PROVIDER", {})
-            expire_in_secs = oauth2_settings.get("ACCESS_TOKEN_EXPIRE_SECONDS")
-            expires = timezone.now() + timedelta(seconds=expire_in_secs)
-
-            access_token = DASAccessToken.objects.create(
-                user=request.user,
-                token=generate_token(),
-                application=efb_app,
-                expires=expires,
-                scope="read write",
-                das_tenant=request.user.das_tenant,
-            )
-            logger.debug(
-                "Middleware: Created access token for user %s at %s",
-                request.user.username,
-                EFB_ACCESS_TOKEN_NAME,
-            )
-
-            response.set_cookie(EFB_COOKIE_NAME, access_token.token, samesite="Lax", secure=True)
+            logger.info(f"Invalidated access token {EFB_COOKIE_NAME} for user {user.username}")
 
         except Exception as e:
-            logger.error(f"Middleware: Error creating token: {e}")
+            logger.warning(f"Error: {e} invalidating {EFB_COOKIE_NAME}")
+            try:
+                response.delete_cookie(EFB_COOKIE_NAME)
+                request.COOKIES.pop(EFB_COOKIE_NAME, None)
+            except Exception:
+                pass
