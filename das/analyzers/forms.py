@@ -196,7 +196,8 @@ class SubjectProximityAnalyzerForm(forms.ModelForm):
 
 
 class ObservationAttributeAnalyzerForm(BaseAnalyzerForm):
-    BaseAnalyzerForm.Meta.model = ObservationAttributeAnalyzerConfig
+    class Meta(BaseAnalyzerForm.Meta):
+        model = ObservationAttributeAnalyzerConfig
 
 
 class LowSpeedWilcoxSubjectAnalyzerForm(BaseAnalyzerForm):

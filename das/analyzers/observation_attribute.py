@@ -1,7 +1,7 @@
 import json
 import logging
 import statistics
-from typing import Optional
+from typing import Any, Optional
 
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.contrib.gis.geos import Point as DjangoPoint
@@ -103,14 +103,14 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
         return None
 
     @staticmethod
-    def _compare_value(value: any, comparator: str, target_value: any) -> bool:
+    def _compare_value(value: Any, comparator: str, target_value: Any) -> bool:
         """
         Compares a value to a comparison value using the specified comparator.
 
         Args:
-            value (any): The value to compare.
+            value (Any): The value to compare.
             comparator (str): The comparator to use. Supported values are "<", ">", "=", "<=", ">=", and "<>".
-            target_value (any): The value to compare against.
+            target_value (Any): The value to compare against.
 
         Returns:
             bool: True if the comparison is satisfied, False otherwise.
@@ -165,13 +165,13 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
         )
         return save_analyzer_event(event_data)
 
-    def _evaluate_rule(self, value_list: list, target_value) -> tuple[bool, any]:
+    def _evaluate_rule(self, value_list: list, target_value: Any) -> tuple[bool, Any]:
         """
         Evaluates the analyzer rule against a list of values and determines whether the rule is triggered.
 
         Args:
             value_list (list): The list of values to evaluate.
-            target_value (any): The target value to compare against.
+            target_value (Any): The target value to compare against.
 
         Returns:
             tuple: A tuple containing a boolean indicating whether the rule was triggered and the evaluated value.
