@@ -2,6 +2,7 @@ import copy
 
 from drf_spectacular.openapi import AutoSchema
 from oauth2_provider.models import get_access_token_model, get_application_model
+from vectortiles.mixins import BaseVectorTileView
 
 from django.conf import settings
 from django.db import connection
@@ -50,6 +51,17 @@ class CustomSchema(AutoSchema):
 
     def get_tags(self):
         return [self._view.__module__.split(".")[0].replace("_", " ").title()]
+
+
+class DRFMVTView(BaseVectorTileView, generics.GenericAPIView):
+    """
+    Base view for Mapbox Vector Tile endpoints that use DRF authentication and
+    permission_classes. Subclasses BaseVectorTileView with GenericAPIView so that
+    permission_classes and DRF auth are applied (unlike plain MVTView).
+
+    Shared by mapping (SpatialFeatureTileView) and observations (ObservationSegmentTileView).
+    Keep an eye on vectortiles.views.MVTView for upstream changes.
+    """
 
 
 class StatusView(generics.RetrieveAPIView):

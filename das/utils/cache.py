@@ -12,13 +12,13 @@ from __future__ import annotations
 import hashlib
 import logging
 import time
-from typing import Iterable, List, Protocol, Sequence
+from typing import Iterable, Sequence
 from urllib.parse import urlencode
 
 from django.conf import settings
 from django.core.cache import caches
 from django.core.cache.backends.base import InvalidCacheBackendError
-from django.http import HttpRequest
+from django.http import HttpRequest, QueryDict
 
 logger = logging.getLogger(__name__)
 
@@ -81,21 +81,14 @@ def _hash_user(request: HttpRequest) -> str:
     ]  # Use first 8 chars for a shorter hash; sufficient for UUID uniqueness in this context
 
 
-class _QueryDictLike(Protocol):  # pragma: no cover - structural typing only
-    """Subset of django.http.QueryDict we rely on (lists() method)."""
-
-    def lists(self) -> Iterable[tuple[str, List[str]]]:  # noqa: D401
-        ...
-
-
-def _hash_query_params(get_params: _QueryDictLike) -> str:
-    """Produce stable short hash of GET params (multi-value aware)
-    parameter order differences do not affect/change hash
+def hash_query_params(querydict: QueryDict) -> str:
+    """Produce stable short hash of GET params (multi-value aware).
+    Parameter order differences do not affect hash.
     """
-    if not get_params:
+    if not querydict:
         return "noquery"
     # Normalise ordering of (key, [values]) then rely on urlencode for canonical form.
-    canonical = urlencode(sorted(get_params.lists()), doseq=True)
+    canonical = urlencode(sorted(querydict.lists()), doseq=True)
     return hashlib.md5(canonical.encode("utf-8")).hexdigest()[:10]
 
 
@@ -124,7 +117,7 @@ def build_tile_cache_key(
     """
     tenant_component = _get_request_tenant(request)
     user_hash = _hash_user(request)
-    query_hash = _hash_query_params(request.GET) if include_query else "noquery"
+    query_hash = hash_query_params(request.GET) if include_query else "noquery"
     layers_part = ",".join(sorted(layer_ids)) if layer_ids else "nolayers"
 
     components = [
@@ -148,6 +141,7 @@ __all__ = [
     "get_vector_tile_cache",
     "get_vector_tile_data_version",
     "bump_vector_tile_data_version",
+    "hash_query_params",
     "VECTOR_TILE_DATA_VERSION_KEY",
     "delete_tile_keys_by_prefix",
     "invalidate_tile_cache_keys",

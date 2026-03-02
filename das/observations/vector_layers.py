@@ -69,8 +69,8 @@ class SubjectVectorLayer(VectorLayer):
         self.delay_hours = 0  # Default to real-time
         self.mou_expiry_date = None
 
-        # Calculate user-specific delay_hours from permissions
-        if request and hasattr(request, "user") and request.user.is_authenticated:
+        # Calculate user-specific delay_hours from permissions (request set by view after permission_classes)
+        if request:
             min_age_days = get_minimum_allowed_age(request.user) or 0
             self.delay_hours = min_age_days * 24  # Convert days to hours
 
@@ -120,9 +120,8 @@ class SubjectVectorLayer(VectorLayer):
         qs = self.model.objects.all()
 
         # Apply subject group permission filtering for non-superusers
-        if self.request and hasattr(self.request, "user") and self.request.user.is_authenticated:
-            if not self.request.user.is_superuser:
-                qs = qs.by_user_subjects(self.request.user)
+        if self.request and not self.request.user.is_superuser:
+            qs = qs.by_user_subjects(self.request.user)
 
         # Annotate with status at the user's permitted delay_hours
         qs = qs.annotate_with_subjectstatus(
@@ -221,8 +220,8 @@ class ObservationSegmentVectorLayer(VectorLayer):
         self.delay_hours = 0  # Default to real-time
         self.mou_expiry_date = None
 
-        # Calculate user-specific delay_hours from permissions
-        if request and hasattr(request, "user") and request.user.is_authenticated:
+        # Calculate user-specific delay_hours from permissions (request set by view after permission_classes)
+        if request:
             min_age_days = get_minimum_allowed_age(request.user) or 0
             self.delay_hours = min_age_days * 24  # Convert days to hours
 
@@ -270,13 +269,12 @@ class ObservationSegmentVectorLayer(VectorLayer):
         qs = self.model.objects.select_related("subject", "subject__subject_subtype")
 
         # Apply subject group permission filtering for non-superusers
-        if self.request and hasattr(self.request, "user") and self.request.user.is_authenticated:
-            if not self.request.user.is_superuser:
-                allowed_subjects = Subject.objects.by_user_subjects(self.request.user)
-                qs = qs.filter(subject__in=allowed_subjects)
+        if self.request and not self.request.user.is_superuser:
+            allowed_subjects = Subject.objects.by_user_subjects(self.request.user)
+            qs = qs.filter(subject__in=allowed_subjects)
 
         # Apply default exclusion unless 'show_excluded=true'
-        if hasattr(self, "request") and self.request:
+        if self.request:
             show_excluded = (self.request.GET.get("show_excluded", "false") or "false").lower() == "true"
             if not show_excluded:
                 qs = qs.filter(exclusion_flags=0)

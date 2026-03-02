@@ -4,7 +4,6 @@ from itertools import chain
 
 import simplejson as json
 from rest_framework_extensions.etag.decorators import etag
-from vectortiles.mixins import BaseVectorTileView
 
 from django.core.serializers import serialize
 from django.db.models import Count, F, Prefetch
@@ -19,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 import mapping.serializers as serializers
-from das_server.views import CustomSchema
+from das_server.views import CustomSchema, DRFMVTView
 from mapping import app_settings
 from mapping.models import (
     DisplayCategory,
@@ -275,13 +274,6 @@ class LayerJsonView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return TileLayer.objects.all()
-
-
-class DRFMVTView(BaseVectorTileView, generics.GenericAPIView):
-    """Subclass of BaseVectorTileView that uses DRF views for authentication and authorization.
-    This is necessary because BaseVectorTileView uses Django's View class, which does not support DRF's authentication and authorization.
-    Keep an eye on MVTView in vectortiles.views for updates needed to this.
-    """
 
 
 class SpatialFeatureTileView(DRFMVTView):

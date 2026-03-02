@@ -1,11 +1,10 @@
 import hashlib
 import logging
 
-from vectortiles.views import MVTView
-
 from django.http import HttpResponse
+from rest_framework.permissions import BasePermission
 
-from das_server.views import CustomSchema
+from das_server.views import CustomSchema, DRFMVTView
 from observations.permissions import SubjectModelPermissions
 from observations.utils import VIEW_OBSERVATION_PERMS
 from observations.vector_layers import ObservationSegmentVectorLayer, SubjectVectorLayer
@@ -17,6 +16,30 @@ from utils.cache import (
 from utils.tenant.providers import get_tenant_data_by_host
 
 logger = logging.getLogger(__name__)
+
+
+class ObservationSegmentTilePermission(BasePermission):
+    """
+    Allow access only when request host resolves to a valid tenant and user
+    has permission to view observations. Used so permission_classes on the
+    tile view are enforced (tenant + observation view perm).
+    """
+
+    def has_permission(self, request, view):
+        host = request.get_host().split(":")[0]
+        try:
+            tenant_data = get_tenant_data_by_host(host)
+        except Exception as e:
+            logger.warning("Tenant data fetch error: %s", e)
+            return False
+        if not tenant_data.get("domain"):
+            logger.warning("Missing tenant domain for host: %s", host)
+            return False
+        try:
+            return request.user.has_any_perms(VIEW_OBSERVATION_PERMS)
+        except Exception as e:
+            logger.warning("Error checking observation permissions: %s", e)
+            return False
 
 
 class ObservationSegmentTileViewSchema(CustomSchema):
@@ -68,7 +91,7 @@ class ObservationSegmentTileViewSchema(CustomSchema):
         return operation
 
 
-class ObservationSegmentTileView(MVTView):
+class ObservationSegmentTileView(DRFMVTView):
     """
     Vector tile endpoint for pre-computed ObservationSegment geometries.
 
@@ -90,7 +113,7 @@ class ObservationSegmentTileView(MVTView):
     """
 
     layer_classes = [ObservationSegmentVectorLayer, SubjectVectorLayer]
-    permission_classes = (SubjectModelPermissions,)
+    permission_classes = (SubjectModelPermissions, ObservationSegmentTilePermission)
     content_type = "application/vnd.mapbox-vector-tile"
     schema = ObservationSegmentTileViewSchema()
 
@@ -109,7 +132,10 @@ class ObservationSegmentTileView(MVTView):
     def get(self, request, z, x, y):
         """
         Handle GET request for vector tiles.
-        Implements tenant validation, permission checks, caching, and error handling.
+        Implements tile validation, caching, and error handling.
+        Authentication, tenant validity, and observation view permission
+        are enforced by permission_classes (SubjectModelPermissions,
+        ObservationSegmentTilePermission).
         """
         # Validate tile coordinates: z in 0-24, x/y within valid range for zoom
         try:
@@ -123,20 +149,6 @@ class ObservationSegmentTileView(MVTView):
         max_tile = (1 << z) - 1
         if x < 0 or x > max_tile or y < 0 or y > max_tile:
             return HttpResponse("Tile out of range for zoom level", status=400)
-
-        host = request.get_host().split(":")[0]
-        try:
-            tenant_data = get_tenant_data_by_host(host)
-        except Exception as e:
-            logger.error(f"Tenant data fetch error: {e}")
-            return HttpResponse(f"Failed to retrieve tenant data for host: {host}", status=500)
-        if not tenant_data.get("domain"):
-            logger.error(f"Missing tenant domain for host: {host}")
-            return HttpResponse("Missing tenant domain", status=500)
-
-        if not self._check_observation_permissions(request):
-            logger.warning(f"Permission denied for user {getattr(request.user, 'id', None)}")
-            return HttpResponse("Permission denied", status=403)
 
         layer_ids = [lc.id for lc in self.layer_classes]
         try:
@@ -188,7 +200,7 @@ class ObservationSegmentTileView(MVTView):
 
         # Cache miss — regenerate tile from the database.
         self.layers = [lc(request=request) for lc in self.layer_classes]
-        response = super().get(request, z, x, y)
+        response = self._get(request, z, x, y)
         if response.status_code in (200, 204) and response.get("Content-Type", "").startswith(
             "application/vnd.mapbox-vector-tile"
         ):
@@ -203,10 +215,7 @@ class ObservationSegmentTileView(MVTView):
         response["Vary"] = self.VARY_HEADER
         return response
 
-    def _check_observation_permissions(self, request):
-        """Check if user has permission to view observations."""
-        try:
-            return request.user.has_any_perms(VIEW_OBSERVATION_PERMS)
-        except Exception as e:
-            logger.warning(f"Error checking observation permissions: {e}")
-            return False
+    def _get(self, request, z, x, y, *args, **kwargs):
+        """Serve tile content; used after cache miss. See vectortiles mixins get_content_status."""
+        content, status = self.get_content_status(int(z), int(x), int(y))
+        return HttpResponse(content, content_type=self.content_type, status=status)

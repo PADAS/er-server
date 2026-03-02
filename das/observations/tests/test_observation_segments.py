@@ -15,7 +15,6 @@ import pytest
 
 from django.contrib.gis.geos import LineString, Point
 from django.urls import reverse
-from rest_framework.test import APIRequestFactory
 
 from core.models import DASTenant
 from observations.models import (
@@ -439,8 +438,6 @@ class TestObservationSegmentVectorTiles:
         ObservationSegment.objects.create_segment(obs2, obs3, subject)
 
         layer = ObservationSegmentVectorLayer()
-        request = APIRequestFactory().get("/tiles")
-        layer.request = request
         qs = layer.get_vector_tile_queryset()
         features = [layer.as_vector_tile_feature(obj) for obj in qs]
 
@@ -490,10 +487,6 @@ class TestObservationSegmentVectorTiles:
 
         # Layer-level queryset with annotation
         layer = ObservationSegmentVectorLayer()
-        factory = APIRequestFactory()
-        request = factory.get("/tiles")
-        layer.request = request
-
         qs = layer.get_vector_tile_queryset()
         segments = list(qs)
         assert len(segments) == 2
@@ -589,9 +582,6 @@ class TestObservationSegmentVectorTiles:
 
         # Get feature from vector layer (use annotated queryset so start_time/end_time exist)
         layer = ObservationSegmentVectorLayer()
-        factory = APIRequestFactory()
-        request = factory.get("/tiles")
-        layer.request = request
         qs = layer.get_vector_tile_queryset()
         segment = qs.filter(subject=subject).first()
         assert segment is not None, "segment should exist in vector tile queryset"
@@ -632,10 +622,6 @@ class TestObservationSegmentVectorTiles:
 
         # Get features from vector layer
         layer = ObservationSegmentVectorLayer()
-        factory = APIRequestFactory()
-        request = factory.get("/tiles")
-        layer.request = request
-
         qs = layer.get_vector_tile_queryset()
         features = [layer.as_vector_tile_feature(obj) for obj in qs]
 

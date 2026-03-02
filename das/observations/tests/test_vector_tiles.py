@@ -968,10 +968,6 @@ class TestSegmentPresentationProperties:
         segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
 
         layer = ObservationSegmentVectorLayer()
-        factory = APIRequestFactory()
-        request = factory.get("/tiles")
-        layer.request = request
-
         # Need to get segment from queryset to have annotations
         qs = layer.get_vector_tile_queryset()
         annotated_segment = qs.get(id=segment.id)
@@ -1480,9 +1476,8 @@ def user_with_delayed_access(db, create_user):
 def api_client_with_user(db, user_with_realtime_access):
     """Create an authenticated API client with real-time access.
 
-    Uses force_login (session auth) because ObservationSegmentTileView is a
-    plain Django View, not a DRF APIView — force_authenticate only injects
-    the user for APIView subclasses.
+    The tile view is a DRF view (DRFMVTView), so both force_authenticate and
+    force_login work. Using force_login for session auth.
     """
     client = APIClient()
     client.force_login(user_with_realtime_access)
