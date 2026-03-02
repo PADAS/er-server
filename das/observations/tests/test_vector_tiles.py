@@ -114,7 +114,7 @@ class TestSubjectVectorLayer:
         behavior (delay_hours and queryset) without depending on the permission
         backend in CI (avoids cache/M2M flakiness).
         """
-        monkeypatch.setattr("observations.utils.get_minimum_allowed_age", lambda user: 7)
+        monkeypatch.setattr("observations.vector_layers.get_minimum_allowed_age", lambda user: 7)
         factory = APIRequestFactory()
         request = factory.get("/observations/segments/tiles/10/512/512.pbf")
         request.user = user_with_delayed_access

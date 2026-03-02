@@ -70,7 +70,7 @@ class SubjectVectorLayer(VectorLayer):
         self.mou_expiry_date = None
 
         # Calculate user-specific delay_hours from permissions (request set by view after permission_classes)
-        if request:
+        if request and getattr(request, "user", None) is not None:
             min_age_days = get_minimum_allowed_age(request.user) or 0
             self.delay_hours = min_age_days * 24  # Convert days to hours
 
@@ -120,7 +120,7 @@ class SubjectVectorLayer(VectorLayer):
         qs = self.model.objects.all()
 
         # Apply subject group permission filtering for non-superusers
-        if self.request and not self.request.user.is_superuser:
+        if self.request and getattr(self.request, "user", None) is not None and not self.request.user.is_superuser:
             qs = qs.by_user_subjects(self.request.user)
 
         # Annotate with status at the user's permitted delay_hours
@@ -221,7 +221,7 @@ class ObservationSegmentVectorLayer(VectorLayer):
         self.mou_expiry_date = None
 
         # Calculate user-specific delay_hours from permissions (request set by view after permission_classes)
-        if request:
+        if request and getattr(request, "user", None) is not None:
             min_age_days = get_minimum_allowed_age(request.user) or 0
             self.delay_hours = min_age_days * 24  # Convert days to hours
 
@@ -269,7 +269,7 @@ class ObservationSegmentVectorLayer(VectorLayer):
         qs = self.model.objects.select_related("subject", "subject__subject_subtype")
 
         # Apply subject group permission filtering for non-superusers
-        if self.request and not self.request.user.is_superuser:
+        if self.request and getattr(self.request, "user", None) is not None and not self.request.user.is_superuser:
             allowed_subjects = Subject.objects.by_user_subjects(self.request.user)
             qs = qs.filter(subject__in=allowed_subjects)
 

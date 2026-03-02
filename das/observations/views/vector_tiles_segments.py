@@ -5,6 +5,7 @@ from django.http import HttpResponse
 from rest_framework.permissions import BasePermission
 
 from das_server.views import CustomSchema, DRFMVTView
+from observations.models import Subject
 from observations.permissions import SubjectModelPermissions
 from observations.utils import VIEW_OBSERVATION_PERMS
 from observations.vector_layers import ObservationSegmentVectorLayer, SubjectVectorLayer
@@ -128,6 +129,12 @@ class ObservationSegmentTileView(DRFMVTView):
 
     # Response varies by auth so shared caches do not serve one user's tile to another
     VARY_HEADER = "Authorization, Cookie"
+
+    def get_queryset(self):
+        """Return a queryset for DRF permission classes (SubjectModelPermissions needs a model).
+        This view serves tiles from layer_classes, not from a single queryset.
+        """
+        return Subject.objects.none()
 
     def get(self, request, z, x, y):
         """
