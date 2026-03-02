@@ -24,6 +24,7 @@ from django.contrib import admin
 from django.urls import path, re_path
 
 from accounts.auth0_admin import (
+    INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME,
     admin_login_entrypoint,
     admin_logout,
     auth0_callback,
@@ -62,7 +63,7 @@ urlpatterns = [
     ),
     path("api/v1.0/docs/", include("docs.urls")),
     # Auth0 admin authentication URLs
-    path("auth/admin-login/", initiate_auth0_admin_login, name="auth0_admin_login"),
+    path("auth/admin-login/", initiate_auth0_admin_login, name=INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME),
     path("auth/callback/", auth0_callback, name="auth0_callback"),
     # Override admin login with conditional Auth0 integration
     path("admin/login/", admin_login_entrypoint, name="admin_login"),

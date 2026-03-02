@@ -16,7 +16,7 @@ from authlib.integrations.django_client import OAuth
 
 from django.conf import settings
 from django.contrib import admin
-from django.contrib.auth import login
+from django.contrib.auth import BACKEND_SESSION_KEY, login
 from django.contrib.auth import logout as django_logout
 from django.http import HttpResponse
 from django.shortcuts import redirect
@@ -27,6 +27,13 @@ from django.views.decorators.csrf import csrf_exempt
 from accounts.backends import Auth0BackendForStaffUsers
 from utils.efb_token import set_efb_token_cookie
 from utils.tenant import get_tenant_settings
+
+
+def _get_backend_path(backend_class):
+    return f"{backend_class.__module__}.{backend_class.__qualname__}"
+
+
+AUTH0_BACKEND_PATH = _get_backend_path(Auth0BackendForStaffUsers)
 
 logger = logging.getLogger(__name__)
 
@@ -75,20 +82,24 @@ def admin_login_entrypoint(request):
         logger.error("Failed to get tenant settings in admin login: %s", e)
         return _use_default_django_admin_login(request)
 
+    user = getattr(request, "user", None)
+    next_param = _get_safe_next_url(request)
+
     if require_idp and org_id:
-        next_param = _get_safe_next_url(request)
-
-        user = getattr(request, "user", None)
-        if user and user.is_authenticated and user.is_staff:
-            response = redirect(next_param)
-            set_efb_token_cookie(request, response)
-            return response
-
-        logger.debug("Redirecting to Auth0 admin login for tenant with require_idp=True")
-        query = urllib.parse.urlencode({"next": next_param, "org_id": org_id})
-        return redirect(f"{reverse('auth0_admin_login')}?{query}")
-    else:
+        session = getattr(request, "session", {})
+        authenticated_via_auth0 = (
+            user and user.is_authenticated and user.is_staff and session.get(BACKEND_SESSION_KEY) == AUTH0_BACKEND_PATH
+        )
+        if not authenticated_via_auth0:
+            logger.debug("Redirecting to Auth0 admin login for tenant with require_idp=True")
+            query = urllib.parse.urlencode({"next": next_param, "org_id": org_id})
+            return redirect(f"{reverse(INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME)}?{query}")
+    elif not (user and user.is_authenticated and user.is_staff):
         return _use_default_django_admin_login(request)
+
+    response = redirect(next_param)
+    set_efb_token_cookie(request, response)
+    return response
 
 
 def admin_logout(request):
@@ -126,6 +137,11 @@ def admin_logout(request):
 def _use_default_django_admin_login(request):
     logger.debug("Using Django default admin login")
     return admin.site.login(request)
+
+
+# Exported so middleware and URL registration share the same string - keeping
+# them from drifting out of sync if this view's URL name ever changes.
+INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME = "auth0_admin_login"
 
 
 def initiate_auth0_admin_login(request):
@@ -172,7 +188,7 @@ def auth0_callback(request):
         token = _admin_auth0_client.auth0.authorize_access_token(request)
         admin_user = _auth0_admin_backend.authenticate(request, token=token)
         if admin_user:
-            login(request, admin_user, backend="accounts.backends.Auth0BackendForStaffUsers")
+            login(request, admin_user, backend=AUTH0_BACKEND_PATH)
             logger.info(
                 "Successfully authenticated user %s via Auth0 for admin access",
                 admin_user.username,
