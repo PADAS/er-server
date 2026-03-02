@@ -32,6 +32,7 @@ jobs:
     needs: build_sphinx_docs
     with:
       repository: europe-west3-docker.pkg.dev/padas-app/er-mt/das-server
+      secondary-repository: europe-west3-docker.pkg.dev/serca-artifact-registry/serca-apps/das-server
       tag: ${{ github.head_ref || github.ref_name }}-${{ github.run_number }}
       dockerfile: Dockerfile.mt
       artifact-download: true
