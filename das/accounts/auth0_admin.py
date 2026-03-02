@@ -16,15 +16,24 @@ from authlib.integrations.django_client import OAuth
 
 from django.conf import settings
 from django.contrib import admin
-from django.contrib.auth import login
+from django.contrib.auth import BACKEND_SESSION_KEY, login
 from django.contrib.auth import logout as django_logout
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_exempt
 
 from accounts.backends import Auth0BackendForStaffUsers
+from utils.efb_token import set_efb_token_cookie
 from utils.tenant import get_tenant_settings
+
+
+def _get_backend_path(backend_class):
+    return f"{backend_class.__module__}.{backend_class.__qualname__}"
+
+
+AUTH0_BACKEND_PATH = _get_backend_path(Auth0BackendForStaffUsers)
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +50,26 @@ _admin_auth0_client.register(
 
 _auth0_admin_backend = Auth0BackendForStaffUsers()
 
+DEFAULT_ADMIN_NEXT = "/admin/"
+
+
+def _get_safe_next_url(request, default=None):
+    if default is None:
+        default = DEFAULT_ADMIN_NEXT
+    next_param = request.GET.get("next", default)
+    if url_has_allowed_host_and_scheme(next_param, allowed_hosts={request.get_host()}):
+        return next_param
+    return default
+
 
 def admin_login_entrypoint(request):
     """
     Conditional admin login entrypoint that checks the tenant's require_idp flag.
 
-    If require_idp=True, redirects to Auth0 login initiation.
+    If require_idp=True and the user is already authenticated, creates the token cookie and redirects
+    to the intended destination without a redundant Auth0 round-trip.
+
+    If require_idp=True and the user is not authenticated, redirects to Auth0 login.
     If require_idp=False, uses Django's default admin login.
 
     This function replaces the default admin login URL handler.
@@ -57,15 +80,26 @@ def admin_login_entrypoint(request):
         org_id = tenant_settings.feature_flags.idp_org_id
     except Exception as e:
         logger.error("Failed to get tenant settings in admin login: %s", e)
-        # Fail safely to Django default admin login
         return _use_default_django_admin_login(request)
 
+    user = getattr(request, "user", None)
+    next_param = _get_safe_next_url(request)
+
     if require_idp and org_id:
-        logger.debug("Redirecting to Auth0 admin login for tenant with require_idp=True")
-        next_param = request.GET.get("next", "/admin/")
-        return redirect(f"{reverse('auth0_admin_login')}?next={next_param}&org_id={org_id}")
-    else:
+        session = getattr(request, "session", {})
+        authenticated_via_auth0 = (
+            user and user.is_authenticated and user.is_staff and session.get(BACKEND_SESSION_KEY) == AUTH0_BACKEND_PATH
+        )
+        if not authenticated_via_auth0:
+            logger.debug("Redirecting to Auth0 admin login for tenant with require_idp=True")
+            query = urllib.parse.urlencode({"next": next_param, "org_id": org_id})
+            return redirect(f"{reverse(INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME)}?{query}")
+    elif not (user and user.is_authenticated and user.is_staff):
         return _use_default_django_admin_login(request)
+
+    response = redirect(next_param)
+    set_efb_token_cookie(request, response)
+    return response
 
 
 def admin_logout(request):
@@ -105,12 +139,17 @@ def _use_default_django_admin_login(request):
     return admin.site.login(request)
 
 
+# Exported so middleware and URL registration share the same string - keeping
+# them from drifting out of sync if this view's URL name ever changes.
+INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME = "auth0_admin_login"
+
+
 def initiate_auth0_admin_login(request):
     """
     Initiates Auth0 login for Django Admin.
     Stores the 'next' parameter in session for retrieval after OAuth callback.
     """
-    next_param = request.GET.get("next", "/admin/")
+    next_param = _get_safe_next_url(request)
     request.session["auth0_admin_next"] = next_param
 
     org_id = request.GET.get("org_id")
@@ -149,13 +188,17 @@ def auth0_callback(request):
         token = _admin_auth0_client.auth0.authorize_access_token(request)
         admin_user = _auth0_admin_backend.authenticate(request, token=token)
         if admin_user:
-            login(request, admin_user, backend="accounts.backends.Auth0BackendForStaffUsers")
+            login(request, admin_user, backend=AUTH0_BACKEND_PATH)
             logger.info(
                 "Successfully authenticated user %s via Auth0 for admin access",
                 admin_user.username,
             )
-            next_url = request.session.pop("auth0_admin_next", "/admin/")
-            return redirect(next_url)
+            next_url = request.session.pop("auth0_admin_next", DEFAULT_ADMIN_NEXT)
+            if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+                next_url = DEFAULT_ADMIN_NEXT
+            response = redirect(next_url)
+            set_efb_token_cookie(request, response)
+            return response
         else:
             logger.error("Auth0 authentication failed or user lacks admin privileges")
             return HttpResponse("Authentication failed - insufficient privileges", status=403)

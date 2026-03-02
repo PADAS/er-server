@@ -190,7 +190,7 @@ class DisplayCategoryForm(forms.ModelForm):
     feature_classes = forms.ModelMultipleChoiceField(
         queryset=SpatialFeatureType.objects.none(),
         required=False,
-        widget=FilteredSelectMultiple(verbose_name=_("Feature Classes"), is_stacked=False),
+        widget=FilteredSelectMultiple(verbose_name=_("Feature Types"), is_stacked=False),
     )
 
     def __init__(self, *args, **kwargs):
@@ -200,9 +200,24 @@ class DisplayCategoryForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             self.fields["feature_classes"].initial = self.instance.spatialfeaturetype_set.all()
 
+    def clean_name(self):
+        name = self.cleaned_data.get("name")
+        if not name:
+            return name
+        qs = DisplayCategory.objects.filter(name=name)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError(
+                _("A display category with this name already exists for this tenant."),
+                code="unique",
+            )
+        return name
+
     def save(self, commit=True):
         instance = super().save(commit)
-        instance.spatialfeaturetype_set.set(self.cleaned_data["feature_classes"])
+        if commit:
+            instance.spatialfeaturetype_set.set(self.cleaned_data["feature_classes"])
         return instance
 
 
@@ -211,8 +226,8 @@ class ArcgisConfigurationForm(forms.ModelForm):
     disable_import_feature_class_presentation = forms.BooleanField(
         widget=forms.CheckboxInput(),
         help_text=(
-            "Check to pause the importing of Feature Class presentation.  "
-            "Note, Feature Class names will still be imported. This will not "
+            "Check to pause the importing of Feature Type presentation.  "
+            "Note, Feature Type names will still be imported. This will not "
             "affect the importing of Features."
         ),
         required=False,

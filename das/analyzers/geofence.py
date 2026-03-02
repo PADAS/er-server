@@ -10,13 +10,8 @@ from django.utils.translation import gettext_lazy as _
 from activity.models import Event, EventType
 from analyzers.base import SubjectAnalyzer
 from analyzers.geofence_crossings_analysis import DasGeofenceAnalysis
-from analyzers.models import (
-    CRITICAL,
-    WARNING,
-    GeofenceAnalyzerConfig,
-    SubjectAnalyzerResult,
-)
-from analyzers.models.base import EVENT_PRIORITY_MAP
+from analyzers.models import GeofenceAnalyzerConfig, SubjectAnalyzerResult
+from analyzers.models.base import CRITICAL, EVENT_PRIORITY_MAP, WARNING
 from analyzers.utils import save_analyzer_event
 from mapping.models import SpatialFeature
 
@@ -151,6 +146,11 @@ class GeofenceAnalyzer(SubjectAnalyzer):
                 "total_fix_count": traj.relocs.fix_count,
                 "subject_speed_kmhr": round(cross.subject_speed_kmhr, 2),
                 "subject_heading": round(cross.subject_heading, 2),
+                "feature_group_name": (
+                    self.config.warning_geofence_group.name
+                    if result.level == WARNING
+                    else self.config.critical_geofence_group.name
+                ),
             }
 
             self.logger.info(result.message)

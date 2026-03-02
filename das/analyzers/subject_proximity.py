@@ -8,11 +8,8 @@ from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.contrib.gis.geos import Point as DjangoPoint
 from django.utils.translation import gettext_lazy as _
 
-from analyzers.models import (
-    CRITICAL,
-    SubjectAnalyzerResult,
-    SubjectProximityAnalyzerConfig,
-)
+from analyzers.models import SubjectAnalyzerResult, SubjectProximityAnalyzerConfig
+from analyzers.models.base import CRITICAL
 from analyzers.proximity import ProximityAnalyzer
 
 

@@ -329,7 +329,7 @@ def get_feature_class(name):
         return models.LineFeature
     if "point" in name_lower:
         return models.PointFeature
-    raise KeyError("EarthRanger Feature class not found for {0}".format(name))
+    raise KeyError("EarthRanger Feature type not found for {0}".format(name))
 
 
 def get_featuretype_for_feature(feature, default=None):
@@ -350,7 +350,11 @@ def get_display_category(display_category_name, create_okay=True):
         display_category = models.DisplayCategory.objects.get_by_natural_key(display_category_name)
     except models.DisplayCategory.DoesNotExist:
         if create_okay:
-            display_category = models.DisplayCategory.objects.create(name=display_category_name)
+            try:
+                display_category = models.DisplayCategory.objects.create(name=display_category_name)
+            except IntegrityError:
+                # Unique (das_tenant, name) was violated (e.g. race with another request).
+                display_category = models.DisplayCategory.objects.get_by_natural_key(display_category_name)
         else:
             raise
     return display_category

@@ -22,6 +22,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import router, transaction
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
+from django.db.utils import IntegrityError
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -157,6 +158,17 @@ class DisplayCategoryAdmin(BaseModelAdminMixin):
     list_display = ("name",)
     ordering = ("name",)
     form = DisplayCategoryForm
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        try:
+            return super().changeform_view(request, object_id, form_url, extra_context)
+        except IntegrityError:
+            self.message_user(
+                request,
+                _("A display category with this name already exists for this tenant."),
+                level=messages.ERROR,
+            )
+            return HttpResponseRedirect(request.get_full_path())
 
 
 @admin.register(models.SpatialFeatureGroupStatic)

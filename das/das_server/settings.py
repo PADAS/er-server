@@ -315,7 +315,9 @@ AUTH0_CLIENT_SECRET_FOR_DJANGO_ADMIN = env.str("AUTH0_CLIENT_SECRET_FOR_DJANGO_A
 # When require_idp=True (Auth0 enforced), allow these legacy DOT OAuth2 applications
 # (identified by OAuth2 application client_id) to continue using OAuth2 access tokens.
 # This is a global allowlist across tenants.
-IDP_OAUTH2_CLIENT_IDS_ALLOWLIST = env.list("IDP_OAUTH2_CLIENT_IDS_ALLOWLIST", default=["das_kml_export", "gundi"])
+IDP_OAUTH2_CLIENT_IDS_ALLOWLIST = env.list(
+    "IDP_OAUTH2_CLIENT_IDS_ALLOWLIST", default=["das_kml_export", "gundi", "EFB_APPLICATION_ID"]
+)
 
 # This is the connection name we have defined (`foo-bar-baz`) in our Auth0 tenant.
 # This is NOT the opaque connection id Auth0 generates (`con_uGlYF0oBaR`)

@@ -222,11 +222,8 @@ class TestGeofenceAnalyzer(TestCase):
         self.assertEqual(len(results), 1)
 
         for e in Event.objects.all():
-            self.assertTrue(e.event_details.all().exists())
-
-        for e in Event.objects.all():
             for ed in e.event_details.all():
-                logger.info(f"Event Details: {ed.data}")
+                assert ed.data["event_details"]["feature_group_name"] == gf_grp.name
 
     def test_geofencing_logic(self):
         """Test functioning of the geofence algorithm logic"""
