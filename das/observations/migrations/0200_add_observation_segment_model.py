@@ -142,23 +142,28 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunPython(create_partitioned_observation_segment, reverse_partitioned_observation_segment),
-        migrations.CreateModel(
-            name="ObservationSegment",
-            fields=[
-                ("id", models.UUIDField(primary_key=True, serialize=False, default=uuid.uuid4)),
-                ("geometry", gis_models.LineStringField(srid=4326)),
-                ("speed_kmh", models.FloatField()),
-                ("time_gap_ms", models.FloatField()),
-                ("distance_meters", models.FloatField()),
-                ("start_recorded_at", models.DateTimeField(db_index=True)),
-                ("end_recorded_at", models.DateTimeField(db_index=True)),
-                ("exclusion_flags", models.BigIntegerField()),
-                ("created_at", models.DateTimeField(auto_now_add=True)),
-                ("updated_at", models.DateTimeField(auto_now=True)),
-                ("das_tenant_id", models.UUIDField()),
-                ("start_observation_id", models.UUIDField()),
-                ("end_observation_id", models.UUIDField()),
-                ("subject_id", models.UUIDField()),
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.CreateModel(
+                    name="ObservationSegment",
+                    fields=[
+                        ("id", models.UUIDField(primary_key=True, serialize=False, default=uuid.uuid4)),
+                        ("geometry", gis_models.LineStringField(srid=4326)),
+                        ("speed_kmh", models.FloatField()),
+                        ("time_gap_ms", models.FloatField()),
+                        ("distance_meters", models.FloatField()),
+                        ("start_recorded_at", models.DateTimeField(db_index=True)),
+                        ("end_recorded_at", models.DateTimeField(db_index=True)),
+                        ("exclusion_flags", models.BigIntegerField()),
+                        ("created_at", models.DateTimeField(auto_now_add=True)),
+                        ("updated_at", models.DateTimeField(auto_now=True)),
+                        ("das_tenant_id", models.UUIDField()),
+                        ("start_observation_id", models.UUIDField()),
+                        ("end_observation_id", models.UUIDField()),
+                        ("subject_id", models.UUIDField()),
+                    ],
+                ),
             ],
+            database_operations=[],
         ),
     ]
