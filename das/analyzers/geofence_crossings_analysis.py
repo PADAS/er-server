@@ -51,11 +51,12 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
                     # Attempt the intersection of the trajectory segment with the fence
                     intersect_pnts = trajseg.ogr_geometry.Intersection(fence.ogr_geometry)
 
-                    # intersect_pnts can either be None, POINT, or MULTIPOINT if the geofence is a line or multi-line,
+                    # intersect_pnts is the result of the OGR Intersection operation and may be
+                    # None, empty, or a geometry of type POINT, MULTIPOINT, LINESTRING,
+                    # MULTILINESTRING, or GEOMETRYCOLLECTION depending on the fence geometry.
                     if intersect_pnts is None or intersect_pnts.IsEmpty():
                         continue
 
-                    # empty or one of POINT, MULTIPOINT, LINESTRING, MULTILINESTRING, or GEOMETRYCOLLECTION.
                     _intersectPnts = []
                     if intersect_pnts.GetGeometryName() == "POINT":
                         newPoint = ogr.Geometry(ogr.wkbPoint)

@@ -735,9 +735,6 @@ class TestCornerClipping(TestCase):
         self.subject_group.subjects.add(self.subject)
         self.subject_group.save()
 
-    def test_corner_clipping_disabled(self):
-        """Test that corner clipping events are NOT triggered when trigger_on_corner_clip=False"""
-
         # Create a rectangular geofence from lat -1.0 to -0.9, lon 34.9 to 35.1
         geofence_geom = LineString([(34.9, -1.0), (35.1, -1.0), (35.1, -0.9), (34.9, -0.9), (34.9, -1.0)])
         spatial_feature_type = SpatialFeatureType.objects.get_or_create(name="test_geofence")[0]
@@ -749,6 +746,9 @@ class TestCornerClipping(TestCase):
         self.spatial_feature_group = SpatialFeatureGroupStatic.objects.create(name="Corner Clip Fences")
         self.spatial_feature_group.features.add(gf)
         self.spatial_feature_group.save()
+
+    def test_corner_clipping_disabled(self):
+        """Test that corner clipping events are NOT triggered when trigger_on_corner_clip=False"""
 
         # Create analyzer config with trigger_on_corner_clip=False
         config = GeofenceAnalyzerConfig.objects.create(
@@ -769,7 +769,7 @@ class TestCornerClipping(TestCase):
         results = SubjectAnalyzerResult.objects.filter(subject=self.subject)
         assert len(results) == 0, f"Expected 0 results with corner clipping disabled, got {len(results)}"
 
-    def test_corner_clipping_enabled(self):
+    def _test_corner_clipping(self):
         """Test that corner clipping events ARE triggered when trigger_on_corner_clip=True"""
 
         # Create analyzer config with trigger_on_corner_clip=True
@@ -794,7 +794,10 @@ class TestCornerClipping(TestCase):
         assert results[0][1].location.coords == (35.1, -0.95)
         assert results[1][1].location.coords == (34.9, -0.95)
 
-    def test_polygon_geofence(self):
+    def test_corner_clipping_enabled_multiline_geofence(self):
+        self._test_corner_clipping()
+
+    def test_corner_clipping_enabled_polygon_geofence(self):
         geofence_geom = Polygon([(34.9, -1.0), (35.1, -1.0), (35.1, -0.9), (34.9, -0.9), (34.9, -1.0)])
         spatial_feature_type = SpatialFeatureType.objects.get_or_create(name="test_polygon_geofence")[0]
         gf = SpatialFeature.objects.create(
@@ -806,4 +809,4 @@ class TestCornerClipping(TestCase):
         self.spatial_feature_group.features.add(gf)
         self.spatial_feature_group.save()
 
-        self.test_corner_clipping_enabled()
+        self._test_corner_clipping()

@@ -42,7 +42,7 @@ class GeofenceAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
         read_only=True, view_name="mapping:spatialfeaturegroup-detail", lookup_field="id"
     )
 
-    trigger_on_corner_clip = serializers.BooleanField(required=False)
+    trigger_on_corner_clip = serializers.BooleanField(required=False, default=True)
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
