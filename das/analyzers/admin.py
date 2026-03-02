@@ -11,6 +11,7 @@ from analyzers.forms import (
     ImmobilityAnalyzerForm,
     LowSpeedPercentileSubjectAnalyzerForm,
     LowSpeedWilcoxSubjectAnalyzerForm,
+    ObservationAttributeAnalyzerForm,
     SubjectProximityAnalyzerForm,
 )
 from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
@@ -422,6 +423,58 @@ class LowSpeedPercentileSubjectAnalyzerAdmin(BaseModelAdminMixin):
                 "classes": ("wide", "collapse"),
                 "fields": (
                     "id",
+                    "search_time_hours",
+                    "quiet_period",
+                    "notes",
+                ),
+            },
+        ),
+    )
+
+
+@admin.register(models.ObservationAttributeAnalyzerConfig)
+class ObservationAttributeAnalyzerAdmin(BaseModelAdminMixin):
+    list_display = (
+        "name",
+        "subject_group_name",
+        "attribute_name",
+    )
+    ordering = ("name", "subject_group", "attribute_name")
+    readonly_fields = ("id",)
+    search_fields = ("subject_group__name", "attribute_name")
+
+    def subject_group_name(self, o):
+        return o.subject_group.name
+
+    subject_group_name.admin_order_field = "subject_group"
+    form = ObservationAttributeAnalyzerForm
+
+    fieldsets = (
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": (
+                    (
+                        "name",
+                        "subject_group",
+                        "is_active",
+                        "attribute_name",
+                        "aggregation",
+                        "comparator",
+                        "warning_value",
+                        "critical_value",
+                    )
+                ),
+            },
+        ),
+        (
+            "Advanced Analyzer Attributes",
+            {
+                "classes": ("wide", "collapse"),
+                "fields": (
+                    "id",
+                    "adjust_to_order_of_magnitude",
                     "search_time_hours",
                     "quiet_period",
                     "notes",

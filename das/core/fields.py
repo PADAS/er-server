@@ -1,9 +1,23 @@
+import uuid
+
 from django_multitenant.fields import TenantForeignKey
 from drf_extra_fields.geo_fields import PointField
 
 from django.contrib.gis.geos import GEOSGeometry
 from rest_framework import serializers
 from rest_framework.fields import empty
+
+
+class StrictUUIDField(serializers.UUIDField):
+    allowed_versions = {1, 2, 3, 4, 5}  # add 7 when you're ready
+
+    def to_internal_value(self, data):
+        u = super().to_internal_value(data)  # uses uuid.UUID parsing
+        if u.variant != uuid.RFC_4122:
+            raise serializers.ValidationError("UUID must be RFC 4122 variant.")
+        if u.version not in self.allowed_versions:
+            raise serializers.ValidationError(f"Unsupported UUID version: {u.version}.")
+        return u
 
 
 class CompoundTenantForeignKey(TenantForeignKey):

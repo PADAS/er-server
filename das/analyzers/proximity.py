@@ -12,13 +12,8 @@ from django.utils.translation import gettext_lazy as _
 
 from activity.models import Event, EventCategory, EventType
 from analyzers.base import SubjectAnalyzer
-from analyzers.models import (
-    CRITICAL,
-    WARNING,
-    FeatureProximityAnalyzerConfig,
-    SubjectAnalyzerResult,
-)
-from analyzers.models.base import EVENT_PRIORITY_MAP
+from analyzers.models import FeatureProximityAnalyzerConfig, SubjectAnalyzerResult
+from analyzers.models.base import CRITICAL, EVENT_PRIORITY_MAP, WARNING
 from analyzers.utils import save_analyzer_event
 
 
@@ -36,14 +31,15 @@ class ProximityAnalyzer(SubjectAnalyzer):
 
     def default_observations(self):
         """
-        Default set of observation is fetched from the database, based on this analyzer's configuration.
-        :return: a queryset of Observations
+        Default set of observations is fetched from the database, limited to the two most recent,
+        based on this analyzer's configuration.
+        :return: a list of at most 2 Observations in descending temporal order
         """
         # observations get passed back in temporally descending order
         if self.config.search_time_hours <= 0:
-            return list(self.subject.observations())[:2]
+            return list(self.subject.observations()[:2])
         else:
-            return list(self.subject.observations(last_hours=self.config.search_time_hours))[:2]
+            return list(self.subject.observations(last_hours=self.config.search_time_hours)[:2])
 
     def save_analyzer_result(self, last_result=None, this_result=None):
 
@@ -198,6 +194,7 @@ class FeatureProximityAnalyzer(ProximityAnalyzer):
                     "total_fix_count": traj.relocs.fix_count,
                     "subject_speed_kmhr": round(prox.subject_speed_kmhr, 2),
                     "subject_heading": round(prox.subject_heading, 2),
+                    "feature_group_name": self.config.proximal_features.name,
                 }
 
                 self.logger.info(result.message)

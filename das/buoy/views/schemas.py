@@ -3,6 +3,7 @@ from drf_spectacular.utils import inline_serializer
 from rest_framework import serializers as drf_serializers
 from rest_framework.exceptions import ValidationError
 
+from core.fields import StrictUUIDField
 from observations.views import CustomSchema
 
 
@@ -69,7 +70,7 @@ class GearsViewSchema(CustomSchema):
 gears_list_response_schema = inline_serializer(
     name="GearsListResponse",
     fields={
-        "id": drf_serializers.UUIDField(),
+        "id": StrictUUIDField(),
         "status": drf_serializers.ChoiceField(
             choices=["deployed", "hauled"], help_text="The deployment status of the gear."
         ),
@@ -85,7 +86,7 @@ gears_list_response_schema = inline_serializer(
                         name="DeviceLocation",
                         fields={"latitude": drf_serializers.FloatField(), "longitude": drf_serializers.FloatField()},
                     ),
-                    "device_id": drf_serializers.UUIDField(),
+                    "device_id": StrictUUIDField(),
                     "mfr_device_id": drf_serializers.CharField(),
                     "last_updated": drf_serializers.DateTimeField(),
                     "last_deployed": drf_serializers.DateTimeField(),

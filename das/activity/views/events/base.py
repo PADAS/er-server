@@ -1,8 +1,5 @@
-import copy
-import csv
 import json
 import logging
-import platform
 from collections import OrderedDict
 from datetime import datetime
 from typing import Dict, List, Type, Union
@@ -19,7 +16,6 @@ from django.db.models import Count, OuterRef, Prefetch, Q, TextField
 from django.db.models.functions import JSONObject
 from django.db.models.query import QuerySet
 from django.db.utils import DataError
-from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.filters import OrderingFilter
@@ -220,17 +216,56 @@ class EventView(RetrieveUpdateDestroyAPIView):
 class EventsExportView(APIView):
     permission_classes = (UserCanExportDataPermission, EventCategoryPermissions)
 
-    def get_event_export_list(self):
-        event_export_data = []
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Cache containers are request-scoped via the properties below to avoid
+        # leaking data if a view instance is ever reused across requests.
 
-        current_event_type_data = {"id": None}
-        current_tz = get_current_time_zone()
-        current_date = datetime.now(tz=current_tz)
+    @property
+    def _content_type_cache(self):
+        """
+        Request-scoped cache for content types.
 
-        tz_offset = get_timezone_offset(current_date)
+        The underlying dict is stored on the DRF Request instance so that
+        each HTTP request gets an isolated cache, even if the view instance
+        is reused.
+        """
+        request = getattr(self, "request", None)
+        if request is not None:
+            cache = getattr(request, "_events_export_content_type_cache", None)
+            if cache is None:
+                cache = {}
+                setattr(request, "_events_export_content_type_cache", cache)
+            return cache
+        # Fallback for code paths where self.request is not yet set
+        if not hasattr(self, "__content_type_cache"):
+            self.__content_type_cache = {}
+        return self.__content_type_cache
 
-        reported_at = f"Reported At ({tz_offset})".replace(" ", "_")
-        default_headers = [
+    @property
+    def _file_model_cache(self):
+        """
+        Request-scoped cache for file models.
+
+        The underlying dict is stored on the DRF Request instance so that
+        each HTTP request gets an isolated cache, even if the view instance
+        is reused.
+        """
+        request = getattr(self, "request", None)
+        if request is not None:
+            cache = getattr(request, "_events_export_file_model_cache", None)
+            if cache is None:
+                cache = {}
+                setattr(request, "_events_export_file_model_cache", cache)
+            return cache
+        # Fallback for code paths where self.request is not yet set
+        if not hasattr(self, "__file_model_cache"):
+            self.__file_model_cache = {}
+        return self.__file_model_cache
+
+    def _get_default_headers(self, reported_at_label):
+        """Get the default (non-custom) CSV headers."""
+        return [
             "Report Type",
             "Report Type Internal Value",
             "Report Id",
@@ -239,7 +274,7 @@ class EventsExportView(APIView):
             "Priority Internal Value",
             "Report Status",
             "Reported By",
-            reported_at,
+            reported_at_label,
             "Latitude",
             "Longitude",
             "Number of Notes",
@@ -251,12 +286,75 @@ class EventsExportView(APIView):
             "Attachments",
             "CUSTOM FIELDS BEGIN HERE",
         ]
+
+    def _build_custom_headers(self, event_type_map, event_type_ids=None):
+        """
+        Pre-compute custom headers by scanning event types that appear in the export.
+
+        Only processes event types that have matching events in the queryset,
+        preserving the same column set as the original non-streaming implementation.
+
+        Args:
+            event_type_map: Dict of all event types keyed by ID.
+            event_type_ids: Optional set of event type IDs to include. If None,
+                           all event types in event_type_map are processed.
+        """
         custom_headers = []
-        combined_headers = []
 
-        reported_by_map = generate_reported_by_lookup()
-        event_type_map = generate_event_type_cache()
+        for event_type_id, event_type in event_type_map.items():
+            if event_type_ids is not None and event_type_id not in event_type_ids:
+                continue
 
+            try:
+                schema_adapter = SchemaAdapterFactory.create_adapter(event_type["schema"], self.request)
+                current_schema_order = schema_adapter.get_property_order()
+
+                for key, order in current_schema_order.items():
+                    if not isinstance(key, int):
+                        if self.value_cols and key not in custom_headers:
+                            custom_headers.append(key)
+
+                        if self.display_cols:
+                            column_name = schema_adapter.get_column_header_name(key)
+                            column_name = self.escape_string(column_name)
+                            if column_name not in custom_headers:
+                                custom_headers.append(column_name)
+
+            except (json.JSONDecodeError, ValueError, TypeError) as e:
+                logger.warning("Failed to process schema for event type %s: %s", event_type.get("value"), str(e))
+                continue
+
+        return custom_headers
+
+    def _get_content_type_cached(self, content_type_id):
+        """Get ContentType with caching to avoid N+1 queries."""
+        if content_type_id not in self._content_type_cache:
+            self._content_type_cache[content_type_id] = ContentType.objects.get(id=content_type_id)
+        return self._content_type_cache[content_type_id]
+
+    def _get_file_url(self, file_ref):
+        """Get file URL with caching to reduce repeated lookups."""
+        file_id = file_ref["usercontent_id"]
+        file_content_type = file_ref["usercontent_type"]
+
+        cache_key = (file_content_type, file_id)
+        if cache_key in self._file_model_cache:
+            return self._file_model_cache[cache_key]
+
+        try:
+            usercontent_type = self._get_content_type_cached(file_content_type)
+            file_obj = usercontent_type.model_class().objects.get(id=file_id)
+            file_url = file_obj.file.url
+            self._file_model_cache[cache_key] = file_url
+            return file_url
+        except (AttributeError, Exception) as e:
+            logger.warning(
+                "Error getting file url for contenttype %s and file id %s: %s", file_content_type, file_id, e
+            )
+            return None
+
+    def _get_annotated_queryset(self):
+        """Get the queryset with all necessary annotations for export."""
         queryset = self.get_queryset()
         user_subjects = list(Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True))
         queryset = queryset.filter(Q(related_subjects__isnull=True) | Q(related_subjects__in=user_subjects))
@@ -265,14 +363,12 @@ class EventsExportView(APIView):
             data=JSONObject(usercontent_type="usercontent_type", usercontent_id="usercontent_id", id="id")
         )
 
-        for event in (
+        return (
             queryset.annotate(notes_count=Count("note"))
             .annotate(full_notes=StringAgg("note__text", delimiter="\n", output_field=TextField()))
             .annotate(related_subjects_count=Count("related_subjects"))
             .annotate(file_ids=ArraySubquery(file_subquery))
             .annotate(parent_event_serial_numbers=ArrayAgg("in_relationship__from_event__serial_number", distinct=True))
-            .prefetch_related("geometries")
-            .prefetch_related("files")
             .values(
                 "id",
                 "serial_number",
@@ -291,48 +387,39 @@ class EventsExportView(APIView):
                 "geometries__properties",
                 "file_ids",
             )
-        ):
+        )
+
+    def _generate_event_rows(
+        self, queryset, custom_headers, reported_at_label, event_type_map, reported_by_map, current_tz
+    ):
+        """
+        Generator that yields CSV rows for streaming response.
+        """
+        current_event_type_data = {"id": None}
+        schema_adapter = None
+        current_schema_order = {}
+        event_type = None
+
+        for event in queryset.iterator(chunk_size=2000):
+            # Update schema adapter when event type changes
             if event["event_type_id"] != current_event_type_data["id"]:
-                event_type = event_type_map[event["event_type_id"]]
+                event_type = event_type_map.get(event["event_type_id"], {})
 
                 current_event_type_data = {
                     "id": event["event_type_id"],
-                    "display": event_type["display"],
-                    "value": event_type["value"],
-                    "events": [],
-                    "headers": copy.deepcopy(default_headers),
+                    "display": event_type.get("display", ""),
+                    "value": event_type.get("value", ""),
                 }
 
                 try:
-                    # Create schema adapter to handle both V1 and V2 schemas
-                    schema_adapter = SchemaAdapterFactory.create_adapter(event_type["schema"], self.request)
+                    schema_adapter = SchemaAdapterFactory.create_adapter(event_type.get("schema"), self.request)
                     current_schema_order = schema_adapter.get_property_order()
-
-                    for key, order in current_schema_order.items():
-                        if not isinstance(key, int):
-                            display_value = schema_adapter.get_display_value_header_for_key(key)
-                            current_event_type_data["headers"].append(self.escape_string(key))
-                            current_event_type_data["headers"].append(self.escape_string(display_value))
-
-                            if self.value_cols and key not in custom_headers:
-                                custom_headers.append(key)
-
-                            if self.display_cols:
-                                column_name = schema_adapter.get_column_header_name(key)
-                                column_name = self.escape_string(column_name)
-                                if column_name not in custom_headers:
-                                    custom_headers.append(column_name)
-
-                except (json.JSONDecodeError, ValueError) as e:
-                    # Event type does not have schema, which is weird but not
-                    # _technically_ invalid
-                    logger.warning("Failed to process schema for event type %s: %s", event_type["value"], str(e))
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                    logger.warning("Failed to process schema for event type %s: %s", event_type.get("value"), str(e))
                     schema_adapter = None
                     current_schema_order = {}
 
-                event_export_data.append(current_event_type_data)
-            # First, get the event details (schema data) in the correct order
-            # for the headers above
+            # Process event details
             if event["event_details__data"] and schema_adapter:
                 details = schema_adapter.get_display_values_for_event_details(
                     event["event_details__data"].get("event_details", {})
@@ -340,6 +427,7 @@ class EventsExportView(APIView):
             else:
                 details = {}
 
+            # Build schema data for custom fields
             schema_data = OrderedDict()
             if schema_adapter:
                 for key, order in current_schema_order.items():
@@ -348,22 +436,14 @@ class EventsExportView(APIView):
                     column_name = schema_adapter.get_column_header_name(key)
                     schema_data[column_name] = self.escape_string(details.get(item_display_name, ""))
 
+            # Get attachments with caching
             attachments = []
-            for file_ref in event.get("file_ids"):
-                file_id = file_ref["usercontent_id"]
-                file_content_type = file_ref["usercontent_type"]
-                usercontent_type = ContentType.objects.get(id=file_content_type)
-                try:
-                    file_url = usercontent_type.model_class().objects.get(id=file_id).file.url
-                except AttributeError:
-                    self.logger.exception(
-                        "Error getting file url for contenttype %s and file id %s", file_content_type, file_id
-                    )
-                    break
-                else:
+            for file_ref in event.get("file_ids") or []:
+                file_url = self._get_file_url(file_ref)
+                if file_url:
                     attachments.append(file_url)
 
-            # Now assemble the data we want to write to the csv
+            # Build the row data
             event_data = {
                 "Report_Type": event_type.get("display", ""),
                 "Report_Type_Internal_Value": event_type.get("value", ""),
@@ -372,12 +452,12 @@ class EventsExportView(APIView):
                 "Priority": Event.PRIORITY_LABELS_MAP.get(event.get("priority", ""), ""),
                 "Priority_Internal_Value": event.get("priority", ""),
                 "Report_Status": "Resolved" if event["state"] == Event.SC_RESOLVED else "Active",
-                reported_at: convert_to_timezone(event["event_time"], current_tz).strftime("%Y-%m-%d %H:%M"),
+                reported_at_label: convert_to_timezone(event["event_time"], current_tz).strftime("%Y-%m-%d %H:%M"),
                 "Latitude": event["location"].y if event["location"] is not None else "",
                 "Longitude": event["location"].x if event["location"] is not None else "",
                 "Number_of_Notes": event.get("notes_count", ""),
                 "Notes": self.escape_string(event.get("full_notes", "")),
-                "Number_of_Related_Subjects": event.get("", ""),
+                "Number_of_Related_Subjects": event.get("related_subjects_count", ""),
                 "Collection_Report_IDs": ";".join(
                     (str(x) for x in event["parent_event_serial_numbers"] if x is not None)
                 ),
@@ -387,29 +467,19 @@ class EventsExportView(APIView):
                 "Attachments": " \n".join(str(x) for x in attachments),
             }
 
-            # Use cached reported_by map
+            # Add reported_by from cached map
             reported_by_values = reported_by_map.get(str(event.get("reported_by_id", "")), "")
             event_data["Reported_By"] = reported_by_values.get("display", "") if reported_by_values else ""
 
+            # Add custom fields
             for header in custom_headers:
                 header_key = header.replace(" ", "_")
-                # if header has been escaped
                 if header.startswith('"') and header.endswith('"'):
                     header = header[1:-1]
                 column_data = schema_data.get(header, "")
                 event_data[header_key] = column_data if (column_data is not None) else ""
 
-            current_event_type_data["events"].append(event_data)
-
-        if not combined_headers:
-            combined_headers.extend(default_headers)
-            combined_headers.extend(custom_headers)
-
-        return {
-            "event_export_data": event_export_data,
-            "combined_headers": [header.replace(" ", "_") for header in combined_headers],
-            "custom_headers": custom_headers,
-        }
+            yield event_data
 
     def _get_polygon_property(self, event: dict, key: str) -> Union[float, str]:
         properties = event.get("geometries__properties", {})
@@ -427,34 +497,47 @@ class EventsExportView(APIView):
         return string
 
     def get(self, request, *args, **kwargs):
-        self.value_cols = request.GET.get("value_cols", False)
-        self.display_cols = request.GET.get("display_cols", True)
+        from utils.csv_streaming import StreamingCSVResponse
 
-        csv_data = self.prepare_csv_data()
+        self.value_cols = parse_bool(request.GET.get("value_cols", "false"))
+        self.display_cols = parse_bool(request.GET.get("display_cols", "true"))
 
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = f'attachment; filename={csv_data["report_filename"]}'
-        response["x-das-download-filename"] = csv_data["report_filename"]
+        # Prepare timezone and headers
+        current_tz = get_current_time_zone()
+        current_date = datetime.now(tz=current_tz)
+        tz_offset = get_timezone_offset(current_date)
+        reported_at_label = f"Reported_At_({tz_offset})"
 
-        writer = csv.DictWriter(response, fieldnames=csv_data["event_types"].get("combined_headers"))
-        writer.writeheader()
-        event_types = csv_data["event_types"]
-        for event_type in event_types.get("event_export_data", []):
-            for event in event_type.get("events", {}):
-                writer.writerow(event)
-        return response
+        # Pre-compute caches
+        reported_by_map = generate_reported_by_lookup()
+        event_type_map = generate_event_type_cache()
 
-    def prepare_csv_data(self, **kwargs):
-        REPORT_TIME_FORMAT = "%-d %B %Y %Z" if platform.system().lower() != "windows" else "%#d %B %Y %Z"
-        current_tz = pytz.timezone(timezone.get_current_timezone_name())
-        timestamp = current_tz.localize(datetime.utcnow())
-        csv_data = {
-            "report_filename": f'Event Export {timestamp.strftime("%Y-%m-%d")}.csv',
-            "report_time": timestamp.strftime(REPORT_TIME_FORMAT),
-            "event_types": self.get_event_export_list(),
-        }
+        # Lightweight query for event type IDs (same filters, no heavy annotations).
+        event_type_ids_in_export = set(self.get_queryset().values_list("event_type_id", flat=True).distinct())
 
-        return csv_data
+        # Build annotated queryset once for row generation only.
+        queryset = self._get_annotated_queryset()
+
+        default_headers = self._get_default_headers(f"Reported At ({tz_offset})")
+        custom_headers = self._build_custom_headers(event_type_map, event_type_ids_in_export)
+        combined_headers = [header.replace(" ", "_") for header in default_headers]
+        combined_headers.extend([header.replace(" ", "_") for header in custom_headers])
+
+        # Generate filename
+        local_tz = pytz.timezone(timezone.get_current_timezone_name())
+        timestamp = local_tz.localize(datetime.utcnow())
+        download_filename = f'Event Export {timestamp.strftime("%Y-%m-%d")}.csv'
+
+        # Create streaming response
+        row_generator = self._generate_event_rows(
+            queryset, custom_headers, reported_at_label, event_type_map, reported_by_map, current_tz
+        )
+
+        return StreamingCSVResponse(
+            row_generator=row_generator,
+            fieldnames=combined_headers,
+            filename=download_filename,
+        )
 
     def get_queryset(self):
         # TODO: Update to allow passing last_days constraint.

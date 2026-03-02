@@ -27,6 +27,7 @@ from buoy.serializers.query_params import GearsQueryParamsSerializer
 from buoy.services.buoy_service import BuoyService
 from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
+from core.fields import StrictUUIDField
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import SubjectSource
 from utils.drf import (
@@ -56,7 +57,7 @@ logger = logging.getLogger(__name__)
                     name="GearCreateResponse",
                     fields={
                         "detail": drf_serializers.CharField(),
-                        "set_id": drf_serializers.UUIDField(),
+                        "set_id": StrictUUIDField(),
                     },
                 ),
             ),
