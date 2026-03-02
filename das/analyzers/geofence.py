@@ -10,13 +10,8 @@ from django.utils.translation import gettext_lazy as _
 from activity.models import Event, EventType
 from analyzers.base import SubjectAnalyzer
 from analyzers.geofence_crossings_analysis import DasGeofenceAnalysis
-from analyzers.models import (
-    CRITICAL,
-    WARNING,
-    GeofenceAnalyzerConfig,
-    SubjectAnalyzerResult,
-)
-from analyzers.models.base import EVENT_PRIORITY_MAP
+from analyzers.models import GeofenceAnalyzerConfig, SubjectAnalyzerResult
+from analyzers.models.base import CRITICAL, EVENT_PRIORITY_MAP, WARNING
 from analyzers.utils import save_analyzer_event
 from mapping.models import SpatialFeature
 

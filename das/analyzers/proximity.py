@@ -12,13 +12,8 @@ from django.utils.translation import gettext_lazy as _
 
 from activity.models import Event, EventCategory, EventType
 from analyzers.base import SubjectAnalyzer
-from analyzers.models import (
-    CRITICAL,
-    WARNING,
-    FeatureProximityAnalyzerConfig,
-    SubjectAnalyzerResult,
-)
-from analyzers.models.base import EVENT_PRIORITY_MAP
+from analyzers.models import FeatureProximityAnalyzerConfig, SubjectAnalyzerResult
+from analyzers.models.base import CRITICAL, EVENT_PRIORITY_MAP, WARNING
 from analyzers.utils import save_analyzer_event
 
 

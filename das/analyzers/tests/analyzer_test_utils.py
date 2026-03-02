@@ -59,7 +59,7 @@ def generate_observations(observations, timeshift=True):
     for item in observations:
         recorded_at = item["recorded_at"]
         location = Point(x=item["longitude"], y=item["latitude"])
-        obs = models.Observation(recorded_at=recorded_at, location=location)
+        obs = models.Observation(recorded_at=recorded_at, location=location, additional=item.get("additional", {}))
         yield obs
 
 
