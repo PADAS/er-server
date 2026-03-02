@@ -1,15 +1,19 @@
-from analyzers.models.base import SubjectAnalyzerConfig, SubjectAnalyzerResult, OK, CRITICAL, WARNING
 from analyzers.models.annotations import ObservationAnnotator
-from analyzers.models.immobility import ImmobilityAnalyzerConfig
-from analyzers.models.geofence import GeofenceAnalyzerConfig
-from analyzers.models.proximity import FeatureProximityAnalyzerConfig, SubjectProximityAnalyzerConfig
+from analyzers.models.base import SubjectAnalyzerResult
 from analyzers.models.environmental import EnvironmentalSubjectAnalyzerConfig
-from analyzers.models.low_speed import LowSpeedPercentileAnalyzerConfig
-from analyzers.models.low_speed import LowSpeedWilcoxAnalyzerConfig
-from analyzers.models.speed_profile import SubjectSpeedProfile
-from analyzers.models.speed_profile import SpeedDistro
+from analyzers.models.geofence import GeofenceAnalyzerConfig
 from analyzers.models.gfw import GlobalForestWatchSubscription
-
+from analyzers.models.immobility import ImmobilityAnalyzerConfig
+from analyzers.models.low_speed import (
+    LowSpeedPercentileAnalyzerConfig,
+    LowSpeedWilcoxAnalyzerConfig,
+)
+from analyzers.models.observation_attribute import ObservationAttributeAnalyzerConfig
+from analyzers.models.proximity import (
+    FeatureProximityAnalyzerConfig,
+    SubjectProximityAnalyzerConfig,
+)
+from analyzers.models.speed_profile import SpeedDistro, SubjectSpeedProfile
 
 __all__ = [
     EnvironmentalSubjectAnalyzerConfig,
@@ -24,4 +28,5 @@ __all__ = [
     SubjectProximityAnalyzerConfig,
     SubjectSpeedProfile,
     SpeedDistro,
+    ObservationAttributeAnalyzerConfig,
 ]

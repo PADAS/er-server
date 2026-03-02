@@ -12,14 +12,11 @@ from activity.models import Event
 from analyzers.base import SubjectAnalyzer
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.models import (
-    CRITICAL,
-    OK,
-    WARNING,
     LowSpeedPercentileAnalyzerConfig,
     LowSpeedWilcoxAnalyzerConfig,
     SubjectAnalyzerResult,
 )
-from analyzers.models.base import EVENT_PRIORITY_MAP
+from analyzers.models.base import CRITICAL, EVENT_PRIORITY_MAP, OK, WARNING
 from analyzers.utils import save_analyzer_event
 
 

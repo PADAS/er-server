@@ -16,7 +16,8 @@ from accounts.utils import permission_get_by_natural_key
 from activity import views
 from activity.models import Event
 from analyzers.immobility import ImmobilityAnalyzer
-from analyzers.models import OK, ImmobilityAnalyzerConfig, SubjectAnalyzerResult
+from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult
+from analyzers.models.base import OK
 from analyzers.tasks import analyze_subject_
 from core.tests import BaseAPITest
 from observations.models import SubjectTrackSegmentFilter
