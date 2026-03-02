@@ -102,8 +102,8 @@ def get_sentinel_user():
         defaults=dict(
             last_name="account",
             first_name="deleted",
-            email="deleted@test.com",
             is_active=False,
+            is_system=True,
             password=User.objects.make_random_password(),
         ),
     )

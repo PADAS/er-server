@@ -28,6 +28,7 @@ def get_er_user():
             "first_name": "EarthRanger",
             "last_name": "System",
             "password": user_model.objects.make_random_password(),
+            "is_system": True,
         },
     )
     return user

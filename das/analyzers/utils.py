@@ -59,8 +59,8 @@ def get_system_user():
         defaults=dict(
             last_name="Alyzer",
             first_name="Anne",
-            email="system_analyzers@pamdas.org",
             is_active=False,
+            is_system=True,
             password=User.objects.make_random_password(),
         ),
     )

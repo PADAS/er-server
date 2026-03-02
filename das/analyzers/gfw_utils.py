@@ -182,6 +182,11 @@ def get_gfw_user():
     """
     user, create = User.objects.get_or_create(
         username="gfwwebhookuser",
-        defaults={"first_name": "GFW", "last_name": "Webhook", "password": User.objects.make_random_password()},
+        defaults={
+            "first_name": "GFW",
+            "last_name": "Webhook",
+            "password": User.objects.make_random_password(),
+            "is_system": True,
+        },
     )
     return user
