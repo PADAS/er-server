@@ -81,10 +81,11 @@ class UserManager(TenantManagerMixin, BaseUserManager.from_queryset(UserQuerySet
 
     def by_linked_subject_id(self, subject_id: str):
         Subject = apps.get_model("observations.Subject")
-        subjects = Subject.objects.filter(id=subject_id)
-        if subjects.exists():
-            return subjects.first().linked_user
-        return None
+        try:
+            subject = Subject.objects.get(id=subject_id)
+            return subject.linked_user
+        except Subject.DoesNotExist:
+            return None
 
 
 def _user_has_module_perms(user, app_label):
@@ -167,13 +168,13 @@ class AccountsAbstractUser(TenantModelMixin, AbstractBaseUser, PermissionsMixin)
     is_staff = models.BooleanField(
         _("staff status"),
         default=False,
-        help_text=_("Designates whether the user can log " "into this admin site."),
+        help_text=_("Designates whether the user can log into this admin site."),
     )
     is_active = models.BooleanField(
         _("active"),
         default=True,
         help_text=_(
-            "Designates whether this user should be treated as active. " "Set this False instead of deleting accounts."
+            "Designates whether this user should be treated as active. Set this False instead of deleting accounts."
         ),
     )
     date_joined = models.DateTimeField(_("date joined"), default=timezone.now)
@@ -181,9 +182,12 @@ class AccountsAbstractUser(TenantModelMixin, AbstractBaseUser, PermissionsMixin)
     is_nologin = models.BooleanField(
         _("no login"),
         default=False,
-        help_text=_(
-            "Prevent the user from logging in. " "The account is active, but the users password is not " "active."
-        ),
+        help_text=_("Prevent the user from logging in. The account is active, but the users password is not active."),
+    )
+    is_system = models.BooleanField(
+        _("system user"),
+        default=False,
+        help_text=_("Designates the user as an automatically generated system user."),
     )
     act_as_profiles = models.ManyToManyField(
         "self",
