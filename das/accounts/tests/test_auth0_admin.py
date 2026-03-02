@@ -11,13 +11,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth import BACKEND_SESSION_KEY, get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.http import HttpResponse
 from django.test import RequestFactory
 from django.urls import reverse
 
 from accounts.auth0_admin import (
+    AUTH0_BACKEND_PATH,
+    INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME,
     admin_login_entrypoint,
     admin_logout,
     auth0_callback,
@@ -89,6 +91,22 @@ class TestAdminLoginEntrypoint:
             mock_admin_login.assert_called_once_with(request)
             assert result.content == b"django_admin_response"
 
+    def test_require_idp_false_authenticated_staff_honors_next_param(
+        self, request_factory, mock_tenant_settings_require_idp_false, admin_user_with_auth0_id
+    ):
+        """For non-Auth0 sites, an already-authenticated staff user hitting /admin/login/?next=...
+        must be redirected to next with EFB cookie set, not to /admin/ (which is what Django's
+        default admin login does for authenticated users, ignoring next)."""
+        request = request_factory.get("/admin/login/?next=/admin/form-builder/")
+        request.user = admin_user_with_auth0_id
+
+        with patch("accounts.auth0_admin.set_efb_token_cookie") as mock_set_cookie:
+            result = admin_login_entrypoint(request)
+
+            assert result.status_code == 302
+            assert result.url == "/admin/form-builder/"
+            mock_set_cookie.assert_called_once_with(request, result)
+
     def test_require_idp_true_redirects_to_auth0(self, request_factory, mock_tenant_settings_require_idp_true):
         """Test that when require_idp=True, user is redirected to Auth0 login."""
         request = request_factory.get("/admin/login/?next=/admin/some/page")
@@ -155,9 +173,10 @@ class TestAdminLoginEntrypoint:
     def test_authenticated_staff_user_skips_auth0_and_sets_efb_cookie(
         self, request_factory, mock_tenant_settings_require_idp_true, admin_user_with_auth0_id
     ):
-        """When require_idp=True and user is already authenticated, skip Auth0 and set EFB cookie."""
+        """When require_idp=True and user authenticated via Auth0, skip Auth0 and set EFB cookie."""
         request = request_factory.get("/admin/login/?next=/admin/form-builder/")
         request.user = admin_user_with_auth0_id
+        request.session = {BACKEND_SESSION_KEY: AUTH0_BACKEND_PATH}
 
         with patch("accounts.auth0_admin.set_efb_token_cookie") as mock_set_cookie:
             result = admin_login_entrypoint(request)
@@ -166,12 +185,29 @@ class TestAdminLoginEntrypoint:
             assert result.url == "/admin/form-builder/"
             mock_set_cookie.assert_called_once_with(request, result)
 
+    def test_authenticated_staff_user_non_auth0_session_redirects_to_auth0(
+        self, request_factory, mock_tenant_settings_require_idp_true, admin_user_with_auth0_id
+    ):
+        """When require_idp=True and user has a Django session from a non-Auth0 backend,
+        they must be forced through Auth0 rather than bypassing it."""
+        request = request_factory.get("/admin/login/?next=/admin/form-builder/")
+        request.user = admin_user_with_auth0_id
+        request.session = {BACKEND_SESSION_KEY: "django.contrib.auth.backends.ModelBackend"}
+
+        result = admin_login_entrypoint(request)
+
+        assert result.status_code == 302
+        assert reverse(INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME) in result.url
+        parsed = urllib.parse.parse_qs(urllib.parse.urlparse(result.url).query)
+        assert parsed.get("next", [""])[0] == "/admin/form-builder/"
+
     def test_authenticated_staff_user_default_next(
         self, request_factory, mock_tenant_settings_require_idp_true, admin_user_with_auth0_id
     ):
         """When no next parameter, authenticated user redirects to /admin/."""
         request = request_factory.get("/admin/login/")
         request.user = admin_user_with_auth0_id
+        request.session = {BACKEND_SESSION_KEY: AUTH0_BACKEND_PATH}
 
         with patch("accounts.auth0_admin.set_efb_token_cookie"):
             result = admin_login_entrypoint(request)
@@ -192,7 +228,7 @@ class TestAdminLoginEntrypoint:
         result = admin_login_entrypoint(request)
 
         assert result.status_code == 302
-        assert reverse("auth0_admin_login") in result.url
+        assert reverse(INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME) in result.url
 
     def test_unauthenticated_user_redirects_to_auth0(self, request_factory, mock_tenant_settings_require_idp_true):
         """When require_idp=True and user is not authenticated, redirect to Auth0."""
@@ -202,7 +238,7 @@ class TestAdminLoginEntrypoint:
         result = admin_login_entrypoint(request)
 
         assert result.status_code == 302
-        assert reverse("auth0_admin_login") in result.url
+        assert reverse(INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME) in result.url
         parsed = urllib.parse.parse_qs(urllib.parse.urlparse(result.url).query)
         assert parsed.get("next", [""])[0] == "/admin/form-builder/"
 
@@ -299,7 +335,7 @@ class TestAuth0Callback:
                         mock_authenticate.assert_called_once_with(request, token=mock_token)
 
                         mock_login.assert_called_once_with(
-                            request, admin_user_with_auth0_id, backend="accounts.backends.Auth0BackendForStaffUsers"
+                            request, admin_user_with_auth0_id, backend=AUTH0_BACKEND_PATH
                         )
 
                         mock_set_efb_cookie.assert_called_once_with(request, result)

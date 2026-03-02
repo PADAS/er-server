@@ -13,10 +13,12 @@ from opentelemetry import trace
 
 from django.http import JsonResponse
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
 from rest_framework import status
 
+from accounts.auth0_admin import INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME
 from core import persistent_storage
 from core.models.oauth import DASAccessToken
 from observations.utils import (
@@ -300,6 +302,12 @@ class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
         return response
 
     def _should_create_efb_token(self, request, response):
+        # Don't set the EFB cookie when the view is redirecting the user to Auth0
+        # for authentication -- they haven't completed Auth0 login yet.
+        if response.status_code in (301, 302) and reverse(INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME) in response.get(
+            "Location", ""
+        ):
+            return False
         return (
             "/admin/login" in request.path
             and request.user.is_authenticated
