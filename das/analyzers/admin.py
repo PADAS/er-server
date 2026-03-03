@@ -316,6 +316,7 @@ class GeofenceSubjectAnalyzerAdmin(BaseModelAdminMixin):
                 "classes": ("wide", "collapse"),
                 "fields": (
                     "id",
+                    "trigger_on_corner_clip",
                     "search_time_hours",
                     "quiet_period",
                     "notes",

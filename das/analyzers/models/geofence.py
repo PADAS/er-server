@@ -64,6 +64,16 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
         ),
     )
 
+    trigger_on_corner_clip = models.BooleanField(
+        default=True,
+        verbose_name=_("Trigger on corner clip"),
+        help_text=_(
+            "If enabled, the analyzer will trigger events when a subject's path clips a corner of a geofence "
+            "(going out and back in without an observation point being logged outside the fence). "
+            "It will create a geofence event for every point where their line crossed the fence."
+        ),
+    )
+
     analyzer_category = "geofence"
 
     class Meta(SubjectAnalyzerConfig.Meta):
