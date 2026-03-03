@@ -30,8 +30,8 @@ class TestUsersListView:
 
     def test_get_list_of_users_include_inactive(self, superuser_client, five_inactive_users):
         url = reverse("accounts:users")
-        active_users_count = User.objects.filter(is_active=True).count()
-        inactive_users_count = User.objects.filter(is_active=False).count()
+        active_users_count = User.objects.filter(is_active=True, is_system=False).count()
+        inactive_users_count = User.objects.filter(is_active=False, is_system=False).count()
 
         assert active_users_count > 0
         assert inactive_users_count > 0
@@ -53,6 +53,18 @@ class TestUsersListView:
         assert len(response.data) == active_users_count + inactive_users_count
         response_head = superuser_client.head(url, {"include_inactive": "true"})
         assert response_head.status_code == status.HTTP_200_OK
+
+    def test_get_list_of_users_excludes_system_users(self, superuser_client):
+        url = reverse("accounts:users")
+        User.objects.create(username="system_test", password="password", is_system=True)
+        active_users_count = User.objects.filter(is_active=True, is_system=False).count()
+
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+
+        usernames = [user["username"] for user in response.data]
+        assert "system_test" not in usernames
+        assert len(response.data) == active_users_count
 
 
 @pytest.mark.django_db
