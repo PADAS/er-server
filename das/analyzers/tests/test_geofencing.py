@@ -794,7 +794,7 @@ class TestCornerClipping(TestCase):
         assert results[0][1].location.coords == (35.1, -0.95)
         assert results[1][1].location.coords == (34.9, -0.95)
 
-    def test_corner_clipping_enabled_multiline_geofence(self):
+    def test_corner_clipping_enabled_line_geofence(self):
         self._test_corner_clipping()
 
     def test_corner_clipping_enabled_polygon_geofence(self):
