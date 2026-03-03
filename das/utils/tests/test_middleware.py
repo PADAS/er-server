@@ -8,11 +8,12 @@ import pytest
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.exceptions import DisallowedHost
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
 from django.test import RequestFactory, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from accounts.auth0_admin import INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME
 from client_http import HTTPClient
 from core.models.oauth import DASAccessToken, DASApplication
 from factories import SubjectFactory
@@ -276,6 +277,20 @@ class TestManageAdminEFBTokenMiddleware:
         assert tokens.count() == 2
         assert "expired_token" in [t.token for t in tokens]
         assert EFB_COOKIE_NAME in response.cookies
+
+    def test_no_efb_cookie_when_redirecting_to_auth0_login(self):
+        """ManageAdminEFBTokenMiddleware must not set the EFB cookie on responses that
+        redirect to Auth0 for authentication.  Before the fix, a non-Auth0 session could
+        receive the EFB cookie on the Auth0-redirect response, allowing the EFB browser
+        extension to consider itself authenticated without the user ever going through Auth0."""
+
+        request = self._create_admin_request("/admin/login/")
+        auth0_url = reverse(INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME) + "?next=/admin/&org_id=org_test"
+        response = HttpResponseRedirect(auth0_url)
+
+        result = self.middleware.process_response(request, response)
+
+        assert EFB_COOKIE_NAME not in result.cookies
 
     def test_token_not_created_for_non_staff_user(self, user, user_client):
         user.is_staff = False
