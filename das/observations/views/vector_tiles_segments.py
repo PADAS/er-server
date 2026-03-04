@@ -51,34 +51,10 @@ class ObservationSegmentTileViewSchema(CustomSchema):
         if self.method == "GET":
             query_params = [
                 {
-                    "name": "subject_id",
+                    "name": "range",
                     "in": "query",
-                    "description": "Filter to a single subject by ID",
-                    "schema": {"type": "string", "format": "uuid"},
-                },
-                {
-                    "name": "subject_ids",
-                    "in": "query",
-                    "description": "Filter to multiple subjects by ID (comma-separated)",
-                    "schema": {"type": "string"},
-                },
-                {
-                    "name": "since",
-                    "in": "query",
-                    "description": "Get segments after this ISO8601 date, include timezone",
-                    "schema": {"type": "string", "format": "date-time"},
-                },
-                {
-                    "name": "until",
-                    "in": "query",
-                    "description": "Get segments up to this ISO8601 date, include timezone",
-                    "schema": {"type": "string", "format": "date-time"},
-                },
-                {
-                    "name": "created_after",
-                    "in": "query",
-                    "description": "Get segments created after this ISO8601 date, include timezone",
-                    "schema": {"type": "string", "format": "date-time"},
+                    "description": "Time range: '45' (segments that ended in the last 45 days, default) or 'all'",
+                    "schema": {"type": "string", "enum": ["45", "all"]},
                 },
                 {
                     "name": "show_excluded",
@@ -101,9 +77,8 @@ class ObservationSegmentTileView(DRFMVTView):
     computed metrics (speed, time gap, distance).
 
     Features:
-    - Subject filtering by ID(s)
-    - Time-based filtering (since/until on segment start time)
-    - Exclusion flags: default exclude segments with truthy flags; include when `show_excluded=true`
+    - range: "45" (default) limits to segments that ended in the last 45 days; "all" for no limit
+    - show_excluded: include segments with truthy exclusion flags when true (default: excluded)
     - Ordered by start_recorded_at
 
     Cache strategy:

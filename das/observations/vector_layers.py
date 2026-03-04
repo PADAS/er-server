@@ -263,8 +263,9 @@ class ObservationSegmentVectorLayer(VectorLayer):
         restricting segments to only those belonging to subjects the user
         has access to via their permission sets and subject group membership.
 
-        By default, excludes segments with non-zero exclusion flags.
-        Filters segments to respect user's permitted time window (delay_hours).
+        Applies ObservationSegmentVectorTileFilterSet (range, show_excluded)
+        from request GET params. Also applies permission-based time window
+        (delay_hours) and MOU expiry.
         """
         qs = self.model.objects.select_related("subject", "subject__subject_subtype")
 
@@ -272,12 +273,6 @@ class ObservationSegmentVectorLayer(VectorLayer):
         if self.request and getattr(self.request, "user", None) is not None and not self.request.user.is_superuser:
             allowed_subjects = Subject.objects.by_user_subjects(self.request.user)
             qs = qs.filter(subject__in=allowed_subjects)
-
-        # Apply default exclusion unless 'show_excluded=true'
-        if self.request:
-            show_excluded = (self.request.GET.get("show_excluded", "false") or "false").lower() == "true"
-            if not show_excluded:
-                qs = qs.filter(exclusion_flags=0)
 
         # Apply permission-based time filtering
         # Filter segments to only show data up to the user's permitted time window
@@ -294,6 +289,15 @@ class ObservationSegmentVectorLayer(VectorLayer):
             )
             if expiry_dt:
                 qs = qs.filter(end_recorded_at__lte=expiry_dt)
+
+        # Apply filterset (range, show_excluded) from request params or defaults
+        if self.request is not None:
+            filterset = self.filterset_class(data=self.request.GET, queryset=qs)
+            qs = filterset.qs
+        # When no request (e.g. some tests), use defaults via filterset with empty data
+        else:
+            filterset = self.filterset_class(data={}, queryset=qs)
+            qs = filterset.qs
 
         return qs.order_by("start_recorded_at")
 

@@ -1,11 +1,12 @@
 import logging
 import uuid
+from datetime import timedelta
 
 from django_filters import rest_framework as filters
-from django_filters.filters import BaseInFilter, UUIDFilter
 
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Polygon
+from django.utils import timezone
 from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.filters import BaseFilterBackend
 
@@ -22,35 +23,48 @@ class ObservationSegmentVectorTileFilterSet(filters.FilterSet):
     """
     Filter for observation segment vector tiles.
 
-    By default, excludes segments with non-zero exclusion_flags.
-    To include segments with truthy exclusion flags, set show_excluded=true.
+    Supports:
+    - range: "45" (default) limits to segments that ended in the last 45 days;
+      "all" applies no time-range limit.
+    - show_excluded: when true, include segments with non-zero exclusion_flags;
+      when false or omitted, exclude them.
     """
 
-    # Subject filtering
-    subject_id = UUIDFilter(field_name="subject_id")
-    subject_ids = BaseInFilter(field_name="subject_id", lookup_expr="in")
+    RANGE_45 = "45"
+    RANGE_ALL = "all"
+    RANGE_CHOICES = (RANGE_45, RANGE_ALL)
 
-    # Time filtering
-    since = filters.DateTimeFilter(field_name="start_recorded_at", lookup_expr="gte")
-    until = filters.DateTimeFilter(field_name="end_recorded_at", lookup_expr="lte")
-    created_after = filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
-
-    # Exclusion handling using boolean show_excluded
+    range = filters.TypedChoiceFilter(
+        choices=[(v, v) for v in ("45", "all")],
+        coerce=lambda x: str(x).lower() if x else "45",
+        method="filter_range",
+        default=RANGE_45,
+        help_text="Time range: '45' (last 45 days by end time, default) or 'all'.",
+    )
     show_excluded = filters.BooleanFilter(
         method="filter_exclusion_flags",
-        help_text=("Include segments with truthy exclusion flags (default: excluded)"),
+        help_text="Include segments with truthy exclusion flags (default: excluded).",
     )
 
     class Meta:
         model = ObservationSegment
-        fields = [
-            "subject_id",
-            "subject_ids",
-            "since",
-            "until",
-            "created_after",
-            "show_excluded",
-        ]
+        fields = ["range", "show_excluded"]
+
+    def filter_range(self, queryset, _name, value):
+        """Limit to segments that ended in the last 45 days when range=45; no limit when range=all."""
+        if value == self.RANGE_ALL:
+            return queryset
+        if value == self.RANGE_45 or value is None:
+            cutoff = timezone.now() - timedelta(days=45)
+            return queryset.filter(end_recorded_at__gte=cutoff)
+        # Unrecognized value: treat as 45 for safety
+        logger.warning(
+            "Unexpected value for range filter: %r (type %s); using 45-day window.",
+            value,
+            type(value).__name__,
+        )
+        cutoff = timezone.now() - timedelta(days=45)
+        return queryset.filter(end_recorded_at__gte=cutoff)
 
     def filter_exclusion_flags(self, queryset, _name, value):
         """Boolean control: include flagged segments when True; exclude when False or None."""
