@@ -1,6 +1,7 @@
 import json
 import os
-from typing import Any, NamedTuple
+import uuid
+from typing import Any, List, NamedTuple
 
 import pytest
 
@@ -17,46 +18,59 @@ TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests")
 class ChoiceDetails(NamedTuple):
     choices: Choice
     user: Any
+    created_choices: List[Choice]
 
 
 @pytest.fixture
 @pytest.mark.usefixtures("db")
-def choices_fixture(django_user_model):
-    Choice.objects.all().delete()
-
+def choices_fixture(das_tenant_monkeypatch, django_user_model):
+    """Create four choices in the current tenant with unique values (parallel-safe)."""
+    suffix = uuid.uuid4().hex[:8]
     choices_data = [
         {
             "model": "activity.eventtype",
             "field": "wildlifesighting_species",
-            "value": "elephant",
+            "value": f"elephant-{suffix}",
             "display": "Elephant",
+            "das_tenant": das_tenant_monkeypatch,
         },
-        {"model": "activity.eventtype", "field": "wildlifesighting_species", "value": "rhino", "display": "Rhino"},
+        {
+            "model": "activity.eventtype",
+            "field": "wildlifesighting_species",
+            "value": f"rhino-{suffix}",
+            "display": "Rhino",
+            "das_tenant": das_tenant_monkeypatch,
+        },
         {
             "model": "activity.eventtype",
             "field": "wildlifesighting_reporter_type",
-            "value": "ranger",
+            "value": f"ranger-{suffix}",
             "display": "Park Ranger",
+            "das_tenant": das_tenant_monkeypatch,
         },
         {
             "model": "activity.eventtype",
             "field": "wildlifesighting_condition_status",
-            "value": "healthy",
+            "value": f"healthy-{suffix}",
             "display": "Healthy",
+            "das_tenant": das_tenant_monkeypatch,
         },
     ]
 
     Choice.objects.bulk_create([Choice(**data) for data in choices_data])
+    created_choices = list(
+        Choice.objects.filter(das_tenant=das_tenant_monkeypatch, model="activity.eventtype").order_by("field", "value")
+    )
 
     user_const = dict(last_name="last", first_name="first")
     user = django_user_model.objects.create_user(
         "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
     )
 
-    return ChoiceDetails(choices=Choice.objects.all(), user=user)
+    return ChoiceDetails(choices=Choice.objects.all(), user=user, created_choices=created_choices)
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_get_all_choices(client, choices_fixture, five_choices):
     _, user = choices_fixture.choices, choices_fixture.user
 
@@ -67,7 +81,7 @@ def test_get_all_choices(client, choices_fixture, five_choices):
     assert len(response.data["results"]) == 9
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_get_all_choices_filtering(client, choices_fixture, five_choices):
     choices, user = choices_fixture.choices, choices_fixture.user
 
@@ -97,7 +111,7 @@ def test_get_all_choices_filtering(client, choices_fixture, five_choices):
     assert len(response.data["results"]) == 7  # assert only active choices when include_inactive is not sent
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_filter_by_field(client, choices_fixture, five_choices):
     _, user = choices_fixture.choices, choices_fixture.user
     client.force_login(user)
@@ -108,7 +122,7 @@ def test_filter_by_field(client, choices_fixture, five_choices):
     assert len(response.data["results"]) == 2  # assert filtered items return choices added by choices_fixture
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_filter_by_multiple_fields(client, choices_fixture, five_choices):
     _, user = choices_fixture.choices, choices_fixture.user
     client.force_login(user)
@@ -119,7 +133,7 @@ def test_filter_by_multiple_fields(client, choices_fixture, five_choices):
     assert len(response.data["results"]) == 3  # assert filtered items return choices added by choices_fixture
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_filter_by_invalid_field(client, choices_fixture, five_choices):
     _, user = choices_fixture.choices, choices_fixture.user
     client.force_login(user)
@@ -131,7 +145,7 @@ def test_filter_by_invalid_field(client, choices_fixture, five_choices):
     assert "is not one of the available choices." in response.content.decode("utf-8")
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_filter_by_model(client, choices_fixture, five_choices):
     _, user = choices_fixture.choices, choices_fixture.user
 
@@ -142,7 +156,7 @@ def test_filter_by_model(client, choices_fixture, five_choices):
     assert len(response.data["results"]) == 4  # assert filtered items return choices added by choices_fixture
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_filter_by_invalid_model(client, choices_fixture, five_choices):
     _, user = choices_fixture.choices, choices_fixture.user
 
@@ -154,7 +168,7 @@ def test_filter_by_invalid_model(client, choices_fixture, five_choices):
     assert "is not one of the available choices." in response.content.decode("utf-8")
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_filter_by_model_and_field(client, choices_fixture, five_choices):
     _, user = choices_fixture.choices, choices_fixture.user
 
@@ -165,7 +179,7 @@ def test_filter_by_model_and_field(client, choices_fixture, five_choices):
     assert len(response.data["results"]) == 2  # assert filtered items return choices added by choices_fixture
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_single_choice(client, choices_fixture):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
@@ -177,7 +191,7 @@ def test_single_choice(client, choices_fixture):
     assert response.data.get("id") == choice_id
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_add_choice(client, choices_fixture):
     _, user = choices_fixture.choices, choices_fixture.user
 
@@ -196,7 +210,7 @@ def test_add_choice(client, choices_fixture):
     assert qcount == 5
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_update_choice(client, choices_fixture):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
@@ -208,7 +222,7 @@ def test_update_choice(client, choices_fixture):
     assert response.status_code == 200
 
 
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_softdelete_choice(client, choices_fixture):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
@@ -226,19 +240,29 @@ def test_softdelete_choice(client, choices_fixture):
 
 
 @pytest.mark.django_db()
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestChoicesViews:
     def test_url_resolving(self, choice):
         api_path = f"choices/{choice.pk}/"
         assert is_url_resolved(api_path=api_path, view=ChoiceView)
 
     def test_read_inactive_choice(self, client, choices_fixture):
-        choices, user = choices_fixture.choices, choices_fixture.user
-        inactive_choice = choices.filter(value="rhino").update(is_active=False)
+        choices, user, created_choices = (
+            choices_fixture.choices,
+            choices_fixture.user,
+            choices_fixture.created_choices,
+        )
+        rhino_choice = next(c for c in created_choices if "rhino" in c.value)
+        Choice.objects.filter(id=rhino_choice.id).update(is_active=False)
 
-        assert inactive_choice == 1
+        assert Choice.objects.filter(id=rhino_choice.id).get().is_active is False
 
-        data = dict(model="activity.eventtype", field="wildlifesighting_species", value="rhino", display="Rhino")
+        data = dict(
+            model="activity.eventtype",
+            field="wildlifesighting_species",
+            value=rhino_choice.value,
+            display=rhino_choice.display,
+        )
 
         client.force_login(user)
         url = reverse("choices")

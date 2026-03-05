@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 
 from django.apps import apps
@@ -144,16 +146,19 @@ class TestMappingModelsValuesPerTenant:
 @pytest.mark.django_db
 class TestChoicesModelsValuesPerTenant:
     def test_create_models_with_same_value_diff_tenant(self, five_tenants):
-        name = "same-name"
+        # Use unique name per test run to avoid duplicate key when tests run in parallel
+        name = f"same-name-{uuid.uuid4().hex[:8]}"
         for tenant in five_tenants:
             DynamicChoice.objects.create(choice_name=name, das_tenant=tenant)
 
         assert DynamicChoice.objects.filter(choice_name=name, das_tenant__in=five_tenants).count() == 5
 
     def test_create_models_with_same_value_same_tenant(self, das_tenant):
+        # Use unique name per test run so only we create these two
+        name = f"same-name-{uuid.uuid4().hex[:8]}"
         with pytest.raises(IntegrityError) as error:
             for _ in range(0, 2):
-                DynamicChoice.objects.create(choice_name="same-name", das_tenant=das_tenant)
+                DynamicChoice.objects.create(choice_name=name, das_tenant=das_tenant)
 
         assert "choices_dynamicchoice_unique_choice_name_across_tenants" in str(error)
 
@@ -234,11 +239,14 @@ class TestTrackingModelsValuesPerTenant:
     def test_create_models_with_same_value_diff_tenant(self, data, five_tenants):
         model_name = data["model_name"]
         model_class = apps.get_model("tracking", model_name)
+        # Use unique name per test run to avoid duplicate key when tests run in parallel (e.g. xdist)
+        unique_name = f"same-name-{uuid.uuid4().hex[:8]}"
+        values = {**data["values"], "name": unique_name}
 
         for tenant in five_tenants:
-            model_class.objects.create(**data["values"], das_tenant=tenant)
+            model_class.objects.create(**values, das_tenant=tenant)
 
-        assert model_class.objects.filter(**data["values"], das_tenant__in=five_tenants).count() == 5
+        assert model_class.objects.filter(**values, das_tenant__in=five_tenants).count() == 5
 
     @pytest.mark.parametrize(
         "data",
@@ -260,9 +268,11 @@ class TestTrackingModelsValuesPerTenant:
     def test_create_models_with_same_value_same_tenant(self, data, das_tenant):
         model_name = data["model_name"]
         model_class = apps.get_model("tracking", model_name)
+        # Use unique name per test run so only we create these two; second create raises IntegrityError
+        unique_name = f"same-name-{uuid.uuid4().hex[:8]}"
 
         with pytest.raises(IntegrityError) as error:
             for _ in range(0, 2):
-                model_class.objects.create(**data["values"], das_tenant=das_tenant)
+                model_class.objects.create(**{**data["values"], "name": unique_name}, das_tenant=das_tenant)
 
         assert f"tracking_{model_name.lower()}_unique_name_across_tenants" in str(error)

@@ -701,12 +701,8 @@ def tenant_settings(request, monkeypatch, tenant):
     return tenant
 
 
-@pytest.fixture
-def das_tenant_monkeypatch(request, monkeypatch, das_tenant):
-    """This fixture is used to monkeypatch the get/set of das_tenant on the current thread.
-    Secondly if used as a class fixture, it injects the das_tenant into that class
-    so that individual tests can access the das_tenant object.
-    For example self.das_tenant.id"""
+def _monkeypatch_current_tenant(request, monkeypatch, das_tenant):
+    """Set das_tenant as the current tenant for the request scope (thread_locals)."""
     thread_locals = MagicMock()
     thread_locals.tenant = das_tenant
     monkeypatch.setattr(django_multitenant.utils, "_thread_locals", thread_locals)
@@ -715,6 +711,24 @@ def das_tenant_monkeypatch(request, monkeypatch, das_tenant):
     if getattr(request, "cls", None):
         request.cls.das_tenant = das_tenant
     return das_tenant
+
+
+@pytest.fixture
+def das_tenant_monkeypatch(request, monkeypatch, das_tenant):
+    """This fixture is used to monkeypatch the get/set of das_tenant on the current thread.
+    Secondly if used as a class fixture, it injects the das_tenant into that class
+    so that individual tests can access the das_tenant object.
+    For example self.das_tenant.id"""
+    return _monkeypatch_current_tenant(request, monkeypatch, das_tenant)
+
+
+@pytest.fixture
+def scoped_das_tenant(request, monkeypatch, one_tenant):
+    """DASTenant unique to a single test, with current tenant set so ORM only sees this test's data.
+    Use when the test relies on tenant-scoped managers and
+    *must not see data from other tests* (e.g. with --reuse-db). Uses the same monkeypatch
+    as `das_tenant_monkeypatch`, but with a tenant from `one_tenant`."""
+    return _monkeypatch_current_tenant(request, monkeypatch, one_tenant[0])
 
 
 @pytest.fixture(autouse=True, scope="session")

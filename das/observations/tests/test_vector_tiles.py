@@ -330,7 +330,7 @@ class TestSegmentQueryParameterFiltering:
         )
         ObservationSegment.objects.create_segment(obs_recent_1, obs_recent_2, subject)
 
-        qs = ObservationSegment.objects.all()
+        qs = ObservationSegment.objects.filter(subject=subject)
 
         # Default (no data) or explicit range=45: only recent segment
         filterset_default = ObservationSegmentVectorTileFilterSet(data={}, queryset=qs)
@@ -934,25 +934,25 @@ class TestVectorTileEdgeCases:
         filterset_include = ObservationSegmentVectorTileFilterSet(data={"show_excluded": "true"}, queryset=qs)
         assert filterset_include.qs.count() == 1
 
-    def test_layer_show_excluded_from_request_params(self, das_tenant, subject_subtype):
+    def test_layer_show_excluded_from_request_params(self, scoped_das_tenant, subject_subtype):
         """Verify ObservationSegmentVectorLayer respects show_excluded query param."""
         subject = Subject.objects.create(
-            name="Request Param Test", subject_subtype=subject_subtype, das_tenant=das_tenant
+            name="Request Param Test", subject_subtype=subject_subtype, das_tenant=scoped_das_tenant
         )
         provider, _ = SourceProvider.objects.get_or_create(
-            provider_key="test_reqparam", display_name="Test", das_tenant=das_tenant
+            provider_key="test_reqparam", display_name="Test", das_tenant=scoped_das_tenant
         )
-        source = Source.objects.create(manufacturer_id="reqparam_test", provider=provider, das_tenant=das_tenant)
-        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+        source = Source.objects.create(manufacturer_id="reqparam_test", provider=provider, das_tenant=scoped_das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=scoped_das_tenant)
 
         now = timezone.now()
 
         # Create clean segment
         obs1 = Observation.objects.create(
-            source=source, recorded_at=now - timedelta(hours=4), location=Point(0, 0), das_tenant=das_tenant
+            source=source, recorded_at=now - timedelta(hours=4), location=Point(0, 0), das_tenant=scoped_das_tenant
         )
         obs2 = Observation.objects.create(
-            source=source, recorded_at=now - timedelta(hours=3), location=Point(1, 0), das_tenant=das_tenant
+            source=source, recorded_at=now - timedelta(hours=3), location=Point(1, 0), das_tenant=scoped_das_tenant
         )
         ObservationSegment.objects.create_segment(obs1, obs2, subject)
 
@@ -962,10 +962,10 @@ class TestVectorTileEdgeCases:
             recorded_at=now - timedelta(hours=2),
             location=Point(2, 0),
             exclusion_flags=Observation.EXCLUDED_MANUALLY,
-            das_tenant=das_tenant,
+            das_tenant=scoped_das_tenant,
         )
         obs4 = Observation.objects.create(
-            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=das_tenant
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=scoped_das_tenant
         )
         ObservationSegment.objects.create_segment(obs3, obs4, subject)
 
@@ -986,16 +986,18 @@ class TestVectorTileEdgeCases:
         layer_exclude = ObservationSegmentVectorLayer(request=request_exclude)
         assert layer_exclude.get_queryset().count() == 1
 
-    def test_layer_range_param_in_request(self, das_tenant, subject_subtype, create_user):
+    def test_layer_range_param_in_request(self, scoped_das_tenant, subject_subtype, create_user):
         """Verify ObservationSegmentVectorLayer respects range query param."""
         subject = Subject.objects.create(
-            name="Range Param Test", subject_subtype=subject_subtype, das_tenant=das_tenant
+            name="Range Param Test", subject_subtype=subject_subtype, das_tenant=scoped_das_tenant
         )
         provider, _ = SourceProvider.objects.get_or_create(
-            provider_key="test_range_param", display_name="Test", das_tenant=das_tenant
+            provider_key="test_range_param", display_name="Test", das_tenant=scoped_das_tenant
         )
-        source = Source.objects.create(manufacturer_id="range_param_test", provider=provider, das_tenant=das_tenant)
-        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+        source = Source.objects.create(
+            manufacturer_id="range_param_test", provider=provider, das_tenant=scoped_das_tenant
+        )
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=scoped_das_tenant)
 
         now = timezone.now()
 
@@ -1004,17 +1006,17 @@ class TestVectorTileEdgeCases:
             source=source,
             recorded_at=now - timedelta(days=50),
             location=Point(0, 0),
-            das_tenant=das_tenant,
+            das_tenant=scoped_das_tenant,
         )
         obs2 = Observation.objects.create(
             source=source,
             recorded_at=now - timedelta(days=50) + timedelta(hours=1),
             location=Point(1, 0),
-            das_tenant=das_tenant,
+            das_tenant=scoped_das_tenant,
         )
         ObservationSegment.objects.create_segment(obs1, obs2, subject)
 
-        superuser = create_user(is_superuser=True, username="range_test_superuser")
+        superuser = create_user(is_superuser=True, username="range_test_superuser", das_tenant=scoped_das_tenant)
         factory = APIRequestFactory()
 
         # Default (no range param) or range=45: exclude old segment
