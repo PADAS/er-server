@@ -61,6 +61,7 @@ jobs:
 
   deploy-dev:
     needs: [unit-test1, unit-test2]
+    if: github.ref_name == 'develop'
     uses: PADAS/serca-pipelines/.github/workflows/_argocd-deploy.yml@main
     with:
       app-name: das-server
