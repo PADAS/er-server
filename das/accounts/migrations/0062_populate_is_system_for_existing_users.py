@@ -17,10 +17,6 @@ def forward_func(apps, schema_editor):
     User.objects.using(db_alias).filter(username__in=SYSTEM_USERNAMES).update(is_system=True)
 
 
-def reverse_func(apps, schema_editor):
-    pass
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -28,5 +24,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(forward_func, reverse_func),
+        migrations.RunPython(forward_func, migrations.RunPython.noop),
     ]
