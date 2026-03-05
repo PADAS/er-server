@@ -160,7 +160,7 @@ class TestChoicesModelsValuesPerTenant:
             for _ in range(0, 2):
                 DynamicChoice.objects.create(choice_name=name, das_tenant=das_tenant)
 
-        assert "choices_dynamicchoice_unique_choice_name_across_tenants" in str(error)
+        assert "choices_dynamicchoice_unique_choice_name_across_tenants" in str(error.value)
 
 
 @pytest.mark.django_db
@@ -275,4 +275,4 @@ class TestTrackingModelsValuesPerTenant:
             for _ in range(0, 2):
                 model_class.objects.create(**{**data["values"], "name": unique_name}, das_tenant=das_tenant)
 
-        assert f"tracking_{model_name.lower()}_unique_name_across_tenants" in str(error)
+        assert f"tracking_{model_name.lower()}_unique_name_across_tenants" in str(error.value)
