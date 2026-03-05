@@ -41,6 +41,7 @@ from django.contrib.gis.db import models as dbmodels
 from django.contrib.gis.geos import LineString, Point, Polygon
 from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
+from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import connection, connections, transaction
 from django.db.models import (
@@ -1056,6 +1057,57 @@ class Observation(TenantModelMixin, models.Model):
     def has_system_exclusion_flags(self):
         """Check if any system exclusion flags are set."""
         return bool(self.system_exclusion_flags & self.DEFAULT_EXCLUSION_MASK)
+
+    def get_neighbor_observations(self, subject):
+        """
+        Get the previous and next observations for a subject's track relative to this observation.
+
+        Uses a per-subject neighbor map cache so that when many observations for the same
+        subject are processed in sequence (e.g. real-time or bulk import), we do one
+        ordered-id query per subject instead of two queries per observation.
+
+        Args:
+            subject: Subject instance (defines the track via its SubjectSources)
+
+        Returns:
+            tuple: (prev_observation, next_observation) - either can be None
+        """
+        cache_key_sources = f"subject_sources_{subject.id}"
+        subject_sources = cache.get(cache_key_sources)
+        if subject_sources is None:
+            subject_sources = list(SubjectSource.objects.filter(subject=subject).values_list("source_id", flat=True))
+            cache.set(cache_key_sources, subject_sources, 300)
+
+        cache_key_map = f"subject_neighbor_map_{subject.id}"
+        neighbor_map = cache.get(cache_key_map)
+        if neighbor_map is None or self.id not in neighbor_map:
+            if neighbor_map is not None:
+                cache.delete(cache_key_map)
+            ordered_ids = list(
+                Observation.objects.filter(source_id__in=subject_sources, location__isnull=False)
+                .order_by("recorded_at")
+                .values_list("id", flat=True)
+            )
+            neighbor_map = {}
+            for i, obs_id in enumerate(ordered_ids):
+                prev_id = ordered_ids[i - 1] if i > 0 else None
+                next_id = ordered_ids[i + 1] if i < len(ordered_ids) - 1 else None
+                neighbor_map[obs_id] = (prev_id, next_id)
+            cache.set(cache_key_map, neighbor_map, 300)
+
+        prev_id, next_id = neighbor_map.get(self.id, (None, None))
+        neighbor_ids = [x for x in (prev_id, next_id) if x is not None]
+        if not neighbor_ids:
+            return None, None
+        observations_by_id = {obs.id: obs for obs in Observation.objects.filter(id__in=neighbor_ids)}
+        return observations_by_id.get(prev_id), observations_by_id.get(next_id)
+
+    def _delete_observation_segments(self):
+        """Delete all ObservationSegments that have this observation as start or end."""
+        ObservationSegment.objects.filter(
+            Q(start_observation=self) | Q(end_observation=self),
+            das_tenant_id=self.das_tenant_id,
+        ).delete()
 
     class Meta:
         constraints = [

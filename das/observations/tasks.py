@@ -36,6 +36,40 @@ logger = logging.getLogger(__name__)
 MAX_MAINTAIN_SUBJECTSTATUS_DELAY_SECONDS = 600
 
 
+@celery.app.task(
+    base=TenantQueueOnceTask,
+    once={"graceful": True},
+)
+def recompute_observation_segments_task(source_id=None, lower=None, upper=None, observation_ids=None, **kwargs):
+    """
+    Single async entry point for recomputing ObservationSegments.
+
+    Invoke with either:
+      - source_id, lower, upper: recompute segments for all observations of that source in [lower, upper]
+      - observation_ids: recompute segments for those observation IDs
+
+    Used by SubjectSource signals (source_id + range) and by the backfill command (same).
+    """
+    from observations.signals import (
+        recompute_observation_segments,
+        recompute_observation_segments_for_source_range,
+    )
+
+    if source_id is not None and lower is not None and upper is not None:
+        # Ensure timezone-aware datetimes (Celery may pass serialized form)
+        from django.utils.dateparse import parse_datetime
+
+        if isinstance(lower, str):
+            lower = parse_datetime(lower) or lower
+        if isinstance(upper, str):
+            upper = parse_datetime(upper) or upper
+        recompute_observation_segments_for_source_range(source_id, lower, upper)
+    elif observation_ids:
+        recompute_observation_segments(observation_ids)
+    else:
+        logger.warning("recompute_observation_segments_task called with no source_id+range or observation_ids")
+
+
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def maintain_subjectstatus_all():
     for subject_id in Subject.objects.filter(is_active=True).values_list("id", flat=True):

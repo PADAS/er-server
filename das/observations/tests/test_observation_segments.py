@@ -12,6 +12,7 @@ Tests cover:
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from psycopg2.extras import DateTimeTZRange
 
 from django.contrib.gis.geos import LineString, Point
 from django.urls import reverse
@@ -391,6 +392,80 @@ class TestObservationSegmentSignals:
         assert len(new_segments) == 2
 
         # This proves O(1) segment updates!
+
+
+@pytest.mark.django_db
+class TestSubjectSourceSegmentUpdate:
+    """When SubjectSource assignment changes, the shared recompute updates ObservationSegment subject_id."""
+
+    @pytest.fixture
+    def setup_data(self, db):
+        """Two subjects, one source, one SubjectSource (subject A) with a fixed range."""
+        tenant = DASTenant.objects.get(id=default_tenant_id())
+        subject_type, _ = SubjectType.objects.get_or_create(value="wildlife_ss", display="Wildlife", das_tenant=tenant)
+        subject_subtype, _ = SubjectSubType.objects.get_or_create(
+            value="rhino_ss", display="Rhino", subject_type=subject_type, das_tenant=tenant
+        )
+        subject_a = Subject.objects.create(name="Subject A", subject_subtype=subject_subtype, das_tenant=tenant)
+        subject_b = Subject.objects.create(name="Subject B", subject_subtype=subject_subtype, das_tenant=tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_ss_segments", display_name="Test", das_tenant=tenant
+        )
+        source = Source.objects.create(manufacturer_id="collar_ss_segments", provider=provider, das_tenant=tenant)
+        range_start = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        range_end = datetime(2024, 1, 10, 0, 0, 0, tzinfo=timezone.utc)
+        SubjectSource.objects.create(
+            subject=subject_a,
+            source=source,
+            assigned_range=DateTimeTZRange(lower=range_start, upper=range_end),
+            das_tenant=tenant,
+        )
+        return {
+            "tenant": tenant,
+            "subject_a": subject_a,
+            "subject_b": subject_b,
+            "source": source,
+            "range_start": range_start,
+            "range_end": range_end,
+        }
+
+    def test_recompute_after_subject_change_updates_segment_subject_id(self, setup_data):
+        """Reassigning a source from subject A to subject B; recompute updates segment subject_id to B."""
+        from observations.signals import recompute_observation_segments_for_source_range
+
+        source = setup_data["source"]
+        subject_a = setup_data["subject_a"]
+        subject_b = setup_data["subject_b"]
+        range_start = setup_data["range_start"]
+        range_end = setup_data["range_end"]
+        tenant = setup_data["tenant"]
+
+        obs1 = Observation.objects.create(
+            source=source,
+            recorded_at=range_start + timedelta(days=1),
+            location=Point(0, 0),
+            das_tenant=tenant,
+        )
+        obs2 = Observation.objects.create(
+            source=source,
+            recorded_at=range_start + timedelta(days=1, hours=1),
+            location=Point(1, 0),
+            das_tenant=tenant,
+        )
+        update_segments_for_observation(obs1, created=True)
+        update_segments_for_observation(obs2, created=True)
+
+        segment = ObservationSegment.objects.get()
+        assert segment.subject_id == subject_a.id
+
+        ss = SubjectSource.objects.get(source=source)
+        ss.subject = subject_b
+        ss.save()
+
+        recompute_observation_segments_for_source_range(str(source.id), range_start, range_end)
+
+        segment.refresh_from_db()
+        assert segment.subject_id == subject_b.id
 
 
 @pytest.mark.django_db

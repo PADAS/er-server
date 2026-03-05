@@ -12,7 +12,13 @@ from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Q
 from django.db.models.fields.json import KeyTransform
-from django.db.models.signals import post_delete, post_migrate, post_save, pre_delete
+from django.db.models.signals import (
+    post_delete,
+    post_migrate,
+    post_save,
+    pre_delete,
+    pre_save,
+)
 from django.dispatch import receiver
 
 from accounts.models import PermissionSet
@@ -22,6 +28,7 @@ from observations.models import (
     Message,
     Observation,
     ObservationSegment,
+    Source,
     SourceProvider,
     Subject,
     SubjectGroup,
@@ -86,6 +93,64 @@ def ensure_subject_status_exists(sender, **kwargs):
 def maintain_subjectstatus(sender, instance, created, **kwargs):
     # This function is triggered when source is updated for subject.
     transaction.on_commit(lambda: maintain_subjectstatus_for_subject.apply_async(args=[instance.subject_id]))
+
+
+@receiver(pre_save, sender=SubjectSource)
+def subjectsource_segment_pre_save(sender, instance, **kwargs):
+    """Capture previous assigned_range and subject_id so post_save can recompute segments."""
+    if instance.pk and not kwargs.get("raw", False):
+        try:
+            old = SubjectSource.objects.get(pk=instance.pk)
+            instance._segment_prev_assigned_range = old.assigned_range
+            instance._segment_prev_subject_id = old.subject_id
+        except SubjectSource.DoesNotExist:
+            pass
+
+
+@receiver(post_save, sender=SubjectSource)
+def subjectsource_segment_post_save(sender, instance, created, **kwargs):
+    """When SubjectSource is created or changed, enqueue async recompute of segments for affected observations."""
+    if kwargs.get("raw", False):
+        return
+    if created:
+        lower, upper = instance.assigned_range.lower, instance.assigned_range.upper
+    else:
+        prev_range = getattr(instance, "_segment_prev_assigned_range", None)
+        prev_subject_id = getattr(instance, "_segment_prev_subject_id", None)
+        if prev_range is None and prev_subject_id is None:
+            return
+        lower, upper = _union_assigned_range_bounds(prev_range, instance.assigned_range)
+        if lower is None:
+            return
+    source_id = str(instance.source_id)
+    domain = instance.source.das_tenant.domain
+
+    def _enqueue():
+        from observations.tasks import recompute_observation_segments_task
+
+        recompute_observation_segments_task.apply_async(
+            kwargs={"source_id": source_id, "lower": lower, "upper": upper, "domain": domain}
+        )
+
+    transaction.on_commit(_enqueue)
+
+
+@receiver(post_delete, sender=SubjectSource)
+def subjectsource_segment_post_delete(sender, instance, **kwargs):
+    """When SubjectSource is deleted, enqueue async recompute for observations that were in its assigned_range."""
+    source_id = str(instance.source_id)
+    lower = instance.assigned_range.lower
+    upper = instance.assigned_range.upper
+    domain = instance.source.das_tenant.domain
+
+    def _enqueue():
+        from observations.tasks import recompute_observation_segments_task
+
+        recompute_observation_segments_task.apply_async(
+            kwargs={"source_id": source_id, "lower": lower, "upper": upper, "domain": domain}
+        )
+
+    transaction.on_commit(_enqueue)
 
 
 def create_proxy_permissions(**kwargs):
@@ -227,67 +292,76 @@ def get_subject_for_observation(observation):
     return subject
 
 
-def get_neighbor_observations(observation, subject):
+def _get_observations_for_source_in_range(source, lower, upper):
+    """Return observation IDs for the given source with recorded_at in [lower, upper]."""
+    return list(
+        Observation.objects.filter(
+            source=source,
+            recorded_at__gte=lower,
+            recorded_at__lte=upper,
+        ).values_list("id", flat=True)
+    )
+
+
+def recompute_observation_segments(observation_ids):
     """
-    Get the previous and next observations for a subject relative to a given observation.
+    Recompute ObservationSegments for the given observations (single interface for segment updates).
 
-    Uses a per-subject neighbor map cache so that when many observations for the same
-    subject are processed in sequence (e.g. real-time or bulk import via signal), we
-    do one ordered-id query per subject instead of two queries per observation.
-
-    Args:
-        observation: Observation instance
-        subject: Subject instance
-
-    Returns:
-        tuple: (prev_observation, next_observation) - either can be None
+    Invalidates segment caches and calls update_segments_for_observation for each observation.
+    Safe to call with any number of IDs; callers (e.g. Celery task or backfill command) may batch.
     """
-    # Get source IDs for this subject (shared with subject_sources cache)
-    cache_key_sources = f"subject_sources_{subject.id}"
-    subject_sources = cache.get(cache_key_sources)
-    if subject_sources is None:
-        subject_sources = list(SubjectSource.objects.filter(subject=subject).values_list("source_id", flat=True))
-        cache.set(cache_key_sources, subject_sources, 300)  # 5 minutes
+    if not observation_ids:
+        return
+    obs_ids = list(observation_ids)
+    # Collect subject IDs involved so we can invalidate their caches
+    subject_ids = set()
+    for obs in Observation.objects.filter(id__in=obs_ids):
+        subject = get_subject_for_observation(obs)
+        if subject:
+            subject_ids.add(subject.id)
+    _invalidate_segment_caches_for_observations_and_subjects(obs_ids, list(subject_ids))
+    for obs in Observation.objects.filter(id__in=obs_ids):
+        update_segments_for_observation(obs, created=False)
 
-    # Get or build neighbor map: observation_id -> (prev_id, next_id)
-    cache_key_map = f"subject_neighbor_map_{subject.id}"
-    neighbor_map = cache.get(cache_key_map)
-    if neighbor_map is None or observation.id not in neighbor_map:
-        # Rebuild so map includes current observation (e.g. just committed)
-        if neighbor_map is not None:
-            cache.delete(cache_key_map)
-        ordered_ids = list(
-            Observation.objects.filter(source_id__in=subject_sources, location__isnull=False)
-            .order_by("recorded_at")
-            .values_list("id", flat=True)
-        )
-        neighbor_map = {}
-        for i, obs_id in enumerate(ordered_ids):
-            prev_id = ordered_ids[i - 1] if i > 0 else None
-            next_id = ordered_ids[i + 1] if i < len(ordered_ids) - 1 else None
-            neighbor_map[obs_id] = (prev_id, next_id)
-        cache.set(cache_key_map, neighbor_map, 300)  # 5 minutes
 
-    prev_id, next_id = neighbor_map.get(observation.id, (None, None))
+def recompute_observation_segments_for_source_range(source_id, lower, upper, batch_size=1000):
+    """
+    Recompute segments for all observations of the given source in the time range.
 
-    # Fetch full Observation instances for prev/next when present
-    neighbor_ids = [x for x in (prev_id, next_id) if x is not None]
-    if not neighbor_ids:
+    Processes in batches to avoid loading huge ID lists. This is the common entry point
+    used by the SubjectSource signal (via async task) and the backfill command.
+    """
+    source = Source.objects.get(id=source_id)
+    all_ids = _get_observations_for_source_in_range(source, lower, upper)
+    for i in range(0, len(all_ids), batch_size):
+        batch = all_ids[i : i + batch_size]
+        recompute_observation_segments(batch)
+
+
+def _union_assigned_range_bounds(assigned_range_a, assigned_range_b):
+    """
+    Return (lower, upper) covering both ranges for use in observation queries.
+    Either argument may be None; if both None, returns (None, None).
+    """
+    if assigned_range_a is None and assigned_range_b is None:
         return None, None
-    observations_by_id = {obs.id: obs for obs in Observation.objects.filter(id__in=neighbor_ids)}
-    return observations_by_id.get(prev_id), observations_by_id.get(next_id)
+    if assigned_range_a is None:
+        return assigned_range_b.lower, assigned_range_b.upper
+    if assigned_range_b is None:
+        return assigned_range_a.lower, assigned_range_a.upper
+    lower = min(assigned_range_a.lower, assigned_range_b.lower)
+    upper = max(assigned_range_a.upper, assigned_range_b.upper)
+    return lower, upper
 
 
-def _delete_observation_segments(observation):
-    """
-    Delete all segments involving the given observation.
-
-    Args:
-        observation: Observation instance
-    """
-    ObservationSegment.objects.filter(
-        Q(start_observation=observation) | Q(end_observation=observation), das_tenant_id=observation.das_tenant_id
-    ).delete()
+def _invalidate_segment_caches_for_observations_and_subjects(observation_ids, subject_ids):
+    """Invalidate caches used by get_subject_for_observation and Observation.get_neighbor_observations."""
+    for obs_id in observation_ids:
+        cache.delete(f"obs_subject_{obs_id}")
+    for subject_id in subject_ids:
+        if subject_id is not None:
+            cache.delete(f"subject_sources_{subject_id}")
+            cache.delete(f"subject_neighbor_map_{subject_id}")
 
 
 def _create_bridge_segment(prev_obs, next_obs, subject):
@@ -352,7 +426,7 @@ def _handle_observation_deletion(observation, subject, prev_obs, next_obs):
         next_obs: Next observation (or None)
     """
     # Delete segments involving this observation
-    _delete_observation_segments(observation)
+    observation._delete_observation_segments()
 
     # Bridge the gap if both neighbors exist
     if prev_obs and next_obs:
@@ -372,7 +446,7 @@ def _handle_observation_create_or_update(observation, subject, prev_obs, next_ob
     """
     # For updates: delete existing segments involving this observation
     if not created:
-        _delete_observation_segments(observation)
+        observation._delete_observation_segments()
 
     # If inserting between two observations, delete the bridge segment
     if created and prev_obs and next_obs:
@@ -420,7 +494,7 @@ def update_segments_for_observation(observation, created=False, deleted=False):
         return
 
     # Get neighboring observations
-    prev_obs, next_obs = get_neighbor_observations(observation, subject)
+    prev_obs, next_obs = observation.get_neighbor_observations(subject)
 
     # Handle deletion or create/update
     if deleted:
