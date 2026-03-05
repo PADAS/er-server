@@ -31,7 +31,6 @@ def load_default_clients(apps, schema_editor):
                 last_name="oauth",
                 password=crypto.get_random_string(length=12),
                 is_active=False,
-                is_system=True,
                 last_login=timezone.now(),
             ),
         )
