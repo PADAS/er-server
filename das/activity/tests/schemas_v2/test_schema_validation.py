@@ -37,6 +37,10 @@ class TestJsonSchemaFieldBasics:
             "valid_date_field_schema",
             "valid_time_field_schema",
             "valid_text_field_schema",
+            "valid_text_field_format_uri_schema",
+            "valid_text_field_format_uuid_schema",
+            "valid_text_field_format_email_schema",
+            "valid_text_field_pattern_schema",
             "valid_location_field_schema",
             "valid_rendered_choice_field_schema",
             "valid_rendered_multiple_choice_field_schema",
@@ -133,6 +137,16 @@ class TestJsonSchemaFieldBasics:
                 "at json.properties.first_field",
             ),
             (
+                "invalid_text_field_format_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.testText",
+            ),
+            (
+                "invalid_text_field_pattern_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.testText",
+            ),
+            (
                 "invalid_location_type_schema",
                 "is not valid under any of the given schemas",
                 "at json.properties.testLocation",
@@ -205,80 +219,6 @@ class TestFieldSchemaTitleMaxLength:
         error_message = str(exc_info.value)
         assert "is not valid under any of the given schemas" in error_message
         assert "too_long_title_field" in error_message
-
-
-# Only pattern value allowed by the text field meta-schema (alphanumeric).
-TEXT_FIELD_ALPHANUMERIC_PATTERN = "^[a-zA-Z0-9]+$"
-
-
-class TestTextFieldFormatAndPattern:
-    """
-    Tests for text field optional format and pattern validation.
-
-    Format supports: uri, uuid, email. Pattern allows only the alphanumeric regex.
-    Both are optional; text fields remain valid without them.
-    """
-
-    def _text_field_schema(self, **field_overrides):
-        """Build a minimal valid schema with one text field and optional overrides."""
-        return {
-            "json": {
-                **copy.deepcopy(minimal_json_schema),
-                "properties": {
-                    "text_field": {
-                        "type": "string",
-                        "title": "Text Field",
-                        "deprecated": False,
-                        **field_overrides,
-                    }
-                },
-                "required": ["text_field"],
-            },
-            "ui": copy.deepcopy(minimal_ui_schema),
-        }
-
-    @pytest.mark.parametrize("format_value", ["uri", "uuid", "email"])
-    def test_valid_text_field_with_format(self, format_value):
-        """Text field with optional format (uri, uuid, email) is valid."""
-        schema = self._text_field_schema(format=format_value)
-        field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
-        result = field_schema.to_internal_value(schema)
-        assert result is not None
-
-    def test_valid_text_field_with_alphanumeric_pattern(self):
-        """Text field with the only allowed pattern (alphanumeric regex) is valid."""
-        schema = self._text_field_schema(pattern=TEXT_FIELD_ALPHANUMERIC_PATTERN)
-        field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
-        result = field_schema.to_internal_value(schema)
-        assert result is not None
-
-    def test_valid_text_field_without_format_or_pattern(self):
-        """Text field without format or pattern is valid (both optional)."""
-        schema = self._text_field_schema()
-        field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
-        result = field_schema.to_internal_value(schema)
-        assert result is not None
-
-    def test_invalid_text_field_format_value(self):
-        """Text field with format not in enum (uri, uuid, email) is invalid."""
-        schema = self._text_field_schema(format="url")
-        field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
-        with pytest.raises(ValidationError) as exc_info:
-            field_schema.to_internal_value(schema)
-        error_message = str(exc_info.value)
-        assert "is not valid under any of the given schemas" in error_message
-        assert "text_field" in error_message
-
-    @pytest.mark.parametrize("invalid_pattern", ["^[0-9]+$", ".*", "[a-z]", 123])
-    def test_invalid_text_field_pattern(self, invalid_pattern):
-        """Text field with any pattern other than the alphanumeric regex is invalid."""
-        schema = self._text_field_schema(pattern=invalid_pattern)
-        field_schema = JSONSchemaField(meta_schema=main_event_type_schema)
-        with pytest.raises(ValidationError) as exc_info:
-            field_schema.to_internal_value(schema)
-        error_message = str(exc_info.value)
-        assert "is not valid under any of the given schemas" in error_message
-        assert "text_field" in error_message
 
 
 class TestRootSchemaValidation:
