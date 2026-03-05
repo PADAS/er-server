@@ -38,7 +38,6 @@ class ObservationSegmentVectorTileFilterSet(filters.FilterSet):
         choices=[(v, v) for v in ("45", "all")],
         coerce=lambda x: str(x).lower() if x else "45",
         method="filter_range",
-        default=RANGE_45,
         help_text="Time range: '45' (last 45 days by end time, default) or 'all'.",
     )
     show_excluded = filters.BooleanFilter(
