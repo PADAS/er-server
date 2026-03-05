@@ -3,8 +3,9 @@ import urllib.parse as urlparse
 from datetime import date, timedelta
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 
-from accounts.models import User
+from accounts.system_users import GFW_WEBHOOK_USER
 from analyzers.gfw_alert_schema import GFWLayerSlugs
 from analyzers.models import GlobalForestWatchSubscription as gfw_model
 
@@ -180,8 +181,9 @@ def get_gfw_user():
     Get the system-generated user to associate with the Global Forest Watch events.
     :return:
     """
+    User = get_user_model()
     user, create = User.objects.get_or_create(
-        username="gfwwebhookuser",
+        username=GFW_WEBHOOK_USER,
         defaults={
             "first_name": "GFW",
             "last_name": "Webhook",

@@ -49,7 +49,7 @@ from django.utils.encoding import force_str
 from django.utils.translation import gettext_lazy as _
 
 from accounts.models.permissionset import PermissionSet
-from accounts.models.user import User
+from accounts.system_users import DELETED_SENTINEL_USER
 from core.mixins import SerialNumberModelMixin
 from core.models import DASTenant, TenantSingletonModel, TimestampedModel, UUIDModel
 from core.utils import static_image_finder
@@ -98,7 +98,7 @@ def get_sentinel_user():
     """
     User = get_user_model()
     user, created = User.objects.get_or_create(
-        username="deleted",
+        username=DELETED_SENTINEL_USER,
         defaults=dict(
             last_name="account",
             first_name="deleted",
@@ -1168,10 +1168,11 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
 
     def clean(self):
         super().clean()
+        User = get_user_model()
 
         """validate reported_by based on provenance"""
         if self.provenance == self.PC_STAFF:
-            if self.reported_by and not isinstance(self.reported_by, (get_user_model(), Subject)):
+            if self.reported_by and not isinstance(self.reported_by, (User, Subject)):
                 raise ValidationError(
                     {"reported_by": ValidationError(_("Invalid value for reported_by"), code="invalid")}
                 )
@@ -2114,6 +2115,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return Subject.objects.filter(name__iregex=self._get_regex_istartswith(text)).values_list("id", flat=True)
 
     def _get_match_user_id(self, user):
+        User = get_user_model()
         text = re.escape(user)
         return User.objects.filter(
             Q(username__iregex=self._get_regex_istartswith(text))

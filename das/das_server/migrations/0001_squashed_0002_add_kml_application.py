@@ -8,6 +8,8 @@ from django.conf import settings
 from django.db import migrations
 from django.utils import crypto, timezone
 
+from accounts.system_users import DAS_OAUTH_ACT_USER
+
 # Functions from the following migrations need manual copying.
 # Move them and any dependencies into this file, then update the
 # RunPython operations to refer to the local versions:
@@ -20,15 +22,18 @@ def load_default_clients(apps, schema_editor):
     User = apps.get_model(settings.AUTH_USER_MODEL)
     Application = apps.get_model(oauth2_settings.APPLICATION_MODEL)
 
-    if not User.objects.using(db_alias).filter(username="das_oauth_act").exists():
+    if not User.objects.using(db_alias).filter(username=DAS_OAUTH_ACT_USER).exists():
         user, _ = User.objects.using(db_alias).get_or_create(
-            username="das_oauth_act",
-            email="das_oauth_act@das.org",
-            first_name="das",
-            last_name="oauth",
-            password=crypto.get_random_string(length=12),
-            is_active=False,
-            last_login=timezone.now(),
+            username=DAS_OAUTH_ACT_USER,
+            defaults=dict(
+                email="das_oauth_act@das.org",
+                first_name="das",
+                last_name="oauth",
+                password=crypto.get_random_string(length=12),
+                is_active=False,
+                is_system=True,
+                last_login=timezone.now(),
+            ),
         )
 
         Application.objects.using(db_alias).get_or_create(

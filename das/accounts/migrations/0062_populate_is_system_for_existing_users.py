@@ -2,13 +2,7 @@
 
 from django.db import migrations
 
-SYSTEM_USERNAMES = [
-    "er_system",
-    "system_analyzers",
-    "gfwwebhookuser",
-    "das_oauth_act",
-    "deleted",
-]
+from accounts.system_users import SYSTEM_USERNAMES
 
 
 def forward_func(apps, schema_editor):
