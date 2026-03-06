@@ -11,14 +11,8 @@ from django.utils.translation import gettext_lazy as _
 from activity.models import Event, EventCategory, EventType
 from analyzers.base import SubjectAnalyzer
 from analyzers.exceptions import InsufficientDataAnalyzerException
-from analyzers.models import (
-    CRITICAL,
-    OK,
-    WARNING,
-    EnvironmentalSubjectAnalyzerConfig,
-    SubjectAnalyzerResult,
-)
-from analyzers.models.base import EVENT_PRIORITY_MAP
+from analyzers.models import EnvironmentalSubjectAnalyzerConfig, SubjectAnalyzerResult
+from analyzers.models.base import CRITICAL, EVENT_PRIORITY_MAP, OK, WARNING
 from analyzers.utils import save_analyzer_event
 
 logger = logging.getLogger(__name__)

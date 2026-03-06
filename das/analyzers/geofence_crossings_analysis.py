@@ -1,6 +1,7 @@
 import datetime as dt
 
 import pymet
+from osgeo import ogr
 from pymet.geofence import (
     Geofence,
     GeofenceAnalysis,
@@ -17,7 +18,7 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
     """
 
     @classmethod
-    def calc_crossings(cls, geofence_analysis_params=None, trajectories=None):
+    def calc_crossings(cls, geofence_analysis_params=None, trajectories=None, trigger_on_corner_clip=False):
         """
         Run the crossings analysis using the input fences/regions against the various
         :param geofence_analysis_params:
@@ -50,20 +51,73 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
                     # Attempt the intersection of the trajectory segment with the fence
                     intersect_pnts = trajseg.ogr_geometry.Intersection(fence.ogr_geometry)
 
-                    # intersect_pnts can either be None, POINT, or MULTIPOINT
-                    _intersectPnts = []
+                    # intersect_pnts is the result of the OGR Intersection operation and may be
+                    # None, empty, or a geometry of type POINT, MULTIPOINT, LINESTRING,
+                    # MULTILINESTRING, or GEOMETRYCOLLECTION depending on the fence geometry.
+                    if intersect_pnts is None or intersect_pnts.IsEmpty():
+                        continue
 
+                    _intersectPnts = []
                     if intersect_pnts.GetGeometryName() == "POINT":
-                        _intersectPnts.append(intersect_pnts)
+                        newPoint = ogr.Geometry(ogr.wkbPoint)
+                        newPoint.AddPoint(x=intersect_pnts.GetX(), y=intersect_pnts.GetY())
+                        _intersectPnts.append(newPoint)
+                    elif intersect_pnts.GetGeometryName() == "LINESTRING":
+
+                        if intersect_pnts.GetPointCount() < 2:
+                            continue
+
+                        # In the case of a linestring intersection, we want to take the start and end points as the
+                        # crossing points
+                        newPoint1 = ogr.Geometry(ogr.wkbPoint)
+                        newPoint1.AddPoint(x=intersect_pnts.GetPoint(0)[0], y=intersect_pnts.GetPoint(0)[1])
+                        newPoint2 = ogr.Geometry(ogr.wkbPoint)
+                        newPoint2.AddPoint(
+                            x=intersect_pnts.GetPoint(intersect_pnts.GetPointCount() - 1)[0],
+                            y=intersect_pnts.GetPoint(intersect_pnts.GetPointCount() - 1)[1],
+                        )
+                        # We add the points in reverse order because the intersections are returned in the order they
+                        # are encountered along the fence, but we want them in the order they are encountered along the
+                        # trajectory segment
+                        _intersectPnts.append(newPoint2)
+                        _intersectPnts.append(newPoint1)
+
+                    elif intersect_pnts.GetGeometryName() == "MULTILINESTRING":
+                        # For multi-line string, we want to take the start and end
+                        # points of each linestring as the crossing points
+                        for i in range(intersect_pnts.GetGeometryCount()):
+                            linestring = intersect_pnts.GetGeometryRef(i)
+
+                            if linestring.GetPointCount() < 2:
+                                continue
+
+                            newPoint1 = ogr.Geometry(ogr.wkbPoint)
+                            newPoint1.AddPoint(x=linestring.GetPoint(0)[0], y=linestring.GetPoint(0)[1])
+                            newPoint2 = ogr.Geometry(ogr.wkbPoint)
+                            newPoint2.AddPoint(
+                                x=linestring.GetPoint(linestring.GetPointCount() - 1)[0],
+                                y=linestring.GetPoint(linestring.GetPointCount() - 1)[1],
+                            )
+
+                            # We add the points in reverse order because the intersections are returned in the order
+                            # they're encountered along the fence but we want them in the order they are encountered
+                            # along the trajectory segment
+                            _intersectPnts.append(newPoint2)
+                            _intersectPnts.append(newPoint1)
+
                     else:
                         _intersectPnts = intersect_pnts
 
                     total_intersection_points = len([pt for pt in _intersectPnts])
 
+                    if total_intersection_points == 0:
+                        continue
+
                     # if total number of intersection points for a segment
                     # are odd, it's a legitimate crossing, add segment to the
-                    # results
-                    if total_intersection_points > 0 and total_intersection_points % 2 != 0:
+                    # results. If trigger_on_corner_clip is True, also include
+                    # even numbers of intersections (corner clipping)
+                    if total_intersection_points % 2 != 0 or trigger_on_corner_clip:
 
                         for pnt in _intersectPnts:
                             # Create a GeoPoint at the crossing OGR point
