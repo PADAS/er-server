@@ -1072,20 +1072,19 @@ class Observation(TenantModelMixin, models.Model):
         Returns:
             tuple: (prev_observation, next_observation) - either can be None
         """
-        cache_key_sources = f"subject_sources_{subject.id}"
-        subject_sources = cache.get(cache_key_sources)
-        if subject_sources is None:
-            subject_sources = list(SubjectSource.objects.filter(subject=subject).values_list("source_id", flat=True))
-            cache.set(cache_key_sources, subject_sources, 300)
-
         cache_key_map = f"subject_neighbor_map_{subject.id}"
         neighbor_map = cache.get(cache_key_map)
         if neighbor_map is None or self.id not in neighbor_map:
             if neighbor_map is not None:
                 cache.delete(cache_key_map)
             ordered_ids = list(
-                Observation.objects.filter(source_id__in=subject_sources, location__isnull=False)
+                Observation.objects.filter(
+                    source__subjectsource__subject=subject,
+                    source__subjectsource__assigned_range__contains=F("recorded_at"),
+                    location__isnull=False,
+                )
                 .order_by("recorded_at")
+                .distinct()
                 .values_list("id", flat=True)
             )
             neighbor_map = {}
@@ -1320,9 +1319,9 @@ class ObservationSegment(TenantModelMixin, models.Model):
             Index(fields=["das_tenant", "subject", "exclusion_flags"]),
         ]
         constraints = [
-            # Unique constraint on observation pair only (not tenant, since observations are globally unique by UUID)
             UniqueConstraint(
-                fields=["start_observation", "end_observation"], name="%(app_label)s_%(class)s_unique_segment"
+                fields=["start_recorded_at", "start_observation", "end_observation"],
+                name="%(app_label)s_%(class)s_unique_segment",
             ),
         ]
         ordering = ["start_recorded_at"]

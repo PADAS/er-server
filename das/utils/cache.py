@@ -154,6 +154,8 @@ def delete_tile_keys_by_prefix(prefix: str) -> int:
     """Delete cache entries whose keys match the given prefix.
 
     Works with django-redis by using SCAN to avoid blocking. Returns count of deleted keys.
+    The prefix is run through cache.make_key() so that KEY_PREFIX and VERSION
+    from the backend configuration are included in the scan pattern.
     """
     cache = get_vector_tile_cache()
     deleted = 0
@@ -162,8 +164,8 @@ def delete_tile_keys_by_prefix(prefix: str) -> int:
         if client is None:
             return 0
         rc = client.get_client(write=True)
-        # Use scan_iter for non-blocking iteration
-        for key in rc.scan_iter(f"{prefix}*"):
+        redis_prefix = cache.make_key(prefix) if hasattr(cache, "make_key") else prefix
+        for key in rc.scan_iter(f"{redis_prefix}*"):
             try:
                 rc.delete(key)
                 deleted += 1

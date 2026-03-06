@@ -360,7 +360,6 @@ def _invalidate_segment_caches_for_observations_and_subjects(observation_ids, su
         cache.delete(f"obs_subject_{obs_id}")
     for subject_id in subject_ids:
         if subject_id is not None:
-            cache.delete(f"subject_sources_{subject_id}")
             cache.delete(f"subject_neighbor_map_{subject_id}")
 
 

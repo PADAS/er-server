@@ -70,6 +70,9 @@ class FakeCache:
     def delete(self, key):
         return self.client.get_client(write=True).delete(key.encode())
 
+    def make_key(self, key, version=None):
+        return key
+
 
 @pytest.fixture(autouse=True)
 def fake_vector_tile_cache(monkeypatch, settings):

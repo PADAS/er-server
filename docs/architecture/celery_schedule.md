@@ -89,7 +89,7 @@ This document outlines the scheduled tasks in the DAS system organized by hour o
 ### Weekly (Monday at 1:00 AM)
 - **postgresql_partman_run_partition_table_check_for_observations_observationsegment** - Runs partition table check for observation segments
   - Task: `observations.tasks.run_observation_segment_partition_table_check`
-  - Schedule: Every Monday at 2:00 AM (aligned with recommended time for `partman.run_maintenance_proc()` for 3-year retention)
+  - Schedule: Every Monday at 1:00 AM (staggered 1 hour after observation partition check; `partman.run_maintenance_proc()` handles 3-year retention)
 
 The system uses different queues to manage task priorities:
 

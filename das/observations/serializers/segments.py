@@ -271,7 +271,9 @@ class SubjectTrackSegmentsGroupedSerializer(serializers.Serializer):
         # Guard against zero or very small durations that can cause numerical instability
         # Use a minimum threshold of 1 ms before computing average speed
         if total_duration and total_duration >= 0.001:
-            avg_speed = total_distance / (total_duration / 1000.0 / 3600.0)
+            duration_hours = total_duration / 1000.0 / 3600.0
+            distance_km = total_distance / 1000.0
+            avg_speed = distance_km / duration_hours
         else:
             avg_speed = 0  # km/h
 
