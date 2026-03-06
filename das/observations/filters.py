@@ -55,6 +55,8 @@ class ObservationSegmentVectorTileFilterSet(filters.FilterSet):
         if "range" not in self.data:
             cutoff = timezone.now() - timedelta(days=45)
             qs = qs.filter(end_recorded_at__gte=cutoff)
+        if "show_excluded" not in self.data:
+            qs = qs.filter(exclusion_flags=0)
         return qs
 
     def filter_range(self, queryset, _name, value):

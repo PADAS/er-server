@@ -200,10 +200,9 @@ class TestCSVImport:
         """Test that import updates existing choices."""
         admin = choice_admin_fixture.admin
 
-        # Use unique values per run to avoid duplicate key in parallel (tenant unique constraint).
         suffix = uuid.uuid4().hex[:8]
-        elephant_val = f"elephant-{suffix}"
-        rhino_val = f"rhino-{suffix}"
+        elephant_val = f"elephant{suffix}"
+        rhino_val = f"rhino{suffix}"
 
         Choice.objects.create(
             model="activity.eventtype",
@@ -292,8 +291,8 @@ activity.eventtype,wildlifesighting_species,{rhino_val},White Rhino,,2,false"""
         admin = choice_admin_fixture.admin
 
         suffix = uuid.uuid4().hex[:8]
-        elephant_val = f"elephant-{suffix}"
-        rhino_val = f"rhino-{suffix}"
+        elephant_val = f"elephant{suffix}"
+        rhino_val = f"rhino{suffix}"
 
         Choice.objects.create(
             model="activity.eventtype",

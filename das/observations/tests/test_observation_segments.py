@@ -465,8 +465,8 @@ class TestSubjectSourceSegmentUpdate:
 
         recompute_observation_segments_for_source_range(str(source.id), range_start, range_end)
 
-        segment.refresh_from_db()
-        assert segment.subject_id == subject_b.id
+        new_segment = ObservationSegment.objects.get(start_observation=obs1, end_observation=obs2)
+        assert new_segment.subject_id == subject_b.id
 
 
 @pytest.mark.django_db
@@ -547,7 +547,7 @@ class TestObservationSegmentVectorTiles:
         source = Source.objects.create(manufacturer_id="test_collar_mvt", provider=provider, das_tenant=tenant)
         SubjectSource.objects.create(subject=subject, source=source, das_tenant=tenant)
 
-        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        base_time = timezone.now() - timedelta(hours=2)
         obs1 = Observation.objects.create(
             source=source, recorded_at=base_time, location=Point(0.0, 0.0), das_tenant=tenant
         )
@@ -648,7 +648,7 @@ class TestObservationSegmentVectorTiles:
         source = Source.objects.create(manufacturer_id="test_collar_vt_bearing", provider=provider, das_tenant=tenant)
         SubjectSource.objects.create(subject=subject, source=source, das_tenant=tenant)
 
-        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        base_time = timezone.now() - timedelta(hours=2)
         obs1 = Observation.objects.create(source=source, recorded_at=base_time, location=Point(0, 0), das_tenant=tenant)
         obs2 = Observation.objects.create(
             source=source, recorded_at=base_time + timedelta(minutes=10), location=Point(1, 0), das_tenant=tenant
@@ -684,7 +684,7 @@ class TestObservationSegmentVectorTiles:
         source = Source.objects.create(manufacturer_id="test_collar_no_points", provider=provider, das_tenant=tenant)
         SubjectSource.objects.create(subject=subject, source=source, das_tenant=tenant)
 
-        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        base_time = timezone.now() - timedelta(hours=2)
         obs1 = Observation.objects.create(source=source, recorded_at=base_time, location=Point(0, 0), das_tenant=tenant)
         obs2 = Observation.objects.create(
             source=source, recorded_at=base_time + timedelta(minutes=10), location=Point(0.1, 0), das_tenant=tenant

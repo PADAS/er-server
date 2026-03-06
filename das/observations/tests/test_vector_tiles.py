@@ -986,7 +986,7 @@ class TestVectorTileEdgeCases:
         layer_exclude = ObservationSegmentVectorLayer(request=request_exclude)
         assert layer_exclude.get_queryset().count() == 1
 
-    def test_layer_range_param_in_request(self, scoped_das_tenant, subject_subtype, create_user):
+    def test_layer_range_param_in_request(self, scoped_das_tenant, subject_subtype):
         """Verify ObservationSegmentVectorLayer respects range query param."""
         subject = Subject.objects.create(
             name="Range Param Test", subject_subtype=subject_subtype, das_tenant=scoped_das_tenant
@@ -1016,7 +1016,15 @@ class TestVectorTileEdgeCases:
         )
         ObservationSegment.objects.create_segment(obs1, obs2, subject)
 
-        superuser = create_user(is_superuser=True, username="range_test_superuser", das_tenant=scoped_das_tenant)
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        superuser = User.objects.create_user(
+            username="range_test_superuser",
+            password="testpass",
+            is_superuser=True,
+            das_tenant=scoped_das_tenant,
+        )
         factory = APIRequestFactory()
 
         # Default (no range param) or range=45: exclude old segment
