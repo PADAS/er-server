@@ -395,13 +395,14 @@ class TestObservationSegmentSignals:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
 class TestSubjectSourceSegmentUpdate:
     """When SubjectSource assignment changes, the shared recompute updates ObservationSegment subject_id."""
 
     @pytest.fixture
-    def setup_data(self, db):
+    def setup_data(self, db, das_tenant_monkeypatch):
         """Two subjects, one source, one SubjectSource (subject A) with a fixed range."""
-        tenant = DASTenant.objects.get(id=default_tenant_id())
+        tenant = das_tenant_monkeypatch
         subject_type, _ = SubjectType.objects.get_or_create(value="wildlife_ss", display="Wildlife", das_tenant=tenant)
         subject_subtype, _ = SubjectSubType.objects.get_or_create(
             value="rhino_ss", display="Rhino", subject_type=subject_type, das_tenant=tenant

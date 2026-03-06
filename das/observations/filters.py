@@ -49,6 +49,14 @@ class ObservationSegmentVectorTileFilterSet(filters.FilterSet):
         model = ObservationSegment
         fields = ["range", "show_excluded"]
 
+    @property
+    def qs(self):
+        qs = super().qs
+        if "range" not in self.data:
+            cutoff = timezone.now() - timedelta(days=45)
+            qs = qs.filter(end_recorded_at__gte=cutoff)
+        return qs
+
     def filter_range(self, queryset, _name, value):
         """Limit to segments that ended in the last 45 days when range=45; no limit when range=all."""
         if value == self.RANGE_ALL:

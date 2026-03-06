@@ -10,7 +10,6 @@ import django_multitenant
 import pytest
 from django_fakeredis.fakeredis import get_fake_redis
 from django_multitenant.utils import get_current_tenant, set_current_tenant
-from factory import Faker
 from oauth2_provider.models import get_application_model
 from pytest_factoryboy import register
 
@@ -628,12 +627,13 @@ def das_tenant(tenant):
 def one_tenant():
     """Return a DASTenant and a matching tenant settings object"""
 
-    tenant = TenantFactory(id=Faker("uuid4"), domain=Faker("hostname"))
+    tenant_id = uuid.uuid4()
+    tenant = TenantFactory(id=tenant_id, domain=f"host-{tenant_id.hex[:12]}.example.com")
     tenant_settings = copy.deepcopy(TENANT_RESPONSE)
     tenant_settings["domain"] = tenant.domain
     tenant_settings["id"] = tenant.id
-    tenant_settings["slugName"] = Faker("slug")
-    tenant_settings["name"] = Faker("company")
+    tenant_settings["slugName"] = f"slug-{tenant_id.hex[:8]}"
+    tenant_settings["name"] = f"Tenant {tenant_id.hex[:6]}"
     tenant_settings["url"] = f"https://{tenant.domain}"
     tenant_settings = Tenant.from_dict(tenant_settings)
 
@@ -672,7 +672,8 @@ def five_tenants():
     previous_tenant = get_current_tenant()
     set_current_tenant(None)
 
-    yield TenantFactory.create_batch(size=5, id=Faker("uuid4"), domain=Faker("domain_name"))
+    tenants = [TenantFactory(id=uuid.uuid4(), domain=f"t{i}-{uuid.uuid4().hex[:8]}.example.com") for i in range(5)]
+    yield tenants
 
     set_current_tenant(previous_tenant)
 

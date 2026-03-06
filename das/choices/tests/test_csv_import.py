@@ -176,7 +176,7 @@ def csv_with_invalid_is_active():
 activity.event,status,active,Active Status,,1,maybe"""
 
 
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.usefixtures("tenant_settings")
 class TestCSVImport:
     """Test CSV import functionality"""
 
