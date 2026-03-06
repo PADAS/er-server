@@ -7,6 +7,8 @@ text_field_schema = {
         "default": {"type": "string"},
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
+        "format": {"enum": ["uri", "uuid", "email"]},
+        "pattern": {"const": "^[a-zA-Z0-9]+$"},
         "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
         "type": {"const": "string"},
     },
