@@ -127,7 +127,12 @@ class MigrationService:
     def transform_schema(self, event_type: EventType, result: MigrationResult) -> Optional[dict]:
         log_collector = LogCollector({"event_type": event_type.value})
 
-        v1_schema = json.loads(preprocess_template_vars(event_type.schema))
+        try:
+            v1_schema = json.loads(preprocess_template_vars(event_type.schema))
+        except json.JSONDecodeError as e:
+            result.errors.append(f"Invalid JSON in schema: {e}")
+            return None
+
         v2_schema = transform_schema(v1_schema, log_collector)
 
         # Collect warnings/errors from transformation
