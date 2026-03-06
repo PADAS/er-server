@@ -16,6 +16,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("accounts", "0061_add_is_system_to_user"),
+        ("das_server", "0001_squashed_0002_add_kml_application"),
     ]
 
     operations = [
