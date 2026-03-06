@@ -182,7 +182,7 @@ def get_gfw_user():
     :return:
     """
     User = get_user_model()
-    user, create = User.objects.get_or_create(
+    user, _ = User.objects.get_or_create(
         username=GFW_WEBHOOK_USER,
         defaults={
             "first_name": "GFW",
