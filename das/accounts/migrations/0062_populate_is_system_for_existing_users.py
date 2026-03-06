@@ -3,12 +3,13 @@
 from django.db import migrations
 
 from accounts.system_users import SYSTEM_USERNAMES
+from utils.tenant.managers import UnsetDASTenantContextManager
 
 
 def forward_func(apps, schema_editor):
-    User = apps.get_model("accounts", "User")
-    db_alias = schema_editor.connection.alias
-    User.objects.using(db_alias).filter(username__in=SYSTEM_USERNAMES).update(is_system=True)
+    with UnsetDASTenantContextManager():
+        User = apps.get_model("accounts", "User")
+        User.objects.filter(username__in=SYSTEM_USERNAMES).update(is_system=True)
 
 
 class Migration(migrations.Migration):
