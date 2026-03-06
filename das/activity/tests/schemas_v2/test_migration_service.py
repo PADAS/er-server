@@ -65,6 +65,17 @@ class TestMigrateSingle:
         assert result.success is False
         assert "not V1" in result.errors[0]
 
+    def test_invalid_json_schema(self, migration_service, v1_event_type):
+        """EventType with unparseable JSON schema should fail with a clear error."""
+        v1_event_type.schema = "not valid json {{"
+        v1_event_type.save(update_fields=["schema"])
+
+        result = migration_service.migrate_single(v1_event_type.value)
+
+        assert result.success is False
+        assert any("Invalid JSON in schema" in e for e in result.errors)
+        assert result.v2_schema is None
+
     @patch("activity.schemas.migration.service.transform_schema")
     def test_dry_run_does_not_persist(self, mock_transform, migration_service, v1_event_type):
         mock_transform.return_value = {"json": {"properties": {}}, "ui": {}}
