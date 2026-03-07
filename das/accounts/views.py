@@ -34,7 +34,7 @@ class UsersView(generics.ListAPIView, DynamicSchemaDataMixin):
     filterset_class = UserFilterSet
 
     def get_queryset(self):
-        return get_user_model().objects.all()
+        return get_user_model().objects.filter(is_system=False)
 
 
 class UserView(generics.RetrieveAPIView):

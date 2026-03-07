@@ -7,6 +7,7 @@ from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 
 from accounts.models.permissionset import PermissionSet
+from accounts.system_users import ER_SYSTEM_USER
 from accounts.utils import add_tenant_to_permission_codename
 from activity.models import EventCategory
 from activity.permissions import EventCategoryPermissions
@@ -23,11 +24,12 @@ logger = logging.getLogger(__name__)
 def get_er_user():
     user_model = get_user_model()
     user, _ = user_model.objects.get_or_create(
-        username="er_system",
+        username=ER_SYSTEM_USER,
         defaults={
             "first_name": "EarthRanger",
             "last_name": "System",
             "password": user_model.objects.make_random_password(),
+            "is_system": True,
         },
     )
     return user
