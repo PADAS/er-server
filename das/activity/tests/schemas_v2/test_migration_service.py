@@ -1,5 +1,4 @@
-"""Tests for MigrationService - schema migration orchestration.
-"""
+"""Tests for MigrationService - schema migration orchestration."""
 
 from unittest.mock import patch
 
@@ -86,6 +85,61 @@ class TestMigrateSingle:
         # Reload from DB - should still be V1
         v1_event_type.refresh_from_db()
         assert v1_event_type.version == EventType.VersionChoices.VERSION_1
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestDryRunParity:
+    """Regression tests: if a schema passes dry_run, it should also pass when persisting."""
+
+    @patch("activity.schemas.migration.service.transform_schema")
+    @patch.object(MigrationService, "can_modify_event_type", return_value=True)
+    def test_duplicate_choice_values_persist_same_as_dry_run(
+        self,
+        mock_perm,
+        mock_transform,
+        make_migration_service,
+        v1_event_type,
+    ):
+        """Duplicate enum values can exist in V1 schemas.
+
+        Migration should deduplicate them during analysis so persistence doesn't
+        violate the Choice unique constraint on (tenant, model, field, value).
+        """
+        mock_transform.return_value = {
+            "json": {
+                "properties": {
+                    "single_select": {
+                        "title": "I'm a single select query",
+                        "type": "string",
+                        "anyOf": [
+                            {
+                                "title": "Hardcoded",
+                                "type": "string",
+                                "oneOf": [
+                                    {"const": "new", "title": "New/Fresh"},
+                                    {"const": "new", "title": "New/Fresh"},
+                                ],
+                            }
+                        ],
+                    }
+                }
+            },
+            "ui": {},
+        }
+
+        dry_run_service = make_migration_service(dry_run=True)
+        dry_run_result = dry_run_service.migrate_single(v1_event_type.value)
+        assert dry_run_result.success is True
+        assert dry_run_result.metadata.get("choices")
+
+        live_service = make_migration_service(dry_run=False)
+        live_results = live_service.migrate([v1_event_type.value])
+        assert live_results[0].success is True
+
+        # Only one DB row should exist for the duplicated value
+        field_name = live_results[0].metadata["choices"]["fields"][0]["existing_choice_field"]
+        assert Choice.objects.filter(model=Choice.EVENT_MODEL, field=field_name, value="new").count() == 1
 
     @patch("activity.schemas.migration.service.transform_schema")
     @patch.object(MigrationService, "can_modify_event_type", return_value=True)

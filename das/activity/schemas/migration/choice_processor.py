@@ -106,6 +106,8 @@ class ChoiceProcessor:
         for field_name, field_schema in properties.items():
             hardcoded_values = self.extract_hardcoded_values(field_schema)
 
+            hardcoded_values, dedupe_warnings = self.dedupe_choice_values(hardcoded_values)
+
             if not hardcoded_values:
                 continue
 
@@ -115,6 +117,9 @@ class ChoiceProcessor:
                 hardcoded_values=hardcoded_values,
                 reserved_names=reserved_names,
             )
+
+            if dedupe_warnings:
+                result.warnings.extend(dedupe_warnings)
 
             # Track proposed names to avoid collisions within batch
             if result.status == "to_create" and result.proposed_name:
@@ -144,6 +149,45 @@ class ChoiceProcessor:
             metadata["warnings"].extend(result.warnings)
 
         return v2_schema, metadata
+
+    @staticmethod
+    def dedupe_choice_values(values: List[Dict[str, str]]) -> Tuple[List[Dict[str, str]], List[str]]:
+        """Deduplicate choice items by their 'value' key.
+
+        The Choice model enforces uniqueness on (tenant, model, field, value), so duplicate
+        values in a single field will fail when persisting (but not in dry_run). We normalize
+        this here so analysis and persistence behave consistently.
+
+        Returns (deduped_values, warnings).
+        """
+
+        if not values:
+            return [], []
+
+        deduped: List[Dict[str, str]] = []
+        seen: Dict[str, str] = {}
+        warnings: List[str] = []
+
+        for item in values:
+            value = item.get("value")
+            if value is None:
+                continue
+
+            display = item.get("display", value)
+            if value in seen:
+                if seen[value] != display:
+                    warnings.append(
+                        f"Duplicate choice value '{value}' has conflicting displays '{seen[value]}' and '{display}'. "
+                        "Keeping the first."
+                    )
+                else:
+                    warnings.append(f"Duplicate choice value '{value}' was deduplicated.")
+                continue
+
+            seen[value] = display
+            deduped.append({"value": value, "display": display})
+
+        return deduped, warnings
 
     @staticmethod
     def _update_summary(summary: Dict[str, int], status: str) -> None:
@@ -350,19 +394,28 @@ class ChoiceProcessor:
 
     def create_choice_field(self, field_name: str, values: List[Dict[str, str]]) -> None:
         """Create Choice objects for a new choice field."""
-        for i, item in enumerate(values):
-            value = item["value"]
+        seen_values = set()
+        ordernum = 0
+        for item in values:
+            value = item.get("value")
             if not value:
                 logger.warning("Skipping empty value in choice field '%s'", field_name)
                 continue
+
+            if value in seen_values:
+                continue
+
+            seen_values.add(value)
 
             Choice.objects.create(
                 model=Choice.EVENT_MODEL,
                 field=field_name,
                 value=value,
                 display=item.get("display", value),
-                ordernum=i,
+                ordernum=ordernum,
             )
+
+            ordernum += 1
 
     def add_values_to_choice_field(self, field_name: str, values: List[Dict[str, str]]) -> int:
         """Add missing values to an existing choice field. Returns count added."""
