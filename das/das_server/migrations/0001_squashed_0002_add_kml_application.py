@@ -26,7 +26,6 @@ def load_default_clients(apps, schema_editor):
         user, _ = User.objects.using(db_alias).get_or_create(
             username=DAS_OAUTH_ACT_USER,
             defaults=dict(
-                email="das_oauth_act@das.org",
                 first_name="das",
                 last_name="oauth",
                 password=crypto.get_random_string(length=12),
