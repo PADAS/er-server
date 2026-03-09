@@ -80,7 +80,7 @@ class SubjectAnalyzer:
                 SubjectAnalyzerResult.objects.filter(pk=this_result.pk).update(event=this_event)
                 this_result.event = this_event
 
-            analyze_results.append(this_result)
+            analyze_results.append((this_result, this_event))
 
         return analyze_results
 

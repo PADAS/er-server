@@ -38,7 +38,7 @@ class MovementClusterAnalyzerConfig(SubjectAnalyzerConfig):
         null=False,
         default=200.0,
         verbose_name=_("Spatial Threshold (meters)"),
-        help_text=_("Maximum distance between two observations for them to be considered " "part of the same cluster."),
+        help_text=_("Maximum distance between two observations for them to be considered part of the same cluster."),
     )
 
     temporal_threshold_seconds = models.IntegerField(
@@ -46,7 +46,7 @@ class MovementClusterAnalyzerConfig(SubjectAnalyzerConfig):
         default=3600,  # 1 hour
         verbose_name=_("Temporal Threshold (seconds)"),
         help_text=_(
-            "Maximum time difference between two observations for them to be " "considered part of the same cluster."
+            "Maximum time difference between two observations for them to be considered part of the same cluster."
         ),
     )
 

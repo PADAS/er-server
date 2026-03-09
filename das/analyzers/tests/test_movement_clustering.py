@@ -243,7 +243,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
         ia = self._analyzer()
         results = ia.analyze(observations=obs)
         assert len(results) == 1, "Expected at least one cluster result"
-        results = results[0]
+        results = results[0][0]
         assert "cluster_point_count" in results.values
         assert "cluster_duration_hours" in results.values
         assert "cluster_radius_meters" in results.values
@@ -258,7 +258,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
         ia = self._analyzer()
         results = ia.analyze(observations=obs)
         assert len(results) == 1
-        vals = results[0].values
+        vals = results[0][0].values
         assert abs(vals["centroid_latitude"] - BASE_LAT) < 0.01
         assert abs(vals["centroid_longitude"] - BASE_LON) < 0.01
 
@@ -649,7 +649,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
 
         assert len(results_1) == 2
 
-        lats = sorted(r.values["centroid_latitude"] for r in results_1)
+        lats = sorted(r[0].values["centroid_latitude"] for r in results_1)
         assert abs(lats[0] - BASE_LAT) < 0.01
         assert abs(lats[1] - (BASE_LAT + 5.0)) < 0.01
 
@@ -679,8 +679,8 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
         # Each pre-merge result must have a linked event.
         pre_event_ids = []
         for r in pre_results:
-            assert r.event.id is not None, "Pre-merge result should have a linked event"
-            pre_event_ids.append(r.event.id)
+            assert r[0].event.id is not None, "Pre-merge result should have a linked event"
+            pre_event_ids.append(r[0].event.id)
 
         # Bridge observation at the midpoint: ~167 m from each cluster centre,
         # within the 200 m threshold and within temporal threshold of all obs.
@@ -690,7 +690,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
         merge_results = ia_merge.analyze(observations=close_obs_a + close_obs_b + [bridge_obs])
 
         assert len(merge_results) == 1
-        merged_result = merge_results[0]
+        merged_result = merge_results[0][0]
 
         # The single merged cluster must contain points from both original clusters.
         stored_lats = {p["lat"] for p in merged_result.values["cluster_points"]}
