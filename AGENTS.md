@@ -75,7 +75,8 @@ Key considerations:
 - Keep business logic in models and forms; keep views light and focused on request handling.
 - Use Django's URL dispatcher (urls.py) to define clear and RESTful URL patterns.
 - Apply Django's security best practices (e.g., CSRF protection, SQL injection protection, XSS prevention).
-- we prefer pytest. Fixtures can be found in conftest.py and run pytest from the project root to use the pytest.ini
+- Use the pytest unittest framework. Fixtures can be found in conftest.py and run pytest from the project root to use the pytest.ini
+- We organize a group of unittest functions in a class.
 - always use logging and not print
 - Use test driven design principles. When fixing bugs, write the assertion unittest that exposes the bug, then fix the code to pass the test.
 - pre-commit handles application of Pep rules including import sorting and pruning, so don't waste time on managing whitespace and other code formatting.

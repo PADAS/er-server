@@ -10,14 +10,8 @@ from django.utils.translation import gettext_lazy as _
 from activity.models import Event
 from analyzers.base import SubjectAnalyzer
 from analyzers.exceptions import InsufficientDataAnalyzerException
-from analyzers.models import (
-    CRITICAL,
-    OK,
-    WARNING,
-    ImmobilityAnalyzerConfig,
-    SubjectAnalyzerResult,
-)
-from analyzers.models.base import EVENT_PRIORITY_MAP
+from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult
+from analyzers.models.base import CRITICAL, EVENT_PRIORITY_MAP, OK, WARNING
 from analyzers.utils import save_analyzer_event
 
 

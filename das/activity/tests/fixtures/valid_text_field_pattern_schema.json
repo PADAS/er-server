@@ -1,0 +1,22 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testText": {
+                "type": "string",
+                "title": "Text Field Pattern",
+                "deprecated": false,
+                "pattern": "^[a-zA-Z0-9]+$"
+            }
+        },
+        "required": ["testText"]
+    },
+    "ui": {
+        "fields": {},
+        "headers": {},
+        "order": [],
+        "sections": {}
+    }
+}

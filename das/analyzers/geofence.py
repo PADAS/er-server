@@ -10,13 +10,8 @@ from django.utils.translation import gettext_lazy as _
 from activity.models import Event, EventType
 from analyzers.base import SubjectAnalyzer
 from analyzers.geofence_crossings_analysis import DasGeofenceAnalysis
-from analyzers.models import (
-    CRITICAL,
-    WARNING,
-    GeofenceAnalyzerConfig,
-    SubjectAnalyzerResult,
-)
-from analyzers.models.base import EVENT_PRIORITY_MAP
+from analyzers.models import GeofenceAnalyzerConfig, SubjectAnalyzerResult
+from analyzers.models.base import CRITICAL, EVENT_PRIORITY_MAP, WARNING
 from analyzers.utils import save_analyzer_event
 from mapping.models import SpatialFeature
 
@@ -101,7 +96,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         _analysis_params = self._create_geofence_analysis_param()
 
         # Generate a list of crossings
-        cross_results = DasGeofenceAnalysis.calc_crossings(_analysis_params, [traj])
+        cross_results = DasGeofenceAnalysis.calc_crossings(_analysis_params, [traj], self.config.trigger_on_corner_clip)
 
         das_analyzer_results = []
         for cross in cross_results.geofence_crossings:

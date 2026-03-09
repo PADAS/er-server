@@ -1729,7 +1729,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
             if o.recorded_at and o.recorded_at.year >= MINIMUM_VALID_YEAR:
                 return o.recorded_at
         except OverflowError:
-            # Some stored timestamps may be out of range for datetime; treat them as missing.
+            # Ignore invalid datetime values (e.g., out-of-range year) and fall back to default.
             pass
         return default
 

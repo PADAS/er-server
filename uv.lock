@@ -839,6 +839,7 @@ dependencies = [
     { name = "drf-extra-fields" },
     { name = "drf-spectacular" },
     { name = "drf-spectacular-sidecar" },
+    { name = "event-type-schema-migration-tool" },
     { name = "eventlet" },
     { name = "fastkml", extra = ["lxml"] },
     { name = "gdal" },
@@ -985,6 +986,7 @@ requires-dist = [
     { name = "drf-extra-fields", specifier = "==3.7.0" },
     { name = "drf-spectacular", specifier = "==0.28.0" },
     { name = "drf-spectacular-sidecar", specifier = "==2025.6.1" },
+    { name = "event-type-schema-migration-tool", index = "https://test.pypi.org/simple/" },
     { name = "eventlet", specifier = "==0.40.3" },
     { name = "fastkml", extras = ["lxml"], specifier = "==1.3.0" },
     { name = "gdal", specifier = "==3.12.1" },
@@ -1689,6 +1691,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d3/38/af70d7ab1ae9d4da450eeec1fa3918940a5fafb9055e934af8d6eb0c2313/et_xmlfile-2.0.0.tar.gz", hash = "sha256:dab3f4764309081ce75662649be815c4c9081e88f0837825f90fd28317d4da54", size = 17234, upload-time = "2024-10-25T17:25:40.039Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c1/8b/5fe2cc11fee489817272089c4203e679c63b570a5aaeb18d852ae3cbba6a/et_xmlfile-2.0.0-py3-none-any.whl", hash = "sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa", size = 18059, upload-time = "2024-10-25T17:25:39.051Z" },
+]
+
+[[package]]
+name = "event-type-schema-migration-tool"
+version = "0.1.2"
+source = { registry = "https://test.pypi.org/simple/" }
+sdist = { url = "https://test-files.pythonhosted.org/packages/c7/e2/f4a25bcd2bfabc3ae387c1c037a2dcdf63cdab55f9c2ebc69706e98f005e/event_type_schema_migration_tool-0.1.2.tar.gz", hash = "sha256:0fb09a7246ee84f3818d559388b8c90c1c101a620d69f218e1c45534e43c9609", size = 19703, upload-time = "2026-02-18T23:17:54.614Z" }
+wheels = [
+    { url = "https://test-files.pythonhosted.org/packages/88/9c/a44d4951551b93285807ffceee9e368e95104847ac5279fbfdccab1a14ea/event_type_schema_migration_tool-0.1.2-py3-none-any.whl", hash = "sha256:2c3f272e61cbdea27f3a83012ccbfda23a8adf464640200d9c51ce3bc04f0926", size = 27529, upload-time = "2026-02-18T23:17:53.329Z" },
 ]
 
 [[package]]

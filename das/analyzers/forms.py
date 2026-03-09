@@ -14,6 +14,7 @@ from analyzers.models import (
     ImmobilityAnalyzerConfig,
     LowSpeedPercentileAnalyzerConfig,
     LowSpeedWilcoxAnalyzerConfig,
+    ObservationAttributeAnalyzerConfig,
     SubjectProximityAnalyzerConfig,
 )
 from core.forms_utils import FixedWidthFontTextArea, JSONFieldFormMixin
@@ -192,6 +193,11 @@ class SubjectProximityAnalyzerForm(forms.ModelForm):
     class Meta:
         fields = "__all__"
         model = SubjectProximityAnalyzerConfig
+
+
+class ObservationAttributeAnalyzerForm(BaseAnalyzerForm):
+    class Meta(BaseAnalyzerForm.Meta):
+        model = ObservationAttributeAnalyzerConfig
 
 
 class LowSpeedWilcoxSubjectAnalyzerForm(BaseAnalyzerForm):
