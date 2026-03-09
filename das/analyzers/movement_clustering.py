@@ -345,6 +345,7 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
                 for prev_result in open_clusters:
                     if prev_result.event is not None:
                         prev_result.event.state = Event.SC_RESOLVED
+                        prev_result.event.notes.create(text=_("Merged into parent cluster."))
                         prev_result.event.save()
 
             title = _("%(name)s movement cluster detected") % {"name": self.subject.name}
