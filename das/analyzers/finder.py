@@ -1,6 +1,7 @@
 from analyzers.environmental import EnvironmentalAnalyzer
 from analyzers.geofence import GeofenceAnalyzer
 from analyzers.immobility import ImmobilityAnalyzer
+from analyzers.movement_clustering import MovementClusterAnalyzer
 from analyzers.observation_attribute import ObservationAttributeAnalyzer
 from analyzers.proximity import FeatureProximityAnalyzer
 from analyzers.speed import LowSpeedPercentileAnalyzer, LowSpeedWilcoxAnalyzer
@@ -15,6 +16,7 @@ subject_analyzers = (
     FeatureProximityAnalyzer,
     SubjectProximityAnalyzer,
     ObservationAttributeAnalyzer,
+    MovementClusterAnalyzer,
 )
 
 

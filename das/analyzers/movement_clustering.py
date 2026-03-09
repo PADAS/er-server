@@ -1,0 +1,435 @@
+import json
+import logging
+from datetime import timedelta
+
+from haversine import Unit, haversine
+
+from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
+from django.contrib.gis.geos import Point as DjangoPoint
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
+
+from activity.models import Event, EventCategory, EventType
+from analyzers.base import SubjectAnalyzer
+from analyzers.exceptions import InsufficientDataAnalyzerException
+from analyzers.models import SubjectAnalyzerResult
+from analyzers.models.base import OK
+from analyzers.models.movement_clustering import MovementClusterAnalyzerConfig
+from analyzers.utils import save_analyzer_event
+
+MOVEMENT_CLUSTER_EVENT_TYPE = "movement_cluster"
+
+MOVEMENT_CLUSTER_SCHEMA = {
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+            "name": {
+                "deprecated": False,
+                "description": "",
+                "title": "Subject Name",
+                "type": "string",
+            },
+            "cluster_point_count": {
+                "deprecated": False,
+                "description": "",
+                "title": "Cluster Point Count",
+                "type": "number",
+            },
+            "cluster_duration_hours": {
+                "deprecated": False,
+                "description": "",
+                "title": "Cluster Duration (hours)",
+                "type": "number",
+            },
+            "cluster_radius_meters": {
+                "deprecated": False,
+                "description": "",
+                "title": "Cluster Radius (meters)",
+                "type": "number",
+            },
+            "centroid_latitude": {
+                "deprecated": False,
+                "description": "",
+                "title": "Centroid Latitude",
+                "type": "number",
+            },
+            "centroid_longitude": {
+                "deprecated": False,
+                "description": "",
+                "title": "Centroid Longitude",
+                "type": "number",
+            },
+            "cluster_start_time": {
+                "deprecated": False,
+                "description": "",
+                "format": "date-time",
+                "title": "Cluster Start Time",
+                "type": "string",
+            },
+            "cluster_end_time": {
+                "deprecated": False,
+                "description": "",
+                "format": "date-time",
+                "title": "Cluster End Time",
+                "type": "string",
+            },
+            "cluster_points": {
+                "deprecated": False,
+                "description": "",
+                "title": "Cluster Points",
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "lat": {"type": "number", "title": "Latitude"},
+                        "lon": {"type": "number", "title": "Longitude"},
+                        "time": {"type": "string", "format": "date-time", "title": "Time"},
+                    },
+                },
+            },
+        },
+        "required": [],
+        "unevaluatedProperties": False,
+    },
+    "ui": {
+        "sections": {},
+        "headers": {},
+        "fields": {},
+        "order": [],
+    },
+}
+
+
+def _st_dbscan(points, spatial_eps_m, temporal_eps_s, min_points):
+    """Spatio-Temporal DBSCAN (ST-DBSCAN).
+
+    Parameters
+    ----------
+    points:
+        List of ``(lat, lon, timestamp_seconds)`` tuples.
+    spatial_eps_m:
+        Maximum spatial distance in metres for two points to be neighbours.
+    temporal_eps_s:
+        Maximum temporal distance in seconds for two points to be neighbours.
+    min_points:
+        Minimum number of neighbours (including the point itself) required to
+        classify a point as a core point.
+
+    Returns
+    -------
+    list[int]
+        A label per input point.  ``-1`` denotes noise; positive integers
+        identify individual clusters.
+    """
+    n = len(points)
+    labels = [None] * n  # None = unvisited
+
+    def _neighbors(idx):
+        lat1, lon1, t1 = points[idx]
+        result = []
+        for j, (lat2, lon2, t2) in enumerate(points):
+            if abs(t2 - t1) <= temporal_eps_s:
+                if haversine((lat1, lon1), (lat2, lon2), unit=Unit.METERS) <= spatial_eps_m:
+                    result.append(j)
+        return result
+
+    cluster_id = 0
+    for i in range(n):
+        if labels[i] is not None:
+            continue
+
+        neighbors = _neighbors(i)
+
+        if len(neighbors) < min_points:
+            labels[i] = -1  # mark as noise for now; may be absorbed later
+            continue
+
+        cluster_id += 1
+        labels[i] = cluster_id
+
+        seed_set = [j for j in neighbors if j != i]
+        k = 0
+        while k < len(seed_set):
+            j = seed_set[k]
+            k += 1
+
+            if labels[j] == -1:
+                # Previously marked noise — promote to border point
+                labels[j] = cluster_id
+            elif labels[j] is None:
+                labels[j] = cluster_id
+                j_neighbors = _neighbors(j)
+                if len(j_neighbors) >= min_points:
+                    # Core point — add its unvisited / noise neighbours to queue
+                    for jn in j_neighbors:
+                        if labels[jn] is None or labels[jn] == -1:
+                            seed_set.append(jn)
+
+    return [-1 if lbl is None else lbl for lbl in labels]
+
+
+class MovementClusterAnalyzer(SubjectAnalyzer):
+    """Detects spatio-temporal clusters in a subject's movement track.
+
+    Uses the ST-DBSCAN algorithm to identify locations where a subject
+    concentrates activity within configurable spatial and temporal bounds.
+    A cluster is reported when it contains at least ``min_cluster_points``
+    observations **and** spans at least ``min_cluster_duration_seconds``.
+    """
+
+    def __init__(self, subject=None, config=None):
+        SubjectAnalyzer.__init__(self, subject, config)
+        self.logger = logging.getLogger(__name__)
+
+    # ------------------------------------------------------------------
+    # Analyzer discovery
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def get_subject_analyzers(cls, subject=None):
+        if subject:
+            subject_groups = subject.get_ancestor_subject_groups()
+            for ac in MovementClusterAnalyzerConfig.objects.filter(subject_group__in=subject_groups, is_active=True):
+                yield cls(subject=subject, config=ac)
+
+    # ------------------------------------------------------------------
+    # Observations
+    # ------------------------------------------------------------------
+
+    def default_observations(self):
+        if self.config.search_time_hours <= 0:
+            return self.subject.observations()
+        return self.subject.observations(last_hours=self.config.search_time_hours)
+
+    # ------------------------------------------------------------------
+    # Open-cluster check
+    # ------------------------------------------------------------------
+
+    def _find_open_clusters(self, cluster_point_set: frozenset) -> list:
+        """Return all existing open results whose stored points are all
+        contained in *cluster_point_set*.
+
+        A result is considered *open* when its ``estimated_time`` falls within
+        ``temporal_threshold_seconds`` of now.  Containment is checked by
+        comparing the frozenset of ``(lat, lon, time)`` tuples stored in the
+        result's ``cluster_points`` value against *cluster_point_set*.
+
+        If the config has not yet been persisted (no PK) the check is skipped
+        and an empty list is returned.
+        """
+        if not self.config.pk:
+            return []
+
+        cutoff = timezone.now() - timedelta(seconds=self.config.temporal_threshold_seconds)
+
+        recent_results = SubjectAnalyzerResult.objects.filter(
+            subject=self.subject,
+            subject_analyzer_id=self.config.pk,
+            estimated_time__gte=cutoff,
+        ).select_related("event")
+
+        matches = []
+        for result in recent_results:
+            prev_points = result.values.get("cluster_points")
+            if not prev_points:
+                continue
+            prev_point_set = frozenset((p["lat"], p["lon"], p["time"]) for p in prev_points)
+            if prev_point_set.issubset(cluster_point_set):
+                matches.append(result)
+
+        return matches
+
+    # ------------------------------------------------------------------
+    # Core analysis
+    # ------------------------------------------------------------------
+
+    def analyze_trajectory(self, traj=None):
+        if traj is None:
+            return []
+
+        fixes = traj.relocs.get_fixes("ASC")
+
+        if len(fixes) < self.config.min_cluster_points:
+            raise InsufficientDataAnalyzerException
+
+        # Build the point list expected by _st_dbscan
+        points = []
+        for fix in fixes:
+            lat = fix.ogr_geometry.GetY()
+            lon = fix.ogr_geometry.GetX()
+            t = fix.fixtime.timestamp()
+            points.append((lat, lon, t))
+
+        labels = _st_dbscan(
+            points,
+            spatial_eps_m=self.config.spatial_threshold_meters,
+            temporal_eps_s=self.config.temporal_threshold_seconds,
+            min_points=self.config.min_cluster_points,
+        )
+
+        # Group fixes by cluster label
+        clusters: dict[int, list] = {}
+        for fix, label in zip(fixes, labels):
+            if label < 1:
+                continue  # noise
+            clusters.setdefault(label, []).append(fix)
+
+        results = []
+
+        # One result per qualifying cluster
+        for cluster_fixes in clusters.values():
+            times = [f.fixtime for f in cluster_fixes]
+            duration_s = (max(times) - min(times)).total_seconds()
+
+            if duration_s < self.config.min_cluster_duration_seconds:
+                continue
+
+            lats = [f.ogr_geometry.GetY() for f in cluster_fixes]
+            lons = [f.ogr_geometry.GetX() for f in cluster_fixes]
+            centroid_lat = sum(lats) / len(lats)
+            centroid_lon = sum(lons) / len(lons)
+            cluster_radius_m = (
+                0
+                if len(lats) < 2
+                else max(
+                    haversine((centroid_lat, centroid_lon), (lat, lon), unit=Unit.METERS)
+                    for lat, lon in zip(lats, lons)
+                )
+            )
+
+            cluster_points = [
+                {
+                    "lat": round(f.ogr_geometry.GetY(), 7),
+                    "lon": round(f.ogr_geometry.GetX(), 7),
+                    "time": f.fixtime.isoformat(),
+                }
+                for f in cluster_fixes
+            ]
+            cluster_point_set = frozenset((p["lat"], p["lon"], p["time"]) for p in cluster_points)
+
+            new_values = {
+                "cluster_point_count": len(cluster_fixes),
+                "cluster_duration_hours": round(duration_s / 3600, 2),
+                "cluster_radius_meters": round(cluster_radius_m, 2),
+                "centroid_latitude": round(centroid_lat, 6),
+                "centroid_longitude": round(centroid_lon, 6),
+                "cluster_start_time": min(times).isoformat(),
+                "cluster_end_time": max(times).isoformat(),
+                "cluster_points": cluster_points,
+            }
+
+            open_clusters = self._find_open_clusters(cluster_point_set)
+            if len(open_clusters) == 1:
+                existing = open_clusters[0]
+                self.logger.debug(
+                    "MovementClusterAnalyzer: updating open cluster at (%.5f, %.5f) for subject=%s",
+                    centroid_lat,
+                    centroid_lon,
+                    self.subject.name,
+                )
+                existing.estimated_time = max(times)
+                existing.geometry_collection = DjangoGeoColl([DjangoPoint(centroid_lon, centroid_lat)])
+                existing.values = new_values
+                existing._is_cluster_update = True
+                results.append(existing)
+                continue
+            elif len(open_clusters) > 1:
+                self.logger.debug(
+                    "MovementClusterAnalyzer: merging %d open clusters at (%.5f, %.5f) for subject=%s",
+                    len(open_clusters),
+                    centroid_lat,
+                    centroid_lon,
+                    self.subject.name,
+                )
+                for prev_result in open_clusters:
+                    if prev_result.event is not None:
+                        prev_result.event.state = Event.SC_RESOLVED
+                        prev_result.event.save()
+
+            title = _("%(name)s movement cluster detected") % {"name": self.subject.name}
+
+            result = SubjectAnalyzerResult(
+                subject_analyzer=self.config,
+                level=OK,
+                title=str(title),
+                message=str(title),
+                analyzer_revision=1,
+                subject=self.subject,
+                estimated_time=max(times),
+                geometry_collection=DjangoGeoColl([DjangoPoint(centroid_lon, centroid_lat)]),
+            )
+            result.values = new_values
+            results.append(result)
+
+        self.logger.info(
+            "MovementClusterAnalyzer: subject=%s clusters=%d",
+            self.subject.name,
+            len(results),
+        )
+        return results
+
+    # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
+
+    def save_analyzer_result(self, last_result=None, this_result=None):  # noqa: ARG002
+        """
+        Persist the current analyzer result.
+
+        This method overrides :meth:`SubjectAnalyzer.save_analyzer_result` but
+        deliberately ignores ``last_result`` and performs no comparison or
+        update logic. It accepts ``last_result`` only to maintain a compatible
+        signature with the base class and simply saves ``this_result`` if
+        provided.
+        """
+        if this_result is not None:
+            this_result.save()
+
+    # ------------------------------------------------------------------
+    # Event creation
+    # ------------------------------------------------------------------
+
+    def _ensure_event_type(self) -> None:
+        """Create the ``movement_cluster`` EventType if it does not yet exist.
+
+        Uses ``get_or_create`` so this is safe to call on every event creation
+        without producing duplicates.  The schema is only applied on first
+        creation; subsequent calls are no-ops.
+        """
+        ec, _ = EventCategory.objects.get_or_create(
+            value="analyzer_event",
+            defaults={"display": "Analyzer Events"},
+        )
+        et, created = EventType.objects.get_or_create(
+            value=MOVEMENT_CLUSTER_EVENT_TYPE,
+            category=ec,
+            defaults={"display": "Movement Cluster", "version": EventType.VersionChoices.VERSION_2},
+        )
+        if created:
+            et.schema = json.dumps(MOVEMENT_CLUSTER_SCHEMA, indent=2, default=str)
+            et.save()
+
+    def create_analyzer_event(self, last_result=None, this_result=None):  # noqa: ARG002
+        if not this_result:
+            return None
+
+        if getattr(this_result, "_is_cluster_update", False):
+            return None
+
+        self._ensure_event_type()
+
+        centroid = this_result.geometry_collection[0]
+        event_details = {"name": self.subject.name}
+        event_details.update(this_result.values)
+
+        event_data = dict(
+            title=this_result.title,
+            event_time=this_result.estimated_time,
+            provenance=Event.PC_ANALYZER,
+            event_type="movement_cluster",
+            location={"longitude": centroid.x, "latitude": centroid.y},
+            event_details=event_details,
+            related_subjects=[{"id": self.subject.id}],
+        )
+        return save_analyzer_event(event_data)

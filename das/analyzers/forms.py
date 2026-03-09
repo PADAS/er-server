@@ -14,6 +14,7 @@ from analyzers.models import (
     ImmobilityAnalyzerConfig,
     LowSpeedPercentileAnalyzerConfig,
     LowSpeedWilcoxAnalyzerConfig,
+    MovementClusterAnalyzerConfig,
     ObservationAttributeAnalyzerConfig,
     SubjectProximityAnalyzerConfig,
 )
@@ -206,3 +207,8 @@ class LowSpeedWilcoxSubjectAnalyzerForm(BaseAnalyzerForm):
 
 class LowSpeedPercentileSubjectAnalyzerForm(BaseAnalyzerForm):
     BaseAnalyzerForm.Meta.model = LowSpeedPercentileAnalyzerConfig
+
+
+class MovementClusterAnalyzerForm(BaseAnalyzerForm):
+    class Meta(BaseAnalyzerForm.Meta):
+        model = MovementClusterAnalyzerConfig
