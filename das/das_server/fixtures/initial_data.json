@@ -453,7 +453,7 @@
     }
   },
   {
-    "model": "oauth2_provider.application",
+    "model": "core.dasapplication",
     "fields": {
       "client_id": "EFB_APPLICATION_ID",
       "user": null,
