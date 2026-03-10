@@ -91,6 +91,8 @@ This document outlines the scheduled tasks in the DAS system organized by hour o
   - Task: `observations.tasks.run_observation_segment_partition_table_check`
   - Schedule: Every Monday at 1:00 AM (staggered 1 hour after observation partition check; `partman.run_maintenance_proc()` handles 3-year retention)
 
+## Queue Priorities
+
 The system uses different queues to manage task priorities:
 
 - **realtime_p1**: High-priority real-time tasks
