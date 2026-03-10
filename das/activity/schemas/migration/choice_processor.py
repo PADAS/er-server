@@ -20,7 +20,7 @@ class ChoiceFieldResult:
     status: str = "pending"  # "matched", "candidate", "to_create", "error"
     existing_choice_field: Optional[str] = None
     proposed_name: Optional[str] = None
-    choices: List[Dict[str, str]] = field(default_factory=list)  # [{const, title}, ...]
+    choices: List[Dict[str, str]] = field(default_factory=list)  # [{"value", "display"}, ...]
     choices_to_add: List[Dict[str, str]] = field(default_factory=list)  # choices missing from existing field
     match_score: float = 0.0  # 0-1, how well choices match existing
     warnings: List[str] = field(default_factory=list)
@@ -228,7 +228,7 @@ class ChoiceProcessor:
             existing_field_name, score, missing_values = match
             result.existing_choice_field = existing_field_name
             result.match_score = score
-            result.values_to_add = missing_values
+            result.choices_to_add = missing_values
 
             if score == 1.0:
                 result.status = "matched"
