@@ -355,12 +355,9 @@ def _union_assigned_range_bounds(assigned_range_a, assigned_range_b):
 
 
 def _invalidate_segment_caches_for_observations_and_subjects(observation_ids, subject_ids):
-    """Invalidate caches used by get_subject_for_observation and Observation.get_neighbor_observations."""
+    """Invalidate caches used by get_subject_for_observation."""
     for obs_id in observation_ids:
         cache.delete(f"obs_subject_{obs_id}")
-    for subject_id in subject_ids:
-        if subject_id is not None:
-            cache.delete(f"subject_neighbor_map_{subject_id}")
 
 
 def _create_bridge_segment(prev_obs, next_obs, subject):
@@ -498,8 +495,6 @@ def update_segments_for_observation(observation, created=False, deleted=False):
     # Handle deletion or create/update
     if deleted:
         _handle_observation_deletion(observation, subject, prev_obs, next_obs)
-        # Invalidate neighbor map so next call does not see the deleted observation
-        cache.delete(f"subject_neighbor_map_{subject.id}")
     else:
         _handle_observation_create_or_update(observation, subject, prev_obs, next_obs, created)
 

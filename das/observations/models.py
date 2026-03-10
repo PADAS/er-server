@@ -41,7 +41,6 @@ from django.contrib.gis.db import models as dbmodels
 from django.contrib.gis.geos import LineString, Point, Polygon
 from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
-from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import connection, connections, transaction
 from django.db.models import (
@@ -1062,9 +1061,8 @@ class Observation(TenantModelMixin, models.Model):
         """
         Get the previous and next observations for a subject's track relative to this observation.
 
-        Uses a per-subject neighbor map cache so that when many observations for the same
-        subject are processed in sequence (e.g. real-time or bulk import), we do one
-        ordered-id query per subject instead of two queries per observation.
+        Uses two bounded indexed queries (prev/next by recorded_at) so the cost is
+        O(1) regardless of track length and no per-subject cache is needed.
 
         Args:
             subject: Subject instance (defines the track via its SubjectSources)
@@ -1072,34 +1070,15 @@ class Observation(TenantModelMixin, models.Model):
         Returns:
             tuple: (prev_observation, next_observation) - either can be None
         """
-        cache_key_map = f"subject_neighbor_map_{subject.id}"
-        neighbor_map = cache.get(cache_key_map)
-        if neighbor_map is None or self.id not in neighbor_map:
-            if neighbor_map is not None:
-                cache.delete(cache_key_map)
-            ordered_ids = list(
-                Observation.objects.filter(
-                    source__subjectsource__subject=subject,
-                    source__subjectsource__assigned_range__contains=F("recorded_at"),
-                    location__isnull=False,
-                )
-                .order_by("recorded_at")
-                .distinct()
-                .values_list("id", flat=True)
-            )
-            neighbor_map = {}
-            for i, obs_id in enumerate(ordered_ids):
-                prev_id = ordered_ids[i - 1] if i > 0 else None
-                next_id = ordered_ids[i + 1] if i < len(ordered_ids) - 1 else None
-                neighbor_map[obs_id] = (prev_id, next_id)
-            cache.set(cache_key_map, neighbor_map, 300)
+        base_qs = Observation.objects.filter(
+            source__subjectsource__subject=subject,
+            source__subjectsource__assigned_range__contains=F("recorded_at"),
+            location__isnull=False,
+        ).exclude(id=self.id)
 
-        prev_id, next_id = neighbor_map.get(self.id, (None, None))
-        neighbor_ids = [x for x in (prev_id, next_id) if x is not None]
-        if not neighbor_ids:
-            return None, None
-        observations_by_id = {obs.id: obs for obs in Observation.objects.filter(id__in=neighbor_ids)}
-        return observations_by_id.get(prev_id), observations_by_id.get(next_id)
+        prev_obs = base_qs.filter(recorded_at__lte=self.recorded_at).order_by("-recorded_at").first()
+        next_obs = base_qs.filter(recorded_at__gte=self.recorded_at).order_by("recorded_at").first()
+        return prev_obs, next_obs
 
     def _delete_observation_segments(self):
         """Delete all ObservationSegments that have this observation as start or end."""
@@ -1346,7 +1325,7 @@ class ObservationSegment(TenantModelMixin, models.Model):
         """Override save to calculate accurate distance and bearing using PostGIS/geometry when missing.
         Prefer create_segment for bulk; direct save() may run per-row queries if distance/bearing not set.
         """
-        should_compute_distance = (self.distance_meters is None) or (self.distance_meters == 0.0)
+        should_compute_distance = self.distance_meters is None
         should_compute_bearing = self.bearing_deg is None
 
         if should_compute_distance:
