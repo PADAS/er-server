@@ -851,6 +851,7 @@ dependencies = [
     { name = "google-cloud-pubsub" },
     { name = "greenlet" },
     { name = "gunicorn" },
+    { name = "haversine" },
     { name = "httplib2" },
     { name = "humanize" },
     { name = "jinja2" },
