@@ -125,6 +125,7 @@ class TestDryRunParity:
                 "type": "object",
             },
         }
+
         v1_event_type.schema = json.dumps(v1_schema)
         v1_event_type.save()
 
@@ -187,7 +188,7 @@ class TestPersistChoices:
     def test_creates_new_choice_field(self, migration_service_live, hardcoded_values, migration_result_with_choices):
         values = hardcoded_values(("high", "High"), ("low", "Low"))
         result = migration_result_with_choices(
-            [{"field_name": "priority", "status": "to_create", "proposed_name": "test_priority", "values": values}]
+            [{"field_name": "priority", "status": "to_create", "proposed_name": "test_priority", "choices": values}]
         )
 
         migration_service_live.persist_choices(result)
@@ -222,13 +223,13 @@ class TestPersistChoices:
                     "field_name": "priority1",
                     "status": "to_create",
                     "proposed_name": "priority_options",
-                    "values": values,
+                    "choices": values,
                 },
                 {
                     "field_name": "priority2",
                     "status": "to_create",
                     "proposed_name": "priority_options_2",
-                    "values": values,
+                    "choices": values,
                 },
             ]
         )
@@ -261,7 +262,7 @@ class TestPersistChoices:
         """If create_choice_field fails, the error should propagate to result.errors."""
         values = hardcoded_values(("high", "High"), ("low", "Low"))
         result = migration_result_with_choices(
-            [{"field_name": "priority", "status": "to_create", "proposed_name": "test_priority", "values": values}]
+            [{"field_name": "priority", "status": "to_create", "proposed_name": "test_priority", "choices": values}]
         )
 
         with patch.object(ChoiceProcessor, "create_choice_field", side_effect=Exception("DB error")):

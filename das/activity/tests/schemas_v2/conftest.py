@@ -127,7 +127,7 @@ def create_choice_field(create_choice):
 
 @pytest.fixture
 def hardcoded_values():
-    """Factory for creating hardcoded value lists (output format of extract_hardcoded_values)."""
+    """Factory for creating hardcoded value lists (output format of extract_hardcoded_choices)."""
 
     def _create(*items):
         """

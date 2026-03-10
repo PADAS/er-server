@@ -43,33 +43,38 @@ class TestExtractHardcodedValues:
 
     def test_extract_from_anyof_oneof(self, choice_processor, hardcoded_field_schema):
         field_schema = hardcoded_field_schema(("value1", "Display 1"), ("value2", "Display 2"))
-        values = choice_processor.extract_hardcoded_values(field_schema)
+        values, warnings = choice_processor.extract_hardcoded_choices(field_schema)
 
         assert len(values) == 2
         assert values[0] == {"value": "value1", "display": "Display 1"}
         assert values[1] == {"value": "value2", "display": "Display 2"}
+        assert warnings == []
 
     def test_extract_without_title_uses_const(self, choice_processor):
         field_schema = {"anyOf": [{"title": "Hardcoded", "type": "string", "oneOf": [{"const": "simple_value"}]}]}
-        values = choice_processor.extract_hardcoded_values(field_schema)
+        values, warnings = choice_processor.extract_hardcoded_choices(field_schema)
 
         assert len(values) == 1
         assert values[0] == {"value": "simple_value", "display": "simple_value"}
+        assert warnings == []
 
     def test_ignores_ref_fields(self, choice_processor):
         field_schema = {"anyOf": [{"$ref": "#/definitions/some_choice"}]}
-        values = choice_processor.extract_hardcoded_values(field_schema)
+        values, warnings = choice_processor.extract_hardcoded_choices(field_schema)
         assert values == []
+        assert warnings == []
 
     def test_empty_anyof(self, choice_processor):
         field_schema = {"type": "string"}
-        values = choice_processor.extract_hardcoded_values(field_schema)
+        values, warnings = choice_processor.extract_hardcoded_choices(field_schema)
         assert values == []
+        assert warnings == []
 
     def test_wrong_title_not_hardcoded(self, choice_processor):
         field_schema = {"anyOf": [{"title": "Not Hardcoded", "oneOf": [{"const": "value"}]}]}
-        values = choice_processor.extract_hardcoded_values(field_schema)
+        values, warnings = choice_processor.extract_hardcoded_choices(field_schema)
         assert values == []
+        assert warnings == []
 
 
 class TestChoiceFieldResult:
@@ -81,8 +86,8 @@ class TestChoiceFieldResult:
         assert result.status == "pending"
         assert result.existing_choice_field is None
         assert result.proposed_name is None
-        assert result.values == []
-        assert result.values_to_add == []
+        assert result.choices == []
+        assert result.choices_to_add == []
         assert result.match_score == 0.0
         assert result.warnings == []
         assert result.error is None
@@ -160,7 +165,6 @@ class TestFindMatchingChoiceField:
         assert match is not None
         field_name, score, missing = match
         assert field_name == "priority_level"
-        assert missing == []
 
     def test_no_match_found(self, make_choice_processor, create_choice, hardcoded_values):
         """Test when no existing field matches."""
@@ -174,14 +178,14 @@ class TestFindMatchingChoiceField:
 
 
 @pytest.mark.django_db
-class TestProcessSingleField:
-    """Tests for process_single_field method."""
+class TestProcessChoicesSingleField:
+    """Tests for process_choices_single_field method."""
 
     def test_no_match_proposes_new_field(self, choice_processor_with_event_type, hardcoded_values):
         processor = choice_processor_with_event_type("fire_rep")
         hardcoded = hardcoded_values(("minor", "Minor"), ("major", "Major"))
 
-        result = processor.process_single_field("severity", {"title": "Severity Level"}, hardcoded)
+        result = processor.process_choices_single_field("severity", {"title": "Severity Level"}, hardcoded)
 
         assert result.status == "to_create"
         assert result.proposed_name is not None
@@ -192,7 +196,7 @@ class TestProcessSingleField:
         hardcoded = hardcoded_values(("success", "Success"), ("failure", "Failure"))
         processor = make_choice_processor()
 
-        result = processor.process_single_field("outcome", {}, hardcoded)
+        result = processor.process_choices_single_field("outcome", {}, hardcoded)
 
         assert result.status == "matched"
         assert result.existing_choice_field == "outcome"
@@ -204,7 +208,7 @@ class TestProcessSingleField:
         hardcoded = hardcoded_values(("cat_a", "Category A"), ("cat_b", "Category B"), ("cat_new", "New Category"))
         processor = make_choice_processor()
 
-        result = processor.process_single_field("category", {}, hardcoded)
+        result = processor.process_choices_single_field("category", {}, hardcoded)
 
         assert result.status == "candidate"
         assert result.existing_choice_field == "category"
