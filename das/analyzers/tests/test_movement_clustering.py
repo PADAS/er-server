@@ -454,10 +454,31 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
     def _save_cluster_result(self, config, cluster_points, end_time):
         from django.contrib.gis.geos import GeometryCollection, Point
 
+        from analyzers.movement_clustering import (
+            MOVEMENT_CLUSTER_EVENT_TYPE,
+            save_analyzer_event,
+        )
+
+        ia = MovementClusterAnalyzer(subject=self.subject, config=config)
+        ia._ensure_event_type()
+
         lats = [p["lat"] for p in cluster_points]
         lons = [p["lon"] for p in cluster_points]
         centroid_lat = sum(lats) / len(lats)
         centroid_lon = sum(lons) / len(lons)
+
+        event_data = dict(
+            title="Cluster detected",
+            state=Event.SC_ACTIVE,
+            time=end_time,
+            provenance=Event.PC_ANALYZER,
+            event_type=MOVEMENT_CLUSTER_EVENT_TYPE,
+            location={"longitude": centroid_lon, "latitude": centroid_lat},
+            related_subjects=[{"id": self.subject.id}],
+        )
+
+        event = save_analyzer_event(event_data)
+
         result = SubjectAnalyzerResult(
             subject_analyzer=config,
             subject=self.subject,
@@ -477,6 +498,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
                 "cluster_duration_hours": 2.0,
                 "cluster_points": cluster_points,
             },
+            event=event,
         )
         result.save()
         return result

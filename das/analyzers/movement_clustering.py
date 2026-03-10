@@ -227,6 +227,7 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
             subject=self.subject,
             subject_analyzer_id=self.config.pk,
             estimated_time__gte=cutoff,
+            event__state=Event.SC_ACTIVE,
         ).select_related("event")
 
         matches = []
@@ -345,7 +346,6 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
                 for prev_result in open_clusters:
                     if prev_result.event is not None:
                         prev_result.event.state = Event.SC_RESOLVED
-                        prev_result.event.notes.create(text=_("Merged into parent cluster."))
                         prev_result.event.save()
 
             title = _("%(name)s movement cluster detected") % {"name": self.subject.name}
@@ -426,9 +426,10 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
 
         event_data = dict(
             title=this_result.title,
-            event_time=this_result.estimated_time,
+            state=Event.SC_ACTIVE,
+            time=this_result.estimated_time,
             provenance=Event.PC_ANALYZER,
-            event_type="movement_cluster",
+            event_type=MOVEMENT_CLUSTER_EVENT_TYPE,
             location={"longitude": centroid.x, "latitude": centroid.y},
             event_details=event_details,
             related_subjects=[{"id": self.subject.id}],
