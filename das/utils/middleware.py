@@ -89,9 +89,7 @@ class RequestLoggingMiddleware(object):
             referer = request.META.get("HTTP_REFERER", "")
             user_agent = request.META.get("HTTP_USER_AGENT", "")
             status_code = response.status_code
-            path = request.get_full_path()
-            # Strip query parameters for cleaner metrics
-            path_for_metrics = request.path
+            request_path = request.path
             host = request.get_host()
             method = request.method
             protocol = request.META.get("SERVER_PROTOCOL", "")
@@ -112,7 +110,7 @@ class RequestLoggingMiddleware(object):
                 referer=referer,
                 user_agent=user_agent,
                 status=status_code,
-                path=path,
+                path=request_path,
                 method=method,
                 protocol=protocol,
                 tenant=tenant_domain,
@@ -123,11 +121,11 @@ class RequestLoggingMiddleware(object):
             if error_message:
                 extra["error_message"] = error_message
 
-            self.logger.info("request", extra=extra)
+            self.logger.debug("%s %s %s", method, request_path, status_code, extra=extra)
             stats.histogram(
                 "api_request_time",
                 req_time,
-                tags=[f"http_path:{path_for_metrics}", f"http_method:{method}", f"http_status:{status_code}"],
+                tags=[f"http_path:{request_path}", f"http_method:{method}", f"http_status:{status_code}"],
             )
 
             span = trace.get_current_span()
