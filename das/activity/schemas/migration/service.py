@@ -66,7 +66,7 @@ class MigrationService:
         self.proposed_choices: Dict[str, List[str]] = {}
 
     def migrate(self, event_types: List[str]) -> List[MigrationResult]:
-        """Migrate multiple EventTypes. Atomic: all commit or none do."""
+        """Migrate multiple EventTypes. Atomic per EventType: each commits or rolls back independently."""
         self.proposed_choices: Dict[str, list] = {}
         self.existing_choices: Dict[str, List[str]] = self.get_existing_choice_fields()
 
@@ -77,7 +77,7 @@ class MigrationService:
             result = self.migrate_single(event_type_value)
             results.append(result)
 
-        # Phase 2: Atomic persistence (all-or-nothing)
+        # Phase 2: Persistence (atomic per EventType)
         if not self.dry_run:
             for result in results:
                 with transaction.atomic():
@@ -227,9 +227,10 @@ class MigrationService:
                     field_info["status"] = "created"
                     created_this_migration[values_key] = proposed_name
                     logger.info(
-                        "Created choice field '%s' for field '%s'",
+                        "Created choice field '%s' with %d values for event type '%s'",
                         proposed_name,
-                        field_info.get("field_name"),
+                        len(choices),
+                        result.event_type,
                     )
                 except Exception as e:
                     field_info["status"] = "error"

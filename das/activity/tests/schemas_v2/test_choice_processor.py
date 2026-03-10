@@ -200,7 +200,7 @@ class TestProcessChoicesSingleField:
 
         assert result.status == "matched"
         assert result.existing_choice_field == "outcome"
-        assert result.values_to_add == []
+        assert result.choices_to_add == []
 
     def test_match_with_additions(self, make_choice_processor, create_choice_field, hardcoded_values):
         create_choice_field("category", [("cat_a", "Category A"), ("cat_b", "Category B")])
@@ -212,7 +212,7 @@ class TestProcessChoicesSingleField:
 
         assert result.status == "candidate"
         assert result.existing_choice_field == "category"
-        assert len(result.values_to_add) == 1
+        assert len(result.choices_to_add) == 1
 
 
 @pytest.mark.django_db
