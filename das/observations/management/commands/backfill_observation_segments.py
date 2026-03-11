@@ -24,10 +24,13 @@ Usage:
 
 import logging
 
+from django_multitenant.utils import get_current_tenant
+
 from django.core.management.base import BaseCommand
 from django.db import connection
 
 from observations.models import SubjectSource
+from observations.tasks import recompute_observation_segments_task
 from utils.tenant import get_tenant_settings
 from utils.tenant.commands import TenantCommandMixin
 
@@ -42,6 +45,7 @@ WITH subject_obs AS (
      AND ss.das_tenant_id = o.das_tenant_id
      AND o.recorded_at <@ ss.assigned_range
     WHERE ss.subject_id = %(subject_id)s
+      AND ss.das_tenant_id = %(tenant_id)s
       AND o.recorded_at >= %(lower)s
       AND o.recorded_at <= %(upper)s
       AND o.location IS NOT NULL
@@ -143,6 +147,7 @@ class Command(TenantCommandMixin, BaseCommand):
             self._handle_sync(subject_sources, total)
 
     def _handle_sync(self, subject_sources, total):
+        tenant_id = get_current_tenant().id
         total_created = 0
         for i, ss in enumerate(subject_sources.iterator(), 1):
             lower, upper = ss.assigned_range.lower, ss.assigned_range.upper
@@ -151,6 +156,7 @@ class Command(TenantCommandMixin, BaseCommand):
                     BULK_INSERT_SEGMENTS_SQL,
                     {
                         "subject_id": ss.subject_id,
+                        "tenant_id": tenant_id,
                         "lower": lower,
                         "upper": upper,
                     },
@@ -166,7 +172,6 @@ class Command(TenantCommandMixin, BaseCommand):
     def _handle_async(self, subject_sources, total):
         domain = get_tenant_settings().domain
         for i, ss in enumerate(subject_sources.iterator(), 1):
-            from observations.tasks import recompute_observation_segments_task
 
             lower, upper = ss.assigned_range.lower, ss.assigned_range.upper
             recompute_observation_segments_task.apply_async(
