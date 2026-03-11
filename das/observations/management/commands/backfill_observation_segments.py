@@ -1,9 +1,8 @@
 """
-Management command to backfill ObservationSegments using the same interface as the async task.
+Management command to backfill ObservationSegments in bulk.
 
-Invokes recompute_observation_segments_for_source_range (sync) or enqueues
-recompute_observation_segments_task (async) per SubjectSource, so there is a single
-code path for segment recompute regardless of trigger (SubjectSource signal vs backfill).
+Uses a single SQL INSERT … SELECT per SubjectSource to build segments from
+consecutive observation pairs, avoiding per-row Python round-trips.
 
 Usage:
     # Backfill current tenant (sync)
@@ -19,17 +18,71 @@ Usage:
 import logging
 
 from django.core.management.base import BaseCommand
+from django.db import connection
 
 from observations.models import SubjectSource
-from observations.signals import recompute_observation_segments_for_source_range
 from utils.tenant import get_tenant_settings
 from utils.tenant.commands import TenantCommandMixin
 
 logger = logging.getLogger(__name__)
 
+BULK_INSERT_SEGMENTS_SQL = """
+INSERT INTO observations_observationsegment (
+    id, geometry, speed_kmh, time_gap_ms, distance_meters, bearing_deg,
+    start_recorded_at, end_recorded_at, exclusion_flags,
+    created_at, updated_at,
+    das_tenant_id, start_observation_id, end_observation_id, subject_id
+)
+SELECT
+    gen_random_uuid(),
+    ST_MakeLine(location, next_location),
+    CASE WHEN EXTRACT(EPOCH FROM next_recorded_at - recorded_at) > 0
+         THEN (ST_Distance(location::geography, next_location::geography) / 1000.0)
+              / (EXTRACT(EPOCH FROM next_recorded_at - recorded_at) / 3600.0)
+         ELSE 0.0
+    END,
+    EXTRACT(EPOCH FROM next_recorded_at - recorded_at) * 1000.0,
+    ST_Distance(location::geography, next_location::geography),
+    MOD(
+        DEGREES(ATAN2(
+            SIN(RADIANS(ST_X(next_location) - ST_X(location)))
+                * COS(RADIANS(ST_Y(next_location))),
+            COS(RADIANS(ST_Y(location))) * SIN(RADIANS(ST_Y(next_location)))
+              - SIN(RADIANS(ST_Y(location))) * COS(RADIANS(ST_Y(next_location)))
+                * COS(RADIANS(ST_X(next_location) - ST_X(location)))
+        )) + 360.0,
+        360.0
+    ),
+    recorded_at,
+    next_recorded_at,
+    exclusion_flags | next_exclusion_flags,
+    NOW(),
+    NOW(),
+    das_tenant_id,
+    id,
+    next_id,
+    %(subject_id)s
+FROM (
+    SELECT
+        id, location, recorded_at, exclusion_flags, das_tenant_id,
+        LEAD(id)              OVER w AS next_id,
+        LEAD(location)        OVER w AS next_location,
+        LEAD(recorded_at)     OVER w AS next_recorded_at,
+        LEAD(exclusion_flags) OVER w AS next_exclusion_flags
+    FROM observations_observation
+    WHERE source_id = %(source_id)s
+      AND recorded_at >= %(lower)s
+      AND recorded_at <= %(upper)s
+      AND location IS NOT NULL
+    WINDOW w AS (ORDER BY recorded_at)
+) pairs
+WHERE next_id IS NOT NULL
+ON CONFLICT (start_observation_id, end_observation_id, start_recorded_at) DO NOTHING;
+"""
+
 
 class Command(TenantCommandMixin, BaseCommand):
-    help = "Backfill ObservationSegments via the common recompute interface (sync or async)"
+    help = "Backfill ObservationSegments in bulk using SQL INSERT … SELECT"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -50,8 +103,7 @@ class Command(TenantCommandMixin, BaseCommand):
         dry_run = options["dry_run"]
         async_ = options["async_"]
 
-        # SubjectSource is tenant-scoped; we're in tenant context from TenantCommandMixin
-        subject_sources = SubjectSource.objects.select_related("source").all()
+        subject_sources = SubjectSource.objects.select_related("source", "subject").all()
         total = subject_sources.count()
         self.stdout.write(f"SubjectSources to process: {total}")
 
@@ -62,39 +114,54 @@ class Command(TenantCommandMixin, BaseCommand):
         if dry_run:
             for i, ss in enumerate(subject_sources.iterator(), 1):
                 self.stdout.write(
-                    f"  [{i}/{total}] source={ss.source_id} range={ss.assigned_range.lower} .. {ss.assigned_range.upper}"
+                    f"  [{i}/{total}] source={ss.source_id} "
+                    f"subject={ss.subject_id} "
+                    f"range={ss.assigned_range.lower} .. {ss.assigned_range.upper}"
                 )
             self.stdout.write(self.style.WARNING("DRY RUN - No recompute was performed."))
             return
 
-        domain = get_tenant_settings().domain
-        processed = 0
-        for ss in subject_sources.iterator():
-            processed += 1
-            lower, upper = ss.assigned_range.lower, ss.assigned_range.upper
-            if async_:
-                from observations.tasks import recompute_observation_segments_task
+        if async_:
+            self._handle_async(subject_sources, total)
+        else:
+            self._handle_sync(subject_sources, total)
 
-                recompute_observation_segments_task.apply_async(
-                    kwargs={
-                        "source_id": str(ss.source_id),
+    def _handle_sync(self, subject_sources, total):
+        total_created = 0
+        for i, ss in enumerate(subject_sources.iterator(), 1):
+            lower, upper = ss.assigned_range.lower, ss.assigned_range.upper
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    BULK_INSERT_SEGMENTS_SQL,
+                    {
+                        "source_id": ss.source_id,
+                        "subject_id": ss.subject_id,
                         "lower": lower,
                         "upper": upper,
-                        "domain": domain,
-                    }
+                    },
                 )
-                self.stdout.write(
-                    f"  [{processed}/{total}] Enqueued task for source={ss.source_id}",
-                    ending="\r",
-                )
-            else:
-                recompute_observation_segments_for_source_range(ss.source_id, lower, upper)
-                self.stdout.write(
-                    f"  [{processed}/{total}] Recomputed segments for source={ss.source_id}",
-                    ending="\r",
-                )
+                created = cursor.rowcount
+            total_created += created
+            self.stdout.write(f"  [{i}/{total}] source={ss.source_id} segments_created={created}")
 
-        self.stdout.write("")
-        self.stdout.write(self.style.SUCCESS(f"Done. Processed {processed} SubjectSource(s)."))
-        if async_:
-            self.stdout.write(self.style.SUCCESS("Tasks were enqueued; workers will run recompute."))
+        self.stdout.write(
+            self.style.SUCCESS(f"Done. Processed {total} SubjectSource(s), created {total_created} segments.")
+        )
+
+    def _handle_async(self, subject_sources, total):
+        domain = get_tenant_settings().domain
+        for i, ss in enumerate(subject_sources.iterator(), 1):
+            from observations.tasks import recompute_observation_segments_task
+
+            lower, upper = ss.assigned_range.lower, ss.assigned_range.upper
+            recompute_observation_segments_task.apply_async(
+                kwargs={
+                    "source_id": str(ss.source_id),
+                    "lower": lower,
+                    "upper": upper,
+                    "domain": domain,
+                }
+            )
+            self.stdout.write(f"  [{i}/{total}] Enqueued task for source={ss.source_id}")
+
+        self.stdout.write(self.style.SUCCESS(f"Done. Enqueued {total} tasks; workers will run recompute."))
