@@ -1,15 +1,15 @@
 """
 Management command to backfill ObservationSegments in bulk.
 
-Uses a single SQL INSERT … SELECT per SubjectSource assignment.  Each query
-gathers all observations for the *subject* (across every source assigned to it,
-each respecting its own assigned_range) whose recorded_at falls within the
-current assignment's time window, then pairs consecutive observations using
-LEAD().  This matches the cross-source ordering used by
-Observation.get_neighbor_observations in the signal path.
+Uses a single SQL INSERT … SELECT per distinct subject.  The CTE gathers
+every observation for the subject across all sources (each respecting its
+own assigned_range) and pairs consecutive observations using LEAD().  This
+matches the unbounded cross-source ordering used by
+Observation.get_neighbor_observations in the signal path, so boundary
+segments between adjacent SubjectSource assignments are never missed.
 
-Overlapping SubjectSource time ranges for the same subject will produce
-overlapping queries; ON CONFLICT … DO NOTHING makes this idempotent.
+The outer loop iterates distinct subjects (derived from SubjectSource);
+ON CONFLICT … DO NOTHING keeps the operation idempotent.
 
 Usage:
     # Backfill current tenant (sync)
@@ -29,8 +29,7 @@ from django_multitenant.utils import get_current_tenant
 from django.core.management.base import BaseCommand
 from django.db import connection
 
-from observations.models import SubjectSource
-from observations.tasks import recompute_observation_segments_task
+from observations.models import Subject, SubjectSource
 from utils.tenant import get_tenant_settings
 from utils.tenant.commands import TenantCommandMixin
 
@@ -46,8 +45,6 @@ WITH subject_obs AS (
      AND o.recorded_at <@ ss.assigned_range
     WHERE ss.subject_id = %(subject_id)s
       AND ss.das_tenant_id = %(tenant_id)s
-      AND o.recorded_at >= %(lower)s
-      AND o.recorded_at <= %(upper)s
       AND o.location IS NOT NULL
 ),
 pairs AS (
@@ -124,14 +121,10 @@ class Command(TenantCommandMixin, BaseCommand):
         async_ = options["async_"]
 
         subject_sources = SubjectSource.objects.select_related("source", "subject").all()
-        total = subject_sources.count()
-        self.stdout.write(f"SubjectSources to process: {total}")
-
-        if total == 0:
-            self.stdout.write(self.style.WARNING("No SubjectSource records found for this tenant."))
-            return
 
         if dry_run:
+            total = subject_sources.count()
+            self.stdout.write(f"SubjectSources found: {total}")
             for i, ss in enumerate(subject_sources.iterator(), 1):
                 self.stdout.write(
                     f"  [{i}/{total}] source={ss.source_id} "
@@ -142,36 +135,47 @@ class Command(TenantCommandMixin, BaseCommand):
             return
 
         if async_:
-            self._handle_async(subject_sources, total)
+            self._handle_async(subject_sources)
         else:
-            self._handle_sync(subject_sources, total)
+            subjects = Subject.objects.filter(subjectsources__isnull=False).distinct()
+            self._handle_sync(subjects)
 
-    def _handle_sync(self, subject_sources, total):
+    def _handle_sync(self, subjects):
         tenant_id = get_current_tenant().id
+        total = subjects.count()
+        self.stdout.write(f"Subjects to process: {total}")
+
+        if total == 0:
+            self.stdout.write(self.style.WARNING("No subjects with source assignments found."))
+            return
+
         total_created = 0
-        for i, ss in enumerate(subject_sources.iterator(), 1):
-            lower, upper = ss.assigned_range.lower, ss.assigned_range.upper
+        for i, subj in enumerate(subjects.iterator(), 1):
             with connection.cursor() as cursor:
                 cursor.execute(
                     BULK_INSERT_SEGMENTS_SQL,
                     {
-                        "subject_id": ss.subject_id,
+                        "subject_id": subj.id,
                         "tenant_id": tenant_id,
-                        "lower": lower,
-                        "upper": upper,
                     },
                 )
                 created = cursor.rowcount
             total_created += created
-            self.stdout.write(f"  [{i}/{total}] source={ss.source_id} segments_created={created}")
+            self.stdout.write(f"  [{i}/{total}] subject={subj.name!r} segments_created={created}")
 
-        self.stdout.write(
-            self.style.SUCCESS(f"Done. Processed {total} SubjectSource(s), created {total_created} segments.")
-        )
+        self.stdout.write(self.style.SUCCESS(f"Done. Processed {total} subject(s), created {total_created} segments."))
 
-    def _handle_async(self, subject_sources, total):
+    def _handle_async(self, subject_sources):
+        total = subject_sources.count()
+        self.stdout.write(f"SubjectSources to enqueue: {total}")
+
+        if total == 0:
+            self.stdout.write(self.style.WARNING("No SubjectSource records found for this tenant."))
+            return
+
         domain = get_tenant_settings().domain
         for i, ss in enumerate(subject_sources.iterator(), 1):
+            from observations.tasks import recompute_observation_segments_task
 
             lower, upper = ss.assigned_range.lower, ss.assigned_range.upper
             recompute_observation_segments_task.apply_async(
