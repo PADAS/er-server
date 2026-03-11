@@ -73,15 +73,18 @@ SELECT
     END,
     EXTRACT(EPOCH FROM next_recorded_at - recorded_at) * 1000.0,
     ST_Distance(location::geography, next_location::geography),
-    MOD(
-        DEGREES(ATAN2(
-            SIN(RADIANS(ST_X(next_location) - ST_X(location)))
-                * COS(RADIANS(ST_Y(next_location))),
-            COS(RADIANS(ST_Y(location))) * SIN(RADIANS(ST_Y(next_location)))
-              - SIN(RADIANS(ST_Y(location))) * COS(RADIANS(ST_Y(next_location)))
-                * COS(RADIANS(ST_X(next_location) - ST_X(location)))
-        )) + 360.0,
-        360.0
+    ROUND(
+        MOD(
+            DEGREES(ATAN2(
+                SIN(RADIANS(ST_X(next_location) - ST_X(location)))
+                    * COS(RADIANS(ST_Y(next_location))),
+                COS(RADIANS(ST_Y(location))) * SIN(RADIANS(ST_Y(next_location)))
+                  - SIN(RADIANS(ST_Y(location))) * COS(RADIANS(ST_Y(next_location)))
+                    * COS(RADIANS(ST_X(next_location) - ST_X(location)))
+            )) + 360.0,
+            360.0
+        ),
+        2
     ),
     recorded_at,
     next_recorded_at,
