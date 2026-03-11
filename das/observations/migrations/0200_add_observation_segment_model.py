@@ -13,13 +13,15 @@ logger = logging.getLogger(__name__)
 
 # Parent table + constraints only (no default partition; partman or manual step creates it)
 SQL_PREREQ_UNIQUE_CONSTRAINTS = """
-CREATE UNIQUE INDEX IF NOT EXISTS "observations_observation_tenant_id_uniq"
-ON "observations_observation" ("das_tenant_id", "id");
-
 CREATE UNIQUE INDEX IF NOT EXISTS "observations_subject_tenant_id_uniq"
 ON "observations_subject" ("das_tenant_id", "id");
 """
 
+# observations_observation is partitioned by recorded_at, so PostgreSQL cannot
+# support a unique constraint on (das_tenant_id, id) alone — the partition key
+# must be included.  That makes a composite FK from this table back to
+# observations_observation impossible.  We omit those FKs and rely on
+# application-level integrity enforced by the segment builder.
 SQL_TABLE_AND_CONSTRAINTS = """
 CREATE TABLE IF NOT EXISTS "observations_observationsegment" (
     "id" uuid NOT NULL,
@@ -46,18 +48,6 @@ REFERENCES "core_dastenant" ("id")
 DEFERRABLE INITIALLY DEFERRED;
 
 ALTER TABLE "observations_observationsegment"
-ADD CONSTRAINT "observations_observa_start_obs_fk"
-FOREIGN KEY ("das_tenant_id", "start_observation_id")
-REFERENCES "observations_observation" ("das_tenant_id", "id")
-DEFERRABLE INITIALLY DEFERRED;
-
-ALTER TABLE "observations_observationsegment"
-ADD CONSTRAINT "observations_observa_end_obs_fk"
-FOREIGN KEY ("das_tenant_id", "end_observation_id")
-REFERENCES "observations_observation" ("das_tenant_id", "id")
-DEFERRABLE INITIALLY DEFERRED;
-
-ALTER TABLE "observations_observationsegment"
 ADD CONSTRAINT "observations_observa_subject_fk"
 FOREIGN KEY ("das_tenant_id", "subject_id")
 REFERENCES "observations_subject" ("das_tenant_id", "id")
@@ -71,6 +61,12 @@ ON "observations_observationsegment" ("das_tenant_id", "subject_id", "end_record
 
 CREATE INDEX "observation_das_ten_aee6b0_idx"
 ON "observations_observationsegment" ("das_tenant_id", "subject_id", "exclusion_flags");
+
+CREATE INDEX "observation_seg_start_obs_idx"
+ON "observations_observationsegment" ("start_observation_id");
+
+CREATE INDEX "observation_seg_end_obs_idx"
+ON "observations_observationsegment" ("end_observation_id");
 
 ALTER TABLE "observations_observationsegment"
 ADD CONSTRAINT "observations_observationsegment_unique_segment"
