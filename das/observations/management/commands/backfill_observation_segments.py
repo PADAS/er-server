@@ -11,6 +11,9 @@ segments between adjacent SubjectSource assignments are never missed.
 The outer loop iterates distinct subjects (derived from SubjectSource);
 ON CONFLICT … DO NOTHING keeps the operation idempotent.
 
+Sync backfill only inserts segments with start_recorded_at within the last 3 years,
+matching the ObservationSegment partition retention so rows never target dropped partitions.
+
 Usage:
     # Backfill current tenant (sync)
     python manage.py backfill_observation_segments --tenant_domain zoo.com
@@ -73,15 +76,18 @@ SELECT
     END,
     EXTRACT(EPOCH FROM next_recorded_at - recorded_at) * 1000.0,
     ST_Distance(location::geography, next_location::geography),
-    MOD(
-        DEGREES(ATAN2(
-            SIN(RADIANS(ST_X(next_location) - ST_X(location)))
-                * COS(RADIANS(ST_Y(next_location))),
-            COS(RADIANS(ST_Y(location))) * SIN(RADIANS(ST_Y(next_location)))
-              - SIN(RADIANS(ST_Y(location))) * COS(RADIANS(ST_Y(next_location)))
-                * COS(RADIANS(ST_X(next_location) - ST_X(location)))
-        )) + 360.0,
-        360.0
+    ROUND(
+        (MOD(
+            DEGREES(ATAN2(
+                SIN(RADIANS(ST_X(next_location) - ST_X(location)))
+                    * COS(RADIANS(ST_Y(next_location))),
+                COS(RADIANS(ST_Y(location))) * SIN(RADIANS(ST_Y(next_location)))
+                  - SIN(RADIANS(ST_Y(location))) * COS(RADIANS(ST_Y(next_location)))
+                    * COS(RADIANS(ST_X(next_location) - ST_X(location)))
+            )) + 360.0,
+            360.0
+        ))::numeric,
+        2
     ),
     recorded_at,
     next_recorded_at,
@@ -94,6 +100,7 @@ SELECT
     %(subject_id)s
 FROM pairs
 WHERE next_id IS NOT NULL
+  AND recorded_at >= (NOW() - INTERVAL '3 years')
 ON CONFLICT ON CONSTRAINT observations_observationsegment_unique_segment DO NOTHING;
 """
 
