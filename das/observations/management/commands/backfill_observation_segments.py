@@ -1,8 +1,15 @@
 """
 Management command to backfill ObservationSegments in bulk.
 
-Uses a single SQL INSERT … SELECT per SubjectSource to build segments from
-consecutive observation pairs, avoiding per-row Python round-trips.
+Uses a single SQL INSERT … SELECT per SubjectSource assignment.  Each query
+gathers all observations for the *subject* (across every source assigned to it,
+each respecting its own assigned_range) whose recorded_at falls within the
+current assignment's time window, then pairs consecutive observations using
+LEAD().  This matches the cross-source ordering used by
+Observation.get_neighbor_observations in the signal path.
+
+Overlapping SubjectSource time ranges for the same subject will produce
+overlapping queries; ON CONFLICT … DO NOTHING makes this idempotent.
 
 Usage:
     # Backfill current tenant (sync)
@@ -27,6 +34,28 @@ from utils.tenant.commands import TenantCommandMixin
 logger = logging.getLogger(__name__)
 
 BULK_INSERT_SEGMENTS_SQL = """
+WITH subject_obs AS (
+    SELECT DISTINCT o.id, o.location, o.recorded_at, o.exclusion_flags, o.das_tenant_id
+    FROM observations_observation o
+    JOIN observations_subjectsource ss
+      ON ss.source_id = o.source_id
+     AND ss.das_tenant_id = o.das_tenant_id
+     AND o.recorded_at <@ ss.assigned_range
+    WHERE ss.subject_id = %(subject_id)s
+      AND o.recorded_at >= %(lower)s
+      AND o.recorded_at <= %(upper)s
+      AND o.location IS NOT NULL
+),
+pairs AS (
+    SELECT
+        id, location, recorded_at, exclusion_flags, das_tenant_id,
+        LEAD(id)              OVER w AS next_id,
+        LEAD(location)        OVER w AS next_location,
+        LEAD(recorded_at)     OVER w AS next_recorded_at,
+        LEAD(exclusion_flags) OVER w AS next_exclusion_flags
+    FROM subject_obs
+    WINDOW w AS (ORDER BY recorded_at)
+)
 INSERT INTO observations_observationsegment (
     id, geometry, speed_kmh, time_gap_ms, distance_meters, bearing_deg,
     start_recorded_at, end_recorded_at, exclusion_flags,
@@ -62,20 +91,7 @@ SELECT
     id,
     next_id,
     %(subject_id)s
-FROM (
-    SELECT
-        id, location, recorded_at, exclusion_flags, das_tenant_id,
-        LEAD(id)              OVER w AS next_id,
-        LEAD(location)        OVER w AS next_location,
-        LEAD(recorded_at)     OVER w AS next_recorded_at,
-        LEAD(exclusion_flags) OVER w AS next_exclusion_flags
-    FROM observations_observation
-    WHERE source_id = %(source_id)s
-      AND recorded_at >= %(lower)s
-      AND recorded_at <= %(upper)s
-      AND location IS NOT NULL
-    WINDOW w AS (ORDER BY recorded_at)
-) pairs
+FROM pairs
 WHERE next_id IS NOT NULL
 ON CONFLICT (start_observation_id, end_observation_id, start_recorded_at) DO NOTHING;
 """
@@ -134,7 +150,6 @@ class Command(TenantCommandMixin, BaseCommand):
                 cursor.execute(
                     BULK_INSERT_SEGMENTS_SQL,
                     {
-                        "source_id": ss.source_id,
                         "subject_id": ss.subject_id,
                         "lower": lower,
                         "upper": upper,
