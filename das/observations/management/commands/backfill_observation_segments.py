@@ -55,7 +55,7 @@ pairs AS (
         LEAD(recorded_at)     OVER w AS next_recorded_at,
         LEAD(exclusion_flags) OVER w AS next_exclusion_flags
     FROM subject_obs
-    WINDOW w AS (ORDER BY recorded_at)
+    WINDOW w AS (ORDER BY recorded_at, id)
 )
 INSERT INTO observations_observationsegment (
     id, geometry, speed_kmh, time_gap_ms, distance_meters, bearing_deg,
