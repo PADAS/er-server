@@ -94,7 +94,7 @@ SELECT
     %(subject_id)s
 FROM pairs
 WHERE next_id IS NOT NULL
-ON CONFLICT (start_observation_id, end_observation_id, start_recorded_at) DO NOTHING;
+ON CONFLICT ON CONSTRAINT observations_observationsegment_unique_segment DO NOTHING;
 """
 
 
