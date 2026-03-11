@@ -12,6 +12,14 @@ from django.db import migrations, models
 logger = logging.getLogger(__name__)
 
 # Parent table + constraints only (no default partition; partman or manual step creates it)
+SQL_PREREQ_UNIQUE_CONSTRAINTS = """
+CREATE UNIQUE INDEX IF NOT EXISTS "observations_observation_tenant_id_uniq"
+ON "observations_observation" ("das_tenant_id", "id");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "observations_subject_tenant_id_uniq"
+ON "observations_subject" ("das_tenant_id", "id");
+"""
+
 SQL_TABLE_AND_CONSTRAINTS = """
 CREATE TABLE IF NOT EXISTS "observations_observationsegment" (
     "id" uuid NOT NULL,
@@ -108,6 +116,8 @@ def _partman_extension_installed(cursor):
 
 def create_partitioned_observation_segment(apps, schema_editor):
     with schema_editor.connection.cursor() as cursor:
+        for stmt in _split_sql(SQL_PREREQ_UNIQUE_CONSTRAINTS):
+            cursor.execute(stmt)
         for stmt in _split_sql(SQL_TABLE_AND_CONSTRAINTS):
             cursor.execute(stmt)
 
