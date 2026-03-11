@@ -166,6 +166,8 @@ class Command(TenantCommandMixin, BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Done. Processed {total} subject(s), created {total_created} segments."))
 
     def _handle_async(self, subject_sources):
+        from observations.tasks import recompute_observation_segments_task
+
         total = subject_sources.count()
         self.stdout.write(f"SubjectSources to enqueue: {total}")
 
@@ -175,8 +177,6 @@ class Command(TenantCommandMixin, BaseCommand):
 
         domain = get_tenant_settings().domain
         for i, ss in enumerate(subject_sources.iterator(), 1):
-            from observations.tasks import recompute_observation_segments_task
-
             lower, upper = ss.assigned_range.lower, ss.assigned_range.upper
             recompute_observation_segments_task.apply_async(
                 kwargs={
