@@ -15,6 +15,7 @@ GIS
 from __future__ import annotations
 
 import logging
+import math
 import random
 import re
 import uuid
@@ -37,11 +38,11 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.db import models as dbmodels
-from django.contrib.gis.geos import Point, Polygon
+from django.contrib.gis.geos import LineString, Point, Polygon
 from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.db import connections, transaction
+from django.db import connection, connections, transaction
 from django.db.models import (
     BooleanField,
     Case,
@@ -470,9 +471,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                 )
             else:
                 # When filter_flag is 0, filter for exact match on system bits only
-                queryset = queryset.annotate(
-                    system_flags=F("exclusion_flags").bitand(Observation.SYSTEM_FLAGS_MASK)
-                )
+                queryset = queryset.annotate(system_flags=F("exclusion_flags").bitand(Observation.SYSTEM_FLAGS_MASK))
                 if include_empty_location:
                     # Include auto-excluded (0,0) observations so include_empty_location has effect
                     # when upstream applies EXCLUDED_AUTOMATICALLY to empty locations
@@ -1058,6 +1057,36 @@ class Observation(TenantModelMixin, models.Model):
         """Check if any system exclusion flags are set."""
         return bool(self.system_exclusion_flags & self.DEFAULT_EXCLUSION_MASK)
 
+    def get_neighbor_observations(self, subject):
+        """
+        Get the previous and next observations for a subject's track relative to this observation.
+
+        Uses two bounded indexed queries (prev/next by recorded_at) so the cost is
+        O(1) regardless of track length and no per-subject cache is needed.
+
+        Args:
+            subject: Subject instance (defines the track via its SubjectSources)
+
+        Returns:
+            tuple: (prev_observation, next_observation) - either can be None
+        """
+        base_qs = Observation.objects.filter(
+            source__subjectsource__subject=subject,
+            source__subjectsource__assigned_range__contains=F("recorded_at"),
+            location__isnull=False,
+        ).exclude(id=self.id)
+
+        prev_obs = base_qs.filter(recorded_at__lte=self.recorded_at).order_by("-recorded_at").first()
+        next_obs = base_qs.filter(recorded_at__gte=self.recorded_at).order_by("recorded_at").first()
+        return prev_obs, next_obs
+
+    def _delete_observation_segments(self):
+        """Delete all ObservationSegments that have this observation as start or end."""
+        ObservationSegment.objects.filter(
+            Q(start_observation=self) | Q(end_observation=self),
+            das_tenant_id=self.das_tenant_id,
+        ).delete()
+
     class Meta:
         constraints = [
             UniqueConstraint(
@@ -1068,6 +1097,268 @@ class Observation(TenantModelMixin, models.Model):
 
 
 DEFAULT_ASSIGNED_RANGE = list((pytz.utc.localize(datetime.min), pytz.utc.localize(datetime.max)))
+
+
+class ObservationSegmentQuerySet(models.QuerySet, FilterMixin):
+    """QuerySet for ObservationSegment with filtering capabilities."""
+
+    def by_subject(self, subject):
+        """Filter segments by subject."""
+        return self.filter(subject=subject)
+
+    def by_subject_id(self, subject_id):
+        """Filter segments by subject ID."""
+        return self.filter(subject_id=subject_id)
+
+    def by_time_range(self, since=None, until=None):
+        """
+        Filter segments by time range based on start_recorded_at.
+        Uses gte (>=) for since and lt (<) for until to avoid overlap at boundaries.
+        """
+        if since and until:
+            return self.filter(start_recorded_at__gte=since, start_recorded_at__lt=until)
+        elif since:
+            return self.filter(start_recorded_at__gte=since)
+        elif until:
+            return self.filter(start_recorded_at__lt=until)
+        return self
+
+    def by_exclusion_flags(self, filter_flag):
+        """Filter segments by exclusion flags."""
+        if filter_flag is None:
+            return self
+        return self.filter(exclusion_flags=filter_flag)
+
+    def ordered_by_time(self):
+        """Order segments by start time."""
+        return self.order_by("start_recorded_at")
+
+
+class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset(ObservationSegmentQuerySet)):
+    """Manager for ObservationSegment with tenant awareness."""
+
+    use_in_migrations = True
+
+    def create_segment(self, start_obs, end_obs, subject):
+        """
+        Create a segment between two observations.
+
+        Args:
+            start_obs: Starting Observation instance
+            end_obs: Ending Observation instance
+            subject: Subject instance the segment belongs to
+
+        Returns:
+            ObservationSegment instance
+        """
+        # Access locations once to avoid potential N+1 queries in bulk operations
+        start_loc = start_obs.location
+        end_loc = end_obs.location
+
+        # Create LineString geometry
+        geometry = LineString(start_loc, end_loc, srid=4326)
+
+        # Calculate time gap in milliseconds
+        time_delta = abs((end_obs.recorded_at - start_obs.recorded_at).total_seconds())
+        time_gap_ms = time_delta * 1000.0
+
+        # Pre-compute distance using PostGIS to avoid N+1 queries in save().
+        # Coordinates passed as parameter list to execute(); no string interpolation.
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT ST_Distance(
+                    ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,
+                    ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography
+                )
+                """,
+                [start_loc.x, start_loc.y, end_loc.x, end_loc.y],
+            )
+            distance_meters = cursor.fetchone()[0]
+
+        # Calculate speed with accurate distance
+        time_gap_hours = time_gap_ms / (1000.0 * 3600.0)
+        speed_kmh = (distance_meters / 1000.0) / time_gap_hours if time_gap_hours > 0 else 0.0
+
+        # Pre-compute bearing to avoid N+1 queries in save()
+        bearing_deg = ObservationSegment.compute_bearing_deg(start_loc.y, start_loc.x, end_loc.y, end_loc.x)
+
+        # Combine exclusion flags (OR operation)
+        exclusion_flags = start_obs.exclusion_flags.mask | end_obs.exclusion_flags.mask
+
+        segment = self.create(
+            subject=subject,
+            start_observation=start_obs,
+            end_observation=end_obs,
+            geometry=geometry,
+            speed_kmh=speed_kmh,
+            time_gap_ms=time_gap_ms,
+            distance_meters=distance_meters,
+            bearing_deg=bearing_deg,
+            start_recorded_at=start_obs.recorded_at,
+            end_recorded_at=end_obs.recorded_at,
+            exclusion_flags=exclusion_flags,
+            das_tenant_id=subject.das_tenant_id,
+        )
+
+        return segment
+
+    def get_or_create_segment(self, start_obs, end_obs, subject):
+        """
+        Get or create a segment between two observations.
+
+        Returns:
+            (ObservationSegment, created) tuple
+        """
+        try:
+            segment = self.get(
+                start_observation=start_obs, end_observation=end_obs, das_tenant_id=subject.das_tenant_id
+            )
+            return segment, False
+        except self.model.DoesNotExist:
+            return self.create_segment(start_obs, end_obs, subject), True
+
+
+class ObservationSegment(TenantModelMixin, models.Model):
+    """
+    Pre-computed track segments between consecutive observations.
+    Optimized for vector tile and GeoJSON track rendering.
+
+    Each segment represents the line between two consecutive observations
+    for a subject, ordered by recorded_at.
+
+    Segments are automatically maintained via signals on Observation changes:
+    - When an observation is created, segments to prev/next observations are created
+    - When an observation is deleted, affected segments are removed and bridged
+    - When an observation is updated, affected segments are recalculated
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+
+    # Core relationships
+    subject = TenantForeignKey(
+        "Subject",
+        on_delete=models.CASCADE,
+        related_name="segments",
+        related_query_name="segment",
+        help_text="Subject this segment belongs to",
+    )
+    # Observation table is partitioned with composite PK (das_tenant_id, id)
+    # We MUST use TenantForeignKey to properly reference both columns
+    start_observation = TenantForeignKey(
+        "Observation",
+        on_delete=models.CASCADE,
+        related_name="segments_as_start",
+        related_query_name="segment_as_start",
+        help_text="Starting observation of the segment",
+    )
+    end_observation = TenantForeignKey(
+        "Observation",
+        on_delete=models.CASCADE,
+        related_name="segments_as_end",
+        related_query_name="segment_as_end",
+        help_text="Ending observation of the segment",
+    )
+
+    # Geometry (LineString connecting start → end)
+    geometry = models.LineStringField(srid=4326, help_text="LineString geometry from start to end observation")
+
+    # Computed metrics
+    speed_kmh = models.FloatField(help_text="Speed in km/h between observations")
+    time_gap_ms = models.FloatField(help_text="Time gap in milliseconds between observations")
+    distance_meters = models.FloatField(help_text="Distance in meters between observations (ST_Distance)")
+    bearing_deg = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Initial bearing in degrees [0,360) from start to end observation",
+    )
+
+    # Temporal ordering (denormalized from observations for query performance)
+    start_recorded_at = models.DateTimeField(db_index=True, help_text="Start observation recorded_at (denormalized)")
+    end_recorded_at = models.DateTimeField(db_index=True, help_text="End observation recorded_at (denormalized)")
+
+    # Exclusion metadata (OR of both observations' exclusion flags)
+    exclusion_flags = BitField(flags=Observation.BITMAP_FILTER_CHOICES, default=0)
+
+    # Tenant isolation
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = ObservationSegmentManager()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        indexes = [
+            Index(fields=["das_tenant", "subject", "start_recorded_at"]),
+            Index(fields=["das_tenant", "subject", "end_recorded_at"]),
+            Index(fields=["start_observation", "end_observation"]),
+            Index(fields=["das_tenant", "subject", "exclusion_flags"]),
+        ]
+        constraints = [
+            UniqueConstraint(
+                fields=["start_recorded_at", "start_observation", "end_observation"],
+                name="%(app_label)s_%(class)s_unique_segment",
+            ),
+        ]
+        ordering = ["start_recorded_at"]
+
+    def __str__(self):
+        return f"Segment {self.subject.name if self.subject else 'Unknown'}: {self.start_recorded_at} → {self.end_recorded_at}"
+
+    @staticmethod
+    def compute_bearing_deg(lat1, lon1, lat2, lon2):
+        """Compute initial bearing from (lat1, lon1) to (lat2, lon2) in degrees [0,360)."""
+        phi1 = math.radians(lat1)
+        phi2 = math.radians(lat2)
+        d_lambda = math.radians(lon2 - lon1)
+
+        x = math.sin(d_lambda) * math.cos(phi2)
+        y = math.cos(phi1) * math.sin(phi2) - math.sin(phi1) * math.cos(phi2) * math.cos(d_lambda)
+        theta = math.atan2(x, y)
+        bearing = (math.degrees(theta) + 360.0) % 360.0
+        return round(bearing, 2)
+
+    def save(self, *args, **kwargs):
+        """Override save to calculate accurate distance and bearing using PostGIS/geometry when missing.
+        Prefer create_segment for bulk; direct save() may run per-row queries if distance/bearing not set.
+        """
+        should_compute_distance = self.distance_meters is None
+        should_compute_bearing = self.bearing_deg is None
+
+        if should_compute_distance:
+            # Coordinates passed as parameter list to execute(); no string interpolation.
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT ST_Distance(
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography
+                    )
+                    """,
+                    [
+                        self.start_observation.location.x,
+                        self.start_observation.location.y,
+                        self.end_observation.location.x,
+                        self.end_observation.location.y,
+                    ],
+                )
+                self.distance_meters = cursor.fetchone()[0]
+
+            # Recalculate speed with accurate distance
+            time_gap_hours = self.time_gap_ms / (1000.0 * 3600.0)
+            if time_gap_hours > 0:
+                self.speed_kmh = (self.distance_meters / 1000.0) / time_gap_hours
+
+        # Calculate bearing if not set
+        if should_compute_bearing:
+            start_loc = self.start_observation.location
+            end_loc = self.end_observation.location
+            self.bearing_deg = self.compute_bearing_deg(start_loc.y, start_loc.x, end_loc.y, end_loc.x)  # lat, lon
+
+        super().save(*args, **kwargs)
 
 
 class SubjectSourceQuerySet(models.QuerySet, FilterMixin):
@@ -2029,10 +2320,17 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
 
     @property
     def color(self):
+        # Allow queryset annotations to override (e.g. SubjectVectorLayer); they set via the setter.
+        if "color" in self.__dict__:
+            return self.__dict__["color"]
         color = self.additional.get("rgb", DEFAULT_COLOR)
         if color:
             color = to_rgb(color)
         return color
+
+    @color.setter
+    def color(self, val):
+        self.__dict__["color"] = val
 
     def clean(self):
         if self.name != escape(self.name):

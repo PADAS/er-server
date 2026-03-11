@@ -10,7 +10,6 @@ import django_multitenant
 import pytest
 from django_fakeredis.fakeredis import get_fake_redis
 from django_multitenant.utils import get_current_tenant, set_current_tenant
-from factory import Faker
 from oauth2_provider.models import get_application_model
 from pytest_factoryboy import register
 
@@ -458,6 +457,10 @@ def dummy_cache(settings):
             "LOCATION": "shared-cache",
             "KEY_PREFIX": "shared",
         },
+        "vector_tiles": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "vector-tiles-test",
+        },
     }
 
 
@@ -624,12 +627,13 @@ def das_tenant(tenant):
 def one_tenant():
     """Return a DASTenant and a matching tenant settings object"""
 
-    tenant = TenantFactory(id=Faker("uuid4"), domain=Faker("hostname"))
+    tenant_id = uuid.uuid4()
+    tenant = TenantFactory(id=tenant_id, domain=f"host-{tenant_id.hex[:12]}.example.com")
     tenant_settings = copy.deepcopy(TENANT_RESPONSE)
     tenant_settings["domain"] = tenant.domain
     tenant_settings["id"] = tenant.id
-    tenant_settings["slugName"] = Faker("slug")
-    tenant_settings["name"] = Faker("company")
+    tenant_settings["slugName"] = f"slug-{tenant_id.hex[:8]}"
+    tenant_settings["name"] = f"Tenant {tenant_id.hex[:6]}"
     tenant_settings["url"] = f"https://{tenant.domain}"
     tenant_settings = Tenant.from_dict(tenant_settings)
 
@@ -668,7 +672,8 @@ def five_tenants():
     previous_tenant = get_current_tenant()
     set_current_tenant(None)
 
-    yield TenantFactory.create_batch(size=5, id=Faker("uuid4"), domain=Faker("domain_name"))
+    tenants = [TenantFactory(id=uuid.uuid4(), domain=f"t{i}-{uuid.uuid4().hex[:8]}.example.com") for i in range(5)]
+    yield tenants
 
     set_current_tenant(previous_tenant)
 
@@ -697,12 +702,8 @@ def tenant_settings(request, monkeypatch, tenant):
     return tenant
 
 
-@pytest.fixture
-def das_tenant_monkeypatch(request, monkeypatch, das_tenant):
-    """This fixture is used to monkeypatch the get/set of das_tenant on the current thread.
-    Secondly if used as a class fixture, it injects the das_tenant into that class
-    so that individual tests can access the das_tenant object.
-    For example self.das_tenant.id"""
+def _monkeypatch_current_tenant(request, monkeypatch, das_tenant):
+    """Set das_tenant as the current tenant for the request scope (thread_locals)."""
     thread_locals = MagicMock()
     thread_locals.tenant = das_tenant
     monkeypatch.setattr(django_multitenant.utils, "_thread_locals", thread_locals)
@@ -711,6 +712,24 @@ def das_tenant_monkeypatch(request, monkeypatch, das_tenant):
     if getattr(request, "cls", None):
         request.cls.das_tenant = das_tenant
     return das_tenant
+
+
+@pytest.fixture
+def das_tenant_monkeypatch(request, monkeypatch, das_tenant):
+    """This fixture is used to monkeypatch the get/set of das_tenant on the current thread.
+    Secondly if used as a class fixture, it injects the das_tenant into that class
+    so that individual tests can access the das_tenant object.
+    For example self.das_tenant.id"""
+    return _monkeypatch_current_tenant(request, monkeypatch, das_tenant)
+
+
+@pytest.fixture
+def scoped_das_tenant(request, monkeypatch, one_tenant):
+    """DASTenant unique to a single test, with current tenant set so ORM only sees this test's data.
+    Use when the test relies on tenant-scoped managers and
+    *must not see data from other tests* (e.g. with --reuse-db). Uses the same monkeypatch
+    as `das_tenant_monkeypatch`, but with a tenant from `one_tenant`."""
+    return _monkeypatch_current_tenant(request, monkeypatch, one_tenant[0])
 
 
 @pytest.fixture(autouse=True, scope="session")

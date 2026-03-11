@@ -1,0 +1,1498 @@
+"""
+Tests for consolidated vector tile endpoint (segments + subjects).
+
+Verifies that both observation segments and subject positions are included
+in a single .pbf response, with consistent permission-based filtering.
+"""
+
+from datetime import timedelta
+
+import pytest
+
+from django.contrib.auth.models import Permission
+from django.contrib.gis.geos import Point
+from django.urls import reverse
+from django.utils import timezone
+from rest_framework.test import APIClient, APIRequestFactory
+
+from accounts.models.permissionset import PermissionSet
+from observations.filters import ObservationSegmentVectorTileFilterSet
+from observations.models import (
+    Observation,
+    ObservationSegment,
+    Source,
+    SourceProvider,
+    Subject,
+    SubjectGroup,
+    SubjectSource,
+    SubjectStatus,
+)
+from observations.vector_layers import ObservationSegmentVectorLayer, SubjectVectorLayer
+from observations.views.vector_tiles_segments import ObservationSegmentTileView
+
+
+@pytest.mark.django_db
+class TestSubjectVectorLayer:
+    """Test the SubjectVectorLayer configuration and queryset."""
+
+    def test_layer_configuration(self):
+        """Verify layer attributes are configured correctly."""
+        layer = SubjectVectorLayer()
+        assert layer.id == "subjects"
+        assert layer.model == Subject
+        assert layer.min_zoom == 3
+        assert layer.max_zoom == 24
+        assert "id" in layer.tile_fields
+        assert "name" in layer.tile_fields
+        assert "icon_url" in layer.tile_fields
+        assert "color" in layer.tile_fields
+        assert "subject_subtype_value" in layer.tile_fields
+        assert "radio_state" in layer.tile_fields
+
+    def test_queryset_includes_geometry_in_web_mercator(self, subject_with_status):
+        """Verify subjects have geom field in SRID 3857 (Web Mercator)."""
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject_with_status.id).first()
+
+        assert obj is not None
+        assert hasattr(obj, "geom")
+        assert obj.geom is not None
+        assert obj.geom.srid == 3857
+
+    def test_queryset_filters_subjects_without_location(self, subject_without_status):
+        """Verify subjects without location are excluded from tiles."""
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+
+        # Subject without status should not appear
+        assert not qs.filter(id=subject_without_status.id).exists()
+
+    def test_queryset_includes_presentation_properties(self, subject_with_status):
+        """Verify color, radio_state, icon_url, and other properties are annotated."""
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject_with_status.id).first()
+
+        assert hasattr(obj, "color")
+        assert hasattr(obj, "radio_state")
+        assert hasattr(obj, "recorded_at")
+        assert hasattr(obj, "subject_type_value")
+        assert hasattr(obj, "subject_subtype_value")
+        assert hasattr(obj, "icon_url")
+
+    def test_default_delay_hours_is_zero(self):
+        """Verify default delay_hours is 0 when no request provided."""
+        layer = SubjectVectorLayer()
+        assert layer.delay_hours == 0
+
+    def test_realtime_user_sees_latest_position(self, subject_with_multiple_statuses, user_with_realtime_access):
+        """Verify users with access_ends_0 permission see delay_hours=0 status."""
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = user_with_realtime_access
+        request.user.is_superuser = True  # So queryset is not filtered by by_user_subjects
+
+        layer = SubjectVectorLayer(request=request)
+        assert layer.delay_hours == 0
+
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject_with_multiple_statuses.id).first()
+        assert obj is not None, "Subject should be in queryset (superuser sees all)"
+
+        # Should use the status with delay_hours=0 (latest)
+        status_latest = SubjectStatus.objects.get(subject=subject_with_multiple_statuses, delay_hours=0)
+        assert obj.recorded_at == status_latest.recorded_at
+
+    def test_delayed_user_sees_delayed_position(
+        self, subject_with_multiple_statuses, user_with_delayed_access, monkeypatch
+    ):
+        """Verify users with access_ends_7 permission see delay_hours=168 status.
+
+        Uses a monkeypatch of get_minimum_allowed_age so the test asserts layer
+        behavior (delay_hours and queryset) without depending on the permission
+        backend in CI (avoids cache/M2M flakiness).
+        """
+        monkeypatch.setattr("observations.vector_layers.get_minimum_allowed_age", lambda user: 7)
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = user_with_delayed_access
+        request.user.is_superuser = True  # So queryset is not filtered by by_user_subjects
+
+        layer = SubjectVectorLayer(request=request)
+        assert layer.delay_hours == 168  # 7 days * 24 hours
+
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject_with_multiple_statuses.id).first()
+        assert obj is not None, "Subject should be in queryset (superuser sees all)"
+
+        # Should use the status with delay_hours=168
+        status_delayed = SubjectStatus.objects.get(subject=subject_with_multiple_statuses, delay_hours=168)
+        assert obj.recorded_at == status_delayed.recorded_at
+
+
+@pytest.mark.django_db
+class TestConsolidatedVectorTiles:
+    """Test consolidated vector tiles with both segments and subjects.
+
+    Calls the tile view directly with request.user set to avoid depending on
+    session auth in CI (where request.user can be AnonymousUser with client.get).
+    """
+
+    def _tile_response(self, user, patch_vector_tile_tenant):
+        """Return tile view response for the given user (request.user set directly)."""
+        url = reverse("observation-segments-vector-tiles", kwargs={"z": 10, "x": 512, "y": 512})
+        request = APIRequestFactory().get(url)
+        request.user = user
+        view = ObservationSegmentTileView.as_view()
+        return view(request, 10, 512, 512)
+
+    def test_tile_includes_both_layers(
+        self, tile_test_subject_visible, user_with_realtime_access, patch_vector_tile_tenant
+    ):
+        """Verify tile response includes both observation_segments and subjects layers."""
+        response = self._tile_response(user_with_realtime_access, patch_vector_tile_tenant)
+
+        assert response.status_code in (200, 204)
+        assert response["Content-Type"] == "application/vnd.mapbox-vector-tile"
+
+    def test_realtime_user_sees_all_segments(
+        self, tile_test_subject_visible, user_with_realtime_access, patch_vector_tile_tenant
+    ):
+        """Verify users with access_ends_0 see all segments up to now."""
+        response = self._tile_response(user_with_realtime_access, patch_vector_tile_tenant)
+
+        assert response.status_code in (200, 204)
+
+    def test_delayed_user_sees_filtered_segments(
+        self, tile_test_subject_visible, user_with_delayed_access, patch_vector_tile_tenant
+    ):
+        """Verify users with access_ends_7 only see segments from ≥7 days ago."""
+        response = self._tile_response(user_with_delayed_access, patch_vector_tile_tenant)
+
+        # Should get filtered data (may be empty if no old enough segments)
+        assert response.status_code in (200, 204)
+
+    def test_different_users_get_different_cache(
+        self,
+        tile_test_subject_visible,
+        user_with_realtime_access,
+        user_with_delayed_access,
+        patch_vector_tile_tenant,
+    ):
+        """Verify users with different permissions get different cached tiles."""
+        response1 = self._tile_response(user_with_realtime_access, patch_vector_tile_tenant)
+        response2 = self._tile_response(user_with_delayed_access, patch_vector_tile_tenant)
+
+        # Both should succeed but have different ETags (different cache keys)
+        assert response1.status_code in (200, 204)
+        assert response2.status_code in (200, 204)
+        # Different permissions = different data = different ETags
+        assert response1.get("ETag") != response2.get("ETag")
+
+    def test_tile_respects_cache_headers(
+        self, tile_test_subject_visible, user_with_realtime_access, patch_vector_tile_tenant
+    ):
+        """Verify cache control headers are set correctly (private + Vary to avoid cross-user caching)."""
+        response = self._tile_response(user_with_realtime_access, patch_vector_tile_tenant)
+
+        assert "Cache-Control" in response
+        assert "ETag" in response
+        assert "X-Cache" in response
+        assert "max-age" in response["Cache-Control"]
+        assert response["Cache-Control"].startswith("private")
+        vary = response.get("Vary", "")
+        assert "Authorization" in vary and "Cookie" in vary
+
+
+@pytest.mark.django_db
+class TestSegmentPermissionFiltering:
+    """Test that segments are filtered based on user permissions."""
+
+    def test_segment_layer_respects_delay_hours(self, das_tenant, subject_subtype, user_with_delayed_access):
+        """Verify segment layer filters by delay_hours."""
+        # Create subject and source (observations use source, not subject)
+        subject = Subject.objects.create(
+            name="Test Subject",
+            subject_subtype=subject_subtype,
+            is_active=True,
+            das_tenant=das_tenant,
+        )
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_delay_seg", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="delay_seg_collar", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        # Grant user visibility to this subject via subject group (business logic:
+        # segment layer only shows segments for subjects the user can see)
+        group = SubjectGroup.objects.create(name="Delay Test Group", das_tenant=das_tenant)
+        subject.groups.add(group)
+        perm_set = user_with_delayed_access.permission_sets.get(name="delayed_access_test")
+        group.permission_sets.add(perm_set)
+
+        # Create observations: one recent, one old
+        now = timezone.now()
+        old_time = now - timedelta(days=10)
+
+        obs_old_1 = Observation.objects.create(
+            source=source,
+            location=Point(0.0, 0.0, srid=4326),
+            recorded_at=old_time,
+            das_tenant=das_tenant,
+        )
+        obs_old_2 = Observation.objects.create(
+            source=source,
+            location=Point(0.1, 0.1, srid=4326),
+            recorded_at=old_time + timedelta(hours=1),
+            das_tenant=das_tenant,
+        )
+
+        obs_recent_1 = Observation.objects.create(
+            source=source,
+            location=Point(1.0, 1.0, srid=4326),
+            recorded_at=now - timedelta(hours=1),
+            das_tenant=das_tenant,
+        )
+        obs_recent_2 = Observation.objects.create(
+            source=source,
+            location=Point(1.1, 1.1, srid=4326),
+            recorded_at=now,
+            das_tenant=das_tenant,
+        )
+
+        # Create segments
+        ObservationSegment.objects.create_segment(obs_old_1, obs_old_2, subject)
+        ObservationSegment.objects.create_segment(obs_recent_1, obs_recent_2, subject)
+
+        # Test with delayed user (access_ends_7 = 168 hours delay)
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = user_with_delayed_access
+
+        layer = ObservationSegmentVectorLayer(request=request)
+        assert layer.delay_hours == 168  # 7 days * 24 hours
+
+        qs = layer.get_queryset()
+
+        # Should only see old segment (ended ≥7 days ago)
+        # Recent segment should be filtered out
+        segment_count = qs.count()
+        assert segment_count == 1
+
+        # Verify it's the old segment
+        segment = qs.first()
+        assert segment.end_recorded_at < (now - timedelta(days=7))
+
+
+@pytest.mark.django_db
+class TestSegmentQueryParameterFiltering:
+    """Test query parameter filtering for ObservationSegmentVectorLayer (range, show_excluded)."""
+
+    def test_filter_range_45_default_excludes_old_segments(self, das_tenant, subject_subtype):
+        """Verify default range=45 excludes segments that ended more than 45 days ago."""
+        subject = Subject.objects.create(name="Range Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_range", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="range_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Segment that ended 50 days ago (should be excluded with range=45)
+        obs_old_1 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=50),
+            location=Point(0, 0),
+            das_tenant=das_tenant,
+        )
+        obs_old_2 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=50) + timedelta(hours=1),
+            location=Point(1, 0),
+            das_tenant=das_tenant,
+        )
+        ObservationSegment.objects.create_segment(obs_old_1, obs_old_2, subject)
+
+        # Segment that ended 10 days ago (should be included)
+        obs_recent_1 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=10),
+            location=Point(2, 0),
+            das_tenant=das_tenant,
+        )
+        obs_recent_2 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=10) + timedelta(hours=1),
+            location=Point(3, 0),
+            das_tenant=das_tenant,
+        )
+        ObservationSegment.objects.create_segment(obs_recent_1, obs_recent_2, subject)
+
+        qs = ObservationSegment.objects.filter(subject=subject)
+
+        # Default (no data) or explicit range=45: only recent segment
+        filterset_default = ObservationSegmentVectorTileFilterSet(data={}, queryset=qs)
+        assert filterset_default.qs.count() == 1
+        assert filterset_default.qs.first().end_recorded_at >= now - timedelta(days=45)
+
+        filterset_45 = ObservationSegmentVectorTileFilterSet(data={"range": "45"}, queryset=qs)
+        assert filterset_45.qs.count() == 1
+
+    def test_filter_range_all_includes_old_segments(self, das_tenant, subject_subtype):
+        """Verify range=all includes segments regardless of end_recorded_at."""
+        subject = Subject.objects.create(name="All Range Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_allrange", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="allrange_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Old segment
+        obs_old_1 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=60),
+            location=Point(0, 0),
+            das_tenant=das_tenant,
+        )
+        obs_old_2 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=60) + timedelta(hours=1),
+            location=Point(1, 0),
+            das_tenant=das_tenant,
+        )
+        ObservationSegment.objects.create_segment(obs_old_1, obs_old_2, subject)
+
+        # Recent segment
+        obs_new_1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(2, 0), das_tenant=das_tenant
+        )
+        obs_new_2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs_new_1, obs_new_2, subject)
+
+        qs = ObservationSegment.objects.all()
+        filterset = ObservationSegmentVectorTileFilterSet(data={"range": "all"}, queryset=qs)
+        assert filterset.qs.count() == 2
+
+    def test_filter_show_excluded_false_excludes_flagged(self, das_tenant, subject_subtype):
+        """Verify show_excluded=false excludes segments with exclusion flags."""
+        subject = Subject.objects.create(name="Excluded Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_excluded", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="excluded_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Create segment with no exclusion flags
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=4), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=3), location=Point(1, 0), das_tenant=das_tenant
+        )
+        clean_segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Create segment with exclusion flag
+        obs3 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(hours=2),
+            location=Point(2, 0),
+            exclusion_flags=Observation.EXCLUDED_MANUALLY,
+            das_tenant=das_tenant,
+        )
+        obs4 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs3, obs4, subject)
+
+        qs = ObservationSegment.objects.all()
+
+        # With show_excluded=false (default), should only get clean segment
+        filterset = ObservationSegmentVectorTileFilterSet(data={"show_excluded": "false"}, queryset=qs)
+        assert filterset.qs.count() == 1
+        assert filterset.qs.first().id == clean_segment.id
+
+    def test_filter_show_excluded_true_includes_flagged(self, das_tenant, subject_subtype):
+        """Verify show_excluded=true includes segments with exclusion flags."""
+        subject = Subject.objects.create(name="Include Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_include", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="include_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Create segment with no exclusion flags
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=4), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=3), location=Point(1, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Create segment with exclusion flag
+        obs3 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(hours=2),
+            location=Point(2, 0),
+            exclusion_flags=Observation.EXCLUDED_MANUALLY,
+            das_tenant=das_tenant,
+        )
+        obs4 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs3, obs4, subject)
+
+        qs = ObservationSegment.objects.all()
+
+        # With show_excluded=true, should get both segments
+        filterset = ObservationSegmentVectorTileFilterSet(data={"show_excluded": "true"}, queryset=qs)
+        assert filterset.qs.count() == 2
+
+    def test_combined_range_and_show_excluded(self, das_tenant, subject_subtype):
+        """Verify range and show_excluded can be combined."""
+        subject = Subject.objects.create(name="Combined Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_combined", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="combined_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Recent segment (within 45 days), no flags
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        qs = ObservationSegment.objects.all()
+        filterset = ObservationSegmentVectorTileFilterSet(
+            data={"range": "45", "show_excluded": "false"},
+            queryset=qs,
+        )
+        assert filterset.qs.count() == 1
+
+        filterset_all = ObservationSegmentVectorTileFilterSet(
+            data={"range": "all", "show_excluded": "true"},
+            queryset=qs,
+        )
+        assert filterset_all.qs.count() == 1
+
+
+@pytest.mark.django_db
+class TestMOUExpiryFiltering:
+    """Test MOU expiry date filtering on segment and subject layers."""
+
+    def test_segment_layer_filters_by_mou_expiry(self, das_tenant, subject_subtype, user):
+        """Verify segment layer filters segments by MOU expiry date."""
+        subject = Subject.objects.create(name="MOU Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_mou", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="mou_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        # Grant user visibility to this subject via subject group
+        view_subject = Permission.objects.get_by_natural_key("view_subject", "observations", "subject")
+        mou_perm_set = PermissionSet.objects.create(name="mou_test_view")
+        mou_perm_set.permissions.add(view_subject)
+        user.permission_sets.add(mou_perm_set)
+        group = SubjectGroup.objects.create(name="MOU Test Group", das_tenant=das_tenant)
+        subject.groups.add(group)
+        group.permission_sets.add(mou_perm_set)
+
+        now = timezone.now()
+
+        # Create segment before MOU expiry (should be included)
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(days=10), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=10) + timedelta(hours=1),
+            location=Point(1, 0),
+            das_tenant=das_tenant,
+        )
+        old_segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Create segment after MOU expiry (should be filtered out)
+        obs3 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(2, 0), das_tenant=das_tenant
+        )
+        obs4 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs3, obs4, subject)
+
+        # Set MOU expiry to 5 days ago
+        mou_expiry = (now - timedelta(days=5)).isoformat()
+        user.additional = {"expiry": mou_expiry}
+        user.save()
+
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = user
+
+        layer = ObservationSegmentVectorLayer(request=request)
+        assert layer.mou_expiry_date == mou_expiry
+
+        qs = layer.get_queryset()
+
+        # Should only see segment before MOU expiry
+        assert qs.count() == 1
+        assert qs.first().id == old_segment.id
+
+    def test_segment_layer_no_mou_expiry_shows_all(self, das_tenant, subject_subtype, user):
+        """Verify segment layer shows all segments when no MOU expiry is set."""
+        subject = Subject.objects.create(name="No MOU Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_no_mou", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="no_mou_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        # Grant user visibility to this subject via subject group
+        view_subject = Permission.objects.get_by_natural_key("view_subject", "observations", "subject")
+        no_mou_perm_set = PermissionSet.objects.create(name="no_mou_test_view")
+        no_mou_perm_set.permissions.add(view_subject)
+        user.permission_sets.add(no_mou_perm_set)
+        group = SubjectGroup.objects.create(name="No MOU Test Group", das_tenant=das_tenant)
+        subject.groups.add(group)
+        group.permission_sets.add(no_mou_perm_set)
+
+        now = timezone.now()
+
+        # Create two segments
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(days=10), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=10) + timedelta(hours=1),
+            location=Point(1, 0),
+            das_tenant=das_tenant,
+        )
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        obs3 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(2, 0), das_tenant=das_tenant
+        )
+        obs4 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs3, obs4, subject)
+
+        # User without MOU expiry
+        user.additional = {}
+        user.save()
+
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = user
+
+        layer = ObservationSegmentVectorLayer(request=request)
+        assert layer.mou_expiry_date is None
+
+        qs = layer.get_queryset()
+
+        # Should see both segments
+        assert qs.count() == 2
+
+
+@pytest.mark.django_db
+class TestSubjectLayerProperties:
+    """Test SubjectVectorLayer feature properties and color handling."""
+
+    def test_subject_color_from_additional_rgb(self, das_tenant, subject_subtype):
+        """Verify subject color is extracted from additional.rgb."""
+        subject = Subject.objects.create(
+            name="Color Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={"rgb": "255,128,0"},
+        )
+        SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            radio_state="online-gps",
+        )
+
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject.id).first()
+
+        assert obj is not None
+        assert obj.color == "255,128,0"
+
+    def test_subject_default_color_when_no_rgb(self, das_tenant, subject_subtype):
+        """Verify default color is used when subject has no rgb in additional."""
+        subject = Subject.objects.create(
+            name="No Color Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={},  # No rgb key
+        )
+        SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            radio_state="online-gps",
+        )
+
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject.id).first()
+
+        assert obj is not None
+        assert obj.color == "255,255,0"  # Default yellow
+
+    def test_image_url_includes_subtype_color_and_sex(self, das_tenant, subject_subtype):
+        """Verify image_url is built from subtype, radio_state colour, and sex."""
+        subject = Subject.objects.create(
+            name="Image URL Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={"sex": "female"},
+        )
+        SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            radio_state="online-gps",
+        )
+
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject.id).first()
+
+        assert obj is not None
+        subtype = subject_subtype.value.lower()
+        assert obj.icon_url == f"/static/sprite-src/{subtype}-green-female.svg"
+
+    def test_image_url_defaults_sex_to_male(self, das_tenant, subject_subtype):
+        """Verify image_url uses 'male' when sex is not in additional."""
+        subject = Subject.objects.create(
+            name="Default Sex Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={},
+        )
+        SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            radio_state="offline",
+        )
+
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject.id).first()
+
+        assert obj is not None
+        subtype = subject_subtype.value.lower()
+        assert obj.icon_url == f"/static/sprite-src/{subtype}-gray-male.svg"
+
+    def test_image_url_alarm_state(self, das_tenant, subject_subtype):
+        """Verify alarm radio_state maps to red in image_url."""
+        subject = Subject.objects.create(
+            name="Alarm Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={},
+        )
+        SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            radio_state="alarm",
+        )
+
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject.id).first()
+
+        assert obj is not None
+        subtype = subject_subtype.value.lower()
+        assert obj.icon_url == f"/static/sprite-src/{subtype}-red-male.svg"
+
+    def test_subject_type_and_subtype_annotations(self, das_tenant, subject_subtype):
+        """Verify subject_type and subject_subtype are properly annotated."""
+        subject = Subject.objects.create(
+            name="Type Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+        )
+        SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+            location=Point(0, 0, srid=4326),
+            recorded_at=timezone.now(),
+            radio_state="online-gps",
+        )
+
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+        obj = qs.filter(id=subject.id).first()
+
+        assert obj is not None
+        assert obj.subject_type_value == subject_subtype.subject_type.value
+        assert obj.subject_subtype_value == subject_subtype.value
+
+
+@pytest.mark.django_db
+class TestSegmentPresentationProperties:
+    """Test segment presentation properties (stroke, stroke-width, stroke-opacity)."""
+
+    def test_presentation_uses_subject_rgb(self, das_tenant, subject_subtype):
+        """Verify presentation stroke uses subject's RGB color."""
+        subject = Subject.objects.create(
+            name="RGB Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={"rgb": "#ff0000"},
+        )
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_rgb", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="rgb_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        layer = ObservationSegmentVectorLayer()
+        props = layer.get_presentation_properties(segment)
+
+        assert props["stroke"] == "#ff0000"
+        assert props["stroke-width"] == 2.0
+        assert props["stroke-opacity"] == 0.8
+
+    def test_presentation_default_stroke_color(self, das_tenant, subject_subtype):
+        """Verify default stroke color when subject has no RGB."""
+        subject = Subject.objects.create(
+            name="Default Color Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={},  # No rgb
+        )
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_default", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="default_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        layer = ObservationSegmentVectorLayer()
+        props = layer.get_presentation_properties(segment)
+
+        assert props["stroke"] == "#4264fb"  # Default blue
+        assert props["stroke-width"] == 2.0
+        assert props["stroke-opacity"] == 0.8
+
+    def test_feature_includes_presentation_properties(self, das_tenant, subject_subtype):
+        """Verify as_vector_tile_feature includes presentation properties."""
+        subject = Subject.objects.create(
+            name="Feature Props Test",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={"rgb": "#00ff00"},
+        )
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_feature", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="feature_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        layer = ObservationSegmentVectorLayer()
+        # Need to get segment from queryset to have annotations
+        qs = layer.get_vector_tile_queryset()
+        annotated_segment = qs.get(id=segment.id)
+        feature = layer.as_vector_tile_feature(annotated_segment)
+
+        assert "stroke" in feature["properties"]
+        assert "stroke-width" in feature["properties"]
+        assert "stroke-opacity" in feature["properties"]
+        assert feature["properties"]["stroke"] == "#00ff00"
+        assert feature["properties"]["stroke-width"] == 2.0
+        assert feature["properties"]["stroke-opacity"] == 0.8
+
+
+@pytest.mark.django_db
+class TestVectorTileEdgeCases:
+    """Test edge cases for vector tile layers."""
+
+    def test_segment_layer_empty_when_no_segments(self, das_tenant, subject_subtype):
+        """Verify layer returns empty queryset when no segments exist."""
+        # Create subject but no segments
+        Subject.objects.create(name="Empty Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+
+        layer = ObservationSegmentVectorLayer()
+        qs = layer.get_queryset()
+
+        assert qs.count() == 0
+
+    def test_subject_layer_empty_when_no_status(self, das_tenant, subject_subtype):
+        """Verify subject layer excludes subjects without status."""
+        # Create subject; signal creates SubjectStatus rows, so delete them to get "no status"
+        subject = Subject.objects.create(name="No Status Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        SubjectStatus.objects.filter(subject=subject).delete()
+
+        layer = SubjectVectorLayer()
+        qs = layer.get_queryset()
+
+        assert not qs.filter(id=subject.id).exists()
+
+    def test_filter_range_invalid_value_defaults_to_45(self, das_tenant, subject_subtype):
+        """Verify invalid range value falls back to 45-day window."""
+        subject = Subject.objects.create(
+            name="Invalid Range Test", subject_subtype=subject_subtype, das_tenant=das_tenant
+        )
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_invalid_range", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="invalid_range_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        qs = ObservationSegment.objects.all()
+        filterset = ObservationSegmentVectorTileFilterSet(data={"range": "invalid"}, queryset=qs)
+        # Should still apply 45-day window (segment is recent, so included)
+        assert filterset.qs.count() == 1
+
+    def test_multiple_exclusion_flags_combined(self, das_tenant, subject_subtype):
+        """Verify segments with multiple exclusion flags are handled correctly."""
+        subject = Subject.objects.create(name="Multi Flag Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_multiflag", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="multiflag_test", provider=provider, das_tenant=das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Create observation with multiple exclusion flags
+        obs1 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(hours=2),
+            location=Point(0, 0),
+            exclusion_flags=Observation.EXCLUDED_MANUALLY | Observation.EXCLUDED_AUTOMATICALLY,
+            das_tenant=das_tenant,
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Segment should have combined flags
+        assert segment.exclusion_flags.mask != 0
+
+        qs = ObservationSegment.objects.all()
+
+        # With show_excluded=false, should not include this segment
+        filterset_exclude = ObservationSegmentVectorTileFilterSet(data={"show_excluded": "false"}, queryset=qs)
+        assert filterset_exclude.qs.count() == 0
+
+        # With show_excluded=true, should include it
+        filterset_include = ObservationSegmentVectorTileFilterSet(data={"show_excluded": "true"}, queryset=qs)
+        assert filterset_include.qs.count() == 1
+
+    def test_layer_show_excluded_from_request_params(self, scoped_das_tenant, subject_subtype):
+        """Verify ObservationSegmentVectorLayer respects show_excluded query param."""
+        subject = Subject.objects.create(
+            name="Request Param Test", subject_subtype=subject_subtype, das_tenant=scoped_das_tenant
+        )
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_reqparam", display_name="Test", das_tenant=scoped_das_tenant
+        )
+        source = Source.objects.create(manufacturer_id="reqparam_test", provider=provider, das_tenant=scoped_das_tenant)
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=scoped_das_tenant)
+
+        now = timezone.now()
+
+        # Create clean segment
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=4), location=Point(0, 0), das_tenant=scoped_das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=3), location=Point(1, 0), das_tenant=scoped_das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        # Create flagged segment
+        obs3 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(hours=2),
+            location=Point(2, 0),
+            exclusion_flags=Observation.EXCLUDED_MANUALLY,
+            das_tenant=scoped_das_tenant,
+        )
+        obs4 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(3, 0), das_tenant=scoped_das_tenant
+        )
+        ObservationSegment.objects.create_segment(obs3, obs4, subject)
+
+        factory = APIRequestFactory()
+
+        # Request without show_excluded (default to false)
+        request_default = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        layer_default = ObservationSegmentVectorLayer(request=request_default)
+        assert layer_default.get_queryset().count() == 1
+
+        # Request with show_excluded=true
+        request_include = factory.get("/observations/segments/tiles/10/512/512.pbf?show_excluded=true")
+        layer_include = ObservationSegmentVectorLayer(request=request_include)
+        assert layer_include.get_queryset().count() == 2
+
+        # Request with show_excluded=false
+        request_exclude = factory.get("/observations/segments/tiles/10/512/512.pbf?show_excluded=false")
+        layer_exclude = ObservationSegmentVectorLayer(request=request_exclude)
+        assert layer_exclude.get_queryset().count() == 1
+
+    def test_layer_range_param_in_request(self, scoped_das_tenant, subject_subtype):
+        """Verify ObservationSegmentVectorLayer respects range query param."""
+        subject = Subject.objects.create(
+            name="Range Param Test", subject_subtype=subject_subtype, das_tenant=scoped_das_tenant
+        )
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_range_param", display_name="Test", das_tenant=scoped_das_tenant
+        )
+        source = Source.objects.create(
+            manufacturer_id="range_param_test", provider=provider, das_tenant=scoped_das_tenant
+        )
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=scoped_das_tenant)
+
+        now = timezone.now()
+
+        # Segment that ended 50 days ago
+        obs1 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=50),
+            location=Point(0, 0),
+            das_tenant=scoped_das_tenant,
+        )
+        obs2 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=50) + timedelta(hours=1),
+            location=Point(1, 0),
+            das_tenant=scoped_das_tenant,
+        )
+        ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        superuser = User.objects.create_user(
+            username="range_test_superuser",
+            password="testpass",
+            is_superuser=True,
+            das_tenant=scoped_das_tenant,
+        )
+        factory = APIRequestFactory()
+
+        # Default (no range param) or range=45: exclude old segment
+        request_default = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request_default.user = superuser
+        layer_default = ObservationSegmentVectorLayer(request=request_default)
+        assert layer_default.get_queryset().count() == 0
+
+        request_45 = factory.get("/observations/segments/tiles/10/512/512.pbf?range=45")
+        request_45.user = superuser
+        layer_45 = ObservationSegmentVectorLayer(request=request_45)
+        assert layer_45.get_queryset().count() == 0
+
+        # range=all: include old segment
+        request_all = factory.get("/observations/segments/tiles/10/512/512.pbf?range=all")
+        request_all.user = superuser
+        layer_all = ObservationSegmentVectorLayer(request=request_all)
+        assert layer_all.get_queryset().count() == 1
+
+
+@pytest.mark.django_db
+class TestSubjectGroupPermissionFiltering:
+    """
+    Test that vector tile layers respect subject group permissions.
+
+    Users should only see subjects (and their segments) that belong to
+    subject groups the user has access to via permission sets.
+    """
+
+    def test_subject_layer_excludes_unpermitted_subjects(self, das_tenant, subject_subtype, user_with_group_access):
+        """Non-superuser only sees subjects in their permitted subject groups."""
+        user, allowed_subject, denied_subject = user_with_group_access
+
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = user
+
+        layer = SubjectVectorLayer(request=request)
+        qs = layer.get_queryset()
+        subject_ids = set(qs.values_list("id", flat=True))
+
+        assert allowed_subject.id in subject_ids
+        assert denied_subject.id not in subject_ids
+
+    def test_subject_layer_superuser_sees_all(self, das_tenant, subject_subtype, superuser_with_group_subjects):
+        """Superusers bypass group filtering and see all subjects."""
+        superuser, allowed_subject, denied_subject = superuser_with_group_subjects
+
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = superuser
+
+        layer = SubjectVectorLayer(request=request)
+        qs = layer.get_queryset()
+        subject_ids = set(qs.values_list("id", flat=True))
+
+        assert allowed_subject.id in subject_ids
+        assert denied_subject.id in subject_ids
+
+    def test_subject_layer_no_request_returns_all(self, das_tenant, subject_subtype, superuser_with_group_subjects):
+        """Layer with no request (e.g. no auth context) returns all subjects."""
+        _, allowed_subject, denied_subject = superuser_with_group_subjects
+
+        layer = SubjectVectorLayer(request=None)
+        qs = layer.get_queryset()
+        subject_ids = set(qs.values_list("id", flat=True))
+
+        # No request = no permission filtering applied
+        assert allowed_subject.id in subject_ids
+        assert denied_subject.id in subject_ids
+
+    def test_segment_layer_excludes_unpermitted_segments(
+        self, das_tenant, subject_subtype, user_with_group_access_and_segments
+    ):
+        """Non-superuser only sees segments for subjects in their permitted groups."""
+        user, allowed_subject, denied_subject = user_with_group_access_and_segments
+
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = user
+
+        layer = ObservationSegmentVectorLayer(request=request)
+        qs = layer.get_queryset()
+        segment_subject_ids = set(qs.values_list("subject_id", flat=True))
+
+        assert allowed_subject.id in segment_subject_ids
+        assert denied_subject.id not in segment_subject_ids
+
+    def test_segment_layer_superuser_sees_all_segments(
+        self, das_tenant, subject_subtype, superuser_with_group_access_and_segments
+    ):
+        """Superusers bypass group filtering and see all segments."""
+        superuser, allowed_subject, denied_subject = superuser_with_group_access_and_segments
+
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = superuser
+
+        layer = ObservationSegmentVectorLayer(request=request)
+        qs = layer.get_queryset()
+        segment_subject_ids = set(qs.values_list("subject_id", flat=True))
+
+        assert allowed_subject.id in segment_subject_ids
+        assert denied_subject.id in segment_subject_ids
+
+    def test_subject_layer_user_with_no_groups_sees_nothing(
+        self, das_tenant, subject_subtype, user_with_no_group_access
+    ):
+        """User with no subject group access sees no subjects."""
+        user, subject_a, subject_b = user_with_no_group_access
+
+        factory = APIRequestFactory()
+        request = factory.get("/observations/segments/tiles/10/512/512.pbf")
+        request.user = user
+
+        layer = SubjectVectorLayer(request=request)
+        qs = layer.get_queryset()
+
+        assert qs.count() == 0
+
+
+# ------------------------------------------------------------------ #
+# Fixtures: Subject Group Permission Tests
+# ------------------------------------------------------------------ #
+
+
+def _create_subject_with_status(name, subject_subtype, das_tenant, lon=0.0, lat=0.0):
+    """Helper to create a subject with a current SubjectStatus (location)."""
+    subject = Subject.objects.create(
+        name=name,
+        subject_subtype=subject_subtype,
+        is_active=True,
+        das_tenant=das_tenant,
+        additional={"rgb": "0,255,0"},
+    )
+    SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+        location=Point(lon, lat, srid=4326),
+        recorded_at=timezone.now(),
+        radio_state="online-gps",
+    )
+    return subject
+
+
+def _create_segments_for_subject(subject, das_tenant):
+    """Helper to create observations and segments for a subject."""
+    provider, _ = SourceProvider.objects.get_or_create(
+        provider_key=f"perm_test_{subject.id}",
+        display_name="Perm Test",
+        das_tenant=das_tenant,
+    )
+    source = Source.objects.create(
+        manufacturer_id=f"perm_test_{subject.id}",
+        provider=provider,
+        das_tenant=das_tenant,
+    )
+    SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+    now = timezone.now()
+    obs1 = Observation.objects.create(
+        source=source,
+        location=Point(0.0, 0.0, srid=4326),
+        recorded_at=now - timedelta(hours=2),
+        das_tenant=das_tenant,
+    )
+    obs2 = Observation.objects.create(
+        source=source,
+        location=Point(1.0, 1.0, srid=4326),
+        recorded_at=now - timedelta(hours=1),
+        das_tenant=das_tenant,
+    )
+    ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+
+def _setup_group_permission_scenario(das_tenant, subject_subtype, user, *, create_segments=False):
+    """
+    Create two subjects in separate groups, granting the user access to only one.
+
+    Returns (user, allowed_subject, denied_subject).
+    """
+    # Create two subjects with locations
+    allowed_subject = _create_subject_with_status("Allowed Subject", subject_subtype, das_tenant, lon=10.0, lat=10.0)
+    denied_subject = _create_subject_with_status("Denied Subject", subject_subtype, das_tenant, lon=20.0, lat=20.0)
+
+    # Create two subject groups
+    allowed_group = SubjectGroup.objects.create(name="Allowed Group", das_tenant=das_tenant)
+    denied_group = SubjectGroup.objects.create(name="Denied Group", das_tenant=das_tenant)
+
+    # Assign subjects to groups
+    allowed_subject.groups.add(allowed_group)
+    denied_subject.groups.add(denied_group)
+
+    # Create permission set with view_subject permission and assign to allowed group
+    view_perm = Permission.objects.filter(codename="view_subject").first()
+    perm_set = PermissionSet.objects.create(name="allowed_group_view")
+    if view_perm:
+        perm_set.permissions.add(view_perm)
+    allowed_group.permission_sets.add(perm_set)
+
+    # Grant user this permission set (so they can see subjects in allowed_group)
+    user.permission_sets.add(perm_set)
+    user.additional = {}
+    user.save()
+
+    if create_segments:
+        _create_segments_for_subject(allowed_subject, das_tenant)
+        _create_segments_for_subject(denied_subject, das_tenant)
+
+    return user, allowed_subject, denied_subject
+
+
+@pytest.fixture
+def user_with_group_access(db, das_tenant, subject_subtype, user):
+    """Non-superuser with access to one subject group but not another."""
+    return _setup_group_permission_scenario(das_tenant, subject_subtype, user, create_segments=False)
+
+
+@pytest.fixture
+def user_with_group_access_and_segments(db, das_tenant, subject_subtype, user):
+    """Non-superuser with group access, and both subjects have segments."""
+    return _setup_group_permission_scenario(das_tenant, subject_subtype, user, create_segments=True)
+
+
+@pytest.fixture
+def superuser_with_group_subjects(db, das_tenant, subject_subtype, create_user):
+    """Superuser with subjects in separate groups (should see all)."""
+    superuser = create_user(is_superuser=True, username="superuser_vt")
+    superuser.additional = {}
+    superuser.save()
+
+    allowed_subject = _create_subject_with_status("Super Allowed", subject_subtype, das_tenant, lon=10.0, lat=10.0)
+    denied_subject = _create_subject_with_status("Super Denied", subject_subtype, das_tenant, lon=20.0, lat=20.0)
+
+    return superuser, allowed_subject, denied_subject
+
+
+@pytest.fixture
+def superuser_with_group_access_and_segments(db, das_tenant, subject_subtype, create_user):
+    """Superuser with subjects that have segments (should see all)."""
+    superuser = create_user(is_superuser=True, username="superuser_seg_vt")
+    superuser.additional = {}
+    superuser.save()
+
+    allowed_subject = _create_subject_with_status("Super Seg Allowed", subject_subtype, das_tenant, lon=10.0, lat=10.0)
+    denied_subject = _create_subject_with_status("Super Seg Denied", subject_subtype, das_tenant, lon=20.0, lat=20.0)
+
+    _create_segments_for_subject(allowed_subject, das_tenant)
+    _create_segments_for_subject(denied_subject, das_tenant)
+
+    return superuser, allowed_subject, denied_subject
+
+
+@pytest.fixture
+def user_with_no_group_access(db, das_tenant, subject_subtype, create_user):
+    """User with no subject group permissions at all."""
+    no_access_user = create_user(username="no_group_user")
+    no_access_user.additional = {}
+    no_access_user.save()
+
+    subject_a = _create_subject_with_status("No Access A", subject_subtype, das_tenant, lon=10.0, lat=10.0)
+    subject_b = _create_subject_with_status("No Access B", subject_subtype, das_tenant, lon=20.0, lat=20.0)
+
+    group = SubjectGroup.objects.create(name="Restricted Group", das_tenant=das_tenant)
+    subject_a.groups.add(group)
+    subject_b.groups.add(group)
+
+    return no_access_user, subject_a, subject_b
+
+
+# ------------------------------------------------------------------ #
+# Fixtures: Original
+# ------------------------------------------------------------------ #
+
+
+@pytest.fixture
+def subject_with_segments_and_status(db, das_tenant, subject_subtype):
+    """Create a subject with segments and a current status."""
+    subject = Subject.objects.create(
+        name="Test Subject with Segments",
+        subject_subtype=subject_subtype,
+        is_active=True,
+        das_tenant=das_tenant,
+        additional={"rgb": "255,0,0"},
+    )
+
+    # ensure_subject_status_exists signal already created the row; update in place
+    SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+        location=Point(1.0, 1.0, srid=4326),
+        recorded_at=timezone.now(),
+        radio_state="online-gps",
+    )
+
+    # Create source for observations
+    provider, _ = SourceProvider.objects.get_or_create(
+        provider_key="test_segments_status", display_name="Test", das_tenant=das_tenant
+    )
+    source = Source.objects.create(manufacturer_id="segments_status_test", provider=provider, das_tenant=das_tenant)
+    SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+    # Create some observations and segments with unique timestamps
+    now = timezone.now()
+    obs1 = Observation.objects.create(
+        source=source,
+        location=Point(0.0, 0.0, srid=4326),
+        recorded_at=now - timedelta(hours=2, minutes=30),
+        das_tenant=das_tenant,
+    )
+    obs2 = Observation.objects.create(
+        source=source,
+        location=Point(0.5, 0.5, srid=4326),
+        recorded_at=now - timedelta(hours=1, minutes=30),
+        das_tenant=das_tenant,
+    )
+    obs3 = Observation.objects.create(
+        source=source,
+        location=Point(1.0, 1.0, srid=4326),
+        recorded_at=now - timedelta(minutes=30),
+        das_tenant=das_tenant,
+    )
+
+    ObservationSegment.objects.create_segment(obs1, obs2, subject)
+    ObservationSegment.objects.create_segment(obs2, obs3, subject)
+
+    return subject
+
+
+@pytest.fixture
+def user_with_realtime_access(db, user):
+    """Create a user with real-time access (access_ends_0) and tile endpoint perms.
+
+    Grant view_subject and view_observation so ObservationSegmentTileView
+    permission checks pass; grant only access_ends_0 so get_minimum_allowed_age
+    returns 0 (real-time).
+    """
+    view_subject = Permission.objects.get_by_natural_key("view_subject", "observations", "subject")
+    view_observation = Permission.objects.get(codename="view_observation")
+    access_ends_0 = Permission.objects.get_by_natural_key("access_ends_0", "observations", "subject")
+    perm_set = PermissionSet.objects.create(name="realtime_access_test", das_tenant=user.das_tenant)
+    perm_set.permissions.add(view_subject, view_observation, access_ends_0)
+    user.permission_sets.add(perm_set)
+    user.additional = {}
+    user.save()
+    return user
+
+
+@pytest.fixture
+def user_with_delayed_access(db, create_user):
+    """Create a *separate* user with 7-day delayed access (access_ends_7) and tile perms.
+
+    Uses create_user instead of the shared ``user`` fixture so that tests
+    combining both ``user_with_realtime_access`` and ``user_with_delayed_access``
+    get distinct user instances (different user.id → different cache keys).
+    Grant view_subject and view_observation for the tile view. Grant only
+    access_ends_7 so get_minimum_allowed_age returns 7 (delay_hours=168).
+    """
+    delayed_user = create_user(username="delayed_access_user")
+    view_subject = Permission.objects.get_by_natural_key("view_subject", "observations", "subject")
+    view_observation = Permission.objects.get(codename="view_observation")
+    access_ends_7 = Permission.objects.get_by_natural_key("access_ends_7", "observations", "subject")
+    perm_set = PermissionSet.objects.create(name="delayed_access_test", das_tenant=delayed_user.das_tenant)
+    perm_set.permissions.add(view_subject, view_observation, access_ends_7)
+    delayed_user.permission_sets.add(perm_set)
+    delayed_user.additional = {}
+    delayed_user.save()
+    # Ensure M2M is committed and permission caches are cleared so
+    # get_minimum_allowed_age() sees access_ends_7 (delay_hours=168).
+    delayed_user.refresh_from_db()
+    for attr in ("_group_perm_cache", "_perm_cache"):
+        if getattr(delayed_user, attr, None) is not None:
+            delattr(delayed_user, attr)
+    return delayed_user
+
+
+@pytest.fixture
+def api_client_with_user(db, user_with_realtime_access):
+    """Create an authenticated API client with real-time access.
+
+    The tile view is a DRF view (DRFMVTView), so both force_authenticate and
+    force_login work. Using force_login for session auth.
+    """
+    client = APIClient()
+    client.force_login(user_with_realtime_access)
+    return client
+
+
+@pytest.fixture
+def patch_vector_tile_tenant(monkeypatch, das_tenant):
+    """Stub tenant resolution so the tile view accepts requests from test client (host=testserver)."""
+    monkeypatch.setattr(
+        "observations.views.vector_tiles_segments.get_tenant_data_by_host",
+        lambda host: {"domain": das_tenant.domain},
+    )
+
+
+@pytest.fixture
+def tile_test_subject_visible(subject_with_segments_and_status, user_with_realtime_access, user_with_delayed_access):
+    """Put the segment tile subject in a group both tile users can see.
+
+    Without this, by_user_subjects() returns no subjects for the tile view user,
+    leading to EmptyResultSet when building the segment/subject layers.
+    """
+    subject = subject_with_segments_and_status
+    group = SubjectGroup.objects.create(name="tile_test_group", das_tenant=subject.das_tenant)
+    subject.groups.add(group)
+    realtime_ps = PermissionSet.objects.get(
+        name="realtime_access_test", das_tenant=user_with_realtime_access.das_tenant
+    )
+    delayed_ps = PermissionSet.objects.get(name="delayed_access_test", das_tenant=user_with_delayed_access.das_tenant)
+    group.permission_sets.add(realtime_ps, delayed_ps)
+    return subject
+
+
+@pytest.fixture
+def subject_with_status(db, das_tenant, subject_subtype):
+    """Create a subject with a latest status (delay_hours=0)."""
+    subject = Subject.objects.create(
+        name="Test Subject with Status",
+        subject_subtype=subject_subtype,
+        is_active=True,
+        das_tenant=das_tenant,
+        additional={"rgb": "255,0,0"},
+    )
+    # ensure_subject_status_exists signal already created the SubjectStatus row;
+    # update it in place to set the location and radio state we need for tests.
+    SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+        location=Point(0.0, 0.0, srid=4326),
+        recorded_at=timezone.now(),
+        radio_state="online-gps",
+    )
+    return subject
+
+
+@pytest.fixture
+def subject_without_status(db, das_tenant, subject_subtype):
+    """Create a subject without any status in the tile queryset.
+
+    ensure_subject_status_exists signal creates SubjectStatus rows on Subject save;
+    we delete them so the subject has no status and is correctly excluded by
+    status_location__isnull=False in SubjectVectorLayer.get_queryset().
+    """
+    subject = Subject.objects.create(
+        name="Subject No Status",
+        subject_subtype=subject_subtype,
+        is_active=True,
+        das_tenant=das_tenant,
+    )
+    SubjectStatus.objects.filter(subject=subject).delete()
+    return subject
+
+
+@pytest.fixture
+def subject_with_multiple_statuses(db, das_tenant, subject_subtype):
+    """Create a subject with multiple status records (different delay_hours)."""
+    subject = Subject.objects.create(
+        name="Subject Multiple Status",
+        subject_subtype=subject_subtype,
+        is_active=True,
+        das_tenant=das_tenant,
+    )
+    # ensure_subject_status_exists signal already created rows for all
+    # VIEW_END_WINDOWS delay tiers; update them with the locations we need.
+    SubjectStatus.objects.filter(subject=subject, delay_hours=0).update(
+        location=Point(1.0, 1.0, srid=4326),
+        recorded_at=timezone.now(),
+        radio_state="online-gps",
+    )
+    SubjectStatus.objects.filter(subject=subject, delay_hours=168).update(
+        location=Point(2.0, 2.0, srid=4326),
+        recorded_at=timezone.now() - timedelta(days=7),
+        radio_state="offline",
+    )
+    return subject

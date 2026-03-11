@@ -2,8 +2,11 @@ from django.apps import AppConfig
 
 
 class ObservationsConfig(AppConfig):
-    name = 'observations'
-    verbose_name = 'Observations'
+    name = "observations"
+    verbose_name = "Observations"
 
     def ready(self):
-        import observations.signals
+        # Import default signals
+        from . import signals  # noqa: F401
+        # Cache invalidation signals for segment tiles
+        from . import signals_segments_cache  # noqa: F401

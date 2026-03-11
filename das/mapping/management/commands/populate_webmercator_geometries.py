@@ -4,8 +4,8 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from mapping.cache import bump_vector_tile_data_version
 from mapping.models import SpatialFeature
+from utils.cache import bump_vector_tile_data_version
 from utils.tenant.commands import TenantCommandMixin
 
 logger = logging.getLogger(__name__)

@@ -33,9 +33,10 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-class TestBug4012(TestCase):
+class TestGeofenceCrossingEventsHaveDetails(TestCase):
     """
-    This is a special test case that validates a fix for a missed geofence breaks in a production site.
+    Validates that geofence analyzer produces the expected crossing events and that
+    each event has event_details (regression test for missed geofence breaks).
     """
 
     def setUp(self):
@@ -56,7 +57,7 @@ class TestBug4012(TestCase):
             defaults=dict(display="Geofence Analyzer", schema=self.event_schema_json()),
         )
 
-    def test_geofence_bug4012(self):
+    def test_geofence_crossings_produce_events_with_details(self):
         sub = Subject.objects.create(name="Kimbizwa", subject_subtype_id="elephant")
         source = Source.objects.create(manufacturer_id="006")
         SubjectSource.objects.create(subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)

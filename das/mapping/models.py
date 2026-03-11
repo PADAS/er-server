@@ -26,7 +26,6 @@ from django.utils.translation import gettext_lazy as _
 
 from core.models import DASTenant, TimestampedModel, UUIDModel
 from mapping.app_settings import MBTILES
-from mapping.cache import bump_vector_tile_data_version
 from mapping.lookups import (
     GEO_TYPE_LINESTRING,
     GEO_TYPE_MULTILINESTRING,
@@ -44,6 +43,7 @@ from mapping.mbtiles import (
 )
 from mapping.utils import SPATIAL_FILES_FOLDER, check_file_extension
 from revision.manager import Revision, RevisionMixin
+from utils.cache import bump_vector_tile_data_version
 from utils.decorator import reify
 from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager

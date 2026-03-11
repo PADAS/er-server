@@ -89,7 +89,8 @@ def run_partition_table_check(schema: str, table_name: str, logger: Logger) -> N
 
     - Check that the default partition is empty, if not, it means that the
       partitions are not being created properly.
-    - Check that the `infinite_time_partitions` partman config is set to True.
+    - Check that the `infinite_time_partitions` partman config is set to True
+      (skip this check when retention is set, e.g. for tables with time-bounded retention).
     - Check that the `premake` partman config is >= 3.
     - Check that the number of desired future partitions matches the
       `partman.part_config` table.
@@ -167,7 +168,8 @@ def run_partition_table_check(schema: str, table_name: str, logger: Logger) -> N
         if result_default_table_count["count"] > 0:
             errors.append(error_default_table_count)
 
-        if not result_partman_config["infinite_time_partitions"]:
+        # When retention is set, infinite_time_partitions is false by design
+        if not result_partman_config["infinite_time_partitions"] and not result_partman_config.get("retention"):
             errors.append(error_partman_config_infinite_time_partitions)
 
         if result_partman_config["premake"] < 3:

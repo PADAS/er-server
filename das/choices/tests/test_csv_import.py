@@ -1,6 +1,7 @@
 import csv
 import io
 import logging
+import uuid
 from typing import Any, NamedTuple
 
 import pytest
@@ -195,28 +196,42 @@ class TestCSVImport:
         assert high_priority.display == "High Priority"
         assert high_priority.ordernum == 1
 
-    def test_import_updates_existing_choices(self, choice_admin_fixture, csv_with_update):
-        """Test that import updates existing choices"""
+    def test_import_updates_existing_choices(self, choice_admin_fixture):
+        """Test that import updates existing choices."""
         admin = choice_admin_fixture.admin
 
-        # Create initial choices for testing updates
+        suffix = uuid.uuid4().hex[:8]
+        elephant_val = f"elephant{suffix}"
+        rhino_val = f"rhino{suffix}"
+
         Choice.objects.create(
-            model="activity.eventtype", field="wildlifesighting_species", value="elephant", display="Elephant"
+            model="activity.eventtype",
+            field="wildlifesighting_species",
+            value=elephant_val,
+            display="Elephant",
         )
         Choice.objects.create(
-            model="activity.eventtype", field="wildlifesighting_species", value="rhino", display="Rhino"
+            model="activity.eventtype",
+            field="wildlifesighting_species",
+            value=rhino_val,
+            display="Rhino",
         )
 
-        # Get initial elephant choice
-        elephant = Choice.objects.get(model="activity.eventtype", field="wildlifesighting_species", value="elephant")
+        elephant = Choice.objects.get(
+            model="activity.eventtype",
+            field="wildlifesighting_species",
+            value=elephant_val,
+        )
         initial_display = elephant.display
 
-        csv_file = io.StringIO(csv_with_update)
+        csv_content = f"""model,field,value,display,icon,ordernum,is_active
+activity.eventtype,wildlifesighting_species,{elephant_val},African Elephant,,1,true
+activity.eventtype,wildlifesighting_species,{rhino_val},White Rhino,,2,false"""
+        csv_file = io.StringIO(csv_content)
         success, message = admin.import_csv_data(csv_file)
 
         assert success is True
 
-        # Verify the display was updated
         elephant.refresh_from_db()
         assert elephant.display == "African Elephant"
         assert elephant.display != initial_display
@@ -271,32 +286,49 @@ class TestCSVImport:
         archived_choice = Choice.objects.get(model="activity.event", field="status", value="archived")
         assert archived_choice.is_active is False
 
-    def test_import_updates_is_active(self, choice_admin_fixture, csv_with_update):
-        """Test that import can update is_active status"""
+    def test_import_updates_is_active(self, choice_admin_fixture):
+        """Test that import can update is_active status."""
         admin = choice_admin_fixture.admin
 
-        # Create initial choices - both active
+        suffix = uuid.uuid4().hex[:8]
+        elephant_val = f"elephant{suffix}"
+        rhino_val = f"rhino{suffix}"
+
         Choice.objects.create(
             model="activity.eventtype",
             field="wildlifesighting_species",
-            value="elephant",
+            value=elephant_val,
             display="Elephant",
             is_active=True,
         )
         Choice.objects.create(
-            model="activity.eventtype", field="wildlifesighting_species", value="rhino", display="Rhino", is_active=True
+            model="activity.eventtype",
+            field="wildlifesighting_species",
+            value=rhino_val,
+            display="Rhino",
+            is_active=True,
         )
 
-        csv_file = io.StringIO(csv_with_update)
+        csv_content = f"""model,field,value,display,icon,ordernum,is_active
+activity.eventtype,wildlifesighting_species,{elephant_val},African Elephant,,1,true
+activity.eventtype,wildlifesighting_species,{rhino_val},White Rhino,,2,false"""
+        csv_file = io.StringIO(csv_content)
         success, message = admin.import_csv_data(csv_file)
 
         assert success is True
 
-        # Verify elephant is still active and rhino is now inactive
-        elephant = Choice.objects.get(model="activity.eventtype", field="wildlifesighting_species", value="elephant")
+        elephant = Choice.objects.get(
+            model="activity.eventtype",
+            field="wildlifesighting_species",
+            value=elephant_val,
+        )
         assert elephant.is_active is True
 
-        rhino = Choice.objects.get(model="activity.eventtype", field="wildlifesighting_species", value="rhino")
+        rhino = Choice.objects.get(
+            model="activity.eventtype",
+            field="wildlifesighting_species",
+            value=rhino_val,
+        )
         assert rhino.is_active is False
 
     def test_import_default_is_active_when_omitted(self, choice_admin_fixture):

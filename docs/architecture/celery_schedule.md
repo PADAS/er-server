@@ -86,6 +86,11 @@ This document outlines the scheduled tasks in the DAS system organized by hour o
   - Task: `observations.tasks.run_partition_table_check`
   - Schedule: Every Monday at midnight
 
+### Weekly (Monday at 1:00 AM)
+- **postgresql_partman_run_partition_table_check_for_observations_observationsegment** - Runs partition table check for observation segments
+  - Task: `observations.tasks.run_observation_segment_partition_table_check`
+  - Schedule: Every Monday at 1:00 AM (staggered 1 hour after observation partition check; `partman.run_maintenance_proc()` handles 3-year retention)
+
 ## Queue Priorities
 
 The system uses different queues to manage task priorities:
@@ -103,3 +108,4 @@ The system uses different queues to manage task priorities:
 - Tasks with `crontab` schedules run at specific times on specific days
 - The `PLUGINS_INTERVAL` is set to 5 minutes (300 seconds) for plugin execution
 - High-frequency tasks like service status and Redis checks ensure system health monitoring
+- **Partition maintenance:** For `observations_observationsegment`, `partman.run_maintenance_proc()` (e.g. via management command or pg_partman BGW) should run at least weekly (e.g. Monday 02:00 UTC) so that future monthly partitions are created and partitions older than 3 years are dropped per retention config. See `docs/development/observation-segment-partitioning-plan.md`.
