@@ -144,7 +144,7 @@ class Command(TenantCommandMixin, BaseCommand):
         if async_:
             self._handle_async(subject_sources)
         else:
-            subjects = Subject.objects.filter(subjectsources__isnull=False).distinct()
+            subjects = Subject.objects.filter(subjectsource__isnull=False).distinct()
             self._handle_sync(subjects)
 
     def _handle_sync(self, subjects):
