@@ -10,11 +10,13 @@ Tests cover:
 """
 
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 from psycopg2.extras import DateTimeTZRange
 
 from django.contrib.gis.geos import LineString, Point
+from django.core.management import call_command
 from django.urls import reverse
 
 from core.models import DASTenant
@@ -716,3 +718,157 @@ class TestObservationSegmentVectorTiles:
             assert "kind" not in props
             assert "bearing_to_next" not in props
             assert "bearing_from_prev" not in props
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestBackfillObservationSegmentsSync:
+    """Test the backfill_observation_segments management command in sync mode.
+
+    Validates that the raw SQL INSERT … SELECT produces segments consistent
+    with the ORM/signal path: correct neighbor pairing across sources,
+    computed metrics (distance, speed, bearing), exclusion_flags OR, and
+    idempotency via ON CONFLICT DO NOTHING.
+    """
+
+    @pytest.fixture
+    def setup_data(self, db, das_tenant_monkeypatch):
+        tenant = das_tenant_monkeypatch
+        subject_type, _ = SubjectType.objects.get_or_create(value="wildlife_bf", display="Wildlife", das_tenant=tenant)
+        subject_subtype, _ = SubjectSubType.objects.get_or_create(
+            value="elephant_bf", display="Elephant", subject_type=subject_type, das_tenant=tenant
+        )
+        subject = Subject.objects.create(name="Backfill Elephant", subject_subtype=subject_subtype, das_tenant=tenant)
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="backfill_provider", display_name="Backfill Provider", das_tenant=tenant
+        )
+        source_a = Source.objects.create(manufacturer_id="collar_bf_a", provider=provider, das_tenant=tenant)
+        source_b = Source.objects.create(manufacturer_id="collar_bf_b", provider=provider, das_tenant=tenant)
+
+        base = datetime(2024, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+        SubjectSource.objects.create(
+            subject=subject,
+            source=source_a,
+            assigned_range=DateTimeTZRange(lower=base, upper=base + timedelta(days=5)),
+            das_tenant=tenant,
+        )
+        SubjectSource.objects.create(
+            subject=subject,
+            source=source_b,
+            assigned_range=DateTimeTZRange(lower=base + timedelta(days=5), upper=base + timedelta(days=10)),
+            das_tenant=tenant,
+        )
+        return {
+            "tenant": tenant,
+            "subject": subject,
+            "source_a": source_a,
+            "source_b": source_b,
+            "base": base,
+        }
+
+    def _run_backfill(self, domain):
+        with patch("utils.tenant.commands.set_tenant"):
+            call_command("backfill_observation_segments", tenant_domain=domain)
+
+    def test_basic_neighbor_pairing_and_metrics(self, setup_data):
+        """Segments link consecutive observations with correct distance/speed/bearing."""
+        tenant = setup_data["tenant"]
+        source = setup_data["source_a"]
+        base = setup_data["base"]
+
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=base + timedelta(hours=1), location=Point(0, 0), das_tenant=tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=base + timedelta(hours=2), location=Point(1, 0), das_tenant=tenant
+        )
+        obs3 = Observation.objects.create(
+            source=source, recorded_at=base + timedelta(hours=3), location=Point(2, 0), das_tenant=tenant
+        )
+
+        self._run_backfill(tenant.domain)
+
+        segments = ObservationSegment.objects.order_by("start_recorded_at")
+        assert segments.count() == 2
+
+        seg1 = segments[0]
+        assert seg1.start_observation_id == obs1.id
+        assert seg1.end_observation_id == obs2.id
+        assert seg1.distance_meters > 100_000
+        assert seg1.distance_meters < 120_000
+        assert seg1.time_gap_ms == 3_600_000.0
+        expected_speed = (seg1.distance_meters / 1000.0) / 1.0
+        assert abs(seg1.speed_kmh - expected_speed) < 0.1
+        assert seg1.bearing_deg is not None
+        assert 85 <= seg1.bearing_deg <= 95
+
+        seg2 = segments[1]
+        assert seg2.start_observation_id == obs2.id
+        assert seg2.end_observation_id == obs3.id
+
+    def test_cross_source_boundary_pairing(self, setup_data):
+        """Observations from adjacent SubjectSource assignments are linked across sources."""
+        tenant = setup_data["tenant"]
+        source_a = setup_data["source_a"]
+        source_b = setup_data["source_b"]
+        base = setup_data["base"]
+
+        obs_a = Observation.objects.create(
+            source=source_a, recorded_at=base + timedelta(days=4), location=Point(0, 0), das_tenant=tenant
+        )
+        obs_b = Observation.objects.create(
+            source=source_b, recorded_at=base + timedelta(days=6), location=Point(1, 1), das_tenant=tenant
+        )
+
+        self._run_backfill(tenant.domain)
+
+        seg = ObservationSegment.objects.get()
+        assert seg.start_observation_id == obs_a.id
+        assert seg.end_observation_id == obs_b.id
+        assert seg.subject_id == setup_data["subject"].id
+
+    def test_exclusion_flags_ored(self, setup_data):
+        """Segment exclusion_flags is the bitwise OR of both observations' flags."""
+        tenant = setup_data["tenant"]
+        source = setup_data["source_a"]
+        base = setup_data["base"]
+
+        Observation.objects.create(
+            source=source,
+            recorded_at=base + timedelta(hours=1),
+            location=Point(0, 0),
+            exclusion_flags=Observation.EXCLUDED_MANUALLY,
+            das_tenant=tenant,
+        )
+        Observation.objects.create(
+            source=source,
+            recorded_at=base + timedelta(hours=2),
+            location=Point(1, 0),
+            exclusion_flags=Observation.EXCLUDED_AUTOMATICALLY,
+            das_tenant=tenant,
+        )
+
+        self._run_backfill(tenant.domain)
+
+        seg = ObservationSegment.objects.get()
+        expected = Observation.EXCLUDED_MANUALLY | Observation.EXCLUDED_AUTOMATICALLY
+        assert seg.exclusion_flags.mask == expected
+
+    def test_idempotent_on_conflict(self, setup_data):
+        """Running the command twice produces no duplicate segments."""
+        tenant = setup_data["tenant"]
+        source = setup_data["source_a"]
+        base = setup_data["base"]
+
+        Observation.objects.create(
+            source=source, recorded_at=base + timedelta(hours=1), location=Point(0, 0), das_tenant=tenant
+        )
+        Observation.objects.create(
+            source=source, recorded_at=base + timedelta(hours=2), location=Point(1, 0), das_tenant=tenant
+        )
+
+        self._run_backfill(tenant.domain)
+        assert ObservationSegment.objects.count() == 1
+
+        self._run_backfill(tenant.domain)
+        assert ObservationSegment.objects.count() == 1
