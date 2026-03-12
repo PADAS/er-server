@@ -81,7 +81,7 @@ class TestObservationSegmentModel:
         source = setup_data["source"]
 
         # Create two observations
-        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        base_time = datetime.now(tz=timezone.utc) - timedelta(days=30)
         obs1 = Observation.objects.create(
             source=source,
             recorded_at=base_time,
@@ -124,7 +124,7 @@ class TestObservationSegmentModel:
         """Test that exclusion flags are combined correctly."""
         subject = setup_data["subject"]
         source = setup_data["source"]
-        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        base_time = datetime.now(tz=timezone.utc) - timedelta(days=30)
 
         # Create observations with different exclusion flags
         obs1 = Observation.objects.create(
@@ -152,7 +152,7 @@ class TestObservationSegmentModel:
         """Test ObservationSegment queryset filtering methods."""
         subject = setup_data["subject"]
         source = setup_data["source"]
-        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        base_time = datetime.now(tz=timezone.utc) - timedelta(days=30)
 
         # Create multiple observations to generate segments
         observations = []
@@ -217,7 +217,7 @@ class TestObservationSegmentSignals:
     def test_segment_created_on_observation_insert(self, setup_data):
         """Test that segments are automatically created when observations are added."""
         source = setup_data["source"]
-        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        base_time = datetime.now(tz=timezone.utc) - timedelta(days=30)
 
         # Initially no segments
         assert ObservationSegment.objects.count() == 0
@@ -248,7 +248,7 @@ class TestObservationSegmentSignals:
     def test_segment_updated_on_out_of_order_insert(self, setup_data):
         """Test O(1) segment updates when observations arrive out of order."""
         source = setup_data["source"]
-        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        base_time = datetime.now(tz=timezone.utc) - timedelta(days=30)
 
         # Create observations at T=0 and T=2
         obs1 = Observation.objects.create(
@@ -299,7 +299,7 @@ class TestObservationSegmentSignals:
     def test_segment_deleted_and_bridged_on_observation_delete(self, setup_data):
         """Test that segments are updated when an observation is deleted."""
         source = setup_data["source"]
-        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        base_time = datetime.now(tz=timezone.utc) - timedelta(days=30)
 
         # Create 3 observations
         obs1 = Observation.objects.create(
@@ -346,7 +346,7 @@ class TestObservationSegmentSignals:
         This validates the core performance benefit of the segment approach.
         """
         source = setup_data["source"]
-        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        base_time = datetime.now(tz=timezone.utc) - timedelta(days=30)
 
         # Create a long track (100 observations)
         observations = []
@@ -415,8 +415,8 @@ class TestSubjectSourceSegmentUpdate:
             provider_key="test_ss_segments", display_name="Test", das_tenant=tenant
         )
         source = Source.objects.create(manufacturer_id="collar_ss_segments", provider=provider, das_tenant=tenant)
-        range_start = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-        range_end = datetime(2024, 1, 10, 0, 0, 0, tzinfo=timezone.utc)
+        range_start = datetime.now(tz=timezone.utc) - timedelta(days=30)
+        range_end = range_start + timedelta(days=10)
         SubjectSource.objects.create(
             subject=subject_a,
             source=source,
@@ -497,7 +497,7 @@ class TestObservationSegmentVectorTiles:
         source = Source.objects.create(manufacturer_id="iso_collar", provider=provider, das_tenant=tenant)
         SubjectSource.objects.create(subject=subject, source=source, das_tenant=tenant)
 
-        base = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        base = datetime.now(tz=timezone.utc) - timedelta(days=30)
         obs1 = Observation.objects.create(source=source, recorded_at=base, location=Point(0.0, 0.0), das_tenant=tenant)
         obs2 = Observation.objects.create(
             source=source,
@@ -596,7 +596,7 @@ class TestObservationSegmentVectorTiles:
         source = Source.objects.create(manufacturer_id="test_collar_bearing", provider=provider, das_tenant=tenant)
         SubjectSource.objects.create(subject=subject, source=source, das_tenant=tenant)
 
-        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        base_time = datetime.now(tz=timezone.utc) - timedelta(days=30)
 
         # Test various directions
         test_cases = [
@@ -745,7 +745,7 @@ class TestBackfillObservationSegmentsSync:
         source_a = Source.objects.create(manufacturer_id="collar_bf_a", provider=provider, das_tenant=tenant)
         source_b = Source.objects.create(manufacturer_id="collar_bf_b", provider=provider, das_tenant=tenant)
 
-        base = datetime(2024, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+        base = datetime.now(tz=timezone.utc) - timedelta(days=30)
         SubjectSource.objects.create(
             subject=subject,
             source=source_a,
