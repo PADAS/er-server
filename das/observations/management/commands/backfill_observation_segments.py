@@ -78,13 +78,13 @@ SELECT
     ST_Distance(location::geography, next_location::geography),
     ROUND(
         MOD(
-            DEGREES(ATAN2(
+            (DEGREES(ATAN2(
                 SIN(RADIANS(ST_X(next_location) - ST_X(location)))
                     * COS(RADIANS(ST_Y(next_location))),
                 COS(RADIANS(ST_Y(location))) * SIN(RADIANS(ST_Y(next_location)))
                   - SIN(RADIANS(ST_Y(location))) * COS(RADIANS(ST_Y(next_location)))
                     * COS(RADIANS(ST_X(next_location) - ST_X(location)))
-            )) + 360.0,
+            )) + 360.0)::numeric,
             360.0
         ),
         2
