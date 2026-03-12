@@ -3,10 +3,10 @@ Management command to backfill ObservationSegments in bulk.
 
 Uses a single SQL INSERT … SELECT per distinct subject.  The CTE gathers
 every observation for the subject across all sources (each respecting its
-own assigned_range) and pairs consecutive observations using LEAD().  This
-matches the unbounded cross-source ordering used by
-Observation.get_neighbor_observations in the signal path, so boundary
-segments between adjacent SubjectSource assignments are never missed.
+own assigned_range) and pairs consecutive observations using LEAD() over an
+unbounded cross-source ordering (by recorded_at and id).  This deterministic
+ordering ensures boundary segments between adjacent SubjectSource assignments
+are not missed.
 
 The outer loop iterates distinct subjects (derived from SubjectSource);
 ON CONFLICT … DO NOTHING keeps the operation idempotent.
