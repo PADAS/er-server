@@ -872,3 +872,36 @@ class TestBackfillObservationSegmentsSync:
 
         self._run_backfill(tenant.domain)
         assert ObservationSegment.objects.count() == 1
+
+    def test_segments_older_than_three_years_not_inserted(self, setup_data):
+        """Segments with start_recorded_at before the 3-year window are not inserted (partition retention)."""
+        tenant = setup_data["tenant"]
+        subject = setup_data["subject"]
+        provider = setup_data["source_a"].provider
+        base_old = datetime.now(timezone.utc) - timedelta(days=4 * 365)
+
+        source_old = Source.objects.create(
+            manufacturer_id="collar_bf_old", provider=provider, das_tenant=tenant
+        )
+        SubjectSource.objects.create(
+            subject=subject,
+            source=source_old,
+            assigned_range=DateTimeTZRange(lower=base_old, upper=base_old + timedelta(days=5)),
+            das_tenant=tenant,
+        )
+        Observation.objects.create(
+            source=source_old,
+            recorded_at=base_old + timedelta(hours=1),
+            location=Point(0, 0),
+            das_tenant=tenant,
+        )
+        Observation.objects.create(
+            source=source_old,
+            recorded_at=base_old + timedelta(hours=2),
+            location=Point(1, 0),
+            das_tenant=tenant,
+        )
+
+        self._run_backfill(tenant.domain)
+
+        assert ObservationSegment.objects.count() == 0

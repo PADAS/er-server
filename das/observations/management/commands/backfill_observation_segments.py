@@ -130,15 +130,26 @@ class Command(TenantCommandMixin, BaseCommand):
         subject_sources = SubjectSource.objects.select_related("source", "subject").all()
 
         if dry_run:
-            total = subject_sources.count()
-            self.stdout.write(f"SubjectSources found: {total}")
-            for i, ss in enumerate(subject_sources.iterator(), 1):
-                self.stdout.write(
-                    f"  [{i}/{total}] source={ss.source_id} "
-                    f"subject={ss.subject_id} "
-                    f"range={ss.assigned_range.lower} .. {ss.assigned_range.upper}"
-                )
-            self.stdout.write(self.style.WARNING("DRY RUN - No recompute was performed."))
+            if async_:
+                total = subject_sources.count()
+                self.stdout.write(f"SubjectSources that would be enqueued: {total}")
+                for i, ss in enumerate(subject_sources.iterator(), 1):
+                    self.stdout.write(
+                        f"  [{i}/{total}] source={ss.source_id} "
+                        f"subject={ss.subject_id} "
+                        f"range={ss.assigned_range.lower} .. {ss.assigned_range.upper}"
+                    )
+                self.stdout.write(self.style.WARNING("DRY RUN - No tasks were enqueued."))
+            else:
+                subjects = Subject.objects.filter(subjectsource__isnull=False).distinct()
+                total = subjects.count()
+                self.stdout.write(f"Subjects that would be processed: {total}")
+                if total == 0:
+                    self.stdout.write(self.style.WARNING("No subjects with source assignments found."))
+                else:
+                    for i, subj in enumerate(subjects.iterator(), 1):
+                        self.stdout.write(f"  [{i}/{total}] subject={subj.name!r}")
+                self.stdout.write(self.style.WARNING("DRY RUN - No recompute was performed."))
             return
 
         if async_:
