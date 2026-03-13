@@ -18,6 +18,7 @@ from analyzers.models.movement_clustering import MovementClusterAnalyzerConfig
 from analyzers.utils import save_analyzer_event
 
 MOVEMENT_CLUSTER_EVENT_TYPE = "movement_cluster"
+MAXIMUM_OBSERVATIONS = 1000
 
 MOVEMENT_CLUSTER_SCHEMA = {
     "json": {
@@ -199,8 +200,8 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
 
     def default_observations(self):
         if self.config.search_time_hours <= 0:
-            return self.subject.observations()
-        return self.subject.observations(last_hours=self.config.search_time_hours)
+            return self.subject.observations()[:MAXIMUM_OBSERVATIONS]
+        return self.subject.observations(last_hours=self.config.search_time_hours)[:MAXIMUM_OBSERVATIONS]
 
     # ------------------------------------------------------------------
     # Open-cluster check
