@@ -137,6 +137,13 @@ class SubjectAnalyzerResult(TenantModelMixin, TimestampedModel):
     subject_analyzer_id = models.UUIDField()
     subject_analyzer = GenericForeignKey("subject_analyzer_content_type", "subject_analyzer_id")
     subject_analyzer_revision = models.PositiveIntegerField(default=1)
+    event = TenantForeignKey(
+        "activity.Event",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="analyzer_results",
+    )
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
     tenant_id = "das_tenant_id"

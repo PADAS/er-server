@@ -11,6 +11,7 @@ from analyzers.forms import (
     ImmobilityAnalyzerForm,
     LowSpeedPercentileSubjectAnalyzerForm,
     LowSpeedWilcoxSubjectAnalyzerForm,
+    MovementClusterAnalyzerForm,
     ObservationAttributeAnalyzerForm,
     SubjectProximityAnalyzerForm,
 )
@@ -492,6 +493,51 @@ class SubjectSpeedProfileAdmin(BaseModelAdminMixin):
 @admin.register(models.SpeedDistro)
 class SpeedDistroAdmin(BaseModelAdminMixin):
     pass
+
+
+@admin.register(models.MovementClusterAnalyzerConfig)
+class MovementClusterAnalyzerAdmin(BaseModelAdminMixin):
+    list_display = (
+        "name",
+        "subject_group_name",
+    )
+    ordering = ("name", "subject_group")
+    readonly_fields = ("id",)
+    search_fields = ("subject_group__name",)
+    form = MovementClusterAnalyzerForm
+
+    def subject_group_name(self, o):
+        return o.subject_group.name
+
+    subject_group_name.admin_order_field = "subject_group"
+
+    fieldsets = (
+        (None, {"classes": ("wide",), "fields": (("name", "subject_group", "is_active"))}),
+        (
+            "ST-DBSCAN Cluster Parameters",
+            {
+                "classes": ("wide",),
+                "fields": (
+                    "spatial_threshold_meters",
+                    "temporal_threshold_seconds",
+                    "min_cluster_points",
+                    "min_cluster_duration_seconds",
+                ),
+            },
+        ),
+        (
+            "Advanced Analyzer Attributes",
+            {
+                "classes": ("wide", "collapse"),
+                "fields": (
+                    "id",
+                    "search_time_hours",
+                    "quiet_period",
+                    "notes",
+                ),
+            },
+        ),
+    )
 
 
 @admin.register(models.GlobalForestWatchSubscription)

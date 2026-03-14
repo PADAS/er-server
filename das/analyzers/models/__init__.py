@@ -8,6 +8,7 @@ from analyzers.models.low_speed import (
     LowSpeedPercentileAnalyzerConfig,
     LowSpeedWilcoxAnalyzerConfig,
 )
+from analyzers.models.movement_clustering import MovementClusterAnalyzerConfig
 from analyzers.models.observation_attribute import ObservationAttributeAnalyzerConfig
 from analyzers.models.proximity import (
     FeatureProximityAnalyzerConfig,
@@ -23,6 +24,7 @@ __all__ = [
     ImmobilityAnalyzerConfig,
     LowSpeedPercentileAnalyzerConfig,
     LowSpeedWilcoxAnalyzerConfig,
+    MovementClusterAnalyzerConfig,
     ObservationAnnotator,
     SubjectAnalyzerResult,
     SubjectProximityAnalyzerConfig,
