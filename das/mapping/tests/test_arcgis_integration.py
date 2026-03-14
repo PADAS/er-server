@@ -151,6 +151,12 @@ class TestArcGisIntegration(BaseAPITest):
     def test_unique_value_renderer_point(self):
         json_dict = self._read_test_data(os.path.join(TESTS_PATH, "testdata/point-renderer.json"))
         self._verify_types(json_dict)
+        # Point SFTs should have image, width, height (esriSMS → colored circle SVG or esriPMS → image)
+        for sft in SpatialFeatureType.objects.all():
+            p = sft.presentation
+            self.assertIn("image", p, msg=f"SFT {sft.name} missing image")
+            self.assertIn("width", p)
+            self.assertIn("height", p)
 
     def test_simple_renderer(self):
         pass
@@ -264,6 +270,21 @@ class Symbol:
         self.type = json_dict["type"]
         if json_dict.get("color"):
             self.color = [int(i) for i in json_dict["color"]]
-        self.width = float(json_dict.get("width")) if json_dict.get("width") else 0.0
+        self.width = float(json_dict.get("width")) if json_dict.get("width") is not None else 0.0
         if json_dict.get("imageData"):
             self.imageData = json_dict.get("imageData")
+        if json_dict.get("size") is not None:
+            self.size = json_dict["size"]
+        if json_dict.get("outline"):
+            self.outline = SymbolOutline(json_dict["outline"])
+        else:
+            self.outline = None
+
+
+class SymbolOutline:
+    def __init__(self, json_dict):
+        if json_dict.get("color"):
+            self.color = [int(i) for i in json_dict["color"]]
+        else:
+            self.color = None
+        self.width = float(json_dict.get("width")) if json_dict.get("width") is not None else 0.0
