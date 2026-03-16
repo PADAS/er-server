@@ -7,6 +7,7 @@ from rest_framework import serializers
 from accounts.serializers import UserDisplaySerializer
 from activity.models import EventCategory, EventType
 from activity.schemas.eventtype_meta_schemas import main_event_type_schema
+from activity.schemas.migration.choice_processor import ResolutionStrategy
 from activity.serializers.fields.json_schema import JSONSchemaField
 from revision.manager import ACTION_ADDED
 
@@ -123,34 +124,55 @@ class EventTypeRevisionSerializer(serializers.Serializer):
         return []
 
 
+class ChoiceValueSerializer(serializers.Serializer):
+    value = serializers.CharField()
+    display = serializers.CharField()
+
+
+class HardcodedChoiceResolutionSerializer(serializers.Serializer):
+    strategy = serializers.ChoiceField(choices=[strategy.value for strategy in ResolutionStrategy])
+    choice_field_name = serializers.CharField(required=False, allow_null=True)
+    missing_choices = ChoiceValueSerializer(many=True, required=False, allow_null=True)
+    property_path = serializers.ListField(child=serializers.CharField(), required=False, allow_null=True)
+
+
+class MigrationEventTypeRequestItemSerializer(serializers.Serializer):
+    event_type_value = serializers.CharField(required=False, max_length=255)
+    event_type = serializers.CharField(required=False, max_length=255, write_only=True)
+    hardcoded_choices_resolutions = HardcodedChoiceResolutionSerializer(many=True, required=False)
+
+    def to_internal_value(self, data):
+        if isinstance(data, str):
+            data = {"event_type_value": data}
+
+        return super().to_internal_value(data)
+
+    def validate(self, attrs: dict) -> dict:
+        event_type_value = attrs.get("event_type_value") or attrs.pop("event_type", None)
+        if not event_type_value:
+            raise serializers.ValidationError("event_type_value is required.")
+
+        attrs["event_type_value"] = event_type_value
+        return attrs
+
+
 class MigrationRequestSerializer(serializers.Serializer):
     """
     Serializer for V1 to V2 schema migration request.
 
     Request body:
     - dry_run: if true, preview migration without persisting changes
-    - event_types: array of event type values to migrate
+    - event_types: array of event type values or per-event migration request objects
     """
 
     dry_run = serializers.BooleanField(default=True)
-    event_types = serializers.ListField(
-        child=serializers.CharField(max_length=255),
-        min_length=1,
-        help_text="List of event type values to migrate",
-    )
+    event_types = MigrationEventTypeRequestItemSerializer(many=True)
 
-    def validate_event_types(self, value: List[str]) -> List[str]:
-        """Validate that event_types is not empty and contains valid strings."""
-        if not value:
-            raise serializers.ValidationError("At least one event type must be specified.")
-        # Remove duplicates while preserving order
-        seen = set()
-        unique = []
-        for item in value:
-            if item not in seen:
-                seen.add(item)
-                unique.append(item)
-        return unique
+
+class HardcodedChoiceSerializer(serializers.Serializer):
+    property_path = serializers.ListField(child=serializers.CharField())
+    choices = ChoiceValueSerializer(many=True)
+    resolution_options = HardcodedChoiceResolutionSerializer(many=True)
 
 
 class MigrationResultSerializer(serializers.Serializer):
@@ -165,8 +187,9 @@ class MigrationResultSerializer(serializers.Serializer):
     - metadata: additional migration information
     """
 
-    event_type = serializers.CharField()
+    event_type = serializers.CharField(source="event_type_value")
     v2_schema = serializers.DictField(allow_null=True)
     warnings = serializers.ListField(child=serializers.CharField())
     errors = serializers.ListField(child=serializers.CharField())
     metadata = serializers.DictField()
+    hardcoded_choices = HardcodedChoiceSerializer(many=True, allow_null=True, required=False)

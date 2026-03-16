@@ -3,41 +3,104 @@
 import logging
 import re
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 from django.db import models
+from django.urls import reverse
 
 from choices.models import Choice
 
 logger = logging.getLogger(__name__)
 
 
+class ResolutionStrategy(str, Enum):
+    CREATE_NEW = "CREATE_NEW"
+    USE_EXISTING = "USE_EXISTING"
+    USE_PROPOSED = "USE_PROPOSED"
+    MERGE_INTO_EXISTING = "MERGE_INTO_EXISTING"
+    MERGE_INTO_PROPOSED = "MERGE_INTO_PROPOSED"
+
+
 @dataclass
-class ChoiceFieldResult:
-    """Result for a single choice field processing."""
+class HardcodedChoiceResolution:
+    strategy: ResolutionStrategy
+    choice_field_name: Optional[str] = None
+    missing_choices: Optional[List[Dict[str, str]]] = None
+    property_path: Optional[List[str]] = None
 
-    field_name: str
-    status: str = "pending"  # "matched", "candidate", "to_create", "error"
-    existing_choice_field: Optional[str] = None
-    proposed_name: Optional[str] = None
-    choices: List[Dict[str, str]] = field(default_factory=list)  # [{"value", "display"}, ...]
-    choices_to_add: List[Dict[str, str]] = field(default_factory=list)  # choices missing from existing field
-    match_score: float = 0.0  # 0-1, how well choices match existing
-    warnings: List[str] = field(default_factory=list)
-    error: Optional[str] = None
+    @classmethod
+    def from_dict(cls, data: dict) -> "HardcodedChoiceResolution":
+        normalized_data = data.copy()
+        strategy = normalized_data.get("strategy")
+        if not isinstance(strategy, ResolutionStrategy):
+            normalized_data["strategy"] = ResolutionStrategy(strategy)
+        property_path = normalized_data.get("property_path")
+        if property_path is not None:
+            normalized_data["property_path"] = list(property_path)
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "field_name": self.field_name,
-            "status": self.status,
-            "existing_choice_field": self.existing_choice_field,
-            "proposed_name": self.proposed_name,
-            "choices": self.choices,
-            "choices_to_add": self.choices_to_add,
-            "match_score": self.match_score,
-            "warnings": self.warnings,
-            "error": self.error,
-        }
+        return cls(**normalized_data)
+
+
+@dataclass
+class HardcodedChoice:
+    property_path: List[str]
+    choices: List[Dict[str, str]] = field(default_factory=list)
+    resolution_options: List[HardcodedChoiceResolution] = field(default_factory=list)
+
+    def needs_resolution(self) -> bool:
+        """
+        Determines if the hardcoded choice needs a resolution specified by the user.
+        """
+        if len(self.resolution_options) > 1:
+            return True
+
+        if len(self.resolution_options) == 1 and self.resolution_options[0].strategy in [
+            ResolutionStrategy.CREATE_NEW,
+            ResolutionStrategy.USE_EXISTING,
+            ResolutionStrategy.USE_PROPOSED,
+        ]:
+            # If we have a single resolution with one of these strategies,
+            # we don't need a user to specify it, we can handle it automatically
+            return False
+
+        # Resolutions should always be defined, otherwise we can't process the choice
+        if not self.resolution_options:
+            raise ValueError("No resolution options defined for hardcoded choice")
+
+        raise ValueError(f"Invalid resolution strategy: {self.resolution_options[0].strategy}")
+
+
+def get_field_schema_from_prop_path(v2_schema: Dict[str, Any], prop_path: List[str]) -> Dict[str, Any]:
+    """Get the field schema from a property path. Assumes the path is valid.
+    Neccesary because collection fields allow to have nested structures.
+
+    (Remember, prop_path is a list of property names", not JSON pointers.)
+    """
+    # TODO: Implement this method
+
+
+def rewrite_field_to_ref(field_schema: Dict[str, Any], choice_field_name: str) -> None:
+    """Replace hardcoded anyOf/oneOf with a $ref to the choices endpoint. Mutates in-place."""
+    ref_url = f"{ChoiceProcessor.choices_base_url}?field={choice_field_name}"
+    field_schema["anyOf"] = [{"$ref": ref_url}]
+
+
+def normalize_for_matching(value: str) -> str:
+    """Lowercase and collapse separators to a single dash for fuzzy comparison."""
+    # Separator normalization pattern for matching
+    SEPARATOR_PATTERN = re.compile(r"[-_.\s]+")
+    normalized = value.lower()
+    normalized = SEPARATOR_PATTERN.sub("-", normalized)
+    return normalized.strip("-")
+
+
+def slugify_for_choice(value: str) -> str:
+    """Convert a string to a valid choice field name (lowercase, underscores only)."""
+    slugified = value.lower()
+    slugified = re.sub(r"[^a-z0-9]+", "_", slugified)
+    slugified = re.sub(r"_+", "_", slugified)
+    return slugified.strip("_")
 
 
 class ChoiceProcessor:
@@ -50,120 +113,73 @@ class ChoiceProcessor:
     # Minimum overlap ratio to consider an existing (or proposed) choice field a "match"
     MATCH_THRESHOLD = 2 / 3
 
-    # Separator normalization pattern for matching
-    SEPARATOR_PATTERN = re.compile(r"[-_.\s]+")
-
-    def __init__(
-        self,
-        event_type_value: str,
-        choices_base_url: str,
-        proposed_choices: Optional[dict] = None,
-        existing_choices: Optional[dict] = None,
-    ):
+    def __init__(self):
         """
         Args:
-            event_type_value: Used for generating unique choice field names.
-            choices_base_url: Base URL for $ref rewriting.
             proposed_choices: Shared mutable registry across the migration batch.
                 When a field is 'to_create', its values are added here so
                 subsequent event types can match against them.
             existing_choices: Pre-loaded map of field_name -> [values] from DB.
         """
-        self.event_type_value = event_type_value
-        self.choices_base_url = choices_base_url
-        self.proposed_choices = proposed_choices or {}
-        self.existing_choices = existing_choices or {}
+        self.proposed_choices = {}
+        self.existing_choices = {}
 
-    def process_hardcoded_choices(self, v2_schema: Dict[str, Any]) -> Tuple[dict, dict]:
-        """Analyze all fields, then rewrite ready ones to $ref.
+    @property
+    def choices_base_url(self):
+        if not hasattr(self, "_choices_base_url"):
+            self._choices_base_url = reverse("schemas:choices")
+        return self._choices_base_url
 
-        Two-phase approach: analyze all fields first so that the presence of
-        any 'candidate' field blocks $ref rewriting for the entire schema.
+    def get_hardcoded_choices(self, v2_schema: dict) -> List[HardcodedChoice]:
+        """Analyze all fields, builds a data structure with the results."""
+        return self.traverse_properties(v2_schema.get("json", {}).get("properties", {}), [])
 
-        Returns (modified_schema, metadata).
+    def traverse_properties(self, properties: dict, current_path: List[str]) -> List[HardcodedChoice]:
         """
-        metadata = {
-            "fields": [],
-            "warnings": [],
-            "summary": {
-                "matched": 0,
-                "candidate": 0,
-                "to_create": 0,
-                "created": 0,
-                "errors": 0,
-            },
-        }
+        Recursively traverse properties to find hardcoded choices.
 
-        json_schema = v2_schema.get("json", {})
-        properties = json_schema.get("properties", {})
-
-        # Track proposed names within this batch to prevent collisions
-        reserved_names = set(self.proposed_choices.keys())
-
-        # Phase 1: Analyze all fields (no schema mutation)
-        analyzed_fields = []  # list of (field_name, field_schema, result)
+        Returns:
+            List of tuples (path, hardcoded_choices) where:
+            - path is a list of field names (property path from root)
+            - hardcoded_choices is a list of choice definitions
+        """
+        hardcoded_choices: List[HardcodedChoice] = []
 
         for field_name, field_schema in properties.items():
-            hardcoded_choices, dedupe_warnings = self.extract_hardcoded_choices(field_schema)
-
-            if not hardcoded_choices:
+            if field_schema.get("type") == "array":
+                collection_properties = field_schema.get("items", {}).get("properties", {})
+                if not collection_properties:
+                    continue
+                path = current_path + [field_name]
+                hardcoded_choices.extend(self.traverse_properties(collection_properties, path))
                 continue
 
-            result = self.process_choices_single_field(
-                field_name=field_name,
-                field_schema=field_schema,
-                hardcoded_choices=hardcoded_choices,
-                reserved_names=reserved_names,
+            field_hardcoded_choices = self.extract_hardcoded_choices(field_schema)
+            if not field_hardcoded_choices:
+                continue
+
+            hardcoded_choices.append(
+                HardcodedChoice(property_path=current_path + [field_name], choices=field_hardcoded_choices)
             )
 
-            if dedupe_warnings:
-                result.warnings.extend(dedupe_warnings)
+        return hardcoded_choices
 
-            # Track proposed names to avoid collisions within batch
-            if result.status == "to_create" and result.proposed_name:
-                reserved_names.add(result.proposed_name)
-                # Add to shared registry so subsequent fields can match
-                if self.proposed_choices is not None:
-                    self.proposed_choices[result.proposed_name] = [v["value"] for v in hardcoded_choices]
-
-            analyzed_fields.append((field_name, field_schema, result))
-
-        # Phase 2: Rewrite schemas and collect metadata
-        # Only rewrite to $ref if no candidates were found in this schema
-        has_candidates = any(r.status == "candidate" for _, _, r in analyzed_fields)
-
-        for field_name, field_schema, result in analyzed_fields:
-            if not has_candidates and self.choices_base_url and result.status in ("matched", "to_create"):
-                ref_name = result.existing_choice_field if result.status == "matched" else result.proposed_name
-                self.rewrite_field_to_ref(field_schema, ref_name)
-            elif result.status == "candidate":
-                result.warnings.append(
-                    f"Field '{field_name}' has a partial match with '{result.existing_choice_field}' "
-                    f"(score: {result.match_score:.0%}). Manual review required."
-                )
-
-            metadata["fields"].append(result.to_dict())
-            self._update_summary(metadata["summary"], result.status)
-            metadata["warnings"].extend(result.warnings)
-
-        return v2_schema, metadata
-
-    def extract_hardcoded_choices(self, field_schema: Dict[str, Any]) -> Tuple[List[Dict[str, str]], List[str]]:
+    def extract_hardcoded_choices(self, field_schema: dict) -> List[dict]:
         """Extract hardcoded choices from anyOf > {title: "Hardcoded", oneOf: [...]}
         structure produced by transform_schema.
 
-        Returns (list of {value, display}, warnings).
+        Returns (list of {value, display}).
         """
+        hardcoded_choices: List[dict] = []
         any_of = field_schema.get("anyOf", [])
-        hardcoded_choices: List[Dict[str, str]] = []
 
         if not any_of:
-            return [], []
+            return []
 
         for option in any_of:
             # Skip $ref entries (already pointing to existing choice list)
             if "$ref" in option:
-                return [], []
+                return []
 
             # Look for hardcoded oneOf structure
             one_of = option.get("oneOf", [])
@@ -172,193 +188,201 @@ class ChoiceProcessor:
                     [{"value": item["const"], "display": item.get("title", item["const"])} for item in one_of]
                 )
 
-        if not hardcoded_choices:
-            return [], []
-
-        # Deduplication tracking
-        seen: Dict[str, str] = {}
-        warnings: List[str] = []
-        deduplicated_choices: List[Dict[str, str]] = []
+        # Deduplication
+        seen = {}
+        deduplicated_choices: List[dict] = []
 
         for choice in hardcoded_choices:
-            if choice["value"] in seen:
-                warnings.append(
-                    f"Duplicate choice value '{choice['value']}' found in field. "
-                    f"Keeping first occurrence with display '{seen[choice['value']]}', "
-                    f"dropping subsequent with display '{choice['display']}'."
-                )
-            else:
+            if choice["value"] not in seen:
                 seen[choice["value"]] = choice["display"]
                 deduplicated_choices.append(choice)
 
-        return deduplicated_choices, warnings
+        return deduplicated_choices
 
-    @staticmethod
-    def _update_summary(summary: Dict[str, int], status: str) -> None:
-        status_map = {
-            "matched": "matched",
-            "candidate": "candidate",
-            "to_create": "to_create",
-            "created": "created",
-            "error": "errors",
-        }
-        key = status_map.get(status)
-        if key:
-            summary[key] += 1
-
-    def rewrite_field_to_ref(self, field_schema: Dict[str, Any], choice_field_name: str) -> None:
-        """Replace hardcoded anyOf/oneOf with a $ref to the choices endpoint. Mutates in-place."""
-        ref_url = f"{self.choices_base_url}?field={choice_field_name}"
-        field_schema["anyOf"] = [{"$ref": ref_url}]
-
-    def process_choices_single_field(
+    def analyze_migration_results(
         self,
-        field_name: str,
-        field_schema: Dict[str, Any],
-        hardcoded_choices: List[Dict[str, str]],
-        reserved_names: Optional[set] = None,
-    ) -> ChoiceFieldResult:
-        """Analyze a single field: match against existing/proposed choices or propose a new name."""
-        result = ChoiceFieldResult(field_name=field_name, choices=hardcoded_choices)
+        results,
+        existing_choices: Dict[str, List[str]],
+        proposed_choices: Dict[str, List[str]],
+    ):
+        """Analyze migration results and determine choice resolutions."""
+        self.existing_choices = existing_choices
+        self.proposed_choices = proposed_choices
+        self.created_choices = []
 
-        # 1. Try to find matching existing choice field (DB + proposed)
-        match = self.find_matching_choice_field(field_name, hardcoded_choices)
+        for result in results:
+            if not result.success or not result.hardcoded_choices:
+                continue
+            for hardcoded_choice in result.hardcoded_choices:
+                hardcoded_choice.resolution_options = self.get_possible_choice_resolutions(result, hardcoded_choice)
 
-        if match:
-            existing_field_name, score, missing_values = match
-            result.existing_choice_field = existing_field_name
-            result.match_score = score
-            result.choices_to_add = missing_values
-
-            if score == 1.0:
-                result.status = "matched"
-                logger.info(
-                    "Field '%s' matched existing choice field '%s' (score: %.0f%%)",
-                    field_name,
-                    existing_field_name,
-                    score * 100,
-                )
-            else:
-                result.status = "candidate"
-                logger.info(
-                    "Field '%s' matched '%s' (%.0f%%), %d values to add",
-                    field_name,
-                    existing_field_name,
-                    score * 100,
-                    len(missing_values),
-                )
-            return result
-
-        # 2. No match found - propose new choice field name
-        proposed_name = self.generate_unique_name(field_name, field_schema, reserved_names=reserved_names or set())
-        result.proposed_name = proposed_name
-        result.status = "to_create"
-        logger.info(
-            "Field '%s' will create new choice field '%s'",
-            field_name,
-            proposed_name,
+    def resolution_matches_option(
+        self,
+        selection: HardcodedChoiceResolution,
+        option: HardcodedChoiceResolution,
+    ) -> bool:
+        if selection.strategy == ResolutionStrategy.CREATE_NEW:
+            return selection.property_path == option.property_path and selection.strategy == option.strategy
+        return (
+            selection.property_path == option.property_path
+            and selection.strategy == option.strategy
+            and selection.choice_field_name == option.choice_field_name
         )
 
-        return result
+    def find_matching_resolution_option(
+        self,
+        hardcoded_choice: HardcodedChoice,
+        selection: HardcodedChoiceResolution,
+    ) -> Optional[HardcodedChoiceResolution]:
+        for option in hardcoded_choice.resolution_options:
+            if self.resolution_matches_option(selection, option):
+                return option
 
-    def normalize_for_matching(self, value: str) -> str:
-        """Lowercase and collapse separators to a single dash for fuzzy comparison."""
-        normalized = value.lower()
-        normalized = self.SEPARATOR_PATTERN.sub("-", normalized)
-        return normalized.strip("-")
+        return None
 
-    def slugify_for_choice(self, value: str) -> str:
-        """Convert a string to a valid choice field name (lowercase, underscores only)."""
-        slugified = value.lower()
-        slugified = re.sub(r"[^a-z0-9]+", "_", slugified)
-        slugified = re.sub(r"_+", "_", slugified)
-        return slugified.strip("_")
+    def get_possible_choice_resolutions(
+        self, migration_result, hardcoded_choice: HardcodedChoice
+    ) -> List[HardcodedChoiceResolution]:
+        """Analyze possible choice resolutions for a migration result."""
+        # We rely on the phase 1 and that the migration_result has the hardcoded_choices attribute already populated
+        # First we atempt to find a perfect match in the existing choices
+        # Then we attempt to find a perfect match in the proposed choices
+        # If no perfect match is found, we propose to merge against one existing or proposed choice field
+
+        # Finally we propose a new choice field name, indeed it's always possible to create a new choice field
+        # For create new we automatically propose a choice field name that is unique
+
+        resolutions = []
+
+        existing_match = self.find_matching_choice_field(hardcoded_choice, self.existing_choices)
+        proposed_match = self.find_matching_choice_field(hardcoded_choice, self.proposed_choices)
+
+        existing_score = existing_match[1] if existing_match else 0.0
+        proposed_score = proposed_match[1] if proposed_match else 0.0
+
+        if existing_score == 1.0 or proposed_score == 1.0:
+            # Perfect match found, no need to propose anything
+            if existing_score == 1.0:
+                strategy = ResolutionStrategy.USE_EXISTING
+                choice_field_name = existing_match[0]
+            else:
+                # in case of proposed match, we depend on successful creation
+                strategy = ResolutionStrategy.USE_PROPOSED
+                choice_field_name = proposed_match[0]
+
+            resolution = HardcodedChoiceResolution(
+                strategy=strategy,
+                choice_field_name=choice_field_name,
+                property_path=list(hardcoded_choice.property_path),
+            )
+            resolutions.append(resolution)
+            return resolutions
+
+        proposed_name = self.generate_unique_name(hardcoded_choice.property_path, migration_result.event_type_value)
+        create_resolution = HardcodedChoiceResolution(
+            strategy=ResolutionStrategy.CREATE_NEW,
+            choice_field_name=proposed_name,
+            property_path=list(hardcoded_choice.property_path),
+        )
+        resolutions.append(create_resolution)
+
+        if not existing_match and not proposed_match:
+            # No match found, return just the create resolution
+            return resolutions
+
+        if existing_match and existing_score >= proposed_score:
+            match_field_name, score, missing_choices = existing_match
+            resolution = HardcodedChoiceResolution(
+                strategy=ResolutionStrategy.MERGE_INTO_EXISTING,
+                choice_field_name=match_field_name,
+                missing_choices=missing_choices,
+                property_path=list(hardcoded_choice.property_path),
+            )
+            resolutions.append(resolution)
+
+        if proposed_match and proposed_score > existing_score:
+            match_field_name, score, missing_choices = proposed_match
+            resolution = HardcodedChoiceResolution(
+                strategy=ResolutionStrategy.MERGE_INTO_PROPOSED,
+                choice_field_name=match_field_name,
+                missing_choices=missing_choices,
+                property_path=list(hardcoded_choice.property_path),
+            )
+            resolutions.append(resolution)
+
+        return resolutions
 
     def find_matching_choice_field(
         self,
-        field_name: str,
-        field_hardcoded_choices: List[Dict[str, str]],
+        hardcoded_choice: HardcodedChoice,
+        against_values: Dict[str, List[str]],  # just a dict of lists of values, not the full choice objects
     ) -> Optional[Tuple[str, float, List[Dict[str, str]]]]:
-        """Find an existing or proposed choice field matching the hardcoded values.
+        """Find an the best match choice field for the given hardcoded choices.
 
         Uses Jaccard similarity on normalized values for treshhold comparison and name-match for real comparison.
-        Returns (field_name, score, missing_values) or None.
+        Returns (choice_field_name, score, missing_values) or None.
         """
         # Build normalized -> original mapping for hardcoded values
-        hardcoded_by_normalized = {self.normalize_for_matching(v["value"]): v for v in field_hardcoded_choices}
+        hardcoded_by_normalized = {normalize_for_matching(v["value"]): v for v in hardcoded_choice.choices}
         hardcoded_normalized_values = set(hardcoded_by_normalized.keys())
-        hardcoded_values = [v["value"] for v in field_hardcoded_choices]
+        hardcoded_values = {v["value"] for v in hardcoded_choice.choices}
 
-        all_choice_fields = self.existing_choices.copy()
-
-        # Merge proposed choices into existing fields for matching
-        if self.proposed_choices:
-            for proposed_name, proposed_values in self.proposed_choices.items():
-                if proposed_name not in all_choice_fields:
-                    all_choice_fields[proposed_name] = proposed_values
+        against_values = against_values.copy()
 
         best_match: Optional[Tuple[str, float, List[Dict[str, str]]]] = None
 
-        for existing_field_name, existing_values in all_choice_fields.items():
+        for choice_field_name, values in against_values.items():
             # Normalize existing values for comparison
-            existing_normalized_values = {self.normalize_for_matching(v) for v in existing_values}
-
-            if not existing_normalized_values:
-                continue
+            normalized_values = {normalize_for_matching(v) for v in values}
 
             # Calculate overlap score (Jaccard similarity)
             # using normalized values
-            intersection = hardcoded_normalized_values & existing_normalized_values
-            union = hardcoded_normalized_values | existing_normalized_values
-            normalized_score = len(intersection) / len(union) if union else 0.0
+            intersection = hardcoded_normalized_values & normalized_values
+            union = hardcoded_normalized_values | normalized_values
+            normalized_score = len(intersection) / len(union)
             # using original values
-            intersection = set(hardcoded_values) & set(existing_values)
-            union = set(hardcoded_values) | set(existing_values)
-            value_score = len(intersection) / len(union) if union else 0.0
+            intersection = hardcoded_values & set(values)
+            union = hardcoded_values | set(values)
+            value_score = len(intersection) / len(union)
 
             # Early exit if with first exact match on actual values
             if value_score == 1.0:
-                best_match = (existing_field_name, value_score, [])
+                best_match = (choice_field_name, value_score, [])
                 break
 
             if normalized_score >= self.MATCH_THRESHOLD:
                 # Find missing values (in hardcoded but not in existing)
-                missing_values = set(hardcoded_values) - set(existing_values)
-                missing_choices = [hardcoded_by_normalized[self.normalize_for_matching(v)] for v in missing_values]
+                missing_values = hardcoded_values - set(values)
+                missing_choices = [hardcoded_by_normalized[normalize_for_matching(v)] for v in missing_values]
 
                 if best_match is None or value_score > best_match[1]:
-                    best_match = (existing_field_name, value_score, missing_choices)
+                    best_match = (choice_field_name, value_score, missing_choices)
 
         return best_match
 
-    def generate_unique_name(
-        self, field_name: str, field_schema: Dict[str, Any], reserved_names: set = frozenset()
-    ) -> str:
+    def generate_unique_name(self, field_path: List[str], event_type_value: str) -> str:
         """Generate a unique choice field name.
 
-        Tries: field_name, field title, event_type + field_name, then numeric suffix.
+        Tries: field_name, event_type + field_name, then numeric suffix.
         Checks against existing_choices and reserved_names (current batch).
         """
         candidates = []
+        reserved_names = self.existing_choices.keys() | self.proposed_choices.keys()
 
         # Candidate 1: field name directly
-        candidates.append(self.slugify_for_choice(field_name))
+        candidates.append(slugify_for_choice(field_path[-1]))
+        if len(field_path) > 1:
+            candidates.append(slugify_for_choice("_".join(field_path)))
 
-        # Candidate 2: field title
-        title = field_schema.get("title", "")
-        if title:
-            candidates.append(self.slugify_for_choice(title))
-
-        # Candidate 3: event_type + field_name
-        if self.event_type_value:
-            candidates.append(self.slugify_for_choice(f"{self.event_type_value}_{field_name}"))
-
-        # Check against both DB names and batch-reserved names
-        existing_names = set(self.existing_choices.keys()) | set(reserved_names)
+        # Candidate 2: event_type + field_name
+        if event_type_value:
+            candidates.append(slugify_for_choice(f"{event_type_value}_{field_path[-1]}"))
+            if len(field_path) > 1:
+                candidates.append(slugify_for_choice(f"{event_type_value}_{'_'.join(field_path)}"))
 
         # Try each candidate
         for candidate in candidates:
-            if candidate not in existing_names:
+            if candidate not in reserved_names:
                 return candidate
 
         # All candidates taken - add numeric suffix
@@ -366,9 +390,14 @@ class ChoiceProcessor:
         counter = 1
         while True:
             name = f"{base_name}_{counter}"
-            if name not in existing_names:
+            if name not in reserved_names:
                 return name
             counter += 1
+
+    def persist_hardcoded_choices(self, event_type, result) -> None:
+        """Persist hardcoded choices for an event type."""
+        for field_name, values in result.hardcoded_choices.items():
+            self.create_choice_field(field_name, values)
 
     def create_choice_field(self, field_name: str, values: List[Dict[str, str]]) -> None:
         """Create Choice objects for a new choice field."""
