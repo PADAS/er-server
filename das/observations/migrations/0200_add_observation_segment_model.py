@@ -7,7 +7,11 @@ import logging
 import uuid
 
 import django.contrib.gis.db.models as gis_models
+import django_multitenant.fields
 from django.db import migrations, models
+from django.db.models import deletion
+
+import utils.migrations.columns
 
 logger = logging.getLogger(__name__)
 
@@ -163,10 +167,44 @@ class Migration(migrations.Migration):
                         ("exclusion_flags", models.BigIntegerField()),
                         ("created_at", models.DateTimeField(auto_now_add=True)),
                         ("updated_at", models.DateTimeField(auto_now=True)),
-                        ("das_tenant_id", models.UUIDField()),
-                        ("start_observation_id", models.UUIDField()),
-                        ("end_observation_id", models.UUIDField()),
-                        ("subject_id", models.UUIDField()),
+                        (
+                            "das_tenant",
+                            models.ForeignKey(
+                                on_delete=deletion.CASCADE,
+                                to="core.dastenant",
+                                default=utils.migrations.columns.default_tenant_id,
+                            ),
+                        ),
+                        (
+                            "start_observation",
+                            django_multitenant.fields.TenantForeignKey(
+                                help_text="Starting observation of the segment",
+                                on_delete=deletion.CASCADE,
+                                related_name="segments_as_start",
+                                related_query_name="segment_as_start",
+                                to="observations.observation",
+                            ),
+                        ),
+                        (
+                            "end_observation",
+                            django_multitenant.fields.TenantForeignKey(
+                                help_text="Ending observation of the segment",
+                                on_delete=deletion.CASCADE,
+                                related_name="segments_as_end",
+                                related_query_name="segment_as_end",
+                                to="observations.observation",
+                            ),
+                        ),
+                        (
+                            "subject",
+                            django_multitenant.fields.TenantForeignKey(
+                                help_text="Subject this segment belongs to",
+                                on_delete=deletion.CASCADE,
+                                related_name="segments",
+                                related_query_name="segment",
+                                to="observations.subject",
+                            ),
+                        ),
                     ],
                 ),
             ],

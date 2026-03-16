@@ -363,17 +363,10 @@ def _invalidate_segment_caches_for_observations_and_subjects(observation_ids, su
 def _create_bridge_segment(prev_obs, next_obs, subject):
     """
     Create a bridge segment between two observations.
-
-    Args:
-        prev_obs: Previous observation
-        next_obs: Next observation
-        subject: Subject instance
+    Caller relies on idempotent segment design; real errors propagate.
     """
-    try:
-        ObservationSegment.objects.create_segment(prev_obs, next_obs, subject)
-        logger.debug(f"Created bridge segment {prev_obs.id} -> {next_obs.id}")
-    except Exception as e:
-        logger.error(f"Failed to create bridge segment: {e}")
+    ObservationSegment.objects.create_segment(prev_obs, next_obs, subject)
+    logger.debug("Created bridge segment %s -> %s", prev_obs.id, next_obs.id)
 
 
 def _delete_bridge_segment(prev_obs, next_obs, tenant_id):
@@ -393,21 +386,12 @@ def _delete_bridge_segment(prev_obs, next_obs, tenant_id):
 def _create_segment_to_neighbor(start_obs, end_obs, subject):
     """
     Create a segment between two observations.
-
-    Args:
-        start_obs: Starting observation
-        end_obs: Ending observation
-        subject: Subject instance
-
-    Returns:
-        str or None: Description of created segment, or None if not created
+    get_or_create_segment is idempotent (handles missing segment / IntegrityError);
+    real errors propagate.
     """
-    try:
-        segment, created_flag = ObservationSegment.objects.get_or_create_segment(start_obs, end_obs, subject)
-        if created_flag:
-            return f"{start_obs.id} -> {end_obs.id}"
-    except Exception as e:
-        logger.error(f"Failed to create segment {start_obs.id} -> {end_obs.id}: {e}")
+    segment, created_flag = ObservationSegment.objects.get_or_create_segment(start_obs, end_obs, subject)
+    if created_flag:
+        return f"{start_obs.id} -> {end_obs.id}"
     return None
 
 
@@ -506,6 +490,11 @@ def observation_segment_post_save(sender, instance, created, **kwargs):
     This handler updates only the 2 affected segments (O(1) update).
     Uses transaction.on_commit(); in tests that roll back transactions, call
     update_segments_for_observation() directly if segment state is needed.
+
+    Rollout-safe by design: "segment doesn't exist yet" is handled via idempotent
+    operations (filter().first(), filter().delete(), manager IntegrityError handling)
+    so we never raise for that case. Any exception that does propagate is a real
+    error and will 500 the request so it gets fixed rather than hidden in logs.
     """
     # Skip during fixture loading
     if kwargs.get("raw", False):

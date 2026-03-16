@@ -43,6 +43,7 @@ from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import connection, connections, transaction
+from django.db.utils import IntegrityError
 from django.db.models import (
     BooleanField,
     Case,
@@ -1207,16 +1208,34 @@ class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset
         """
         Get or create a segment between two observations.
 
+        Idempotent: if no segment exists (e.g. backfill not run yet),
+        we create; if create raises IntegrityError (e.g. race with backfill), we
+        re-fetch and return the existing segment so callers do not see an error.
+
         Returns:
             (ObservationSegment, created) tuple
         """
-        try:
-            segment = self.get(
-                start_observation=start_obs, end_observation=end_obs, das_tenant_id=subject.das_tenant_id
-            )
+        segment = self.filter(
+            start_observation=start_obs,
+            end_observation=end_obs,
+            das_tenant_id=subject.das_tenant_id,
+        ).first()
+        if segment is not None:
             return segment, False
-        except self.model.DoesNotExist:
-            return self.create_segment(start_obs, end_obs, subject), True
+        try:
+            segment = self.create_segment(start_obs, end_obs, subject)
+            return segment, True
+        except IntegrityError:
+            # Segment was created by another process or backfill (race / rollout).
+            # Re-fetch and return it so the operation is idempotent.
+            segment = self.filter(
+                start_observation=start_obs,
+                end_observation=end_obs,
+                das_tenant_id=subject.das_tenant_id,
+            ).first()
+            if segment is not None:
+                return segment, False
+            raise
 
 
 class ObservationSegment(TenantModelMixin, models.Model):
