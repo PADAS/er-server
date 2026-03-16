@@ -6,8 +6,16 @@ from unittest.mock import patch
 import pytest
 
 from activity.models import EventType
-from activity.schemas.migration.choice_processor import ChoiceProcessor
-from activity.schemas.migration.service import MigrationResult, MigrationService
+from activity.schemas.migration.choice_processor import (
+    ChoiceProcessor,
+    HardcodedChoiceResolution,
+    ResolutionStrategy,
+)
+from activity.schemas.migration.service import (
+    MigrationRequest,
+    MigrationResult,
+    MigrationService,
+)
 from choices.models import Choice
 
 
@@ -35,6 +43,65 @@ class TestMigrationResult:
         assert d["warnings"] == ["Warning 1"]
         assert d["errors"] == []
         assert d["metadata"] == {"key": "value"}
+
+
+class TestMigrationRequest:
+    """Tests for MigrationRequest input normalization."""
+
+    def test_hardcoded_choice_resolution_from_dict(self):
+        resolution = HardcodedChoiceResolution.from_dict(
+            {
+                "property_path": ["severity"],
+                "strategy": "USE_EXISTING",
+                "choice_field_name": "severity",
+            }
+        )
+
+        assert resolution.property_path == ["severity"]
+        assert resolution.strategy == ResolutionStrategy.USE_EXISTING
+        assert resolution.choice_field_name == "severity"
+
+    def test_from_input_accepts_string(self):
+        request = MigrationRequest.from_input("fire_rep")
+
+        assert request.event_type_value == "fire_rep"
+        assert request.hardcoded_choices_resolutions is None
+
+    def test_from_input_accepts_dict(self):
+        request = MigrationRequest.from_input({"event_type_value": "fire_rep"})
+
+        assert request.event_type_value == "fire_rep"
+
+    def test_from_input_accepts_legacy_event_type_key(self):
+        request = MigrationRequest.from_input({"event_type": "fire_rep"})
+
+        assert request.event_type_value == "fire_rep"
+
+    def test_from_input_normalizes_hardcoded_choice_resolution_dicts(self):
+        request = MigrationRequest.from_input(
+            {
+                "event_type_value": "fire_rep",
+                "hardcoded_choices_resolutions": [
+                    {
+                        "property_path": ["severity"],
+                        "strategy": "USE_EXISTING",
+                        "choice_field_name": "severity",
+                    }
+                ],
+            }
+        )
+
+        assert request.hardcoded_choices_resolutions is not None
+        resolution = request.hardcoded_choices_resolutions[0]
+        assert isinstance(resolution, HardcodedChoiceResolution)
+        assert resolution.property_path == ["severity"]
+        assert resolution.strategy == ResolutionStrategy.USE_EXISTING
+        assert resolution.choice_field_name == "severity"
+
+    def test_from_input_returns_existing_instance(self):
+        request = MigrationRequest(event_type_value="fire_rep")
+
+        assert MigrationRequest.from_input(request) is request
 
 
 class TestMigrationServiceInit:

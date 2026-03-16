@@ -130,15 +130,14 @@ class ChoiceValueSerializer(serializers.Serializer):
 
 
 class HardcodedChoiceResolutionSerializer(serializers.Serializer):
+    property_path = serializers.ListField(child=serializers.CharField(), required=False, allow_null=True)
     strategy = serializers.ChoiceField(choices=[strategy.value for strategy in ResolutionStrategy])
     choice_field_name = serializers.CharField(required=False, allow_null=True)
-    missing_choices = ChoiceValueSerializer(many=True, required=False, allow_null=True)
-    property_path = serializers.ListField(child=serializers.CharField(), required=False, allow_null=True)
+    missing_choices = ChoiceValueSerializer(many=True, required=False, allow_null=True, read_only=True)
 
 
 class MigrationEventTypeRequestItemSerializer(serializers.Serializer):
     event_type_value = serializers.CharField(required=False, max_length=255)
-    event_type = serializers.CharField(required=False, max_length=255, write_only=True)
     hardcoded_choices_resolutions = HardcodedChoiceResolutionSerializer(many=True, required=False)
 
     def to_internal_value(self, data):
