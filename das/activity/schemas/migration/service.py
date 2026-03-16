@@ -66,7 +66,7 @@ class MigrationService:
         self.proposed_choices: Dict[str, List[str]] = {}
 
     def migrate(self, event_types: List[str]) -> List[MigrationResult]:
-        """Migrate multiple EventTypes. Atomic: all commit or none do."""
+        """Migrate multiple EventTypes. Atomic per EventType: each commits or rolls back independently."""
         self.proposed_choices: Dict[str, list] = {}
         self.existing_choices: Dict[str, List[str]] = self.get_existing_choice_fields()
 
@@ -77,16 +77,17 @@ class MigrationService:
             result = self.migrate_single(event_type_value)
             results.append(result)
 
-        # Phase 2: Atomic persistence (all-or-nothing)
-        if not self.dry_run and all(r.success for r in results):
-            with transaction.atomic():
-                for result in results:
+        # Phase 2: Persistence (atomic per EventType)
+        if not self.dry_run:
+            for result in results:
+                with transaction.atomic():
                     self.persist_choices(result)
                     if not result.success:
-                        # Choice creation failed — abort the entire batch
                         transaction.set_rollback(True)
-                        return results
+                        continue
                     self.persist_migration(result.event_type_instance, result)
+                    if not result.success:
+                        transaction.set_rollback(True)
 
         return results
 
@@ -203,11 +204,11 @@ class MigrationService:
             status = field_info.get("status")
 
             if status == "to_create":
-                values = field_info.get("values", [])
+                choices = field_info.get("choices", [])
                 proposed_name = field_info.get("proposed_name")
 
                 # Check if we already created a similar choice field in this migration
-                values_key = self._get_values_key(values, choice_processor)
+                values_key = self._get_values_key(choices, choice_processor)
                 if values_key in created_this_migration:
                     # Reuse the previously created choice field
                     reused_name = created_this_migration[values_key]
@@ -222,14 +223,15 @@ class MigrationService:
 
                 # Create new choice field
                 try:
-                    choice_processor.create_choice_field(proposed_name, values)
+                    choice_processor.create_choice_field(proposed_name, choices)
                     field_info["existing_choice_field"] = proposed_name
                     field_info["status"] = "created"
                     created_this_migration[values_key] = proposed_name
                     logger.info(
-                        "Created choice field '%s' for field '%s'",
+                        "Created choice field '%s' with %d values for event type '%s'",
                         proposed_name,
-                        field_info.get("field_name"),
+                        len(choices),
+                        result.event_type,
                     )
                 except Exception as e:
                     field_info["status"] = "error"
@@ -240,8 +242,8 @@ class MigrationService:
                         proposed_name,
                     )
 
-    def _get_values_key(self, values: List[Dict[str, str]], processor: ChoiceProcessor) -> str:
-        normalized = sorted(processor.normalize_for_matching(v.get("value", "")) for v in values)
+    def _get_values_key(self, choices: List[Dict[str, str]], processor: ChoiceProcessor) -> str:
+        normalized = sorted(processor.normalize_for_matching(v.get("value", "")) for v in choices)
         return "|".join(normalized)
 
     def persist_migration(self, event_type: EventType, result: MigrationResult) -> None:

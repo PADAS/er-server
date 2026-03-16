@@ -20,9 +20,9 @@ class ChoiceFieldResult:
     status: str = "pending"  # "matched", "candidate", "to_create", "error"
     existing_choice_field: Optional[str] = None
     proposed_name: Optional[str] = None
-    values: List[Dict[str, str]] = field(default_factory=list)  # [{const, title}, ...]
-    values_to_add: List[Dict[str, str]] = field(default_factory=list)  # values missing from existing field
-    match_score: float = 0.0  # 0-1, how well values match existing
+    choices: List[Dict[str, str]] = field(default_factory=list)  # [{"value", "display"}, ...]
+    choices_to_add: List[Dict[str, str]] = field(default_factory=list)  # choices missing from existing field
+    match_score: float = 0.0  # 0-1, how well choices match existing
     warnings: List[str] = field(default_factory=list)
     error: Optional[str] = None
 
@@ -32,8 +32,8 @@ class ChoiceFieldResult:
             "status": self.status,
             "existing_choice_field": self.existing_choice_field,
             "proposed_name": self.proposed_name,
-            "values": self.values,
-            "values_to_add": self.values_to_add,
+            "choices": self.choices,
+            "choices_to_add": self.choices_to_add,
             "match_score": self.match_score,
             "warnings": self.warnings,
             "error": self.error,
@@ -98,30 +98,33 @@ class ChoiceProcessor:
         properties = json_schema.get("properties", {})
 
         # Track proposed names within this batch to prevent collisions
-        reserved_names: set = set()
+        reserved_names = set(self.proposed_choices.keys())
 
         # Phase 1: Analyze all fields (no schema mutation)
         analyzed_fields = []  # list of (field_name, field_schema, result)
 
         for field_name, field_schema in properties.items():
-            hardcoded_values = self.extract_hardcoded_values(field_schema)
+            hardcoded_choices, dedupe_warnings = self.extract_hardcoded_choices(field_schema)
 
-            if not hardcoded_values:
+            if not hardcoded_choices:
                 continue
 
-            result = self.process_single_field(
+            result = self.process_choices_single_field(
                 field_name=field_name,
                 field_schema=field_schema,
-                hardcoded_values=hardcoded_values,
+                hardcoded_choices=hardcoded_choices,
                 reserved_names=reserved_names,
             )
+
+            if dedupe_warnings:
+                result.warnings.extend(dedupe_warnings)
 
             # Track proposed names to avoid collisions within batch
             if result.status == "to_create" and result.proposed_name:
                 reserved_names.add(result.proposed_name)
                 # Add to shared registry so subsequent fields can match
                 if self.proposed_choices is not None:
-                    self.proposed_choices[result.proposed_name] = [v["value"] for v in hardcoded_values]
+                    self.proposed_choices[result.proposed_name] = [v["value"] for v in hardcoded_choices]
 
             analyzed_fields.append((field_name, field_schema, result))
 
@@ -145,6 +148,51 @@ class ChoiceProcessor:
 
         return v2_schema, metadata
 
+    def extract_hardcoded_choices(self, field_schema: Dict[str, Any]) -> Tuple[List[Dict[str, str]], List[str]]:
+        """Extract hardcoded choices from anyOf > {title: "Hardcoded", oneOf: [...]}
+        structure produced by transform_schema.
+
+        Returns (list of {value, display}, warnings).
+        """
+        any_of = field_schema.get("anyOf", [])
+        hardcoded_choices: List[Dict[str, str]] = []
+
+        if not any_of:
+            return [], []
+
+        for option in any_of:
+            # Skip $ref entries (already pointing to existing choice list)
+            if "$ref" in option:
+                return [], []
+
+            # Look for hardcoded oneOf structure
+            one_of = option.get("oneOf", [])
+            if one_of and option.get("title") == "Hardcoded":
+                hardcoded_choices.extend(
+                    [{"value": item["const"], "display": item.get("title", item["const"])} for item in one_of]
+                )
+
+        if not hardcoded_choices:
+            return [], []
+
+        # Deduplication tracking
+        seen: Dict[str, str] = {}
+        warnings: List[str] = []
+        deduplicated_choices: List[Dict[str, str]] = []
+
+        for choice in hardcoded_choices:
+            if choice["value"] in seen:
+                warnings.append(
+                    f"Duplicate choice value '{choice['value']}' found in field. "
+                    f"Keeping first occurrence with display '{seen[choice['value']]}', "
+                    f"dropping subsequent with display '{choice['display']}'."
+                )
+            else:
+                seen[choice["value"]] = choice["display"]
+                deduplicated_choices.append(choice)
+
+        return deduplicated_choices, warnings
+
     @staticmethod
     def _update_summary(summary: Dict[str, int], status: str) -> None:
         status_map = {
@@ -158,50 +206,29 @@ class ChoiceProcessor:
         if key:
             summary[key] += 1
 
-    def extract_hardcoded_values(self, field_schema: Dict[str, Any]) -> List[Dict[str, str]]:
-        """Extract hardcoded values from anyOf > {title: "Hardcoded", oneOf: [...]}
-        structure produced by transform_schema. Returns [{value, display}, ...].
-        """
-        any_of = field_schema.get("anyOf", [])
-        if not any_of:
-            return []
-
-        for option in any_of:
-            # Skip $ref entries (already pointing to existing choice list)
-            if "$ref" in option:
-                return []
-
-            # Look for hardcoded oneOf structure
-            one_of = option.get("oneOf", [])
-            if one_of and option.get("title") == "Hardcoded":
-                values = [{"value": item["const"], "display": item.get("title", item["const"])} for item in one_of]
-                return values
-
-        return []
-
     def rewrite_field_to_ref(self, field_schema: Dict[str, Any], choice_field_name: str) -> None:
         """Replace hardcoded anyOf/oneOf with a $ref to the choices endpoint. Mutates in-place."""
         ref_url = f"{self.choices_base_url}?field={choice_field_name}"
         field_schema["anyOf"] = [{"$ref": ref_url}]
 
-    def process_single_field(
+    def process_choices_single_field(
         self,
         field_name: str,
         field_schema: Dict[str, Any],
-        hardcoded_values: List[Dict[str, str]],
+        hardcoded_choices: List[Dict[str, str]],
         reserved_names: Optional[set] = None,
     ) -> ChoiceFieldResult:
         """Analyze a single field: match against existing/proposed choices or propose a new name."""
-        result = ChoiceFieldResult(field_name=field_name, values=hardcoded_values)
+        result = ChoiceFieldResult(field_name=field_name, choices=hardcoded_choices)
 
         # 1. Try to find matching existing choice field (DB + proposed)
-        match = self.find_matching_choice_field(field_name, hardcoded_values)
+        match = self.find_matching_choice_field(field_name, hardcoded_choices)
 
         if match:
             existing_field_name, score, missing_values = match
             result.existing_choice_field = existing_field_name
             result.match_score = score
-            result.values_to_add = missing_values
+            result.choices_to_add = missing_values
 
             if score == 1.0:
                 result.status = "matched"
@@ -250,7 +277,7 @@ class ChoiceProcessor:
     def find_matching_choice_field(
         self,
         field_name: str,
-        hardcoded_items: List[Dict[str, str]],
+        field_hardcoded_choices: List[Dict[str, str]],
     ) -> Optional[Tuple[str, float, List[Dict[str, str]]]]:
         """Find an existing or proposed choice field matching the hardcoded values.
 
@@ -258,9 +285,9 @@ class ChoiceProcessor:
         Returns (field_name, score, missing_values) or None.
         """
         # Build normalized -> original mapping for hardcoded values
-        hardcoded_by_normalized = {self.normalize_for_matching(v["value"]): v for v in hardcoded_items}
-        hardcoded_normalized = set(hardcoded_by_normalized.keys())
-        hardcoded_values = [v["value"] for v in hardcoded_items]
+        hardcoded_by_normalized = {self.normalize_for_matching(v["value"]): v for v in field_hardcoded_choices}
+        hardcoded_normalized_values = set(hardcoded_by_normalized.keys())
+        hardcoded_values = [v["value"] for v in field_hardcoded_choices]
 
         all_choice_fields = self.existing_choices.copy()
 
@@ -274,38 +301,33 @@ class ChoiceProcessor:
 
         for existing_field_name, existing_values in all_choice_fields.items():
             # Normalize existing values for comparison
-            existing_normalized = {self.normalize_for_matching(v) for v in existing_values}
+            existing_normalized_values = {self.normalize_for_matching(v) for v in existing_values}
 
-            if not existing_normalized:
+            if not existing_normalized_values:
                 continue
 
             # Calculate overlap score (Jaccard similarity)
             # using normalized values
-            intersection = hardcoded_normalized & existing_normalized
-            union = hardcoded_normalized | existing_normalized
+            intersection = hardcoded_normalized_values & existing_normalized_values
+            union = hardcoded_normalized_values | existing_normalized_values
             normalized_score = len(intersection) / len(union) if union else 0.0
             # using original values
             intersection = set(hardcoded_values) & set(existing_values)
             union = set(hardcoded_values) | set(existing_values)
             value_score = len(intersection) / len(union) if union else 0.0
 
-            # Early exit if exact match
+            # Early exit if with first exact match on actual values
             if value_score == 1.0:
                 best_match = (existing_field_name, value_score, [])
                 break
 
-            # Prefer exact name match (also normalized)
-            if self.normalize_for_matching(existing_field_name) == self.normalize_for_matching(field_name):
-                value_score += 0.1  # Slight boost for name match
-                value_score = min(value_score, 1.0)
-
             if normalized_score >= self.MATCH_THRESHOLD:
                 # Find missing values (in hardcoded but not in existing)
-                missing_normalized = hardcoded_normalized - existing_normalized
-                missing_values = [hardcoded_by_normalized[n] for n in missing_normalized]
+                missing_values = set(hardcoded_values) - set(existing_values)
+                missing_choices = [hardcoded_by_normalized[self.normalize_for_matching(v)] for v in missing_values]
 
                 if best_match is None or value_score > best_match[1]:
-                    best_match = (existing_field_name, value_score, missing_values)
+                    best_match = (existing_field_name, value_score, missing_choices)
 
         return best_match
 
@@ -340,7 +362,7 @@ class ChoiceProcessor:
                 return candidate
 
         # All candidates taken - add numeric suffix
-        base_name = candidates[0] if candidates else "choice"
+        base_name = candidates[0]
         counter = 1
         while True:
             name = f"{base_name}_{counter}"
@@ -350,19 +372,28 @@ class ChoiceProcessor:
 
     def create_choice_field(self, field_name: str, values: List[Dict[str, str]]) -> None:
         """Create Choice objects for a new choice field."""
-        for i, item in enumerate(values):
-            value = item["value"]
+        seen_values = set()
+        ordernum = 0
+        for item in values:
+            value = item.get("value")
             if not value:
                 logger.warning("Skipping empty value in choice field '%s'", field_name)
                 continue
+
+            if value in seen_values:
+                continue
+
+            seen_values.add(value)
 
             Choice.objects.create(
                 model=Choice.EVENT_MODEL,
                 field=field_name,
                 value=value,
                 display=item.get("display", value),
-                ordernum=i,
+                ordernum=ordernum,
             )
+
+            ordernum += 1
 
     def add_values_to_choice_field(self, field_name: str, values: List[Dict[str, str]]) -> int:
         """Add missing values to an existing choice field. Returns count added."""

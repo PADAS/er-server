@@ -127,7 +127,7 @@ def create_choice_field(create_choice):
 
 @pytest.fixture
 def hardcoded_values():
-    """Factory for creating hardcoded value lists (output format of extract_hardcoded_values)."""
+    """Factory for creating hardcoded value lists (output format of extract_hardcoded_choices)."""
 
     def _create(*items):
         """
@@ -421,7 +421,7 @@ def choice_field_metadata(hardcoded_values):
         values=None,
         proposed_name=None,
         existing_choice_field=None,
-        values_to_add=None,
+        choices_to_add=None,
     ):
         metadata = {
             "field_name": field_name,
@@ -433,8 +433,8 @@ def choice_field_metadata(hardcoded_values):
             metadata["proposed_name"] = proposed_name
         if existing_choice_field is not None:
             metadata["existing_choice_field"] = existing_choice_field
-        if values_to_add is not None:
-            metadata["values_to_add"] = values_to_add
+        if choices_to_add is not None:
+            metadata["choices_to_add"] = choices_to_add
         return metadata
 
     return _create
