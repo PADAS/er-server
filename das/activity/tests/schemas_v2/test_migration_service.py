@@ -15,6 +15,7 @@ from activity.schemas.migration.service import (
     MigrationRequest,
     MigrationResult,
     MigrationService,
+    ResolvedHardcodedChoice,
 )
 from choices.models import Choice
 
@@ -118,16 +119,16 @@ class TestMigrationServiceInit:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings")
 class TestMigrateSingle:
-    """Tests for migrate_single method."""
+    """Tests for single-item migration via `migrate([...])[0]`."""
 
     def test_event_type_not_found(self, migration_service):
-        result = migration_service.migrate_single("nonexistent_type")
+        result = migration_service.migrate(["nonexistent_type"])[0]
 
         assert result.success is False
         assert "not found" in result.errors[0]
 
     def test_skips_v2_event_type(self, migration_service, v2_event_type):
-        result = migration_service.migrate_single(v2_event_type.value)
+        result = migration_service.migrate([v2_event_type.value])[0]
 
         assert result.success is False
         assert "not V1" in result.errors[0]
@@ -137,7 +138,7 @@ class TestMigrateSingle:
         v1_event_type.schema = "not valid json {{"
         v1_event_type.save(update_fields=["schema"])
 
-        result = migration_service.migrate_single(v1_event_type.value)
+        result = migration_service.migrate([v1_event_type.value])[0]
 
         assert result.success is False
         assert any("Invalid JSON in schema" in e for e in result.errors)
@@ -147,7 +148,7 @@ class TestMigrateSingle:
     def test_dry_run_does_not_persist(self, mock_transform, migration_service, v1_event_type):
         mock_transform.return_value = {"json": {"properties": {}}, "ui": {}}
 
-        result = migration_service.migrate_single(v1_event_type.value)
+        result = migration_service.migrate([v1_event_type.value])[0]
 
         assert result.success is True
         # Reload from DB - should still be V1
@@ -197,16 +198,18 @@ class TestDryRunParity:
         v1_event_type.save()
 
         dry_run_service = make_migration_service(dry_run=True)
-        dry_run_result = dry_run_service.migrate_single(v1_event_type.value)
+        dry_run_result = dry_run_service.migrate([v1_event_type.value])[0]
         assert dry_run_result.success is True
-        assert dry_run_result.metadata.get("choices", {}).get("fields")[0].get("status") == "to_create"
+        assert len(dry_run_result.hardcoded_choices) == 1
+        assert len(dry_run_result.resolved_hardcoded_choices) == 1
+        assert dry_run_result.resolved_hardcoded_choices[0].resolution.strategy == ResolutionStrategy.CREATE_NEW
 
         live_service = make_migration_service(dry_run=False)
         live_results = live_service.migrate([v1_event_type.value])
         assert live_results[0].success is True
 
         # Only one DB row should exist for the duplicated value
-        field_name = live_results[0].metadata["choices"]["fields"][0].get("field_name")
+        field_name = live_results[0].resolved_hardcoded_choices[0].resolution.choice_field_name
         assert Choice.objects.filter(model=Choice.EVENT_MODEL, field=field_name).count() == 1
 
     @patch("activity.schemas.migration.service.transform_schema")
@@ -232,7 +235,7 @@ class TestAuthorization:
     def test_denies_when_no_permission(self, mock_transform, mock_perm, migration_service_live, v1_event_type):
         mock_transform.return_value = {"json": {"properties": {}}, "ui": {}}
 
-        result = migration_service_live.migrate_single(v1_event_type.value)
+        result = migration_service_live.migrate([v1_event_type.value])[0]
 
         assert result.success is False
         assert "Permission denied" in result.errors[0]
@@ -243,102 +246,9 @@ class TestAuthorization:
         """Dry run should work even without modify permission."""
         mock_transform.return_value = {"json": {"properties": {}}, "ui": {}}
 
-        result = migration_service.migrate_single(v1_event_type.value)
+        result = migration_service.migrate([v1_event_type.value])[0]
 
         assert result.success is True
-
-
-@pytest.mark.django_db
-class TestPersistChoices:
-    """Tests for persist_choices method."""
-
-    def test_creates_new_choice_field(self, migration_service_live, hardcoded_values, migration_result_with_choices):
-        values = hardcoded_values(("high", "High"), ("low", "Low"))
-        result = migration_result_with_choices(
-            [{"field_name": "priority", "status": "to_create", "proposed_name": "test_priority", "choices": values}]
-        )
-
-        migration_service_live.persist_choices(result)
-
-        # Check Choice objects were created
-        choices = Choice.objects.filter(field="test_priority").order_by("ordernum")
-        assert choices.count() == 2
-        assert choices[0].value == "high"
-        assert choices[1].value == "low"
-        # Check status was updated
-        field_info = result.metadata["choices"]["fields"][0]
-        assert field_info["status"] == "created"
-        assert field_info["existing_choice_field"] == "test_priority"
-
-    def test_skips_non_to_create_fields(self, migration_service_live, migration_result_with_choices):
-        """persist_choices only handles to_create status; other statuses are ignored."""
-        result = migration_result_with_choices(
-            [{"field_name": "status", "status": "matched", "existing_choice_field": "status"}]
-        )
-
-        # Should not raise
-        migration_service_live.persist_choices(result)
-
-    def test_reuses_choice_field_for_similar_values(
-        self, migration_service_live, hardcoded_values, migration_result_with_choices
-    ):
-        """Test that multiple fields with same values reuse one choice field."""
-        values = hardcoded_values(("high", "High"), ("low", "Low"))
-        result = migration_result_with_choices(
-            [
-                {
-                    "field_name": "priority1",
-                    "status": "to_create",
-                    "proposed_name": "priority_options",
-                    "choices": values,
-                },
-                {
-                    "field_name": "priority2",
-                    "status": "to_create",
-                    "proposed_name": "priority_options_2",
-                    "choices": values,
-                },
-            ]
-        )
-
-        migration_service_live.persist_choices(result)
-
-        # First field should be created
-        field1 = result.metadata["choices"]["fields"][0]
-        assert field1["status"] == "created"
-        assert field1["existing_choice_field"] == "priority_options"
-
-        # Second field should reuse the first
-        field2 = result.metadata["choices"]["fields"][1]
-        assert field2["status"] == "reused"
-        assert field2["existing_choice_field"] == "priority_options"
-
-        # Only one set of choices should exist
-        assert Choice.objects.filter(field="priority_options").count() == 2
-        assert Choice.objects.filter(field="priority_options_2").count() == 0
-
-    def test_no_fields_does_nothing(self, migration_service_live, migration_result_with_choices):
-        result = migration_result_with_choices([])
-
-        # Should not raise
-        migration_service_live.persist_choices(result)
-
-    def test_creation_error_propagates_to_result(
-        self, migration_service_live, hardcoded_values, migration_result_with_choices
-    ):
-        """If create_choice_field fails, the error should propagate to result.errors."""
-        values = hardcoded_values(("high", "High"), ("low", "Low"))
-        result = migration_result_with_choices(
-            [{"field_name": "priority", "status": "to_create", "proposed_name": "test_priority", "choices": values}]
-        )
-
-        with patch.object(ChoiceProcessor, "create_choice_field", side_effect=Exception("DB error")):
-            migration_service_live.persist_choices(result)
-
-        assert not result.success
-        assert any("Failed to create choice field" in e for e in result.errors)
-        field_info = result.metadata["choices"]["fields"][0]
-        assert field_info["status"] == "error"
 
 
 @pytest.mark.django_db
@@ -355,8 +265,8 @@ class TestMigrate:
         results = migration_service.migrate(["type_1", "type_2"])
 
         assert len(results) == 2
-        assert results[0].event_type == "type_1"
-        assert results[1].event_type == "type_2"
+        assert results[0].event_type_value == "type_1"
+        assert results[1].event_type_value == "type_2"
 
     def test_handles_mixed_success_failure(self, migration_service, v1_event_type):
         results = migration_service.migrate([v1_event_type.value, "nonexistent"])
@@ -367,169 +277,228 @@ class TestMigrate:
         assert results[1].success is False
         assert "not found" in results[1].errors[0]
 
+    def test_failed_producer_blocks_only_dependent_result(self, migration_service_live):
+        producer = MigrationResult(
+            event_type_value="producer",
+            migration_request=MigrationRequest(event_type_value="producer"),
+            hardcoded_choices=[],
+            resolved_hardcoded_choices=[
+                ResolvedHardcodedChoice(
+                    property_path=["severity"],
+                    choices=[{"value": "low", "display": "Low"}],
+                    resolution=HardcodedChoiceResolution(
+                        property_path=["severity"],
+                        strategy=ResolutionStrategy.CREATE_NEW,
+                        choice_field_name="shared_severity",
+                    ),
+                )
+            ],
+        )
+        dependent = MigrationResult(
+            event_type_value="dependent",
+            migration_request=MigrationRequest(event_type_value="dependent"),
+            hardcoded_choices=[],
+            resolved_hardcoded_choices=[
+                ResolvedHardcodedChoice(
+                    property_path=["severity"],
+                    choices=[{"value": "low", "display": "Low"}],
+                    resolution=HardcodedChoiceResolution(
+                        property_path=["severity"],
+                        strategy=ResolutionStrategy.USE_PROPOSED,
+                        choice_field_name="shared_severity",
+                    ),
+                )
+            ],
+        )
+        independent = MigrationResult(
+            event_type_value="independent",
+            migration_request=MigrationRequest(event_type_value="independent"),
+            hardcoded_choices=[],
+            resolved_hardcoded_choices=[
+                ResolvedHardcodedChoice(
+                    property_path=["impact"],
+                    choices=[{"value": "high", "display": "High"}],
+                    resolution=HardcodedChoiceResolution(
+                        property_path=["impact"],
+                        strategy=ResolutionStrategy.CREATE_NEW,
+                        choice_field_name="independent_impact",
+                    ),
+                )
+            ],
+        )
+
+        with (
+            patch.object(MigrationService, "collect_info", side_effect=[producer, dependent, independent]),
+            patch.object(MigrationService, "validate_migration_requests"),
+            patch.object(MigrationService, "can_modify_event_type", return_value=True),
+            patch.object(MigrationService, "persist_migration") as persist_migration,
+        ):
+
+            def persist_side_effect(result, choice_processor):
+                if result.event_type_value == "producer":
+                    result.errors.append("producer failed")
+                    return
+                result.metadata["persisted"] = True
+
+            persist_migration.side_effect = persist_side_effect
+
+            results = migration_service_live.migrate(
+                [
+                    {"event_type_value": "producer"},
+                    {"event_type_value": "dependent"},
+                    {"event_type_value": "independent"},
+                ]
+            )
+
+        assert results[0].success is False
+        assert any("producer failed" in error for error in results[0].errors)
+        assert results[1].success is False
+        assert any("dependencies were not persisted successfully" in error for error in results[1].errors)
+        assert results[2].success is True
+        assert results[2].metadata["persisted"] is True
+
 
 @pytest.mark.django_db
-class TestProcessChoices:
-    """Tests for process_choices method."""
-
-    def test_processes_hardcoded_choices_in_schema(self, migration_service, v2_schema_with_fields, migration_result):
-        v2_schema = v2_schema_with_fields({"severity": [("low", "Low"), ("high", "High")]})
-        result = migration_result()
-
-        migration_service.process_choices(v2_schema, result)
-
-        assert "choices" in result.metadata
-        assert len(result.metadata["choices"]["fields"]) == 1
-        field_info = result.metadata["choices"]["fields"][0]
-        assert field_info["field_name"] == "severity"
-        assert field_info["status"] == "to_create"
-
-    def test_no_hardcoded_choices(self, migration_service, v2_schema_with_fields, migration_result):
-        v2_schema = v2_schema_with_fields({"name": {"type": "string"}})
-        result = migration_result()
-
-        migration_service.process_choices(v2_schema, result)
-
-        assert result.metadata["choices"]["fields"] == []
-
-    def test_candidate_fields_produce_errors(
-        self, make_migration_service, create_choice_field, v2_schema_with_fields, migration_result
-    ):
-        """Candidate (partial match) fields should add errors to block migration."""
-        create_choice_field("status", [("open", "Open"), ("closed", "Closed")])
-        service = make_migration_service()
-        v2_schema = v2_schema_with_fields({"status": [("open", "Open"), ("closed", "Closed"), ("pending", "Pending")]})
-        result = migration_result()
-
-        service.process_choices(v2_schema, result)
-
-        assert not result.success
-        assert len(result.errors) == 1
-        assert "partial match" in result.errors[0]
-        assert "Cannot auto-migrate" in result.errors[0]
-
-    def test_matched_fields_do_not_produce_errors(
-        self, make_migration_service, create_choice_field, v2_schema_with_fields, migration_result
-    ):
-        """100% matched fields should not produce errors."""
-        create_choice_field("priority", [("high", "High"), ("low", "Low")])
-        service = make_migration_service()
-        v2_schema = v2_schema_with_fields({"priority": [("high", "High"), ("low", "Low")]})
-        result = migration_result()
-
-        service.process_choices(v2_schema, result)
-
-        assert result.success
-        assert len(result.errors) == 0
-
-    def test_to_create_fields_do_not_produce_errors(self, migration_service, v2_schema_with_fields, migration_result):
-        """No-match fields (to_create) should not produce errors."""
-        v2_schema = v2_schema_with_fields({"severity": [("low", "Low"), ("high", "High")]})
-        result = migration_result()
-
-        migration_service.process_choices(v2_schema, result)
-
-        assert result.success
-        assert len(result.errors) == 0
-        assert result.metadata["choices"]["fields"][0]["status"] == "to_create"
-
-    def test_batch_conflict_subset_blocks_migration(self, migration_service, v2_schema_with_fields, migration_result):
-        """Field B (b,c,d) is a subset of Field A (a,b,c,d) — Jaccard 3/4=0.75 ≥ 2/3."""
-        v2_schema = v2_schema_with_fields(
-            {
-                "severity": [("a", "A"), ("b", "B"), ("c", "C"), ("d", "D")],
-                "impact": [("b", "B"), ("c", "C"), ("d", "D")],
-            }
+@pytest.mark.usefixtures("tenant_settings")
+class TestPersistMigration:
+    def test_same_result_merge_into_proposed_creates_then_merges(self, migration_service_live, v1_event_type):
+        result = MigrationResult(
+            event_type_value=v1_event_type.value,
+            event_type=v1_event_type,
+            v2_schema={
+                "json": {
+                    "properties": {
+                        "severity": {
+                            "type": "string",
+                            "anyOf": [{"title": "Hardcoded", "oneOf": [{"const": "low", "title": "Low"}]}],
+                        },
+                        "impact": {
+                            "type": "string",
+                            "anyOf": [{"title": "Hardcoded", "oneOf": [{"const": "high", "title": "High"}]}],
+                        },
+                    }
+                },
+                "ui": {},
+            },
+            resolved_hardcoded_choices=[
+                ResolvedHardcodedChoice(
+                    property_path=["severity"],
+                    choices=[{"value": "low", "display": "Low"}],
+                    resolution=HardcodedChoiceResolution(
+                        property_path=["severity"],
+                        strategy=ResolutionStrategy.CREATE_NEW,
+                        choice_field_name="shared_severity",
+                    ),
+                ),
+                ResolvedHardcodedChoice(
+                    property_path=["impact"],
+                    choices=[{"value": "high", "display": "High"}],
+                    resolution=HardcodedChoiceResolution(
+                        property_path=["impact"],
+                        strategy=ResolutionStrategy.MERGE_INTO_PROPOSED,
+                        choice_field_name="shared_severity",
+                        missing_choices=[{"value": "high", "display": "High"}],
+                    ),
+                ),
+            ],
         )
-        result = migration_result()
 
-        migration_service.process_choices(v2_schema, result)
+        migration_service_live.persist_migration(result, ChoiceProcessor())
 
-        assert not result.success
-        assert any("partial match" in e for e in result.errors)
-
-    def test_batch_conflict_superset_blocks_migration(self, migration_service, v2_schema_with_fields, migration_result):
-        """Field C (a,b,c,d,e) is a superset of Field A (a,b,c,d) — Jaccard 4/5=0.80 ≥ 2/3."""
-        v2_schema = v2_schema_with_fields(
-            {
-                "severity": [("a", "A"), ("b", "B"), ("c", "C"), ("d", "D")],
-                "full_severity": [("a", "A"), ("b", "B"), ("c", "C"), ("d", "D"), ("e", "E")],
-            }
-        )
-        result = migration_result()
-
-        migration_service.process_choices(v2_schema, result)
-
-        assert not result.success
-        assert any("partial match" in e for e in result.errors)
-
-    def test_batch_no_conflict_below_threshold(self, migration_service, v2_schema_with_fields, migration_result):
-        """Fields with low overlap (Jaccard 1/7=0.14 < 2/3) should not block."""
-        v2_schema = v2_schema_with_fields(
-            {
-                "field_a": [("a", "A"), ("b", "B"), ("c", "C"), ("d", "D")],
-                "field_b": [("d", "D"), ("e", "E"), ("f", "F"), ("g", "G")],
-            }
-        )
-        result = migration_result()
-
-        migration_service.process_choices(v2_schema, result)
-
-        assert result.success
-
-    def test_batch_exact_duplicate_values_allowed(self, migration_service, v2_schema_with_fields, migration_result):
-        """Exact same values (Jaccard=1.0) are allowed — handled by persist_choices dedup."""
-        v2_schema = v2_schema_with_fields(
-            {
-                "field_a": [("a", "A"), ("b", "B")],
-                "field_b": [("a", "A"), ("b", "B")],
-            }
-        )
-        result = migration_result()
-
-        migration_service.process_choices(v2_schema, result)
-
-        assert result.success
-
-    def test_batch_conflict_schema_not_rewritten_to_ref(
-        self, migration_service, v2_schema_with_fields, migration_result
-    ):
-        """Conflicting fields should keep hardcoded values (not rewritten to $ref)."""
-        v2_schema = v2_schema_with_fields(
-            {
-                "severity": [("a", "A"), ("b", "B"), ("c", "C"), ("d", "D")],
-                "impact": [("b", "B"), ("c", "C"), ("d", "D")],
-            }
-        )
-        result = migration_result()
-
-        migration_service.process_choices(v2_schema, result)
-
-        # Both fields should still have hardcoded oneOf structure
-        for field_name in ("severity", "impact"):
-            field_schema = v2_schema["json"]["properties"][field_name]
-            assert any("oneOf" in opt for opt in field_schema["anyOf"])
+        assert result.success is True
+        assert result.metadata["persisted"] is True
+        assert list(
+            Choice.objects.filter(field="shared_severity").order_by("ordernum").values_list("value", flat=True)
+        ) == ["low", "high"]
+        assert result.v2_schema["json"]["properties"]["severity"]["anyOf"][0]["$ref"].endswith("?field=shared_severity")
+        assert result.v2_schema["json"]["properties"]["impact"]["anyOf"][0]["$ref"].endswith("?field=shared_severity")
 
 
-class TestGetValuesKey:
-    """Tests for _get_values_key helper method."""
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestChoiceResolutionAnalysis:
+    @patch("activity.schemas.migration.service.transform_schema")
+    def test_collects_hardcoded_choices_and_auto_resolution(self, mock_transform, migration_service, v1_event_type):
+        mock_transform.return_value = {
+            "json": {
+                "properties": {
+                    "severity": {
+                        "title": "Severity",
+                        "type": "string",
+                        "anyOf": [
+                            {
+                                "title": "Hardcoded",
+                                "type": "string",
+                                "oneOf": [
+                                    {"const": "low", "title": "Low"},
+                                    {"const": "high", "title": "High"},
+                                ],
+                            }
+                        ],
+                    }
+                }
+            },
+            "ui": {},
+        }
 
-    def test_generates_consistent_key(self, migration_service, choice_processor, hardcoded_values):
-        values = hardcoded_values(("b_value", "B"), ("a_value", "A"))
+        result = migration_service.migrate([v1_event_type.value])[0]
 
-        key = migration_service._get_values_key(values, choice_processor)
+        assert result.success is True
+        assert len(result.hardcoded_choices) == 1
+        hardcoded_choice = result.hardcoded_choices[0]
+        assert hardcoded_choice.property_path == ["severity"]
+        assert [option.strategy for option in hardcoded_choice.resolution_options] == [ResolutionStrategy.CREATE_NEW]
+        assert len(result.resolved_hardcoded_choices) == 1
+        assert result.resolved_hardcoded_choices[0].resolution.strategy == ResolutionStrategy.CREATE_NEW
 
-        # Should be sorted and normalized
-        assert key == "a-value|b-value"
+    @patch("activity.schemas.migration.service.transform_schema")
+    def test_same_result_overlap_requires_explicit_resolution(self, mock_transform, migration_service, v1_event_type):
+        mock_transform.return_value = {
+            "json": {
+                "properties": {
+                    "severity": {
+                        "title": "Severity",
+                        "type": "string",
+                        "anyOf": [
+                            {
+                                "title": "Hardcoded",
+                                "type": "string",
+                                "oneOf": [
+                                    {"const": "a", "title": "A"},
+                                    {"const": "b", "title": "B"},
+                                    {"const": "c", "title": "C"},
+                                    {"const": "d", "title": "D"},
+                                ],
+                            }
+                        ],
+                    },
+                    "impact": {
+                        "title": "Impact",
+                        "type": "string",
+                        "anyOf": [
+                            {
+                                "title": "Hardcoded",
+                                "type": "string",
+                                "oneOf": [
+                                    {"const": "b", "title": "B"},
+                                    {"const": "c", "title": "C"},
+                                    {"const": "d", "title": "D"},
+                                ],
+                            }
+                        ],
+                    },
+                }
+            },
+            "ui": {},
+        }
 
-    def test_normalizes_for_comparison(self, migration_service, choice_processor):
-        values1 = [{"value": "High_Priority", "display": "High"}]
-        values2 = [{"value": "high-priority", "display": "High"}]
+        result = migration_service.migrate([v1_event_type.value])[0]
 
-        key1 = migration_service._get_values_key(values1, choice_processor)
-        key2 = migration_service._get_values_key(values2, choice_processor)
-
-        assert key1 == key2
+        assert result.success is False
+        assert any("Resolution required for property path" in error for error in result.errors)
+        assert result.v2_schema is not None
+        assert any("oneOf" in option for option in result.v2_schema["json"]["properties"]["severity"]["anyOf"])
+        assert any("oneOf" in option for option in result.v2_schema["json"]["properties"]["impact"]["anyOf"])
 
 
 @pytest.mark.django_db
@@ -549,7 +518,7 @@ class TestErrorTruncation:
         mock_collector.get_errors.return_value = [{"message": "Invalid field mapping"}]
         mock_collector.get_features.return_value = {}
 
-        result = migration_service.migrate_single(v1_event_type.value)
+        result = migration_service.migrate([v1_event_type.value])[0]
 
         assert result.success is False
         assert "Invalid field mapping" in result.errors[0]
@@ -566,7 +535,7 @@ class TestErrorTruncation:
         mock_collector.get_errors.return_value = [{"message": "Critical error"}]
         mock_collector.get_features.return_value = {}
 
-        result = migration_service.migrate_single(v1_event_type.value)
+        result = migration_service.migrate([v1_event_type.value])[0]
 
         assert result.v2_schema is None
         assert len(result.errors) == 1
@@ -606,7 +575,7 @@ class TestEndToEndRewrite:
             "ui": {},
         }
 
-        result = migration_service.migrate_single(v1_event_type.value)
+        result = migration_service.migrate([v1_event_type.value])[0]
 
         assert result.success is True
         assert result.v2_schema is not None
@@ -634,7 +603,7 @@ class TestEndToEndRewrite:
         }
         mock_transform.return_value = clean_schema
 
-        result = migration_service.migrate_single(v1_event_type.value)
+        result = migration_service.migrate([v1_event_type.value])[0]
 
         assert result.success is True
         assert result.v2_schema == clean_schema
@@ -669,10 +638,10 @@ class TestEndToEndRewrite:
             "ui": {},
         }
 
-        result = service.migrate_single(v1_event_type.value)
+        result = service.migrate([v1_event_type.value])[0]
 
         assert result.success is False
-        assert any("Cannot auto-migrate" in e for e in result.errors)
+        assert any("Resolution required for property path" in e for e in result.errors)
         # Schema is still set for preview purposes
         assert result.v2_schema is not None
         # Candidate field should NOT be rewritten to $ref
@@ -709,7 +678,7 @@ class TestEndToEndRewrite:
             "ui": {},
         }
 
-        result = service.migrate_single(v1_event_type.value)
+        result = service.migrate([v1_event_type.value])[0]
 
         assert result.success is False
         # Should NOT persist
