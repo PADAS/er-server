@@ -84,6 +84,7 @@ class MigrationService:
                     self.persist_choices(result)
                     if not result.success:
                         transaction.set_rollback(True)
+                        continue
                     self.persist_migration(result.event_type_instance, result)
                     if not result.success:
                         transaction.set_rollback(True)
