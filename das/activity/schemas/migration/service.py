@@ -25,6 +25,9 @@ from .choice_processor import (
     ChoiceProcessor,
     HardcodedChoice,
     HardcodedChoiceResolution,
+    ResolutionStrategy,
+    get_field_schema_from_prop_path,
+    rewrite_field_to_ref,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,10 +73,17 @@ class MigrationRequest:
 
 
 @dataclass
+class ResolvedHardcodedChoice:
+    property_path: List[str]
+    choices: List[Dict[str, str]]
+    resolution: HardcodedChoiceResolution
+
+
+@dataclass
 class MigrationResult:
     """Result of migrating a single EventType."""
 
-    event_type_value: str
+    event_type_value: str = ""
     event_type: Optional[EventType] = None
     migration_request: Optional[MigrationRequest] = None
     v2_schema: Optional[Dict[str, Any]] = None
@@ -82,6 +92,7 @@ class MigrationResult:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     hardcoded_choices: Optional[List[HardcodedChoice]] = None
+    resolved_hardcoded_choices: Optional[List[ResolvedHardcodedChoice]] = None
 
     @property
     def success(self) -> bool:
@@ -111,6 +122,7 @@ class MigrationService:
         self.proposed_choices: Dict[str, List[str]] = {}
 
     def get_existing_choice_fields(self) -> Dict[str, List[str]]:
+
         fields: Dict[str, List[str]] = {}
         choices = Choice.objects.filter(model=Choice.EVENT_MODEL, is_active=True).values_list("field", "value")
 
@@ -122,9 +134,12 @@ class MigrationService:
         return fields
 
     def index_selected_resolutions(self, result: MigrationResult) -> Dict[tuple[str, ...], HardcodedChoiceResolution]:
+        """
+        Index selected resolutions by property path (as tuple) for quick lookup.
+        """
         selected_resolutions: Dict[tuple[str, ...], HardcodedChoiceResolution] = {}
 
-        if not result.migration_request.hardcoded_choices_resolutions:
+        if not result.migration_request or not result.migration_request.hardcoded_choices_resolutions:
             return selected_resolutions
 
         for resolution in result.migration_request.hardcoded_choices_resolutions:
@@ -177,12 +192,154 @@ class MigrationService:
             except ValueError as exc:
                 result.errors.append(f"{hardcoded_choice.property_path}: {exc}")
 
+    def get_effective_resolution(
+        self,
+        hardcoded_choice: HardcodedChoice,
+        selected_resolutions: Dict[tuple[str, ...], HardcodedChoiceResolution],
+        choice_processor: ChoiceProcessor,
+    ) -> HardcodedChoiceResolution | None:
+        property_path = tuple(hardcoded_choice.property_path)
+        selected_resolution = selected_resolutions.get(property_path)
+
+        if selected_resolution is None:
+            try:
+                if hardcoded_choice.needs_resolution():
+                    return None
+            except ValueError:
+                return None
+
+            option = hardcoded_choice.resolution_options[0]
+            return HardcodedChoiceResolution(
+                strategy=option.strategy,
+                choice_field_name=option.choice_field_name,
+                missing_choices=option.missing_choices,
+                property_path=list(option.property_path or hardcoded_choice.property_path),
+            )
+
+        matched_option = choice_processor.find_matching_resolution_option(hardcoded_choice, selected_resolution)
+        if matched_option is None:
+            return None
+
+        return HardcodedChoiceResolution(
+            strategy=selected_resolution.strategy,
+            choice_field_name=selected_resolution.choice_field_name or matched_option.choice_field_name,
+            missing_choices=matched_option.missing_choices,
+            property_path=list(selected_resolution.property_path or matched_option.property_path or property_path),
+        )
+
+    def resolve_hardcoded_choices(
+        self,
+        result: MigrationResult,
+        selected_resolutions: Dict[tuple[str, ...], HardcodedChoiceResolution],
+        choice_processor: ChoiceProcessor,
+    ) -> List["ResolvedHardcodedChoice"]:
+        resolved_hardcoded_choices: List[ResolvedHardcodedChoice] = []
+
+        for hardcoded_choice in result.hardcoded_choices or []:
+            effective_resolution = self.get_effective_resolution(
+                hardcoded_choice,
+                selected_resolutions,
+                choice_processor,
+            )
+            if effective_resolution is None:
+                continue
+
+            resolved_hardcoded_choices.append(
+                ResolvedHardcodedChoice(
+                    property_path=list(hardcoded_choice.property_path),
+                    choices=hardcoded_choice.choices,
+                    resolution=effective_resolution,
+                )
+            )
+
+        return resolved_hardcoded_choices
+
+    def validate_create_new_targets(
+        self,
+        results: List[MigrationResult],
+    ) -> Dict[str, int]:
+        create_new_targets: Dict[str, int] = {}
+
+        for result_index, result in enumerate(results):
+            if not result.success or not result.resolved_hardcoded_choices:
+                continue
+
+            for resolved_choice in result.resolved_hardcoded_choices:
+                resolution = resolved_choice.resolution
+                if resolution.strategy != ResolutionStrategy.CREATE_NEW:
+                    continue
+
+                choice_field_name = resolution.choice_field_name
+                if not choice_field_name:
+                    result.errors.append(
+                        f"CREATE_NEW resolution is missing choice_field_name for property path: "
+                        f"{resolved_choice.property_path}"
+                    )
+                    continue
+
+                if choice_field_name in self.existing_choices:
+                    result.errors.append(
+                        f"Choice field '{choice_field_name}' already exists and cannot be created again"
+                    )
+                    continue
+
+                if choice_field_name in create_new_targets:
+                    result.errors.append(
+                        f"Choice field '{choice_field_name}' is already planned for creation in this batch"
+                    )
+                    continue
+
+                create_new_targets[choice_field_name] = result_index
+
+        return create_new_targets
+
+    def validate_resolution_dependencies(
+        self,
+        results: List[MigrationResult],
+        create_new_targets: Dict[str, int],
+    ) -> None:
+        for result_index, result in enumerate(results):
+            if not result.success or not result.resolved_hardcoded_choices:
+                continue
+
+            for resolved_choice in result.resolved_hardcoded_choices:
+                resolution = resolved_choice.resolution
+                choice_field_name = resolution.choice_field_name
+
+                if resolution.strategy not in (
+                    ResolutionStrategy.USE_PROPOSED,
+                    ResolutionStrategy.MERGE_INTO_PROPOSED,
+                ):
+                    continue
+
+                producer_index = create_new_targets.get(choice_field_name)
+                if producer_index is None:
+                    result.errors.append(
+                        f"Proposed choice field '{choice_field_name}' is not planned for creation in this batch"
+                    )
+                    continue
+
+                if producer_index > result_index:
+                    result.errors.append(
+                        f"Proposed choice field '{choice_field_name}' is created by a later migration request"
+                    )
+                    continue
+
+                producer_result = results[producer_index]
+                if not producer_result.success:
+                    result.errors.append(
+                        f"Proposed choice field '{choice_field_name}' depends on an invalid migration request"
+                    )
+
     def validate_migration_requests(self, results: List[MigrationResult], choice_processor: ChoiceProcessor) -> None:
+        selected_resolutions_by_result: Dict[int, Dict[tuple[str, ...], HardcodedChoiceResolution]] = {}
+
         for result in results:
             if not result.success or not result.hardcoded_choices:
                 continue
 
             selected_resolutions = self.index_selected_resolutions(result)
+            selected_resolutions_by_result[id(result)] = selected_resolutions
             hardcoded_choices_by_path = {tuple(choice.property_path): choice for choice in result.hardcoded_choices}
             self.validate_selected_resolutions(
                 result,
@@ -191,6 +348,62 @@ class MigrationService:
                 choice_processor,
             )
             self.validate_required_resolutions(result, selected_resolutions)
+
+        for result in results:
+            if not result.success or not result.hardcoded_choices:
+                continue
+
+            result.resolved_hardcoded_choices = self.resolve_hardcoded_choices(
+                result,
+                selected_resolutions_by_result.get(id(result), {}),
+                choice_processor,
+            )
+
+        create_new_targets = self.validate_create_new_targets(results)
+        self.validate_resolution_dependencies(results, create_new_targets)
+
+    def get_created_choice_fields(self, result: MigrationResult) -> set[str]:
+        return {
+            resolved_choice.resolution.choice_field_name
+            for resolved_choice in result.resolved_hardcoded_choices or []
+            if resolved_choice.resolution.strategy == ResolutionStrategy.CREATE_NEW
+        }
+
+    def dependencies_ready_for_persistence(
+        self,
+        result: MigrationResult,
+        persisted_choice_fields: set[str],
+    ) -> bool:
+        local_created_fields = self.get_created_choice_fields(result)
+        blocked_fields = sorted(
+            {
+                resolved_choice.resolution.choice_field_name
+                for resolved_choice in result.resolved_hardcoded_choices or []
+                if resolved_choice.resolution.strategy
+                in (
+                    ResolutionStrategy.USE_PROPOSED,
+                    ResolutionStrategy.MERGE_INTO_PROPOSED,
+                )
+                and resolved_choice.resolution.choice_field_name not in local_created_fields
+                and resolved_choice.resolution.choice_field_name not in persisted_choice_fields
+            }
+        )
+
+        if not blocked_fields:
+            return True
+
+        result.errors.append(
+            f"Proposed choice field dependencies were not persisted successfully: {', '.join(blocked_fields)}"
+        )
+        return False
+
+    def apply_preview_choice_rewrites(self, result: MigrationResult) -> None:
+        if not result.v2_schema:
+            return
+
+        for resolved_choice in result.resolved_hardcoded_choices or []:
+            field_schema = get_field_schema_from_prop_path(result.v2_schema, resolved_choice.property_path)
+            rewrite_field_to_ref(field_schema, resolved_choice.resolution.choice_field_name)
 
     def get_v1_event_types(self) -> List[str]:
         """Get all V1 EventType values."""
@@ -223,22 +436,33 @@ class MigrationService:
 
         # Phase 3: Validate migration requests and prepare for persistence
         self.validate_migration_requests(results, choice_processor)
+        for result in results:
+            if result.success:
+                self.apply_preview_choice_rewrites(result)
 
         if self.dry_run:
             return results
-        # Phase 3: Persistence (only if not dry run)
+
+        # Phase 4: Persistence (only if not dry run)
         # We build a data structure that holds what choices have been successfully created
         # So we know how to handle the ones that may depend on them
-
         # Atomic persist for each event type schema and it's associated choices while respecting dependencies
+        persisted_choice_fields: set[str] = set()
+
         for result in results:
             if not result.success:
+                continue
+
+            if not self.dependencies_ready_for_persistence(result, persisted_choice_fields):
                 continue
 
             with transaction.atomic():
                 self.persist_migration(result, choice_processor)
                 if not result.success:
                     transaction.set_rollback(True)
+                    continue
+
+            persisted_choice_fields.update(self.get_created_choice_fields(result))
 
         return results
 
@@ -290,7 +514,7 @@ class MigrationService:
             result.errors.append(f"Invalid JSON in schema: {e}")
             return
 
-        result.v2_schema = transform_schema(v1_schema, log_collector)
+        transformed_schema = transform_schema(v1_schema, log_collector)
 
         # Collect warnings/errors from transformation
         for warning in log_collector.get_warnings():
@@ -307,21 +531,40 @@ class MigrationService:
         if len(result.metadata["unsupported_features"]) > 0:
             result.errors.append("Unsupported features found in schema: look at metadata for details")
 
-    def persist_migration(self, result: MigrationResult, choice_processor: ChoiceProcessor) -> None:
-        """
-        Persist the migrated schema and its hardcoded choices. For each hardcoded choice,
-        we will follow the user specified or default behavior in HardcodedChoiceResolution.
+        if result.errors:
+            return
 
-        Args:
-            result (MigrationResult): Migration result containing the migrated schema and choices.
-        """
+        result.v2_schema = transformed_schema
+
+    def persist_migration(self, result: MigrationResult, choice_processor: ChoiceProcessor) -> None:
         if not result.success:
             return
 
         event_type = result.event_type
 
         try:
-            choice_processor.persist_hardcoded_choices(event_type, result)
+            for resolved_choice in result.resolved_hardcoded_choices or []:
+                resolution = resolved_choice.resolution
+                if resolution.strategy != ResolutionStrategy.CREATE_NEW:
+                    continue
+                choice_processor.create_choice_field(resolution.choice_field_name, resolved_choice.choices)
+
+            for resolved_choice in result.resolved_hardcoded_choices or []:
+                resolution = resolved_choice.resolution
+                if resolution.strategy not in (
+                    ResolutionStrategy.MERGE_INTO_EXISTING,
+                    ResolutionStrategy.MERGE_INTO_PROPOSED,
+                ):
+                    continue
+                choice_processor.add_values_to_choice_field(
+                    resolution.choice_field_name,
+                    resolution.missing_choices or [],
+                )
+
+            for resolved_choice in result.resolved_hardcoded_choices or []:
+                field_schema = get_field_schema_from_prop_path(result.v2_schema, resolved_choice.property_path)
+                rewrite_field_to_ref(field_schema, resolved_choice.resolution.choice_field_name)
+
             event_type.schema = json.dumps(result.v2_schema, indent=2)
             event_type.version = EventType.VersionChoices.VERSION_2
             event_type.save(update_fields=["schema", "version", "updated_at"])

@@ -72,17 +72,27 @@ class HardcodedChoice:
 
 
 def get_field_schema_from_prop_path(v2_schema: Dict[str, Any], prop_path: List[str]) -> Dict[str, Any]:
-    """Get the field schema from a property path. Assumes the path is valid.
-    Neccesary because collection fields allow to have nested structures.
+    """Get the field schema from a property path."""
+    current_properties = v2_schema.get("json", {}).get("properties", {})
+    field_schema: Dict[str, Any] | None = None
 
-    (Remember, prop_path is a list of property names", not JSON pointers.)
-    """
-    # TODO: Implement this method
+    for index, field_name in enumerate(prop_path):
+        field_schema = current_properties[field_name]
+        if index == len(prop_path) - 1:
+            return field_schema
+
+        if field_schema.get("type") == "array":
+            current_properties = field_schema.get("items", {}).get("properties", {})
+            continue
+
+        current_properties = field_schema.get("properties", {})
+
+    raise KeyError(f"Invalid property path: {prop_path}")
 
 
 def rewrite_field_to_ref(field_schema: Dict[str, Any], choice_field_name: str) -> None:
     """Replace hardcoded anyOf/oneOf with a $ref to the choices endpoint. Mutates in-place."""
-    ref_url = f"{ChoiceProcessor.choices_base_url}?field={choice_field_name}"
+    ref_url = f"{reverse('schemas:choices')}?field={choice_field_name}"
     field_schema["anyOf"] = [{"$ref": ref_url}]
 
 
@@ -113,22 +123,27 @@ class ChoiceProcessor:
     # Minimum overlap ratio to consider an existing (or proposed) choice field a "match"
     MATCH_THRESHOLD = 2 / 3
 
-    def __init__(self):
-        """
-        Args:
-            proposed_choices: Shared mutable registry across the migration batch.
-                When a field is 'to_create', its values are added here so
-                subsequent event types can match against them.
-            existing_choices: Pre-loaded map of field_name -> [values] from DB.
-        """
-        self.proposed_choices = {}
-        self.existing_choices = {}
+    def __init__(
+        self,
+        event_type_value: str = "",
+        choices_base_url: str | None = None,
+        proposed_choices: Optional[Dict[str, List[str]]] = None,
+        existing_choices: Optional[Dict[str, List[str]]] = None,
+    ):
+        self.event_type_value = event_type_value
+        self.proposed_choices = proposed_choices or {}
+        self.existing_choices = existing_choices or {}
+        if choices_base_url is not None:
+            self._choices_base_url = choices_base_url
 
     @property
     def choices_base_url(self):
         if not hasattr(self, "_choices_base_url"):
             self._choices_base_url = reverse("schemas:choices")
         return self._choices_base_url
+
+    def normalize_for_matching(self, value: str) -> str:
+        return normalize_for_matching(value)
 
     def get_hardcoded_choices(self, v2_schema: dict) -> List[HardcodedChoice]:
         """Analyze all fields, builds a data structure with the results."""
@@ -215,6 +230,19 @@ class ChoiceProcessor:
                 continue
             for hardcoded_choice in result.hardcoded_choices:
                 hardcoded_choice.resolution_options = self.get_possible_choice_resolutions(result, hardcoded_choice)
+                create_resolution = next(
+                    (
+                        option
+                        for option in hardcoded_choice.resolution_options
+                        if option.strategy == ResolutionStrategy.CREATE_NEW and option.choice_field_name
+                    ),
+                    None,
+                )
+                if create_resolution is not None:
+                    self.proposed_choices.setdefault(
+                        create_resolution.choice_field_name,
+                        [choice["value"] for choice in hardcoded_choice.choices],
+                    )
 
     def resolution_matches_option(
         self,
@@ -403,6 +431,7 @@ class ChoiceProcessor:
         """Create Choice objects for a new choice field."""
         seen_values = set()
         ordernum = 0
+        choices_to_create = []
         for item in values:
             value = item.get("value")
             if not value:
@@ -414,45 +443,54 @@ class ChoiceProcessor:
 
             seen_values.add(value)
 
-            Choice.objects.create(
-                model=Choice.EVENT_MODEL,
-                field=field_name,
-                value=value,
-                display=item.get("display", value),
-                ordernum=ordernum,
+            choices_to_create.append(
+                Choice(
+                    model=Choice.EVENT_MODEL,
+                    field=field_name,
+                    value=value,
+                    display=item.get("display", value),
+                    ordernum=ordernum,
+                )
             )
 
             ordernum += 1
 
+        if choices_to_create:
+            Choice.objects.bulk_create(choices_to_create)
+
     def add_values_to_choice_field(self, field_name: str, values: List[Dict[str, str]]) -> int:
         """Add missing values to an existing choice field. Returns count added."""
         # Get next ordernum for this field
-        max_order = Choice.objects.filter(
-            model=Choice.EVENT_MODEL,
-            field=field_name,
-        ).aggregate(
+        max_order = Choice.objects.filter(model=Choice.EVENT_MODEL, field=field_name).aggregate(
             max_order=models.Max("ordernum")
         )["max_order"]
         next_order = (max_order or 0) + 1
+        existing_values = set(
+            Choice.objects.filter(model=Choice.EVENT_MODEL, field=field_name).values_list("value", flat=True)
+        )
+        choices_to_create = []
 
-        added = 0
         for item in values:
             value = item["value"]
             if not value:
                 continue
 
-            # Check if value already exists (shouldn't, but be safe)
-            if Choice.objects.filter(model=Choice.EVENT_MODEL, field=field_name, value=value).exists():
+            if value in existing_values:
                 continue
 
-            Choice.objects.create(
-                model=Choice.EVENT_MODEL,
-                field=field_name,
-                value=value,
-                display=item.get("display", value),
-                ordernum=next_order,
+            existing_values.add(value)
+            choices_to_create.append(
+                Choice(
+                    model=Choice.EVENT_MODEL,
+                    field=field_name,
+                    value=value,
+                    display=item.get("display", value),
+                    ordernum=next_order,
+                )
             )
             next_order += 1
-            added += 1
 
-        return added
+        if choices_to_create:
+            Choice.objects.bulk_create(choices_to_create)
+
+        return len(choices_to_create)
