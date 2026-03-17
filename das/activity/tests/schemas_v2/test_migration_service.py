@@ -24,26 +24,12 @@ class TestMigrationResult:
     """Tests for MigrationResult dataclass."""
 
     def test_success_when_no_errors(self):
-        result = MigrationResult(event_type="test")
+        result = MigrationResult(event_type_value="test")
         assert result.success is True
 
     def test_failure_when_errors_present(self):
-        result = MigrationResult(event_type="test", errors=["Something failed"])
+        result = MigrationResult(event_type_value="test", errors=["Something failed"])
         assert result.success is False
-
-    def test_to_dict(self):
-        result = MigrationResult(
-            event_type="test",
-            v2_schema={"json": {}},
-            warnings=["Warning 1"],
-            metadata={"key": "value"},
-        )
-        d = result.to_dict()
-        assert d["event_type"] == "test"
-        assert d["v2_schema"] == {"json": {}}
-        assert d["warnings"] == ["Warning 1"]
-        assert d["errors"] == []
-        assert d["metadata"] == {"key": "value"}
 
 
 class TestMigrationRequest:

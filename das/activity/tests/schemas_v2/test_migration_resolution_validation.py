@@ -163,3 +163,214 @@ class TestResolutionSelectionValidation:
 
         assert result.success is False
         assert "Unknown hardcoded choice resolution property path" in result.errors[0]
+
+    def test_rejects_use_proposed_from_later_request(self):
+        service = MigrationService(request=None)
+        processor = ChoiceProcessor()
+        consumer = MigrationResult(
+            event_type_value="consumer",
+            migration_request=MigrationRequest(
+                event_type_value="consumer",
+                hardcoded_choices_resolutions=[
+                    HardcodedChoiceResolution(
+                        property_path=["severity"],
+                        strategy=ResolutionStrategy.USE_PROPOSED,
+                        choice_field_name="shared_severity",
+                    )
+                ],
+            ),
+            hardcoded_choices=[
+                HardcodedChoice(
+                    property_path=["severity"],
+                    choices=[{"value": "low", "display": "Low"}],
+                    resolution_options=[
+                        HardcodedChoiceResolution(
+                            property_path=["severity"],
+                            strategy=ResolutionStrategy.USE_PROPOSED,
+                            choice_field_name="shared_severity",
+                        )
+                    ],
+                )
+            ],
+        )
+        producer = MigrationResult(
+            event_type_value="producer",
+            migration_request=MigrationRequest(
+                event_type_value="producer",
+                hardcoded_choices_resolutions=[
+                    HardcodedChoiceResolution(
+                        property_path=["severity"],
+                        strategy=ResolutionStrategy.CREATE_NEW,
+                        choice_field_name="shared_severity",
+                    )
+                ],
+            ),
+            hardcoded_choices=[
+                HardcodedChoice(
+                    property_path=["severity"],
+                    choices=[{"value": "low", "display": "Low"}],
+                    resolution_options=[
+                        HardcodedChoiceResolution(
+                            property_path=["severity"],
+                            strategy=ResolutionStrategy.CREATE_NEW,
+                            choice_field_name="shared_severity",
+                        )
+                    ],
+                )
+            ],
+        )
+
+        service.validate_migration_requests([consumer, producer], processor)
+
+        assert consumer.success is False
+        assert any("created by a later migration request" in error for error in consumer.errors)
+        assert producer.success is True
+
+    def test_rejects_duplicate_custom_create_new_choice_field_names(self):
+        service = MigrationService(request=None)
+        processor = ChoiceProcessor()
+        first_result = MigrationResult(
+            event_type_value="first",
+            migration_request=MigrationRequest(
+                event_type_value="first",
+                hardcoded_choices_resolutions=[
+                    HardcodedChoiceResolution(
+                        property_path=["severity"],
+                        strategy=ResolutionStrategy.CREATE_NEW,
+                        choice_field_name="shared_severity",
+                    )
+                ],
+            ),
+            hardcoded_choices=[
+                HardcodedChoice(
+                    property_path=["severity"],
+                    choices=[{"value": "low", "display": "Low"}],
+                    resolution_options=[
+                        HardcodedChoiceResolution(
+                            property_path=["severity"],
+                            strategy=ResolutionStrategy.CREATE_NEW,
+                            choice_field_name="severity",
+                        )
+                    ],
+                )
+            ],
+        )
+        second_result = MigrationResult(
+            event_type_value="second",
+            migration_request=MigrationRequest(
+                event_type_value="second",
+                hardcoded_choices_resolutions=[
+                    HardcodedChoiceResolution(
+                        property_path=["impact"],
+                        strategy=ResolutionStrategy.CREATE_NEW,
+                        choice_field_name="shared_severity",
+                    )
+                ],
+            ),
+            hardcoded_choices=[
+                HardcodedChoice(
+                    property_path=["impact"],
+                    choices=[{"value": "high", "display": "High"}],
+                    resolution_options=[
+                        HardcodedChoiceResolution(
+                            property_path=["impact"],
+                            strategy=ResolutionStrategy.CREATE_NEW,
+                            choice_field_name="impact",
+                        )
+                    ],
+                )
+            ],
+        )
+
+        service.validate_migration_requests([first_result, second_result], processor)
+
+        assert first_result.success is True
+        assert second_result.success is False
+        assert any("already planned for creation in this batch" in error for error in second_result.errors)
+
+    def test_rejects_custom_create_new_name_collision_with_existing_field(self):
+        service = MigrationService(request=None)
+        service.existing_choices = {"shared_severity": ["low"]}
+        processor = ChoiceProcessor()
+        result = MigrationResult(
+            event_type_value="first",
+            migration_request=MigrationRequest(
+                event_type_value="first",
+                hardcoded_choices_resolutions=[
+                    HardcodedChoiceResolution(
+                        property_path=["severity"],
+                        strategy=ResolutionStrategy.CREATE_NEW,
+                        choice_field_name="shared_severity",
+                    )
+                ],
+            ),
+            hardcoded_choices=[
+                HardcodedChoice(
+                    property_path=["severity"],
+                    choices=[{"value": "low", "display": "Low"}],
+                    resolution_options=[
+                        HardcodedChoiceResolution(
+                            property_path=["severity"],
+                            strategy=ResolutionStrategy.CREATE_NEW,
+                            choice_field_name="severity",
+                        )
+                    ],
+                )
+            ],
+        )
+
+        service.validate_migration_requests([result], processor)
+
+        assert result.success is False
+        assert any("already exists and cannot be created again" in error for error in result.errors)
+
+    def test_allows_same_result_create_new_and_use_proposed_dependency(self):
+        service = MigrationService(request=None)
+        processor = ChoiceProcessor()
+        result = MigrationResult(
+            event_type_value="fire_rep",
+            migration_request=MigrationRequest(
+                event_type_value="fire_rep",
+                hardcoded_choices_resolutions=[
+                    HardcodedChoiceResolution(
+                        property_path=["severity"],
+                        strategy=ResolutionStrategy.CREATE_NEW,
+                        choice_field_name="shared_severity",
+                    ),
+                    HardcodedChoiceResolution(
+                        property_path=["impact"],
+                        strategy=ResolutionStrategy.USE_PROPOSED,
+                        choice_field_name="shared_severity",
+                    ),
+                ],
+            ),
+            hardcoded_choices=[
+                HardcodedChoice(
+                    property_path=["severity"],
+                    choices=[{"value": "low", "display": "Low"}],
+                    resolution_options=[
+                        HardcodedChoiceResolution(
+                            property_path=["severity"],
+                            strategy=ResolutionStrategy.CREATE_NEW,
+                            choice_field_name="severity",
+                        )
+                    ],
+                ),
+                HardcodedChoice(
+                    property_path=["impact"],
+                    choices=[{"value": "low", "display": "Low"}],
+                    resolution_options=[
+                        HardcodedChoiceResolution(
+                            property_path=["impact"],
+                            strategy=ResolutionStrategy.USE_PROPOSED,
+                            choice_field_name="shared_severity",
+                        )
+                    ],
+                ),
+            ],
+        )
+
+        service.validate_migration_requests([result], processor)
+
+        assert result.success is True
+        assert service.dependencies_ready_for_persistence(result, set()) is True

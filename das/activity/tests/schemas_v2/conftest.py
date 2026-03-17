@@ -405,7 +405,7 @@ def create_v1_event_type(cat1_cat2_categories):
 def migration_result():
     """Factory fixture for creating MigrationResult objects."""
 
-    def _create(event_type="test_event", **kwargs):
-        return MigrationResult(event_type=event_type, **kwargs)
+    def _create(event_type_value="test_event", **kwargs):
+        return MigrationResult(event_type_value=event_type_value, **kwargs)
 
     return _create
