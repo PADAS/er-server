@@ -1573,8 +1573,8 @@ class TestEventTypeMigration:
         assert response.data[0]["event_type"] == v1_event_type.value
         assert response.data[1]["event_type"] == v1_event_type_2.value
 
-    def test_migrate_empty_event_types_returns_400(self, superuser_client):
-        """Test empty event_types list returns 400."""
+    def test_migrate_empty_event_types_returns_all_v1_preview(self, superuser_client, v1_event_type):
+        """Test empty event_types list returns a dry-run preview for all V1 event types."""
         url = reverse("v2-eventtype-migrate")
         data = {
             "dry_run": True,
@@ -1583,7 +1583,12 @@ class TestEventTypeMigration:
 
         response = superuser_client.post(url, data=data)
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_200_OK
+        assert isinstance(response.data, list)
+        assert any(result["event_type"] == v1_event_type.value for result in response.data)
+
+        v1_event_type.refresh_from_db()
+        assert v1_event_type.version == EventType.VersionChoices.VERSION_1
 
     def test_migrate_missing_event_types_returns_400(self, superuser_client):
         """Test missing event_types field returns 400."""
