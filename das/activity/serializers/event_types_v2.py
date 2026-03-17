@@ -147,11 +147,10 @@ class MigrationEventTypeRequestItemSerializer(serializers.Serializer):
         return super().to_internal_value(data)
 
     def validate(self, attrs: dict) -> dict:
-        event_type_value = attrs.get("event_type_value") or attrs.pop("event_type", None)
+        event_type_value = attrs.get("event_type_value")
         if not event_type_value:
             raise serializers.ValidationError("event_type_value is required.")
 
-        attrs["event_type_value"] = event_type_value
         return attrs
 
 

@@ -422,11 +422,6 @@ class ChoiceProcessor:
                 return name
             counter += 1
 
-    def persist_hardcoded_choices(self, event_type, result) -> None:
-        """Persist hardcoded choices for an event type."""
-        for field_name, values in result.hardcoded_choices.items():
-            self.create_choice_field(field_name, values)
-
     def create_choice_field(self, field_name: str, values: List[Dict[str, str]]) -> None:
         """Create Choice objects for a new choice field."""
         seen_values = set()

@@ -48,9 +48,6 @@ class MigrationRequest:
     def from_dict(cls, data: dict) -> "MigrationRequest":
         normalized_data = data.copy()
 
-        if "event_type" in normalized_data and "event_type_value" not in normalized_data:
-            normalized_data["event_type_value"] = normalized_data.pop("event_type")
-
         if "hardcoded_choices_resolutions" in normalized_data and normalized_data["hardcoded_choices_resolutions"]:
             normalized_data["hardcoded_choices_resolutions"] = [
                 cls._normalize_resolution(item) for item in normalized_data["hardcoded_choices_resolutions"]
@@ -122,7 +119,9 @@ class MigrationService:
         self.proposed_choices: Dict[str, List[str]] = {}
 
     def get_existing_choice_fields(self) -> Dict[str, List[str]]:
-
+        """
+        Get existing choice fields from the database.
+        """
         fields: Dict[str, List[str]] = {}
         choices = Choice.objects.filter(model=Choice.EVENT_MODEL, is_active=True).values_list("field", "value")
 
@@ -412,7 +411,10 @@ class MigrationService:
         )
 
     def migrate(self, migration_requests: List[str | dict]) -> List[MigrationResult]:
-        """Migrate multiple EventTypes. Atomic per EventType: each commits or rolls back independently."""
+        """
+        Main entry point for migrating EventTypes. Migrate multiple EventTypes.
+        Atomic per EventType: each commits or rolls back independently.
+        """
         results: list[MigrationResult] = []
 
         if len(migration_requests) == 0:

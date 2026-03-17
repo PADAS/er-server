@@ -58,11 +58,7 @@ class TestMigrationRequest:
         request = MigrationRequest.from_input({"event_type_value": "fire_rep"})
 
         assert request.event_type_value == "fire_rep"
-
-    def test_from_input_accepts_legacy_event_type_key(self):
-        request = MigrationRequest.from_input({"event_type": "fire_rep"})
-
-        assert request.event_type_value == "fire_rep"
+        assert request.hardcoded_choices_resolutions is None
 
     def test_from_input_normalizes_hardcoded_choice_resolution_dicts(self):
         request = MigrationRequest.from_input(
