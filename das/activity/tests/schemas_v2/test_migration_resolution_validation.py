@@ -33,7 +33,7 @@ class TestHardcodedChoiceResolutionContract:
         )
         migration_result = MigrationResult(event_type_value="fire_rep")
 
-        resolution_options = processor.get_possible_choice_resolutions(migration_result, hardcoded_choice)
+        resolution_options = processor.get_resolution_options(migration_result, hardcoded_choice)
 
         assert resolution_options
         assert all(option.property_path == ["details", "severity"] for option in resolution_options)
@@ -88,7 +88,7 @@ class TestResolutionSelectionValidation:
             hardcoded_choices=[hardcoded_choice],
         )
 
-        service.validate_migration_requests([result], processor)
+        service.resolve_and_validate_migration_requests([result], processor)
 
         assert result.success is False
         assert "Resolution required for property path" in result.errors[0]
@@ -126,7 +126,7 @@ class TestResolutionSelectionValidation:
             hardcoded_choices=[hardcoded_choice],
         )
 
-        service.validate_migration_requests([result], processor)
+        service.resolve_and_validate_migration_requests([result], processor)
 
         assert result.success is True
 
@@ -159,7 +159,7 @@ class TestResolutionSelectionValidation:
             ],
         )
 
-        service.validate_migration_requests([result], processor)
+        service.resolve_and_validate_migration_requests([result], processor)
 
         assert result.success is False
         assert "Unknown hardcoded choice resolution property path" in result.errors[0]
@@ -220,7 +220,7 @@ class TestResolutionSelectionValidation:
             ],
         )
 
-        service.validate_migration_requests([consumer, producer], processor)
+        service.resolve_and_validate_migration_requests([consumer, producer], processor)
 
         assert consumer.success is False
         assert any("created by a later migration request" in error for error in consumer.errors)
@@ -282,7 +282,7 @@ class TestResolutionSelectionValidation:
             ],
         )
 
-        service.validate_migration_requests([first_result, second_result], processor)
+        service.resolve_and_validate_migration_requests([first_result, second_result], processor)
 
         assert first_result.success is True
         assert second_result.success is False
@@ -319,7 +319,7 @@ class TestResolutionSelectionValidation:
             ],
         )
 
-        service.validate_migration_requests([result], processor)
+        service.resolve_and_validate_migration_requests([result], processor)
 
         assert result.success is False
         assert any("already exists and cannot be created again" in error for error in result.errors)
@@ -370,7 +370,7 @@ class TestResolutionSelectionValidation:
             ],
         )
 
-        service.validate_migration_requests([result], processor)
+        service.resolve_and_validate_migration_requests([result], processor)
 
         assert result.success is True
-        assert service.dependencies_ready_for_persistence(result, set()) is True
+        assert service.can_persist_result(result, set()) is True

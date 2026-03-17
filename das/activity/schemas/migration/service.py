@@ -118,7 +118,7 @@ class MigrationService:
         self.existing_choices: Dict[str, List[str]] = {}
         self.proposed_choices: Dict[str, List[str]] = {}
 
-    def get_existing_choice_fields(self) -> Dict[str, List[str]]:
+    def load_existing_choice_fields(self) -> Dict[str, List[str]]:
         """
         Get existing choice fields from the database.
         """
@@ -226,7 +226,7 @@ class MigrationService:
             property_path=list(selected_resolution.property_path or matched_option.property_path or property_path),
         )
 
-    def resolve_hardcoded_choices(
+    def build_resolved_hardcoded_choices(
         self,
         result: MigrationResult,
         selected_resolutions: Dict[tuple[str, ...], HardcodedChoiceResolution],
@@ -253,7 +253,7 @@ class MigrationService:
 
         return resolved_hardcoded_choices
 
-    def validate_create_new_targets(
+    def validate_and_index_create_new_targets(
         self,
         results: List[MigrationResult],
     ) -> Dict[str, int]:
@@ -330,7 +330,11 @@ class MigrationService:
                         f"Proposed choice field '{choice_field_name}' depends on an invalid migration request"
                     )
 
-    def validate_migration_requests(self, results: List[MigrationResult], choice_processor: ChoiceProcessor) -> None:
+    def resolve_and_validate_migration_requests(
+        self,
+        results: List[MigrationResult],
+        choice_processor: ChoiceProcessor,
+    ) -> None:
         selected_resolutions_by_result: Dict[int, Dict[tuple[str, ...], HardcodedChoiceResolution]] = {}
 
         for result in results:
@@ -352,28 +356,28 @@ class MigrationService:
             if not result.success or not result.hardcoded_choices:
                 continue
 
-            result.resolved_hardcoded_choices = self.resolve_hardcoded_choices(
+            result.resolved_hardcoded_choices = self.build_resolved_hardcoded_choices(
                 result,
                 selected_resolutions_by_result.get(id(result), {}),
                 choice_processor,
             )
 
-        create_new_targets = self.validate_create_new_targets(results)
+        create_new_targets = self.validate_and_index_create_new_targets(results)
         self.validate_resolution_dependencies(results, create_new_targets)
 
-    def get_created_choice_fields(self, result: MigrationResult) -> set[str]:
+    def get_created_choice_field_names(self, result: MigrationResult) -> set[str]:
         return {
             resolved_choice.resolution.choice_field_name
             for resolved_choice in result.resolved_hardcoded_choices or []
             if resolved_choice.resolution.strategy == ResolutionStrategy.CREATE_NEW
         }
 
-    def dependencies_ready_for_persistence(
+    def can_persist_result(
         self,
         result: MigrationResult,
         persisted_choice_fields: set[str],
     ) -> bool:
-        local_created_fields = self.get_created_choice_fields(result)
+        local_created_fields = self.get_created_choice_field_names(result)
         blocked_fields = sorted(
             {
                 resolved_choice.resolution.choice_field_name
@@ -396,7 +400,7 @@ class MigrationService:
         )
         return False
 
-    def apply_preview_choice_rewrites(self, result: MigrationResult) -> None:
+    def rewrite_resolved_choice_refs(self, result: MigrationResult) -> None:
         if not result.v2_schema:
             return
 
@@ -426,21 +430,21 @@ class MigrationService:
         migration_requests = [MigrationRequest.from_input(item) for item in migration_requests]
 
         # Phase 1: Transform all v1 schemas to v2, gathering info about hardcoded choices
-        for et_mr in migration_requests:
-            result = self.collect_info(et_mr)
+        for mr in migration_requests:
+            result = self.build_migration_result(mr)
             results.append(result)
 
         # Phase 2: Analyze hardcoded choices and determine possible resolutions for all
-        self.existing_choices = self.get_existing_choice_fields()
+        self.existing_choices = self.load_existing_choice_fields()
         self.proposed_choices = {}
         choice_processor = ChoiceProcessor()
-        choice_processor.analyze_migration_results(results, self.existing_choices, self.proposed_choices)
+        choice_processor.populate_resolution_options(results, self.existing_choices, self.proposed_choices)
 
         # Phase 3: Validate migration requests and prepare for persistence
-        self.validate_migration_requests(results, choice_processor)
+        self.resolve_and_validate_migration_requests(results, choice_processor)
         for result in results:
             if result.success:
-                self.apply_preview_choice_rewrites(result)
+                self.rewrite_resolved_choice_refs(result)
 
         if self.dry_run:
             return results
@@ -455,7 +459,7 @@ class MigrationService:
             if not result.success:
                 continue
 
-            if not self.dependencies_ready_for_persistence(result, persisted_choice_fields):
+            if not self.can_persist_result(result, persisted_choice_fields):
                 continue
 
             with transaction.atomic():
@@ -464,11 +468,11 @@ class MigrationService:
                     transaction.set_rollback(True)
                     continue
 
-            persisted_choice_fields.update(self.get_created_choice_fields(result))
+            persisted_choice_fields.update(self.get_created_choice_field_names(result))
 
         return results
 
-    def collect_info(self, migration_request: MigrationRequest) -> MigrationResult:
+    def build_migration_result(self, migration_request: MigrationRequest) -> MigrationResult:
         """
         First pass: Get event type, get current schema, transform to V2, look for hardcoded choices.
         """
@@ -495,14 +499,14 @@ class MigrationService:
             return result
 
         # Transform schema
-        self.transform_schema(result)
+        self.populate_transformed_schema(result)
         if not result.success:
             return result
 
         result.hardcoded_choices = ChoiceProcessor().get_hardcoded_choices(result.v2_schema)
         return result
 
-    def transform_schema(self, result: MigrationResult):
+    def populate_transformed_schema(self, result: MigrationResult):
         """Transform V1 schema to V2 schema and collect transformation metadata.
 
         Args:
@@ -563,9 +567,7 @@ class MigrationService:
                     resolution.missing_choices or [],
                 )
 
-            for resolved_choice in result.resolved_hardcoded_choices or []:
-                field_schema = get_field_schema_from_prop_path(result.v2_schema, resolved_choice.property_path)
-                rewrite_field_to_ref(field_schema, resolved_choice.resolution.choice_field_name)
+            self.rewrite_resolved_choice_refs(result)
 
             event_type.schema = json.dumps(result.v2_schema, indent=2)
             event_type.version = EventType.VersionChoices.VERSION_2

@@ -37,7 +37,7 @@ class TestHardcodedChoiceExtraction:
             ]
         }
 
-        values = choice_processor.extract_hardcoded_choices(field_schema)
+        values = choice_processor.extract_field_hardcoded_choices(field_schema)
 
         assert values == [
             {"value": "open", "display": "Open"},
@@ -78,7 +78,9 @@ class TestHardcodedChoiceExtraction:
         ]
 
     def test_extract_hardcoded_choices_ignores_ref_fields(self, choice_processor):
-        assert choice_processor.extract_hardcoded_choices({"anyOf": [{"$ref": "#/definitions/some_choice"}]}) == []
+        assert (
+            choice_processor.extract_field_hardcoded_choices({"anyOf": [{"$ref": "#/definitions/some_choice"}]}) == []
+        )
 
 
 class TestFindMatchingChoiceField:
@@ -88,7 +90,7 @@ class TestFindMatchingChoiceField:
             choices=hardcoded_values(("high", "High"), ("low", "Low")),
         )
 
-        match = choice_processor.find_matching_choice_field(
+        match = choice_processor.find_best_matching_choice_field(
             hardcoded_choice,
             {"priority": ["high", "low"], "status": ["open", "closed"]},
         )
@@ -101,7 +103,7 @@ class TestFindMatchingChoiceField:
             choices=hardcoded_values(("open", "Open"), ("closed", "Closed"), ("pending", "Pending")),
         )
 
-        match = choice_processor.find_matching_choice_field(
+        match = choice_processor.find_best_matching_choice_field(
             hardcoded_choice,
             {"status": ["open", "closed"]},
         )
@@ -118,7 +120,7 @@ class TestFindMatchingChoiceField:
             choices=hardcoded_values(("high priority", "High Priority"), ("Low_Priority", "Low Priority")),
         )
 
-        match = choice_processor.find_matching_choice_field(
+        match = choice_processor.find_best_matching_choice_field(
             hardcoded_choice,
             {"priority_level": ["HIGH_PRIORITY", "low-priority"]},
         )
@@ -137,7 +139,7 @@ class TestFindMatchingChoiceField:
             ),
         )
 
-        match = choice_processor.find_matching_choice_field(
+        match = choice_processor.find_best_matching_choice_field(
             hardcoded_choice,
             {"status": ["open"]},
         )
@@ -154,7 +156,7 @@ class TestChoiceResolutionPlanning:
             choices=hardcoded_values(("low", "Low"), ("high", "High")),
         )
 
-        resolutions = processor.get_possible_choice_resolutions(migration_result, hardcoded_choice)
+        resolutions = processor.get_resolution_options(migration_result, hardcoded_choice)
 
         assert len(resolutions) == 1
         assert resolutions[0].strategy == ResolutionStrategy.USE_EXISTING
@@ -168,7 +170,7 @@ class TestChoiceResolutionPlanning:
             choices=hardcoded_values(("low", "Low"), ("high", "High"), ("critical", "Critical")),
         )
 
-        resolutions = processor.get_possible_choice_resolutions(migration_result, hardcoded_choice)
+        resolutions = processor.get_resolution_options(migration_result, hardcoded_choice)
 
         assert [resolution.strategy for resolution in resolutions] == [
             ResolutionStrategy.CREATE_NEW,
@@ -177,7 +179,7 @@ class TestChoiceResolutionPlanning:
         assert resolutions[1].choice_field_name == "severity"
         assert resolutions[1].missing_choices == [{"value": "critical", "display": "Critical"}]
 
-    def test_analyze_migration_results_makes_earlier_create_available_as_use_proposed(self, hardcoded_values):
+    def test_populate_resolution_options_makes_earlier_create_available_as_use_proposed(self, hardcoded_values):
         first_result = MigrationResult(
             event_type_value="fire_rep",
             hardcoded_choices=[
@@ -198,7 +200,7 @@ class TestChoiceResolutionPlanning:
         )
         processor = ChoiceProcessor()
 
-        processor.analyze_migration_results([first_result, second_result], existing_choices={}, proposed_choices={})
+        processor.populate_resolution_options([first_result, second_result], existing_choices={}, proposed_choices={})
 
         assert [option.strategy for option in first_result.hardcoded_choices[0].resolution_options] == [
             ResolutionStrategy.CREATE_NEW
@@ -211,12 +213,15 @@ class TestChoiceResolutionPlanning:
 
 class TestGenerateUniqueName:
     def test_uses_field_name_when_available(self, choice_processor):
-        assert choice_processor.generate_unique_name(["severity"], "fire_rep") == "severity"
+        assert choice_processor.generate_unique_choice_field_name(["severity"], "fire_rep") == "severity"
 
     def test_uses_nested_path_candidate_before_event_type_prefix(self, choice_processor):
         choice_processor.existing_choices = {"severity": ["low"]}
 
-        assert choice_processor.generate_unique_name(["details", "severity"], "fire_rep") == "details_severity"
+        assert (
+            choice_processor.generate_unique_choice_field_name(["details", "severity"], "fire_rep")
+            == "details_severity"
+        )
 
     def test_uses_event_type_prefix_when_other_candidates_are_taken(self, choice_processor):
         choice_processor.existing_choices = {
@@ -224,7 +229,10 @@ class TestGenerateUniqueName:
             "details_severity": ["low"],
         }
 
-        assert choice_processor.generate_unique_name(["details", "severity"], "fire_rep") == "fire_rep_severity"
+        assert (
+            choice_processor.generate_unique_choice_field_name(["details", "severity"], "fire_rep")
+            == "fire_rep_severity"
+        )
 
     def test_adds_numeric_suffix_when_all_candidates_are_taken(self, choice_processor):
         choice_processor.existing_choices = {
@@ -234,7 +242,7 @@ class TestGenerateUniqueName:
             "fire_rep_details_severity": ["low"],
         }
 
-        assert choice_processor.generate_unique_name(["details", "severity"], "fire_rep") == "severity_1"
+        assert choice_processor.generate_unique_choice_field_name(["details", "severity"], "fire_rep") == "severity_1"
 
 
 class TestSchemaRewriteHelpers:

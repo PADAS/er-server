@@ -26,7 +26,7 @@ def choices_base_url():
 
 
 def _load_existing_choices():
-    """Load existing choice fields from the DB (mirrors MigrationService.get_existing_choice_fields)."""
+    """Load existing choice fields from the DB (mirrors MigrationService.load_existing_choice_fields)."""
     fields = {}
     for field_name, value in Choice.objects.filter(model=Choice.EVENT_MODEL, is_active=True).values_list(
         "field", "value"
@@ -38,7 +38,7 @@ def _load_existing_choices():
 @pytest.fixture
 def choice_processor(choices_base_url):
     """Eager ChoiceProcessor instance (no DB choices loaded)."""
-    return ChoiceProcessor(event_type_value="", choices_base_url=choices_base_url)
+    return ChoiceProcessor(event_type_value="")
 
 
 @pytest.fixture
@@ -52,7 +52,6 @@ def make_choice_processor(choices_base_url):
     def _create(event_type_value="", **kwargs):
         defaults = {
             "event_type_value": event_type_value,
-            "choices_base_url": choices_base_url,
             "existing_choices": _load_existing_choices(),
         }
         defaults.update(kwargs)
@@ -68,7 +67,6 @@ def choice_processor_with_event_type(choices_base_url):
     def _create(event_type_value="test_event", **kwargs):
         defaults = {
             "event_type_value": event_type_value,
-            "choices_base_url": choices_base_url,
             "existing_choices": _load_existing_choices(),
         }
         defaults.update(kwargs)
@@ -314,7 +312,7 @@ def make_migration_service(mock_request):
 
     def _create(dry_run=True):
         service = MigrationService(request=mock_request, dry_run=dry_run)
-        service.existing_choices = service.get_existing_choice_fields()
+        service.existing_choices = service.load_existing_choice_fields()
         return service
 
     return _create

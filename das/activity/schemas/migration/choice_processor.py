@@ -126,30 +126,25 @@ class ChoiceProcessor:
     def __init__(
         self,
         event_type_value: str = "",
-        choices_base_url: str | None = None,
         proposed_choices: Optional[Dict[str, List[str]]] = None,
         existing_choices: Optional[Dict[str, List[str]]] = None,
     ):
         self.event_type_value = event_type_value
         self.proposed_choices = proposed_choices or {}
         self.existing_choices = existing_choices or {}
-        if choices_base_url is not None:
-            self._choices_base_url = choices_base_url
-
-    @property
-    def choices_base_url(self):
-        if not hasattr(self, "_choices_base_url"):
-            self._choices_base_url = reverse("schemas:choices")
-        return self._choices_base_url
 
     def normalize_for_matching(self, value: str) -> str:
         return normalize_for_matching(value)
 
     def get_hardcoded_choices(self, v2_schema: dict) -> List[HardcodedChoice]:
         """Analyze all fields, builds a data structure with the results."""
-        return self.traverse_properties(v2_schema.get("json", {}).get("properties", {}), [])
+        return self._collect_hardcoded_choices_from_properties(v2_schema.get("json", {}).get("properties", {}), [])
 
-    def traverse_properties(self, properties: dict, current_path: List[str]) -> List[HardcodedChoice]:
+    def _collect_hardcoded_choices_from_properties(
+        self,
+        properties: dict,
+        current_path: List[str],
+    ) -> List[HardcodedChoice]:
         """
         Recursively traverse properties to find hardcoded choices.
 
@@ -166,10 +161,10 @@ class ChoiceProcessor:
                 if not collection_properties:
                     continue
                 path = current_path + [field_name]
-                hardcoded_choices.extend(self.traverse_properties(collection_properties, path))
+                hardcoded_choices.extend(self._collect_hardcoded_choices_from_properties(collection_properties, path))
                 continue
 
-            field_hardcoded_choices = self.extract_hardcoded_choices(field_schema)
+            field_hardcoded_choices = self.extract_field_hardcoded_choices(field_schema)
             if not field_hardcoded_choices:
                 continue
 
@@ -179,7 +174,7 @@ class ChoiceProcessor:
 
         return hardcoded_choices
 
-    def extract_hardcoded_choices(self, field_schema: dict) -> List[dict]:
+    def extract_field_hardcoded_choices(self, field_schema: dict) -> List[dict]:
         """Extract hardcoded choices from anyOf > {title: "Hardcoded", oneOf: [...]}
         structure produced by transform_schema.
 
@@ -214,7 +209,7 @@ class ChoiceProcessor:
 
         return deduplicated_choices
 
-    def analyze_migration_results(
+    def populate_resolution_options(
         self,
         results,
         existing_choices: Dict[str, List[str]],
@@ -223,13 +218,12 @@ class ChoiceProcessor:
         """Analyze migration results and determine choice resolutions."""
         self.existing_choices = existing_choices
         self.proposed_choices = proposed_choices
-        self.created_choices = []
 
         for result in results:
             if not result.success or not result.hardcoded_choices:
                 continue
             for hardcoded_choice in result.hardcoded_choices:
-                hardcoded_choice.resolution_options = self.get_possible_choice_resolutions(result, hardcoded_choice)
+                hardcoded_choice.resolution_options = self.get_resolution_options(result, hardcoded_choice)
                 create_resolution = next(
                     (
                         option
@@ -244,7 +238,18 @@ class ChoiceProcessor:
                         [choice["value"] for choice in hardcoded_choice.choices],
                     )
 
-    def resolution_matches_option(
+    def find_matching_resolution_option(
+        self,
+        hardcoded_choice: HardcodedChoice,
+        selection: HardcodedChoiceResolution,
+    ) -> Optional[HardcodedChoiceResolution]:
+        for option in hardcoded_choice.resolution_options:
+            if self._selected_resolution_matches_option(selection, option):
+                return option
+
+        return None
+
+    def _selected_resolution_matches_option(
         self,
         selection: HardcodedChoiceResolution,
         option: HardcodedChoiceResolution,
@@ -257,18 +262,7 @@ class ChoiceProcessor:
             and selection.choice_field_name == option.choice_field_name
         )
 
-    def find_matching_resolution_option(
-        self,
-        hardcoded_choice: HardcodedChoice,
-        selection: HardcodedChoiceResolution,
-    ) -> Optional[HardcodedChoiceResolution]:
-        for option in hardcoded_choice.resolution_options:
-            if self.resolution_matches_option(selection, option):
-                return option
-
-        return None
-
-    def get_possible_choice_resolutions(
+    def get_resolution_options(
         self, migration_result, hardcoded_choice: HardcodedChoice
     ) -> List[HardcodedChoiceResolution]:
         """Analyze possible choice resolutions for a migration result."""
@@ -282,8 +276,8 @@ class ChoiceProcessor:
 
         resolutions = []
 
-        existing_match = self.find_matching_choice_field(hardcoded_choice, self.existing_choices)
-        proposed_match = self.find_matching_choice_field(hardcoded_choice, self.proposed_choices)
+        existing_match = self.find_best_matching_choice_field(hardcoded_choice, self.existing_choices)
+        proposed_match = self.find_best_matching_choice_field(hardcoded_choice, self.proposed_choices)
 
         existing_score = existing_match[1] if existing_match else 0.0
         proposed_score = proposed_match[1] if proposed_match else 0.0
@@ -306,7 +300,10 @@ class ChoiceProcessor:
             resolutions.append(resolution)
             return resolutions
 
-        proposed_name = self.generate_unique_name(hardcoded_choice.property_path, migration_result.event_type_value)
+        proposed_name = self.generate_unique_choice_field_name(
+            hardcoded_choice.property_path,
+            migration_result.event_type_value,
+        )
         create_resolution = HardcodedChoiceResolution(
             strategy=ResolutionStrategy.CREATE_NEW,
             choice_field_name=proposed_name,
@@ -340,7 +337,7 @@ class ChoiceProcessor:
 
         return resolutions
 
-    def find_matching_choice_field(
+    def find_best_matching_choice_field(
         self,
         hardcoded_choice: HardcodedChoice,
         against_values: Dict[str, List[str]],  # just a dict of lists of values, not the full choice objects
@@ -388,7 +385,7 @@ class ChoiceProcessor:
 
         return best_match
 
-    def generate_unique_name(self, field_path: List[str], event_type_value: str) -> str:
+    def generate_unique_choice_field_name(self, field_path: List[str], event_type_value: str) -> str:
         """Generate a unique choice field name.
 
         Tries: field_name, event_type + field_name, then numeric suffix.

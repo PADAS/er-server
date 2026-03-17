@@ -310,8 +310,8 @@ class TestMigrate:
         )
 
         with (
-            patch.object(MigrationService, "collect_info", side_effect=[producer, dependent, independent]),
-            patch.object(MigrationService, "validate_migration_requests"),
+            patch.object(MigrationService, "build_migration_result", side_effect=[producer, dependent, independent]),
+            patch.object(MigrationService, "resolve_and_validate_migration_requests"),
             patch.object(MigrationService, "can_modify_event_type", return_value=True),
             patch.object(MigrationService, "persist_migration") as persist_migration,
         ):
