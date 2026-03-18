@@ -127,6 +127,20 @@ class TestMigrateSingle:
         assert result.v2_schema is None
 
     @patch("activity.schemas.migration.service.transform_schema")
+    @patch.object(ChoiceProcessor, "get_hardcoded_choices")
+    def test_transform_schema_returning_none_adds_error(
+        self, mock_get_hardcoded_choices, mock_transform, migration_service, v1_event_type
+    ):
+        mock_transform.return_value = None
+
+        result = migration_service.migrate([v1_event_type.value])[0]
+
+        assert result.success is False
+        assert result.v2_schema is None
+        assert "Schema transformation failed to produce a V2 schema" in result.errors
+        mock_get_hardcoded_choices.assert_not_called()
+
+    @patch("activity.schemas.migration.service.transform_schema")
     def test_dry_run_does_not_persist(self, mock_transform, migration_service, v1_event_type):
         mock_transform.return_value = {"json": {"properties": {}}, "ui": {}}
 

@@ -1632,6 +1632,33 @@ class TestEventTypeMigration:
         assert "not V1" in result["errors"][0]
 
     @patch("activity.views.types_v2.MigrationService.migrate")
+    def test_migrate_rejects_resolution_request_without_property_path(self, mock_migrate, superuser_client):
+        url = reverse("v2-eventtype-migrate")
+        data = {
+            "dry_run": True,
+            "event_types": [
+                {
+                    "event_type_value": "fire_rep",
+                    "hardcoded_choices_resolutions": [
+                        {
+                            # missing property_path
+                            "strategy": "USE_EXISTING",
+                            "choice_field_name": "severity",
+                        }
+                    ],
+                }
+            ],
+        }
+
+        response = superuser_client.post(url, data=data, format="json")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["event_types"][0]["hardcoded_choices_resolutions"][0]["property_path"] == [
+            "This field is required."
+        ]
+        mock_migrate.assert_not_called()
+
+    @patch("activity.views.types_v2.MigrationService.migrate")
     def test_migrate_accepts_structured_event_type_requests(self, mock_migrate, superuser_client):
         mock_migrate.return_value = [MigrationResult(event_type_value="fire_rep")]
         url = reverse("v2-eventtype-migrate")

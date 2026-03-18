@@ -525,7 +525,6 @@ class MigrationService:
         # Collect warnings/errors from transformation
         for warning in log_collector.get_warnings():
             result.warnings.append(warning.get("message"))
-
         for error in log_collector.get_errors():
             result.errors.append(error.get("message"))
 
@@ -536,6 +535,11 @@ class MigrationService:
 
         if len(result.metadata["unsupported_features"]) > 0:
             result.errors.append("Unsupported features found in schema: look at metadata for details")
+
+        if transformed_schema is None:
+            if not result.errors:
+                result.errors.append("Schema transformation failed to produce a V2 schema")
+            return
 
         if result.errors:
             return
