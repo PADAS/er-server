@@ -113,6 +113,34 @@ def slugify_for_choice(value: str) -> str:
     return slugified.strip("_")
 
 
+def smart_abbreviate(text: str, max_length: int = 40) -> str:
+    """
+    Abbreviates a snake_case string to fit within max_length by:
+    1. Removing vowels from words (except the first letter).
+    2. Strict truncation if still too long.
+    """
+    if len(text) <= max_length:
+        return text
+
+    parts = text.split("_")
+
+    def drop_vowels(word: str) -> str:
+        if not word:
+            return word
+        first = word[0]
+        rest = re.sub(r"[aeiou]", "", word[1:])
+        return first + rest
+
+    abbrev_parts = [drop_vowels(p) for p in parts]
+    new_text = "_".join(abbrev_parts)
+
+    if len(new_text) <= max_length:
+        return new_text
+
+    # Still too long, strictly truncate and clean up trailing underscores
+    return new_text[:max_length].rstrip("_")
+
+
 class ChoiceProcessor:
     """Detects inline choice values in V2 schemas and matches them against
     existing Choice objects and proposed choices from the current batch.
@@ -386,35 +414,56 @@ class ChoiceProcessor:
         return best_match
 
     def generate_unique_choice_field_name(self, field_path: List[str], event_type_value: str) -> str:
-        """Generate a unique choice field name.
+        """Generate a unique choice field name, strictly bounded to 40 chars.
 
-        Tries: field_name, event_type + field_name, then numeric suffix.
+        Tries: field_name, path, event_type + field_name, event_type + path.
+        Applies 'smart' vowel abbreviation if length > 40.
+        Adds numeric suffix on collision, truncating base further if needed.
         Checks against existing_choices and reserved_names (current batch).
         """
-        candidates = []
-        reserved_names = self.existing_choices.keys() | self.proposed_choices.keys()
+        raw_candidates = []
+
+        # Safe handling of properties since sometimes tests provide mocked dicts or None
+        reserved_names = set()
+        if hasattr(self, "existing_choices") and isinstance(self.existing_choices, dict):
+            reserved_names.update(self.existing_choices.keys())
+        if hasattr(self, "proposed_choices") and isinstance(self.proposed_choices, dict):
+            reserved_names.update(self.proposed_choices.keys())
 
         # Candidate 1: field name directly
-        candidates.append(slugify_for_choice(field_path[-1]))
+        raw_candidates.append(slugify_for_choice(field_path[-1]))
         if len(field_path) > 1:
-            candidates.append(slugify_for_choice("_".join(field_path)))
+            raw_candidates.append(slugify_for_choice("_".join(field_path)))
 
         # Candidate 2: event_type + field_name
         if event_type_value:
-            candidates.append(slugify_for_choice(f"{event_type_value}_{field_path[-1]}"))
+            raw_candidates.append(slugify_for_choice(f"{event_type_value}_{field_path[-1]}"))
             if len(field_path) > 1:
-                candidates.append(slugify_for_choice(f"{event_type_value}_{'_'.join(field_path)}"))
+                raw_candidates.append(slugify_for_choice(f"{event_type_value}_{'_'.join(field_path)}"))
 
-        # Try each candidate
+        # Apply abbreviation and filter unique ordered candidates
+        candidates = []
+        for raw in raw_candidates:
+            # We target 40 but realistically we might need room for suffixes.
+            # A 40 char limit is fine for the base try.
+            abbrev = smart_abbreviate(raw, max_length=40)
+            if abbrev not in candidates:
+                candidates.append(abbrev)
+
+        # Try each candidate without suffix
         for candidate in candidates:
             if candidate not in reserved_names:
                 return candidate
 
-        # All candidates taken - add numeric suffix
+        # All candidates taken
         base_name = candidates[0]
         counter = 1
         while True:
-            name = f"{base_name}_{counter}"
+            suffix = f"_{counter}"
+            max_base_len = 40 - len(suffix)
+            # Truncate base to allow suffix to fit
+            truncated_base = base_name[:max_base_len].rstrip("_")
+            name = f"{truncated_base}{suffix}"
             if name not in reserved_names:
                 return name
             counter += 1

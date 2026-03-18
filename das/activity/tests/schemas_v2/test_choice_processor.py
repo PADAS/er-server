@@ -234,6 +234,43 @@ class TestGenerateUniqueName:
             == "fire_rep_severity"
         )
 
+    def test_truncates_and_abbreviates_very_long_names(self, choice_processor):
+        """Tests that long names are correctly abbreviated and truncated to fit within 40 chars."""
+        choice_processor.existing_choices = {}
+
+        # This combination would normally be:
+        # "an_extremely_long_event_type_name_with_many_words_another_long_folder_path_and_a_very_long_field_name"
+        # which is > 100 characters.
+
+        result = choice_processor.generate_unique_choice_field_name(
+            ["another_long_folder_path", "and_a_very_long_field_name"],
+            "an_extremely_long_event_type_name_with_many_words",
+        )
+
+        assert len(result) <= 40
+
+        # We need to simulate taking ALL fallback options to force the _1 suffix
+        # The generator tries:
+        # 1. field_name directly (and_a_very_long_field_name)
+        # 2. path (another_long_folder_path_and_a_very_long_field_name -> anthr_lng_fldr_pth_and_a_vry_lng_fld_nm)
+        # 3. event_type + field (an_extremely_long_event_type_name_with_many_words_and_a_very_long_field_name -> an_extrmly_lng_evnt_typ_nm_wth_mny_wrds)
+        # 4. event_type + path (an_extremely_long_event_type_name_with_many_words_another_long_folder_path_and_a_very_long_field_name -> an_extrmly_lng_evnt_typ_nm_wth_mny_wrds)
+
+        # Fill the dictionary with all possible fallback names
+        choice_processor.existing_choices = {
+            "and_a_very_long_field_name": ["x"],
+            "anthr_lng_fldr_pth_and_a_vry_lng_fld_nm": ["y"],
+            "an_extrmly_lng_evnt_typ_nm_wth_mny_wrds": ["z"],
+        }
+
+        result2 = choice_processor.generate_unique_choice_field_name(
+            ["another_long_folder_path", "and_a_very_long_field_name"],
+            "an_extremely_long_event_type_name_with_many_words",
+        )
+
+        assert len(result2) <= 40
+        assert result2.endswith("_1")
+
     def test_adds_numeric_suffix_when_all_candidates_are_taken(self, choice_processor):
         choice_processor.existing_choices = {
             "severity": ["low"],
