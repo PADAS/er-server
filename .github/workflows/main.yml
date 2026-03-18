@@ -71,3 +71,16 @@ jobs:
     secrets:
       ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
       ARGOCD_APPS_SSH_KEY: ${{ secrets.ARGOCD_APPS_SSH_KEY }}
+
+  deploy-stage:
+    needs: [unit-test1, unit-test2]
+    if: startsWith(github.ref_name, 'release-')
+    uses: PADAS/serca-pipelines/.github/workflows/_argocd-deploy.yml@main
+    with:
+      app-name: das-server
+      app-subdir: earthranger
+      environment: er-stage
+      image-tag: "${{ github.ref_name }}-${{ github.run_number }}"
+    secrets:
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+      ARGOCD_APPS_SSH_KEY: ${{ secrets.ARGOCD_APPS_SSH_KEY }}
