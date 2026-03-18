@@ -94,6 +94,12 @@ class RequestLoggingMiddleware(object):
             method = request.method
             protocol = request.META.get("SERVER_PROTOCOL", "")
             language = request.META.get("HTTP_ACCEPT_LANGUAGE", "")
+            auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+            auth_token_prefix = ""
+            if auth_header:
+                parts = auth_header.split(" ", 1)
+                token = parts[1] if len(parts) > 1 else parts[0]
+                auth_token_prefix = token[:5]
             try:
                 tenant_domain = get_tenant_settings().domain
             except TenantNotFoundException:
@@ -116,6 +122,7 @@ class RequestLoggingMiddleware(object):
                 tenant=tenant_domain,
                 host=host,
                 language=language,
+                auth_token_prefix=auth_token_prefix,
             )
 
             if error_message:
