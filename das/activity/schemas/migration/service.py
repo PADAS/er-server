@@ -444,7 +444,10 @@ class MigrationService:
         self.resolve_and_validate_migration_requests(results, choice_processor)
         for result in results:
             if result.success:
-                self.rewrite_resolved_choice_refs(result)
+                try:
+                    self.rewrite_resolved_choice_refs(result)
+                except KeyError as e:
+                    result.errors.append(f"Failed to rewrite resolved choice references: {str(e)}")
 
         if self.dry_run:
             return results

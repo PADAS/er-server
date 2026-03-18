@@ -307,6 +307,94 @@ class TestSchemaRewriteHelpers:
 
         assert field_schema["title"] == "Severity"
 
+    @pytest.mark.parametrize(
+        ("v2_schema", "property_path", "expected_title"),
+        [
+            (
+                {
+                    "json": {
+                        "properties": {
+                            "details": {
+                                "type": "object",
+                                "properties": {
+                                    "location": {
+                                        "type": "object",
+                                        "properties": {
+                                            "severity": {
+                                                "title": "Location Severity",
+                                                "type": "string",
+                                            }
+                                        },
+                                    }
+                                },
+                            }
+                        }
+                    }
+                },
+                ["details", "location", "severity"],
+                "Location Severity",
+            ),
+            (
+                {
+                    "json": {
+                        "properties": {
+                            "details": {
+                                "type": "object",
+                                "properties": {
+                                    "sections": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "status": {
+                                                    "title": "Section Status",
+                                                    "type": "string",
+                                                }
+                                            }
+                                        },
+                                    }
+                                },
+                            }
+                        }
+                    }
+                },
+                ["details", "sections", "status"],
+                "Section Status",
+            ),
+            (
+                {
+                    "json": {
+                        "properties": {
+                            "observations": {
+                                "type": "array",
+                                "items": {
+                                    "properties": {
+                                        "measurements": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "value": {
+                                                        "title": "Measurement Value",
+                                                        "type": "number",
+                                                    }
+                                                }
+                                            },
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    }
+                },
+                ["observations", "measurements", "value"],
+                "Measurement Value",
+            ),
+        ],
+    )
+    def test_get_field_schema_from_prop_path_handles_nested_structures(self, v2_schema, property_path, expected_title):
+        field_schema = get_field_schema_from_prop_path(v2_schema, property_path)
+
+        assert field_schema["title"] == expected_title
+
     def test_rewrite_field_to_ref_replaces_anyof_and_preserves_other_keys(self, choices_base_url):
         field_schema = {
             "title": "Severity",

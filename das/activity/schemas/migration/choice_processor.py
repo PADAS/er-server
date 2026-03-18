@@ -72,22 +72,21 @@ class HardcodedChoice:
 
 
 def get_field_schema_from_prop_path(v2_schema: Dict[str, Any], prop_path: List[str]) -> Dict[str, Any]:
-    """Get the field schema from a property path."""
+    """Get the field schema from a v2_schema, following the property path."""
     current_properties = v2_schema.get("json", {}).get("properties", {})
     field_schema: Dict[str, Any] | None = None
 
-    for index, field_name in enumerate(prop_path):
+    for field_name in prop_path:
+        if field_name not in current_properties:
+            raise KeyError(f"Invalid property path: {str(prop_path)}")
         field_schema = current_properties[field_name]
-        if index == len(prop_path) - 1:
-            return field_schema
 
         if field_schema.get("type") == "array":
             current_properties = field_schema.get("items", {}).get("properties", {})
-            continue
+        elif field_schema.get("type") == "object":
+            current_properties = field_schema.get("properties", {})
 
-        current_properties = field_schema.get("properties", {})
-
-    raise KeyError(f"Invalid property path: {prop_path}")
+    return field_schema
 
 
 def rewrite_field_to_ref(field_schema: Dict[str, Any], choice_field_name: str) -> None:

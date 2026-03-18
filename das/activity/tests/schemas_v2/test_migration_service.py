@@ -353,6 +353,61 @@ class TestMigrate:
         assert results[2].success is True
         assert results[2].metadata["persisted"] is True
 
+    def test_rewrite_failure_stays_local_to_single_result(self, migration_service):
+        bad_result = MigrationResult(
+            event_type_value="bad_result",
+            migration_request=MigrationRequest(event_type_value="bad_result"),
+            v2_schema={"json": {"properties": {"severity": {"type": "string", "anyOf": []}}}, "ui": {}},
+            hardcoded_choices=[],
+            resolved_hardcoded_choices=[
+                ResolvedHardcodedChoice(
+                    property_path=["missing_field"],
+                    choices=[{"value": "low", "display": "Low"}],
+                    resolution=HardcodedChoiceResolution(
+                        property_path=["missing_field"],
+                        strategy=ResolutionStrategy.CREATE_NEW,
+                        choice_field_name="severity",
+                    ),
+                )
+            ],
+        )
+        good_result = MigrationResult(
+            event_type_value="good_result",
+            migration_request=MigrationRequest(event_type_value="good_result"),
+            v2_schema={"json": {"properties": {"severity": {"type": "string", "anyOf": []}}}, "ui": {}},
+            hardcoded_choices=[],
+            resolved_hardcoded_choices=[
+                ResolvedHardcodedChoice(
+                    property_path=["severity"],
+                    choices=[{"value": "high", "display": "High"}],
+                    resolution=HardcodedChoiceResolution(
+                        property_path=["severity"],
+                        strategy=ResolutionStrategy.CREATE_NEW,
+                        choice_field_name="severity",
+                    ),
+                )
+            ],
+        )
+
+        with (
+            patch.object(MigrationService, "build_migration_result", side_effect=[bad_result, good_result]),
+            patch.object(MigrationService, "resolve_and_validate_migration_requests"),
+        ):
+            results = migration_service.migrate(
+                [
+                    {"event_type_value": "bad_result"},
+                    {"event_type_value": "good_result"},
+                ]
+            )
+
+        assert len(results) == 2
+        assert results[0].success is False
+        assert any("Invalid property path" in error for error in results[0].errors)
+        assert results[1].success is True
+        assert results[1].v2_schema["json"]["properties"]["severity"]["anyOf"] == [
+            {"$ref": "/api/v2.0/schemas/choices.json?field=severity"}
+        ]
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings")
