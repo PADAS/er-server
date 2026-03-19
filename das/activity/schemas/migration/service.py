@@ -496,7 +496,7 @@ class MigrationService:
 
         if not event_type:
             try:
-                event_type = EventType.objects.get(value=migration_request.event_type_value)
+                event_type = self.get_queryset().get(value=migration_request.event_type_value)
                 result.event_type = event_type
             except EventType.DoesNotExist:
                 result.errors.append(f"EventType '{migration_request.event_type_value}' not found")

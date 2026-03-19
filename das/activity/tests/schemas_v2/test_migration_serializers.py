@@ -25,6 +25,29 @@ class TestMigrationSerializerContracts:
         assert serializer.is_valid() is False
         assert serializer.errors["event_types"] == ["This list may not be empty when dry_run is false."]
 
+    def test_migration_request_serializer_rejects_duplicate_event_type_values(self):
+        serializer = MigrationRequestSerializer(
+            data={
+                "dry_run": False,
+                "event_types": [
+                    "fire_rep",
+                    {
+                        "event_type_value": "fire_rep",
+                        "hardcoded_choices_resolutions": [
+                            {
+                                "property_path": ["severity"],
+                                "strategy": "USE_EXISTING",
+                                "choice_field_name": "severity",
+                            }
+                        ],
+                    },
+                ],
+            }
+        )
+
+        assert serializer.is_valid() is False
+        assert serializer.errors["event_types"] == ["Duplicate event_type_value entries are not allowed: fire_rep."]
+
     def test_migration_event_type_request_item_serializer_requires_event_type_value(self):
         serializer = MigrationEventTypeRequestItemSerializer(data={"hardcoded_choices_resolutions": []})
 

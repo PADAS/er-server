@@ -179,6 +179,22 @@ class MigrationRequestSerializer(serializers.Serializer):
         if not dry_run and not event_types:
             raise serializers.ValidationError({"event_types": ["This list may not be empty when dry_run is false."]})
 
+        seen_values = set()
+        duplicate_values = set()
+        for et_request in event_types:
+            et_value = et_request["event_type_value"]
+            if et_value in seen_values:
+                duplicate_values.add(et_value)
+                continue
+
+            seen_values.add(et_value)
+
+        if duplicate_values:
+            duplicate_values_str = ", ".join(sorted(duplicate_values))
+            raise serializers.ValidationError(
+                {"event_types": [f"Duplicate event_type_value entries are not allowed: {duplicate_values_str}."]}
+            )
+
         return attrs
 
 
