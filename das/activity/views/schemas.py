@@ -37,14 +37,68 @@ class PatrolSchema(CustomSchema):
                     "name": "filter",
                     "in": "query",
                     "required": False,
-                    "description": 'Advanced filtering using a JSON object. Example: {"date_range":{"lower":"2020-09-16T00:00:00.000Z"}, "text":"search text"}',
+                    "description": "Advanced filtering using a JSON-encoded object.",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "description": "Filter as a JSON object with various filter criteria",
+                                "properties": {
+                                    "date_range": {
+                                        "type": "object",
+                                        "properties": {
+                                            "lower": {"type": "string", "format": "date-time"},
+                                            "upper": {"type": "string", "format": "date-time"},
+                                        },
+                                        "description": "Filter on the patrol start/end time range",
+                                    },
+                                    "patrols_overlap_daterange": {
+                                        "type": "boolean",
+                                        "default": True,
+                                        "description": "When true, include patrols whose time range overlaps with date_range. Defaults to true.",
+                                    },
+                                    "text": {
+                                        "type": "string",
+                                        "description": "Search text across serial number, title, patrol type, notes, and tracked-by subjects/users",
+                                    },
+                                    "patrol_type": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                        "description": "Filter on patrol type IDs",
+                                    },
+                                    "tracked_by": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                        "description": "Filter on subject IDs leading the patrol",
+                                    },
+                                },
+                                "example": {"date_range": {"lower": "2020-09-16T00:00:00.000Z"}, "text": "search text"},
+                            }
+                        }
+                    },
                 },
                 {
                     "name": "exclude_empty_patrols",
                     "in": "query",
                     "required": False,
-                    "description": 'Exclude the patrols without a patrol segment, defaults to "false"',
-                    "schema": {"type": "bool"},
+                    "description": 'Exclude patrols without a patrol segment. Defaults to "false".',
+                    "schema": {"type": "boolean", "default": False},
+                },
+                {
+                    "name": "status",
+                    "in": "query",
+                    "required": False,
+                    "description": (
+                        "Filter patrols by status. Repeatable — provide multiple times for multiple values. "
+                        "Allowed values: scheduled, active, overdue, done, cancelled."
+                    ),
+                    "schema": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": ["scheduled", "active", "overdue", "done", "cancelled"],
+                        },
+                    },
                 },
             ]
             operation["parameters"] = operation.get("parameters", [])
@@ -187,6 +241,11 @@ class EventsViewSchema(CustomSchema):
                                             "upper": {"type": "string", "format": "date-time"},
                                         },
                                         "description": "Filter on the create time for the event",
+                                    },
+                                    "event_filter_id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "description": "ID of a saved EventFilter whose filter_spec is applied. When present, all other filter keys are ignored.",
                                     },
                                 },
                                 "example": {"date_range": {"lower": "2025-09-16T00:00:00.000Z"}, "text": "search text"},
