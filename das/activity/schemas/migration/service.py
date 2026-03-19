@@ -502,8 +502,8 @@ class MigrationService:
                 result.errors.append(f"EventType '{migration_request.event_type_value}' not found")
                 return result
 
-        # Check authorization
-        if not self.can_modify_event_type(event_type):
+        # Check authorization (skip for dry-run previews)
+        if not self.dry_run and not self.can_modify_event_type(event_type):
             result.errors.append(f"Permission denied for EventType '{migration_request.event_type_value}'")
             return result
 
