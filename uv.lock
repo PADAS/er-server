@@ -851,6 +851,7 @@ dependencies = [
     { name = "google-cloud-pubsub" },
     { name = "greenlet" },
     { name = "gunicorn" },
+    { name = "haversine" },
     { name = "httplib2" },
     { name = "humanize" },
     { name = "jinja2" },
@@ -998,6 +999,7 @@ requires-dist = [
     { name = "google-cloud-pubsub", specifier = "==2.25.0" },
     { name = "greenlet", specifier = "==3.2.4" },
     { name = "gunicorn" },
+    { name = "haversine", specifier = "==2.9.0" },
     { name = "httplib2" },
     { name = "humanize" },
     { name = "jinja2" },
@@ -1695,11 +1697,11 @@ wheels = [
 
 [[package]]
 name = "event-type-schema-migration-tool"
-version = "0.1.2"
+version = "0.1.3"
 source = { registry = "https://test.pypi.org/simple/" }
-sdist = { url = "https://test-files.pythonhosted.org/packages/c7/e2/f4a25bcd2bfabc3ae387c1c037a2dcdf63cdab55f9c2ebc69706e98f005e/event_type_schema_migration_tool-0.1.2.tar.gz", hash = "sha256:0fb09a7246ee84f3818d559388b8c90c1c101a620d69f218e1c45534e43c9609", size = 19703, upload-time = "2026-02-18T23:17:54.614Z" }
+sdist = { url = "https://test-files.pythonhosted.org/packages/6e/99/ed0c9fc56ad7577e3d9b95b234f602b640742b420bcf6b727ae698eba143/event_type_schema_migration_tool-0.1.3.tar.gz", hash = "sha256:1e3dd93ba2fca6a79951317aad42db425eca41f2fedb9751582f2b8efa348784", size = 19076, upload-time = "2026-03-18T21:28:22.382Z" }
 wheels = [
-    { url = "https://test-files.pythonhosted.org/packages/88/9c/a44d4951551b93285807ffceee9e368e95104847ac5279fbfdccab1a14ea/event_type_schema_migration_tool-0.1.2-py3-none-any.whl", hash = "sha256:2c3f272e61cbdea27f3a83012ccbfda23a8adf464640200d9c51ce3bc04f0926", size = 27529, upload-time = "2026-02-18T23:17:53.329Z" },
+    { url = "https://test-files.pythonhosted.org/packages/9f/c3/12e1fe63da21675b306e30aa5a86bb9ccca3a74cbcd329b7bd294fed87d5/event_type_schema_migration_tool-0.1.3-py3-none-any.whl", hash = "sha256:95ebbcabc71636d541e0e78e16c52aed5a40db37f02da65bf650b4c67d8fcbe5", size = 26726, upload-time = "2026-03-18T21:28:20.909Z" },
 ]
 
 [[package]]
@@ -2360,6 +2362,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz", hash = "sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1", size = 101250, upload-time = "2025-04-24T03:35:25.427Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl", hash = "sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86", size = 37515, upload-time = "2025-04-24T03:35:24.344Z" },
+]
+
+[[package]]
+name = "haversine"
+version = "2.9.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1f/fe/5dc394a9db15c9f08c64ae050c03c01128227632fce07cc62aa5d32240d5/haversine-2.9.0.tar.gz", hash = "sha256:1103d7e1f0f108c25b31b63452c54d9d6f29389a70de7dd75fd4b908329b6fcf", size = 10171, upload-time = "2024-11-28T09:21:55.362Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fb/80/c9fa943acea97ec173deba84f7c83cc0639798c1dd97970bb90a73c1dc91/haversine-2.9.0-py2.py3-none-any.whl", hash = "sha256:d32031b6b4232e37764730a781a3b8cb248710f92aca6f553b8097524420754d", size = 7728, upload-time = "2024-11-28T09:21:53.817Z" },
 ]
 
 [[package]]

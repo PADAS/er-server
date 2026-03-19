@@ -8,6 +8,7 @@ from core import tms_api_client
 domain = settings.SERVER_FQDN
 domain_blacklist = (
     "localhost",
+    "tempuri.org",
     "root.dev.pamdas.org",
     "europe-west3-01.staging.pamdas.org",
     "europe-west3-01.pamdas.org",

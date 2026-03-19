@@ -19,8 +19,11 @@ The exclusion CHECK on default is added INSIDE the lock to prevent race conditio
 where new data arrives between adding the check and the attach.
 
 Examples:
-    # Fix January 2024 partition
+    # Fix January 2024 partition (observations_observation, default column recorded_at)
     python manage.py fix_partition_by_month --year 2024 --month 1
+
+    # Fix ObservationSegment partition (partition column start_recorded_at)
+    python manage.py fix_partition_by_month -t observations_observationsegment --partition-column start_recorded_at -y 2024 -m 1
 
     # Preview what would happen without making changes
     python manage.py fix_partition_by_month -y 2024 -m 6 --dry-run
@@ -42,10 +45,14 @@ from utils.db.postgresql import (
     commit,
     execute_sql_query,
     rollback,
+    safe_sql_identifier,
     safe_table_reference,
     to_fully_qualified_table_name,
     vacuum_analyze_query,
 )
+
+# Allowed partition column names (safe for SQL identifier substitution)
+PARTITION_COLUMN_WHITELIST = ("recorded_at", "start_recorded_at")
 
 
 class Command(BaseCommand):
@@ -66,6 +73,12 @@ class Command(BaseCommand):
             type=str,
             help="PostgreSQL table",
             default="observations_observation",
+        )
+        parser.add_argument(
+            "--partition-column",
+            type=str,
+            help="Partition key column name (default: recorded_at; use start_recorded_at for observations_observationsegment)",
+            default="recorded_at",
         )
         parser.add_argument(
             "-y",
@@ -108,9 +121,15 @@ class Command(BaseCommand):
         table_name = options["table"]
         year = options["year"]
         month = options["month"]
+        partition_column = options["partition_column"]
         analyze = not options["no_analyze"]
         is_dry_run = options["dry_run"]
         is_resume = options["resume"]
+
+        if partition_column not in PARTITION_COLUMN_WHITELIST:
+            raise CommandError(
+                f"Partition column must be one of {PARTITION_COLUMN_WHITELIST}, got: {partition_column!r}"
+            )
 
         # Validate month
         if not (1 <= month <= 12):
@@ -145,6 +164,7 @@ class Command(BaseCommand):
                 fully_qualified_table=fully_qualified_table,
                 partition_name=partition_name,
                 partition_table=partition_table,
+                partition_column=partition_column,
             )
             return
 
@@ -160,6 +180,7 @@ class Command(BaseCommand):
             fully_qualified_table=fully_qualified_table,
             partition_name=partition_name,
             partition_table=partition_table,
+            partition_column=partition_column,
             analyze=analyze,
             resume=is_resume,
         )
@@ -176,9 +197,11 @@ class Command(BaseCommand):
         fully_qualified_table: str,
         partition_name: str,
         partition_table: str,
+        partition_column: str,
     ):
         """Preview what would happen without making any changes."""
         default_table = f"{fully_qualified_table}_default"
+        column_ref = safe_sql_identifier(partition_column)
 
         self.stdout.write(self.style.WARNING("=" * 60))
         self.stdout.write(self.style.WARNING("DRY RUN MODE - No changes will be made"))
@@ -231,10 +254,10 @@ class Command(BaseCommand):
             """
             SELECT COUNT(*)
             FROM ONLY {table}
-            WHERE recorded_at >= %s::timestamptz
-              AND recorded_at < %s::timestamptz;
+            WHERE {column} >= %s::timestamptz
+              AND {column} < %s::timestamptz;
         """
-        ).format(table=default_table_ref)
+        ).format(table=default_table_ref, column=column_ref)
         count_result = execute_sql_query(
             query=count_default_sql, logger=logger, fetch_type=FetchType.ONE, params=(start_date, end_date)
         )
@@ -252,12 +275,12 @@ class Command(BaseCommand):
         # Show date range of affected data
         date_range_sql = psycopg2_sql.SQL(
             """
-            SELECT MIN(recorded_at), MAX(recorded_at)
+            SELECT MIN({column}), MAX({column})
             FROM ONLY {table}
-            WHERE recorded_at >= %s::timestamptz
-              AND recorded_at < %s::timestamptz;
+            WHERE {column} >= %s::timestamptz
+              AND {column} < %s::timestamptz;
         """
-        ).format(table=default_table_ref)
+        ).format(table=default_table_ref, column=column_ref)
         date_range = execute_sql_query(
             query=date_range_sql, logger=logger, fetch_type=FetchType.ONE, params=(start_date, end_date)
         )
@@ -290,6 +313,7 @@ class Command(BaseCommand):
         fully_qualified_table: str,
         partition_name: str,
         partition_table: str,
+        partition_column: str,
         analyze: bool,
         resume: bool = False,
     ):
@@ -333,6 +357,7 @@ class Command(BaseCommand):
                     partition_table_ref=partition_table_ref,
                     start_date=start_date,
                     end_date=end_date,
+                    partition_column=partition_column,
                 )
             elif partition_state == "exists_unattached":
                 if not resume:
@@ -360,6 +385,7 @@ class Command(BaseCommand):
                     end_date=end_date,
                     check_constraint_name=check_constraint_name,
                     existing_rows=existing_rows,
+                    partition_column=partition_column,
                 )
             else:
                 # Partition doesn't exist - create from scratch
@@ -380,6 +406,7 @@ class Command(BaseCommand):
                     start_date=start_date,
                     end_date=end_date,
                     check_constraint_name=check_constraint_name,
+                    partition_column=partition_column,
                 )
 
             # Vacuum analyze if enabled
@@ -448,6 +475,7 @@ class Command(BaseCommand):
         start_date: str,
         end_date: str,
         check_constraint_name: str,
+        partition_column: str,
     ) -> int:
         """Create partition from scratch and move data."""
         # Step 1: Create unattached partition table
@@ -470,6 +498,7 @@ class Command(BaseCommand):
             end_date=end_date,
             check_constraint_name=check_constraint_name,
             existing_rows=0,
+            partition_column=partition_column,
         )
 
     def _complete_partition_setup(
@@ -485,8 +514,10 @@ class Command(BaseCommand):
         end_date: str,
         check_constraint_name: str,
         existing_rows: int,
+        partition_column: str,
     ) -> int:
         """Complete partition setup: move data, add constraint, attach."""
+        column_ref = safe_sql_identifier(partition_column)
         # Step 2: Move data from default to partition (loop for concurrent inserts)
         self.stdout.write(self.style.SUCCESS("Step 2/4: Moving data from default to partition..."))
 
@@ -498,22 +529,22 @@ class Command(BaseCommand):
             """
             SELECT COUNT(*)
             FROM ONLY {table}
-            WHERE recorded_at >= %s::timestamptz AND recorded_at < %s::timestamptz;
+            WHERE {column} >= %s::timestamptz AND {column} < %s::timestamptz;
         """
-        ).format(table=default_table_ref)
+        ).format(table=default_table_ref, column=column_ref)
 
         move_sql = psycopg2_sql.SQL(
             """
             WITH moved AS (
                 DELETE FROM ONLY {default_table}
-                WHERE recorded_at >= %s::timestamptz AND recorded_at < %s::timestamptz
+                WHERE {column} >= %s::timestamptz AND {column} < %s::timestamptz
                 RETURNING *
             )
             INSERT INTO {partition_table}
             SELECT * FROM moved
             ON CONFLICT DO NOTHING;
         """
-        ).format(default_table=default_table_ref, partition_table=partition_table_ref)
+        ).format(default_table=default_table_ref, partition_table=partition_table_ref, column=column_ref)
 
         while move_iteration < max_iterations:
             move_iteration += 1
@@ -569,9 +600,11 @@ class Command(BaseCommand):
             """
             ALTER TABLE {partition}
             ADD CONSTRAINT {constraint}
-            CHECK (recorded_at >= %s::timestamptz AND recorded_at < %s::timestamptz);
+            CHECK ({column} >= %s::timestamptz AND {column} < %s::timestamptz);
         """
-        ).format(partition=partition_table_ref, constraint=psycopg2_sql.Identifier(check_constraint_name))
+        ).format(
+            partition=partition_table_ref, constraint=psycopg2_sql.Identifier(check_constraint_name), column=column_ref
+        )
         execute_sql_query(
             query=add_partition_check_sql, logger=logger, fetch_type=FetchType.NONE, params=(start_date, end_date)
         )
@@ -587,14 +620,14 @@ class Command(BaseCommand):
             """
             WITH moved AS (
                 DELETE FROM ONLY {default_table}
-                WHERE recorded_at >= %s::timestamptz AND recorded_at < %s::timestamptz
+                WHERE {column} >= %s::timestamptz AND {column} < %s::timestamptz
                 RETURNING *
             )
             INSERT INTO {partition_table}
             SELECT * FROM moved
             ON CONFLICT DO NOTHING;
         """
-        ).format(default_table=default_table_ref, partition_table=partition_table_ref)
+        ).format(default_table=default_table_ref, partition_table=partition_table_ref, column=column_ref)
 
         # Drop default exclusion constraint if exists (for resume scenarios)
         drop_default_check_sql = psycopg2_sql.SQL(
@@ -607,9 +640,13 @@ class Command(BaseCommand):
             """
             ALTER TABLE {default_table}
             ADD CONSTRAINT {constraint}
-            CHECK (NOT (recorded_at >= %s::timestamptz AND recorded_at < %s::timestamptz));
+            CHECK (NOT ({column} >= %s::timestamptz AND {column} < %s::timestamptz));
         """
-        ).format(default_table=default_table_ref, constraint=psycopg2_sql.Identifier(default_exclude_constraint))
+        ).format(
+            default_table=default_table_ref,
+            constraint=psycopg2_sql.Identifier(default_exclude_constraint),
+            column=column_ref,
+        )
 
         attach_sql = psycopg2_sql.SQL(
             "ALTER TABLE {parent} ATTACH PARTITION {partition} FOR VALUES FROM (%s) TO (%s);"
@@ -661,17 +698,19 @@ class Command(BaseCommand):
         partition_table_ref,
         start_date: str,
         end_date: str,
+        partition_column: str,
     ) -> int:
         """Move any remaining data from default to an already-attached partition."""
+        column_ref = safe_sql_identifier(partition_column)
         self.stdout.write(self.style.SUCCESS("Moving any remaining data from default partition..."))
 
         count_sql = psycopg2_sql.SQL(
             """
             SELECT COUNT(*)
             FROM ONLY {table}
-            WHERE recorded_at >= %s::timestamptz AND recorded_at < %s::timestamptz;
+            WHERE {column} >= %s::timestamptz AND {column} < %s::timestamptz;
         """
-        ).format(table=default_table_ref)
+        ).format(table=default_table_ref, column=column_ref)
 
         count_result = execute_sql_query(
             query=count_sql, logger=logger, fetch_type=FetchType.ONE, params=(start_date, end_date)
@@ -691,19 +730,19 @@ class Command(BaseCommand):
         self.stdout.write(f"Moving {rows_to_move:,} rows...")
 
         # For attached partition, we need to delete from default and insert to partition
-        # Since partition is attached, inserts to parent with correct recorded_at will route there
+        # Since partition is attached, inserts to parent with correct partition_column will route there
         move_sql = psycopg2_sql.SQL(
             """
             WITH moved AS (
                 DELETE FROM ONLY {default_table}
-                WHERE recorded_at >= %s::timestamptz AND recorded_at < %s::timestamptz
+                WHERE {column} >= %s::timestamptz AND {column} < %s::timestamptz
                 RETURNING *
             )
             INSERT INTO {partition_table}
             SELECT * FROM moved
             ON CONFLICT DO NOTHING;
         """
-        ).format(default_table=default_table_ref, partition_table=partition_table_ref)
+        ).format(default_table=default_table_ref, partition_table=partition_table_ref, column=column_ref)
 
         begin(logger=logger)
         execute_sql_query(query=move_sql, logger=logger, fetch_type=FetchType.NONE, params=(start_date, end_date))

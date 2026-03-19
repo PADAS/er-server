@@ -125,6 +125,7 @@ app.conf.task_routes = {
         "queue": "maintenance",
     },
     "observations.tasks.run_partition_table_check": {"queue": "maintenance"},
+    "observations.tasks.run_observation_segment_partition_table_check": {"queue": "maintenance"},
     "das_server.tasks.refresh_tenants_cache": {
         "queue": "maintenance",
     },
@@ -217,6 +218,10 @@ app.conf.beat_schedule = {
     "postgresql_partman_run_partition_table_check_for_observations_observation": {
         "task": "observations.tasks.run_partition_table_check",
         "schedule": crontab(minute="0", hour="0", day_of_week="1"),
+    },
+    "postgresql_partman_run_partition_table_check_for_observations_observationsegment": {
+        "task": "observations.tasks.run_observation_segment_partition_table_check",
+        "schedule": crontab(minute="0", hour="1", day_of_week="1"),
     },
     "refresh_tenants_cache": {
         "task": "das_server.tasks.refresh_tenants_cache",

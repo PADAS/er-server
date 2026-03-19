@@ -6,6 +6,7 @@ import pytz
 
 from django.conf import settings
 from django.contrib.gis.db import models
+from django.db import connection
 from django.utils.translation import gettext as _
 
 from analyzers.models.base import Annotator
@@ -113,3 +114,185 @@ class ObservationAnnotator(Annotator):
 
         logger.info("Setting exclusion_flags on these observations: {}".format(flag_these))
         Observation.objects.set_flag(flag_these, Observation.EXCLUDED_AUTOMATICALLY)
+
+    def annotate_queryset(self, queryset):
+        """
+        Annotate a queryset with distance, time, and speed calculations.
+
+        This method adds the proven SQL logic for calculating distances and speeds
+        between consecutive observations, which can be reused by other components.
+
+        Returns queryset with additional fields:
+        - distance_preceding: Distance from previous observation (meters)
+        - time_lapse_preceding: Time gap from previous observation (seconds)
+        - speed_kmh: Speed in km/h based on distance and time
+        """
+        # note to devs: constrain complexity here to maintain compatibility with
+        #  Django's limitations around .extra().
+        # be careful with table aliases and references.
+
+        return queryset.extra(
+            select={
+                "distance_preceding": """
+                    ST_Distance(
+                        "observations_observation"."location"::geography,
+                        lag("observations_observation"."location"::geography, 1) OVER (
+                            PARTITION BY "observations_observation"."source_id"
+                            ORDER BY "observations_observation"."recorded_at"
+                        )
+                    )
+                """,
+                "time_lapse_preceding": """
+                    extract('epoch' FROM age(
+                        "observations_observation"."recorded_at",
+                        lag("observations_observation"."recorded_at") OVER (
+                            PARTITION BY "observations_observation"."source_id"
+                            ORDER BY "observations_observation"."recorded_at"
+                        )
+                    ))
+                """,
+                "speed_kmh": """
+                    CASE WHEN extract('epoch' FROM age(
+                        "observations_observation"."recorded_at",
+                        lag("observations_observation"."recorded_at") OVER (
+                            PARTITION BY "observations_observation"."source_id"
+                            ORDER BY "observations_observation"."recorded_at"
+                        )
+                    )) > 0
+                    THEN (3.6 *
+                        ST_Distance(
+                            "observations_observation"."location"::geography,
+                            lag("observations_observation"."location"::geography, 1) OVER (
+                                PARTITION BY "observations_observation"."source_id"
+                                ORDER BY "observations_observation"."recorded_at"
+                            )
+                        ) /
+                        extract('epoch' FROM age(
+                            "observations_observation"."recorded_at",
+                            lag("observations_observation"."recorded_at") OVER (
+                                PARTITION BY "observations_observation"."source_id"
+                                ORDER BY "observations_observation"."recorded_at"
+                            )
+                        ))
+                    )
+                    ELSE 0 END
+                """,
+            }
+        )
+
+    def annotate_with_segmentation(self, queryset, max_time_gap_hours=24.0, speed_threshold_kmh=None):
+        """
+        Annotate queryset with track segmentation using optimized raw SQL.
+        This method uses a CTE-based approach for optimal performance with large datasets.
+
+        Args:
+            queryset: Base queryset to annotate
+            max_time_gap_hours: Maximum hours between observations before breaking track
+            speed_threshold_kmh: Speed threshold for breaking tracks (uses self.max_speed if None)
+
+        Returns queryset with additional fields:
+        - distance_preceding, time_lapse_preceding, speed_kmh
+        - is_segment_break: Boolean indicating if this observation starts a new segment
+        - track_segment_id: Cumulative segment ID within each subject
+        - segment_order: Order of observation within its segment
+        """
+        # Use instance's max_speed if no threshold provided
+        if speed_threshold_kmh is None:
+            speed_threshold_kmh = self.max_speed
+
+        # Get observation IDs from the queryset
+        observation_ids = list(queryset.values_list("id", flat=True))
+
+        if not observation_ids:
+            return queryset.none()
+
+        # IN clause: placeholders only in SQL; observation_ids passed as params to execute() (no interpolation).
+        placeholders = ",".join(["%s"] * len(observation_ids))
+        sql = f"""
+        WITH track_analysis AS (
+            SELECT
+                obs.*,
+                ss.subject_id,
+                ST_Distance(
+                    obs.location::geography,
+                    lag(obs.location::geography) OVER (
+                        PARTITION BY ss.subject_id
+                        ORDER BY obs.recorded_at
+                    )
+                ) as distance_preceding,
+                extract('epoch' FROM age(
+                    obs.recorded_at,
+                    lag(obs.recorded_at) OVER (
+                        PARTITION BY ss.subject_id
+                        ORDER BY obs.recorded_at
+                    )
+                )) as time_lapse_preceding
+            FROM observations_observation obs
+            JOIN observations_source s ON s.id = obs.source_id
+            JOIN observations_subjectsource ss ON ss.source_id = s.id
+                AND ss.assigned_range @> obs.recorded_at
+            WHERE obs.id IN ({placeholders})
+        ),
+        track_segments AS (
+            SELECT
+                *,
+                CASE WHEN time_lapse_preceding > 0
+                    THEN (3.6 * distance_preceding / time_lapse_preceding)
+                    ELSE 0
+                END as speed_kmh,
+                CASE
+                    WHEN lag(recorded_at) OVER (
+                        PARTITION BY subject_id ORDER BY recorded_at
+                    ) IS NULL THEN 1
+                    WHEN time_lapse_preceding > %s THEN 1
+                    WHEN time_lapse_preceding > 0
+                        AND (3.6 * distance_preceding / time_lapse_preceding) > %s THEN 1
+                    ELSE 0
+                END as is_segment_break
+            FROM track_analysis
+        ),
+        final_segments AS (
+            SELECT
+                *,
+                SUM(is_segment_break) OVER (
+                    PARTITION BY subject_id
+                    ORDER BY recorded_at
+                    ROWS UNBOUNDED PRECEDING
+                ) - 1 as track_segment_id
+            FROM track_segments
+        )
+        SELECT
+            *,
+            ROW_NUMBER() OVER (
+                PARTITION BY subject_id, track_segment_id
+                ORDER BY recorded_at
+            ) as segment_order
+        FROM final_segments
+        ORDER BY subject_id, recorded_at
+        """
+
+        # Use proper parameterization to prevent SQL injection
+        # Prepare parameters: observation_ids + time_gap + speed_threshold
+        params = list(observation_ids) + [max_time_gap_hours * 3600, speed_threshold_kmh]
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+
+            # Convert results to Observation instances using chunked processing
+            columns = [col[0] for col in cursor.description]
+            results = []
+            chunk_size = 1000  # Process in chunks to avoid memory issues
+
+            while True:
+                rows = cursor.fetchmany(chunk_size)
+                if not rows:
+                    break
+
+                for row in rows:
+                    observation = Observation()
+                    # Set all fields from the row
+                    for i, value in enumerate(row):
+                        setattr(observation, columns[i], value)
+                    results.append(observation)
+
+            return results

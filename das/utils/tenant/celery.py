@@ -34,6 +34,7 @@ class TenantTaskMixin:
             self.retry(exc=ex, retry_backoff=True)
 
     def apply(self, args=None, kwargs=None, *arg, **kw):
+        args = () if args is None else args
         kwargs = kwargs or {}
         if "domain" not in kwargs:
             kwargs["domain"] = get_tenant_settings().domain
@@ -41,6 +42,7 @@ class TenantTaskMixin:
         return super().apply(args, kwargs, *arg, **kw)
 
     def apply_async(self, args=None, kwargs=None, *arg, **kw):
+        args = () if args is None else args
         kwargs = kwargs or {}
         if "domain" not in kwargs:
             kwargs["domain"] = get_tenant_settings().domain

@@ -6,4 +6,4 @@ on:
 
 jobs:
   cleanup:
-    uses: PADAS/.github/.github/workflows/pipeline-cleanup-stale-pr-envs.yml@main
+    uses: PADAS/serca-pipelines/.github/workflows/pipeline-cleanup-stale-pr-envs.yml@main

@@ -33,6 +33,7 @@ from accounts.auth0_admin import (
 from das_server import auth_check, views
 from das_server.admin import dasadmin_site
 from das_server.spectacular_views import SwaggerUIViewWithLogin
+from observations.views import SubjectTrackSegmentsV2View
 
 admin.autodiscover()
 admin.site.enable_nav_sidebar = False
@@ -80,6 +81,11 @@ urlpatterns = [
     path("api/v1.0/core/", include("core.urls")),
     path("api/v2.0/schemas/", include("schemas.urls", namespace="schemas")),
     path("api/v2.0/activity/", include("activity.urls_v2")),
+    path(
+        "api/v2.0/subject/<uuid:subject_id>/tracks/",
+        SubjectTrackSegmentsV2View.as_view(),
+        name="subject-view-tracks-segments-v2",
+    ),
 ]
 
 
