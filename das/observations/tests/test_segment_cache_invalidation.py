@@ -1,4 +1,3 @@
-import math
 import uuid
 from unittest import mock
 
@@ -23,6 +22,7 @@ from observations.signals_segments_cache import (
     _invalidate_for_point,
     clear_observation_tile_invalidation_batch_for_tests,
     invalidate_subject_tiles_on_status_change,
+    lonlat_to_tile_xy,
     tiles_along_segment_at_zoom,
 )
 from utils import cache as cache_utils
@@ -39,12 +39,24 @@ def _tile_invalidation_zoom_count():
     return len(list(seg_cache.SEGMENTS_TILE_INVALIDATION_ZOOMS))
 
 
-def lonlat_to_tile_xy(lon: float, lat: float, z: int):
-    lat_rad = math.radians(lat)
-    n = 2.0**z
-    xtile = int((lon + 180.0) / 360.0 * n)
-    ytile = int((1.0 - math.log(math.tan(lat_rad) + (1 / math.cos(lat_rad))) / math.pi) / 2.0 * n)
-    return xtile, ytile
+def test_lonlat_to_tile_xy_clamps_to_grid_bounds():
+    """Tile indices stay within [0, n-1]; important for Pacific / antimeridian-adjacent data."""
+    z = 10
+    n = 1 << z
+    x180, _ = lonlat_to_tile_xy(180.0, 0.0, z)
+    assert x180 == n - 1
+    x_neg180, _ = lonlat_to_tile_xy(-180.0, 0.0, z)
+    assert x_neg180 == 0
+
+
+def test_lonlat_to_tile_xy_pacific_australasia_sample():
+    """Regression: tests must use same tile indices as segment-cache invalidation (global service)."""
+    z = 10
+    # Approx. Port Moresby PNG, Auckland NZ, West Papua — typical southwest Pacific longitudes
+    for lon, lat in ((147.18, -9.44), (174.76, -36.85), (134.05, -2.59)):
+        x, y = lonlat_to_tile_xy(lon, lat, z)
+        assert 0 <= x < (1 << z)
+        assert 0 <= y < (1 << z)
 
 
 class FakeRedis:
