@@ -19,6 +19,12 @@ class TestMigrationSerializerContracts:
         assert serializer.validated_data["dry_run"] is True
         assert serializer.validated_data["event_types"][0]["event_type_value"] == "fire_rep"
 
+    def test_migration_request_serializer_rejects_empty_event_types_when_not_dry_run(self):
+        serializer = MigrationRequestSerializer(data={"dry_run": False, "event_types": []})
+
+        assert serializer.is_valid() is False
+        assert serializer.errors["event_types"] == ["This list may not be empty when dry_run is false."]
+
     def test_migration_event_type_request_item_serializer_requires_event_type_value(self):
         serializer = MigrationEventTypeRequestItemSerializer(data={"hardcoded_choices_resolutions": []})
 

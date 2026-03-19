@@ -1590,6 +1590,20 @@ class TestEventTypeMigration:
         v1_event_type.refresh_from_db()
         assert v1_event_type.version == EventType.VersionChoices.VERSION_1
 
+    @patch("activity.views.types_v2.MigrationService.migrate")
+    def test_migrate_empty_event_types_requires_dry_run(self, mock_migrate, superuser_client):
+        url = reverse("v2-eventtype-migrate")
+        data = {
+            "dry_run": False,
+            "event_types": [],
+        }
+
+        response = superuser_client.post(url, data=data, format="json")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["event_types"] == ["This list may not be empty when dry_run is false."]
+        mock_migrate.assert_not_called()
+
     def test_migrate_missing_event_types_returns_400(self, superuser_client):
         """Test missing event_types field returns 400."""
         url = reverse("v2-eventtype-migrate")
