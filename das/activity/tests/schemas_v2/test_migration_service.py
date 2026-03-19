@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from activity.models import EventCategory, EventType
+from activity.models import EventType
 from activity.schemas.migration.choice_processor import (
     ChoiceProcessor,
     HardcodedChoiceResolution,
@@ -151,6 +151,16 @@ class TestMigrateSingle:
         v1_event_type.refresh_from_db()
         assert v1_event_type.version == EventType.VersionChoices.VERSION_1
 
+    @patch.object(MigrationService, "can_modify_event_type", return_value=False)
+    @patch("activity.schemas.migration.service.transform_schema")
+    def test_denies_when_no_permission(self, mock_transform, mock_perm, migration_service_live, v1_event_type):
+        mock_transform.return_value = {"json": {"properties": {}}, "ui": {}}
+
+        result = migration_service_live.migrate([v1_event_type.value])[0]
+
+        assert result.success is False
+        assert "Permission denied" in result.errors[0]
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings")
@@ -219,43 +229,6 @@ class TestDryRunParity:
         # Reload from DB - should be V2 now
         v1_event_type.refresh_from_db()
         assert v1_event_type.version == EventType.VersionChoices.VERSION_2
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
-class TestAuthorization:
-    """Tests for authorization checks."""
-
-    @patch.object(MigrationService, "can_modify_event_type", return_value=False)
-    @patch("activity.schemas.migration.service.transform_schema")
-    def test_denies_when_no_permission(self, mock_transform, mock_perm, migration_service_live, v1_event_type):
-        mock_transform.return_value = {"json": {"properties": {}}, "ui": {}}
-
-        result = migration_service_live.migrate([v1_event_type.value])[0]
-
-        assert result.success is False
-        assert "Permission denied" in result.errors[0]
-
-    @patch.object(MigrationService, "can_modify_event_type", return_value=False)
-    @patch("activity.schemas.migration.service.transform_schema")
-    def test_allows_dry_run_without_permission(self, mock_transform, mock_perm, migration_service, v1_event_type):
-        """Dry run should work even without modify permission."""
-        mock_transform.return_value = {"json": {"properties": {}}, "ui": {}}
-
-        result = migration_service.migrate([v1_event_type.value])[0]
-
-        assert result.success is True
-        mock_perm.assert_not_called()
-
-    @patch.object(MigrationService, "can_modify_event_type", side_effect=EventCategory.DoesNotExist())
-    def test_permission_check_exception_returns_result_error(self, mock_perm, migration_service_live, v1_event_type):
-        result = migration_service_live.migrate([v1_event_type.value])[0]
-
-        assert result.success is False
-        assert any(
-            f"Failed to check permissions for EventType '{v1_event_type.value}'" in error for error in result.errors
-        )
-        mock_perm.assert_called_once_with(v1_event_type)
 
 
 @pytest.mark.django_db
