@@ -20,7 +20,9 @@ class TestV2SchemaAutoBuilder:
         doc = {
             "species": "Elephant",
             "count": 10,
+            "is_active": True,
             "observed_at": "2024-06-15T10:00:00Z",
+            "report_url": "https://example.com/report",
             "location": {"latitude": -2.5, "longitude": 37.2},
         }
         schema = V2SchemaAutoBuilder.from_document(doc)
@@ -66,15 +68,12 @@ class TestV2SchemaAutoBuilder:
         assert schema["ui"]["fields"]["count"]["type"] == "NUMERIC"
         assert schema["ui"]["fields"]["temperature"]["type"] == "NUMERIC"
 
-    def test_boolean_values_are_skipped(self):
-        """Boolean values should be skipped until V2 schema spec adds boolean field support."""
-        # TODO: Update this test when boolean_field_schema is added to V2 spec
+    def test_boolean_values_are_inferred_as_boolean(self):
+        """Boolean values should be inferred as BOOLEAN fields."""
         schema = V2SchemaAutoBuilder.from_document({"is_active": True, "name": "Test"})
 
-        # Boolean field should NOT be in the generated schema
-        assert "is_active" not in schema["json"]["properties"]
-        assert "is_active" not in schema["ui"]["fields"]
-        # Other fields should still be generated
+        assert schema["json"]["properties"]["is_active"]["type"] == "boolean"
+        assert schema["ui"]["fields"]["is_active"]["type"] == "BOOLEAN"
         assert "name" in schema["json"]["properties"]
 
     def test_iso_datetime_inferred_as_datetime(self):
@@ -129,8 +128,8 @@ class TestV2SchemaAutoBuilder:
         json_field = schema["json"]["properties"]["start_time"]
         assert json_field["format"] == "time"
 
-    def test_url_inferred_as_link(self):
-        """URL strings should be inferred as LINK fields."""
+    def test_url_inferred_as_text_with_uri_format(self):
+        """URL strings should be inferred as TEXT fields with uri format."""
         schema = V2SchemaAutoBuilder.from_document(
             {
                 "website": "https://example.com/page",
@@ -138,10 +137,27 @@ class TestV2SchemaAutoBuilder:
             }
         )
 
+        assert schema["json"]["properties"]["website"]["type"] == "string"
         assert schema["json"]["properties"]["website"]["format"] == "uri"
+        assert schema["json"]["properties"]["api_endpoint"]["type"] == "string"
         assert schema["json"]["properties"]["api_endpoint"]["format"] == "uri"
-        assert schema["ui"]["fields"]["website"]["type"] == "LINK"
-        assert schema["ui"]["fields"]["api_endpoint"]["type"] == "LINK"
+        assert schema["ui"]["fields"]["website"]["type"] == "TEXT"
+        assert schema["ui"]["fields"]["api_endpoint"]["type"] == "TEXT"
+
+    @pytest.mark.parametrize(
+        "field_name,value,expected_format",
+        [
+            ("email", "user@example.com", "email"),
+            ("external_id", "550e8400-e29b-41d4-a716-446655440000", "uuid"),
+        ],
+    )
+    def test_string_format_inferred_as_text(self, field_name, value, expected_format):
+        """Recognized string formats should be inferred as TEXT fields with matching format."""
+        schema = V2SchemaAutoBuilder.from_document({field_name: value})
+
+        assert schema["json"]["properties"][field_name]["type"] == "string"
+        assert schema["json"]["properties"][field_name]["format"] == expected_format
+        assert schema["ui"]["fields"][field_name]["type"] == "TEXT"
 
     def test_location_object_inferred_as_location(self):
         """Dict with latitude/longitude should be inferred as LOCATION field."""
@@ -277,7 +293,7 @@ class TestComplexDocuments:
         assert schema["ui"]["fields"]["animal_count"]["type"] == "NUMERIC"
         assert schema["ui"]["fields"]["sighting_location"]["type"] == "LOCATION"
         assert schema["ui"]["fields"]["observed_at"]["type"] == "DATE_TIME"
-        assert schema["ui"]["fields"]["photo_url"]["type"] == "LINK"
+        assert schema["ui"]["fields"]["photo_url"]["type"] == "TEXT"
         assert schema["ui"]["fields"]["notes"]["type"] == "TEXT"
 
     def test_patrol_report_event(self):
