@@ -1,13 +1,17 @@
 import logging
 import math
-from typing import Iterable, Tuple
+from typing import Iterable, List, Set, Tuple
 
 from django.apps import apps
 from django.conf import settings
+from django.core.signals import request_started
+from django.db import connection, connections, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from utils.cache import get_effective_cache_version, invalidate_tile_cache_keys
+
+logger = logging.getLogger(__name__)
 
 # Reasonable zoom range to consider for invalidation; align to typical vector tile usage
 SEGMENTS_TILE_INVALIDATION_ZOOMS = getattr(settings, "SEGMENTS_TILE_INVALIDATION_ZOOMS", range(6, 23))
@@ -15,6 +19,13 @@ SEGMENTS_TILE_INVALIDATION_ZOOMS = getattr(settings, "SEGMENTS_TILE_INVALIDATION
 # Layer IDs must match the ids set on the VectorLayer subclasses used by
 # ObservationSegmentTileView.layer_classes so the cache-key prefix matches.
 TILE_LAYER_IDS = ("observation_segments", "subjects")
+
+# Connection-local batch: ("p", tenant_id, lon, lat) or ("s", tenant_id, lon1, lat1, lon2, lat2)
+_TILE_INV_BATCH_ATTR = "_tile_invalidation_batch"
+_TILE_INV_FLUSH_SCHEDULED_ATTR = "_tile_invalidation_flush_scheduled"
+
+# Backward-compatible name for tests
+_OBS_TILE_BATCH_ATTR = _TILE_INV_BATCH_ATTR
 
 
 def lonlat_to_tile_xy(lon: float, lat: float, z: int) -> Tuple[int, int]:
@@ -28,6 +39,36 @@ def lonlat_to_tile_xy(lon: float, lat: float, z: int) -> Tuple[int, int]:
     return xtile, ytile
 
 
+def _bresenham_tile_cells(x0: int, y0: int, x1: int, y1: int) -> Set[Tuple[int, int]]:
+    """Integer Bresenham line in tile space; all cells the segment passes through."""
+    cells: Set[Tuple[int, int]] = set()
+    dx = abs(x1 - x0)
+    dy = abs(y1 - y0)
+    sx = 1 if x0 < x1 else -1
+    sy = 1 if y0 < y1 else -1
+    err = dx - dy
+    x, y = x0, y0
+    while True:
+        cells.add((x, y))
+        if x == x1 and y == y1:
+            break
+        e2 = 2 * err
+        if e2 > -dy:
+            err -= dy
+            x += sx
+        if e2 < dx:
+            err += dx
+            y += sy
+    return cells
+
+
+def tiles_along_segment_at_zoom(lon1: float, lat1: float, lon2: float, lat2: float, z: int) -> Set[Tuple[int, int]]:
+    """Tile (x, y) cells at zoom z intersected by the geodesic segment in lon/lat (WebMercator tiles)."""
+    xa, ya = lonlat_to_tile_xy(lon1, lat1, z)
+    xb, yb = lonlat_to_tile_xy(lon2, lat2, z)
+    return _bresenham_tile_cells(xa, ya, xb, yb)
+
+
 def _invalidate_for_point(*, tenant_id: str, layer_ids: Iterable[str], lon: float, lat: float) -> int:
     deleted = 0
     version = get_effective_cache_version()
@@ -39,20 +80,115 @@ def _invalidate_for_point(*, tenant_id: str, layer_ids: Iterable[str], lon: floa
     return deleted
 
 
+def _get_batch() -> List[Tuple]:
+    conn = connection
+    batch = getattr(conn, _TILE_INV_BATCH_ATTR, None)
+    if batch is None:
+        batch = []
+        setattr(conn, _TILE_INV_BATCH_ATTR, batch)
+    return batch
+
+
+def _schedule_tile_invalidation_flush() -> None:
+    """At most one on_commit callback per DB connection per transaction."""
+    conn = connection
+    if getattr(conn, _TILE_INV_FLUSH_SCHEDULED_ATTR, False):
+        return
+    setattr(conn, _TILE_INV_FLUSH_SCHEDULED_ATTR, True)
+
+    def _run_flush() -> None:
+        setattr(conn, _TILE_INV_FLUSH_SCHEDULED_ATTR, False)
+        _flush_batched_tile_invalidations()
+
+    transaction.on_commit(_run_flush)
+
+
+def _append_point_invalidation(tenant_id: str, lon: float, lat: float) -> None:
+    _get_batch().append(("p", tenant_id, lon, lat))
+    _schedule_tile_invalidation_flush()
+
+
+def _append_segment_invalidation(
+    tenant_id: str, lon1: float, lat1: float, lon2: float, lat2: float
+) -> None:
+    _get_batch().append(("s", tenant_id, lon1, lat1, lon2, lat2))
+    _schedule_tile_invalidation_flush()
+
+
+def _flush_batched_tile_invalidations() -> None:
+    """After commit: expand batch to (tenant, z, x, y), dedupe, invalidate once each."""
+    conn = connection
+    batch = getattr(conn, _TILE_INV_BATCH_ATTR, None)
+    if batch is None:
+        return
+    try:
+        delattr(conn, _TILE_INV_BATCH_ATTR)
+    except AttributeError:
+        pass
+    if not batch:
+        return
+    tiles: Set[Tuple[str, int, int, int]] = set()
+    for entry in batch:
+        kind = entry[0]
+        if kind == "p":
+            _, tenant_id, lon, lat = entry
+            for z in SEGMENTS_TILE_INVALIDATION_ZOOMS:
+                x, y = lonlat_to_tile_xy(lon, lat, z)
+                tiles.add((tenant_id, z, x, y))
+        else:
+            _, tenant_id, lon1, lat1, lon2, lat2 = entry
+            for z in SEGMENTS_TILE_INVALIDATION_ZOOMS:
+                for x, y in tiles_along_segment_at_zoom(lon1, lat1, lon2, lat2, z):
+                    tiles.add((tenant_id, z, x, y))
+
+    version = get_effective_cache_version()
+    for tenant_id, z, x, y in tiles:
+        try:
+            invalidate_tile_cache_keys(
+                tenant_id=tenant_id,
+                layer_ids=TILE_LAYER_IDS,
+                cache_version=version,
+                z=z,
+                x=x,
+                y=y,
+            )
+        except Exception as exc:
+            logger.error("Tile cache invalidation failed (batched): %s", exc, exc_info=True)
+
+
+def _flush_batched_observation_tile_invalidations() -> None:
+    """Backward-compatible name for tests."""
+    _flush_batched_tile_invalidations()
+
+
+def clear_observation_tile_invalidation_batch_for_tests() -> None:
+    """Drop pending batch and flush flag (e.g. rolled-back test transactions)."""
+    for conn in connections.all():
+        for attr in (_TILE_INV_BATCH_ATTR, _TILE_INV_FLUSH_SCHEDULED_ATTR):
+            if hasattr(conn, attr):
+                delattr(conn, attr)
+
+
+@receiver(request_started)
+def _clear_stale_observation_tile_batch(sender, **kwargs) -> None:
+    """Avoid unbounded batch growth on pooled connections if a txn rolled back without commit."""
+    for conn in connections.all():
+        for attr in (_TILE_INV_BATCH_ATTR, _TILE_INV_FLUSH_SCHEDULED_ATTR):
+            if hasattr(conn, attr):
+                delattr(conn, attr)
+
+
 Observation = apps.get_model("observations", "Observation")
 ObservationSegment = apps.get_model("observations", "ObservationSegment")
 SubjectStatus = apps.get_model("observations", "SubjectStatus")
-
-
-logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=Observation)
 def invalidate_segment_tiles_on_observation_change(sender=None, instance=None, **kwargs):
     """Invalidate vector tile cache when an observation changes.
 
-    We invalidate tiles containing the observation location across relevant zoom levels.
-    Segments are built from observations, so this is a safe heuristic and avoids computing line intersections.
+    Batched and deferred until transaction commit so bulk ingests (e.g. 200 points)
+    perform one deduped Redis pass instead of one scan per observation per zoom.
     """
     try:
         if not instance or not instance.location:
@@ -60,55 +196,45 @@ def invalidate_segment_tiles_on_observation_change(sender=None, instance=None, *
         lon = float(instance.location.x)
         lat = float(instance.location.y)
         tenant_id = str(instance.das_tenant_id)
-        _invalidate_for_point(tenant_id=tenant_id, layer_ids=TILE_LAYER_IDS, lon=lon, lat=lat)
+        _append_point_invalidation(tenant_id, lon, lat)
     except Exception as exc:
         logger.error("Tile cache invalidation failed on Observation change: %s", exc, exc_info=True)
 
 
 @receiver(post_save, sender=ObservationSegment)
 def invalidate_segment_tiles_on_segment_change(sender=None, instance=None, **kwargs):
-    """Invalidate vector tile cache when a segment changes.
-
-    Invalidate tiles for both endpoints to improve coverage.
-    """
+    """Invalidate vector tile cache when a segment changes (all tiles along the line)."""
     try:
         if not instance:
             return
         tenant_id = str(instance.das_tenant_id)
         a = instance.start_observation.location
         b = instance.end_observation.location
-        if a:
-            _invalidate_for_point(
-                tenant_id=tenant_id,
-                layer_ids=TILE_LAYER_IDS,
-                lon=float(a.x),
-                lat=float(a.y),
+        if a and b:
+            _append_segment_invalidation(
+                tenant_id,
+                float(a.x),
+                float(a.y),
+                float(b.x),
+                float(b.y),
             )
-        if b:
-            _invalidate_for_point(
-                tenant_id=tenant_id,
-                layer_ids=TILE_LAYER_IDS,
-                lon=float(b.x),
-                lat=float(b.y),
-            )
+        elif a:
+            _append_point_invalidation(tenant_id, float(a.x), float(a.y))
+        elif b:
+            _append_point_invalidation(tenant_id, float(b.x), float(b.y))
     except Exception as exc:
         logger.error("Tile cache invalidation failed on ObservationSegment change: %s", exc, exc_info=True)
 
 
 @receiver(post_save, sender=SubjectStatus)
 def invalidate_subject_tiles_on_status_change(sender=None, instance=None, **kwargs):
-    """Invalidate vector tile cache when a SubjectStatus changes.
-
-    SubjectStatus holds the materialised subject position at each delay_hours
-    bucket.  When the position (or radio_state, etc.) changes, cached tiles
-    containing that point need to be refreshed so clients see the update.
-    """
+    """Invalidate vector tile cache when a SubjectStatus changes."""
     try:
         if not instance or not instance.location:
             return
         lon = float(instance.location.x)
         lat = float(instance.location.y)
         tenant_id = str(instance.das_tenant_id)
-        _invalidate_for_point(tenant_id=tenant_id, layer_ids=TILE_LAYER_IDS, lon=lon, lat=lat)
+        _append_point_invalidation(tenant_id, lon, lat)
     except Exception as exc:
         logger.error("Tile cache invalidation failed on SubjectStatus change: %s", exc, exc_info=True)

@@ -4,6 +4,7 @@ import uuid
 import pytest
 
 from django.contrib.gis.geos import Point
+from django.db import connection, transaction
 from django.utils import timezone
 
 from observations.models import (
@@ -15,12 +16,22 @@ from observations.models import (
     Subject,
     SubjectSource,
 )
+import observations.signals_segments_cache as seg_cache
 from observations.signals_segments_cache import (
     TILE_LAYER_IDS,
     _invalidate_for_point,
+    clear_observation_tile_invalidation_batch_for_tests,
     invalidate_subject_tiles_on_status_change,
+    tiles_along_segment_at_zoom,
 )
 from utils import cache as cache_utils
+
+
+@pytest.fixture(autouse=True)
+def _clear_observation_tile_batch_between_tests():
+    clear_observation_tile_invalidation_batch_for_tests()
+    yield
+    clear_observation_tile_invalidation_batch_for_tests()
 
 
 def lonlat_to_tile_xy(lon: float, lat: float, z: int):
@@ -208,6 +219,108 @@ def test_subject_status_signal_invalidation(fake_vector_tile_cache):
     # Directly invoke the invalidation helper (same as the signal handler calls)
     deleted = _invalidate_for_point(tenant_id=str(tenant.id), layer_ids=TILE_LAYER_IDS, lon=lon, lat=lat)
     assert deleted >= 2
+
+
+@pytest.mark.django_db
+def test_observation_tile_invalidation_flush_dedupes_points(monkeypatch, fake_vector_tile_cache):
+    """After commit, one flush should dedupe many identical (tenant, lon, lat) to one tile per zoom."""
+    tenant_id = str(uuid.uuid4())
+    lon, lat = 12.5, -1.25
+    calls = []
+
+    def capture(**kw):
+        calls.append((kw["z"], kw["x"], kw["y"]))
+        return 0
+
+    monkeypatch.setattr(seg_cache, "invalidate_tile_cache_keys", capture)
+    batch = [("p", tenant_id, lon, lat)] * 30
+    setattr(connection, seg_cache._TILE_INV_BATCH_ATTR, batch)
+    seg_cache._flush_batched_tile_invalidations()
+    assert len(calls) == len(set(calls))
+    assert len(calls) == 17  # range(6, 23)
+
+
+def test_tiles_along_segment_covers_intermediate_tiles():
+    """Long horizontal segment must invalidate tiles between endpoints, not only ends."""
+    z = 10
+    # ~5° lon at equator spans many z=10 tiles (~0.35° per tile)
+    cells = tiles_along_segment_at_zoom(-10.0, 0.0, -5.0, 0.0, z)
+    xs = {c[0] for c in cells}
+    assert len(xs) >= 5, f"expected multiple x columns, got {len(xs)}"
+
+
+@pytest.mark.django_db
+def test_flush_batched_segment_invalidates_tiles_along_line(monkeypatch):
+    """Batch entry type 's' expands to every tile cell the segment crosses at each zoom."""
+    tenant_id = str(uuid.uuid4())
+    calls = []
+
+    def capture(**kw):
+        calls.append((kw["z"], kw["x"], kw["y"]))
+        return 0
+
+    monkeypatch.setattr(seg_cache, "invalidate_tile_cache_keys", capture)
+    setattr(connection, seg_cache._TILE_INV_BATCH_ATTR, [("s", tenant_id, -10.0, 0.0, -5.0, 0.0)])
+    seg_cache._flush_batched_tile_invalidations()
+    z10 = {(x, y) for z, x, y in calls if z == 10}
+    assert len(z10) >= 5
+
+
+@pytest.mark.django_db
+def test_tile_invalidation_schedules_on_commit_once_per_transaction(monkeypatch):
+    """Many point appends in one txn register exactly one on_commit (no ORM side signals)."""
+    n_reg = []
+    real_on_commit = transaction.on_commit
+
+    def counting_on_commit(callback):
+        n_reg.append(callback)
+        return real_on_commit(callback)
+
+    monkeypatch.setattr(transaction, "on_commit", counting_on_commit)
+    tenant_id = str(uuid.uuid4())
+    with transaction.atomic():
+        for _ in range(25):
+            seg_cache._append_point_invalidation(tenant_id, 12.5, -1.25)
+    assert len(n_reg) == 1
+
+
+@pytest.mark.django_db(transaction=False)
+def test_bulk_observations_after_commit_dedupes_tile_invalidations(monkeypatch, fake_vector_tile_cache):
+    """Same location many times → one invalidate per zoom after commit (integration)."""
+    tenant = DASTenant.objects.first()
+    provider = SourceProvider.objects.first()
+    if provider is None:
+        provider = SourceProvider.objects.create(
+            id=uuid.uuid4(),
+            provider_key="default-test-bulk",
+            display_name="Default Test Bulk",
+            das_tenant=tenant,
+        )
+    source = Source.objects.create(
+        manufacturer_id=f"m-bulk-{uuid.uuid4().hex[:8]}",
+        provider=provider,
+        das_tenant=tenant,
+    )
+    calls = []
+
+    def capture(**kw):
+        calls.append((kw["z"], kw["x"], kw["y"]))
+        return 0
+
+    monkeypatch.setattr(seg_cache, "invalidate_tile_cache_keys", capture)
+
+    lon, lat = 12.5, -1.25
+    with transaction.atomic():
+        for _ in range(40):
+            Observation.objects.create(
+                source=source,
+                recorded_at=timezone.now(),
+                location=Point(lon, lat, srid=4326),
+                das_tenant=tenant,
+            )
+
+    assert len(calls) == 17
+    assert len(set(calls)) == 17
 
 
 @pytest.mark.django_db
