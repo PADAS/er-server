@@ -154,10 +154,13 @@ class TestV2SchemaAutoBuilder:
     def test_string_format_inferred_as_text(self, field_name, value, expected_format):
         """Recognized string formats should be inferred as TEXT fields with matching format."""
         schema = V2SchemaAutoBuilder.from_document({field_name: value})
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        validated = field.to_internal_value(schema)
 
         assert schema["json"]["properties"][field_name]["type"] == "string"
         assert schema["json"]["properties"][field_name]["format"] == expected_format
         assert schema["ui"]["fields"][field_name]["type"] == "TEXT"
+        assert validated == schema
 
     def test_location_object_inferred_as_location(self):
         """Dict with latitude/longitude should be inferred as LOCATION field."""
