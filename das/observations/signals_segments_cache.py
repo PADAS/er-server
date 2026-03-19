@@ -33,14 +33,29 @@ def lonlat_to_tile_xy(lon: float, lat: float, z: int) -> Tuple[int, int]:
     Uses standard slippy map tiling.
     """
     lat_rad = math.radians(lat)
-    n = 2.0**z
+    n = int(2**z)
     xtile = int((lon + 180.0) / 360.0 * n)
     ytile = int((1.0 - math.log(math.tan(lat_rad) + (1 / math.cos(lat_rad))) / math.pi) / 2.0 * n)
+    xtile = max(0, min(n - 1, xtile))
+    ytile = max(0, min(n - 1, ytile))
     return xtile, ytile
 
 
-def _bresenham_tile_cells(x0: int, y0: int, x1: int, y1: int) -> Set[Tuple[int, int]]:
+def _unwrap_tile_x_for_shortest_path(xa: int, xb: int, z: int) -> Tuple[int, int]:
+    """Choose endpoints so Bresenham crosses the shorter horizontal wrap on the WebMercator torus."""
+    n = 1 << z
+    dx = xb - xa
+    half = n // 2
+    if dx > half:
+        xb -= n
+    elif dx < -half:
+        xb += n
+    return xa, xb
+
+
+def _bresenham_tile_cells(x0: int, y0: int, x1: int, y1: int, z: int) -> Set[Tuple[int, int]]:
     """Integer Bresenham line in tile space; all cells the segment passes through."""
+    n = 1 << z
     cells: Set[Tuple[int, int]] = set()
     dx = abs(x1 - x0)
     dy = abs(y1 - y0)
@@ -49,7 +64,7 @@ def _bresenham_tile_cells(x0: int, y0: int, x1: int, y1: int) -> Set[Tuple[int, 
     err = dx - dy
     x, y = x0, y0
     while True:
-        cells.add((x, y))
+        cells.add((x % n, max(0, min(n - 1, y))))
         if x == x1 and y == y1:
             break
         e2 = 2 * err
@@ -63,10 +78,15 @@ def _bresenham_tile_cells(x0: int, y0: int, x1: int, y1: int) -> Set[Tuple[int, 
 
 
 def tiles_along_segment_at_zoom(lon1: float, lat1: float, lon2: float, lat2: float, z: int) -> Set[Tuple[int, int]]:
-    """Tile (x, y) cells at zoom z intersected by the geodesic segment in lon/lat (WebMercator tiles)."""
+    """Tile (x, y) cells at zoom z intersected by the segment in lon/lat (WebMercator tiles).
+
+    Tile x is wrapped so segments crossing the antimeridian follow the shorter path in tile space
+    (avoids traversing nearly all x columns at high zoom).
+    """
     xa, ya = lonlat_to_tile_xy(lon1, lat1, z)
     xb, yb = lonlat_to_tile_xy(lon2, lat2, z)
-    return _bresenham_tile_cells(xa, ya, xb, yb)
+    xa, xb = _unwrap_tile_x_for_shortest_path(xa, xb, z)
+    return _bresenham_tile_cells(xa, ya, xb, yb, z)
 
 
 def _invalidate_for_point(*, tenant_id: str, layer_ids: Iterable[str], lon: float, lat: float) -> int:
@@ -161,21 +181,27 @@ def _flush_batched_observation_tile_invalidations() -> None:
     _flush_batched_tile_invalidations()
 
 
-def clear_observation_tile_invalidation_batch_for_tests() -> None:
-    """Drop pending batch and flush flag (e.g. rolled-back test transactions)."""
+def clear_tile_invalidation_connection_state() -> None:
+    """Drop pending batch and flush flag on all DB connections.
+
+    Call at HTTP request start, after Celery tasks, and in tests — avoids stale state when a
+    transaction rolls back (on_commit dropped) but connection-local attrs remain.
+    """
     for conn in connections.all():
         for attr in (_TILE_INV_BATCH_ATTR, _TILE_INV_FLUSH_SCHEDULED_ATTR):
             if hasattr(conn, attr):
                 delattr(conn, attr)
+
+
+def clear_observation_tile_invalidation_batch_for_tests() -> None:
+    """Backward-compatible name for tests; same as clear_tile_invalidation_connection_state."""
+    clear_tile_invalidation_connection_state()
 
 
 @receiver(request_started)
 def _clear_stale_observation_tile_batch(sender, **kwargs) -> None:
     """Avoid unbounded batch growth on pooled connections if a txn rolled back without commit."""
-    for conn in connections.all():
-        for attr in (_TILE_INV_BATCH_ATTR, _TILE_INV_FLUSH_SCHEDULED_ATTR):
-            if hasattr(conn, attr):
-                delattr(conn, attr)
+    clear_tile_invalidation_connection_state()
 
 
 Observation = apps.get_model("observations", "Observation")

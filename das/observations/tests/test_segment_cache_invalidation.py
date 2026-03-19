@@ -1,5 +1,6 @@
 import math
 import uuid
+from unittest import mock
 
 import pytest
 
@@ -32,6 +33,10 @@ def _clear_observation_tile_batch_between_tests():
     clear_observation_tile_invalidation_batch_for_tests()
     yield
     clear_observation_tile_invalidation_batch_for_tests()
+
+
+def _tile_invalidation_zoom_count():
+    return len(list(seg_cache.SEGMENTS_TILE_INVALIDATION_ZOOMS))
 
 
 def lonlat_to_tile_xy(lon: float, lat: float, z: int):
@@ -237,7 +242,7 @@ def test_observation_tile_invalidation_flush_dedupes_points(monkeypatch, fake_ve
     setattr(connection, seg_cache._TILE_INV_BATCH_ATTR, batch)
     seg_cache._flush_batched_tile_invalidations()
     assert len(calls) == len(set(calls))
-    assert len(calls) == 17  # range(6, 23)
+    assert len(calls) == _tile_invalidation_zoom_count()
 
 
 def test_tiles_along_segment_covers_intermediate_tiles():
@@ -247,6 +252,15 @@ def test_tiles_along_segment_covers_intermediate_tiles():
     cells = tiles_along_segment_at_zoom(-10.0, 0.0, -5.0, 0.0, z)
     xs = {c[0] for c in cells}
     assert len(xs) >= 5, f"expected multiple x columns, got {len(xs)}"
+
+
+def test_tiles_along_segment_dateline_crossing_is_bounded():
+    """Antimeridian crossing must use the short wrap, not millions of x steps."""
+    z = 10
+    cells = tiles_along_segment_at_zoom(179.0, 0.0, -179.0, 0.0, z)
+    assert len(cells) < 50
+    xs = {c[0] for c in cells}
+    assert len(xs) < 50
 
 
 @pytest.mark.django_db
@@ -284,9 +298,13 @@ def test_tile_invalidation_schedules_on_commit_once_per_transaction(monkeypatch)
     assert len(n_reg) == 1
 
 
-@pytest.mark.django_db(transaction=False)
+@pytest.mark.django_db
 def test_bulk_observations_after_commit_dedupes_tile_invalidations(monkeypatch, fake_vector_tile_cache):
-    """Same location many times → one invalidate per zoom after commit (integration)."""
+    """Same location many times → one invalidate per zoom once commit hooks run (integration).
+
+    pytest-django wraps tests in a transaction that never commits, so on_commit callbacks must be
+    executed explicitly; see run_and_clear_commit_hooks usage elsewhere (e.g. observations/tests/test_subject.py).
+    """
     tenant = DASTenant.objects.first()
     provider = SourceProvider.objects.first()
     if provider is None:
@@ -319,8 +337,12 @@ def test_bulk_observations_after_commit_dedupes_tile_invalidations(monkeypatch, 
                 das_tenant=tenant,
             )
 
-    assert len(calls) == 17
-    assert len(set(calls)) == 17
+    with mock.patch("django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block", lambda self: False):
+        connection.run_and_clear_commit_hooks()
+
+    n_zooms = _tile_invalidation_zoom_count()
+    assert len(calls) == n_zooms
+    assert len(set(calls)) == n_zooms
 
 
 @pytest.mark.django_db
