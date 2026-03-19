@@ -172,6 +172,15 @@ class MigrationRequestSerializer(serializers.Serializer):
     dry_run = serializers.BooleanField(default=True)
     event_types = MigrationEventTypeRequestItemSerializer(many=True)
 
+    def validate(self, attrs: dict) -> dict:
+        dry_run = attrs.get("dry_run", True)
+        event_types = attrs.get("event_types", [])
+
+        if not dry_run and not event_types:
+            raise serializers.ValidationError({"event_types": ["This list may not be empty when dry_run is false."]})
+
+        return attrs
+
 
 class HardcodedChoiceSerializer(serializers.Serializer):
     property_path = serializers.ListField(child=serializers.CharField())

@@ -16,6 +16,7 @@ from schema_migration_tool import LogCollector, transform_schema
 from schema_migration_tool.batch.normalize_export import preprocess_template_vars
 
 from django.db import transaction
+from django.db.models import QuerySet
 
 from activity.models import EventType
 from activity.permissions import EventCategoryPermissions
@@ -37,6 +38,7 @@ logger = logging.getLogger(__name__)
 class MigrationRequest:
     event_type_value: str
     hardcoded_choices_resolutions: Optional[List[HardcodedChoiceResolution]] = None
+    event_type: Optional[EventType] = None
 
     @classmethod
     def _normalize_resolution(cls, data: HardcodedChoiceResolution | dict) -> HardcodedChoiceResolution:
@@ -112,11 +114,23 @@ class MigrationService:
     Two-phase: analyze all event types first, then persist atomically.
     """
 
-    def __init__(self, request, dry_run: bool = True):
+    def __init__(self, request, dry_run: bool = True, queryset: Optional[QuerySet] = None):
         self.request = request
+        self._queryset = queryset
         self.dry_run = dry_run
         self.existing_choices: Dict[str, List[str]] = {}
         self.proposed_choices: Dict[str, List[str]] = {}
+
+    def get_queryset(self) -> QuerySet[EventType]:
+        if self._queryset is not None:
+            return self._queryset
+
+        self._queryset = EventType.objects.filter(
+            category__is_active=True,  # Always filter out inactive categories.
+            version=EventType.VersionChoices.VERSION_1,
+        ).select_related("category")
+
+        return self._queryset
 
     def load_existing_choice_fields(self) -> Dict[str, List[str]]:
         """
@@ -408,12 +422,6 @@ class MigrationService:
             field_schema = get_field_schema_from_prop_path(result.v2_schema, resolved_choice.property_path)
             rewrite_field_to_ref(field_schema, resolved_choice.resolution.choice_field_name)
 
-    def get_v1_event_types(self) -> List[str]:
-        """Get all V1 EventType values."""
-        return list(
-            EventType.objects.filter(version=EventType.VersionChoices.VERSION_1).values_list("value", flat=True)
-        )
-
     def migrate(self, migration_requests: List[str | dict]) -> List[MigrationResult]:
         """
         Main entry point for migrating EventTypes. Migrate multiple EventTypes.
@@ -421,13 +429,13 @@ class MigrationService:
         """
         results: list[MigrationResult] = []
 
-        if len(migration_requests) == 0:
-            # Just a practical shortcut: if no "migration requests" provided, just do a dry run of all V1 event types
-            self.dry_run = True
-            migration_requests = self.get_v1_event_types()
-
-        # Normalize migration requests to MigrationRequest objects
-        migration_requests = [MigrationRequest.from_input(item) for item in migration_requests]
+        if not migration_requests:
+            migration_requests = [
+                MigrationRequest(event_type=et, event_type_value=et.value) for et in self.get_queryset()
+            ]
+        else:
+            # Normalize migration requests to MigrationRequest objects
+            migration_requests = [MigrationRequest.from_input(item) for item in migration_requests]
 
         # Phase 1: Transform all v1 schemas to v2, gathering info about hardcoded choices
         for mr in migration_requests:
@@ -481,21 +489,23 @@ class MigrationService:
         """
         result = MigrationResult(
             event_type_value=migration_request.event_type_value,
+            event_type=migration_request.event_type,
             migration_request=migration_request,
         )
+        event_type = result.event_type
 
-        try:
-            event_type = EventType.objects.get(value=migration_request.event_type_value)
-        except EventType.DoesNotExist:
-            result.errors.append(f"EventType '{migration_request.event_type_value}' not found")
-            return result
+        if not event_type:
+            try:
+                event_type = EventType.objects.get(value=migration_request.event_type_value)
+                result.event_type = event_type
+            except EventType.DoesNotExist:
+                result.errors.append(f"EventType '{migration_request.event_type_value}' not found")
+                return result
 
         # Check authorization
-        if not self.can_modify_event_type(event_type) and not self.dry_run:
+        if not self.can_modify_event_type(event_type):
             result.errors.append(f"Permission denied for EventType '{migration_request.event_type_value}'")
             return result
-
-        result.event_type = event_type
 
         if event_type.version != EventType.VersionChoices.VERSION_1:
             result.errors.append(f"EventType '{migration_request.event_type_value}' is not V1")
