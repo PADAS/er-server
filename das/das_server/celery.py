@@ -18,9 +18,8 @@ from kombu import Exchange, Queue
 from django.conf import settings
 
 import utils.stats
-from das_server.log import init_logging
+
 from das_server.redis import TRANSPORT_ALIASES  # pylint: disable=unused-import
-from utils.tenant.log import add_log_filters
 
 # set the default Django settings module for the 'celery' program.
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "das_server.settings")
@@ -256,6 +255,8 @@ def debug_task(self):
 
 @setup_logging.connect
 def das_server_logging(loglevel, **kwargs):
+    from das_server.log import init_logging
+    from utils.tenant.log import add_log_filters
 
     init_logging()
     add_log_filters()
