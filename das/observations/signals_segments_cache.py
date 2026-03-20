@@ -5,7 +5,7 @@ from typing import Iterable, List, Set, Tuple
 from django.apps import apps
 from django.conf import settings
 from django.core.signals import request_started
-from django.db import connection, connections, transaction
+from django.db import DEFAULT_DB_ALIAS, connections, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -27,11 +27,15 @@ _TILE_INV_FLUSH_SCHEDULED_ATTR = "_tile_invalidation_flush_scheduled"
 # Backward-compatible name for tests
 _OBS_TILE_BATCH_ATTR = _TILE_INV_BATCH_ATTR
 
+# Spherical Web Mercator latitude limit (|lat| beyond this has no finite tile y).
+_WEB_MERCATOR_MAX_LAT = 85.05112877980659
+
 
 def lonlat_to_tile_xy(lon: float, lat: float, z: int) -> Tuple[int, int]:
     """Convert WGS84 lon/lat to XYZ tile at zoom z (WebMercator).
     Uses standard slippy map tiling.
     """
+    lat = max(-_WEB_MERCATOR_MAX_LAT, min(_WEB_MERCATOR_MAX_LAT, lat))
     lat_rad = math.radians(lat)
     n = int(2**z)
     xtile = int((lon + 180.0) / 360.0 * n)
@@ -100,8 +104,21 @@ def _invalidate_for_point(*, tenant_id: str, layer_ids: Iterable[str], lon: floa
     return deleted
 
 
-def _get_batch() -> List[Tuple]:
-    conn = connection
+def _sync_flush_scheduled_flag_after_rollback(conn) -> None:
+    """If the DB rolled back, Django clears on_commit hooks but leaves our connection attrs.
+
+    Without this, _tile_invalidation_flush_scheduled can stay True and block further scheduling.
+    """
+    if not getattr(conn, _TILE_INV_FLUSH_SCHEDULED_ATTR, False):
+        return
+    run_on_commit = getattr(conn, "run_on_commit", None)
+    if run_on_commit is not None and len(run_on_commit) == 0:
+        setattr(conn, _TILE_INV_FLUSH_SCHEDULED_ATTR, False)
+
+
+def _get_batch(using: str) -> List[Tuple]:
+    conn = connections[using]
+    _sync_flush_scheduled_flag_after_rollback(conn)
     batch = getattr(conn, _TILE_INV_BATCH_ATTR, None)
     if batch is None:
         batch = []
@@ -109,35 +126,40 @@ def _get_batch() -> List[Tuple]:
     return batch
 
 
-def _schedule_tile_invalidation_flush() -> None:
+def _schedule_tile_invalidation_flush(using: str) -> None:
     """At most one on_commit callback per DB connection per transaction."""
-    conn = connection
+    conn = connections[using]
+    _sync_flush_scheduled_flag_after_rollback(conn)
     if getattr(conn, _TILE_INV_FLUSH_SCHEDULED_ATTR, False):
         return
     setattr(conn, _TILE_INV_FLUSH_SCHEDULED_ATTR, True)
 
     def _run_flush() -> None:
         setattr(conn, _TILE_INV_FLUSH_SCHEDULED_ATTR, False)
-        _flush_batched_tile_invalidations()
+        _flush_batched_tile_invalidations_for_connection(conn)
 
-    transaction.on_commit(_run_flush)
+    transaction.on_commit(_run_flush, using=using)
 
 
-def _append_point_invalidation(tenant_id: str, lon: float, lat: float) -> None:
-    _get_batch().append(("p", tenant_id, lon, lat))
-    _schedule_tile_invalidation_flush()
+def _append_point_invalidation(tenant_id: str, lon: float, lat: float, using: str = DEFAULT_DB_ALIAS) -> None:
+    _get_batch(using).append(("p", tenant_id, lon, lat))
+    _schedule_tile_invalidation_flush(using)
 
 
 def _append_segment_invalidation(
-    tenant_id: str, lon1: float, lat1: float, lon2: float, lat2: float
+    tenant_id: str,
+    lon1: float,
+    lat1: float,
+    lon2: float,
+    lat2: float,
+    using: str = DEFAULT_DB_ALIAS,
 ) -> None:
-    _get_batch().append(("s", tenant_id, lon1, lat1, lon2, lat2))
-    _schedule_tile_invalidation_flush()
+    _get_batch(using).append(("s", tenant_id, lon1, lat1, lon2, lat2))
+    _schedule_tile_invalidation_flush(using)
 
 
-def _flush_batched_tile_invalidations() -> None:
+def _flush_batched_tile_invalidations_for_connection(conn) -> None:
     """After commit: expand batch to (tenant, z, x, y), dedupe, invalidate once each."""
-    conn = connection
     batch = getattr(conn, _TILE_INV_BATCH_ATTR, None)
     if batch is None:
         return
@@ -176,6 +198,11 @@ def _flush_batched_tile_invalidations() -> None:
             logger.error("Tile cache invalidation failed (batched): %s", exc, exc_info=True)
 
 
+def _flush_batched_tile_invalidations(using: str = DEFAULT_DB_ALIAS) -> None:
+    """Flush batch on the given DB alias (default connection in tests)."""
+    _flush_batched_tile_invalidations_for_connection(connections[using])
+
+
 def _flush_batched_observation_tile_invalidations() -> None:
     """Backward-compatible name for tests."""
     _flush_batched_tile_invalidations()
@@ -210,7 +237,7 @@ SubjectStatus = apps.get_model("observations", "SubjectStatus")
 
 
 @receiver(post_save, sender=Observation)
-def invalidate_segment_tiles_on_observation_change(sender=None, instance=None, **kwargs):
+def invalidate_segment_tiles_on_observation_change(sender=None, instance=None, using=None, **kwargs):
     """Invalidate vector tile cache when an observation changes.
 
     Batched and deferred until transaction commit so bulk ingests (e.g. 200 points)
@@ -222,18 +249,20 @@ def invalidate_segment_tiles_on_observation_change(sender=None, instance=None, *
         lon = float(instance.location.x)
         lat = float(instance.location.y)
         tenant_id = str(instance.das_tenant_id)
-        _append_point_invalidation(tenant_id, lon, lat)
+        db = using or DEFAULT_DB_ALIAS
+        _append_point_invalidation(tenant_id, lon, lat, using=db)
     except Exception as exc:
         logger.error("Tile cache invalidation failed on Observation change: %s", exc, exc_info=True)
 
 
 @receiver(post_save, sender=ObservationSegment)
-def invalidate_segment_tiles_on_segment_change(sender=None, instance=None, **kwargs):
+def invalidate_segment_tiles_on_segment_change(sender=None, instance=None, using=None, **kwargs):
     """Invalidate vector tile cache when a segment changes (all tiles along the line)."""
     try:
         if not instance:
             return
         tenant_id = str(instance.das_tenant_id)
+        db = using or DEFAULT_DB_ALIAS
         a = instance.start_observation.location
         b = instance.end_observation.location
         if a and b:
@@ -243,17 +272,18 @@ def invalidate_segment_tiles_on_segment_change(sender=None, instance=None, **kwa
                 float(a.y),
                 float(b.x),
                 float(b.y),
+                using=db,
             )
         elif a:
-            _append_point_invalidation(tenant_id, float(a.x), float(a.y))
+            _append_point_invalidation(tenant_id, float(a.x), float(a.y), using=db)
         elif b:
-            _append_point_invalidation(tenant_id, float(b.x), float(b.y))
+            _append_point_invalidation(tenant_id, float(b.x), float(b.y), using=db)
     except Exception as exc:
         logger.error("Tile cache invalidation failed on ObservationSegment change: %s", exc, exc_info=True)
 
 
 @receiver(post_save, sender=SubjectStatus)
-def invalidate_subject_tiles_on_status_change(sender=None, instance=None, **kwargs):
+def invalidate_subject_tiles_on_status_change(sender=None, instance=None, using=None, **kwargs):
     """Invalidate vector tile cache when a SubjectStatus changes."""
     try:
         if not instance or not instance.location:
@@ -261,6 +291,7 @@ def invalidate_subject_tiles_on_status_change(sender=None, instance=None, **kwar
         lon = float(instance.location.x)
         lat = float(instance.location.y)
         tenant_id = str(instance.das_tenant_id)
-        _append_point_invalidation(tenant_id, lon, lat)
+        db = using or DEFAULT_DB_ALIAS
+        _append_point_invalidation(tenant_id, lon, lat, using=db)
     except Exception as exc:
         logger.error("Tile cache invalidation failed on SubjectStatus change: %s", exc, exc_info=True)

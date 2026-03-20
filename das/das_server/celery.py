@@ -20,7 +20,6 @@ from django.conf import settings
 import utils.stats
 from das_server.log import init_logging
 from das_server.redis import TRANSPORT_ALIASES  # pylint: disable=unused-import
-from observations.signals_segments_cache import clear_tile_invalidation_connection_state
 from utils.tenant.log import add_log_filters
 
 # set the default Django settings module for the 'celery' program.
@@ -270,6 +269,9 @@ def task_prerun_handler(task, *args, **kwargs):
 @task_postrun.connect
 def task_postrun_handler(task, *args, **kwargs):
     utils.stats.increment("task", tags=[f"name:{task.name}", "state:postrun"])
+    from observations.signals_segments_cache import (
+        clear_tile_invalidation_connection_state,
+    )
 
     clear_tile_invalidation_connection_state()
 

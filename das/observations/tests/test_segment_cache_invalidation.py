@@ -7,6 +7,7 @@ from django.contrib.gis.geos import Point
 from django.db import connection, transaction
 from django.utils import timezone
 
+import observations.signals_segments_cache as seg_cache
 from observations.models import (
     DASTenant,
     Observation,
@@ -16,7 +17,6 @@ from observations.models import (
     Subject,
     SubjectSource,
 )
-import observations.signals_segments_cache as seg_cache
 from observations.signals_segments_cache import (
     TILE_LAYER_IDS,
     _invalidate_for_point,
@@ -47,6 +47,16 @@ def test_lonlat_to_tile_xy_clamps_to_grid_bounds():
     assert x180 == n - 1
     x_neg180, _ = lonlat_to_tile_xy(-180.0, 0.0, z)
     assert x_neg180 == 0
+
+
+def test_lonlat_to_tile_xy_poles_clamp_without_error():
+    """Latitudes beyond Web Mercator range must not raise (invalid GIS data)."""
+    z = 8
+    n = 1 << z
+    _, y = lonlat_to_tile_xy(0.0, 90.0, z)
+    assert 0 <= y < n
+    _, y_south = lonlat_to_tile_xy(0.0, -90.0, z)
+    assert 0 <= y_south < n
 
 
 def test_lonlat_to_tile_xy_pacific_australasia_sample():
@@ -298,9 +308,9 @@ def test_tile_invalidation_schedules_on_commit_once_per_transaction(monkeypatch)
     n_reg = []
     real_on_commit = transaction.on_commit
 
-    def counting_on_commit(callback):
+    def counting_on_commit(callback, **kwargs):
         n_reg.append(callback)
-        return real_on_commit(callback)
+        return real_on_commit(callback, **kwargs)
 
     monkeypatch.setattr(transaction, "on_commit", counting_on_commit)
     tenant_id = str(uuid.uuid4())
