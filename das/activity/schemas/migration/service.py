@@ -127,7 +127,6 @@ class MigrationService:
 
         self._queryset = EventType.objects.filter(
             category__is_active=True,  # Always filter out inactive categories.
-            version=EventType.VersionChoices.VERSION_1,
         ).select_related("category")
 
         return self._queryset
@@ -431,7 +430,8 @@ class MigrationService:
 
         if not migration_requests:
             migration_requests = [
-                MigrationRequest(event_type=et, event_type_value=et.value) for et in self.get_queryset()
+                MigrationRequest(event_type=et, event_type_value=et.value)
+                for et in self.get_queryset().filter(version=EventType.VersionChoices.VERSION_1)
             ]
         else:
             # Normalize migration requests to MigrationRequest objects

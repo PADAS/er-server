@@ -249,12 +249,12 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         request_serializer = self.get_serializer(data=request.data)
         request_serializer.is_valid(raise_exception=True)
 
-        dry_run = request_serializer.validated_data["dry_run"]
-        event_types = request_serializer.validated_data["event_types"]
-
-        migration_queryset = self.get_base_queryset().filter(version=EventType.VersionChoices.VERSION_1)
-        migration_service = MigrationService(request=request, dry_run=dry_run, queryset=migration_queryset)
-        results = migration_service.migrate(event_types)
+        migration_service = MigrationService(
+            request=request,
+            dry_run=request_serializer.validated_data["dry_run"],
+            queryset=self.get_base_queryset(),
+        )
+        results = migration_service.migrate(request_serializer.validated_data["event_types"])
 
         response_data = MigrationResultSerializer(results, many=True).data
         return Response(response_data, status=status.HTTP_200_OK)

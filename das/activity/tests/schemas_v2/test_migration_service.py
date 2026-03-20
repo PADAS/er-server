@@ -113,7 +113,7 @@ class TestMigrateSingle:
         result = migration_service.migrate([v2_event_type.value])[0]
 
         assert result.success is False
-        assert "not V1" in result.errors[0]
+        assert "is not V1" in result.errors[0]
 
     def test_invalid_json_schema(self, migration_service, v1_event_type):
         """EventType with unparseable JSON schema should fail with a clear error."""
