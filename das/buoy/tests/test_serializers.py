@@ -1,6 +1,7 @@
 import json
 from datetime import timedelta
 from unittest.mock import Mock
+from uuid import uuid4
 
 import pytest
 from dateutil import parser as date_parser
@@ -13,10 +14,11 @@ from accounts.models import PermissionSet
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
 from buoy.serializers import GearCreateSerializer, GearSerializer
 from buoy.serializers.gear import GearDeviceCreateSerializer, GeoLocationSerializer
-from buoy.services.buoy_service import BuoyService
+from buoy.services.buoy_service import BuoyService, OlderGearsetRejectedError
 from core.tests import BaseAPITest
 from factories import SubjectTypeFactory
 from observations.models import (
+    DEFAULT_ASSIGNED_RANGE,
     EMPTY_POINT,
     Observation,
     Source,
@@ -933,6 +935,240 @@ def test_process_gearset_reuses_source_by_id_when_manufacturer_id_differs(superu
     # Reused source keeps its original manufacturer_id (we do not overwrite it)
     existing_source.refresh_from_db()
     assert existing_source.manufacturer_id == "original_mfr_id"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_accepts_new_deployment_and_closes_previous_gearset(superuser):
+    """When a new gearset is posted with a device already deployed elsewhere, accept it and close the previous deployment."""
+    subject_group = SubjectGroup.objects.create(name="AlreadyDeployedManufacturer")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    subject_subtype = SubjectSubType.objects.get_or_create(value=BUOY_GEAR_SUBJECT_SUBTYPE)[0]
+    provider = SourceProvider.objects.create(
+        display_name="AlreadyDeployedManufacturer", provider_key="gundi_alreadydeployedmanufacturer"
+    )
+    device_uuid = "550fd840-728b-4742-a3e5-7c8f67b5212b"
+    source = Source.objects.create(
+        id=device_uuid,
+        manufacturer_id="shared_device",
+        provider=provider,
+    )
+    # First gearset (subject A): create subject and deploy the device with a realistic lower bound
+    t1 = timezone.now() - timedelta(days=1)
+    subject_a = Subject.objects.create(
+        name="Gearset_A",
+        subject_subtype=subject_subtype,
+        is_active=True,
+    )
+    subject_a.groups.add(subject_group)
+    SubjectSource.objects.create(
+        subject=subject_a,
+        source=source,
+        assigned_range=DateTimeTZRange(lower=t1, upper=DEFAULT_ASSIGNED_RANGE[1]),
+    )
+
+    now = timezone.now()
+    data_new_gearset = {
+        "set_id": str(uuid4()),  # Explicit new gearset; otherwise serializer infers existing subject from device
+        "manufacturer_name": "AlreadyDeployedManufacturer",
+        "owner_id": "owner123",
+        "mfr_set_id": "SET_B",
+        "deployment_type": "single",
+        "initial_deployment_date": now,
+        "devices": [
+            {
+                "device_id": device_uuid,
+                "mfr_device_id": "shared_device",
+                "recorded_at": now,
+                "last_deployed": now,
+                "last_updated": now,
+                "device_status": "deployed",
+                "location": {"latitude": 2.0, "longitude": 3.0},
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=data_new_gearset, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+
+    subject_b, observations = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # New gearset B was created and device is assigned to it
+    assert subject_b.id != subject_a.id
+    assert len(observations) == 1
+
+    # Previous gearset A: device's SubjectSource is now closed (hauled)
+    subject_a.refresh_from_db()
+    ss_a = SubjectSource.objects.get(subject=subject_a, source=source)
+    assert ss_a.assigned_range.upper != DEFAULT_ASSIGNED_RANGE[1]
+    # Previous gearset is fully hauled so is_active should be False
+    assert subject_a.is_active is False
+
+    # New gearset B: device is deployed (open upper bound)
+    ss_b = SubjectSource.objects.get(subject=subject_b, source=source)
+    assert ss_b.assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_closes_entire_previous_gearset_even_if_only_one_device_reused(superuser):
+    """When closing a previous gearset, close all SubjectSources on that subject, not just the device in the new payload."""
+    subject_group = SubjectGroup.objects.create(name="CloseAllManufacturer")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    subject_subtype = SubjectSubType.objects.get_or_create(value=BUOY_GEAR_SUBJECT_SUBTYPE)[0]
+    provider = SourceProvider.objects.create(
+        display_name="CloseAllManufacturer", provider_key="gundi_closeallmanufacturer"
+    )
+    device_x_id = "660fd840-728b-4742-a3e5-7c8f67b5212b"
+    device_y_id = "770fd840-728b-4742-a3e5-7c8f67b5212b"
+    source_x = Source.objects.create(
+        id=device_x_id,
+        manufacturer_id="device_x",
+        provider=provider,
+    )
+    source_y = Source.objects.create(
+        id=device_y_id,
+        manufacturer_id="device_y",
+        provider=provider,
+    )
+    # Gearset A: two devices deployed with realistic lower bounds
+    t1 = timezone.now() - timedelta(days=1)
+    subject_a = Subject.objects.create(
+        name="Gearset_A",
+        subject_subtype=subject_subtype,
+        is_active=True,
+    )
+    subject_a.groups.add(subject_group)
+    SubjectSource.objects.create(
+        subject=subject_a,
+        source=source_x,
+        assigned_range=DateTimeTZRange(lower=t1, upper=DEFAULT_ASSIGNED_RANGE[1]),
+    )
+    SubjectSource.objects.create(
+        subject=subject_a,
+        source=source_y,
+        assigned_range=DateTimeTZRange(lower=t1, upper=DEFAULT_ASSIGNED_RANGE[1]),
+    )
+
+    now = timezone.now()
+    # New gearset B with only device X (device Y not in payload)
+    data_new_gearset = {
+        "set_id": str(uuid4()),
+        "manufacturer_name": "CloseAllManufacturer",
+        "owner_id": "owner123",
+        "mfr_set_id": "SET_B",
+        "deployment_type": "single",
+        "initial_deployment_date": now,
+        "devices": [
+            {
+                "device_id": device_x_id,
+                "mfr_device_id": "device_x",
+                "recorded_at": now,
+                "last_deployed": now,
+                "last_updated": now,
+                "device_status": "deployed",
+                "location": {"latitude": 3.0, "longitude": 4.0},
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=data_new_gearset, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+
+    subject_b, observations = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    assert subject_b.id != subject_a.id
+    assert len(observations) == 1
+
+    # Previous gearset A: BOTH devices must be closed (entire gearset hauled)
+    subject_a.refresh_from_db()
+    ss_a_x = SubjectSource.objects.get(subject=subject_a, source=source_x)
+    ss_a_y = SubjectSource.objects.get(subject=subject_a, source=source_y)
+    assert ss_a_x.assigned_range.upper != DEFAULT_ASSIGNED_RANGE[1]
+    assert ss_a_y.assigned_range.upper != DEFAULT_ASSIGNED_RANGE[1]
+    assert subject_a.is_active is False
+
+    # New gearset B: only device X is on it
+    ss_b_x = SubjectSource.objects.get(subject=subject_b, source=source_x)
+    assert ss_b_x.assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_rejects_older_gearset_when_device_on_newer_gearset(superuser):
+    """Posting an older gearset (earlier recorded_at) when device is deployed on a newer gearset returns 400."""
+    subject_group = SubjectGroup.objects.create(name="OlderRejectManufacturer")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    subject_subtype = SubjectSubType.objects.get_or_create(value=BUOY_GEAR_SUBJECT_SUBTYPE)[0]
+    provider = SourceProvider.objects.create(
+        display_name="OlderRejectManufacturer", provider_key="gundi_olderrejectmanufacturer"
+    )
+    device_uuid = "880fd840-728b-4742-a3e5-7c8f67b5212b"
+    source = Source.objects.create(
+        id=device_uuid,
+        manufacturer_id="device_1",
+        provider=provider,
+    )
+    # Newer gearset B: device deployed at T2
+    t2 = timezone.now()
+    subject_b = Subject.objects.create(
+        name="Gearset_B_newer",
+        subject_subtype=subject_subtype,
+        is_active=True,
+    )
+    subject_b.groups.add(subject_group)
+    SubjectSource.objects.create(
+        subject=subject_b,
+        source=source,
+        assigned_range=DateTimeTZRange(t2, DEFAULT_ASSIGNED_RANGE[1]),
+    )
+
+    # Post "older" gearset A with same device but recorded_at T1 < T2
+    t1 = t2 - timedelta(hours=1)
+    data_older_gearset = {
+        "set_id": str(uuid4()),
+        "manufacturer_name": "OlderRejectManufacturer",
+        "owner_id": "owner123",
+        "mfr_set_id": "SET_A_older",
+        "deployment_type": "single",
+        "initial_deployment_date": t1,
+        "devices": [
+            {
+                "device_id": device_uuid,
+                "mfr_device_id": "device_1",
+                "last_deployed": t1,
+                "last_updated": t1,
+                "device_status": "deployed",
+                "recorded_at": t1,
+                "location": {"latitude": 1.0, "longitude": 2.0},
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=data_older_gearset, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+
+    with pytest.raises(OlderGearsetRejectedError) as exc_info:
+        BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    assert exc_info.value.device_id == device_uuid
+    assert str(subject_b.id) in str(exc_info.value) or exc_info.value.newer_gearset_id == subject_b.id
+    assert "newer gearset" in str(exc_info.value).lower()
+
+    # Newer gearset B unchanged
+    subject_b.refresh_from_db()
+    assert subject_b.is_active is True
+    ss_b = SubjectSource.objects.get(subject=subject_b, source=source)
+    assert ss_b.assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
 
 
 @pytest.mark.django_db

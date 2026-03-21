@@ -130,8 +130,23 @@ subject_source, created = SubjectSource.objects.get_or_create(
 - Creates an Observation record at the deployment location
 
 **Validation:**
-- Cannot deploy the same device at the same location if already deployed
-- Checked in serializer: `GearCreateSerializer.validate()`
+Validation for deployment payloads is performed in the serializer (`GearCreateSerializer.validate()`), which enforces payload structure and general business rules described below. It does **not** currently enforce any rule that prevents redeploying the same device at the same location; such a rule would need to be implemented separately if desired.
+
+**Device already deployed on another gearset:**
+If a device in the payload is already deployed on a *different* Subject (another gearset with an open `assigned_range`), the system compares the payload’s deployment time with the existing deployment’s start:
+
+- **Older gearset (reject):** If the payload’s `recorded_at` is **before** the existing deployment’s start (`assigned_range.lower`), the request is **rejected** with HTTP 400. The device is considered to be on a newer gearset; posting an older deployment would conflict. The error message includes the device id and the newer gearset’s set_id.
+- **Newer time (accept):** If the payload’s `recorded_at` is **strictly after** the existing deployment’s start, the system **accepts the new deployment** and **closes the previous gearset entirely** (see below).
+
+When accepting:
+- Before processing the new gearset, the service finds every Subject that has at least one device in the payload still deployed there (open upper bound).
+- For each such previous Subject, it **closes every** `SubjectSource` on that subject that is still deployed (open upper bound)—i.e. it hauls the whole gearset, including devices that do *not* appear in the new payload. The haul time used is the **earliest** `recorded_at` among all devices in the payload that were previously deployed on that Subject.
+- Each such subject’s `is_active` is set to `False`.
+- The new gearset is then processed as normal; devices in the payload are assigned to it with an open `assigned_range`.
+
+**Multi-device payloads and timestamps:** When multiple devices in a single payload were previously deployed on the same Subject and have different `recorded_at` values, the **earliest** of those timestamps is used as the haul time for that entire previous gearset. API clients should use a consistent `recorded_at` across all devices in a single gearset deployment payload to avoid ambiguity about when the previous gearset was hauled.
+
+So: **newer deployment wins** (previous gearset is fully closed); **older deployment is rejected** (400).
 
 **Haul/Retrieval Event (`device_status == "hauled"`):**
 - Updates `assigned_range` to: `[original_lower_bound, recorded_at)`
@@ -185,9 +200,9 @@ if all_hauled:
 - A Subject is `is_active = False` if ALL of its SubjectSources are hauled (upper bound is not `datetime.max`)
 - With auto-haul, hauling ANY device effectively hauls the entire gearset
 
-#### 7. Observation Creation
+#### 8. Observation Creation
 
-For EVERY device event (deploy or haul), an Observation is created:
+For every device event **in the payload** (deploy or haul), an Observation is created. Note that auto-hauled devices (devices on the same gearset not present in the payload) and devices on automatically closed previous gearsets do **not** receive synthetic Observations — only devices explicitly included in the request do.
 
 ```python
 observation = Observation.objects.create(
@@ -201,7 +216,7 @@ observation = Observation.objects.create(
 **Fields:**
 - `source`: References the device Source
 - `location`: Point(longitude, latitude) of the event
-- `recorded_at`: Timestamp of the event (from `last_deployed` or current time)
+- `recorded_at`: Timestamp of the event — taken from the payload's `recorded_at` field; if absent, falls back to `last_deployed` for deployed events, `last_updated` for hauled events, then current time if neither is available
 - `additional.raw`: Complete copy of the validated request payload for audit trail
 
 ## Data Flow Diagram
@@ -217,6 +232,12 @@ POST /api/v1.0/gears/
     │   └─> Ensure initial_deployment_date for new gear sets
     │
     └─> BuoyService.process_gearset()
+        │
+        ├─> Close previous deployments (if any device already deployed on another gearset)
+        │   ├─> If payload recorded_at < existing deployment start → reject 400 (older gearset)
+        │   ├─> For each such previous subject: close all SubjectSources with open upper bound (haul entire gearset)
+        │   ├─> Set assigned_range upper = new deployment recorded_at for each
+        │   └─> Set is_active=False for each affected subject
         │
         ├─> Get or Create Subject
         │   ├─> Set name = mfr_set_id
@@ -485,131 +506,41 @@ The entire `create()` operation is wrapped in `@transaction.atomic`, ensuring:
 
 ## Edge Case: Moving a Device Between Gear Sets
 
-### Scenario: Device deployed in Set A, then deployed in Set B
+### Current behavior: accept new deployment, close previous
 
-**What happens:** The system **ALLOWS** this operation, effectively moving the device from one gear set to another.
+When a device is deployed in **Set A** and then included in a **new** gearset **Set B** (with a different `set_id`), the system **accepts the new deployment** and **closes the previous one**:
 
-**Example Timeline:**
-1. Device `DEV_001` is deployed in `SET_A` at T1
-2. Device `DEV_001` is deployed in `SET_B` at T2 (without explicitly hauling from SET_A)
+1. **Before** creating/updating the new gearset, `BuoyService.process_gearset()` finds any Subject that has at least one device (from the payload) still deployed there (open `assigned_range`).
+2. For each such previous Subject, it **closes every** `SubjectSource` on that subject that is still deployed (open upper bound)—i.e. it hauls the **entire** previous gearset, including devices that are not in the new payload. The upper bound is set to the new deployment’s `recorded_at` (no additional time offset is applied).
+3. Each such previous subject’s `is_active` is set to `False`.
+4. The new gearset is then processed normally; the devices in the payload are assigned to it with an open `assigned_range`.
 
-**Resulting Database State:**
+**Example timeline:**
+1. Device `DEV_001` is deployed in `SET_A` at T1 → SubjectSource(SET_A, DEV_001) has `assigned_range` [T1, ∞).
+2. Same device is deployed in `SET_B` at T2 (POST with a new `set_id` for SET_B).
 
-**Sources Table:**
-- One Source record for `DEV_001` (Sources are shared across gear sets)
+**Resulting database state:**
+- **Subject A:** Every `SubjectSource` on SET_A that was still deployed is closed: `assigned_range` upper set to T2 (same for all). SET_A’s `is_active` is set to `False`. This includes devices that were on SET_A but do *not* appear in the new payload.
+- **SubjectSource(SET_B, DEV_001):** New record with `assigned_range` `[T2, ∞)` and location from the new request.
 
-**SubjectSources Table:**
-- `SubjectSource(subject=SET_A, source=DEV_001)`:
-  - `assigned_range`: `[T1, datetime.max)` - **Still shows as deployed!**
-  - `location`: Original location from T1
+So the **latest deployment is always the current one**; the previous gearset is closed out automatically when the payload time is **strictly after** the existing deployment’s start. You do not need to explicitly haul from SET_A before deploying to SET_B—posting the new gearset does both. **Posting an older gearset** (payload `recorded_at` earlier than the current deployment’s start) is **rejected** with HTTP 400 so that a newer deployment is not overwritten.
 
-- `SubjectSource(subject=SET_B, source=DEV_001)`:
-  - `assigned_range`: `[T2, datetime.max)` - Shows as deployed
-  - `location`: New location from T2
+**Optional explicit workflow:**
+You can still haul from SET_A first and then deploy to SET_B; the result is consistent. The accept-and-close behavior is for cases where the client only sends the new deployment.
 
-**Why This Happens:**
-
-1. **Validation only checks within the target Subject**: The serializer validation at line 244-245:
-   ```python
-   subject_source = SubjectSource.objects.filter(subject=subject, source=source).first()
-   ```
-   Only checks if the device is deployed in the **current** Subject (SET_B), not if it's deployed in **any** Subject.
-
-2. **`get_or_create` creates a new relationship**: In `BuoyService.process_gearset()` at line 180-182:
-   ```python
-   subject_source, subject_source_created = models.SubjectSource.objects.get_or_create(
-       subject=subject, source=source
-   )
-   ```
-   This creates a **new** SubjectSource for SET_B without touching the existing one for SET_A.
-
-3. **No cross-Subject validation**: The system doesn't check if the device is currently deployed in a different gear set.
-
-**Consequences:**
-
-✅ **Allowed:**
-- Device appears as deployed in BOTH gear sets simultaneously
-- Both SubjectSources have open `assigned_range` (upper bound = `datetime.max`)
-- GET requests to `/gears/?state=deployed` may return both SET_A and SET_B if the device is the only device in SET_A
-
-❌ **Data Integrity Issues:**
-- SET_A may still show as `is_active=True` if this was its only device
-- Historical tracking becomes ambiguous - which gear set was the device actually with?
-- No audit trail that the device was moved from SET_A to SET_B
-
-**Prevention Validation:**
-
-The current validation only prevents:
-- Re-deploying a device at the **same location** in the **same gear set** (lines 260-266)
-- Not: Re-deploying a device in a **different gear set**
-
-**Recommended Workflow:**
-
-To properly move a device between gear sets:
-
-1. **Explicitly haul from SET_A:**
-```json
-{
-  "mfr_set_id": "SET_A",
-  "manufacturer_name": "EdgeTech",
-  "devices": [{
-    "device_id": "DEV_001",
-    "device_status": "hauled",
-    ...
-  }]
-}
-```
-
-2. **Then deploy to SET_B:**
-```json
-{
-  "mfr_set_id": "SET_B",
-  "manufacturer_name": "EdgeTech",
-  "initial_deployment_date": "2024-01-20T10:00:00Z",
-  "devices": [{
-    "device_id": "DEV_001",
-    "device_status": "deployed",
-    ...
-  }]
-}
-```
-
-This ensures:
-- SET_A's SubjectSource gets a closed `assigned_range`: `[T1, T2)`
-- SET_A's `is_active` is set to `False` (if all devices hauled)
-- SET_B's SubjectSource gets a new open `assigned_range`: `[T3, datetime.max)`
-- Clear audit trail of the device movement
-
-**Potential Improvement:**
-
-Consider adding validation to check if a device is deployed in ANY gear set:
-
-```python
-# In GearCreateSerializer.validate()
-if device.get("device_status") == "deployed":
-    # Check if device is deployed in ANY subject (not just current subject)
-    other_deployments = SubjectSource.objects.filter(
-        source__id=device_id,
-        assigned_range__contains=now
-    ).exclude(subject=subject)
-
-    if other_deployments.exists():
-        raise ValidationError(
-            f"Device {device_id} is currently deployed in another gear set. "
-            "Please haul from the current gear set before deploying to a new one."
-        )
-```
+**Older gearset rejected:**
+If the device is already deployed on SET_B (newer) and a request is sent for SET_A with an earlier `recorded_at`, the request is **rejected** with HTTP 400 (`OlderGearsetRejectedError`). The response body explains that the device is already deployed on a newer gearset and the payload’s deployment time is before that deployment.
 
 ## Error Handling
 
 The serializer validates and raises `ValidationError` for:
 - Missing required fields
 - Invalid state transitions (e.g., hauling a device that's not deployed)
-- Re-deploying at the same location **in the same gear set**
 - User permission violations
 - Missing SubjectGroup
 - Future dates for deployment/updated timestamps
 
-**Note:** The system does NOT currently prevent deploying a device in a new gear set while it's still deployed in another gear set. See "Edge Case: Moving a Device Between Gear Sets" above.
+**Device moved to another gearset:**
+If a device is deployed in a new gearset while still deployed elsewhere, the previous deployment is closed automatically when the new deployment’s time is **strictly after** the existing deployment’s start (see "Edge Case: Moving a Device Between Gear Sets"). If the new payload’s deployment time is **at or before** the existing deployment’s start (older or same-time gearset), the request is rejected with 400.
 
 All validation errors return HTTP 400 with detailed error messages.

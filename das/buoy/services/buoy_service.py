@@ -5,7 +5,7 @@ from typing import List, Tuple
 
 from psycopg2.extras import DateTimeTZRange
 
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 
 from buoy.constants import (
     BUOY_GEAR_SUBJECT_SUBTYPE,
@@ -24,6 +24,15 @@ logger = logging.getLogger(__name__)
 HAUL_TIME_OFFSET = timedelta(seconds=1)
 
 
+class OlderGearsetRejectedError(ValueError):
+    """Raised when posting an older gearset would conflict with a newer deployment of the same device(s)."""
+
+    def __init__(self, message: str, device_id: str | None = None, newer_gearset_id=None):
+        self.device_id = device_id
+        self.newer_gearset_id = newer_gearset_id
+        super().__init__(message)
+
+
 class BuoyService:
     """Service encapsulating buoy/gear business logic used by views.
 
@@ -40,6 +49,7 @@ class BuoyService:
         return json.loads(json.dumps(data, cls=ExtendedJSONEncoder))
 
     @staticmethod
+    @transaction.atomic
     def process_gearset(validated_data: dict, user) -> Tuple[models.Subject, List[models.Observation]]:
         """Process a validated gearset payload.
 
@@ -57,6 +67,121 @@ class BuoyService:
         manufacturer_name = validated_data.get("manufacturer_name")
         devices = validated_data.get("devices", [])
         provider_key = models.escape_provider_name(manufacturer_name)
+
+        # Normalize recorded_at for each device once so the conflict-check pre-scan and the main
+        # processing loop always use identical timestamps for the same device.
+        # Use the status-appropriate payload timestamp when recorded_at is absent so conflict
+        # decisions reflect the true event time rather than ingestion time.
+        for device_data in devices:
+            if not device_data.get("recorded_at"):
+                device_status = device_data.get("device_status")
+                if device_status == DEVICE_STATUS_DEPLOYED:
+                    event_ts = device_data.get("last_deployed")
+                elif device_status == DEVICE_STATUS_HAULED:
+                    event_ts = device_data.get("last_updated")
+                else:
+                    event_ts = device_data.get("last_deployed") or device_data.get("last_updated")
+                if event_ts is not None:
+                    device_data["recorded_at"] = event_ts
+                else:
+                    logger.warning(
+                        "recorded_at not provided for device %s (mfr_device_id: %s, status: %s), using current time",
+                        device_data.get("device_id"),
+                        device_data.get("mfr_device_id"),
+                        device_status,
+                    )
+                    device_data["recorded_at"] = datetime.now(timezone.utc)
+
+        # If a device is already deployed on another gearset, either reject (older payload) or close
+        # that entire gearset and accept the new one. Reject if the payload's deployment time is
+        # earlier than the existing deployment (older gearset posted); otherwise close previous and accept.
+        max_upper = DEFAULT_ASSIGNED_RANGE[1]
+        # Map subject_id -> haul_time for subjects we need to fully close
+        subjects_to_close: dict = {}
+
+        # Build a map of device_id -> recorded_at for deployed devices only
+        deployed_device_recorded_at = {
+            str(device_data["device_id"]): device_data["recorded_at"]
+            for device_data in devices
+            if device_data.get("device_status") == DEVICE_STATUS_DEPLOYED
+        }
+
+        if deployed_device_recorded_at:
+            # Fetch all open deployments for the deployed devices in one query with row-level
+            # locking to prevent concurrent requests from racing to close the same gearset.
+            previous_deployments = (
+                models.SubjectSource.objects.select_for_update()
+                .filter(
+                    source_id__in=deployed_device_recorded_at.keys(),
+                    assigned_range__endswith=max_upper,
+                )
+                .exclude(subject_id=set_id)
+                .select_related("subject")
+            )
+            for ss in previous_deployments:
+                device_id = str(ss.source_id)
+                recorded_at = deployed_device_recorded_at[device_id]
+                # Reject if this is an older deployment (payload time before existing deployment start)
+                existing_deploy_time = ss.assigned_range.lower
+                if recorded_at < existing_deploy_time:
+                    raise OlderGearsetRejectedError(
+                        f"Device {device_id} is already deployed on a newer gearset "
+                        f"(set_id: {ss.subject_id}). Cannot post an older deployment "
+                        f"(recorded_at={recorded_at} is before existing deployment at {existing_deploy_time}).",
+                        device_id=device_id,
+                        newer_gearset_id=ss.subject_id,
+                    )
+                # Track the earliest recorded_at we see for this subject as the haul time
+                if ss.subject_id in subjects_to_close:
+                    subjects_to_close[ss.subject_id] = min(subjects_to_close[ss.subject_id], recorded_at)
+                else:
+                    subjects_to_close[ss.subject_id] = recorded_at
+
+        for closed_subject_id, haul_time in sorted(subjects_to_close.items(), key=lambda kv: str(kv[0])):
+            # Use exact haul_time (no offset) so the deployment Observation at recorded_at == haul_time
+            # falls only in the new gearset's assigned_range; otherwise it would overlap both ranges.
+            upper = haul_time
+            # Close all deployed SubjectSources on this subject (entire gearset), with locking
+            deployed_on_subject = list(
+                models.SubjectSource.objects.select_for_update()
+                .filter(
+                    subject_id=closed_subject_id,
+                    assigned_range__endswith=max_upper,
+                )
+                .select_related("source", "subject")
+            )
+            for ss in deployed_on_subject:
+                if upper <= ss.assigned_range.lower:
+                    # An empty range (upper <= lower) would be canonicalized by PostgreSQL and
+                    # later re-opened by SubjectSource.save(). Treat this as a conflict.
+                    device_identifier = getattr(ss.source, "manufacturer_id", str(ss.source_id))
+                    raise OlderGearsetRejectedError(
+                        f"Cannot close previous deployment for device {device_identifier} on gearset "
+                        f"(set_id: {closed_subject_id}): haul_time {upper} is not after existing "
+                        f"deployment start {ss.assigned_range.lower}.",
+                        device_id=str(ss.source_id),
+                        newer_gearset_id=set_id,
+                    )
+                ss.assigned_range = DateTimeTZRange(lower=ss.assigned_range.lower, upper=upper)
+                logger.debug(
+                    "Closing previous deployment of device %s from gearset %s (set_id: %s) at %s",
+                    getattr(ss.source, "manufacturer_id", ss.source_id),
+                    ss.subject.name,
+                    closed_subject_id,
+                    upper,
+                )
+            if deployed_on_subject:
+                models.SubjectSource.objects.bulk_update(deployed_on_subject, ["assigned_range"])
+            closed_subject = models.Subject.objects.get(id=closed_subject_id)
+            closed_subject.is_active = False
+            closed_subject.save()
+            logger.info(
+                "Closed %d deployed device(s) for gearset %s (set_id: %s) at haul_time=%s",
+                len(deployed_on_subject),
+                closed_subject.name,
+                closed_subject_id,
+                upper,
+            )
 
         # Find SubjectGroup by manufacturer_name
         # Note: manufacturer_name should already be validated in the serializer
@@ -165,13 +290,7 @@ class BuoyService:
                 device_location = EMPTY_POINT
                 logger.info(f"Device {device_id} (mfr_device_id: {mfr_device_id}) has no location data")
 
-            if not device_data.get("recorded_at"):
-                logger.warning(
-                    f"recorded_at not provided for device {device_id}, mfr_device_id: {mfr_device_id}, using current time"
-                )
-                recorded_at = datetime.now(timezone.utc)
-            else:
-                recorded_at = device_data.get("recorded_at")
+            recorded_at = device_data["recorded_at"]
 
             # Get or create Source. Prefer lookup by id (device_id) to avoid duplicate key when
             # the same device was previously created under a different provider (e.g. after

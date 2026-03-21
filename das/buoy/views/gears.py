@@ -7,12 +7,11 @@ from drf_spectacular.utils import (
     inline_serializer,
 )
 
-from django.db import transaction
 from django.db.utils import IntegrityError
 from django.urls import reverse
 from rest_framework import generics
 from rest_framework import serializers as drf_serializers
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -24,7 +23,7 @@ from buoy.permissions import (
     HasManufacturerSubjectGroupPermission,
 )
 from buoy.serializers.query_params import GearsQueryParamsSerializer
-from buoy.services.buoy_service import BuoyService
+from buoy.services.buoy_service import BuoyService, OlderGearsetRejectedError
 from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
 from core.fields import StrictUUIDField
@@ -64,9 +63,39 @@ logger = logging.getLogger(__name__)
             400: OpenApiResponse(
                 response=inline_serializer(
                     name="GearCreateErrorResponse",
-                    fields={"detail": drf_serializers.CharField(help_text="A description of the error that occurred.")},
+                    fields={
+                        "status": inline_serializer(
+                            name="GearCreateErrorStatus",
+                            fields={
+                                "code": drf_serializers.IntegerField(help_text="HTTP status code."),
+                                "message": drf_serializers.CharField(help_text="HTTP status text."),
+                                "detail": drf_serializers.CharField(
+                                    help_text="A description of the error (present for older-gearset rejections).",
+                                    required=False,
+                                ),
+                            },
+                        ),
+                        "device_id": drf_serializers.CharField(
+                            help_text=(
+                                "The device ID that triggered the conflict "
+                                "(present only when an older gearset is rejected)."
+                            ),
+                            required=False,
+                        ),
+                        "newer_gearset_id": drf_serializers.UUIDField(
+                            help_text=(
+                                "The set_id of the newer gearset that already has the device deployed "
+                                "(present only when an older gearset is rejected)."
+                            ),
+                            required=False,
+                        ),
+                    },
                 ),
-                description="Bad request due to invalid input data.",
+                description=(
+                    "Bad request. May be a standard serializer validation error (e.g. missing or invalid fields) "
+                    "or an older-gearset rejection. For older-gearset rejections, device_id and newer_gearset_id "
+                    "are also present; the error detail is nested under status.detail per the API response envelope."
+                ),
             ),
             403: OpenApiResponse(
                 response=inline_serializer(
@@ -207,8 +236,12 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         validated_data = serializer.validated_data
 
         try:
-            with transaction.atomic():
-                subject, observations = BuoyService.process_gearset(validated_data, user=request.user)
+            subject, observations = BuoyService.process_gearset(validated_data, user=request.user)
+        except OlderGearsetRejectedError as e:
+            error_detail = {"detail": str(e), "device_id": e.device_id}
+            if e.newer_gearset_id:
+                error_detail["newer_gearset_id"] = str(e.newer_gearset_id)
+            raise ValidationError(error_detail)
         except IntegrityError as integrity_error:
             return return_409_response(message=str(integrity_error))
 

@@ -1,9 +1,10 @@
 import json
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 from geopy.distance import distance
+from psycopg2.extras import DateTimeTZRange
 
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
@@ -21,8 +22,12 @@ from das.buoy.tests import (
     get_custom_location_gear_subjectsource,
 )
 from observations.models import (
+    DEFAULT_ASSIGNED_RANGE,
     EMPTY_POINT,
     Observation,
+    Source,
+    SourceProvider,
+    Subject,
     SubjectGroup,
     SubjectSource,
     SubjectSubType,
@@ -913,3 +918,77 @@ class TestGearsViewIncludeEmptyLocation:
         # Only device with location should be included
         assert len(gear["devices"]) == 1
         assert gear["devices"][0]["mfr_device_id"] == "device_with_location"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestGearsViewOlderGearsetRejection:
+    """View-level integration tests for the older-gearset rejection 400 path."""
+
+    base_url = "gear-list-create-view"
+
+    def test_post_older_gearset_returns_400_and_no_state_change(self, superuser_client):
+        """POST with a device already deployed on a newer gearset returns 400 and commits no state changes."""
+        subject_group = SubjectGroup.objects.create(name="OlderRejectViewManufacturer")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser_client.user.permission_sets.add(permission_set)
+
+        subject_subtype, _ = SubjectSubType.objects.get_or_create(value=BUOY_GEAR_SUBJECT_SUBTYPE)
+        provider = SourceProvider.objects.create(
+            display_name="OlderRejectViewManufacturer",
+            provider_key="gundi_olderrejectviewmanufacturer",
+        )
+        device_uuid = "aabbccdd-0000-4000-8000-000000000001"
+        source = Source.objects.create(id=device_uuid, manufacturer_id="view_shared_device", provider=provider)
+
+        # Existing (newer) gearset deployed at t_newer
+        t_newer = timezone.now() - timedelta(hours=1)
+        subject_newer = Subject.objects.create(name="NewerGearset", subject_subtype=subject_subtype, is_active=True)
+        subject_newer.groups.add(subject_group)
+        SubjectSource.objects.create(
+            subject=subject_newer,
+            source=source,
+            assigned_range=DateTimeTZRange(lower=t_newer, upper=DEFAULT_ASSIGNED_RANGE[1]),
+        )
+
+        # Attempt to POST an older gearset (recorded_at before t_newer)
+        t_older = t_newer - timedelta(hours=2)
+        older_set_id = "aabbccdd-1111-4000-8000-000000000001"
+        payload = {
+            "set_id": older_set_id,
+            "manufacturer_name": "OlderRejectViewManufacturer",
+            "owner_id": "owner1",
+            "mfr_set_id": "OLDER_SET",
+            "deployment_type": "single",
+            "initial_deployment_date": t_older.isoformat(),
+            "devices": [
+                {
+                    "device_id": device_uuid,
+                    "mfr_device_id": "view_shared_device",
+                    "recorded_at": t_older.isoformat(),
+                    "last_deployed": t_older.isoformat(),
+                    "last_updated": t_older.isoformat(),
+                    "device_status": "deployed",
+                    "location": {"latitude": 1.0, "longitude": 2.0},
+                }
+            ],
+        }
+
+        url = reverse(self.base_url)
+        response = superuser_client.post(url, data=payload, format="json")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        # fixup_api_response moves "detail" into response.data["status"]["detail"]
+        assert "device_id" in response.data
+        assert "newer_gearset_id" in response.data
+        assert "detail" in response.data.get("status", {})
+
+        # Verify no state was committed: newer gearset must remain open and active
+        subject_newer.refresh_from_db()
+        assert subject_newer.is_active is True
+        ss = SubjectSource.objects.get(subject=subject_newer, source=source)
+        assert ss.assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
+
+        # The older gearset subject must not have been created
+        assert not Subject.objects.filter(id=older_set_id).exists()
