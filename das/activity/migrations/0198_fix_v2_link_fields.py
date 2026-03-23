@@ -2,6 +2,8 @@ import json
 
 from django.db import migrations
 
+from utils.tenant.managers import UnsetDASTenantContextManager
+
 
 def normalize_v2_link_fields(schema: dict) -> tuple[dict, bool]:
     ui_fields = schema.get("ui", {}).get("fields")
@@ -29,28 +31,29 @@ def normalize_v2_link_fields(schema: dict) -> tuple[dict, bool]:
 
 
 def fix_v2_schemas(apps, schema_editor):
-    EventType = apps.get_model("activity", "EventType")
-    db_alias = schema_editor.connection.alias
+    with UnsetDASTenantContextManager():
+        EventType = apps.get_model("activity", "EventType")
+        db_alias = schema_editor.connection.alias
 
-    queryset = EventType.objects.using(db_alias).filter(version="2")
+        queryset = EventType.objects.using(db_alias).filter(version="2")
 
-    for event_type in queryset():
-        if not event_type.schema:
-            continue
-
-        try:
-            schema = json.loads(event_type.schema)
-            if not isinstance(schema, dict):
+        for event_type in queryset:
+            if not event_type.schema:
                 continue
-        except (TypeError, ValueError, json.JSONDecodeError) as e:
-            continue
 
-        normalized_schema, changed = normalize_v2_link_fields(schema)
-        if not changed:
-            continue
+            try:
+                schema = json.loads(event_type.schema)
+                if not isinstance(schema, dict):
+                    continue
+            except (TypeError, ValueError, json.JSONDecodeError) as e:
+                continue
 
-        event_type.schema = json.dumps(normalized_schema, indent=2)
-        event_type.save(using=db_alias, update_fields=["schema"])
+            normalized_schema, changed = normalize_v2_link_fields(schema)
+            if not changed:
+                continue
+
+            event_type.schema = json.dumps(normalized_schema, indent=2)
+            event_type.save(using=db_alias, update_fields=["schema", "updated_at"])
 
 
 class Migration(migrations.Migration):
