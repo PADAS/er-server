@@ -20,7 +20,7 @@ from observations.models import (
 from observations.signals_segments_cache import (
     TILE_LAYER_IDS,
     _invalidate_for_point,
-    clear_observation_tile_invalidation_batch_for_tests,
+    clear_tile_invalidation_connection_state,
     invalidate_subject_tiles_on_status_change,
     lonlat_to_tile_xy,
     tiles_along_segment_at_zoom,
@@ -29,10 +29,10 @@ from utils import cache as cache_utils
 
 
 @pytest.fixture(autouse=True)
-def _clear_observation_tile_batch_between_tests():
-    clear_observation_tile_invalidation_batch_for_tests()
+def _clear_tile_invalidation_connection_state_between_tests():
+    clear_tile_invalidation_connection_state()
     yield
-    clear_observation_tile_invalidation_batch_for_tests()
+    clear_tile_invalidation_connection_state()
 
 
 def _tile_invalidation_zoom_count():

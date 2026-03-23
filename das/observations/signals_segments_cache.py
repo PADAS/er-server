@@ -26,9 +26,6 @@ _TILE_INV_FLUSH_SCHEDULED_ATTR = "_tile_invalidation_flush_scheduled"
 # Reference to the on_commit flush callable; used to detect savepoint rollback dropping only our hook.
 _TILE_INV_FLUSH_CALLBACK_ATTR = "_tile_invalidation_flush_callback"
 
-# Backward-compatible name for tests
-_OBS_TILE_BATCH_ATTR = _TILE_INV_BATCH_ATTR
-
 # Spherical Web Mercator latitude limit (|lat| beyond this has no finite tile y).
 _WEB_MERCATOR_MAX_LAT = 85.05112877980659
 
@@ -226,27 +223,17 @@ def _flush_batched_tile_invalidations(using: str = DEFAULT_DB_ALIAS) -> None:
     _flush_batched_tile_invalidations_for_connection(connections[using])
 
 
-def _flush_batched_observation_tile_invalidations() -> None:
-    """Backward-compatible name for tests."""
-    _flush_batched_tile_invalidations()
-
-
 def clear_tile_invalidation_connection_state() -> None:
     """Drop pending batch and flush flag on all DB connections.
 
     Call at HTTP request start, before selected Celery tasks (see
-    ``observations.celery_tile_invalidation``), and in tests — avoids stale state when a
-    transaction rolls back (on_commit dropped) but connection-local attrs remain.
+    ``observations.celery_tile_invalidation``), and from tests between cases — avoids stale
+    state when a transaction rolls back (on_commit dropped) but connection-local attrs remain.
     """
     for conn in connections.all():
         for attr in (_TILE_INV_BATCH_ATTR, _TILE_INV_FLUSH_SCHEDULED_ATTR, _TILE_INV_FLUSH_CALLBACK_ATTR):
             if hasattr(conn, attr):
                 delattr(conn, attr)
-
-
-def clear_observation_tile_invalidation_batch_for_tests() -> None:
-    """Backward-compatible name for tests; same as clear_tile_invalidation_connection_state."""
-    clear_tile_invalidation_connection_state()
 
 
 @receiver(request_started)
