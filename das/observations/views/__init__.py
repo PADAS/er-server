@@ -3,11 +3,13 @@ import json
 import logging
 import re
 import urllib
+import uuid
 
 import dateutil.parser
 import pytz
 from kombu import exceptions
 
+from django.contrib.postgres.aggregates import StringAgg
 from django.core.files.storage import default_storage
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import F, Q, QuerySet, Window
@@ -66,6 +68,7 @@ from observations.serializers import (
     TrackSerializer,
     create_sg_serializer,
 )
+from observations.serializers.segments import SubjectTrackSegmentsGroupedSerializer
 from observations.tasks import handle_outbox_message, process_gpxdata_api
 from observations.utils import (
     VIEW_OBSERVATION_PERMS,
@@ -91,6 +94,7 @@ from observations.views.utils import (
     get_track_days,
 )
 from utils import add_base_url
+from utils.csv_streaming import StreamingCSVResponse
 from utils.drf import (
     ForbiddenAPIException,
     StandardObjectPermissions,
@@ -399,6 +403,105 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         context["subject_linked_sources"] = linked_sources
 
+        return context
+
+
+class SubjectTrackSegmentsV2View(generics.RetrieveAPIView):
+    """Retrieve grouped pre-computed observation segments for a subject as flattened LineStrings.
+
+    Query params:
+      - since: ISO timestamp (inclusive lower bound)
+      - until: ISO timestamp (inclusive upper bound)
+      - show_excluded: if 'true', include segments that have exclusion flags set; if omitted or
+        'false', only unflagged (0) segments are returned.
+      - group_by_flags: if 'true', break groups when exclusion_flags changes.
+      - max_speed_kmh: float. If provided, splits groups when a segment's speed_kmh exceeds this value.
+      - max_gap_ms: integer milliseconds. Splits groups when a segment's time_gap_ms
+        exceeds this value.
+      - max_gap_seconds: integer seconds. Convenience alternative to max_gap_ms (converted to ms).
+      - max_gap_minutes: integer minutes. Convenience alternative to max_gap_ms (converted to ms).
+
+    Returns a GeoJSON FeatureCollection where each feature is a single LineString representing
+    one contiguous group of segments (merged coordinate sequence, no duplicate join points).
+    """
+
+    lookup_url_kwarg = "subject_id"
+    serializer_class = SubjectTrackSegmentsGroupedSerializer
+
+    def get_queryset(self):
+        min_age_days = get_minimum_allowed_age(self.request.user) or 0
+        qs = Subject.objects.all().select_related("subject_subtype__subject_type")
+        qs = qs.annotate_with_subjectstatus(delay_hours=min_age_days * 24)
+        return qs
+
+    def check_object_permissions(self, request, obj):
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, obj):
+            raise PermissionDenied
+
+    def get_object(self):
+        try:
+            return self._cached_object
+        except AttributeError:
+            self._cached_object = super().get_object()
+            return self._cached_object
+
+    def _parse_dt(self, name, value):
+        """Parse a datetime query parameter. Returns None if omitted/empty. Raises ParseError if invalid."""
+        if not value:
+            return None
+        try:
+            dt = dateparse(value)
+        except Exception:
+            raise ParseError(detail=f'Invalid datetime format for "{name}" parameter.')
+        if dt is None:
+            raise ParseError(detail=f'Invalid datetime format for "{name}" parameter.')
+        return dt
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        since = self._parse_dt("since", self.request.query_params.get("since"))
+        until = self._parse_dt("until", self.request.query_params.get("until"))
+        # Whether to include observations/segments marked with any exclusion flag.
+        show_excluded = self.request.query_params.get("show_excluded", "false").lower() == "true"
+        group_by_flags = self.request.query_params.get("group_by_flags", "false").lower() == "true"
+
+        # Optional runtime segmentation thresholds (aligning with vector tile service conventions)
+        def _get_float(name):
+            val = self.request.query_params.get(name)
+            try:
+                return float(val) if val is not None and val != "" else None
+            except Exception:
+                return None
+
+        def _get_int(name):
+            val = self.request.query_params.get(name)
+            try:
+                return int(val) if val is not None and val != "" else None
+            except Exception:
+                return None
+
+        max_speed_kmh = _get_float("max_speed_kmh")
+        # Support multiple time gap param styles; prefer milliseconds for precision
+        max_gap_ms = _get_int("max_gap_ms")
+        if max_gap_ms is None:
+            max_gap_seconds = _get_int("max_gap_seconds")
+            if max_gap_seconds is not None:
+                max_gap_ms = max_gap_seconds * 1000
+        if max_gap_ms is None:
+            max_gap_minutes = _get_int("max_gap_minutes")
+            if max_gap_minutes is not None:
+                max_gap_ms = max_gap_minutes * 60 * 1000
+
+        context.update(
+            {
+                "since": since,
+                "until": until,
+                "show_excluded": show_excluded,
+                "group_by_flags": group_by_flags,
+                "max_speed_kmh": max_speed_kmh,
+                "max_gap_ms": max_gap_ms,
+            }
+        )
         return context
 
 
@@ -965,10 +1068,6 @@ class TrackingDataCsvView(APIView):
                 )
 
     def get(self, request, *args, **kwargs):
-        from uuid import UUID
-
-        from utils.csv_streaming import StreamingCSVResponse
-
         # Set exclusion flag value
         filter_flag = 0
         qparam = self.request.GET.get("filter", 0)
@@ -996,7 +1095,7 @@ class TrackingDataCsvView(APIView):
         # Validate UUID eagerly so errors surface before streaming begins
         if request_subject_id:
             try:
-                UUID(request_subject_id)
+                uuid.UUID(request_subject_id)
             except (ValueError, AttributeError):
                 raise ValidationError({"Error": f"{request_subject_id} is not a valid UUID"})
 
@@ -1270,8 +1369,6 @@ class TrackingMetaDataExportView(APIView):
         Build a lookup dict mapping subject_id -> comma-separated group names.
         This eliminates the N+1 query problem by fetching all groups in one query.
         """
-        from django.contrib.postgres.aggregates import StringAgg
-
         # Get all subject-group relationships in one query
         subject_groups_qs = (
             SubjectGroup.objects.filter(subjects__id__in=subject_ids)
@@ -1414,8 +1511,6 @@ class TrackingMetaDataExportView(APIView):
         return tracking_metadata, headers
 
     def get(self, request, *args, **kwargs):
-        from utils.csv_streaming import StreamingCSVResponse
-
         local_tz = pytz.timezone(timezone.get_current_timezone_name())
         timestamp = local_tz.localize(datetime.datetime.utcnow())
         output_format = self.request.GET.get("format", "").lower()

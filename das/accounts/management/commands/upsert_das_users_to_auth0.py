@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from accounts.models import User
+from accounts.system_users import SYSTEM_USERNAMES
 from utils.auth0.client import AuthZeroUserProvisioner, AuthZeroUserProvisioningResult
 from utils.auth0.helpers import get_auth0_management_api_access_token
 from utils.tenant import get_tenant_settings
@@ -42,7 +43,7 @@ class Command(TenantCommandMixin, BaseCommand):
     help = "Upsert DAS users to Auth0 for a specific tenant domain"
 
     # List of usernames that should not be provisioned to Auth0
-    DISALLOWED_USERNAMES = ["er_system", "admin"]
+    DISALLOWED_USERNAMES = SYSTEM_USERNAMES + ["admin"]
 
     def __init__(
         self,

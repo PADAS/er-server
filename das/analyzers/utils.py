@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.http.request import HttpRequest
 
+from accounts.system_users import SYSTEM_ANALYZERS_USER
 from activity.models import Event
 from activity.serializers import EventSerializer
 from analyzers.base import SubjectAnalyzer
@@ -55,12 +56,12 @@ def cluster(track, radius):
 def get_system_user():
     User = get_user_model()
     user, created = User.objects.get_or_create(
-        username="system_analyzers",
+        username=SYSTEM_ANALYZERS_USER,
         defaults=dict(
             last_name="Alyzer",
             first_name="Anne",
-            email="system_analyzers@pamdas.org",
             is_active=False,
+            is_system=True,
             password=User.objects.make_random_password(),
         ),
     )

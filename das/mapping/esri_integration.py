@@ -1,3 +1,4 @@
+import base64
 import datetime
 import logging
 import tempfile
@@ -48,6 +49,51 @@ DEFAULT_POLYGON = {
     "stroke-width": 1,
     "stroke-opacity": 0.7,
 }
+
+
+def _simple_marker_circle_svg_data_url(symbol):
+    """Build a data URL for an SVG circle from an ArcGIS simple marker symbol (esriSMS)."""
+    size = getattr(symbol, "size", None) or 8
+    try:
+        size = int(size)
+    except (TypeError, ValueError):
+        size = 8
+    size = max(2, min(size, 64))
+    cx = cy = 16
+    fill_hex = "#808080"
+    fill_opacity_attr = ""
+    stroke_hex = None
+    stroke_width = 0
+    stroke_opacity_attr = ""
+    if hasattr(symbol, "color") and symbol.color:
+        cr, cg, cb, ca = symbol.color[:4]
+        fill_hex = "#{:02x}{:02x}{:02x}".format(cr, cg, cb)
+        if ca < 255:
+            fill_opacity_attr = f' fill-opacity="{ca / 255:.2f}"'
+    if hasattr(symbol, "outline") and symbol.outline:
+        o = symbol.outline
+        if getattr(o, "color", None) and getattr(o, "width", None):
+            cr, cg, cb, ca = o.color[:4]
+            stroke_hex = "#{:02x}{:02x}{:02x}".format(cr, cg, cb)
+            if ca < 255:
+                stroke_opacity_attr = f' stroke-opacity="{ca / 255:.2f}"'
+            try:
+                stroke_width = float(o.width)
+            except (TypeError, ValueError):
+                stroke_width = 0.5
+    # Keep radius within viewBox so the circle (+ stroke) does not clip; scaling is via presentation width/height
+    max_radius = 16.0 - (stroke_width / 2.0) if stroke_width > 0 else 16.0
+    radius = max_radius
+    stroke_attr = ""
+    if stroke_hex and stroke_width > 0:
+        stroke_attr = f' stroke="{stroke_hex}" stroke-width="{stroke_width}"{stroke_opacity_attr}'
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">'
+        f'<circle cx="{cx}" cy="{cy}" r="{radius}" fill="{fill_hex}"{fill_opacity_attr}{stroke_attr}/></svg>'
+    )
+    b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    return f"data:image/svg+xml;base64,{b64}"
+
 
 message = messages.add_message
 
@@ -325,21 +371,27 @@ def get_mb_style(symbol):
             logger.warning(f"Line symbol does not have color attribute. skipping color import")
     elif type == ESRI_POLYGON:
         logger.debug("processing polygon")
-        if hasattr(symbol, "color") and symbol.color:
+        has_fill = hasattr(symbol, "color") and symbol.color
+        fill_alpha = symbol.color[3] if has_fill and len(symbol.color) > 3 else 255
+        if has_fill and fill_alpha > 0:
             r, g, b, a = symbol.color
             fill_color = "#{:02x}{:02x}{:02x}".format(r, g, b)
-            fill_opacity = "{:.2f}".format(a / 255)
-            presentation = {"fill": fill_color, "fill-opacity": float(fill_opacity)}
+            fill_opacity = float("{:.2f}".format(a / 255))
+            presentation = {"fill": fill_color, "fill-opacity": fill_opacity}
         else:
-            logger.warning(f"Polygon symbol does not have color attribute. skipping color import")
+            # Outline-only: explicitly set transparent fill opacity so the map does not default to solid fill
+            presentation = {"fill-opacity": 0.0}
         if hasattr(symbol, "outline") and symbol.outline and hasattr(symbol.outline, "color") and symbol.outline.color:
             r, g, b, a = symbol.outline.color
             presentation["stroke"] = "#{:02x}{:02x}{:02x}".format(r, g, b)
             presentation["stroke-opacity"] = float("{:.2f}".format(a / 255))
-            if hasattr(symbol.outline, "width") and symbol.outline.width:
+            if hasattr(symbol.outline, "width") and symbol.outline.width is not None:
                 presentation["stroke-width"] = symbol.outline.width
         else:
-            logger.warning(f"Polygon symbol does not have outline or outline.color attribute. skipping outline import")
+            if "stroke" not in presentation:
+                logger.warning(
+                    "Polygon symbol does not have outline or outline.color attribute. skipping outline import"
+                )
     elif type == ESRI_PMS or type == ESRI_PFS:
         logger.debug(f"processing picture symbol {type}")
         presentation = {
@@ -353,7 +405,18 @@ def get_mb_style(symbol):
         }
     elif type == ESRI_SMS:
         logger.debug("processing simple marker symbol")
-        presentation = DEFAULT_IMAGE
+        data_url = _simple_marker_circle_svg_data_url(symbol)
+        size = getattr(symbol, "size", None) or DEFAULT_IMAGE_WIDTH
+        try:
+            size = int(size)
+        except (TypeError, ValueError):
+            size = DEFAULT_IMAGE_WIDTH
+        size = max(2, min(size, 64))
+        presentation = {
+            "image": data_url,
+            "width": size,
+            "height": size,
+        }
     else:
         logger.warning(f"Got Esri symbol type: {type}. Not handled yet.")
 

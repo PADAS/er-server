@@ -2,7 +2,7 @@ import logging
 
 from django.core.management.base import BaseCommand
 
-from mapping.cache import bump_vector_tile_data_version
+from utils.cache import bump_vector_tile_data_version
 from utils.tenant.commands import TenantCommandMixin
 
 logger = logging.getLogger(__name__)

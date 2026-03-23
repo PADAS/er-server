@@ -13,10 +13,12 @@ from opentelemetry import trace
 
 from django.http import JsonResponse
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
 from rest_framework import status
 
+from accounts.auth0_admin import INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME
 from core import persistent_storage
 from core.models.oauth import DASAccessToken
 from observations.utils import (
@@ -87,13 +89,17 @@ class RequestLoggingMiddleware(object):
             referer = request.META.get("HTTP_REFERER", "")
             user_agent = request.META.get("HTTP_USER_AGENT", "")
             status_code = response.status_code
-            path = request.get_full_path()
-            # Strip query parameters for cleaner metrics
-            path_for_metrics = request.path
+            request_path = request.path
             host = request.get_host()
             method = request.method
             protocol = request.META.get("SERVER_PROTOCOL", "")
             language = request.META.get("HTTP_ACCEPT_LANGUAGE", "")
+            auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+            auth_token_prefix = ""
+            if auth_header:
+                parts = auth_header.split(" ", 1)
+                token = parts[1] if len(parts) > 1 else parts[0]
+                auth_token_prefix = token[:5]
             try:
                 tenant_domain = get_tenant_settings().domain
             except TenantNotFoundException:
@@ -110,22 +116,23 @@ class RequestLoggingMiddleware(object):
                 referer=referer,
                 user_agent=user_agent,
                 status=status_code,
-                path=path,
+                path=request_path,
                 method=method,
                 protocol=protocol,
                 tenant=tenant_domain,
                 host=host,
                 language=language,
+                auth_token_prefix=auth_token_prefix,
             )
 
             if error_message:
                 extra["error_message"] = error_message
 
-            self.logger.info("request", extra=extra)
+            self.logger.debug("%s %s %s", method, request_path, status_code, extra=extra)
             stats.histogram(
                 "api_request_time",
                 req_time,
-                tags=[f"http_path:{path_for_metrics}", f"http_method:{method}", f"http_status:{status_code}"],
+                tags=[f"http_path:{request_path}", f"http_method:{method}", f"http_status:{status_code}"],
             )
 
             span = trace.get_current_span()
@@ -300,6 +307,12 @@ class ManageAdminEFBTokenMiddleware(MiddlewareMixin):
         return response
 
     def _should_create_efb_token(self, request, response):
+        # Don't set the EFB cookie when the view is redirecting the user to Auth0
+        # for authentication -- they haven't completed Auth0 login yet.
+        if response.status_code in (301, 302) and reverse(INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME) in response.get(
+            "Location", ""
+        ):
+            return False
         return (
             "/admin/login" in request.path
             and request.user.is_authenticated

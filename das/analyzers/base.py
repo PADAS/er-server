@@ -1,14 +1,15 @@
 import logging
 from typing import Optional
 
-from analyzers.models import SubjectAnalyzerResult
 from django.core.cache import cache
+
+from analyzers.models import SubjectAnalyzerResult
 from observations.models import Subject
 
 logger = logging.getLogger(__name__)
-'''
+"""
 Base objects for Analyzer code.
-'''
+"""
 
 
 class SubjectAnalyzer:
@@ -18,8 +19,7 @@ class SubjectAnalyzer:
         # If subject is not None and if it is inactive subject(is_active=False)
         # Throw ValueError
         if subject and not subject.is_active:
-            raise ValueError('Error while initializing analyzer,'
-                             ' {} subject is not active'.format(subject.name))
+            raise ValueError("Error while initializing analyzer," " {} subject is not active".format(subject.name))
         self.subject = subject
 
     def analyze_trajectory(self, traj=None):
@@ -40,9 +40,9 @@ class SubjectAnalyzer:
 
     def get_last_result(self):
         try:
-            last_result = SubjectAnalyzerResult.objects.filter(subject=self.subject,
-                                                               subject_analyzer_id=self.config.id). \
-                latest('estimated_time')
+            last_result = SubjectAnalyzerResult.objects.filter(
+                subject=self.subject, subject_analyzer_id=self.config.id
+            ).latest("estimated_time")
         except SubjectAnalyzerResult.DoesNotExist:
             last_result = None
 
@@ -57,8 +57,7 @@ class SubjectAnalyzer:
         trajectory_filter = trajectory_filter or self.subject.default_trajectory_filter()
 
         # Create Trajectory which is the input to the analysis.
-        trajectory = self.subject.create_trajectory(obs=observations,
-                                                    trajectory_filter_params=trajectory_filter)
+        trajectory = self.subject.create_trajectory(obs=observations, trajectory_filter_params=trajectory_filter)
 
         results = self.analyze_trajectory(trajectory)
 
@@ -70,15 +69,16 @@ class SubjectAnalyzer:
             last_result = self.get_last_result()
 
             # Save the current result in the context of the last result saved
-            self.save_analyzer_result(
-                last_result=last_result, this_result=this_result)
+            self.save_analyzer_result(last_result=last_result, this_result=this_result)
 
-            this_event = self.create_analyzer_event(
-                last_result=last_result, this_result=this_result)
+            this_event = self.create_analyzer_event(last_result=last_result, this_result=this_result)
             if analyzer_key and this_event:
-                logger.info('Pausing analyzer with id=%s', self.config.id)
-                cache.set(analyzer_key, analyzer_key,
-                          self.config.quiet_period.total_seconds())
+                logger.info("Pausing analyzer with id=%s", self.config.id)
+                cache.set(analyzer_key, analyzer_key, self.config.quiet_period.total_seconds())
+
+            if this_event is not None and this_result.pk:
+                SubjectAnalyzerResult.objects.filter(pk=this_result.pk).update(event=this_event)
+                this_result.event = this_event
 
             analyze_results.append((this_result, this_event))
 
@@ -91,4 +91,4 @@ class SubjectAnalyzer:
 
     class Meta:
         abstract = True
-        app_label = 'subject_analyzer'
+        app_label = "subject_analyzer"

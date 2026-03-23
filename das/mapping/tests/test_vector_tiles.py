@@ -297,7 +297,9 @@ class TestSpatialFeatureTileEndpoint:
         SpatialFeatureTileView()
         r1 = user_client.get(make_tile_url(8, 128, 256))
         assert call_record["count"] == 1
-        assert r1["Cache-Control"].startswith("public")
+        assert r1["Cache-Control"].startswith("private")
+        vary = r1.get("Vary", "")
+        assert "Authorization" in vary and "Cookie" in vary
         # Second identical request
         r2 = user_client.get(make_tile_url(8, 128, 256))
         assert call_record["count"] == 1  # unchanged => cache hit

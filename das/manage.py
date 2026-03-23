@@ -2,15 +2,16 @@
 import os
 import sys
 
-if os.environ.get('EVENTLET_SHOULDPATCH', 'false').lower() == 'true':
+if os.environ.get("EVENTLET_SHOULDPATCH", "false").lower() == "true":
     import eventlet
-    if os.environ.get('EVENTLET_ATTACH_DEBUG', 'false').lower() == 'true':
-        eventlet.monkey_patch(all=False, socket=True,
-                              select=True, thread=False)
+
+    if os.environ.get("EVENTLET_ATTACH_DEBUG", "false").lower() == "true":
+        eventlet.monkey_patch(all=False, socket=True, select=True, thread=False)
     else:
         eventlet.monkey_patch()
 
 from das_server.log import init_logging
+
 init_logging()
 
 """

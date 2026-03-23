@@ -31,6 +31,11 @@ from django.http import StreamingHttpResponse
 
 logger = logging.getLogger(__name__)
 
+# Encoding for CSV stream. Yielding bytes (not str) is required for WSGI and
+# avoids ERR_QUIC_PROTOCOL_ERROR when streaming over HTTP/3 (QUIC) behind
+# proxies that expect a well-defined byte stream and clean stream termination.
+CSV_STREAM_ENCODING = "utf-8"
+
 
 class Echo:
     """
@@ -48,10 +53,12 @@ class Echo:
 
 class StreamingCSVGenerator:
     """
-    Generator that yields CSV rows as strings for streaming.
+    Generator that yields CSV rows as UTF-8 bytes for streaming.
 
-    This class handles the conversion of dictionaries or lists to CSV format,
-    yielding each row immediately for streaming response.
+    Yields bytes (not str) so the response body is a well-defined byte stream.
+    This satisfies WSGI and avoids protocol errors when the response is sent
+    over HTTP/3 (QUIC) or through proxies that expect consistent encoding
+    and clean stream termination.
     """
 
     def __init__(
@@ -73,12 +80,12 @@ class StreamingCSVGenerator:
         self.fieldnames = fieldnames
         self.include_header = include_header
 
-    def __iter__(self) -> Generator[str, None, None]:
+    def __iter__(self) -> Generator[bytes, None, None]:
         """
-        Iterate over CSV rows, yielding each as a string.
+        Iterate over CSV rows, yielding each as UTF-8 bytes.
 
         Yields:
-            CSV-formatted strings for each row (including header if enabled).
+            CSV-formatted bytes for each row (including header if enabled).
         """
         pseudo_buffer = Echo()
         writer = csv.DictWriter(
@@ -92,13 +99,15 @@ class StreamingCSVGenerator:
             # Note: We intentionally use writer.writerow instead of writer.writeheader
             # because writeheader() returns None, while writerow() returns the
             # CSV-formatted string via the Echo buffer, which we need to yield.
-            yield writer.writerow(dict(zip(self.fieldnames, self.fieldnames)))
+            row_str = writer.writerow(dict(zip(self.fieldnames, self.fieldnames)))
+            yield row_str.encode(CSV_STREAM_ENCODING)
 
         # Yield data rows
         row_count = 0
         for row in self.row_generator:
             try:
-                yield writer.writerow(row)
+                row_str = writer.writerow(row)
+                yield row_str.encode(CSV_STREAM_ENCODING)
                 row_count += 1
             except Exception as e:
                 logger.exception("Error writing CSV row %d: %s", row_count, e)
@@ -145,7 +154,7 @@ class StreamingCSVResponse(StreamingHttpResponse):
 
         super().__init__(
             streaming_content=csv_generator,
-            content_type="text/csv",
+            content_type="text/csv; charset=utf-8",
             **kwargs,
         )
 

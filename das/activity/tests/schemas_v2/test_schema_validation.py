@@ -37,6 +37,10 @@ class TestJsonSchemaFieldBasics:
             "valid_date_field_schema",
             "valid_time_field_schema",
             "valid_text_field_schema",
+            "valid_text_field_format_uri_schema",
+            "valid_text_field_format_uuid_schema",
+            "valid_text_field_format_email_schema",
+            "valid_text_field_pattern_schema",
             "valid_location_field_schema",
             "valid_rendered_choice_field_schema",
             "valid_rendered_multiple_choice_field_schema",
@@ -131,6 +135,16 @@ class TestJsonSchemaFieldBasics:
                 "invalid_text_field_schema",
                 "is not valid under any of the given schemas",
                 "at json.properties.first_field",
+            ),
+            (
+                "invalid_text_field_format_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.testText",
+            ),
+            (
+                "invalid_text_field_pattern_schema",
+                "is not valid under any of the given schemas",
+                "at json.properties.testText",
             ),
             (
                 "invalid_location_type_schema",

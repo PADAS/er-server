@@ -11,6 +11,8 @@ from analyzers.forms import (
     ImmobilityAnalyzerForm,
     LowSpeedPercentileSubjectAnalyzerForm,
     LowSpeedWilcoxSubjectAnalyzerForm,
+    MovementClusterAnalyzerForm,
+    ObservationAttributeAnalyzerForm,
     SubjectProximityAnalyzerForm,
 )
 from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
@@ -315,6 +317,7 @@ class GeofenceSubjectAnalyzerAdmin(BaseModelAdminMixin):
                 "classes": ("wide", "collapse"),
                 "fields": (
                     "id",
+                    "trigger_on_corner_clip",
                     "search_time_hours",
                     "quiet_period",
                     "notes",
@@ -430,6 +433,58 @@ class LowSpeedPercentileSubjectAnalyzerAdmin(BaseModelAdminMixin):
     )
 
 
+@admin.register(models.ObservationAttributeAnalyzerConfig)
+class ObservationAttributeAnalyzerAdmin(BaseModelAdminMixin):
+    list_display = (
+        "name",
+        "subject_group_name",
+        "attribute_name",
+    )
+    ordering = ("name", "subject_group", "attribute_name")
+    readonly_fields = ("id",)
+    search_fields = ("subject_group__name", "attribute_name")
+
+    def subject_group_name(self, o):
+        return o.subject_group.name
+
+    subject_group_name.admin_order_field = "subject_group"
+    form = ObservationAttributeAnalyzerForm
+
+    fieldsets = (
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": (
+                    (
+                        "name",
+                        "subject_group",
+                        "is_active",
+                        "attribute_name",
+                        "aggregation",
+                        "comparator",
+                        "warning_value",
+                        "critical_value",
+                    )
+                ),
+            },
+        ),
+        (
+            "Advanced Analyzer Attributes",
+            {
+                "classes": ("wide", "collapse"),
+                "fields": (
+                    "id",
+                    "adjust_to_order_of_magnitude",
+                    "search_time_hours",
+                    "quiet_period",
+                    "notes",
+                ),
+            },
+        ),
+    )
+
+
 @admin.register(models.SubjectSpeedProfile)
 class SubjectSpeedProfileAdmin(BaseModelAdminMixin):
     pass
@@ -438,6 +493,51 @@ class SubjectSpeedProfileAdmin(BaseModelAdminMixin):
 @admin.register(models.SpeedDistro)
 class SpeedDistroAdmin(BaseModelAdminMixin):
     pass
+
+
+@admin.register(models.MovementClusterAnalyzerConfig)
+class MovementClusterAnalyzerAdmin(BaseModelAdminMixin):
+    list_display = (
+        "name",
+        "subject_group_name",
+    )
+    ordering = ("name", "subject_group")
+    readonly_fields = ("id",)
+    search_fields = ("subject_group__name",)
+    form = MovementClusterAnalyzerForm
+
+    def subject_group_name(self, o):
+        return o.subject_group.name
+
+    subject_group_name.admin_order_field = "subject_group"
+
+    fieldsets = (
+        (None, {"classes": ("wide",), "fields": (("name", "subject_group", "is_active"))}),
+        (
+            "ST-DBSCAN Cluster Parameters",
+            {
+                "classes": ("wide",),
+                "fields": (
+                    "spatial_threshold_meters",
+                    "temporal_threshold_seconds",
+                    "min_cluster_points",
+                    "min_cluster_duration_seconds",
+                ),
+            },
+        ),
+        (
+            "Advanced Analyzer Attributes",
+            {
+                "classes": ("wide", "collapse"),
+                "fields": (
+                    "id",
+                    "search_time_hours",
+                    "quiet_period",
+                    "notes",
+                ),
+            },
+        ),
+    )
 
 
 @admin.register(models.GlobalForestWatchSubscription)

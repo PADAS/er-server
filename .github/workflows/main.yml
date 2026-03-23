@@ -28,16 +28,19 @@ jobs:
           name: sphinx_docs
           path: docs/_build/html
   build:
-    uses: PADAS/gundi-workflows/.github/workflows/build_docker.yml@v2
+    uses: PADAS/serca-pipelines/.github/workflows/_docker-build.yml@main
     needs: build_sphinx_docs
     with:
-      environment: padas-app
+      repository: europe-west3-docker.pkg.dev/padas-app/er-mt/das-server
+      secondary-repository: europe-west3-docker.pkg.dev/serca-artifact-registry/earthranger/das-server
+      tag: ${{ github.head_ref || github.ref_name }}-${{ github.run_number }}
+      dockerfile: Dockerfile.mt
       artifact-download: true
       artifact-name: sphinx_docs
       artifact-path: ./das/sphinx_docs
-      repository: europe-west3-docker.pkg.dev/padas-app/er-mt/das-server
-      tag: ${{ github.head_ref || github.ref_name }}-${{ github.run_number }}
-      dockerfile: circleci-docker/Dockerfile
+      push: true
+      workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+      service_account: ${{ vars.SERVICE_ACCOUNT }}
 
   unit-test1:
     uses: ./.github/workflows/_unit-tests.yml
@@ -55,3 +58,16 @@ jobs:
     with:
       image: "europe-west3-docker.pkg.dev/padas-app/er-mt/das-server:${{ github.head_ref || github.ref_name }}-${{ github.run_number }}"
       command: pytest --reuse-db --junitxml=/testresults/junit/result_suite_two.xml --maxfail=15 activity/tests sensors/tests revision/test
+
+  deploy-dev:
+    needs: [unit-test1, unit-test2]
+    if: github.ref_name == 'develop'
+    uses: PADAS/serca-pipelines/.github/workflows/_argocd-deploy.yml@main
+    with:
+      app-name: das-server
+      app-subdir: earthranger
+      environment: er-dev
+      image-tag: "${{ github.ref_name }}-${{ github.run_number }}"
+    secrets:
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+      ARGOCD_APPS_SSH_KEY: ${{ secrets.ARGOCD_APPS_SSH_KEY }}

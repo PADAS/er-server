@@ -4,7 +4,6 @@ from itertools import chain
 
 import simplejson as json
 from rest_framework_extensions.etag.decorators import etag
-from vectortiles.mixins import BaseVectorTileView
 
 from django.core.serializers import serialize
 from django.db.models import Count, F, Prefetch
@@ -19,12 +18,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 import mapping.serializers as serializers
+from das_server.views import CustomSchema, DRFMVTView
 from mapping import app_settings
-from mapping.cache import (
-    build_tile_cache_key,
-    get_effective_cache_version,
-    get_vector_tile_cache,
-)
 from mapping.models import (
     DisplayCategory,
     Map,
@@ -36,6 +31,11 @@ from mapping.models import (
 )
 from mapping.permissions import LayerObjectPermissions
 from mapping.vector_layers import SpatialFeatureLayer
+from utils.cache import (
+    build_tile_cache_key,
+    get_effective_cache_version,
+    get_vector_tile_cache,
+)
 from utils.drf import create_json_response
 from utils.json import parse_bool
 from utils.tenant.providers import get_tenant_data_by_host
@@ -276,13 +276,6 @@ class LayerJsonView(generics.RetrieveUpdateDestroyAPIView):
         return TileLayer.objects.all()
 
 
-class DRFMVTView(BaseVectorTileView, generics.GenericAPIView):
-    """Subclass of BaseVectorTileView that uses DRF views for authentication and authorization.
-    This is necessary because BaseVectorTileView uses Django's View class, which does not support DRF's authentication and authorization.
-    Keep an eye on MVTView in vectortiles.views for updates needed to this.
-    """
-
-
 class SpatialFeatureTileView(DRFMVTView):
     """
     Vector tile endpoint for SpatialFeature geometries.
@@ -293,12 +286,16 @@ class SpatialFeatureTileView(DRFMVTView):
     - Server-side TTL ~ 24 hours (spatial features rarely change once stable)
     - Client: 24 hours fresh (max-age), then 3 minutes stale-while-revalidate window
     - Client: stale-if-error for same 24 hour window to mask transient origin faults
-    - Authorization varied so per-user/tenant isolation is preserved
+    - Authorization: private + Vary so shared caches do not serve one user's tile to another
     """
 
     layer_classes = [SpatialFeatureLayer]
     permission_classes = (LayerObjectPermissions,)
-    content_type = "application/vnd.mapbox-vector-tile"  # Override vectortiles default content type
+    content_type = "application/vnd.mapbox-vector-tile"
+    schema = CustomSchema()
+
+    # Response varies by auth so shared caches do not serve one user's tile to another
+    VARY_HEADER = "Authorization, Cookie"
 
     # Server-side cache TTL (seconds). Keep a little longer than client max-age so we can
     # usually revalidate from server cache rather than hitting the DB immediately.
@@ -346,10 +343,11 @@ class SpatialFeatureTileView(DRFMVTView):
             resp = HttpResponse(status=304)
             resp["ETag"] = etag_value
             resp["Cache-Control"] = (
-                "public, max-age="
+                "private, max-age="
                 f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
                 f"stale-if-error={self.client_stale_if_error_seconds}"
             )
+            resp["Vary"] = self.VARY_HEADER
             return resp
 
         cached_payload = vt_cache.get(cache_key)
@@ -357,11 +355,12 @@ class SpatialFeatureTileView(DRFMVTView):
             content, content_type = cached_payload
             resp = HttpResponse(content, content_type=content_type)
             resp["Cache-Control"] = (
-                "public, max-age="
+                "private, max-age="
                 f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
                 f"stale-if-error={self.client_stale_if_error_seconds}"
             )
             resp["ETag"] = etag_value
+            resp["Vary"] = self.VARY_HEADER
             resp["X-Cache"] = "HIT"
             return resp
         # Instantiate layers only on a cache miss.
@@ -378,11 +377,12 @@ class SpatialFeatureTileView(DRFMVTView):
         else:
             response["X-Cache"] = "BYPASS"
         response["Cache-Control"] = (
-            "public, max-age="
+            "private, max-age="
             f"{self.client_max_age_seconds}, stale-while-revalidate={self.client_stale_while_revalidate_seconds}, "
             f"stale-if-error={self.client_stale_if_error_seconds}"
         )
         response["ETag"] = etag_value
+        response["Vary"] = self.VARY_HEADER
         return response
 
     def _get(self, request, z, x, y, *args, **kwargs):
