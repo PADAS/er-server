@@ -23,6 +23,8 @@ TILE_LAYER_IDS = ("observation_segments", "subjects")
 # Connection-local batch: ("p", tenant_id, lon, lat) or ("s", tenant_id, lon1, lat1, lon2, lat2)
 _TILE_INV_BATCH_ATTR = "_tile_invalidation_batch"
 _TILE_INV_FLUSH_SCHEDULED_ATTR = "_tile_invalidation_flush_scheduled"
+# Reference to the on_commit flush callable; used to detect savepoint rollback dropping only our hook.
+_TILE_INV_FLUSH_CALLBACK_ATTR = "_tile_invalidation_flush_callback"
 
 # Backward-compatible name for tests
 _OBS_TILE_BATCH_ATTR = _TILE_INV_BATCH_ATTR
@@ -104,16 +106,32 @@ def _invalidate_for_point(*, tenant_id: str, layer_ids: Iterable[str], lon: floa
     return deleted
 
 
-def _sync_flush_scheduled_flag_after_rollback(conn) -> None:
-    """If the DB rolled back, Django clears on_commit hooks but leaves our connection attrs.
+def _tile_invalidation_flush_still_queued(conn, flush_cb) -> bool:
+    """True if flush_cb is still registered on this connection's commit hook queue."""
+    run_on_commit = getattr(conn, "run_on_commit", None)
+    if not run_on_commit:
+        return False
+    return any(func is flush_cb for _sids, func in run_on_commit)
 
-    Without this, _tile_invalidation_flush_scheduled can stay True and block further scheduling.
+
+def _sync_flush_scheduled_flag_after_rollback(conn) -> None:
+    """Align _tile_invalidation_flush_scheduled with Django's run_on_commit queue.
+
+    Full transaction rollback clears run_on_commit; savepoint rollback can remove only some hooks.
+    If our flush hook was dropped but the flag stayed True, further appends would not re-schedule.
     """
     if not getattr(conn, _TILE_INV_FLUSH_SCHEDULED_ATTR, False):
         return
-    run_on_commit = getattr(conn, "run_on_commit", None)
-    if run_on_commit is not None and len(run_on_commit) == 0:
+    flush_cb = getattr(conn, _TILE_INV_FLUSH_CALLBACK_ATTR, None)
+    if flush_cb is None:
         setattr(conn, _TILE_INV_FLUSH_SCHEDULED_ATTR, False)
+        return
+    if not _tile_invalidation_flush_still_queued(conn, flush_cb):
+        setattr(conn, _TILE_INV_FLUSH_SCHEDULED_ATTR, False)
+        try:
+            delattr(conn, _TILE_INV_FLUSH_CALLBACK_ATTR)
+        except AttributeError:
+            pass
 
 
 def _get_batch(using: str) -> List[Tuple]:
@@ -136,8 +154,13 @@ def _schedule_tile_invalidation_flush(using: str) -> None:
 
     def _run_flush() -> None:
         setattr(conn, _TILE_INV_FLUSH_SCHEDULED_ATTR, False)
+        try:
+            delattr(conn, _TILE_INV_FLUSH_CALLBACK_ATTR)
+        except AttributeError:
+            pass
         _flush_batched_tile_invalidations_for_connection(conn)
 
+    setattr(conn, _TILE_INV_FLUSH_CALLBACK_ATTR, _run_flush)
     transaction.on_commit(_run_flush, using=using)
 
 
@@ -211,11 +234,12 @@ def _flush_batched_observation_tile_invalidations() -> None:
 def clear_tile_invalidation_connection_state() -> None:
     """Drop pending batch and flush flag on all DB connections.
 
-    Call at HTTP request start, after Celery tasks, and in tests — avoids stale state when a
+    Call at HTTP request start, before selected Celery tasks (see
+    ``observations.celery_tile_invalidation``), and in tests — avoids stale state when a
     transaction rolls back (on_commit dropped) but connection-local attrs remain.
     """
     for conn in connections.all():
-        for attr in (_TILE_INV_BATCH_ATTR, _TILE_INV_FLUSH_SCHEDULED_ATTR):
+        for attr in (_TILE_INV_BATCH_ATTR, _TILE_INV_FLUSH_SCHEDULED_ATTR, _TILE_INV_FLUSH_CALLBACK_ATTR):
             if hasattr(conn, attr):
                 delattr(conn, attr)
 

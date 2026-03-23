@@ -270,11 +270,6 @@ def task_prerun_handler(task, *args, **kwargs):
 @task_postrun.connect
 def task_postrun_handler(task, *args, **kwargs):
     utils.stats.increment("task", tags=[f"name:{task.name}", "state:postrun"])
-    from observations.signals_segments_cache import (
-        clear_tile_invalidation_connection_state,
-    )
-
-    clear_tile_invalidation_connection_state()
 
 
 @task_success.connect

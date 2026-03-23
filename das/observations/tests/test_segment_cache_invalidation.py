@@ -321,6 +321,44 @@ def test_tile_invalidation_schedules_on_commit_once_per_transaction(monkeypatch)
 
 
 @pytest.mark.django_db
+def test_tile_invalidation_reschedules_flush_after_inner_atomic_rollback(monkeypatch):
+    """Inner savepoint rollback drops our flush hook; other on_commit hooks can remain.
+
+    The scheduled flag must clear when our callback is no longer queued so a later append
+    registers a new flush (regression: empty run_on_commit was too coarse a signal).
+    """
+
+    def dummy_on_commit():
+        pass
+
+    registered = []
+    real_on_commit = transaction.on_commit
+
+    def counting_on_commit(callback, **kwargs):
+        registered.append(callback)
+        return real_on_commit(callback, **kwargs)
+
+    monkeypatch.setattr(transaction, "on_commit", counting_on_commit)
+    tenant_id = str(uuid.uuid4())
+    with transaction.atomic():
+        transaction.on_commit(dummy_on_commit)
+        try:
+            with transaction.atomic():
+                seg_cache._append_point_invalidation(tenant_id, 12.5, -1.25)
+                raise ValueError("rollback inner")
+        except ValueError:
+            pass
+        seg_cache._append_point_invalidation(tenant_id, 14.0, 3.0)
+
+    flush_callbacks = [cb for cb in registered if cb is not dummy_on_commit]
+    assert len(flush_callbacks) == 2, (
+        "expected two tile flush on_commit registrations "
+        "(inner hook removed from queue, outer txn must re-schedule); "
+        f"got {len(flush_callbacks)} in {registered!r}"
+    )
+
+
+@pytest.mark.django_db
 def test_bulk_observations_after_commit_dedupes_tile_invalidations(monkeypatch, fake_vector_tile_cache):
     """Same location many times → one invalidate per zoom once commit hooks run (integration).
 
