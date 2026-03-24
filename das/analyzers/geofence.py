@@ -33,7 +33,9 @@ class GeofenceAnalyzer(SubjectAnalyzer):
     @classmethod
     def get_subject_analyzers(cls, subject):
         subject_groups = subject.get_ancestor_subject_groups()
-        for ac in GeofenceAnalyzerConfig.objects.filter(subject_group__in=subject_groups, is_active=True):
+        for ac in GeofenceAnalyzerConfig.objects.select_related("feature_group_filter").filter(
+            subject_group__in=subject_groups, is_active=True
+        ):
             yield cls(subject=subject, config=ac)
 
     def _create_geofence_analysis_param(self):

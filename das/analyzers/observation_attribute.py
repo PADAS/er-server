@@ -27,7 +27,7 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
     def get_subject_analyzers(cls, subject=None):
         if subject:
             subject_groups = subject.get_ancestor_subject_groups()
-            for ac in ObservationAttributeAnalyzerConfig.objects.filter(
+            for ac in ObservationAttributeAnalyzerConfig.objects.select_related("feature_group_filter").filter(
                 subject_group__in=subject_groups, is_active=True
             ):
                 yield cls(subject=subject, config=ac)

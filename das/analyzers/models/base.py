@@ -12,7 +12,9 @@ from django.db.models import Index, UniqueConstraint
 from django.utils.translation import gettext_lazy as _
 
 from activity.models import Event
+from core.fields import CompoundTenantForeignKey
 from core.models import DASTenant, TimestampedModel
+from mapping.models import SpatialFeatureGroupStatic
 from observations.models import Observation, Subject, SubjectGroup
 from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager
@@ -79,6 +81,17 @@ class SubjectAnalyzerConfig(TenantModelMixin, TimestampedModel):
         blank=True,
         verbose_name="Quiet period (HH:MM:SS)",
         help_text=_("This will be used to override the configured quiet period."),
+    )
+    feature_group_filter = CompoundTenantForeignKey(
+        to=SpatialFeatureGroupStatic,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name=_("Feature Group Filter"),
+        help_text=_(
+            "When set, events will only be created for detections that occur within the spatial features of this Feature Group."
+        ),
     )
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = CommonTenantManager()

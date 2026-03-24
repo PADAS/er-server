@@ -68,6 +68,9 @@ class SubjectAnalyzer:
             # Get the last analyzer result
             last_result = self.get_last_result()
 
+            if not self._is_within_feature_group_filter(this_result):
+                continue
+
             # Save the current result in the context of the last result saved
             self.save_analyzer_result(last_result=last_result, this_result=this_result)
 
@@ -83,6 +86,35 @@ class SubjectAnalyzer:
             analyze_results.append((this_result, this_event))
 
         return analyze_results
+
+    def _is_within_feature_group_filter(self, result) -> bool:
+        """Return True if the result's location falls within the configured feature group filter.
+
+        If no feature_group_filter is configured, always returns True.
+        """
+        if not self.config.feature_group_filter:
+            return True
+        if not result.geometry_collection:
+            logger.warning("Result has empty geometry_collection, skipping feature group filter check")
+            return False
+        location = result.geometry_collection[0]
+        return self._is_location_in_cached_features(location)
+
+    def _is_location_in_cached_features(self, location) -> bool:
+        """Check if location intersects with cached feature group geometries.
+
+        Note: Geometries are cached for 1 hour. Changes to the spatial features
+        in the feature group (add/remove/edit) will not take effect until the
+        cache entry expires.
+        """
+        cache_key = f"feature_group_{self.config.feature_group_filter.id}_geometries"
+        geometries = cache.get(cache_key)
+
+        if geometries is None:
+            geometries = list(self.config.feature_group_filter.features.values_list("feature_geometry", flat=True))
+            cache.set(cache_key, geometries, 3600)  # Cache for 1 hour
+
+        return any(location.intersects(geom) for geom in geometries)
 
     def _get_analyzer_key(self, subject: Subject) -> Optional[str]:
         if self.config.quiet_period:
