@@ -1662,7 +1662,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
         )
 
     subject_link.short_description = "Subject"
-    subject_link.admin_order_field = "subject"
+    subject_link.admin_order_field = "subject__name"
 
     def _age(self, o):
         default = "-"
