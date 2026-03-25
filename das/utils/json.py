@@ -240,6 +240,48 @@ def zeroout_microseconds(value):
     return value.replace(microsecond=0)
 
 
+def wrap_responses_with_data_envelope(result, generator, **kwargs):
+    """drf-spectacular postprocessing hook that wraps response schemas with the
+    ``{"data": ..., "status": {...}}`` envelope produced by
+    :class:`ExtendedJSONRenderer`.
+
+    Add to SPECTACULAR_SETTINGS["POSTPROCESSING_HOOKS"].
+    """
+
+    status_schema = {
+        "type": "object",
+        "properties": {
+            "code": {"type": "integer", "example": 200},
+            "message": {"type": "string", "example": "OK"},
+        },
+    }
+
+    paths = result.get("paths", {})
+    for path_item in paths.values():
+        for operation in path_item.values():
+            if not isinstance(operation, dict):
+                continue
+            responses = operation.get("responses", {})
+            for status_code, response_obj in responses.items():
+                if not isinstance(response_obj, dict):
+                    continue
+                content = response_obj.get("content", {})
+                for media_type, media_obj in content.items():
+                    if "application/json" not in media_type:
+                        continue
+                    original_schema = media_obj.get("schema")
+                    if not original_schema:
+                        continue
+                    media_obj["schema"] = {
+                        "type": "object",
+                        "properties": {
+                            "data": original_schema,
+                            "status": status_schema,
+                        },
+                    }
+    return result
+
+
 class DateTimeAwareJSONEncoder(json.JSONEncoder):
     """
     Converts a python object, where datetime and timedelta objects are converted

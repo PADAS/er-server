@@ -336,6 +336,10 @@ SPECTACULAR_SETTINGS = {
     "COMPONENT_SPLIT_REQUEST": True,
     "GENERIC_ADDITIONAL_PROPERTIES": "bool",
     "AUTHENTICATION_WHITELIST": [],
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "utils.json.wrap_responses_with_data_envelope",
+    ],
     "OAUTH2_FLOWS": {
         "password": {
             "tokenUrl": "/oauth2/token/",
