@@ -12,7 +12,6 @@ from django.contrib.admin.widgets import AdminDateWidget, FilteredSelectMultiple
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.forms import JSONField
-from django.utils.dateparse import parse_duration
 from django.utils.translation import gettext_lazy as _
 
 from choices.models import Choice
@@ -43,6 +42,17 @@ from observations.widgets import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Validates time thresholds in HH:MM or HH:MM:SS format, where hours can be any
+# number of digits and minutes/seconds must be in the range 00–59.
+THRESHOLD_FORMAT_RE = re.compile(r"\d+:[0-5]\d(:[0-5]\d)?")
+
+
+def validate_threshold_format(value):
+    """Validate that a threshold value matches HH:MM or HH:MM:SS format."""
+    if value and not THRESHOLD_FORMAT_RE.fullmatch(value):
+        raise forms.ValidationError(_("This field should follow the format HH:MM or HH:MM:SS"))
+    return value
 
 
 def validate_assigned_range(value):
@@ -118,7 +128,7 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
 
 
 silence_notification_threshold_help_text_for_source = _(
-    "Threshold in hours:minutes:seconds. If no new data is received from this Source within this threshold, a "
+    "Threshold in hours:minutes:seconds (seconds optional). If no new data is received from this Source within this threshold, a "
     'report will be created. This will override the "Default silence notification threshold" if set for the '
     "source provider."
 )
@@ -158,7 +168,7 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
     feed_passwd = forms.CharField(required=False, label="Feed Password")
 
     silence_notification_threshold = forms.CharField(
-        max_length=8, required=False, empty_value=None, help_text=silence_notification_threshold_help_text_for_source
+        max_length=20, required=False, empty_value=None, help_text=silence_notification_threshold_help_text_for_source
     )
     two_way_messaging = forms.NullBooleanField(label="Two-way messaging", help_text=two_way_help_text, required=False)
 
@@ -184,6 +194,9 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
             provider_2way_conf = instance.provider.additional.get("two_way_messaging", False)
             return two_way_choices(source_provider_enable=provider_2way_conf)
         return two_way_choices()
+
+    def clean_silence_notification_threshold(self):
+        return validate_threshold_format(self.cleaned_data["silence_notification_threshold"])
 
     def __init__(self, *args, **kwargs):
         super(SourceForm, self).__init__(*args, **kwargs)
@@ -331,16 +344,16 @@ class SubjectChangeListForm(forms.ModelForm):
 
 
 lag_notification_threshold_help_text = _(
-    "Threshold in hours:minutes:seconds that indicates an abnormal delay in data for this Source Provider."
+    "Threshold in hours:minutes:seconds (seconds optional) that indicates an abnormal delay in data for this Source Provider."
 )
 
 silence_notification_threshold_help_text = _(
-    "Threshold in hours:minutes:seconds. If ALL of the Sources for this Source Provider fail to submit new data "
+    "Threshold in hours:minutes:seconds (seconds optional). If ALL of the Sources for this Source Provider fail to submit new data "
     "within this threshold, a report will be created for the Source Provider."
 )
 
 default_silence_notification_threshold_help_text = _(
-    "Threshold in hours:minutes. If any specific Sources for "
+    "Threshold in hours:minutes:seconds (seconds optional). If any specific Sources for "
     "this Source Provider fail to submit new data within "
     "this threshold, a report will be created for each of them."
 )
@@ -448,15 +461,15 @@ class ExtendedJSONField(JSONField):
 
 class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     lag_notification_threshold = forms.CharField(
-        max_length=8, required=False, empty_value=None, help_text=lag_notification_threshold_help_text
+        max_length=20, required=False, empty_value=None, help_text=lag_notification_threshold_help_text
     )
 
     silence_notification_threshold = forms.CharField(
-        max_length=8, required=False, empty_value=None, help_text=silence_notification_threshold_help_text
+        max_length=20, required=False, empty_value=None, help_text=silence_notification_threshold_help_text
     )
 
     default_silent_notification_threshold = forms.CharField(
-        max_length=8,
+        max_length=20,
         required=False,
         empty_value=None,
         label="Default silence notification threshold",
@@ -470,6 +483,16 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     transformation_rule = TransformationRuleField(required=False)
     two_way_messaging = forms.BooleanField(
         required=False, initial=False, label="Two-way messaging", help_text=two_way_help_text_sp
+    )
+    additional = ExtendedJSONField(
+        widget=AutoFormatJSONWidget,
+        required=False,
+        label=_("Additional data"),
+        help_text=_(
+            "Provider-specific additional configuration stored as JSON. "
+            "Use a JSON object (key/value pairs) to supply any extra settings or metadata "
+            "needed for this source provider."
+        ),
     )
 
     transforms = ExtendedJSONField(
@@ -498,18 +521,17 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
         )
         json_date_fields = set()
 
+    def clean_lag_notification_threshold(self):
+        return validate_threshold_format(self.cleaned_data["lag_notification_threshold"])
+
+    def clean_silence_notification_threshold(self):
+        return validate_threshold_format(self.cleaned_data["silence_notification_threshold"])
+
+    def clean_default_silent_notification_threshold(self):
+        return validate_threshold_format(self.cleaned_data["default_silent_notification_threshold"])
+
     def clean(self):
         cleaned_data = super().clean()
-        value = cleaned_data.get("lag_notification_threshold")
-
-        if value and (not parse_duration(value) or not re.match(r"\d{1,2}:\d{2}:\d{2}", value)):
-            raise forms.ValidationError(
-                {
-                    "lag_notification_threshold": forms.ValidationError(
-                        _("Notification threshold must be of the form HH:MM:SS."), code="invalid"
-                    )
-                }
-            )
 
         # Validate messaging_config when two_way_messaging is True
         two_way_messaging = cleaned_data.get("two_way_messaging")
@@ -553,13 +575,6 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
             message = _("Tranformation rules must be properly configured, expecting a list or null")
             raise forms.ValidationError(message, code="invalid")
         return schema
-
-    def clean_default_silent_notification_threshold(self):
-        data = self.cleaned_data["default_silent_notification_threshold"]
-        pattern = re.compile(r"^(\d{2}:[0-5]\d$)")
-        if data and not re.fullmatch(pattern, data):
-            raise forms.ValidationError(_("This field should follow the format HH:MM and have to be lower than 99:59"))
-        return data
 
 
 class SetRandomColorForm(ActionForm):
