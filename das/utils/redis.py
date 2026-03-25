@@ -19,7 +19,7 @@ def get_resilient_redis_client(host, port, db):
         port=port,
         db=db,
         health_check_interval=5,
-        retry=Retry(ExponentialBackoff(), 25),
+        retry=Retry(ExponentialBackoff(cap=25, base=5), retries=5),
         retry_on_error=[ConnectionError, TimeoutError],
     )
 
@@ -28,7 +28,7 @@ def get_resilient_redis_client_from_url(url):
     return redis.from_url(
         url=url,
         health_check_interval=5,
-        retry=Retry(ExponentialBackoff(), 25),
+        retry=Retry(ExponentialBackoff(cap=25, base=5), retries=5),
         retry_on_error=[ConnectionError, TimeoutError],
     )
 

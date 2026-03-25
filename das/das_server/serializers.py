@@ -38,3 +38,4 @@ class VersionSerializer(rest_framework.serializers.Serializer):
     analyzers_enabled = rest_framework.serializers.BooleanField(read_only=True)
     require_idp = rest_framework.serializers.BooleanField(read_only=True)
     idp_org_id = rest_framework.serializers.CharField(read_only=True)
+    geo_span = rest_framework.serializers.DictField(read_only=True, allow_null=True)
