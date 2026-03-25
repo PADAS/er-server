@@ -102,11 +102,11 @@ When an alert rule has an **override message**, that message replaces the defaul
 
 ## Rate Limiting
 
-To prevent alert fatigue and protect notification channels, EarthRanger enforces per-user rate limits on alerts.
+To prevent alert fatigue and protect notification channels, EarthRanger enforces rate limits on alerts.
 
-- Each user has a configurable **alert rate limit** (set in tenant environment settings).
-- A counter tracks the number of alerts sent to each user within a rolling time window (configured via `ALERTS_RATE_LIMIT_DURATION_SECONDS`).
-- When the counter reaches the limit, further alerts are suppressed until the window resets.
+- The **alert rate limit** is a site-wide tenant setting — it cannot be configured per user. Every user on the site shares the same limit threshold.
+- However, each user's **usage is tracked individually**. Each user has their own counter within a rolling time window (configured via `ALERTS_RATE_LIMIT_DURATION_SECONDS`).
+- When an individual user's counter reaches the site-wide limit, further alerts to that user are suppressed until their window resets. Other users on the same site are unaffected.
 - When a user is approaching their limit (within `ALERTS_REMAINING_COUNTER_FOR_WARNING` alerts), a warning is prepended to the alert title showing how many alerts remain.
 - Alert usage metrics are published for monitoring: gauges track users at 90% and 100% of their quota.
 
