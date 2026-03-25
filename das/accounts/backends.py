@@ -20,6 +20,7 @@ from accounts.models import User
 from accounts.utils import filter_permissions_by_tenant, parse_permission_codename
 from utils.auth0.auth0_validators import Auth0JWTBearerTokenValidator
 from utils.tenant import get_tenant_settings
+from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 
 logger = logging.getLogger("django.request")
 
@@ -225,13 +226,27 @@ class AccountsModelBackend(ModelBackend):
                 )
             else:
                 user_ps_ids = user_obj.get_all_permission_sets(only_ids=True)
+                try:
+                    tenant_settings = get_tenant_settings()
+                except TenantNotFoundInLocalThreadException:
+                    logger.warning(
+                        "get_group_permissions called with no current tenant set for user %s; returning empty permissions",
+                        user_obj.pk,
+                    )
+                    return perms
                 if obj and hasattr(obj, "get_obj_permission_set_ids"):
                     obj_ps_ids = obj.get_obj_permission_set_ids()
                     intersect_ids = user_ps_ids & obj_ps_ids
 
-                    queryset = Permission.objects.filter(permission_sets__in=intersect_ids)
+                    queryset = Permission.objects.filter(
+                        permissionsetpermission__permissionset__in=intersect_ids,
+                        permissionsetpermission__das_tenant_id=tenant_settings.id,
+                    )
                 else:
-                    queryset = Permission.objects.filter(permission_sets__in=user_ps_ids)
+                    queryset = Permission.objects.filter(
+                        permissionsetpermission__permissionset__in=user_ps_ids,
+                        permissionsetpermission__das_tenant_id=tenant_settings.id,
+                    )
 
             perm_values = queryset.values_list("content_type__app_label", "codename").order_by()
             for ct, codename in perm_values:
