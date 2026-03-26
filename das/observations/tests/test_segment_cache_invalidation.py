@@ -7,7 +7,8 @@ from django.contrib.gis.geos import Point
 from django.db import connection, transaction
 from django.utils import timezone
 
-import observations.signals_segments_cache as seg_cache
+import observations.segment_tile_cache_invalidation as seg_cache
+import observations.signals_segments_cache  # noqa: F401 — register post_save / request_started hooks
 from observations.models import (
     DASTenant,
     Observation,
@@ -17,13 +18,15 @@ from observations.models import (
     Subject,
     SubjectSource,
 )
-from observations.signals_segments_cache import (
+from observations.segment_tile_cache_invalidation import (
     TILE_LAYER_IDS,
     _invalidate_for_point,
     clear_tile_invalidation_connection_state,
-    invalidate_subject_tiles_on_status_change,
     lonlat_to_tile_xy,
     tiles_along_segment_at_zoom,
+)
+from observations.signals_segments_cache import (
+    invalidate_subject_tiles_on_status_change,
 )
 from utils import cache as cache_utils
 
