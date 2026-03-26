@@ -461,6 +461,11 @@ def dummy_cache(settings):
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
             "LOCATION": "vector-tiles-test",
         },
+        settings.UPLOAD_SESSION_CACHE_ALIAS: {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "upload-sessions-test",
+            "KEY_PREFIX": "upload_session",
+        },
     }
 
 

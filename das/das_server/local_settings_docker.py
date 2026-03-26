@@ -4,6 +4,8 @@ Used in our production docker images
 
 import os
 
+# Pull base Django settings (INSTALLED_APPS, MIDDLEWARE, KML_FEED_TITLE, etc.); then override below.
+from .settings import *  # noqa: F403
 from .settings import (
     BASE_DIR,
     CACHES,
