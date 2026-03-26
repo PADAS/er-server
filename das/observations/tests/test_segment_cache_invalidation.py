@@ -8,7 +8,6 @@ from django.db import connection, transaction
 from django.utils import timezone
 
 import observations.segment_tile_cache_invalidation as seg_cache
-import observations.signals_segments_cache  # noqa: F401 — register post_save / request_started hooks
 from observations.models import (
     DASTenant,
     Observation,
