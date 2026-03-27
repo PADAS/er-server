@@ -271,4 +271,6 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
             raise
 
         response_data = MigrationResultSerializer(results, many=True).data
-        return Response(response_data, status=status.HTTP_200_OK)
+        response = Response(response_data, status=status.HTTP_200_OK)
+        response["X-Migration-Request-Id"] = logger.context.migration_request_id
+        return response
