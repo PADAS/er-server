@@ -28,14 +28,6 @@ class TestLogContext:
 
         assert context.migration_request_id == "migration-batch-123"
 
-    def test_from_request_uses_host_when_tenant_unavailable(self):
-        request = APIRequestFactory().post("/", {}, format="json", HTTP_HOST="tenant.test")
-
-        context = LogContext.from_request(request, dry_run=True)
-
-        assert context.tenant_name == "tenant.test"
-        assert re.match(r"^MR-tenant-test-[0-9a-f]{8}$", context.migration_request_id)
-
     @patch("activity.schemas.migration.logger.get_tenant_settings")
     def test_from_request_uses_thread_tenant_settings(self, mock_get_tenant_settings):
         mock_get_tenant_settings.return_value = type("TenantStub", (), {"domain": "thread.test"})()

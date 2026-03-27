@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class ErrorCategory(str, Enum):
     EVENT_TYPE = "event_type"
     TRANSFORM = "transform"
-    CHOICE_RESOLUTION = "choices_resolution"
+    CHOICES_RESOLUTION = "choices_resolution"  # All hardcoded choice resolution errors
     PERSISTENCE = "persistence"
     GENERAL = "general"
 
@@ -37,7 +37,7 @@ class ErrorCode(tuple[ErrorCategory, str], Enum):
     UNSUPPORTED_FEATURES = (ErrorCategory.TRANSFORM, "unsupported_features")
 
     # Hardcoded choice resolution
-    CHOICE_RESOLUTION_REQUIRED = (ErrorCategory.CHOICE_RESOLUTION, "choice_resolution_required")
+    CHOICE_RESOLUTION_REQUIRED = (ErrorCategory.CHOICES_RESOLUTION, "choice_resolution_required")
     CHOICE_CREATION_FAILED = (ErrorCategory.PERSISTENCE, "choice_creation_failed")
 
     # General
