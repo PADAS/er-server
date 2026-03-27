@@ -219,48 +219,32 @@ class TestGearsView:
         assert response.data["results"][0]["devices"]
         assert len(response.data["results"][0]["devices"]) == 2
 
-    def test_gear_subjects_view_duplicate_subjects_removed(self, buoy_client):
+    def test_trawl_gear_appears_once_in_list(self, buoy_client):
+        """A trawl gearset (one Subject with two Sources/SubjectSources) must appear
+        exactly once in the list response, not once per device."""
         user_client, gear_subjectsource = buoy_client
-
-        # Arrange - additional on observations for gear_subjectsources must match
-        additional = (
-            Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject)
-            .latest("recorded_at")
-            .additional
-        )
-        gear_subjectsource2 = SubjectSource.objects.get(pk=gear_subjectsource.pk)
-        gear_subjectsource2.pk = None
-        source = gear_subjectsource2.source
+        subject = gear_subjectsource.subject
+        provider = gear_subjectsource.source.provider
         now = timezone.now()
-        location_dict = json.loads(additional["devices"][0])["location"]
-        point = Point(location_dict["longitude"], location_dict["latitude"])
-        data = {
-            "recorded_at": now,
-            "location": point,
-            "source": source,
-            "additional": additional,
-        }
-        observation = Observation.objects.create(**data)
-        observation.save()
-        gear_subjectsource2.save()
+
+        # Add a second device (Source + SubjectSource) to the same gearset Subject
+        source2 = Source.objects.create(manufacturer_id="trawl_device_002", provider=provider)
+        location2 = Point(-24.44, 31.20)
+        SubjectSource.objects.create(
+            subject=subject,
+            source=source2,
+            assigned_range=DateTimeTZRange(now, None),
+            location=location2,
+        )
 
         url = reverse(self.base_url) + "?lat=0&lon=0"
         response = user_client.get(url)
 
-        latest_obs_additional1 = (
-            Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject)
-            .latest("recorded_at")
-            .additional
-        )
-        latest_obs_additional2 = (
-            Observation.objects.filter(source__subjectsource__subject=gear_subjectsource2.subject)
-            .latest("recorded_at")
-            .additional
-        )
-
-        assert latest_obs_additional1["devices"] == latest_obs_additional2["devices"]
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["results"]) == 1
+        assert response.data["results"][0]["id"] == str(subject.id)
+        assert response.data["results"][0]["type"] == "trawl"
+        assert len(response.data["results"][0]["devices"]) == 2
 
     @pytest.mark.skip(reason="This test requires using the sensors api to handle the event_type field")
     def test_gear_subjects_view_non_duplicates_remain(self, buoy_client):
@@ -285,56 +269,48 @@ class TestGearsView:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["results"]) == 2
 
-    def test_gear_subjects_view_with_deterministic_ordering_trawl(self, buoy_client):
+    def test_two_distinct_gearsets_both_appear_in_list(self, buoy_client):
+        """Two separate gearset Subjects must each appear as their own result."""
         user_client, gear_subjectsource = buoy_client
-        user_client, gear_subjectsource = buoy_client
-
-        # Arrange - additional on observations for gear_subjectsources must match
-        additional = (
-            Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject)
-            .latest("recorded_at")
-            .additional
-        )
-        gear_subjectsource2 = SubjectSource.objects.get(pk=gear_subjectsource.pk)
-        gear_subjectsource2.pk = None
-        source = gear_subjectsource2.source
+        subject1 = gear_subjectsource.subject
+        subject_subtype = subject1.subject_subtype
+        provider = gear_subjectsource.source.provider
         now = timezone.now()
-        location_dict = json.loads(additional["devices"][0])["location"]
-        point = Point(location_dict["longitude"], location_dict["latitude"])
-        data = {
-            "recorded_at": now,
-            "location": point,
-            "source": source,
-            "additional": additional,
-        }
-        observation = Observation.objects.create(**data)
-        observation.save()
-        gear_subjectsource2.save()
 
-        gear_subjectsource.subject.name = "A"
-        gear_subjectsource.subject.save()
-        gear_subjectsource2.subject.name = "B"
-        gear_subjectsource2.subject.save()
+        # Create a second independent gearset with its own subject and source
+        source2 = Source.objects.create(manufacturer_id="second_gear_device", provider=provider)
+        subject2 = Subject.objects.create(
+            name="Second_Gearset",
+            subject_subtype=subject_subtype,
+            is_active=True,
+        )
+        SubjectSource.objects.create(
+            subject=subject2,
+            source=source2,
+            assigned_range=DateTimeTZRange(now, None),
+            location=Point(0.01, 0.01),
+        )
+
+        # Create observation so bbox filter finds source2 (DB trigger populates LatestObservationSource)
+        Observation.objects.create(
+            recorded_at=now,
+            location=Point(0.01, 0.01),
+            source=source2,
+        )
+
+        # Give the user permission to see subject2 via the same SubjectGroup
+        subject_group = SubjectGroup.objects.filter(subjects=subject1).first()
+        assert subject_group, "Fixture must create a SubjectGroup for subject1"
+        subject_group.subjects.add(subject2)
 
         url = reverse(self.base_url) + "?lat=0&lon=0"
         response = user_client.get(url)
 
-        latest_obs_additional1 = (
-            Observation.objects.filter(source__subjectsource__subject=gear_subjectsource.subject)
-            .latest("recorded_at")
-            .additional
-        )
-        latest_obs_additional2 = (
-            Observation.objects.filter(source__subjectsource__subject=gear_subjectsource2.subject)
-            .latest("recorded_at")
-            .additional
-        )
-
-        assert gear_subjectsource.subject.name < gear_subjectsource2.subject.name
-        assert latest_obs_additional1["devices"] == latest_obs_additional2["devices"]
-        assert response.data["results"][0]["id"] == str(gear_subjectsource2.subject.id)
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data["results"]) == 1
+        result_ids = {r["id"] for r in response.data["results"]}
+        assert str(subject1.id) in result_ids
+        assert str(subject2.id) in result_ids
+        assert len(response.data["results"]) == 2
 
     @pytest.mark.skip(reason="This test requires using the sensors api to handle the event_type field")
     def test_gear_subjects_view_is_active_updated(self, buoy_client):

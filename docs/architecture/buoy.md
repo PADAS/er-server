@@ -12,6 +12,107 @@ The buoy system uses three core Django models from the `observations` app:
 - **Source**: Represents individual tracking devices/buoys attached to the gear
 - **SubjectSource**: Links Sources to Subjects with temporal assignments (deployment periods)
 
+## GET API: Reading Gear Sets
+
+### Endpoints
+- `GET /api/v1.0/gear/` — list all gearsets (paginated)
+- `GET /api/v1.0/gear/<id>/` — retrieve a single gearset
+
+### Queryset: Subject-based
+
+The list and detail views use `Subject` as the root queryset model — one database row per gearset. All device data is reached via prefetched `SubjectSource` rows:
+
+```python
+Subject.objects.filter(
+    subject_subtype__in=["ropeless_buoy_device", BUOY_GEAR_SUBJECT_SUBTYPE]
+).prefetch_related(
+    "groups",
+    Prefetch(
+        "subjectsources",
+        queryset=SubjectSource.objects.select_related("source"),
+        to_attr="all_subjectsources",
+    ),
+)
+```
+
+This guarantees one result per gearset regardless of how many devices (Sources/SubjectSources) belong to it. The `all_subjectsources` prefetch loads all SubjectSources and their Sources in exactly **2 queries** total, avoiding N+1 queries when serializing the device list. Device location is read directly from `SubjectSource.location` (see below), so no additional queries against the partitioned Observations table are needed.
+
+### Serializer: GearSerializer
+
+`GearSerializer` operates on a `Subject` instance (`obj`). All fields are read-only.
+
+**Response shape:**
+```json
+{
+  "id": "<subject.id>",
+  "display_id": "<subject.additional.display_id or subject.name>",
+  "status": "deployed | hauled",
+  "type": "single | trawl",
+  "manufacturer": "<subject.additional.manufacturer or first SubjectGroup name>",
+  "last_updated": "<ISO 8601>",
+  "devices": [
+    {
+      "device_id": "<source.id>",
+      "mfr_device_id": "<source.manufacturer_id>",
+      "label": "a | b | c ...",
+      "location": {"latitude": float, "longitude": float},
+      "last_updated": "<ISO 8601>",
+      "last_deployed": "<ISO 8601>"
+    }
+  ]
+}
+```
+
+### Timestamps: last_updated and recorded_at
+
+Understanding how timestamps flow through the system is important for correct interpretation of the GET response.
+
+#### On write (POST)
+
+Each device payload carries two time fields:
+
+| Field | Meaning | Where stored |
+|-------|---------|--------------|
+| `recorded_at` | When the GPS position fix was taken (the event time) | `Observation.recorded_at` and `SubjectSource.assigned_range` bounds |
+| `last_updated` | Manufacturer-provided timestamp for the device update | `source.additional["last_updated"]` and `subject.additional["last_updated"]` |
+
+For location updates, `recorded_at` and `last_updated` typically carry the same value since the location fix time *is* the update time. If `recorded_at` is absent from the payload, the service derives it from `last_deployed` (for deploy events) or `last_updated` (for haul events), falling back to current time.
+
+#### On read (GET response)
+
+**Gearset-level `last_updated`** — `GearSerializer.get_last_updated(obj)`:
+1. Reads `subject.additional["last_updated"]` (the manufacturer timestamp written at POST time)
+2. Falls back to `subject.updated_at` (Django auto-timestamp)
+
+**Device-level `last_updated`** — built in `_compute_devices()`:
+1. Reads `source.additional["last_updated"]` (the per-device manufacturer timestamp written at POST time)
+2. Falls back to `source.updated_at`
+
+**Device `location`** — read directly from `SubjectSource.location`. `BuoyService` sets this field on every gear observation (deploy, haul, and mid-deployment position update), so it always reflects the most recent reported position. Reading from `SubjectSource.location` avoids querying the partitioned Observations table at read time.
+
+**Device `last_deployed`** — read from `SubjectSource.assigned_range.lower`, which is set to `recorded_at` at deploy time.
+
+#### Summary
+
+```
+POST payload.recorded_at  ──► Observation.recorded_at
+                          ──► SubjectSource.assigned_range.lower  ──► GET device.last_deployed
+POST payload.last_updated ──► source.additional["last_updated"]   ──► GET device.last_updated
+                          ──► subject.additional["last_updated"]  ──► GET gearset.last_updated
+BuoyService (every POST)  ──► SubjectSource.location             ──► GET device.location
+```
+
+### List filters
+
+| Parameter | Behaviour |
+|-----------|-----------|
+| `state=deployed\|hauled` | Filters `Subject.is_active` (True = deployed, False = hauled) |
+| `updated_since=<date>` | Delegates to `SubjectQuerySet.by_updated_since()` |
+| `lat`, `lon`, `max_nm_range` | Spatial filter via `filter_by_bbox()`: returns subjects whose latest device observation falls within the bounding box |
+| `include_empty_location` | When false (default), devices with no real location (0,0 or null) are excluded from the `devices` array |
+
+---
+
 ## POST API: Creating/Updating Gear Sets
 
 ### Endpoint
@@ -219,6 +320,18 @@ observation = Observation.objects.create(
 - `recorded_at`: Timestamp of the event — taken from the payload's `recorded_at` field; if absent, falls back to `last_deployed` for deployed events, `last_updated` for hauled events, then current time if neither is available
 - `additional.raw`: Complete copy of the validated request payload for audit trail
 
+#### 9. SubjectSource.location — Live Position Cache
+
+`BuoyService` writes `subject_source.location` on **every** processed gear observation — not just deploy/haul events, but also mid-deployment position updates. This makes `SubjectSource.location` the authoritative cached position for a device, readable without any additional queries.
+
+**Backfilling existing data:** The management command `backfill_gear_subjectsource_location` populates `SubjectSource.location` for all currently deployed (open-ended `assigned_range`) gear SubjectSources using data from `LatestObservationSource`. Run it once after deploying the code that enables live position caching:
+
+```bash
+python manage.py backfill_gear_subjectsource_location [--batch-size 500] [--dry-run]
+```
+
+This command is safe to delete once all environments have been migrated.
+
 ## Data Flow Diagram
 
 ```
@@ -315,7 +428,7 @@ POST /api/v1.0/gears/
        v
 ┌──────────────┐
 │   Deployed   │ SubjectSource.assigned_range = [T1, ∞)
-│              │ SubjectSource.location = deploy_location
+│              │ SubjectSource.location = deploy_location  (updated on every POST)
 └──────┬───────┘
        │
        │ POST with device_status="hauled"

@@ -62,18 +62,19 @@ class TestGearSerializer:
         # Create time range for deployment
         time_range = DateTimeTZRange(now, None)
 
-        # Update existing SubjectSource with time range
+        # Update existing SubjectSource with time range and location
         gear_subjectsource.assigned_range = time_range
+        gear_subjectsource.location = location1
         gear_subjectsource.save()
 
-        # Create second SubjectSource
-        SubjectSource.objects.create(subject=subject, source=source2, assigned_range=time_range)
+        # Create second SubjectSource with location
+        SubjectSource.objects.create(subject=subject, source=source2, assigned_range=time_range, location=location2)
 
         # Set display_id in subject additional
         subject.additional = {"display_id": "Test_Gear_1"}
         subject.save()
 
-        serialized_gear = GearSerializer(gear_subjectsource).data
+        serialized_gear = GearSerializer(subject).data
 
         assert serialized_gear["id"] == str(subject.id)
         assert serialized_gear["display_id"] == "Test_Gear_1"
@@ -91,7 +92,7 @@ class TestGearSerializer:
         # Test hauled status
         subject.is_active = False
         subject.save()
-        serialized_gear = GearSerializer(gear_subjectsource).data
+        serialized_gear = GearSerializer(subject).data
         assert serialized_gear["status"] == "hauled"
 
     def test_with_single_gear_subject(self, gear_subjectsource):
@@ -112,15 +113,16 @@ class TestGearSerializer:
         # Create time range for deployment
         time_range = DateTimeTZRange(now, None)
 
-        # Update SubjectSource with time range
+        # Update SubjectSource with time range and location
         gear_subjectsource.assigned_range = time_range
+        gear_subjectsource.location = location
         gear_subjectsource.save()
 
         # Set display_id in subject additional
         subject.additional = {"display_id": "Test_Gear_Single"}
         subject.save()
 
-        serialized_gear = GearSerializer(gear_subjectsource).data
+        serialized_gear = GearSerializer(subject).data
 
         assert serialized_gear["id"] == str(subject.id)
         assert serialized_gear["display_id"] == "Test_Gear_Single"
@@ -137,7 +139,7 @@ class TestGearSerializer:
         # Test hauled status
         subject.is_active = False
         subject.save()
-        serialized_gear = GearSerializer(gear_subjectsource).data
+        serialized_gear = GearSerializer(subject).data
         assert serialized_gear["status"] == "hauled"
 
     def test_with_ropeless_buoy_gearset_subject(self):
@@ -183,12 +185,16 @@ class TestGearSerializer:
         deployment_time = now
         time_range = DateTimeTZRange(deployment_time, None)  # Open-ended range starting from deployment_time
 
-        subject_source1 = SubjectSource.objects.create(subject=subject, source=source1, assigned_range=time_range)
+        subject_source1 = SubjectSource.objects.create(
+            subject=subject, source=source1, assigned_range=time_range, location=location1
+        )
 
-        subject_source2 = SubjectSource.objects.create(subject=subject, source=source2, assigned_range=time_range)
+        subject_source2 = SubjectSource.objects.create(
+            subject=subject, source=source2, assigned_range=time_range, location=location2
+        )
 
         # Act
-        serialized_gear = GearSerializer(subject_source1).data
+        serialized_gear = GearSerializer(subject).data
 
         # Assert
         assert serialized_gear["id"] == str(subject.id)
@@ -205,34 +211,38 @@ class TestGearSerializer:
         assert str(source1.id) in device_ids
         assert str(source2.id) in device_ids
 
-        # Check first device
+        # Devices are ordered by source_id (UUID), so labels depend on UUID sort order.
+        # Verify both labels are present and each device has the correct fields.
+        device_labels = sorted(d["label"] for d in devices)
+        assert device_labels == ["a", "b"]
+
+        # Check device for source1
         device1 = next(d for d in devices if d["device_id"] == str(source1.id))
-        assert device1["label"] == "a"  # First device should get label 'a'
         assert device1["mfr_device_id"] == "mfr_device_001"
         assert "location" in device1
         assert device1["location"]["latitude"] == 31.19239
         assert device1["location"]["longitude"] == -24.43071
-        assert "last_deployed" in device1  # Check it exists (datetime object from assigned_range.lower)
+        assert "last_deployed" in device1
 
-        # Check second device
+        # Check device for source2
         device2 = next(d for d in devices if d["device_id"] == str(source2.id))
-        assert device2["label"] == "b"  # Second device should get label 'b'
         assert device2["mfr_device_id"] == "mfr_device_002"
         assert "location" in device2
         assert device2["location"]["latitude"] == 31.20239
         assert device2["location"]["longitude"] == -24.44071
-        assert "last_deployed" in device2  # Check it exists (datetime object from assigned_range.lower)
+        assert "last_deployed" in device2
 
         # Test hauled status
         subject.is_active = False
         subject.save()
-        serialized_gear = GearSerializer(subject_source1).data
+        serialized_gear = GearSerializer(subject).data
         assert serialized_gear["status"] == "hauled"
 
         # Test single device case (should be type "single")
         subject_source2.delete()
         source2.delete()
-        serialized_gear = GearSerializer(subject_source1).data
+        subject.refresh_from_db()
+        serialized_gear = GearSerializer(subject).data
         assert serialized_gear["type"] == "single"
         assert len(serialized_gear["devices"]) == 1
 
@@ -275,13 +285,19 @@ class TestGearSerializer:
         time_range = DateTimeTZRange(deployment_time, None)  # Open-ended range
 
         # Create SubjectSource relationships - subject1 has 1 source, subject2 has 2 sources
-        subject_source1 = SubjectSource.objects.create(subject=subject1, source=source1, assigned_range=time_range)
-        subject_source2 = SubjectSource.objects.create(subject=subject2, source=source2, assigned_range=time_range)
+        subject_source1 = SubjectSource.objects.create(
+            subject=subject1, source=source1, assigned_range=time_range, location=location1
+        )
+        subject_source2 = SubjectSource.objects.create(
+            subject=subject2, source=source2, assigned_range=time_range, location=location2
+        )
         # Add third source to subject2
-        subject_source3 = SubjectSource.objects.create(subject=subject2, source=source3, assigned_range=time_range)
+        subject_source3 = SubjectSource.objects.create(
+            subject=subject2, source=source3, assigned_range=time_range, location=location3
+        )
 
         # Act - serialize subject1 (should only include its own device)
-        serialized_gear1 = GearSerializer(subject_source1).data
+        serialized_gear1 = GearSerializer(subject1).data
 
         # Assert for subject1 - only has 1 device
         assert serialized_gear1["id"] == str(subject1.id)
@@ -297,7 +313,7 @@ class TestGearSerializer:
         assert str(source1.id) in device_ids1
 
         # Act - serialize subject2 (should include its 2 devices)
-        serialized_gear2 = GearSerializer(subject_source2).data
+        serialized_gear2 = GearSerializer(subject2).data
 
         # Assert for subject2 - has 2 devices
         assert serialized_gear2["id"] == str(subject2.id)
@@ -314,6 +330,65 @@ class TestGearSerializer:
         assert str(source3.id) in device_ids2
         # subject1's device should NOT be in subject2's serialization
         assert str(source1.id) not in device_ids2
+
+    def test_manufacturer_returns_unknown_when_no_additional_and_no_group(self):
+        """When a Subject has no 'manufacturer' in additional and belongs to no SubjectGroup,
+        get_manufacturer should return 'unknown'."""
+        subject_type = SubjectTypeFactory(value="gear")
+        subject_subtype = SubjectSubType.objects.create(
+            value=BUOY_GEAR_SUBJECT_SUBTYPE, display="Ropeless Buoy Gearset", subject_type=subject_type
+        )
+        subject = Subject.objects.create(
+            name="No_Manufacturer_Gear",
+            subject_subtype=subject_subtype,
+            is_active=True,
+            additional={},
+        )
+        provider = SourceProvider.objects.create(display_name="Test Provider NM", provider_key="test_provider_nm")
+        source = Source.objects.create(manufacturer_id="mfr_nm_001", provider=provider)
+        now = timezone.now()
+        location = Point(-24.43071, 31.19239)
+        SubjectSource.objects.create(
+            subject=subject,
+            source=source,
+            assigned_range=DateTimeTZRange(now, None),
+            location=location,
+        )
+
+        serialized = GearSerializer(subject).data
+
+        assert serialized["manufacturer"] == "unknown"
+
+    def test_manufacturer_returns_group_name_when_no_additional(self):
+        """When a Subject has no 'manufacturer' in additional but belongs to a SubjectGroup,
+        get_manufacturer should return the group name."""
+        subject_type = SubjectTypeFactory(value="gear")
+        subject_subtype = SubjectSubType.objects.create(
+            value=BUOY_GEAR_SUBJECT_SUBTYPE, display="Ropeless Buoy Gearset MFR", subject_type=subject_type
+        )
+        subject = Subject.objects.create(
+            name="Group_Mfr_Gear",
+            subject_subtype=subject_subtype,
+            is_active=True,
+            additional={},
+        )
+        group = SubjectGroup.objects.create(name="EdgeTech")
+        subject.groups.add(group)
+
+        provider = SourceProvider.objects.create(display_name="Test Provider GM", provider_key="test_provider_gm")
+        source = Source.objects.create(manufacturer_id="mfr_gm_001", provider=provider)
+        now = timezone.now()
+        location = Point(-24.43071, 31.19239)
+        SubjectSource.objects.create(
+            subject=subject,
+            source=source,
+            assigned_range=DateTimeTZRange(now, None),
+            location=location,
+        )
+
+        serialized = GearSerializer(subject).data
+
+        assert serialized["manufacturer"] == "EdgeTech"
 
 
 class TestGearCreateSerializer(BaseAPITest):
@@ -820,14 +895,11 @@ def test_gear_serializer_devices_and_manufacturer():
     src = Source.objects.create(manufacturer_id="mfr_dev1", provider=provider)
     now = timezone.now()
 
-    rng = DateTimeTZRange(now - timedelta(days=1), None)
-    ss = SubjectSource.objects.create(subject=subject, source=src, assigned_range=rng)
-
-    # Create an observation for source to provide location
     point = Point(-24.43, 31.19)
-    Observation.objects.create(recorded_at=now, location=point, source=src)
+    rng = DateTimeTZRange(now - timedelta(days=1), None)
+    SubjectSource.objects.create(subject=subject, source=src, assigned_range=rng, location=point)
 
-    s = GearSerializer(ss)
+    s = GearSerializer(subject)
     data = s.data
     assert data["manufacturer"] == "acme"
     assert isinstance(data["devices"], list)
