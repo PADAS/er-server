@@ -21,7 +21,7 @@ from activity.filters import EventTypeFilterSet
 from activity.models import Event, EventType
 from activity.permissions import EventCategoryPermissions
 from activity.schemas.eventtype_service import EventTypeSchemaService
-from activity.schemas.migration.logger import ErrorCode, LogContext, MigrationLogger
+from activity.schemas.migration.logger import ErrorCode, MigrationLogger
 from activity.schemas.migration.service import MigrationService
 from activity.serializers.event_types_v2 import (
     EventTypeRevisionSerializer,
@@ -252,19 +252,18 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
 
         dry_run = serializer.validated_data["dry_run"]
         event_types = serializer.validated_data["event_types"]
-        log_context = LogContext.from_request(request, dry_run=dry_run)
-        migration_logger = MigrationLogger(context=log_context)
+        logger = MigrationLogger.from_request(request, dry_run=dry_run)
 
         migration_service = MigrationService(
             request=request,
             dry_run=dry_run,
-            migration_logger=migration_logger,
+            logger=logger,
         )
 
         try:
             results = migration_service.migrate(event_types)
         except Exception as exc:
-            migration_logger.exception(
+            logger.exception(
                 exc,
                 ErrorCode.EXCEPTION,
                 f"Unhandled exception in migration batch: {exc}",

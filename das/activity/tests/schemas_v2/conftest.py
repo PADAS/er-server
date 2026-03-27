@@ -313,7 +313,7 @@ def migration_logger():
 @pytest.fixture
 def migration_service(mock_request, migration_logger):
     """Basic MigrationService with dry_run=True (default)."""
-    return MigrationService(request=mock_request, migration_logger=migration_logger)
+    return MigrationService(request=mock_request, logger=migration_logger)
 
 
 @pytest.fixture
@@ -331,7 +331,7 @@ def make_migration_service(mock_request):
             dry_run=dry_run,
         )
         ml = MigrationLogger(context=context)
-        service = MigrationService(request=mock_request, dry_run=dry_run, migration_logger=ml)
+        service = MigrationService(request=mock_request, dry_run=dry_run, logger=ml)
         service.existing_choices = service.get_existing_choice_fields()
         return service
 
@@ -347,7 +347,7 @@ def migration_service_live(mock_request):
         dry_run=False,
     )
     ml = MigrationLogger(context=context)
-    return MigrationService(request=mock_request, dry_run=False, migration_logger=ml)
+    return MigrationService(request=mock_request, dry_run=False, logger=ml)
 
 
 @pytest.fixture

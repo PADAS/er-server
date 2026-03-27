@@ -133,6 +133,12 @@ class MigrationLogger:
         self._context = context
         self._sink = sink or logger
 
+    @classmethod
+    def from_request(
+        cls, request: Request, *, dry_run: bool = True, sink: logging.Logger | None = None
+    ) -> "MigrationLogger":
+        return cls(context=LogContext.from_request(request, dry_run=dry_run), sink=sink)
+
     @property
     def context(self) -> LogContext:
         if self._context is None:
