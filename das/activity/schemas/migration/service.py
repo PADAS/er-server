@@ -23,6 +23,7 @@ from activity.permissions import EventCategoryPermissions
 from choices.models import Choice
 
 from .choice_processor import ChoiceProcessor
+from .logger import ErrorCode, EventTypeMigrationLogger, MigrationLogger
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ class MigrationResult:
     """Result of migrating a single EventType."""
 
     event_type: str
+    log: "EventTypeMigrationLogger" = field(repr=False, default=None)
     event_type_instance: Optional["EventType"] = field(default=None, repr=False)
     v2_schema: Optional[Dict[str, Any]] = None
     warnings: List[str] = field(default_factory=list)
@@ -58,12 +60,19 @@ class MigrationService:
     Two-phase: analyze all event types first, then persist atomically.
     """
 
-    def __init__(self, request, dry_run: bool = True):
+    def __init__(
+        self,
+        *,
+        request,
+        dry_run: bool = True,
+        logger: MigrationLogger | None = None,
+    ):
         self.request = request
         self.dry_run = dry_run
         self.choices_base_url = reverse("schemas:choices")
         self.existing_choices: Dict[str, List[str]] = {}
         self.proposed_choices: Dict[str, List[str]] = {}
+        self.logger: MigrationLogger = logger or MigrationLogger.from_request(request)
 
     def migrate(self, event_types: List[str]) -> List[MigrationResult]:
         """Migrate multiple EventTypes. Atomic per EventType: each commits or rolls back independently."""
@@ -93,23 +102,41 @@ class MigrationService:
 
     def migrate_single(self, event_type_value: str) -> MigrationResult:
         """Analyze a single EventType for migration (no persistence)."""
-        result = MigrationResult(event_type=event_type_value)
+        result = MigrationResult(
+            event_type=event_type_value,
+            log=self.logger.for_event_type(event_type_value),
+        )
 
         try:
             event_type = EventType.objects.get(value=event_type_value)
         except EventType.DoesNotExist:
-            result.errors.append(f"EventType '{event_type_value}' not found")
+            result.errors.append(
+                result.log.error(
+                    ErrorCode.EVENT_TYPE_NOT_FOUND,
+                    f"EventType '{event_type_value}' not found",
+                )
+            )
             return result
 
         result.event_type_instance = event_type
 
         # Check authorization
         if not self.can_modify_event_type(event_type) and not self.dry_run:
-            result.errors.append(f"Permission denied for EventType '{event_type_value}'")
+            result.errors.append(
+                result.log.error(
+                    ErrorCode.PERMISSION_DENIED,
+                    f"Permission denied for EventType '{event_type_value}'",
+                )
+            )
             return result
 
         if event_type.version != EventType.VersionChoices.VERSION_1:
-            result.errors.append(f"EventType '{event_type_value}' is not V1")
+            result.errors.append(
+                result.log.error(
+                    ErrorCode.VERSION_VALIDATION,
+                    f"EventType '{event_type_value}' is not V1",
+                )
+            )
             return result
 
         # Transform schema
@@ -131,17 +158,32 @@ class MigrationService:
         try:
             v1_schema = json.loads(preprocess_template_vars(event_type.schema))
         except json.JSONDecodeError as e:
-            result.errors.append(f"Invalid JSON in schema: {e}")
+            result.errors.append(
+                result.log.error(
+                    ErrorCode.SCHEMA_PARSE,
+                    f"Invalid JSON in schema: {e}",
+                )
+            )
             return None
 
         v2_schema = transform_schema(v1_schema, log_collector)
 
         # Collect warnings/errors from transformation
         for warning in log_collector.get_warnings():
-            result.warnings.append(warning.get("message"))
+            result.warnings.append(
+                result.log.warning(
+                    ErrorCode.SCHEMA_TRANSFORM,
+                    warning.get("message"),
+                )
+            )
 
         for error in log_collector.get_errors():
-            result.errors.append(error.get("message"))
+            result.errors.append(
+                result.log.error(
+                    ErrorCode.SCHEMA_TRANSFORM,
+                    error.get("message"),
+                )
+            )
 
         # Store transformation metadata
         features = log_collector.get_features()
@@ -149,7 +191,12 @@ class MigrationService:
         result.metadata["unsupported_features"] = features.get("unsupportedFeatures", [])
 
         if len(result.metadata["unsupported_features"]) > 0:
-            result.errors.append("Unsupported features found in schema: look at metadata for details")
+            result.errors.append(
+                result.log.error(
+                    ErrorCode.UNSUPPORTED_FEATURES,
+                    "Unsupported features found in schema: look at metadata for details",
+                )
+            )
 
         return v2_schema
 
@@ -167,15 +214,18 @@ class MigrationService:
         if choice_metadata:
             result.metadata["choices"] = choice_metadata
             for warning in choice_metadata.get("warnings", []):
-                result.warnings.append(warning)
+                result.warnings.append(result.log.warning(ErrorCode.CHOICE_RESOLUTION_REQUIRED, warning))
 
             # Block migration if any candidate (partial match) fields found
             candidate_fields = [f for f in choice_metadata.get("fields", []) if f.get("status") == "candidate"]
             for field_info in candidate_fields:
                 result.errors.append(
-                    f"Field '{field_info['field_name']}' has a partial match with "
-                    f"existing choice list '{field_info['existing_choice_field']}'. "
-                    f"Cannot auto-migrate - manual resolution required."
+                    result.log.error(
+                        ErrorCode.CHOICE_RESOLUTION_REQUIRED,
+                        f"Field '{field_info['field_name']}' has a partial match with "
+                        f"existing choice list '{field_info['existing_choice_field']}'. "
+                        f"Cannot auto-migrate - manual resolution required.",
+                    )
                 )
 
         return v2_schema
@@ -214,11 +264,6 @@ class MigrationService:
                     reused_name = created_this_migration[values_key]
                     field_info["existing_choice_field"] = reused_name
                     field_info["status"] = "reused"
-                    logger.info(
-                        "Field '%s' reusing choice field '%s' created earlier in this migration",
-                        field_info.get("field_name"),
-                        reused_name,
-                    )
                     continue
 
                 # Create new choice field
@@ -227,19 +272,15 @@ class MigrationService:
                     field_info["existing_choice_field"] = proposed_name
                     field_info["status"] = "created"
                     created_this_migration[values_key] = proposed_name
-                    logger.info(
-                        "Created choice field '%s' with %d values for event type '%s'",
-                        proposed_name,
-                        len(choices),
-                        result.event_type,
-                    )
                 except Exception as e:
                     field_info["status"] = "error"
                     field_info["error"] = str(e)
-                    result.errors.append(f"Failed to create choice field '{proposed_name}': {e}")
-                    logger.exception(
-                        "Failed to create choice field '%s'",
-                        proposed_name,
+                    result.errors.append(
+                        result.log.exception(
+                            e,
+                            ErrorCode.CHOICE_CREATION_FAILED,
+                            f"Failed to create choice field '{proposed_name}': {e}",
+                        )
                     )
 
     def _get_values_key(self, choices: List[Dict[str, str]], processor: ChoiceProcessor) -> str:
@@ -251,7 +292,10 @@ class MigrationService:
         event_type.version = EventType.VersionChoices.VERSION_2
         event_type.save(update_fields=["schema", "version", "updated_at"])
         result.metadata["persisted"] = True
-        logger.info("Successfully migrated EventType '%s' to V2", event_type.value)
+        result.log.info(
+            ErrorCode.PERSIST_SUCCESS,
+            f"Successfully migrated EventType '{event_type.value}' to V2",
+        )
 
     def can_modify_event_type(self, event_type: EventType) -> bool:
         # Simulate PATCH to reuse DRF object-level permission check
