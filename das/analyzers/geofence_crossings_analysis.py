@@ -49,7 +49,10 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
                     assert type(fence) is Geofence
 
                     # Attempt the intersection of the trajectory segment with the fence
-                    intersect_pnts = trajseg.ogr_geometry.Intersection(fence.ogr_geometry)
+                    fence_geom = fence.ogr_geometry
+                    if ogr.GT_Flatten(fence_geom.GetGeometryType()) in (ogr.wkbPolygon, ogr.wkbMultiPolygon):
+                        fence_geom = fence_geom.GetBoundary()
+                    intersect_pnts = trajseg.ogr_geometry.Intersection(fence_geom)
 
                     # intersect_pnts is the result of the OGR Intersection operation and may be
                     # None, empty, or a geometry of type POINT, MULTIPOINT, LINESTRING,
