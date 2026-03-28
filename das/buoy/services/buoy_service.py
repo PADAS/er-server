@@ -123,11 +123,11 @@ class BuoyService:
                 recorded_at = deployed_device_recorded_at[device_id]
                 # Reject if this is an older deployment (payload time before existing deployment start)
                 existing_deploy_time = ss.assigned_range.lower
-                if recorded_at < existing_deploy_time:
+                if recorded_at <= existing_deploy_time:
                     raise OlderGearsetRejectedError(
                         f"Device {device_id} is already deployed on a newer gearset "
                         f"(set_id: {ss.subject_id}). Cannot post an older deployment "
-                        f"(recorded_at={recorded_at} is before existing deployment at {existing_deploy_time}).",
+                        f"(recorded_at={recorded_at} is not after existing deployment at {existing_deploy_time}).",
                         device_id=device_id,
                         newer_gearset_id=ss.subject_id,
                     )
@@ -156,11 +156,12 @@ class BuoyService:
                     # later re-opened by SubjectSource.save(). Treat this as a conflict.
                     device_identifier = getattr(ss.source, "manufacturer_id", str(ss.source_id))
                     raise OlderGearsetRejectedError(
-                        f"Cannot close previous deployment for device {device_identifier} on gearset "
-                        f"(set_id: {closed_subject_id}): haul_time {upper} is not after existing "
-                        f"deployment start {ss.assigned_range.lower}.",
+                        f"Device {device_identifier} is already deployed on a newer gearset "
+                        f"(set_id: {closed_subject_id}). Cannot close previous deployment: "
+                        f"haul_time {upper} is not after existing deployment start "
+                        f"{ss.assigned_range.lower}.",
                         device_id=str(ss.source_id),
-                        newer_gearset_id=set_id,
+                        newer_gearset_id=closed_subject_id,
                     )
                 ss.assigned_range = DateTimeTZRange(lower=ss.assigned_range.lower, upper=upper)
                 logger.debug(

@@ -104,7 +104,7 @@ class ChoiceProcessor:
         analyzed_fields = []  # list of (field_name, field_schema, result)
 
         for field_name, field_schema in properties.items():
-            hardcoded_choices, dedupe_warnings = self.extract_hardcoded_choices(field_schema)
+            hardcoded_choices = self.extract_hardcoded_choices(field_schema)
 
             if not hardcoded_choices:
                 continue
@@ -116,15 +116,10 @@ class ChoiceProcessor:
                 reserved_names=reserved_names,
             )
 
-            if dedupe_warnings:
-                result.warnings.extend(dedupe_warnings)
-
             # Track proposed names to avoid collisions within batch
             if result.status == "to_create" and result.proposed_name:
                 reserved_names.add(result.proposed_name)
-                # Add to shared registry so subsequent fields can match
-                if self.proposed_choices is not None:
-                    self.proposed_choices[result.proposed_name] = [v["value"] for v in hardcoded_choices]
+                self.proposed_choices[result.proposed_name] = [v["value"] for v in hardcoded_choices]
 
             analyzed_fields.append((field_name, field_schema, result))
 
@@ -148,22 +143,22 @@ class ChoiceProcessor:
 
         return v2_schema, metadata
 
-    def extract_hardcoded_choices(self, field_schema: Dict[str, Any]) -> Tuple[List[Dict[str, str]], List[str]]:
+    def extract_hardcoded_choices(self, field_schema: Dict[str, Any]) -> List[Dict[str, str]]:
         """Extract hardcoded choices from anyOf > {title: "Hardcoded", oneOf: [...]}
         structure produced by transform_schema.
 
-        Returns (list of {value, display}, warnings).
+        Returns (list of {value, display}).
         """
         any_of = field_schema.get("anyOf", [])
         hardcoded_choices: List[Dict[str, str]] = []
 
         if not any_of:
-            return [], []
+            return []
 
         for option in any_of:
             # Skip $ref entries (already pointing to existing choice list)
             if "$ref" in option:
-                return [], []
+                return []
 
             # Look for hardcoded oneOf structure
             one_of = option.get("oneOf", [])
@@ -173,25 +168,19 @@ class ChoiceProcessor:
                 )
 
         if not hardcoded_choices:
-            return [], []
+            return []
 
         # Deduplication tracking
         seen: Dict[str, str] = {}
-        warnings: List[str] = []
         deduplicated_choices: List[Dict[str, str]] = []
 
         for choice in hardcoded_choices:
             if choice["value"] in seen:
-                warnings.append(
-                    f"Duplicate choice value '{choice['value']}' found in field. "
-                    f"Keeping first occurrence with display '{seen[choice['value']]}', "
-                    f"dropping subsequent with display '{choice['display']}'."
-                )
-            else:
-                seen[choice["value"]] = choice["display"]
-                deduplicated_choices.append(choice)
+                continue
+            seen[choice["value"]] = choice["display"]
+            deduplicated_choices.append(choice)
 
-        return deduplicated_choices, warnings
+        return deduplicated_choices
 
     @staticmethod
     def _update_summary(summary: Dict[str, int], status: str) -> None:
