@@ -219,9 +219,6 @@ class EventDetailsSerializer(ModelSerializer):
         if not self.context.get("include_updates", True):
             return []
 
-        if event_type.version == EventType.VersionChoices.VERSION_2:
-            return []
-
         schema = event_type.schema
         rendered_schema = get_schema_renderer_method()(schema)
         last_details = None

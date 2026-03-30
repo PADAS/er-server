@@ -41,6 +41,11 @@ from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 
 logger = logging.getLogger(__name__)
 
+# When False, Observation post_save/pre_delete do not sync ObservationSegments.
+# Disabled: synchronous segment work on every save exhausted DB connection pools at scale.
+# Re-enable after segment updates are moved off the request path (e.g. Celery).
+OBSERVATION_SEGMENT_OBSERVATION_SIGNALS_ENABLED = False
+
 
 @receiver(post_save, sender=Observation)
 def observation_post_save(sender, instance, created, **kwargs):
@@ -500,6 +505,9 @@ def observation_segment_post_save(sender, instance, created, **kwargs):
     if kwargs.get("raw", False):
         return
 
+    if not OBSERVATION_SEGMENT_OBSERVATION_SIGNALS_ENABLED:
+        return
+
     # Skip if location is not set (can't create segments without geometry)
     if not instance.location:
         return
@@ -516,6 +524,9 @@ def observation_segment_pre_delete(sender, instance, **kwargs):
     Signal handler to maintain ObservationSegments when observations are deleted.
     Removes affected segments and bridges the gap if possible.
     """
+    if not OBSERVATION_SEGMENT_OBSERVATION_SIGNALS_ENABLED:
+        return
+
     # We need to process this before the observation is actually deleted
     # so we can still access its relationships
     update_segments_for_observation(instance, deleted=True)
