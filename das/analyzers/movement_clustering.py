@@ -20,87 +20,6 @@ from analyzers.utils import save_analyzer_event
 MOVEMENT_CLUSTER_EVENT_TYPE = "movement_cluster"
 MAXIMUM_OBSERVATIONS = 1000
 
-MOVEMENT_CLUSTER_SCHEMA = {
-    "json": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {
-            "name": {
-                "deprecated": False,
-                "description": "",
-                "title": "Subject Name",
-                "type": "string",
-            },
-            "cluster_point_count": {
-                "deprecated": False,
-                "description": "",
-                "title": "Cluster Point Count",
-                "type": "number",
-            },
-            "cluster_duration_hours": {
-                "deprecated": False,
-                "description": "",
-                "title": "Cluster Duration (hours)",
-                "type": "number",
-            },
-            "cluster_radius_meters": {
-                "deprecated": False,
-                "description": "",
-                "title": "Cluster Radius (meters)",
-                "type": "number",
-            },
-            "centroid_latitude": {
-                "deprecated": False,
-                "description": "",
-                "title": "Centroid Latitude",
-                "type": "number",
-            },
-            "centroid_longitude": {
-                "deprecated": False,
-                "description": "",
-                "title": "Centroid Longitude",
-                "type": "number",
-            },
-            "cluster_start_time": {
-                "deprecated": False,
-                "description": "",
-                "format": "date-time",
-                "title": "Cluster Start Time",
-                "type": "string",
-            },
-            "cluster_end_time": {
-                "deprecated": False,
-                "description": "",
-                "format": "date-time",
-                "title": "Cluster End Time",
-                "type": "string",
-            },
-            "cluster_points": {
-                "deprecated": False,
-                "description": "",
-                "title": "Cluster Points",
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "lat": {"type": "number", "title": "Latitude"},
-                        "lon": {"type": "number", "title": "Longitude"},
-                        "time": {"type": "string", "format": "date-time", "title": "Time"},
-                    },
-                },
-            },
-        },
-        "required": [],
-        "unevaluatedProperties": False,
-    },
-    "ui": {
-        "sections": {},
-        "headers": {},
-        "fields": {},
-        "order": [],
-    },
-}
-
 
 def _st_dbscan(points, spatial_eps_m, temporal_eps_s, min_points):
     """Spatio-Temporal DBSCAN (ST-DBSCAN).
@@ -238,7 +157,10 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
             prev_points = result.values.get("cluster_points")
             if not prev_points:
                 continue
-            prev_point_set = frozenset((p["lat"], p["lon"], p["time"]) for p in prev_points)
+            prev_point_set = frozenset(
+                (p.get("location", {}).get("latitude"), p.get("location", {}).get("longitude"), p.get("time"))
+                for p in prev_points
+            )
             if prev_point_set.issubset(cluster_point_set):
                 matches.append(result)
 
@@ -304,20 +226,22 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
 
             cluster_points = [
                 {
-                    "lat": round(f.ogr_geometry.GetY(), 7),
-                    "lon": round(f.ogr_geometry.GetX(), 7),
+                    "location": {
+                        "latitude": round(f.ogr_geometry.GetY(), 7),
+                        "longitude": round(f.ogr_geometry.GetX(), 7),
+                    },
                     "time": f.fixtime.isoformat(),
                 }
                 for f in cluster_fixes
             ]
-            cluster_point_set = frozenset((p["lat"], p["lon"], p["time"]) for p in cluster_points)
+            cluster_point_set = frozenset(
+                (p["location"]["latitude"], p["location"]["longitude"], p["time"]) for p in cluster_points
+            )
 
             new_values = {
                 "cluster_point_count": len(cluster_fixes),
                 "cluster_duration_hours": round(duration_s / 3600, 2),
                 "cluster_radius_meters": round(cluster_radius_m, 2),
-                "centroid_latitude": round(centroid_lat, 6),
-                "centroid_longitude": round(centroid_lon, 6),
                 "cluster_start_time": min(times).isoformat(),
                 "cluster_end_time": max(times).isoformat(),
                 "cluster_points": cluster_points,
@@ -351,7 +275,7 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
                         prev_result.event.state = Event.SC_RESOLVED
                         prev_result.event.save()
 
-            title = _("%(name)s movement cluster detected") % {"name": self.subject.name}
+            title = _("%(subject_name)s movement cluster detected") % {"subject_name": self.subject.name}
 
             result = SubjectAnalyzerResult(
                 subject_analyzer=self.config,
@@ -424,7 +348,7 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
         self._ensure_event_type()
 
         centroid = this_result.geometry_collection[0]
-        event_details = {"name": self.subject.name}
+        event_details = {"subject_name": self.subject.name}
         event_details.update(this_result.values)
 
         event_data = dict(
@@ -438,3 +362,169 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
             related_subjects=[{"id": self.subject.id}],
         )
         return save_analyzer_event(event_data)
+
+
+MOVEMENT_CLUSTER_SCHEMA = {
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+            "subject_name": {
+                "deprecated": False,
+                "title": "Subject Name",
+                "default": "",
+                "description": "",
+                "type": "string",
+            },
+            "cluster_start_time": {
+                "deprecated": False,
+                "title": "Cluster Start Time",
+                "description": "",
+                "format": "date-time",
+                "type": "string",
+            },
+            "cluster_end_time": {
+                "deprecated": False,
+                "title": "Cluster End Time",
+                "description": "",
+                "format": "date-time",
+                "type": "string",
+            },
+            "cluster_duration_hours": {
+                "deprecated": False,
+                "title": "Cluster Duration Hours",
+                "description": "",
+                "minimum": 0,
+                "type": "number",
+            },
+            "cluster_point_count": {
+                "deprecated": False,
+                "title": "Cluster Point Count",
+                "description": "",
+                "minimum": 0,
+                "type": "number",
+            },
+            "cluster_radius_meters": {
+                "deprecated": False,
+                "title": "Cluster Radius Meters",
+                "description": "",
+                "minimum": 0,
+                "type": "number",
+            },
+            "cluster_points": {
+                "deprecated": False,
+                "title": "Cluster Points",
+                "description": "",
+                "items": {
+                    "properties": {
+                        "time": {
+                            "deprecated": False,
+                            "title": "Time",
+                            "description": "",
+                            "format": "date-time",
+                            "type": "string",
+                        },
+                        "location": {
+                            "deprecated": False,
+                            "title": "Location",
+                            "description": "",
+                            "properties": {
+                                "latitude": {"maximum": 90, "minimum": -90, "type": "number"},
+                                "longitude": {"maximum": 180, "minimum": -180, "type": "number"},
+                            },
+                            "required": ["latitude", "longitude"],
+                            "type": "object",
+                            "unevaluatedProperties": False,
+                        },
+                    },
+                    "required": [],
+                    "type": "object",
+                    "unevaluatedProperties": False,
+                },
+                "type": "array",
+                "unevaluatedItems": False,
+            },
+        },
+        "required": [],
+        "type": "object",
+        "unevaluatedProperties": False,
+    },
+    "ui": {
+        "fields": {
+            "subject_name": {
+                "conditionalDependents": [],
+                "parent": "section-2",
+                "type": "TEXT",
+                "inputType": "SHORT_TEXT",
+                "placeholder": "",
+            },
+            "cluster_start_time": {"conditionalDependents": [], "parent": "section-1", "type": "DATE_TIME"},
+            "cluster_end_time": {"conditionalDependents": [], "parent": "section-1", "type": "DATE_TIME"},
+            "cluster_duration_hours": {
+                "conditionalDependents": [],
+                "parent": "section-1",
+                "type": "NUMERIC",
+                "placeholder": "",
+            },
+            "cluster_point_count": {
+                "conditionalDependents": [],
+                "parent": "section-1",
+                "type": "NUMERIC",
+                "placeholder": "",
+            },
+            "cluster_radius_meters": {
+                "conditionalDependents": [],
+                "parent": "section-1",
+                "type": "NUMERIC",
+                "placeholder": "",
+            },
+            "cluster_points": {
+                "conditionalDependents": [],
+                "parent": "section-3",
+                "type": "COLLECTION",
+                "buttonText": "",
+                "columns": 1,
+                "itemIdentifier": "",
+                "itemName": "Point",
+                "leftColumn": ["time", "location"],
+                "rightColumn": [],
+            },
+            "time": {"conditionalDependents": [], "parent": "cluster_points", "type": "DATE_TIME"},
+            "location": {"conditionalDependents": [], "parent": "cluster_points", "type": "LOCATION"},
+        },
+        "headers": {},
+        "order": ["section-2", "section-1", "section-3"],
+        "sections": {
+            "section-2": {
+                "columns": 1,
+                "conditions": [],
+                "isActive": True,
+                "label": "",
+                "leftColumn": [{"name": "subject_name", "type": "field"}],
+                "rightColumn": [],
+            },
+            "section-1": {
+                "columns": 2,
+                "conditions": [],
+                "isActive": True,
+                "label": "",
+                "leftColumn": [
+                    {"name": "cluster_start_time", "type": "field"},
+                    {"name": "cluster_end_time", "type": "field"},
+                    {"name": "cluster_duration_hours", "type": "field"},
+                ],
+                "rightColumn": [
+                    {"name": "cluster_point_count", "type": "field"},
+                    {"name": "cluster_radius_meters", "type": "field"},
+                ],
+            },
+            "section-3": {
+                "columns": 1,
+                "conditions": [],
+                "isActive": True,
+                "label": "",
+                "leftColumn": [{"name": "cluster_points", "type": "field"}],
+                "rightColumn": [],
+            },
+        },
+    },
+}

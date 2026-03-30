@@ -111,6 +111,10 @@ class StatusView(generics.RetrieveAPIView):
         resp["tenant_domain"] = tenant.domain
         resp["messaging_enabled"] = has_message_view_permission(self.request.user)
 
+        resp["dwh_settings"] = {
+            "api_url": getattr(settings, "DWH_API_URL", ""),
+        }
+
         if self.get_support_settings():
             resp["eus_settings"] = self.get_support_settings()
 

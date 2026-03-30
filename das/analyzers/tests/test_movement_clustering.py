@@ -243,24 +243,34 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
         ia = self._analyzer()
         results = ia.analyze(observations=obs)
         assert len(results) == 1, "Expected at least one cluster result"
-        results = results[0][0]
-        assert "cluster_point_count" in results.values
-        assert "cluster_duration_hours" in results.values
-        assert "cluster_radius_meters" in results.values
-        assert "centroid_latitude" in results.values
-        assert "centroid_longitude" in results.values
-        assert "cluster_start_time" in results.values
-        assert "cluster_end_time" in results.values
-        assert "cluster_points" in results.values
+        result, event = results[0]
+        assert "cluster_point_count" in result.values
+        assert "cluster_duration_hours" in result.values
+        assert "cluster_radius_meters" in result.values
+        assert "cluster_start_time" in result.values
+        assert "cluster_end_time" in result.values
+        assert "cluster_points" in result.values
+        assert event.location is not None
+        cluster_points = result.values["cluster_points"]
+        assert isinstance(cluster_points, list)
+        assert len(cluster_points) == result.values["cluster_point_count"]
+        for pt in cluster_points:
+            assert "location" in pt
+            assert "latitude" in pt["location"]
+            assert "longitude" in pt["location"]
+            assert "time" in pt
 
     def test_cluster_result_centroid_near_cluster_center(self):
         obs = _clustered_obs(BASE_LAT, BASE_LON, count=6, start=self.now, interval_s=1800)
         ia = self._analyzer()
         results = ia.analyze(observations=obs)
         assert len(results) == 1
-        vals = results[0][0].values
-        assert abs(vals["centroid_latitude"] - BASE_LAT) < 0.01
-        assert abs(vals["centroid_longitude"] - BASE_LON) < 0.01
+        result, event = results[0]
+        assert abs(event.location.y - BASE_LAT) < 0.01
+        assert abs(event.location.x - BASE_LON) < 0.01
+        for pt in result.values["cluster_points"]:
+            assert abs(pt["location"]["latitude"] - BASE_LAT) < 0.01
+            assert abs(pt["location"]["longitude"] - BASE_LON) < 0.01
 
     # ------------------------------------------------------------------
     # Duration threshold
@@ -444,8 +454,10 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
         start = start_time or self.now
         return [
             {
-                "lat": round(lat, 7),
-                "lon": round(lon, 7),
+                "location": {
+                    "latitude": round(lat, 7),
+                    "longitude": round(lon, 7),
+                },
                 "time": (start + timedelta(seconds=i * 1800)).isoformat(),
             }
             for i in range(count)
@@ -462,8 +474,8 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
         ia = MovementClusterAnalyzer(subject=self.subject, config=config)
         ia._ensure_event_type()
 
-        lats = [p["lat"] for p in cluster_points]
-        lons = [p["lon"] for p in cluster_points]
+        lats = [p["location"]["latitude"] for p in cluster_points]
+        lons = [p["location"]["longitude"] for p in cluster_points]
         centroid_lat = sum(lats) / len(lats)
         centroid_lon = sum(lons) / len(lons)
 
@@ -489,8 +501,6 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
             estimated_time=end_time,
             geometry_collection=GeometryCollection(Point(centroid_lon, centroid_lat)),
             values={
-                "centroid_latitude": centroid_lat,
-                "centroid_longitude": centroid_lon,
                 "cluster_radius_meters": 0.0,
                 "cluster_end_time": end_time.isoformat(),
                 "cluster_start_time": end_time.isoformat(),
@@ -516,7 +526,9 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
             count=2,
             start_time=self.now + timedelta(hours=1),
         )
-        new_point_set = frozenset((p["lat"], p["lon"], p["time"]) for p in existing_points + extra_points)
+        new_point_set = frozenset(
+            (p["location"]["latitude"], p["location"]["longitude"], p["time"]) for p in existing_points + extra_points
+        )
         ia = MovementClusterAnalyzer(subject=self.subject, config=config)
         assert ia._find_open_clusters(new_point_set)
 
@@ -528,7 +540,9 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
 
         # Completely different points — not a superset of existing
         different_points = self._make_cluster_points(BASE_LAT + 5.0, BASE_LON, count=5)
-        diff_point_set = frozenset((p["lat"], p["lon"], p["time"]) for p in different_points)
+        diff_point_set = frozenset(
+            (p["location"]["latitude"], p["location"]["longitude"], p["time"]) for p in different_points
+        )
         ia = MovementClusterAnalyzer(subject=self.subject, config=config)
         assert not ia._find_open_clusters(diff_point_set)
 
@@ -539,7 +553,9 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
         existing_points = self._make_cluster_points(BASE_LAT, BASE_LON, count=3)
         self._save_cluster_result(config, existing_points, old_end)
 
-        existing_set = frozenset((p["lat"], p["lon"], p["time"]) for p in existing_points)
+        existing_set = frozenset(
+            (p["location"]["latitude"], p["location"]["longitude"], p["time"]) for p in existing_points
+        )
         ia = MovementClusterAnalyzer(subject=self.subject, config=config)
         assert not ia._find_open_clusters(existing_set)
 
@@ -569,8 +585,6 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
             estimated_time=recent_end,
             geometry_collection=GeometryCollection(Point(BASE_LON, BASE_LAT)),
             values={
-                "centroid_latitude": BASE_LAT,
-                "centroid_longitude": BASE_LON,
                 "cluster_radius_meters": 0.0,
                 "cluster_end_time": recent_end.isoformat(),
                 "cluster_start_time": recent_end.isoformat(),
@@ -617,7 +631,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
 
         # The updated cluster should contain the near point but not the far point
         updated = SubjectAnalyzerResult.objects.get(subject=self.subject, subject_analyzer_id=config.pk)
-        stored_lats = {p["lat"] for p in updated.values["cluster_points"]}
+        stored_lats = {p["location"]["latitude"] for p in updated.values["cluster_points"]}
         assert round(BASE_LAT + 0.001, 7) in stored_lats
         assert round(BASE_LAT + 0.1, 7) not in stored_lats
 
@@ -637,7 +651,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
 
         # The temporally-excluded point should not appear in the cluster
         updated = SubjectAnalyzerResult.objects.get(subject=self.subject, subject_analyzer_id=config.pk)
-        stored_lats = {p["lat"] for p in updated.values["cluster_points"]}
+        stored_lats = {p["location"]["latitude"] for p in updated.values["cluster_points"]}
         assert round(BASE_LAT + 0.0008, 7) not in stored_lats
 
     def test_analyze_creates_new_result_for_distinct_cluster(self):
@@ -671,7 +685,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
 
         assert len(results_1) == 2
 
-        lats = sorted(r[0].values["centroid_latitude"] for r in results_1)
+        lats = sorted(r[0].event.location.y for r in results_1)
         assert abs(lats[0] - BASE_LAT) < 0.01
         assert abs(lats[1] - (BASE_LAT + 5.0)) < 0.01
 
@@ -715,7 +729,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
         merged_result = merge_results[0][0]
 
         # The single merged cluster must contain points from both original clusters.
-        stored_lats = {p["lat"] for p in merged_result.values["cluster_points"]}
+        stored_lats = {p["location"]["latitude"] for p in merged_result.values["cluster_points"]}
         assert any(abs(lat - BASE_LAT) < 0.001 for lat in stored_lats)
         assert any(abs(lat - (BASE_LAT + 0.003)) < 0.001 for lat in stored_lats)
 

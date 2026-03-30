@@ -777,3 +777,6 @@ else:
 
 # Initialize ALT_SERVER_NAMES as an empty list
 ALT_SERVER_NAMES = []
+
+# Data Warehouse API
+DWH_API_URL = env.str("DWH_API_URL", "")
