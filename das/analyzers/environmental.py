@@ -9,7 +9,7 @@ from django.contrib.gis.geos import Point as DjangoPoint
 from django.utils.translation import gettext_lazy as _
 
 from activity.models import Event, EventCategory, EventType
-from analyzers.base import SubjectAnalyzer
+from analyzers.base import DEFAULT_SEARCH_TIME_HOURS, SubjectAnalyzer
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.models import EnvironmentalSubjectAnalyzerConfig, SubjectAnalyzerResult
 from analyzers.models.base import CRITICAL, EVENT_PRIORITY_MAP, OK, WARNING
@@ -139,7 +139,13 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
         """
         # observations get passed back in temporally descending order
         if self.config.search_time_hours <= 0:
-            return list(self.subject.observations())
+            logger.warning(
+                "EnvironmentalAnalyzer: search_time_hours=%s for config id=%s, " "using default of %s hours.",
+                self.config.search_time_hours,
+                self.config.id,
+                DEFAULT_SEARCH_TIME_HOURS,
+            )
+            return list(self.subject.observations(last_hours=DEFAULT_SEARCH_TIME_HOURS))
         else:
             return list(self.subject.observations(last_hours=self.config.search_time_hours))
 

@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
@@ -10,6 +11,21 @@ from core.models import DASTenant, TimestampedModel
 from observations.models import Subject
 from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager
+
+logger = logging.getLogger(__name__)
+
+# 365 days of history for building baseline speed distributions. A full year
+# captures seasonal movement variation (e.g. migration, wet/dry season behaviour)
+# which shorter windows would miss. The 30-day comparison window used by
+# LowSpeedWilcoxAnalyzer._normal_movement_distro is measured against this baseline.
+#
+# TODO: Pulling a year of observations every time we recalculate a speed profile is
+# expensive for high-frequency trackers (e.g. 15-min fix intervals yield ~35k rows).
+# Consider an incremental approach: persist the last-computed timestamp and only
+# fetch new observations since then, appending to the existing speeds_kmhr array
+# and recomputing percentiles in place. That would reduce the per-run query cost
+# from O(year) to O(since_last_run) while keeping the full-year baseline intact.
+SPEED_PROFILE_DEFAULT_HOURS = 365 * 24
 
 
 class SubjectSpeedProfile(TenantModelMixin, TimestampedModel):
@@ -53,8 +69,7 @@ class SpeedDistro(TenantModelMixin, TimestampedModel):
     def update_percentiles(self, percentiles, trajectory_filter=None, end=None, ignore_zeroes=True):
         """Determine the speed distribution based on the current subject + schedule"""
 
-        # ToDo: use obs from current schedule period only
-        obs = self.subject_speed_profile.subject.observations(until=end)
+        obs = self.subject_speed_profile.subject.observations(last_hours=SPEED_PROFILE_DEFAULT_HOURS, until=end)
 
         # Use default trajectory_filter if one isn't provided
         trajectory_filter = trajectory_filter or self.subject_speed_profile.subject.default_trajectory_filter()
@@ -77,8 +92,7 @@ class SpeedDistro(TenantModelMixin, TimestampedModel):
     def update_speeds_array(self, trajectory_filter=None, end=None, ignore_zeroes=True):
         """Determine the speed distribution based on the current subject + schedule"""
 
-        # ToDo: use obs from current schedule period only
-        obs = self.subject_speed_profile.subject.observations(until=end)
+        obs = self.subject_speed_profile.subject.observations(last_hours=SPEED_PROFILE_DEFAULT_HOURS, until=end)
 
         # Use default trajectory_filter if one isn't provided
         trajectory_filter = trajectory_filter or self.subject_speed_profile.subject.default_trajectory_filter()
