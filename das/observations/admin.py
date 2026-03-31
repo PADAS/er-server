@@ -704,7 +704,8 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
             "subject_subtype",
             "subjectsources",
         )
-        return qs
+        # list_filter includes M2M "groups" and SourceProviderFilter joins sources; DISTINCT avoids duplicate rows.
+        return qs.distinct()
 
     def _subject_subtype_display(self, o):
         return o.subject_subtype.display
