@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 Base objects for Analyzer code.
 """
 
+DEFAULT_SEARCH_TIME_HOURS = 24
+
 
 class SubjectAnalyzer:
 
