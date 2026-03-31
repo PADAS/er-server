@@ -9,7 +9,7 @@ from django.contrib.gis.geos import Point as DjangoPoint
 from django.utils.translation import gettext_lazy as _
 
 from activity.models import Event
-from analyzers.base import SubjectAnalyzer
+from analyzers.base import DEFAULT_SEARCH_TIME_HOURS, SubjectAnalyzer
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.models import (
     LowSpeedPercentileAnalyzerConfig,
@@ -30,7 +30,9 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
     def get_subject_analyzers(cls, subject=None):
         if subject:
             subject_groups = subject.get_ancestor_subject_groups()
-            for ac in LowSpeedPercentileAnalyzerConfig.objects.filter(subject_group__in=subject_groups, is_active=True):
+            for ac in LowSpeedPercentileAnalyzerConfig.objects.select_related("feature_group_filter").filter(
+                subject_group__in=subject_groups, is_active=True
+            ):
                 yield cls(subject=subject, config=ac)
 
     def default_observations(self):
@@ -40,7 +42,13 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
         """
         # observations get passed back in temporally descending order
         if self.config.search_time_hours <= 0:
-            return list(self.subject.observations())
+            self.logger.warning(
+                "LowSpeedPercentileAnalyzer: search_time_hours=%s for config id=%s, " "using default of %s hours.",
+                self.config.search_time_hours,
+                self.config.id,
+                DEFAULT_SEARCH_TIME_HOURS,
+            )
+            return list(self.subject.observations(last_hours=DEFAULT_SEARCH_TIME_HOURS))
         else:
             return list(self.subject.observations(last_hours=self.config.search_time_hours))
 
@@ -185,7 +193,9 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
     def get_subject_analyzers(cls, subject=None):
         if subject:
             subject_groups = subject.get_ancestor_subject_groups()
-            for ac in LowSpeedWilcoxAnalyzerConfig.objects.filter(subject_group__in=subject_groups, is_active=True):
+            for ac in LowSpeedWilcoxAnalyzerConfig.objects.select_related("feature_group_filter").filter(
+                subject_group__in=subject_groups, is_active=True
+            ):
                 yield cls(subject=subject, config=ac)
 
     def _normal_movement_distro(self, trajectory_filter=None, end=None, last_hours=30 * 24):
@@ -213,7 +223,13 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
         """
         # observations get passed back in temporally descending order
         if self.config.search_time_hours <= 0:
-            return list(self.subject.observations())
+            self.logger.warning(
+                "LowSpeedWilcoxAnalyzer: search_time_hours=%s for config id=%s, " "using default of %s hours.",
+                self.config.search_time_hours,
+                self.config.id,
+                DEFAULT_SEARCH_TIME_HOURS,
+            )
+            return list(self.subject.observations(last_hours=DEFAULT_SEARCH_TIME_HOURS))
         else:
             return list(self.subject.observations(last_hours=self.config.search_time_hours))
 

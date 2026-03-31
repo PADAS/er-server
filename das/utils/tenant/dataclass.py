@@ -8,6 +8,24 @@ from dataclasses_json import config, dataclass_json
 
 @dataclass_json
 @dataclass
+class GeoSpan:
+    """Geographic bounding box defined by latitude and longitude ranges.
+
+    Attributes:
+        lat: Latitude bounds in degrees as a two-element list [min_lat, max_lat].
+            Expected range is -90.0 <= min_lat <= max_lat <= 90.0.
+        lon: Longitude bounds in degrees as a two-element list [min_lon, max_lon].
+            Expected range is -180.0 <= min_lon <= max_lon <= 180.0.
+
+    The first element of each list is the minimum bound, and the second is the maximum bound.
+    """
+
+    lat: List[float] = field(metadata=config(field_name="lat"), default_factory=lambda: [-90.0, 90.0])
+    lon: List[float] = field(metadata=config(field_name="lon"), default_factory=lambda: [-180.0, 180.0])
+
+
+@dataclass_json
+@dataclass
 class EnvironmentSettings:
     accept_eula: Optional[bool] = field(metadata=config(field_name="acceptEula"), default=True)
     alert_rate_limit: int = field(metadata=config(field_name="alertRateLimit"), default=20)
@@ -29,6 +47,7 @@ class EnvironmentSettings:
     geo_permission_violation_ban_duration_min: Optional[int] = field(
         metadata=config(field_name="geoPermissionViolationBanDurationMin"), default=10
     )
+    geo_span: Optional[GeoSpan] = field(metadata=config(field_name="geoSpan"), default=None)
     kml_feed_title: Optional[str] = field(metadata=config(field_name="kmlFeedTitle"), default="EarthRanger KML service")
     kml_overlay_image: Optional[str] = field(metadata=config(field_name="kmlOverlayImage"), default=None)
     observation_accuracy_threshold: Optional[int] = field(

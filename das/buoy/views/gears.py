@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 
 from drf_spectacular.utils import (
@@ -7,12 +9,12 @@ from drf_spectacular.utils import (
     inline_serializer,
 )
 
-from django.db import transaction
+from django.db.models import Prefetch
 from django.db.utils import IntegrityError
 from django.urls import reverse
 from rest_framework import generics
 from rest_framework import serializers as drf_serializers
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -24,12 +26,12 @@ from buoy.permissions import (
     HasManufacturerSubjectGroupPermission,
 )
 from buoy.serializers.query_params import GearsQueryParamsSerializer
-from buoy.services.buoy_service import BuoyService
+from buoy.services.buoy_service import BuoyService, OlderGearsetRejectedError
 from buoy.views.helpers import NAUTICAL_MILE_RADIUS, filter_by_bbox
 from buoy.views.schemas import GearsViewSchema, gears_list_response_schema
 from core.fields import StrictUUIDField
 from observations.mixins import TwoWaySubjectSourceMixin
-from observations.models import SubjectSource
+from observations.models import Subject, SubjectSource
 from utils.drf import (
     StandardObjectPermissions,
     StandardResultsSetPagination,
@@ -64,9 +66,39 @@ logger = logging.getLogger(__name__)
             400: OpenApiResponse(
                 response=inline_serializer(
                     name="GearCreateErrorResponse",
-                    fields={"detail": drf_serializers.CharField(help_text="A description of the error that occurred.")},
+                    fields={
+                        "status": inline_serializer(
+                            name="GearCreateErrorStatus",
+                            fields={
+                                "code": drf_serializers.IntegerField(help_text="HTTP status code."),
+                                "message": drf_serializers.CharField(help_text="HTTP status text."),
+                                "detail": drf_serializers.CharField(
+                                    help_text="A description of the error (present for older-gearset rejections).",
+                                    required=False,
+                                ),
+                            },
+                        ),
+                        "device_id": drf_serializers.CharField(
+                            help_text=(
+                                "The device ID that triggered the conflict "
+                                "(present only when an older gearset is rejected)."
+                            ),
+                            required=False,
+                        ),
+                        "newer_gearset_id": drf_serializers.UUIDField(
+                            help_text=(
+                                "The set_id of the newer gearset that already has the device deployed "
+                                "(present only when an older gearset is rejected)."
+                            ),
+                            required=False,
+                        ),
+                    },
                 ),
-                description="Bad request due to invalid input data.",
+                description=(
+                    "Bad request. May be a standard serializer validation error (e.g. missing or invalid fields) "
+                    "or an older-gearset rejection. For older-gearset rejections, device_id and newer_gearset_id "
+                    "are also present; the error detail is nested under status.detail per the API response envelope."
+                ),
             ),
             403: OpenApiResponse(
                 response=inline_serializer(
@@ -139,6 +171,8 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
     schema = GearsViewSchema()
 
     def get_queryset(self):
+        # Return SubjectSource so StandardObjectPermissions enforces the correct
+        # SubjectSource-related permissions (view_subjectsource, add_subjectsource).
         return SubjectSource.objects.none()
 
     def get_serializer_class(self):
@@ -161,35 +195,40 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         # Store include_empty_location for get_serializer_context
         self._include_empty_location = query_params.get("include_empty_location", False)
 
-        # First get subject-sources with related data
-        queryset = (
-            SubjectSource.objects.filter(
-                subject__subject_subtype__in=["ropeless_buoy_device", BUOY_GEAR_SUBJECT_SUBTYPE]
-            )
-            .select_related("source", "subject")
-            .prefetch_related("source__last_observation_sources", "subject__groups")
+        ss_queryset = SubjectSource.objects.select_related("source").order_by("source_id")
+        if query_params.get("state") == "deployed":
+            from observations.models import DEFAULT_ASSIGNED_RANGE
+
+            max_upper = DEFAULT_ASSIGNED_RANGE[1]
+            ss_queryset = ss_queryset.filter(assigned_range__endswith=max_upper)
+
+        queryset = Subject.objects.filter(
+            subject_subtype__in=["ropeless_buoy_device", BUOY_GEAR_SUBJECT_SUBTYPE]
+        ).prefetch_related(
+            "groups",
+            Prefetch(
+                "subjectsources",
+                queryset=ss_queryset,
+                to_attr="all_subjectsources",
+            ),
         )
-        queryset = queryset.order_by("id")  # Stable sort for pagination
 
         # Apply filters based on validated parameters
         if query_params.get("updated_since"):
-            queryset = queryset.by_updated_since(query_params["updated_since"])
+            queryset = queryset.annotate_with_subjectstatus().by_updated_since(query_params["updated_since"])
 
         # Filter by state (deployed/hauled)
-        queryset = queryset.filter(subject__is_active=(query_params.get("state") == "deployed"))
+        queryset = queryset.filter(is_active=(query_params.get("state") == "deployed"))
 
         # Apply location filtering if coordinates provided
         lat = query_params.get("lat")
         lon = query_params.get("lon")
         max_nm_range = query_params.get("max_nm_range", NAUTICAL_MILE_RADIUS)
 
-        if lat and lon:
+        if lat is not None and lon is not None:
             queryset = filter_by_bbox(queryset=queryset, latitude=lat, longitude=lon, nautical_miles=int(max_nm_range))
 
-        # Filter queryset by removing subjects where the additional field is the same
-        queryset = queryset.order_by("subject__additional__display_id", "subject__name").distinct(
-            "subject__additional__display_id"
-        )
+        queryset = queryset.order_by("additional__display_id", "name", "id")
 
         # Normal ListAPIView.list() code here
         page = self.paginate_queryset(queryset)
@@ -207,8 +246,12 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         validated_data = serializer.validated_data
 
         try:
-            with transaction.atomic():
-                subject, observations = BuoyService.process_gearset(validated_data, user=request.user)
+            subject, observations = BuoyService.process_gearset(validated_data, user=request.user)
+        except OlderGearsetRejectedError as e:
+            error_detail = {"detail": str(e), "device_id": e.device_id}
+            if e.newer_gearset_id:
+                error_detail["newer_gearset_id"] = str(e.newer_gearset_id)
+            raise ValidationError(error_detail)
         except IntegrityError as integrity_error:
             return return_409_response(message=str(integrity_error))
 
@@ -222,31 +265,27 @@ class GearsListCreateView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         )
 
 
-class GearView(generics.RetrieveUpdateDestroyAPIView):
+class GearView(generics.RetrieveAPIView):
     permission_classes = (HasManufacturerSubjectGroupPermission,)
     serializer_class = serializers.GearSerializer
     lookup_field = "id"
 
     def get_queryset(self):
         subject_id = self.kwargs.get("id")
-
-        # Return SubjectSource queryset instead of Subject queryset
-        # to work with the new GearSerializer (ModelSerializer)
-        queryset = SubjectSource.objects.filter(subject_id=subject_id)
-
-        # Prefetch related data for efficient queries
-        queryset = queryset.select_related("subject", "source", "source__provider")
-        queryset = queryset.prefetch_related("source__last_observation_sources", "subject__groups")
-
-        return queryset
+        return Subject.objects.filter(id=subject_id).prefetch_related(
+            "groups",
+            Prefetch(
+                "subjectsources",
+                queryset=SubjectSource.objects.select_related("source").order_by("source_id"),
+                to_attr="all_subjectsources",
+            ),
+        )
 
     def get_object(self):
-        # Get the first SubjectSource from the queryset
-        subject_source = self.get_queryset().first()
-        if not subject_source:
-            raise NotFound("No SubjectSource found for this subject")
+        subject = self.get_queryset().first()
+        if not subject:
+            raise NotFound("No gear found for this id")
 
-        # Check object-level permissions
-        self.check_object_permissions(self.request, subject_source)
+        self.check_object_permissions(self.request, subject)
 
-        return subject_source
+        return subject

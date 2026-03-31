@@ -1498,6 +1498,7 @@ class TestEventTypeMigration:
         response = superuser_client.post(url, data=data)
 
         assert response.status_code == status.HTTP_200_OK
+        assert "X-Migration-Request-Id" in response
         results = response.data
         assert isinstance(results, list)
         assert len(results) == 1

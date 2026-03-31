@@ -4,11 +4,15 @@ from activity.schemas.migration.choice_processor import (
     HardcodedChoiceResolution,
     ResolutionStrategy,
 )
+from activity.schemas.migration.logger import LogContext, MigrationLogger
 from activity.schemas.migration.service import (
     MigrationRequest,
     MigrationResult,
     MigrationService,
 )
+
+_test_context = LogContext(migration_request_id="MR-test", tenant_name="test", dry_run=True)
+_test_logger = MigrationLogger(context=_test_context)
 
 
 class TestHardcodedChoiceResolutionContract:
@@ -65,7 +69,7 @@ class TestResolutionSelectionValidation:
         assert matched_option.choice_field_name == "severity"
 
     def test_requires_selection_when_multiple_options_exist(self):
-        service = MigrationService(request=None)
+        service = MigrationService(request=None, logger=_test_logger)
         processor = ChoiceProcessor()
         hardcoded_choice = HardcodedChoice(
             property_path=["severity"],
@@ -94,7 +98,7 @@ class TestResolutionSelectionValidation:
         assert "Resolution required for property path" in result.errors[0]
 
     def test_accepts_matching_selected_resolution(self):
-        service = MigrationService(request=None)
+        service = MigrationService(request=None, logger=_test_logger)
         processor = ChoiceProcessor()
         selection = HardcodedChoiceResolution(
             property_path=["severity"],
@@ -131,7 +135,7 @@ class TestResolutionSelectionValidation:
         assert result.success is True
 
     def test_rejects_unknown_selected_resolution_property_path(self):
-        service = MigrationService(request=None)
+        service = MigrationService(request=None, logger=_test_logger)
         processor = ChoiceProcessor()
         result = MigrationResult(
             event_type_value="fire_rep",
@@ -165,7 +169,7 @@ class TestResolutionSelectionValidation:
         assert "Unknown hardcoded choice resolution property path" in result.errors[0]
 
     def test_rejects_use_proposed_from_later_request(self):
-        service = MigrationService(request=None)
+        service = MigrationService(request=None, logger=_test_logger)
         processor = ChoiceProcessor()
         consumer = MigrationResult(
             event_type_value="consumer",
@@ -227,7 +231,7 @@ class TestResolutionSelectionValidation:
         assert producer.success is True
 
     def test_rejects_duplicate_custom_create_new_choice_field_names(self):
-        service = MigrationService(request=None)
+        service = MigrationService(request=None, logger=_test_logger)
         processor = ChoiceProcessor()
         first_result = MigrationResult(
             event_type_value="first",
@@ -289,7 +293,7 @@ class TestResolutionSelectionValidation:
         assert any("already planned for creation in this batch" in error for error in second_result.errors)
 
     def test_rejects_custom_create_new_name_collision_with_existing_field(self):
-        service = MigrationService(request=None)
+        service = MigrationService(request=None, logger=_test_logger)
         service.existing_choices = {"shared_severity": ["low"]}
         processor = ChoiceProcessor()
         result = MigrationResult(
@@ -325,7 +329,7 @@ class TestResolutionSelectionValidation:
         assert any("already exists and cannot be created again" in error for error in result.errors)
 
     def test_allows_same_result_create_new_and_use_proposed_dependency(self):
-        service = MigrationService(request=None)
+        service = MigrationService(request=None, logger=_test_logger)
         processor = ChoiceProcessor()
         result = MigrationResult(
             event_type_value="fire_rep",

@@ -30,6 +30,7 @@ from .choice_processor import (
     get_field_schema_from_prop_path,
     rewrite_field_to_ref,
 )
+from .logger import ErrorCode, EventTypeMigrationLogger, MigrationLogger
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,7 @@ class MigrationResult:
     """Result of migrating a single EventType."""
 
     event_type_value: str = ""
+    log: EventTypeMigrationLogger | None = field(repr=False, default=None)
     event_type: Optional[EventType] = None
     migration_request: Optional[MigrationRequest] = None
     v2_schema: Optional[Dict[str, Any]] = None
@@ -114,12 +116,20 @@ class MigrationService:
     Two-phase: analyze all event types first, then persist atomically.
     """
 
-    def __init__(self, request, dry_run: bool = True, queryset: Optional[QuerySet] = None):
+    def __init__(
+        self,
+        *,
+        request,
+        dry_run: bool = True,
+        queryset: Optional[QuerySet] = None,
+        logger: MigrationLogger | None = None,
+    ):
         self.request = request
         self._queryset = queryset
         self.dry_run = dry_run
         self.existing_choices: Dict[str, List[str]] = {}
         self.proposed_choices: Dict[str, List[str]] = {}
+        self.logger: MigrationLogger = logger or MigrationLogger.from_request(request, dry_run=dry_run)
 
     def get_queryset(self) -> QuerySet[EventType]:
         if self._queryset is not None:
@@ -487,8 +497,10 @@ class MigrationService:
         """
         First pass: Get event type, get current schema, transform to V2, look for hardcoded choices.
         """
+        et_value = migration_request.event_type_value
         result = MigrationResult(
-            event_type_value=migration_request.event_type_value,
+            event_type_value=et_value,
+            log=self.logger.for_event_type(et_value),
             event_type=migration_request.event_type,
             migration_request=migration_request,
         )
@@ -496,19 +508,23 @@ class MigrationService:
 
         if not event_type:
             try:
-                event_type = self.get_queryset().get(value=migration_request.event_type_value)
+                event_type = self.get_queryset().get(value=et_value)
                 result.event_type = event_type
             except EventType.DoesNotExist:
-                result.errors.append(f"EventType '{migration_request.event_type_value}' not found")
+                result.errors.append(
+                    result.log.error(ErrorCode.EVENT_TYPE_NOT_FOUND, f"EventType '{et_value}' not found")
+                )
                 return result
 
         # Check authorization (skip for dry-run previews)
         if not self.dry_run and not self.can_modify_event_type(event_type):
-            result.errors.append(f"Permission denied for EventType '{migration_request.event_type_value}'")
+            result.errors.append(
+                result.log.error(ErrorCode.PERMISSION_DENIED, f"Permission denied for EventType '{et_value}'")
+            )
             return result
 
         if event_type.version != EventType.VersionChoices.VERSION_1:
-            result.errors.append(f"EventType '{migration_request.event_type_value}' is not V1")
+            result.errors.append(result.log.error(ErrorCode.VERSION_VALIDATION, f"EventType '{et_value}' is not V1"))
             return result
 
         # Transform schema
@@ -530,16 +546,16 @@ class MigrationService:
         try:
             v1_schema = json.loads(preprocess_template_vars(result.event_type.schema))
         except json.JSONDecodeError as e:
-            result.errors.append(f"Invalid JSON in schema: {e}")
+            result.errors.append(result.log.error(ErrorCode.SCHEMA_PARSE, f"Invalid JSON in schema: {e}"))
             return
 
         transformed_schema = transform_schema(v1_schema, log_collector)
 
         # Collect warnings/errors from transformation
         for warning in log_collector.get_warnings():
-            result.warnings.append(warning.get("message"))
+            result.warnings.append(result.log.warning(ErrorCode.SCHEMA_TRANSFORM, warning.get("message")))
         for error in log_collector.get_errors():
-            result.errors.append(error.get("message"))
+            result.errors.append(result.log.error(ErrorCode.SCHEMA_TRANSFORM, error.get("message")))
 
         # Store transformation metadata
         features = log_collector.get_features()
@@ -547,12 +563,12 @@ class MigrationService:
         result.metadata["unsupported_features"] = features.get("unsupportedFeatures", [])
 
         if len(result.metadata["unsupported_features"]) > 0:
-            result.errors.append("Unsupported features found in schema: look at metadata for details")
-
-        if transformed_schema is None:
-            if not result.errors:
-                result.errors.append("Schema transformation failed to produce a V2 schema")
-            return
+            result.errors.append(
+                result.log.error(
+                    ErrorCode.UNSUPPORTED_FEATURES,
+                    "Unsupported features found in schema: look at metadata for details",
+                )
+            )
 
         if result.errors:
             return

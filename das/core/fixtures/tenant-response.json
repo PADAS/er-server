@@ -26,6 +26,7 @@
     "geoPermissionSpeedKmH": 75,
     "geoPermissionRadiusMeters": 3704,
     "geoPermissionViolationBanDurationMin": 10,
+    "geoSpan": null,
     "gsBucketName": null,
     "kmlOverlayImage": null,
     "kmlFeedTitle": "Awesome ER site - KML service",

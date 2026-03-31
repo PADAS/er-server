@@ -7,6 +7,7 @@ from rest_framework.test import APIRequestFactory
 
 from activity.models import EventType
 from activity.schemas.migration.choice_processor import ChoiceProcessor
+from activity.schemas.migration.logger import LogContext, MigrationLogger
 from activity.schemas.migration.service import MigrationResult, MigrationService
 from choices.models import Choice
 from factories import EventTypeFactory
@@ -297,9 +298,20 @@ def mock_request(admin_user):
 
 
 @pytest.fixture
-def migration_service(mock_request):
+def migration_logger():
+    """MigrationLogger with a test LogContext (no real tenant resolution)."""
+    context = LogContext(
+        migration_request_id="MR-test-00000000",
+        tenant_name="test-tenant",
+        dry_run=True,
+    )
+    return MigrationLogger(context=context)
+
+
+@pytest.fixture
+def migration_service(mock_request, migration_logger):
     """Basic MigrationService with dry_run=True (default)."""
-    return MigrationService(request=mock_request)
+    return MigrationService(request=mock_request, logger=migration_logger)
 
 
 @pytest.fixture
@@ -311,7 +323,13 @@ def make_migration_service(mock_request):
     """
 
     def _create(dry_run=True):
-        service = MigrationService(request=mock_request, dry_run=dry_run)
+        context = LogContext(
+            migration_request_id="MR-test-00000000",
+            tenant_name="test-tenant",
+            dry_run=dry_run,
+        )
+        ml = MigrationLogger(context=context)
+        service = MigrationService(request=mock_request, dry_run=dry_run, logger=ml)
         service.existing_choices = service.load_existing_choice_fields()
         return service
 
@@ -321,7 +339,13 @@ def make_migration_service(mock_request):
 @pytest.fixture
 def migration_service_live(mock_request):
     """MigrationService with dry_run=False for testing persistence."""
-    return MigrationService(request=mock_request, dry_run=False)
+    context = LogContext(
+        migration_request_id="MR-test-00000000",
+        tenant_name="test-tenant",
+        dry_run=False,
+    )
+    ml = MigrationLogger(context=context)
+    return MigrationService(request=mock_request, dry_run=False, logger=ml)
 
 
 @pytest.fixture
@@ -400,10 +424,14 @@ def create_v1_event_type(cat1_cat2_categories):
 
 
 @pytest.fixture
-def migration_result():
+def migration_result(migration_logger):
     """Factory fixture for creating MigrationResult objects."""
 
     def _create(event_type_value="test_event", **kwargs):
-        return MigrationResult(event_type_value=event_type_value, **kwargs)
+        return MigrationResult(
+            event_type_value=event_type_value,
+            log=migration_logger.for_event_type(event_type_value),
+            **kwargs,
+        )
 
     return _create

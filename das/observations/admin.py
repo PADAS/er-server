@@ -25,13 +25,13 @@ from django.contrib.admin.utils import quote
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth import get_permission_codename
 from django.contrib.contenttypes.admin import GenericTabularInline
-from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import transaction
 from django.db.models import (
     Aggregate,
     BooleanField,
     Count,
     DateTimeField,
+    Exists,
     ExpressionWrapper,
     F,
     Max,
@@ -321,10 +321,11 @@ class GroupAssignedFilter(admin.SimpleListFilter):
 
     def queryset(self, request, queryset):
         value = self.value()
+        has_groups = Exists(models.SubjectGroup.objects.filter(subjects=OuterRef("pk")))
         if value == "ingroups":
-            return queryset.annotate(groups_count=Count("groups")).filter(groups_count__gt=0)
+            return queryset.filter(has_groups)
         elif value == "nogroups":
-            return queryset.annotate(groups_count=Count("groups")).filter(groups_count=0)
+            return queryset.filter(~has_groups)
         return queryset
 
 
@@ -623,6 +624,7 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
     list_filter = (
         "is_active",
         GroupAssignedFilter,
+        "groups",
         "subject_subtype__subject_type__display",
         "subject_subtype__display",
         SourceProviderFilter,
@@ -697,13 +699,13 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
     def get_queryset(self, request):
         """Limit Subjects to those this person can administer"""
         qs = super(SubjectAdmin, self).get_queryset(request)
-        qs = qs.annotate(
-            groups_names=ArrayAgg("groups__name", distinct=True, ordering=F("groups__name"))
-        ).prefetch_related(
+        qs = qs.prefetch_related(
+            "groups",
             "subject_subtype",
             "subjectsources",
         )
-        return qs
+        # list_filter includes M2M "groups" and SourceProviderFilter joins sources; DISTINCT avoids duplicate rows.
+        return qs.distinct()
 
     def _subject_subtype_display(self, o):
         return o.subject_subtype.display
@@ -751,7 +753,7 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
     get_attributes.short_description = _("Subject Attributes")
 
     def all_groups(self, instance):
-        gnlist = [x for x in instance.groups_names if x is not None]
+        gnlist = sorted(g.name for g in instance.groups.all())
         if gnlist:
             return make_html_list(gnlist)
         else:
@@ -1661,7 +1663,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
         )
 
     subject_link.short_description = "Subject"
-    subject_link.admin_order_field = "subject"
+    subject_link.admin_order_field = "subject__name"
 
     def _age(self, o):
         default = "-"

@@ -43,7 +43,6 @@ from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import connection, connections, transaction
-from django.db.utils import IntegrityError
 from django.db.models import (
     BooleanField,
     Case,
@@ -62,6 +61,7 @@ from django.db.models import (
 )
 from django.db.models.constraints import UniqueConstraint
 from django.db.models.functions import Greatest
+from django.db.utils import IntegrityError
 from django.utils.functional import cached_property
 from django.utils.html import escape
 from django.utils.text import slugify
@@ -718,6 +718,15 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         """
         if created_after and not (since and until):
             raise ValueError("If using created_after, since and until must be provided and set to a limited time range")
+
+        if since is None or until is None:
+            logger.warning(
+                "get_subject_observations_partitioned called without %s for "
+                "subject_id=%s. This may cause a full table scan.",
+                " and ".join(name for name, val in (("since", since), ("until", until)) if val is None),
+                subject.id,
+                stack_info=True,
+            )
 
         if avoid_unions:
             # Use a single query approach that's compatible with cursor pagination
