@@ -38,11 +38,23 @@ class ErrorCode(tuple[ErrorCategory, str], Enum):
 
     # Hardcoded choice resolution
     CHOICE_RESOLUTION_REQUIRED = (ErrorCategory.CHOICES_RESOLUTION, "choice_resolution_required")
+    DUPLICATE_RESOLUTION = (ErrorCategory.CHOICES_RESOLUTION, "duplicate_resolution")
+    UNKNOWN_RESOLUTION_PATH = (ErrorCategory.CHOICES_RESOLUTION, "unknown_resolution_path")
+    INVALID_RESOLUTION = (ErrorCategory.CHOICES_RESOLUTION, "invalid_resolution")
+    CHOICE_FIELD_EXISTS = (ErrorCategory.CHOICES_RESOLUTION, "choice_field_exists")
+    CHOICE_FIELD_BATCH_CONFLICT = (ErrorCategory.CHOICES_RESOLUTION, "choice_field_batch_conflict")
+    DEPENDENCY_NOT_FOUND = (ErrorCategory.CHOICES_RESOLUTION, "dependency_not_found")
+    DEPENDENCY_ORDER = (ErrorCategory.CHOICES_RESOLUTION, "dependency_order")
+    DEPENDENCY_INVALID = (ErrorCategory.CHOICES_RESOLUTION, "dependency_invalid")
+    DEPENDENCY_NOT_PERSISTED = (ErrorCategory.CHOICES_RESOLUTION, "dependency_not_persisted")
+    REPLACE_REF_FAILED = (ErrorCategory.CHOICES_RESOLUTION, "replace_ref_failed")
+
+    # Persistence
     CHOICE_CREATION_FAILED = (ErrorCategory.PERSISTENCE, "choice_creation_failed")
+    PERSIST_FAILED = (ErrorCategory.PERSISTENCE, "persist_failed")
 
     # General
     EXCEPTION = (ErrorCategory.GENERAL, "exception")
-    PERSIST_SUCCESS = (ErrorCategory.PERSISTENCE, "persist_success")
 
     @property
     def category(self) -> ErrorCategory:

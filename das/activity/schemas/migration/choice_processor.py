@@ -52,23 +52,14 @@ class HardcodedChoice:
         """
         Determines if the hardcoded choice needs a resolution specified by the user.
         """
-        if len(self.resolution_options) > 1:
-            return True
+        for resolution in self.resolution_options:
+            if resolution.strategy in [
+                ResolutionStrategy.MERGE_INTO_EXISTING,
+                ResolutionStrategy.MERGE_INTO_PROPOSED,
+            ]:
+                return True
 
-        if len(self.resolution_options) == 1 and self.resolution_options[0].strategy in [
-            ResolutionStrategy.CREATE_NEW,
-            ResolutionStrategy.USE_EXISTING,
-            ResolutionStrategy.USE_PROPOSED,
-        ]:
-            # If we have a single resolution with one of these strategies,
-            # we don't need a user to specify it, we can handle it automatically
-            return False
-
-        # Resolutions should always be defined, otherwise we can't process the choice
-        if not self.resolution_options:
-            raise ValueError("No resolution options defined for hardcoded choice")
-
-        raise ValueError(f"Invalid resolution strategy: {self.resolution_options[0].strategy}")
+        return False
 
 
 def get_field_schema_from_prop_path(v2_schema: Dict[str, Any], prop_path: List[str]) -> Dict[str, Any]:

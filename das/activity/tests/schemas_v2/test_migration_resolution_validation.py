@@ -35,7 +35,7 @@ class TestHardcodedChoiceResolutionContract:
             property_path=["details", "severity"],
             choices=[{"value": "minor", "display": "Minor"}],
         )
-        migration_result = MigrationResult(event_type_value="fire_rep")
+        migration_result = MigrationResult(event_type_value="fire_rep", log=_test_logger.for_event_type("fire_rep"))
 
         resolution_options = processor.get_resolution_options(migration_result, hardcoded_choice)
 
@@ -88,6 +88,7 @@ class TestResolutionSelectionValidation:
         )
         result = MigrationResult(
             event_type_value="fire_rep",
+            log=_test_logger.for_event_type("fire_rep"),
             migration_request=MigrationRequest(event_type_value="fire_rep"),
             hardcoded_choices=[hardcoded_choice],
         )
@@ -123,6 +124,7 @@ class TestResolutionSelectionValidation:
         )
         result = MigrationResult(
             event_type_value="fire_rep",
+            log=_test_logger.for_event_type("fire_rep"),
             migration_request=MigrationRequest(
                 event_type_value="fire_rep",
                 hardcoded_choices_resolutions=[selection],
@@ -139,6 +141,7 @@ class TestResolutionSelectionValidation:
         processor = ChoiceProcessor()
         result = MigrationResult(
             event_type_value="fire_rep",
+            log=_test_logger.for_event_type("fire_rep"),
             migration_request=MigrationRequest(
                 event_type_value="fire_rep",
                 hardcoded_choices_resolutions=[
@@ -173,6 +176,7 @@ class TestResolutionSelectionValidation:
         processor = ChoiceProcessor()
         consumer = MigrationResult(
             event_type_value="consumer",
+            log=_test_logger.for_event_type("consumer"),
             migration_request=MigrationRequest(
                 event_type_value="consumer",
                 hardcoded_choices_resolutions=[
@@ -199,6 +203,7 @@ class TestResolutionSelectionValidation:
         )
         producer = MigrationResult(
             event_type_value="producer",
+            log=_test_logger.for_event_type("producer"),
             migration_request=MigrationRequest(
                 event_type_value="producer",
                 hardcoded_choices_resolutions=[
@@ -235,6 +240,7 @@ class TestResolutionSelectionValidation:
         processor = ChoiceProcessor()
         first_result = MigrationResult(
             event_type_value="first",
+            log=_test_logger.for_event_type("first"),
             migration_request=MigrationRequest(
                 event_type_value="first",
                 hardcoded_choices_resolutions=[
@@ -261,6 +267,7 @@ class TestResolutionSelectionValidation:
         )
         second_result = MigrationResult(
             event_type_value="second",
+            log=_test_logger.for_event_type("second"),
             migration_request=MigrationRequest(
                 event_type_value="second",
                 hardcoded_choices_resolutions=[
@@ -298,6 +305,7 @@ class TestResolutionSelectionValidation:
         processor = ChoiceProcessor()
         result = MigrationResult(
             event_type_value="first",
+            log=_test_logger.for_event_type("first"),
             migration_request=MigrationRequest(
                 event_type_value="first",
                 hardcoded_choices_resolutions=[
@@ -333,6 +341,7 @@ class TestResolutionSelectionValidation:
         processor = ChoiceProcessor()
         result = MigrationResult(
             event_type_value="fire_rep",
+            log=_test_logger.for_event_type("fire_rep"),
             migration_request=MigrationRequest(
                 event_type_value="fire_rep",
                 hardcoded_choices_resolutions=[

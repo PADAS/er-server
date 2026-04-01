@@ -165,14 +165,14 @@ class MigrationService:
             return selected_resolutions
 
         for resolution in result.migration_request.hardcoded_choices_resolutions:
-            if not resolution.property_path:
-                result.errors.append("Hardcoded choice resolution is missing property_path")
-                continue
 
             property_path = tuple(resolution.property_path)
             if property_path in selected_resolutions:
                 result.errors.append(
-                    f"Duplicate hardcoded choice resolution for property path: {resolution.property_path}"
+                    result.log.error(
+                        ErrorCode.DUPLICATE_RESOLUTION,
+                        f"Duplicate hardcoded choice resolution for property path: {resolution.property_path}",
+                    )
                 )
                 continue
 
@@ -190,13 +190,21 @@ class MigrationService:
         for property_path, resolution in selected_resolutions.items():
             hardcoded_choice = hardcoded_choices_by_path.get(property_path)
             if hardcoded_choice is None:
-                result.errors.append(f"Unknown hardcoded choice resolution property path: {resolution.property_path}")
+                result.errors.append(
+                    result.log.error(
+                        ErrorCode.UNKNOWN_RESOLUTION_PATH,
+                        f"Unknown hardcoded choice resolution property path: {resolution.property_path}",
+                    )
+                )
                 continue
 
             if choice_processor.find_matching_resolution_option(hardcoded_choice, resolution) is None:
                 result.errors.append(
-                    f"Invalid resolution for property path {resolution.property_path}: "
-                    f"{resolution.strategy} -> {resolution.choice_field_name}"
+                    result.log.error(
+                        ErrorCode.INVALID_RESOLUTION,
+                        f"Invalid resolution for property path {resolution.property_path}: "
+                        f"{resolution.strategy} -> {resolution.choice_field_name}",
+                    )
                 )
 
     def validate_required_resolutions(
@@ -208,11 +216,13 @@ class MigrationService:
             if tuple(hardcoded_choice.property_path) in selected_resolutions:
                 continue
 
-            try:
-                if hardcoded_choice.needs_resolution():
-                    result.errors.append(f"Resolution required for property path: {hardcoded_choice.property_path}")
-            except ValueError as exc:
-                result.errors.append(f"{hardcoded_choice.property_path}: {exc}")
+            if hardcoded_choice.needs_resolution():
+                result.errors.append(
+                    result.log.error(
+                        ErrorCode.CHOICE_RESOLUTION_REQUIRED,
+                        f"Resolution required for property path: {hardcoded_choice.property_path}",
+                    )
+                )
 
     def get_effective_resolution(
         self,
@@ -224,10 +234,7 @@ class MigrationService:
         selected_resolution = selected_resolutions.get(property_path)
 
         if selected_resolution is None:
-            try:
-                if hardcoded_choice.needs_resolution():
-                    return None
-            except ValueError:
+            if hardcoded_choice.needs_resolution():
                 return None
 
             option = hardcoded_choice.resolution_options[0]
@@ -292,22 +299,22 @@ class MigrationService:
                     continue
 
                 choice_field_name = resolution.choice_field_name
-                if not choice_field_name:
-                    result.errors.append(
-                        f"CREATE_NEW resolution is missing choice_field_name for property path: "
-                        f"{resolved_choice.property_path}"
-                    )
-                    continue
 
                 if choice_field_name in self.existing_choices:
                     result.errors.append(
-                        f"Choice field '{choice_field_name}' already exists and cannot be created again"
+                        result.log.error(
+                            ErrorCode.CHOICE_FIELD_EXISTS,
+                            f"Choice field '{choice_field_name}' already exists and cannot be created again",
+                        )
                     )
                     continue
 
                 if choice_field_name in create_new_targets:
                     result.errors.append(
-                        f"Choice field '{choice_field_name}' is already planned for creation in this batch"
+                        result.log.error(
+                            ErrorCode.CHOICE_FIELD_BATCH_CONFLICT,
+                            f"Choice field '{choice_field_name}' is already planned for creation in this batch",
+                        )
                     )
                     continue
 
@@ -337,20 +344,29 @@ class MigrationService:
                 producer_index = create_new_targets.get(choice_field_name)
                 if producer_index is None:
                     result.errors.append(
-                        f"Proposed choice field '{choice_field_name}' is not planned for creation in this batch"
+                        result.log.error(
+                            ErrorCode.DEPENDENCY_NOT_FOUND,
+                            f"Proposed choice field '{choice_field_name}' is not planned for creation in this batch",
+                        )
                     )
                     continue
 
                 if producer_index > result_index:
                     result.errors.append(
-                        f"Proposed choice field '{choice_field_name}' is created by a later migration request"
+                        result.log.error(
+                            ErrorCode.DEPENDENCY_ORDER,
+                            f"Proposed choice field '{choice_field_name}' is created by a later migration request",
+                        )
                     )
                     continue
 
                 producer_result = results[producer_index]
                 if not producer_result.success:
                     result.errors.append(
-                        f"Proposed choice field '{choice_field_name}' depends on an invalid migration request"
+                        result.log.error(
+                            ErrorCode.DEPENDENCY_INVALID,
+                            f"Proposed choice field '{choice_field_name}' depends on an invalid migration request",
+                        )
                     )
 
     def resolve_and_validate_migration_requests(
@@ -419,7 +435,10 @@ class MigrationService:
             return True
 
         result.errors.append(
-            f"Proposed choice field dependencies were not persisted successfully: {', '.join(blocked_fields)}"
+            result.log.error(
+                ErrorCode.DEPENDENCY_NOT_PERSISTED,
+                f"Proposed choice field dependencies were not persisted successfully: {', '.join(blocked_fields)}",
+            )
         )
         return False
 
@@ -465,7 +484,13 @@ class MigrationService:
                 try:
                     self.rewrite_resolved_choice_refs(result)
                 except KeyError as e:
-                    result.errors.append(f"Failed to rewrite resolved choice references: {str(e)}")
+                    # Known case: Property path not found in v2 schema
+                    result.errors.append(
+                        result.log.error(
+                            ErrorCode.REPLACE_REF_FAILED,
+                            f"Failed to replace resolved choice reference: {str(e)}",
+                        )
+                    )
 
         if self.dry_run:
             return results
@@ -606,7 +631,7 @@ class MigrationService:
             event_type.version = EventType.VersionChoices.VERSION_2
             event_type.save(update_fields=["schema", "version", "updated_at"])
         except Exception as e:
-            result.errors.append(f"Failed to persist migration: {e}")
+            result.errors.append(result.log.error(ErrorCode.PERSIST_FAILED, f"Failed to persist migration: {e}"))
             return
 
         result.metadata["persisted"] = True

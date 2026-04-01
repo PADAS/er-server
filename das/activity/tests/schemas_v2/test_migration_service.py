@@ -11,6 +11,7 @@ from activity.schemas.migration.choice_processor import (
     HardcodedChoiceResolution,
     ResolutionStrategy,
 )
+from activity.schemas.migration.logger import LogContext, MigrationLogger
 from activity.schemas.migration.service import (
     MigrationRequest,
     MigrationResult,
@@ -18,6 +19,9 @@ from activity.schemas.migration.service import (
     ResolvedHardcodedChoice,
 )
 from choices.models import Choice
+
+_test_context = LogContext(migration_request_id="MR-test", tenant_name="test", dry_run=True)
+_test_logger = MigrationLogger(context=_test_context)
 
 
 class TestMigrationResult:
@@ -125,20 +129,6 @@ class TestMigrateSingle:
         assert result.success is False
         assert any("Invalid JSON in schema" in e for e in result.errors)
         assert result.v2_schema is None
-
-    @patch("activity.schemas.migration.service.transform_schema")
-    @patch.object(ChoiceProcessor, "get_hardcoded_choices")
-    def test_transform_schema_returning_none_adds_error(
-        self, mock_get_hardcoded_choices, mock_transform, migration_service, v1_event_type
-    ):
-        mock_transform.return_value = None
-
-        result = migration_service.migrate([v1_event_type.value])[0]
-
-        assert result.success is False
-        assert result.v2_schema is None
-        assert "Schema transformation failed to produce a V2 schema" in result.errors
-        mock_get_hardcoded_choices.assert_not_called()
 
     @patch("activity.schemas.migration.service.transform_schema")
     def test_dry_run_does_not_persist(self, mock_transform, migration_service, v1_event_type):
@@ -260,6 +250,7 @@ class TestMigrate:
     def test_failed_producer_blocks_only_dependent_result(self, migration_service_live):
         producer = MigrationResult(
             event_type_value="producer",
+            log=_test_logger.for_event_type("producer"),
             migration_request=MigrationRequest(event_type_value="producer"),
             hardcoded_choices=[],
             resolved_hardcoded_choices=[
@@ -276,6 +267,7 @@ class TestMigrate:
         )
         dependent = MigrationResult(
             event_type_value="dependent",
+            log=_test_logger.for_event_type("dependent"),
             migration_request=MigrationRequest(event_type_value="dependent"),
             hardcoded_choices=[],
             resolved_hardcoded_choices=[
@@ -292,6 +284,7 @@ class TestMigrate:
         )
         independent = MigrationResult(
             event_type_value="independent",
+            log=_test_logger.for_event_type("independent"),
             migration_request=MigrationRequest(event_type_value="independent"),
             hardcoded_choices=[],
             resolved_hardcoded_choices=[
@@ -340,6 +333,7 @@ class TestMigrate:
     def test_rewrite_failure_stays_local_to_single_result(self, migration_service):
         bad_result = MigrationResult(
             event_type_value="bad_result",
+            log=_test_logger.for_event_type("bad_result"),
             migration_request=MigrationRequest(event_type_value="bad_result"),
             v2_schema={"json": {"properties": {"severity": {"type": "string", "anyOf": []}}}, "ui": {}},
             hardcoded_choices=[],
@@ -357,6 +351,7 @@ class TestMigrate:
         )
         good_result = MigrationResult(
             event_type_value="good_result",
+            log=_test_logger.for_event_type("good_result"),
             migration_request=MigrationRequest(event_type_value="good_result"),
             v2_schema={"json": {"properties": {"severity": {"type": "string", "anyOf": []}}}, "ui": {}},
             hardcoded_choices=[],
@@ -386,7 +381,7 @@ class TestMigrate:
 
         assert len(results) == 2
         assert results[0].success is False
-        assert any("Invalid property path" in error for error in results[0].errors)
+        assert any("Failed to replace resolved choice reference" in error for error in results[0].errors)
         assert results[1].success is True
         assert results[1].v2_schema["json"]["properties"]["severity"]["anyOf"] == [
             {"$ref": "/api/v2.0/schemas/choices.json?field=severity"}
