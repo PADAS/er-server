@@ -897,7 +897,15 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
 
         if search_term:
             # Add efficient search on Source.manufacturer_id through SubjectSource
-            queryset |= self.model.objects.filter(subjectsource__source__manufacturer_id__icontains=search_term)
+            manufacturer_qs = self.model.objects.filter(subjectsource__source__manufacturer_id__icontains=search_term)
+            # Both querysets must have matching distinct state before combining with |
+            if queryset.query.distinct:
+                manufacturer_qs = manufacturer_qs.distinct()
+            else:
+                queryset = queryset.distinct()
+                manufacturer_qs = manufacturer_qs.distinct()
+            queryset |= manufacturer_qs
+            use_distinct = True
 
         return queryset, use_distinct
 
