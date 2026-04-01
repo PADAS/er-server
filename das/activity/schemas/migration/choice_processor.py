@@ -301,7 +301,7 @@ class ChoiceProcessor:
         proposed_score = proposed_match[1] if proposed_match else 0.0
 
         if existing_score == 1.0 or proposed_score == 1.0:
-            # Perfect match found, no need to propose anything
+            # Perfect match found
             if existing_score == 1.0:
                 strategy = ResolutionStrategy.USE_EXISTING
                 choice_field_name = existing_match[0]
@@ -316,7 +316,6 @@ class ChoiceProcessor:
                 property_path=list(hardcoded_choice.property_path),
             )
             resolutions.append(resolution)
-            return resolutions
 
         proposed_name = self.generate_unique_choice_field_name(
             hardcoded_choice.property_path,
@@ -333,7 +332,7 @@ class ChoiceProcessor:
             # No match found, return just the create resolution
             return resolutions
 
-        if existing_match and existing_score >= proposed_score:
+        if existing_match and existing_score >= proposed_score and existing_score < 1.0:
             match_field_name, score, missing_choices = existing_match
             resolution = HardcodedChoiceResolution(
                 strategy=ResolutionStrategy.MERGE_INTO_EXISTING,
@@ -343,7 +342,7 @@ class ChoiceProcessor:
             )
             resolutions.append(resolution)
 
-        if proposed_match and proposed_score > existing_score:
+        if proposed_match and proposed_score > existing_score and proposed_score < 1.0:
             match_field_name, score, missing_choices = proposed_match
             resolution = HardcodedChoiceResolution(
                 strategy=ResolutionStrategy.MERGE_INTO_PROPOSED,
@@ -413,12 +412,9 @@ class ChoiceProcessor:
         """
         raw_candidates = []
 
-        # Safe handling of properties since sometimes tests provide mocked dicts or None
         reserved_names = set()
-        if hasattr(self, "existing_choices") and isinstance(self.existing_choices, dict):
-            reserved_names.update(self.existing_choices.keys())
-        if hasattr(self, "proposed_choices") and isinstance(self.proposed_choices, dict):
-            reserved_names.update(self.proposed_choices.keys())
+        reserved_names.update(self.existing_choices.keys())
+        reserved_names.update(self.proposed_choices.keys())
 
         # Candidate 1: field name directly
         raw_candidates.append(slugify_for_choice(field_path[-1]))

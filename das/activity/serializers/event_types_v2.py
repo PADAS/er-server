@@ -136,7 +136,6 @@ class HardcodedChoiceResolutionRequestSerializer(serializers.Serializer):
 
 
 class HardcodedChoiceResolutionSerializer(serializers.Serializer):
-    property_path = serializers.ListField(child=serializers.CharField(), required=False, allow_null=True)
     strategy = serializers.ChoiceField(choices=[strategy.value for strategy in ResolutionStrategy])
     choice_field_name = serializers.CharField(required=False, allow_null=True)
     missing_choices = ChoiceValueSerializer(many=True, required=False, allow_null=True, read_only=True)

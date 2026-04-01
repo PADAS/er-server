@@ -158,8 +158,10 @@ class TestChoiceResolutionPlanning:
 
         resolutions = processor.get_resolution_options(migration_result, hardcoded_choice)
 
-        assert len(resolutions) == 1
-        assert resolutions[0].strategy == ResolutionStrategy.USE_EXISTING
+        assert [r.strategy for r in resolutions] == [
+            ResolutionStrategy.USE_EXISTING,
+            ResolutionStrategy.CREATE_NEW,
+        ]
         assert resolutions[0].choice_field_name == "severity"
 
     def test_returns_create_and_merge_into_existing_for_partial_existing_match(self, hardcoded_values):
@@ -206,7 +208,8 @@ class TestChoiceResolutionPlanning:
             ResolutionStrategy.CREATE_NEW
         ]
         assert [option.strategy for option in second_result.hardcoded_choices[0].resolution_options] == [
-            ResolutionStrategy.USE_PROPOSED
+            ResolutionStrategy.USE_PROPOSED,
+            ResolutionStrategy.CREATE_NEW,
         ]
         assert second_result.hardcoded_choices[0].resolution_options[0].choice_field_name == "severity"
 
