@@ -128,7 +128,7 @@ class RequestLoggingMiddleware(object):
             if error_message:
                 extra["error_message"] = error_message
 
-            self.logger.debug("%s %s %s", method, request_path, status_code, extra=extra)
+            self.logger.info("%s %s %s", method, request_path, status_code, extra=extra)
             stats.histogram(
                 "api_request_time",
                 req_time,
