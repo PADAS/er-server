@@ -7,6 +7,7 @@ import requests
 from requests.exceptions import Timeout
 
 from django.core.cache import cache
+from django.db.utils import InterfaceError, OperationalError
 from rest_framework import status
 
 from analyzers import gfw_inbound
@@ -87,6 +88,8 @@ def _analyze_subject(subject_id):
 
             except InsufficientDataAnalyzerException:
                 logger.warning("insufficient observations exist to support analyzer {}".format(analyzer))
+            except (OperationalError, InterfaceError):
+                raise
             except Exception:
                 logger.exception("Programming error in analyzer. analyzer=%s", analyzer)
 
