@@ -529,6 +529,9 @@ class TestAlerts(BaseAPITest):
             # is only a direct member of child_sg.
             child_sg = SubjectGroup.objects.create(name="alert_test_child_sg")
             child_sg.subjects.add(subject)
+            # Give the alert rule owner subject-level access via the child group, so that
+            # render_event_alert_context can render the event when sending the notification.
+            child_sg.permission_sets.add(self.alerts_permissionset)
 
             parent_sg = SubjectGroup.objects.create(name="alert_test_parent_sg")
             parent_sg.children.add(child_sg)
@@ -567,6 +570,13 @@ class TestAlerts(BaseAPITest):
             )
             alert_rule.notification_methods.add(whatsapp_nm)
             alert_rule.event_types.add(geofence_event_type)
+
+            # render_event_alert_context renders the event as the alert rule owner, so the
+            # owner must have read permission on the event category. Grant it here.
+            analyzer_event_read = Permission.objects.get_by_natural_key(
+                codename="analyzer_event_read", app_label="activity", model="event"
+            )
+            self.alerts_permissionset.permissions.add(analyzer_event_read)
 
             # Simulate the event the geofence analyzer would create.
             event = Event.objects.create(
