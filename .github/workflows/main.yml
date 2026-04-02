@@ -84,3 +84,24 @@ jobs:
     secrets:
       ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
       ARGOCD_APPS_SSH_KEY: ${{ secrets.ARGOCD_APPS_SSH_KEY }}
+
+  approve-prod:
+    needs: [deploy-stage]
+    if: startsWith(github.ref_name, 'release-')
+    runs-on: ubuntu-latest
+    environment: production-approval
+    steps:
+      - run: echo "Production deployment approved"
+
+  deploy-prod-me:
+    needs: [approve-prod]
+    if: startsWith(github.ref_name, 'release-')
+    uses: PADAS/serca-pipelines/.github/workflows/_argocd-deploy.yml@main
+    with:
+      app-name: das-server
+      app-subdir: earthranger
+      environment: er-prod-me
+      image-tag: "${{ github.ref_name }}-${{ github.run_number }}"
+    secrets:
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+      ARGOCD_APPS_SSH_KEY: ${{ secrets.ARGOCD_APPS_SSH_KEY }}
