@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}
   cancel-in-progress: true
 
 jobs:
@@ -85,20 +85,41 @@ jobs:
       ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
       ARGOCD_APPS_SSH_KEY: ${{ secrets.ARGOCD_APPS_SSH_KEY }}
 
-  approve-prod:
+  approve-prod-me:
     needs: [deploy-stage]
     runs-on: ubuntu-latest
-    environment: production-approval
+    timeout-minutes: 4320
+    environment: production-me
     steps:
-      - run: echo "Production deployment approved"
+      - run: echo "Production ME deployment approved"
+
+  approve-prod-us:
+    needs: [deploy-stage]
+    runs-on: ubuntu-latest
+    timeout-minutes: 4320
+    environment: production-us
+    steps:
+      - run: echo "Production US deployment approved"
 
   deploy-prod-me:
-    needs: [config, approve-prod]
+    needs: [config, approve-prod-me]
     uses: PADAS/serca-pipelines/.github/workflows/_argocd-deploy.yml@main
     with:
       app-name: das-server
       app-subdir: earthranger
       environment: er-prod-me
+      image-tag: ${{ needs.config.outputs.image-tag }}
+    secrets:
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+      ARGOCD_APPS_SSH_KEY: ${{ secrets.ARGOCD_APPS_SSH_KEY }}
+
+  deploy-prod-us:
+    needs: [config, approve-prod-us]
+    uses: PADAS/serca-pipelines/.github/workflows/_argocd-deploy.yml@main
+    with:
+      app-name: das-server
+      app-subdir: earthranger
+      environment: er-prod-us
       image-tag: ${{ needs.config.outputs.image-tag }}
     secrets:
       ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
