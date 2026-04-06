@@ -18,6 +18,7 @@ from kombu import Exchange, Queue
 from django.conf import settings
 
 import utils.stats
+
 from das_server.redis import TRANSPORT_ALIASES  # pylint: disable=unused-import
 
 # set the default Django settings module for the 'celery' program.

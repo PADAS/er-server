@@ -35,6 +35,11 @@ Guides
    topics/browser-and-os-support
    topics/maps
    topics/sensors
+   topics/alerts
+   topics/argics-features
+   topics/map_feature_styles
+   topics/eventtype-sync
+   topics/patrol-sync
    writers
    glossary
 

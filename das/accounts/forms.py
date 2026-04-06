@@ -226,6 +226,9 @@ class PermissionSetAdminForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             self.fields["user_set"].initial = self.instance.user_set.all()
             self.fields["acquire_from"].initial = self.instance._parents.all()
+            self.fields["permissions"].initial = self.instance.permissions.filter(
+                permissionsetpermission__das_tenant_id=get_tenant_settings().id
+            )
 
         self.fields["permissions"].queryset = filter_permissions_by_tenant(
             tenant_settings=get_tenant_settings(), queryset=Permission.objects.all()

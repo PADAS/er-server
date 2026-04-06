@@ -43,38 +43,33 @@ class TestExtractHardcodedValues:
 
     def test_extract_from_anyof_oneof(self, choice_processor, hardcoded_field_schema):
         field_schema = hardcoded_field_schema(("value1", "Display 1"), ("value2", "Display 2"))
-        values, warnings = choice_processor.extract_hardcoded_choices(field_schema)
+        values = choice_processor.extract_hardcoded_choices(field_schema)
 
         assert len(values) == 2
         assert values[0] == {"value": "value1", "display": "Display 1"}
         assert values[1] == {"value": "value2", "display": "Display 2"}
-        assert warnings == []
 
     def test_extract_without_title_uses_const(self, choice_processor):
         field_schema = {"anyOf": [{"title": "Hardcoded", "type": "string", "oneOf": [{"const": "simple_value"}]}]}
-        values, warnings = choice_processor.extract_hardcoded_choices(field_schema)
+        values = choice_processor.extract_hardcoded_choices(field_schema)
 
         assert len(values) == 1
         assert values[0] == {"value": "simple_value", "display": "simple_value"}
-        assert warnings == []
 
     def test_ignores_ref_fields(self, choice_processor):
         field_schema = {"anyOf": [{"$ref": "#/definitions/some_choice"}]}
-        values, warnings = choice_processor.extract_hardcoded_choices(field_schema)
+        values = choice_processor.extract_hardcoded_choices(field_schema)
         assert values == []
-        assert warnings == []
 
     def test_empty_anyof(self, choice_processor):
         field_schema = {"type": "string"}
-        values, warnings = choice_processor.extract_hardcoded_choices(field_schema)
+        values = choice_processor.extract_hardcoded_choices(field_schema)
         assert values == []
-        assert warnings == []
 
     def test_wrong_title_not_hardcoded(self, choice_processor):
         field_schema = {"anyOf": [{"title": "Not Hardcoded", "oneOf": [{"const": "value"}]}]}
-        values, warnings = choice_processor.extract_hardcoded_choices(field_schema)
+        values = choice_processor.extract_hardcoded_choices(field_schema)
         assert values == []
-        assert warnings == []
 
 
 class TestChoiceFieldResult:

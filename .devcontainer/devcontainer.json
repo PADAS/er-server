@@ -51,7 +51,6 @@
 			"njpwerner.autodocstring",
 			"ms-python.isort",
 			"humao.rest-client",
-			"visualstudioexptteam.vscodeintellicode",
 			"marklarah.pre-commit-vscode",
 			"batisteo.vscode-django",
 			"googlecloudtools.cloudcode",

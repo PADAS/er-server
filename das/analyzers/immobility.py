@@ -8,7 +8,7 @@ from django.contrib.gis.geos import Point as DjangoPoint
 from django.utils.translation import gettext_lazy as _
 
 from activity.models import Event
-from analyzers.base import SubjectAnalyzer
+from analyzers.base import DEFAULT_SEARCH_TIME_HOURS, SubjectAnalyzer
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult
 from analyzers.models.base import CRITICAL, EVENT_PRIORITY_MAP, OK, WARNING
@@ -40,7 +40,9 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
     def get_subject_analyzers(cls, subject=None):
         if subject:
             subject_groups = subject.get_ancestor_subject_groups()
-            for ac in ImmobilityAnalyzerConfig.objects.filter(subject_group__in=subject_groups, is_active=True):
+            for ac in ImmobilityAnalyzerConfig.objects.select_related("feature_group_filter").filter(
+                subject_group__in=subject_groups, is_active=True
+            ):
                 yield cls(subject=subject, config=ac)
 
     def default_observations(self):
@@ -49,7 +51,13 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
         :return: a queryset of Observations
         """
         if self.config.search_time_hours <= 0:
-            return self.subject.observations()
+            self.logger.warning(
+                "ImmobilityAnalyzer: search_time_hours=%s for config id=%s, " "using default of %s hours.",
+                self.config.search_time_hours,
+                self.config.id,
+                DEFAULT_SEARCH_TIME_HOURS,
+            )
+            return self.subject.observations(last_hours=DEFAULT_SEARCH_TIME_HOURS)
         else:
             return self.subject.observations(last_hours=self.config.search_time_hours)
 

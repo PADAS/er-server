@@ -1,0 +1,44 @@
+Object,Actions,"If admin, can modify",Criteria,Value Type,Example
+Subject,Administer,(Everything under Observations),Subject group,Multi-picklist,Elephants
+,Create,,Location,Feature,Forest Area
+,View,,Age of observations < or >,# hours,24
+,Export,,Additional data field,"List of fields, then value type based on field selected",Manufacturer = Edgetech
+,Upload GPX,,Active,Boolean,TRUE
+,Edit,,Subject type,Multi-picklist,Animals
+,Delete,,Subject sub-type,Multi-picklist,Elephants
+,,,,,
+Event,Administer,Events,Current distance from user,# meters,5000
+,Create,Event types,Event type,Multi-picklist,Arrest
+,View,Event categories,Event category,Multi-picklist,Security
+,Export,Choices,Priority,Multi-picklist,Red
+,Edit,,Age of event < or >,# of hours,
+,Delete,,Location,Feature,Forest Area
+,,,Event Fields,Multi-picklist (might require first selecting an event type),Animal Sighted = Elephant
+,Field-level View,,,,
+,Field-level Edit,,,,
+,,,,,
+Feature,Administer,(Everything under Map Layers),Feature name,Multi-picklist,Forest Area
+,View,,Feature class,Multi-picklist,Forests
+,,,Feature group,Multi-picklist,Priority Forests
+,,,,,
+Patrols,Administer,Patrols,Patrol Type,Multi-picklist,Dog Patrol
+,Create,Patrol Types,Patrol Status,Picklist,Active
+,View,Patrol Configurations,Age of Patrol < or >,# hours,24
+,Edit,,,,
+,Export,,,,
+,Delete,,,,
+,,,,,
+Messages,Administer,,Subject group,Multi-picklist,Elephants
+,Create,,,Multi-picklist,Arrest
+,View,,,Multi-picklist,Security
+,,,,,
+Alerts,Administer,Alert Rules,Event Type,Multi-picklist,Arrest
+,Create Notification Type,Noticiation Methods,Event Category,Multi-picklist,Security
+,Create,,Subject Group,Multi-picklist,Elephants
+,View,,,,
+,Edit,,,,
+,Delete,,,,
+,,,,,
+User,Administer,Users,,,
+,View,Permission Sets,,,
+,,Access Tokens,,,

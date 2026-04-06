@@ -134,7 +134,9 @@ class GroupPermissionsFilter(BaseFilterBackend):
 
         if user.is_superuser:
             # Superusers can see everything, just apply visibility filters
-            if not include_hidden:
+            # Only filter on is_visible if it's an actual model field (not a property)
+            has_is_visible_field = any(f.name == "is_visible" for f in queryset.model._meta.get_fields())
+            if not include_hidden and has_is_visible_field:
                 return queryset.filter(is_visible=is_visible)
             return queryset
 

@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import logging
-import re
 from collections import Counter
 from datetime import datetime, timezone
-from uuid import uuid4
+from typing import Any
+from uuid import UUID, uuid4
 
 from django.utils.dateparse import parse_datetime
 from rest_framework import serializers
@@ -34,13 +36,13 @@ class GeoLocationSerializer(serializers.Serializer):
         allow_null=True,
     )
 
-    def validate_latitude(self, value):
+    def validate_latitude(self, value: float | None) -> float | None:
         """Validate latitude is within valid range (if provided)."""
         if value is not None and not -90 <= value <= 90:
             raise serializers.ValidationError("Latitude must be between -90 and 90 degrees")
         return value
 
-    def validate_longitude(self, value):
+    def validate_longitude(self, value: float | None) -> float | None:
         """Validate longitude is within valid range (if provided)."""
         if value is not None and not -180 <= value <= 180:
             raise serializers.ValidationError("Longitude must be between -180 and 180 degrees")
@@ -78,7 +80,7 @@ class GearDeviceCreateSerializer(serializers.Serializer):
     )
     recorded_at = serializers.DateTimeField(required=False)
 
-    def validate_last_deployed(self, value):
+    def validate_last_deployed(self, value: datetime | None) -> datetime | None:
         if value:
             now = datetime.now(timezone.utc)
             if value > now:
@@ -86,7 +88,7 @@ class GearDeviceCreateSerializer(serializers.Serializer):
 
         return value
 
-    def validate_last_updated(self, value):
+    def validate_last_updated(self, value: datetime | None) -> datetime | None:
         """Validate device last updated date."""
         if value:
             now = datetime.now(timezone.utc)
@@ -95,7 +97,7 @@ class GearDeviceCreateSerializer(serializers.Serializer):
 
         return value
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         # Use device_id as mfr_device_id if not provided
         if not attrs.get("mfr_device_id"):
             attrs["mfr_device_id"] = str(attrs.get("device_id"))
@@ -120,7 +122,7 @@ class GearCreateSerializer(serializers.Serializer):
     set_additional_data = serializers.JSONField(required=False)
     devices = GearDeviceCreateSerializer(many=True, required=True)
 
-    def validate_manufacturer_name(self, value):
+    def validate_manufacturer_name(self, value: str) -> str:
         """Validate manufacturer_name corresponds to an existing SubjectGroup."""
         if not value or not value.strip():
             raise serializers.ValidationError("Manufacturer name cannot be empty")
@@ -161,19 +163,19 @@ class GearCreateSerializer(serializers.Serializer):
 
         return value
 
-    def validate_owner_id(self, value):
+    def validate_owner_id(self, value: str) -> str:
         """Validate owner_id is not empty and has valid format."""
         if not value or not value.strip():
             raise serializers.ValidationError("Owner ID cannot be empty")
         return value.strip()
 
-    def validate_devices_in_set(self, value):
+    def validate_devices_in_set(self, value: int | None) -> int | None:
         """Validate devices_in_set is a positive integer."""
         if value is not None and value <= 0:
             raise serializers.ValidationError("devices_in_set must be a positive integer")
         return value
 
-    def validate_initial_deployment_date(self, value):
+    def validate_initial_deployment_date(self, value: datetime | None) -> datetime | None:
         """Validate deployment date is not too far in the past or future."""
         if value:
             now = datetime.now(timezone.utc)
@@ -181,7 +183,7 @@ class GearCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Initial deployment date cannot be in the future")
         return value
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         """
         Cross-field validation for gear creation.
         Also, if set_id is not provided, try to infer it from devices using _get_gearset_id
@@ -265,7 +267,7 @@ class GearCreateSerializer(serializers.Serializer):
 
         return super().validate(attrs)
 
-    def _get_gearset_id(self, gearset_data, devices_info):
+    def _get_gearset_id(self, gearset_data: dict[str, Any], devices_info: list[dict[str, Any]]) -> UUID | None:
         """
         Determine the gearset ID based on provided data.
         1. If set_id is provided in gearset_data, use that.
@@ -312,7 +314,7 @@ class GearCreateSerializer(serializers.Serializer):
 
 
 class GearSerializer(serializers.ModelSerializer):
-    """ModelSerializer that serializes a SubjectSource and returns
+    """ModelSerializer that serializes a Subject (gearset) and returns
     a gear representation.
 
     It mirrors the structure:
@@ -340,7 +342,7 @@ class GearSerializer(serializers.ModelSerializer):
     }
     """
 
-    id = StrictUUIDField(source="subject.id")
+    id = StrictUUIDField()
     display_id = serializers.SerializerMethodField()
     last_updated = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
@@ -348,154 +350,137 @@ class GearSerializer(serializers.ModelSerializer):
     type = serializers.SerializerMethodField()
     manufacturer = serializers.SerializerMethodField()
 
-    def get_last_updated(self, obj):
+    def get_last_updated(self, obj: models.Subject) -> str | None:
         """Get last_updated from Subject's additional field, fallback to updated_at."""
-        if subject := obj.subject:
-            additional = subject.additional or {}
-            if "last_updated" in additional:
-                # Parse ISO format datetime string from additional field
-                last_updated_str = additional["last_updated"]
-                if isinstance(last_updated_str, str):
-
-                    last_updated = parse_datetime(last_updated_str)
-                else:
-                    last_updated = last_updated_str
+        additional = obj.additional or {}
+        if "last_updated" in additional:
+            last_updated_str = additional["last_updated"]
+            if isinstance(last_updated_str, str):
+                last_updated = parse_datetime(last_updated_str)
             else:
-                last_updated = subject.updated_at
+                last_updated = last_updated_str
+        else:
+            last_updated = obj.updated_at
 
-            if hasattr(last_updated, "isoformat"):
-                return last_updated.isoformat()
-            return last_updated
-        raise serializers.ValidationError("Subject is missing for SubjectSource")
+        if hasattr(last_updated, "isoformat"):
+            return last_updated.isoformat()
+        return last_updated
 
-    def get_display_id(self, obj):
-        if subject := obj.subject:
-            if DISPLAY_ID_KEY in subject.additional:
-                return subject.additional[DISPLAY_ID_KEY]
-            return subject.name
-        raise serializers.ValidationError("Subject is missing for SubjectSource")
+    def get_display_id(self, obj: models.Subject) -> str:
+        additional = obj.additional or {}
+        if DISPLAY_ID_KEY in additional:
+            return additional[DISPLAY_ID_KEY]
+        return obj.name
 
-    def get_status(self, obj):
-        if subject := obj.subject:
-            return "deployed" if subject.is_active else "hauled"
-        raise serializers.ValidationError("Subject is missing for SubjectSource")
+    def get_status(self, obj: models.Subject) -> str:
+        return "deployed" if obj.is_active else "hauled"
 
-    def get_manufacturer(self, obj):
-        if subject := obj.subject:
-            # First, try to get manufacturer from Subject's additional field (new approach)
-            additional = subject.additional or {}
-            manufacturer = additional.get("manufacturer")
-            if manufacturer:
-                return manufacturer
+    def get_manufacturer(self, obj: models.Subject) -> str:
+        additional = obj.additional or {}
+        manufacturer = additional.get("manufacturer")
+        if manufacturer:
+            return manufacturer
 
-            # Second, try to get from SubjectGroup name
-            # Get the first SubjectGroup the subject belongs to (assuming one SubjectGroup per manufacturer)
-            subject_groups = subject.groups.all()
-            if subject_groups.exists():
-                return subject_groups.first().name
-
-        # Fallback to provider_key for backward compatibility
-        if obj.source and obj.source.provider:
-            provider_key = obj.source.provider.provider_key
-            if match := re.match(r"^gundi_(.+?)_[0-9a-f-]+$", provider_key):
-                return match.group(1)
-            return provider_key
+        # Try to get from SubjectGroup name
+        first_group = obj.groups.first()
+        if first_group:
+            return first_group.name
 
         return "unknown"
 
-    def get_devices(self, obj):
-        if subject := obj.subject:
-            devices = []
-            now = datetime.now(timezone.utc)
+    def get_devices(self, obj: models.Subject) -> list[dict[str, Any]]:
+        """Return devices list, cached per object to avoid re-computation (get_type also calls this)."""
+        if not hasattr(self, "_devices_cache"):
+            self._devices_cache: dict[UUID, list[dict[str, Any]]] = {}
+        if obj.pk not in self._devices_cache:
+            self._devices_cache[obj.pk] = self._compute_devices(obj)
+        return self._devices_cache[obj.pk]
 
-            # Check if we should include devices with empty locations
-            include_empty_location = self.context.get("include_empty_location", False)
+    def _compute_devices(self, obj: models.Subject) -> list[dict[str, Any]]:
+        # obj is a Subject instance
+        devices = []
+        now = datetime.now(timezone.utc)
 
-            # Build base query for related subject sources
-            # Note: We use select_related only for "source" and not "source__provider" because
-            # the default SourceProvider may not exist in test environments, and select_related
-            # uses INNER JOIN which would exclude those rows.
-            # We prefetch last_observation_sources but NOT the observation FK to avoid
-            # expensive queries on the partitioned observations table.
+        # Check if we should include devices with empty locations
+        include_empty_location = self.context.get("include_empty_location", False)
+
+        # Use prefetched subjectsources (set via to_attr="all_subjectsources") when available,
+        # otherwise fall back to a DB query (e.g. detail view without the prefetch).
+        # Note: We use select_related only for "source" and not "source__provider" because
+        # the default SourceProvider may not exist in test environments, and select_related
+        # uses INNER JOIN which would exclude those rows.
+        if hasattr(obj, "all_subjectsources"):
+            all_ss = obj.all_subjectsources
+            if obj.is_active:
+                # For ACTIVE subjects: filter in Python to avoid hitting the DB again
+                related_subject_sources = [ss for ss in all_ss if ss.assigned_range and now in ss.assigned_range]
+            else:
+                # For INACTIVE subjects: all historical sources
+                related_subject_sources = all_ss
+        else:
             related_subject_sources_query = (
-                models.SubjectSource.objects.filter(subject__id=subject.id)
-                .select_related("source")
-                .prefetch_related("source__last_observation_sources")
+                models.SubjectSource.objects.filter(subject__id=obj.id).select_related("source").order_by("source_id")
             )
-
-            if subject.is_active:
+            if obj.is_active:
                 # For ACTIVE subjects: Get only currently deployed sources (within current time range)
                 related_subject_sources = related_subject_sources_query.filter(assigned_range__contains=now)
             else:
                 # For INACTIVE subjects: Get all historical sources (regardless of time range)
                 related_subject_sources = related_subject_sources_query
 
-            for idx, subject_source in enumerate(related_subject_sources):
-                if subject_source.source:
-                    device_id = str(subject_source.source.id)
-                    mfr_device_id = subject_source.source.manufacturer_id
-                    # Use prefetched LatestObservationSource data instead of making individual queries
-                    # This prevents N+1 query problem when serializing multiple gears
-                    latest_obs_source = subject_source.source.last_observation_sources.first()
-                    has_real_location = False
-                    if latest_obs_source and latest_obs_source.observation:
-                        observation = latest_obs_source.observation
-                        # Check for EMPTY_POINT (0,0) which indicates no real location data
-                        # Compare coordinates directly to avoid SRID mismatch issues
-                        is_empty_point = not observation.location or (
-                            observation.location.x == 0 and observation.location.y == 0
-                        )
-                        if not is_empty_point:
-                            location = {"latitude": observation.location.y, "longitude": observation.location.x}
-                            has_real_location = True
-                        else:
-                            location = {"latitude": None, "longitude": None}
+        for subject_source in related_subject_sources:
+            if subject_source.source:
+                device_id = str(subject_source.source.id)
+                mfr_device_id = subject_source.source.manufacturer_id
+                # SubjectSource.location is kept current by BuoyService on every observation.
+                loc = subject_source.location
+                has_real_location = bool(loc and not (loc.x == 0 and loc.y == 0))
+                if has_real_location:
+                    location = {"latitude": loc.y, "longitude": loc.x}
+                else:
+                    location = {"latitude": None, "longitude": None}
+
+                # Skip devices with empty location unless include_empty_location is True
+                if not has_real_location and not include_empty_location:
+                    continue
+
+                # Get last_updated from Source's additional field, fallback to updated_at
+                source_additional = subject_source.source.additional or {}
+                if "last_updated" in source_additional:
+                    last_updated_str = source_additional["last_updated"]
+                    if isinstance(last_updated_str, str):
+                        device_last_updated = parse_datetime(last_updated_str)
                     else:
-                        location = {"latitude": None, "longitude": None}
+                        device_last_updated = last_updated_str
+                else:
+                    device_last_updated = subject_source.source.updated_at
 
-                    # Skip devices with empty location unless include_empty_location is True
-                    if not has_real_location and not include_empty_location:
-                        continue
+                # Convert to ISO format string
+                if hasattr(device_last_updated, "isoformat"):
+                    device_last_updated = device_last_updated.isoformat()
 
-                    # Get last_updated from Source's additional field, fallback to updated_at
-                    source_additional = subject_source.source.additional or {}
-                    if "last_updated" in source_additional:
-                        last_updated_str = source_additional["last_updated"]
-                        if isinstance(last_updated_str, str):
-                            from django.utils.dateparse import parse_datetime
+                # Convert last_deployed to ISO format string
+                assigned_range = subject_source.assigned_range
+                last_deployed = assigned_range.lower if assigned_range else None
+                if hasattr(last_deployed, "isoformat"):
+                    last_deployed = last_deployed.isoformat()
 
-                            device_last_updated = parse_datetime(last_updated_str)
-                        else:
-                            device_last_updated = last_updated_str
-                    else:
-                        device_last_updated = subject_source.source.updated_at
+                device = {
+                    "device_id": device_id,
+                    "mfr_device_id": mfr_device_id,
+                    "label": chr(97 + len(devices)),  # 'a', 'b', 'c', etc. based on included devices
+                    "location": location,
+                    "last_updated": device_last_updated,
+                    "last_deployed": last_deployed,
+                }
+                devices.append(device)
 
-                    # Convert to ISO format string
-                    if hasattr(device_last_updated, "isoformat"):
-                        device_last_updated = device_last_updated.isoformat()
+        return devices
 
-                    # Convert last_deployed to ISO format string
-                    last_deployed = subject_source.assigned_range.lower
-                    if hasattr(last_deployed, "isoformat"):
-                        last_deployed = last_deployed.isoformat()
-
-                    device = {
-                        "device_id": device_id,
-                        "mfr_device_id": mfr_device_id,
-                        "label": chr(97 + len(devices)),  # 'a', 'b', 'c', etc. based on included devices
-                        "location": location,
-                        "last_updated": device_last_updated,
-                        "last_deployed": last_deployed,
-                    }
-                    devices.append(device)
-
-            return devices
-        raise serializers.ValidationError("Subject is missing for SubjectSource")
-
-    def get_type(self, obj):
+    def get_type(self, obj: models.Subject) -> str:
         devices = self.get_devices(obj)
         return GEAR_TYPE_TRAWL if len(devices) > 1 else GEAR_TYPE_SINGLE
 
     class Meta:
-        model = models.SubjectSource
+        model = models.Subject
         fields = ("id", "display_id", "status", "devices", "type", "manufacturer", "last_updated")

@@ -11,9 +11,10 @@ from django.test import TestCase
 from rest_framework.exceptions import PermissionDenied
 
 import accounts.views as views
+from accounts.backends import AccountsModelBackend
 from accounts.models import PermissionSet, User
 from core.tests import BaseAPITest
-from factories import PermissionSetFactory
+from factories import PermissionSetFactory, UserFactory
 
 
 def random_string(length=10):
@@ -77,6 +78,45 @@ class TestTenantPermissionSets:
         duplicate_permissions = [permission for permission in permissions if permissions.count(permission) > 1]
         assert len(duplicate_permissions) == 0
 
+    @pytest.fixture
+    def user_with_view_subject_only_ps(self, view_subject_permissions):
+        """User in the current tenant whose PermissionSet contains only view_subject."""
+        user = UserFactory.create()
+        ps = PermissionSetFactory.create(permissions=[view_subject_permissions[1]])  # view_subject only
+        user.permission_sets.add(ps)
+        return user, ps
+
+    @pytest.fixture
+    def cross_tenant_copies_with_extra_perm(
+        self, user_with_view_subject_only_ps, view_subject_permissions, five_tenants
+    ):
+        """Same PermissionSet UUID exists in five other tenants, but with view_subjectgroup instead."""
+        user, ps = user_with_view_subject_only_ps
+        previous_tenant = get_current_tenant()
+        try:
+            for tenant in list(five_tenants):
+                set_current_tenant(tenant)
+                PermissionSetFactory.create(
+                    das_tenant=tenant,
+                    id=ps.id,
+                    permissions=[view_subject_permissions[0]],  # view_subjectgroup only
+                )
+        finally:
+            set_current_tenant(previous_tenant)
+        return user
+
+    def test_get_group_permissions_does_not_leak_cross_tenant_permissions(self, cross_tenant_copies_with_extra_perm):
+        """get_group_permissions must not return permissions from other tenants' PermissionSetPermission
+        rows when a PermissionSet UUID is shared across tenants (legacy default permissionsets)."""
+        set_current_tenant(self.das_tenant)
+        user = cross_tenant_copies_with_extra_perm
+        backend = AccountsModelBackend()
+        perms = backend.get_group_permissions(user)
+
+        assert "observations.view_subject" in perms
+        # view_subjectgroup only exists in the other tenants' copies — must not bleed through
+        assert "observations.view_subjectgroup" not in perms
+
 
 class BaseTestCase(TestCase):
     def setUp(self):
@@ -86,6 +126,7 @@ class BaseTestCase(TestCase):
         self.all_set.children.add(self.some_set)
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class PermissionSetTestCase(BaseTestCase):
     def setUp(self):
         super().setUp()

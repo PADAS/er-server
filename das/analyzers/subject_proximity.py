@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 import math
 
 import pymet
@@ -8,9 +9,12 @@ from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.contrib.gis.geos import Point as DjangoPoint
 from django.utils.translation import gettext_lazy as _
 
+from analyzers.base import DEFAULT_SEARCH_TIME_HOURS
 from analyzers.models import SubjectAnalyzerResult, SubjectProximityAnalyzerConfig
 from analyzers.models.base import CRITICAL
 from analyzers.proximity import ProximityAnalyzer
+
+logger = logging.getLogger(__name__)
 
 
 class SubjectProximityAnalyzer(ProximityAnalyzer):
@@ -28,7 +32,14 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
 
     def default_observations(self):
         if self.config.analysis_search_time_hours <= 0:
-            return list(self.subject.observations())
+            logger.warning(
+                "SubjectProximityAnalyzer: analysis_search_time_hours=%s for config id=%s, "
+                "using default of %s hours.",
+                self.config.analysis_search_time_hours,
+                self.config.id,
+                DEFAULT_SEARCH_TIME_HOURS,
+            )
+            return list(self.subject.observations(last_hours=DEFAULT_SEARCH_TIME_HOURS))
         else:
             return list(self.subject.observations(last_hours=self.config.analysis_search_time_hours))
 

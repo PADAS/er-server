@@ -1,6 +1,7 @@
 import json
 from datetime import timedelta
 from unittest.mock import Mock
+from uuid import uuid4
 
 import pytest
 from dateutil import parser as date_parser
@@ -13,10 +14,11 @@ from accounts.models import PermissionSet
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
 from buoy.serializers import GearCreateSerializer, GearSerializer
 from buoy.serializers.gear import GearDeviceCreateSerializer, GeoLocationSerializer
-from buoy.services.buoy_service import BuoyService
+from buoy.services.buoy_service import BuoyService, OlderGearsetRejectedError
 from core.tests import BaseAPITest
 from factories import SubjectTypeFactory
 from observations.models import (
+    DEFAULT_ASSIGNED_RANGE,
     EMPTY_POINT,
     Observation,
     Source,
@@ -60,18 +62,19 @@ class TestGearSerializer:
         # Create time range for deployment
         time_range = DateTimeTZRange(now, None)
 
-        # Update existing SubjectSource with time range
+        # Update existing SubjectSource with time range and location
         gear_subjectsource.assigned_range = time_range
+        gear_subjectsource.location = location1
         gear_subjectsource.save()
 
-        # Create second SubjectSource
-        SubjectSource.objects.create(subject=subject, source=source2, assigned_range=time_range)
+        # Create second SubjectSource with location
+        SubjectSource.objects.create(subject=subject, source=source2, assigned_range=time_range, location=location2)
 
         # Set display_id in subject additional
         subject.additional = {"display_id": "Test_Gear_1"}
         subject.save()
 
-        serialized_gear = GearSerializer(gear_subjectsource).data
+        serialized_gear = GearSerializer(subject).data
 
         assert serialized_gear["id"] == str(subject.id)
         assert serialized_gear["display_id"] == "Test_Gear_1"
@@ -89,7 +92,7 @@ class TestGearSerializer:
         # Test hauled status
         subject.is_active = False
         subject.save()
-        serialized_gear = GearSerializer(gear_subjectsource).data
+        serialized_gear = GearSerializer(subject).data
         assert serialized_gear["status"] == "hauled"
 
     def test_with_single_gear_subject(self, gear_subjectsource):
@@ -110,15 +113,16 @@ class TestGearSerializer:
         # Create time range for deployment
         time_range = DateTimeTZRange(now, None)
 
-        # Update SubjectSource with time range
+        # Update SubjectSource with time range and location
         gear_subjectsource.assigned_range = time_range
+        gear_subjectsource.location = location
         gear_subjectsource.save()
 
         # Set display_id in subject additional
         subject.additional = {"display_id": "Test_Gear_Single"}
         subject.save()
 
-        serialized_gear = GearSerializer(gear_subjectsource).data
+        serialized_gear = GearSerializer(subject).data
 
         assert serialized_gear["id"] == str(subject.id)
         assert serialized_gear["display_id"] == "Test_Gear_Single"
@@ -135,7 +139,7 @@ class TestGearSerializer:
         # Test hauled status
         subject.is_active = False
         subject.save()
-        serialized_gear = GearSerializer(gear_subjectsource).data
+        serialized_gear = GearSerializer(subject).data
         assert serialized_gear["status"] == "hauled"
 
     def test_with_ropeless_buoy_gearset_subject(self):
@@ -181,12 +185,16 @@ class TestGearSerializer:
         deployment_time = now
         time_range = DateTimeTZRange(deployment_time, None)  # Open-ended range starting from deployment_time
 
-        subject_source1 = SubjectSource.objects.create(subject=subject, source=source1, assigned_range=time_range)
+        subject_source1 = SubjectSource.objects.create(
+            subject=subject, source=source1, assigned_range=time_range, location=location1
+        )
 
-        subject_source2 = SubjectSource.objects.create(subject=subject, source=source2, assigned_range=time_range)
+        subject_source2 = SubjectSource.objects.create(
+            subject=subject, source=source2, assigned_range=time_range, location=location2
+        )
 
         # Act
-        serialized_gear = GearSerializer(subject_source1).data
+        serialized_gear = GearSerializer(subject).data
 
         # Assert
         assert serialized_gear["id"] == str(subject.id)
@@ -203,34 +211,38 @@ class TestGearSerializer:
         assert str(source1.id) in device_ids
         assert str(source2.id) in device_ids
 
-        # Check first device
+        # Devices are ordered by source_id (UUID), so labels depend on UUID sort order.
+        # Verify both labels are present and each device has the correct fields.
+        device_labels = sorted(d["label"] for d in devices)
+        assert device_labels == ["a", "b"]
+
+        # Check device for source1
         device1 = next(d for d in devices if d["device_id"] == str(source1.id))
-        assert device1["label"] == "a"  # First device should get label 'a'
         assert device1["mfr_device_id"] == "mfr_device_001"
         assert "location" in device1
         assert device1["location"]["latitude"] == 31.19239
         assert device1["location"]["longitude"] == -24.43071
-        assert "last_deployed" in device1  # Check it exists (datetime object from assigned_range.lower)
+        assert "last_deployed" in device1
 
-        # Check second device
+        # Check device for source2
         device2 = next(d for d in devices if d["device_id"] == str(source2.id))
-        assert device2["label"] == "b"  # Second device should get label 'b'
         assert device2["mfr_device_id"] == "mfr_device_002"
         assert "location" in device2
         assert device2["location"]["latitude"] == 31.20239
         assert device2["location"]["longitude"] == -24.44071
-        assert "last_deployed" in device2  # Check it exists (datetime object from assigned_range.lower)
+        assert "last_deployed" in device2
 
         # Test hauled status
         subject.is_active = False
         subject.save()
-        serialized_gear = GearSerializer(subject_source1).data
+        serialized_gear = GearSerializer(subject).data
         assert serialized_gear["status"] == "hauled"
 
         # Test single device case (should be type "single")
         subject_source2.delete()
         source2.delete()
-        serialized_gear = GearSerializer(subject_source1).data
+        subject.refresh_from_db()
+        serialized_gear = GearSerializer(subject).data
         assert serialized_gear["type"] == "single"
         assert len(serialized_gear["devices"]) == 1
 
@@ -273,13 +285,19 @@ class TestGearSerializer:
         time_range = DateTimeTZRange(deployment_time, None)  # Open-ended range
 
         # Create SubjectSource relationships - subject1 has 1 source, subject2 has 2 sources
-        subject_source1 = SubjectSource.objects.create(subject=subject1, source=source1, assigned_range=time_range)
-        subject_source2 = SubjectSource.objects.create(subject=subject2, source=source2, assigned_range=time_range)
+        subject_source1 = SubjectSource.objects.create(
+            subject=subject1, source=source1, assigned_range=time_range, location=location1
+        )
+        subject_source2 = SubjectSource.objects.create(
+            subject=subject2, source=source2, assigned_range=time_range, location=location2
+        )
         # Add third source to subject2
-        subject_source3 = SubjectSource.objects.create(subject=subject2, source=source3, assigned_range=time_range)
+        subject_source3 = SubjectSource.objects.create(
+            subject=subject2, source=source3, assigned_range=time_range, location=location3
+        )
 
         # Act - serialize subject1 (should only include its own device)
-        serialized_gear1 = GearSerializer(subject_source1).data
+        serialized_gear1 = GearSerializer(subject1).data
 
         # Assert for subject1 - only has 1 device
         assert serialized_gear1["id"] == str(subject1.id)
@@ -295,7 +313,7 @@ class TestGearSerializer:
         assert str(source1.id) in device_ids1
 
         # Act - serialize subject2 (should include its 2 devices)
-        serialized_gear2 = GearSerializer(subject_source2).data
+        serialized_gear2 = GearSerializer(subject2).data
 
         # Assert for subject2 - has 2 devices
         assert serialized_gear2["id"] == str(subject2.id)
@@ -312,6 +330,65 @@ class TestGearSerializer:
         assert str(source3.id) in device_ids2
         # subject1's device should NOT be in subject2's serialization
         assert str(source1.id) not in device_ids2
+
+    def test_manufacturer_returns_unknown_when_no_additional_and_no_group(self):
+        """When a Subject has no 'manufacturer' in additional and belongs to no SubjectGroup,
+        get_manufacturer should return 'unknown'."""
+        subject_type = SubjectTypeFactory(value="gear")
+        subject_subtype = SubjectSubType.objects.create(
+            value=BUOY_GEAR_SUBJECT_SUBTYPE, display="Ropeless Buoy Gearset", subject_type=subject_type
+        )
+        subject = Subject.objects.create(
+            name="No_Manufacturer_Gear",
+            subject_subtype=subject_subtype,
+            is_active=True,
+            additional={},
+        )
+        provider = SourceProvider.objects.create(display_name="Test Provider NM", provider_key="test_provider_nm")
+        source = Source.objects.create(manufacturer_id="mfr_nm_001", provider=provider)
+        now = timezone.now()
+        location = Point(-24.43071, 31.19239)
+        SubjectSource.objects.create(
+            subject=subject,
+            source=source,
+            assigned_range=DateTimeTZRange(now, None),
+            location=location,
+        )
+
+        serialized = GearSerializer(subject).data
+
+        assert serialized["manufacturer"] == "unknown"
+
+    def test_manufacturer_returns_group_name_when_no_additional(self):
+        """When a Subject has no 'manufacturer' in additional but belongs to a SubjectGroup,
+        get_manufacturer should return the group name."""
+        subject_type = SubjectTypeFactory(value="gear")
+        subject_subtype = SubjectSubType.objects.create(
+            value=BUOY_GEAR_SUBJECT_SUBTYPE, display="Ropeless Buoy Gearset MFR", subject_type=subject_type
+        )
+        subject = Subject.objects.create(
+            name="Group_Mfr_Gear",
+            subject_subtype=subject_subtype,
+            is_active=True,
+            additional={},
+        )
+        group = SubjectGroup.objects.create(name="EdgeTech")
+        subject.groups.add(group)
+
+        provider = SourceProvider.objects.create(display_name="Test Provider GM", provider_key="test_provider_gm")
+        source = Source.objects.create(manufacturer_id="mfr_gm_001", provider=provider)
+        now = timezone.now()
+        location = Point(-24.43071, 31.19239)
+        SubjectSource.objects.create(
+            subject=subject,
+            source=source,
+            assigned_range=DateTimeTZRange(now, None),
+            location=location,
+        )
+
+        serialized = GearSerializer(subject).data
+
+        assert serialized["manufacturer"] == "EdgeTech"
 
 
 class TestGearCreateSerializer(BaseAPITest):
@@ -818,14 +895,11 @@ def test_gear_serializer_devices_and_manufacturer():
     src = Source.objects.create(manufacturer_id="mfr_dev1", provider=provider)
     now = timezone.now()
 
-    rng = DateTimeTZRange(now - timedelta(days=1), None)
-    ss = SubjectSource.objects.create(subject=subject, source=src, assigned_range=rng)
-
-    # Create an observation for source to provide location
     point = Point(-24.43, 31.19)
-    Observation.objects.create(recorded_at=now, location=point, source=src)
+    rng = DateTimeTZRange(now - timedelta(days=1), None)
+    SubjectSource.objects.create(subject=subject, source=src, assigned_range=rng, location=point)
 
-    s = GearSerializer(ss)
+    s = GearSerializer(subject)
     data = s.data
     assert data["manufacturer"] == "acme"
     assert isinstance(data["devices"], list)
@@ -933,6 +1007,240 @@ def test_process_gearset_reuses_source_by_id_when_manufacturer_id_differs(superu
     # Reused source keeps its original manufacturer_id (we do not overwrite it)
     existing_source.refresh_from_db()
     assert existing_source.manufacturer_id == "original_mfr_id"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_accepts_new_deployment_and_closes_previous_gearset(superuser):
+    """When a new gearset is posted with a device already deployed elsewhere, accept it and close the previous deployment."""
+    subject_group = SubjectGroup.objects.create(name="AlreadyDeployedManufacturer")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    subject_subtype = SubjectSubType.objects.get_or_create(value=BUOY_GEAR_SUBJECT_SUBTYPE)[0]
+    provider = SourceProvider.objects.create(
+        display_name="AlreadyDeployedManufacturer", provider_key="gundi_alreadydeployedmanufacturer"
+    )
+    device_uuid = "550fd840-728b-4742-a3e5-7c8f67b5212b"
+    source = Source.objects.create(
+        id=device_uuid,
+        manufacturer_id="shared_device",
+        provider=provider,
+    )
+    # First gearset (subject A): create subject and deploy the device with a realistic lower bound
+    t1 = timezone.now() - timedelta(days=1)
+    subject_a = Subject.objects.create(
+        name="Gearset_A",
+        subject_subtype=subject_subtype,
+        is_active=True,
+    )
+    subject_a.groups.add(subject_group)
+    SubjectSource.objects.create(
+        subject=subject_a,
+        source=source,
+        assigned_range=DateTimeTZRange(lower=t1, upper=DEFAULT_ASSIGNED_RANGE[1]),
+    )
+
+    now = timezone.now()
+    data_new_gearset = {
+        "set_id": str(uuid4()),  # Explicit new gearset; otherwise serializer infers existing subject from device
+        "manufacturer_name": "AlreadyDeployedManufacturer",
+        "owner_id": "owner123",
+        "mfr_set_id": "SET_B",
+        "deployment_type": "single",
+        "initial_deployment_date": now,
+        "devices": [
+            {
+                "device_id": device_uuid,
+                "mfr_device_id": "shared_device",
+                "recorded_at": now,
+                "last_deployed": now,
+                "last_updated": now,
+                "device_status": "deployed",
+                "location": {"latitude": 2.0, "longitude": 3.0},
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=data_new_gearset, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+
+    subject_b, observations = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # New gearset B was created and device is assigned to it
+    assert subject_b.id != subject_a.id
+    assert len(observations) == 1
+
+    # Previous gearset A: device's SubjectSource is now closed (hauled)
+    subject_a.refresh_from_db()
+    ss_a = SubjectSource.objects.get(subject=subject_a, source=source)
+    assert ss_a.assigned_range.upper != DEFAULT_ASSIGNED_RANGE[1]
+    # Previous gearset is fully hauled so is_active should be False
+    assert subject_a.is_active is False
+
+    # New gearset B: device is deployed (open upper bound)
+    ss_b = SubjectSource.objects.get(subject=subject_b, source=source)
+    assert ss_b.assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_closes_entire_previous_gearset_even_if_only_one_device_reused(superuser):
+    """When closing a previous gearset, close all SubjectSources on that subject, not just the device in the new payload."""
+    subject_group = SubjectGroup.objects.create(name="CloseAllManufacturer")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    subject_subtype = SubjectSubType.objects.get_or_create(value=BUOY_GEAR_SUBJECT_SUBTYPE)[0]
+    provider = SourceProvider.objects.create(
+        display_name="CloseAllManufacturer", provider_key="gundi_closeallmanufacturer"
+    )
+    device_x_id = "660fd840-728b-4742-a3e5-7c8f67b5212b"
+    device_y_id = "770fd840-728b-4742-a3e5-7c8f67b5212b"
+    source_x = Source.objects.create(
+        id=device_x_id,
+        manufacturer_id="device_x",
+        provider=provider,
+    )
+    source_y = Source.objects.create(
+        id=device_y_id,
+        manufacturer_id="device_y",
+        provider=provider,
+    )
+    # Gearset A: two devices deployed with realistic lower bounds
+    t1 = timezone.now() - timedelta(days=1)
+    subject_a = Subject.objects.create(
+        name="Gearset_A",
+        subject_subtype=subject_subtype,
+        is_active=True,
+    )
+    subject_a.groups.add(subject_group)
+    SubjectSource.objects.create(
+        subject=subject_a,
+        source=source_x,
+        assigned_range=DateTimeTZRange(lower=t1, upper=DEFAULT_ASSIGNED_RANGE[1]),
+    )
+    SubjectSource.objects.create(
+        subject=subject_a,
+        source=source_y,
+        assigned_range=DateTimeTZRange(lower=t1, upper=DEFAULT_ASSIGNED_RANGE[1]),
+    )
+
+    now = timezone.now()
+    # New gearset B with only device X (device Y not in payload)
+    data_new_gearset = {
+        "set_id": str(uuid4()),
+        "manufacturer_name": "CloseAllManufacturer",
+        "owner_id": "owner123",
+        "mfr_set_id": "SET_B",
+        "deployment_type": "single",
+        "initial_deployment_date": now,
+        "devices": [
+            {
+                "device_id": device_x_id,
+                "mfr_device_id": "device_x",
+                "recorded_at": now,
+                "last_deployed": now,
+                "last_updated": now,
+                "device_status": "deployed",
+                "location": {"latitude": 3.0, "longitude": 4.0},
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=data_new_gearset, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+
+    subject_b, observations = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    assert subject_b.id != subject_a.id
+    assert len(observations) == 1
+
+    # Previous gearset A: BOTH devices must be closed (entire gearset hauled)
+    subject_a.refresh_from_db()
+    ss_a_x = SubjectSource.objects.get(subject=subject_a, source=source_x)
+    ss_a_y = SubjectSource.objects.get(subject=subject_a, source=source_y)
+    assert ss_a_x.assigned_range.upper != DEFAULT_ASSIGNED_RANGE[1]
+    assert ss_a_y.assigned_range.upper != DEFAULT_ASSIGNED_RANGE[1]
+    assert subject_a.is_active is False
+
+    # New gearset B: only device X is on it
+    ss_b_x = SubjectSource.objects.get(subject=subject_b, source=source_x)
+    assert ss_b_x.assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_rejects_older_gearset_when_device_on_newer_gearset(superuser):
+    """Posting an older gearset (earlier recorded_at) when device is deployed on a newer gearset returns 400."""
+    subject_group = SubjectGroup.objects.create(name="OlderRejectManufacturer")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    subject_subtype = SubjectSubType.objects.get_or_create(value=BUOY_GEAR_SUBJECT_SUBTYPE)[0]
+    provider = SourceProvider.objects.create(
+        display_name="OlderRejectManufacturer", provider_key="gundi_olderrejectmanufacturer"
+    )
+    device_uuid = "880fd840-728b-4742-a3e5-7c8f67b5212b"
+    source = Source.objects.create(
+        id=device_uuid,
+        manufacturer_id="device_1",
+        provider=provider,
+    )
+    # Newer gearset B: device deployed at T2
+    t2 = timezone.now()
+    subject_b = Subject.objects.create(
+        name="Gearset_B_newer",
+        subject_subtype=subject_subtype,
+        is_active=True,
+    )
+    subject_b.groups.add(subject_group)
+    SubjectSource.objects.create(
+        subject=subject_b,
+        source=source,
+        assigned_range=DateTimeTZRange(t2, DEFAULT_ASSIGNED_RANGE[1]),
+    )
+
+    # Post "older" gearset A with same device but recorded_at T1 < T2
+    t1 = t2 - timedelta(hours=1)
+    data_older_gearset = {
+        "set_id": str(uuid4()),
+        "manufacturer_name": "OlderRejectManufacturer",
+        "owner_id": "owner123",
+        "mfr_set_id": "SET_A_older",
+        "deployment_type": "single",
+        "initial_deployment_date": t1,
+        "devices": [
+            {
+                "device_id": device_uuid,
+                "mfr_device_id": "device_1",
+                "last_deployed": t1,
+                "last_updated": t1,
+                "device_status": "deployed",
+                "recorded_at": t1,
+                "location": {"latitude": 1.0, "longitude": 2.0},
+            }
+        ],
+    }
+
+    serializer = GearCreateSerializer(data=data_older_gearset, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+
+    with pytest.raises(OlderGearsetRejectedError) as exc_info:
+        BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    assert exc_info.value.device_id == device_uuid
+    assert str(subject_b.id) in str(exc_info.value) or exc_info.value.newer_gearset_id == subject_b.id
+    assert "newer gearset" in str(exc_info.value).lower()
+
+    # Newer gearset B unchanged
+    subject_b.refresh_from_db()
+    assert subject_b.is_active is True
+    ss_b = SubjectSource.objects.get(subject=subject_b, source=source)
+    assert ss_b.assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
 
 
 @pytest.mark.django_db
