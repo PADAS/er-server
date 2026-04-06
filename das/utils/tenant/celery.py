@@ -4,7 +4,8 @@ import celery
 from celery import Task, shared_task, signature
 from celery_once import QueueOnce
 
-from django.db.utils import OperationalError
+from django.db import close_old_connections
+from django.db.utils import InterfaceError, OperationalError
 
 from core.models import DASTenant
 from utils.tenant import get_tenant_settings
@@ -28,9 +29,18 @@ class TenantTaskMixin:
         try:
             with TenantContextManager(domain):
                 return super().__call__(*args, **kwargs)
-        except OperationalError as ex:
-            logger.warning("OperationalError occurred while running: %s for Tenant domain: %s", self.name, domain)
+        except (OperationalError, InterfaceError) as ex:
+            logger.warning(
+                "%s occurred while running: %s for Tenant domain: %s",
+                type(ex).__name__,
+                self.name,
+                domain,
+            )
             # default_retry_delay == 180 seconds, max_retries == 3, retry_backoff == exponential backoff, with jitter, max of ten minutes
+            try:
+                close_old_connections()
+            except Exception:
+                logger.debug("Failed to close old connections during retry for: %s", self.name)
             self.retry(exc=ex, retry_backoff=True)
 
     def apply(self, args=None, kwargs=None, *arg, **kw):

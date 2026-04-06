@@ -22,9 +22,45 @@ from utils.features import features
 from utils.middleware import (
     EFB_APPLICATION_ID,
     ManageAdminEFBTokenMiddleware,
+    RequestLoggingMiddleware,
     TenantSettingsMiddleware,
 )
 from utils.tenant.thread import Tenant, get_tenant_settings
+
+
+class TestRequestLoggingMiddlewareLogLevel:
+    def test_process_response_logs_at_info_level(self, rf, caplog):
+        """RequestLoggingMiddleware must log at INFO, not DEBUG, and may drive log-based metrics."""
+        request = rf.get("/test/path/")
+        middleware = RequestLoggingMiddleware(lambda r: HttpResponse())
+        with (
+            patch("utils.middleware.get_tenant_settings") as mock_ts,
+            caplog.at_level(logging.INFO, logger="django.request"),
+        ):
+            mock_ts.return_value.domain = "testdomain"
+            middleware.process_response(request, HttpResponse(status=200))
+
+        request_records = [r for r in caplog.records if r.name == "django.request"]
+        assert len(request_records) == 1
+        record = request_records[0]
+        assert record.levelno == logging.INFO
+        assert record.getMessage() == "GET /test/path/ 200"
+        # extra block fields
+        assert hasattr(record, "remote_addr")
+        assert hasattr(record, "user_id")
+        assert hasattr(record, "profile_id")
+        assert hasattr(record, "req_time")
+        assert hasattr(record, "content_length")
+        assert hasattr(record, "referer")
+        assert hasattr(record, "user_agent")
+        assert hasattr(record, "status")
+        assert hasattr(record, "path")
+        assert hasattr(record, "method")
+        assert hasattr(record, "protocol")
+        assert hasattr(record, "tenant")
+        assert hasattr(record, "host")
+        assert hasattr(record, "language")
+        assert hasattr(record, "auth_token_prefix")
 
 
 @pytest.mark.django_db
