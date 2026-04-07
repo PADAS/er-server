@@ -7,7 +7,7 @@ from django.urls import resolve, reverse
 from rest_framework import status
 
 from observations.servicesutils import get_source_provider_statuses
-from rt_api.tasks import _broadcast_service_status
+from rt_api.tasks import broadcast_service_status_tenant
 from sensors.views import RadioAgentHandlerView
 from utils.tenant import get_tenant_settings
 
@@ -66,7 +66,7 @@ class TestDasRadioAgentHandler:
 
         assert response.status_code == status.HTTP_200_OK
 
-        _broadcast_service_status(domain=get_tenant_settings().domain)
+        broadcast_service_status_tenant(domain=get_tenant_settings().domain)
 
         url = reverse("api-status")
         response = user_client.get(url, {"service_status": True})

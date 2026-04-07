@@ -9,9 +9,7 @@ from django.contrib.postgres.fields import jsonb
 from django.core.cache import cache
 from django.db.models import Q
 
-from das_server import celery
 from observations.models import SourceProvider
-from utils.tenant import get_tenant_settings
 from utils.tenant.cache import MultitenantRedisClient, remove_cache_key_prefix
 
 SERVICE_STATUS_NS = "das-service-status"
@@ -26,7 +24,6 @@ def store_service_status(provider_key=None, data=None):
 
     if valid_heartbeat_and_datasource(data):
         redis_client.set(key, json.dumps(data))
-        celery.app.send_task("rt_api.tasks._broadcast_service_status", kwargs={"domain": get_tenant_settings().domain})
 
 
 def valid_heartbeat_and_datasource(data):

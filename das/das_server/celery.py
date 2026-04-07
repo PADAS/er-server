@@ -18,7 +18,6 @@ from kombu import Exchange, Queue
 from django.conf import settings
 
 import utils.stats
-
 from das_server.redis import TRANSPORT_ALIASES  # pylint: disable=unused-import
 
 # set the default Django settings module for the 'celery' program.
@@ -74,6 +73,7 @@ app.conf.task_routes = {
         "queue": "realtime_p2",
     },
     "rt_api.tasks.broadcast_service_status": {"queue": "realtime_p2"},
+    "rt_api.tasks.broadcast_service_status_tenant": {"queue": "realtime_p2"},
     "rt_api.tasks.handle_new_event": {
         "queue": "realtime_p2",
     },

@@ -137,7 +137,7 @@
             "name": "ER Workers",
             "type": "debugpy",
             "request": "launch",
-            "program": "celery",
+            "module": "celery",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "args": [
