@@ -3,6 +3,7 @@ from typing import Any, Dict, NamedTuple
 
 from business_rules import actions, export_rule_data, fields, variables
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.utils.translation import gettext as _
 
 from activity.alerting.schema_properties import AlertingSchemaPropertiesAdapter
@@ -447,7 +448,7 @@ def resolve_event_revisions(event):
     revision = event.revision.all_user().latest("revision_at")
     try:
         details_revision = event.event_details.latest("updated_at").revision.all_user().latest("revision_at")
-    except (AttributeError, EventDetails.DoesNotExist):
+    except (AttributeError, EventDetails.DoesNotExist, ObjectDoesNotExist):
         return revision, None
 
     # If the revision and details revision are both added, return the revisions.
