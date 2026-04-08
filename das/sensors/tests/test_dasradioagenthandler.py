@@ -22,7 +22,7 @@ class TestDasRadioAgentHandler:
         assert resolver.func.cls == RadioAgentHandlerView
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_invalid_services_in_status(self, user_client):
+    def test_invalid_services_in_status(self, user_client, disable_close_old_connections):
         initial_services = get_source_provider_statuses()
 
         status_data = {"message_key": "heartbeat"}
