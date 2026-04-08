@@ -158,15 +158,27 @@ class SubjectProximityAnalysis:
         # Set the start time of the analysis
         result.analysis_start = dt.datetime.now(tz=dt.timezone.utc)
         latest_observation_analysis_subject = cls.get_subject_latest_obs(analysis_subject)
+        search_hours = (
+            config.analysis_search_time_hours if config.analysis_search_time_hours > 0 else DEFAULT_SEARCH_TIME_HOURS
+        )
+        now = dt.datetime.now(tz=dt.timezone.utc)
+        obs_since = now - dt.timedelta(hours=search_hours)
+        obs_until = now + dt.timedelta(hours=1)
 
         for traj in trajectories:
             assert type(traj) is pymet.base.Trajectory
 
             for seg in traj.traj_segs:
                 for subject in proximity_analysis_params:
-                    # create_trajectory
+                    # Time-bound the query to avoid full table scans
+                    subject_obs = list(
+                        Observation.objects.get_subject_observations_partitioned(
+                            subject, since=obs_since, until=obs_until
+                        )
+                    )
                     subject_traj = subject.create_trajectory(
-                        trajectory_filter_params=subject.default_trajectory_filter()
+                        obs=subject_obs,
+                        trajectory_filter_params=subject.default_trajectory_filter(),
                     )
 
                     # Subsample trajectory to the last two fixes
