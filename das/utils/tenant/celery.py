@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import random
 
 import celery
 from celery import Task, shared_task
@@ -75,6 +76,11 @@ class OverAllTenantTask(QueueOnce):
     # as an extra kwarg that __call__ consumes before it reaches run().
     typing = False
 
+    # Max random countdown (seconds) applied to per-tenant dispatches to stagger
+    # execution across workers. Set to 0 to disable. Override in task decorator
+    # or subclass to control stagger per task.
+    fan_out_max_countdown: int = 0
+
     def get_key(self, args=None, kwargs=None):
         """Generate the QueueOnce lock key, including tenant_domain when present.
 
@@ -118,10 +124,13 @@ class OverAllTenantTask(QueueOnce):
 
         for tenant_domain in tenants:
             task_kwargs = {**kwargs, "tenant_domain": tenant_domain}
+            async_opts: dict = {"expires": once_timeout}
+            if self.fan_out_max_countdown:
+                async_opts["countdown"] = random.randint(0, self.fan_out_max_countdown)
             # Dispatch the actual task per tenant. This goes through
             # QueueOnce.apply_async (dedup per task+tenant) and task_routes
             # matches the real task name for queue routing.
-            self.apply_async(args=args, kwargs=task_kwargs, expires=once_timeout)
+            self.apply_async(args=args, kwargs=task_kwargs, **async_opts)
 
 
 @shared_task(bind=True, name=TENANT_TASK_NAME)

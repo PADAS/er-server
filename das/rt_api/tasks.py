@@ -210,12 +210,7 @@ def get_filtered_patrols(patrol_filter, queryset):
     return queryset
 
 
-@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True, "timeout": 15})
-def broadcast_service_status_tenant(service_status_data=None, **kwargs):
-    service_status_data = service_status_data or servicesutils.get_source_provider_statuses()
-    if not service_status_data:
-        return
-
+def _emit_service_status(service_status_data):
     try:
         for username, sids in get_username_sids_map().items():
             for sid in sids:
@@ -230,9 +225,22 @@ def broadcast_service_status_tenant(service_status_data=None, **kwargs):
         close_old_connections()
 
 
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True, "timeout": 15})
+def broadcast_service_status_tenant(service_status_data=None, **kwargs):
+    service_status_data = service_status_data or servicesutils.get_source_provider_statuses()
+    if not service_status_data:
+        return
+    _emit_service_status(service_status_data)
+
+
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True, "timeout": 15})
 def broadcast_service_status():
-    broadcast_service_status_tenant.apply_async()
+    # OverAllTenantTask runs this in tenant context directly, so call the
+    # implementation inline instead of dispatching another task.
+    service_status_data = servicesutils.get_source_provider_statuses()
+    if not service_status_data:
+        return
+    _emit_service_status(service_status_data)
 
 
 def _subjectstatus_update_handler(subject_id):
