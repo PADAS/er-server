@@ -13,6 +13,7 @@ from analyzers.base import DEFAULT_SEARCH_TIME_HOURS
 from analyzers.models import SubjectAnalyzerResult, SubjectProximityAnalyzerConfig
 from analyzers.models.base import CRITICAL
 from analyzers.proximity import ProximityAnalyzer
+from observations.models import Observation
 
 logger = logging.getLogger(__name__)
 
@@ -121,9 +122,9 @@ class SubjectProximityAnalysis:
 
     @classmethod
     def get_subject_latest_obs(cls, subject):
-        if subject.observations:
-            obs = subject.observations().latest("recorded_at")
-            return obs
+        source = subject.source
+        if source:
+            return Observation.objects.get_latest_for_source(source=source)
 
     @classmethod
     def verify_proximal_tracks_time_frame(
