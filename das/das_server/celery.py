@@ -125,6 +125,8 @@ app.conf.task_routes = {
     "mapping.tasks.automate_download_features_from_wfs": {
         "queue": "maintenance",
     },
+    "observations.tasks.poll_news_gcs_bucket": {"queue": "maintenance"},
+    "reports.tasks.run_check_sources_threshold": {"queue": "maintenance"},
     "observations.tasks.run_partition_table_check": {"queue": "maintenance"},
     "observations.tasks.run_observation_segment_partition_table_check": {"queue": "maintenance"},
     "das_server.tasks.refresh_tenants_cache": {

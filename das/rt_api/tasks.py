@@ -383,7 +383,7 @@ def handle_delete_event(event_id, **kwargs):
     _event_handler(event_id, "delete_event")
 
 
-@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True, "timeout": 600}, soft_time_limit=60, time_limit=65)
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True, "timeout": 60}, soft_time_limit=60, time_limit=65)
 def handle_new_source_observation(source_id, **kwargs):
 
     logger.debug("Handling new observation for source_id=%s", source_id)
