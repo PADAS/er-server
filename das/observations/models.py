@@ -1232,8 +1232,9 @@ class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset
         if segment is not None:
             return segment, False
         try:
-            segment = self.create_segment(start_obs, end_obs, subject)
-            return segment, True
+            with transaction.atomic():
+                segment = self.create_segment(start_obs, end_obs, subject)
+                return segment, True
         except IntegrityError:
             # Segment was created by another process or backfill (race / rollout).
             # Re-fetch and return it so the operation is idempotent.
