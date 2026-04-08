@@ -372,6 +372,13 @@ ASYNC_MODE = "eventlet"
 GEOS_LIBRARY_PATH = env.str("GEOS_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu/libgeos_c.so.1")
 GDAL_LIBRARY_PATH = env.str("GDAL_LIBRARY_PATH", "/usr/lib/libgdal.so")
 
+# Explicitly enable GDAL/OGR/OSR exceptions to suppress FutureWarning about
+# GDAL 4.0 changing the default behavior.
+from osgeo import gdal, ogr, osr  # noqa: E402
+
+gdal.UseExceptions()
+ogr.UseExceptions()
+osr.UseExceptions()
 
 RASTER_WORKDIR = "/tmp/raster"
 
