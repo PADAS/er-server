@@ -194,8 +194,10 @@ class FeatureProximityAnalyzer(ProximityAnalyzer):
                     "spatial_feature_name": prox.spatial_feature_name,
                     "proximity_dist_meters": round(prox.proximity_distance_meters, 2),
                     "total_fix_count": traj.relocs.fix_count,
-                    "subject_speed_kmhr": round(prox.subject_speed_kmhr, 2),
-                    "subject_heading": round(prox.subject_heading, 2),
+                    "subject_speed_kmhr": (
+                        round(prox.subject_speed_kmhr, 2) if prox.subject_speed_kmhr is not None else None
+                    ),
+                    "subject_heading": round(prox.subject_heading, 2) if prox.subject_heading is not None else None,
                     "feature_group_name": self.config.proximal_features.name,
                 }
 
