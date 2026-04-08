@@ -112,12 +112,16 @@ class OverAllTenantTask(QueueOnce):
             logger.warning("No tenants found in cluster!")
             return
 
+        # Use the QueueOnce timeout as message expiry so stale per-tenant
+        # messages don't pile up when the worker can't keep pace with beat.
+        once_timeout = self.once.get("timeout", self.default_timeout)
+
         for tenant_domain in tenants:
             task_kwargs = {**kwargs, "tenant_domain": tenant_domain}
             # Dispatch the actual task per tenant. This goes through
             # QueueOnce.apply_async (dedup per task+tenant) and task_routes
             # matches the real task name for queue routing.
-            self.apply_async(args=args, kwargs=task_kwargs)
+            self.apply_async(args=args, kwargs=task_kwargs, expires=once_timeout)
 
 
 @shared_task(bind=True, name=TENANT_TASK_NAME)

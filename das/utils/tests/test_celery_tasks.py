@@ -56,7 +56,11 @@ class TestOverAllTenantTask:
         with patch.object(task, "apply_async") as mock_apply:
             task()
 
-            expected_calls = [call(args=(), kwargs={"tenant_domain": tenant}) for tenant in mock_tenants]
+            # expires is derived from the QueueOnce default_timeout setting
+            expected_expires = task.default_timeout
+            expected_calls = [
+                call(args=(), kwargs={"tenant_domain": tenant}, expires=expected_expires) for tenant in mock_tenants
+            ]
             mock_apply.assert_has_calls(expected_calls)
             assert mock_apply.call_count == len(mock_tenants)
 
