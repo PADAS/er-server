@@ -518,7 +518,7 @@ class ObservationTestCase(BaseAPITest):
         fixed_location = dict(longitude=fixed_longitude, latitude=fixed_latitude)
 
         observation_test_count = 5
-        observation_time = datetime.now(tz=timezone.utc)
+        observation_time = datetime.now(tz=timezone.utc) - timedelta(minutes=10)
         for i in range(observation_test_count):
             observation = {
                 "location": fixed_location,
@@ -538,7 +538,7 @@ class ObservationTestCase(BaseAPITest):
         assert len(response.data["results"]) == observation_test_count
 
         second_observation_test_count = 5
-        observation_time = datetime.now(tz=timezone.utc)
+        observation_time = datetime.now(tz=timezone.utc) - timedelta(minutes=5)
         for i in range(second_observation_test_count):
             observation = {
                 "location": fixed_location,
