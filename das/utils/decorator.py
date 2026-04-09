@@ -4,6 +4,8 @@ import logging
 import time
 from typing import Callable
 
+from django.core.exceptions import ObjectDoesNotExist
+
 from .interfaces import SharedResourceHandler
 
 
@@ -102,6 +104,8 @@ def use_shared_resource(method: Callable):
         try:
             instance.aquire_resource()
             result = method(instance, *args, **kwargs)
+        except ObjectDoesNotExist:
+            raise
         except Exception as exc:
             failure = exc
             instance.report_error(failure)
