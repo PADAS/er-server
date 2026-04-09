@@ -1,5 +1,4 @@
 import logging
-import random
 from smtplib import SMTPSenderRefused, SMTPServerDisconnected
 
 from django.template.loader import render_to_string
@@ -23,23 +22,15 @@ from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask
 logger = logging.getLogger(__name__)
 
 
-@celery.app.task(base=OverAllTenantTask, bind=True, once={"graceful": True})
+@celery.app.task(base=OverAllTenantTask, bind=True, once={"graceful": True}, fan_out_max_countdown=60)
 def subjectsource_report(self, usernames=None):
     if usernames:
         raise ValueError("The usernames argument is not supported for this task.")
 
-    delay_in_seconds = random.randint(1, 60)
-    subjectsource_report_for_tenant.apply_async(countdown=delay_in_seconds)
+    _run_subjectsource_report(usernames=None)
 
 
-@celery.app.task(
-    base=TenantQueueOnceTask,
-    bind=True,
-    once={
-        "graceful": True,
-    },
-)
-def subjectsource_report_for_tenant(self, usernames=None, **kwargs):
+def _run_subjectsource_report(usernames=None):
     # Limit recipients to those identified by usernames argument.
     recipients = get_users_for_permission(SOURCE_REPORT_PERMISSION_CODENAME, usernames=usernames)
     tenant_settings = get_tenant_settings()
@@ -75,6 +66,17 @@ def subjectsource_report_for_tenant(self, usernames=None, **kwargs):
             logger.warning(f"Failed to send Subject Source Report to {user.username} ({user.email}), %s", ex_sr)
 
 
+@celery.app.task(
+    base=TenantQueueOnceTask,
+    bind=True,
+    once={
+        "graceful": True,
+    },
+)
+def subjectsource_report_for_tenant(self, usernames=None, **kwargs):
+    _run_subjectsource_report(usernames=usernames)
+
+
 @celery.app.task(base=OverAllTenantTask, bind=True, once={"graceful": True})
 def alert_lag_delay(self):
     lagging_providers = get_lagging_providers()
@@ -85,4 +87,7 @@ def alert_lag_delay(self):
 
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def run_check_sources_threshold():
-    check_sources_threshold.apply_async()
+    # OverAllTenantTask runs this in tenant context directly.
+    # Call .run() to bypass the TenantQueueOnceTask machinery since
+    # we already have tenant context from OverAllTenantTask.
+    check_sources_threshold.run()

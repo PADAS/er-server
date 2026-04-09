@@ -1886,7 +1886,7 @@ class SubjectSourcesAssignmentView(generics.ListAPIView):
             queryset = queryset.filter(subject_id__in=set(allowed) & set(subjects_list))
         elif sources_list:
             queryset = queryset.filter(source_id__in=sources_list)
-        return queryset
+        return queryset.order_by("-assigned_range")
 
 
 __all__ = [

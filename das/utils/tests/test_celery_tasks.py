@@ -7,7 +7,7 @@ from django.db.utils import OperationalError
 
 from core.models.core import DASTenant
 from das_server import celery
-from utils.tenant.celery import TENANT_TASK_NAME, OverAllTenantTask, TenantTask
+from utils.tenant.celery import OverAllTenantTask, TenantTask
 from utils.tenant.exceptions import TenantNotFoundException
 
 logger = logging.getLogger(__name__)
@@ -45,31 +45,24 @@ class TestTenantCeleryTasks:
 
 class TestOverAllTenantTask:
     @patch("utils.tenant.celery.get_current_cluster_domains")
-    @patch("utils.tenant.celery.signature")
-    def test_spawns_task_per_tenant(self, mock_signature, mock_get_current_cluster_domains):
+    def test_dispatches_actual_task_per_tenant(self, mock_get_current_cluster_domains):
+        """Fan-out dispatches the actual task (not by_single_tenant_task) per tenant."""
         mock_tenants = ["tenant1.example.com", "tenant2.example.com", "tenant3.example.com"]
         mock_get_current_cluster_domains.return_value = mock_tenants
 
-        mock_sigs = [MagicMock() for _ in mock_tenants]
-        mock_signature.side_effect = mock_sigs
-
         task = OverAllTenantTask()
         task.name = "fake_task_name"
-        task()
 
-        expected_calls = [
-            call(
-                TENANT_TASK_NAME,
-                args=("fake_task_name", ()),
-                kwargs={"task_kwargs": {"tenant_domain": tenant}},
-                immutable=True,
-            )
-            for tenant in mock_tenants
-        ]
-        mock_signature.assert_has_calls(expected_calls)
+        with patch.object(task, "apply_async") as mock_apply:
+            task()
 
-        for mock_sig in mock_sigs:
-            mock_sig.apply_async.assert_called_once()
+            # expires is derived from the QueueOnce default_timeout setting
+            expected_expires = task.default_timeout
+            expected_calls = [
+                call(args=(), kwargs={"tenant_domain": tenant}, expires=expected_expires) for tenant in mock_tenants
+            ]
+            mock_apply.assert_has_calls(expected_calls)
+            assert mock_apply.call_count == len(mock_tenants)
 
     @patch("utils.tenant.celery.get_current_cluster_domains")
     def test_no_tenants_warning(self, mock_get_current_cluster_domains, caplog):
@@ -94,3 +87,52 @@ class TestOverAllTenantTask:
         task(tenant_domain="missing.com")
 
         assert "Tenant with domain missing.com missing in TMS" in caplog.text
+
+    @patch("utils.tenant.celery.TenantContextManager")
+    def test_tenant_domain_not_passed_to_run(self, mock_tenant_context):
+        """tenant_domain is consumed by __call__ and not leaked to run()."""
+        task = OverAllTenantTask()
+        task.run = MagicMock()
+
+        task(tenant_domain="test.com", extra_kwarg="value")
+
+        task.run.assert_called_once_with(extra_kwarg="value")
+
+    def test_get_key_without_tenant_domain(self):
+        """Lock key for parent (no tenant_domain) uses base behavior."""
+        task = OverAllTenantTask()
+        task.name = "my_app.tasks.example"
+        task.run = lambda: None
+        task.once = {"graceful": True}
+
+        key = task.get_key(args=(), kwargs={})
+        assert "tenant_domain" not in key
+        assert "my_app.tasks.example" in key
+
+    def test_get_key_with_tenant_domain(self):
+        """Lock key includes tenant_domain, producing unique keys per tenant."""
+        task = OverAllTenantTask()
+        task.name = "my_app.tasks.example"
+        task.run = lambda: None
+        task.once = {"graceful": True}
+
+        key_t1 = task.get_key(args=(), kwargs={"tenant_domain": "tenant1.com"})
+        key_t2 = task.get_key(args=(), kwargs={"tenant_domain": "tenant2.com"})
+        key_no_tenant = task.get_key(args=(), kwargs={})
+
+        assert "tenant_domain-tenant1.com" in key_t1
+        assert "tenant_domain-tenant2.com" in key_t2
+        assert key_t1 != key_t2
+        assert key_t1 != key_no_tenant
+
+    def test_get_key_does_not_mutate_kwargs(self):
+        """get_key must not mutate the original kwargs dict."""
+        task = OverAllTenantTask()
+        task.name = "my_app.tasks.example"
+        task.run = lambda: None
+        task.once = {"graceful": True}
+
+        original_kwargs = {"tenant_domain": "test.com"}
+        task.get_key(args=(), kwargs=original_kwargs)
+
+        assert "tenant_domain" in original_kwargs

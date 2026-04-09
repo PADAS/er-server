@@ -213,6 +213,7 @@ class TestImmobilityAnalyzer(BaseAPITest):
         # give user permission to view the subjects belonging to subject-group immobility_analyzer_group Subject Group
         perm_set = models.PermissionSet.objects.get(name=sg.auto_permissionset_name)
         self.app_user.permission_sets.add(perm_set)
+        self.app_user.clear_permission_set_cache()
 
         request = self.factory.get(self.api_base + "/events/")
         self.force_authenticate(request, self.app_user)

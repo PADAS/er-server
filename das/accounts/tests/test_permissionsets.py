@@ -176,6 +176,7 @@ class PermissionSetTestCase(BaseTestCase):
         self.assertNotIn(parent_ps, child_user.get_all_permission_sets())
 
         parent_ps.children.add(child_ps)
+        child_user.clear_permission_set_cache()
         self.assertIn(parent_ps, child_user.get_all_permission_sets())
 
     def test_3_level_permissionset_hierarchy(self):
@@ -193,6 +194,8 @@ class PermissionSetTestCase(BaseTestCase):
         gp_ps.children.add(parent_ps)
         parent_ps.children.add(child_ps)
 
+        parent_user.clear_permission_set_cache()
+        child_user.clear_permission_set_cache()
         self.assertIn(gp_ps, parent_user.get_all_permission_sets())
         self.assertIn(gp_ps, child_user.get_all_permission_sets())
         self.assertIn(parent_ps, child_user.get_all_permission_sets())
@@ -308,3 +311,93 @@ class TestAuthentication(BaseAPITest):
         )
 
         assert response.status_code == 401
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class PermissionSetCacheTestCase(BaseTestCase):
+    """Tests for the per-instance caching of get_all_permission_sets."""
+
+    def setUp(self):
+        super().setUp()
+        self.content_type = ContentType.objects.get(app_label="auth", model="permission")
+
+    def test_repeated_calls_return_same_object(self):
+        """Second call with same only_ids flag returns the cached set instance."""
+        user = make_one_user()
+        ps = make_n_permissionsets(1)[0]
+        user.permission_sets.add(ps)
+
+        result_1 = user.get_all_permission_sets(only_ids=True)
+        result_2 = user.get_all_permission_sets(only_ids=True)
+        self.assertIs(result_1, result_2)
+
+    def test_only_ids_and_objects_cached_independently(self):
+        """only_ids=True and only_ids=False use separate caches."""
+        user = make_one_user()
+        ps = make_n_permissionsets(1)[0]
+        user.permission_sets.add(ps)
+
+        ids_result = user.get_all_permission_sets(only_ids=True)
+        obj_result = user.get_all_permission_sets(only_ids=False)
+
+        self.assertIsInstance(next(iter(ids_result)), type(ps.id))
+        self.assertIsInstance(next(iter(obj_result)), PermissionSet)
+
+    def test_cache_reduces_query_count(self):
+        """After the first call, subsequent calls should issue no queries."""
+        user = make_one_user()
+        child_ps, parent_ps = make_n_permissionsets(2)
+        parent_ps.children.add(child_ps)
+        user.permission_sets.add(child_ps)
+
+        # Prime the cache.
+        user.get_all_permission_sets(only_ids=True)
+
+        with self.assertNumQueries(0):
+            user.get_all_permission_sets(only_ids=True)
+
+    def test_clear_permission_set_cache_forces_recompute(self):
+        """After clearing the cache, results reflect hierarchy changes."""
+        user = make_one_user()
+        child_ps, parent_ps = make_n_permissionsets(2)
+        user.permission_sets.add(child_ps)
+
+        result_before = user.get_all_permission_sets()
+        self.assertNotIn(parent_ps, result_before)
+
+        parent_ps.children.add(child_ps)
+        user.clear_permission_set_cache()
+
+        result_after = user.get_all_permission_sets()
+        self.assertIn(parent_ps, result_after)
+
+    def test_clear_cache_is_safe_when_no_cache_exists(self):
+        """Calling clear on a fresh user does not raise."""
+        user = make_one_user()
+        user.clear_permission_set_cache()
+
+    def test_superuser_is_not_cached(self):
+        """Superusers return a queryset each time (no instance caching)."""
+        superuser = User.objects.create_superuser(
+            username="su_cache_test",
+            email="su_cache@test.com",
+            password="pass",
+        )
+        result_1 = superuser.get_all_permission_sets(only_ids=True)
+        result_2 = superuser.get_all_permission_sets(only_ids=True)
+        self.assertIsNot(result_1, result_2)
+
+    def test_cache_with_deep_hierarchy(self):
+        """Cache correctly captures a 3-level ancestor chain."""
+        user = make_one_user()
+        gp_ps, parent_ps, child_ps = make_n_permissionsets(3)
+        gp_ps.children.add(parent_ps)
+        parent_ps.children.add(child_ps)
+        user.permission_sets.add(child_ps)
+
+        ids = user.get_all_permission_sets(only_ids=True)
+        self.assertEqual(ids, {child_ps.id, parent_ps.id, gp_ps.id})
+
+        with self.assertNumQueries(0):
+            ids_again = user.get_all_permission_sets(only_ids=True)
+            self.assertEqual(ids_again, {child_ps.id, parent_ps.id, gp_ps.id})

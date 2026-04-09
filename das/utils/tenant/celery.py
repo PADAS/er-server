@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import logging
+import random
 
 import celery
-from celery import Task, shared_task, signature
+from celery import Task, shared_task
 from celery_once import QueueOnce
 
 from django.db import close_old_connections
@@ -69,13 +72,41 @@ class TenantQueueOnceTask(TenantTaskMixin, QueueOnce):
 
 
 class OverAllTenantTask(QueueOnce):
+    # Disable Celery's argument type checking. The fan-out passes tenant_domain
+    # as an extra kwarg that __call__ consumes before it reaches run().
+    typing = False
+
+    # Max random countdown (seconds) applied to per-tenant dispatches to stagger
+    # execution across workers. Set to 0 to disable. Override in task decorator
+    # or subclass to control stagger per task.
+    fan_out_max_countdown: int = 0
+
+    def get_key(self, args=None, kwargs=None):
+        """Generate the QueueOnce lock key, including tenant_domain when present.
+
+        The base get_key uses inspect.signature.bind() against the task function,
+        which would fail on tenant_domain since task functions don't declare it.
+        We strip it before calling super(), then append it to the key so each
+        tenant gets its own lock.
+        """
+        kwargs = dict(kwargs) if kwargs else {}
+        tenant_domain = kwargs.pop("tenant_domain", None)
+        key = super().get_key(args=args, kwargs=kwargs)
+        if tenant_domain:
+            key = f"{key}_tenant_domain-{tenant_domain}"
+        return key
+
     def __call__(self, *args, **kwargs):
-        if "tenant_domain" in kwargs:
-            tenant_domain = kwargs.pop("tenant_domain")
+        tenant_domain = kwargs.get("tenant_domain")
+        if tenant_domain:
+            # Per-tenant execution. Don't pop tenant_domain from kwargs —
+            # after_return needs the original kwargs to generate the matching
+            # lock key for cleanup.
+            run_kwargs = {k: v for k, v in kwargs.items() if k != "tenant_domain"}
             try:
                 with TenantContextManager(tenant_domain):
                     logger.info("Running: %s for Tenant domain: %s", self.name, tenant_domain)
-                    return self.run(*args, **kwargs)
+                    return self.run(*args, **run_kwargs)
             except DASTenant.DoesNotExist:
                 logger.warning("Tenant with domain %s missing in local DB", tenant_domain)
             except TenantNotFoundException:
@@ -87,17 +118,27 @@ class OverAllTenantTask(QueueOnce):
             logger.warning("No tenants found in cluster!")
             return
 
+        # Use the QueueOnce timeout as message expiry so stale per-tenant
+        # messages don't pile up when the worker can't keep pace with beat.
+        once_timeout = self.once.get("timeout", self.default_timeout)
+
         for tenant_domain in tenants:
             task_kwargs = {**kwargs, "tenant_domain": tenant_domain}
-
-            # Use helper task that's designed to accept tenant_domain
-            signature(
-                TENANT_TASK_NAME, args=(self.name, args), kwargs={"task_kwargs": task_kwargs}, immutable=True
-            ).apply_async()
+            async_opts: dict = {"expires": once_timeout}
+            if self.fan_out_max_countdown:
+                async_opts["countdown"] = random.randint(0, self.fan_out_max_countdown)
+            # Dispatch the actual task per tenant. This goes through
+            # QueueOnce.apply_async (dedup per task+tenant) and task_routes
+            # matches the real task name for queue routing.
+            self.apply_async(args=args, kwargs=task_kwargs, **async_opts)
 
 
 @shared_task(bind=True, name=TENANT_TASK_NAME)
 def by_single_tenant_task(self, task_name, args, task_kwargs):
-    """Helper task that executes the original task with tenant context"""
+    """Legacy helper task kept for in-flight message compatibility.
+
+    New dispatches go directly through OverAllTenantTask.apply_async().
+    This can be removed once all queues have been drained of old messages.
+    """
     task = celery.current_app.tasks[task_name]
     return task(*args, **task_kwargs)

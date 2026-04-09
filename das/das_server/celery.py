@@ -18,7 +18,6 @@ from kombu import Exchange, Queue
 from django.conf import settings
 
 import utils.stats
-
 from das_server.redis import TRANSPORT_ALIASES  # pylint: disable=unused-import
 
 # set the default Django settings module for the 'celery' program.
@@ -74,6 +73,7 @@ app.conf.task_routes = {
         "queue": "realtime_p2",
     },
     "rt_api.tasks.broadcast_service_status": {"queue": "realtime_p2"},
+    "rt_api.tasks.broadcast_service_status_tenant": {"queue": "realtime_p2"},
     "rt_api.tasks.handle_new_event": {
         "queue": "realtime_p2",
     },
@@ -125,6 +125,8 @@ app.conf.task_routes = {
     "mapping.tasks.automate_download_features_from_wfs": {
         "queue": "maintenance",
     },
+    "observations.tasks.poll_news_gcs_bucket": {"queue": "maintenance"},
+    "reports.tasks.run_check_sources_threshold": {"queue": "maintenance"},
     "observations.tasks.run_partition_table_check": {"queue": "maintenance"},
     "observations.tasks.run_observation_segment_partition_table_check": {"queue": "maintenance"},
     "das_server.tasks.refresh_tenants_cache": {

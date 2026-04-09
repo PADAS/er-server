@@ -212,14 +212,24 @@ class PermissionsMixin(models.Model):
         Returns all permission sets the user is member of AND ascendant permission sets.
         For example, if this user is a member of Group Five, and Group Five is a member of Group A,
         we return Group A and Group Five.
+
+        Results are cached on the user instance for the lifetime of the object
+        (typically one request).  Call ``clear_permission_set_cache()`` if the
+        hierarchy or membership changes and you need fresh results on the same
+        instance.
         """
         if self.is_superuser:
             if only_ids:
                 return PermissionSet.objects.values_list("id", flat=True)
             return PermissionSet.objects.all()
 
+        cache_attr = "_all_ps_ids_cache" if only_ids else "_all_ps_cache"
+        cached = getattr(self, cache_attr, None)
+        if cached is not None:
+            return cached
+
         direct_ps = self.permission_sets.all()
-        all_ps = set()
+        all_ps: set = set()
 
         for ps in direct_ps:
             if only_ids:
@@ -232,7 +242,17 @@ class PermissionsMixin(models.Model):
                     all_ps.add(ancestor.id)
                 else:
                     all_ps.add(ancestor)
+
+        setattr(self, cache_attr, all_ps)
         return all_ps
+
+    def clear_permission_set_cache(self):
+        """Drop cached permission-set results so the next call recomputes."""
+        for attr in ("_all_ps_ids_cache", "_all_ps_cache", "_group_perm_cache"):
+            try:
+                delattr(self, attr)
+            except AttributeError:
+                pass
 
 
 class UserPermissionSet(TenantThroughModel):

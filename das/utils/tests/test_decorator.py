@@ -2,6 +2,8 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
+from django.core.exceptions import ObjectDoesNotExist
+
 from utils.decorator import retry_on_exception, use_shared_resource
 from utils.interfaces import SharedResourceHandler
 
@@ -30,6 +32,10 @@ class SharedResourceHandler(SharedResourceHandler):
     @use_shared_resource
     def unsuccessfull_use_of_resource(self):
         return 1 / 0
+
+    @use_shared_resource
+    def object_does_not_exist(self):
+        raise ObjectDoesNotExist("SocketClient matching query does not exist.")
 
 
 class TestFunctionRetryOnException:
@@ -80,4 +86,14 @@ class TestUseSharedResource:
         assert resource_handler.resource.call_count == 3
         assert call("aquire resource") in resource_handler.resource.call_args_list
         assert call("error reported", "division by zero") in resource_handler.resource.call_args_list
+        assert call("release resource") in resource_handler.resource.call_args_list
+
+    def test_object_does_not_exist_skips_report_error(self):
+        resource_handler = SharedResourceHandler()
+
+        with pytest.raises(ObjectDoesNotExist):
+            resource_handler.object_does_not_exist()
+
+        assert resource_handler.resource.call_count == 2
+        assert call("aquire resource") in resource_handler.resource.call_args_list
         assert call("release resource") in resource_handler.resource.call_args_list
