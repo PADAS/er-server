@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 CACHE_ALIAS = getattr(settings, "UPLOAD_SESSION_CACHE_ALIAS", "upload_sessions")
 TTL = getattr(settings, "CHUNKED_UPLOAD_SESSION_TTL_SECONDS", 86400)
 
+_thread_lock_registry_guard = threading.Lock()
 _thread_locks: dict[tuple[str, str], threading.Lock] = {}
 
 
@@ -40,10 +41,12 @@ def _key(tenant_id: str, upload_id: str) -> str:
 
 
 def _thread_lock_for_session(tenant_id: str, upload_id: str) -> threading.Lock:
+    """Return a process-local lock for (tenant_id, upload_id); creation is serialized."""
     key = (tenant_id, upload_id)
-    if key not in _thread_locks:
-        _thread_locks[key] = threading.Lock()
-    return _thread_locks[key]
+    with _thread_lock_registry_guard:
+        if key not in _thread_locks:
+            _thread_locks[key] = threading.Lock()
+        return _thread_locks[key]
 
 
 @contextlib.contextmanager
@@ -148,6 +151,9 @@ def append_chunk(
 
 
 def delete(tenant_id: str, upload_id: str) -> None:
-    """Remove session (e.g. after finalize)."""
+    """Remove session (e.g. after finalize). Drops the LocMem fallback lock entry if present."""
     _cache().delete(_key(tenant_id, upload_id))
+    key = (tenant_id, upload_id)
+    with _thread_lock_registry_guard:
+        _thread_locks.pop(key, None)
     logger.info("Deleted upload session %s for tenant %s", upload_id, tenant_id)

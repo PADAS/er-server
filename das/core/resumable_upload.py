@@ -69,7 +69,13 @@ def upload_chunk(
     start_byte: int,
     total_size: int,
 ) -> None:
-    """Send a chunk to the resumable session. Last chunk completes the upload."""
+    """
+    Send a chunk to the resumable session.
+
+    Intermediate chunks typically receive HTTP 308 (Resume Incomplete). The final
+    chunk (this PUT covers the last byte of ``total_size``) must receive 200/201 when
+    the object is complete; 308 on the final chunk means the object is not finalized.
+    """
     end_byte = start_byte + len(chunk_bytes) - 1
     content_range = f"bytes {start_byte}-{end_byte}/{total_size}"
     resp = _session().put(
@@ -83,8 +89,15 @@ def upload_chunk(
     )
     if resp.status_code in (200, 201):
         return
-    if resp.status_code != 308:
-        raise RuntimeError(f"Resumable upload chunk failed: {resp.status_code}")
+    is_final_chunk = start_byte + len(chunk_bytes) == total_size
+    if resp.status_code == 308:
+        if is_final_chunk:
+            raise RuntimeError(
+                "Resumable upload final chunk returned 308 Resume Incomplete; "
+                "object not finalized (expected 200 or 201)."
+            )
+        return
+    raise RuntimeError(f"Resumable upload chunk failed: {resp.status_code}")
 
 
 def finalize(uri: str, total_size: int) -> None:

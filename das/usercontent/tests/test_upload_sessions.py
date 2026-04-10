@@ -122,6 +122,39 @@ class TestUploadSessionsDelete:
         delete(tenant_id, upload_id)
         assert get(tenant_id, upload_id) is None
 
+    def test_delete_removes_locmem_fallback_lock_entry(self, tenant_id, upload_id):
+        """After finalize, drop per-session threading.Lock so the registry cannot grow forever."""
+        import usercontent.upload_sessions as us
+
+        create(tenant_id, upload_id, storage_path="p", filename="f", size=1, chunk_size=1)
+        with us.session_write_lock(tenant_id, upload_id):
+            pass
+        key = (tenant_id, upload_id)
+        assert key in us._thread_locks
+        delete(tenant_id, upload_id)
+        assert key not in us._thread_locks
+
+
+class TestUploadSessionsThreadLockRegistry:
+    def test_thread_lock_for_session_returns_singleton_per_key(self, tenant_id, upload_id):
+        import usercontent.upload_sessions as us
+
+        lock_ids: list[int] = []
+        barrier = threading.Barrier(2)
+
+        def record() -> None:
+            barrier.wait()
+            lock_ids.append(id(us._thread_lock_for_session(tenant_id, upload_id)))
+
+        t1 = threading.Thread(target=record)
+        t2 = threading.Thread(target=record)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert lock_ids[0] == lock_ids[1]
+
 
 class TestUploadSessionsSessionWriteLock:
     def test_concurrent_append_chunk_zero_serializes(self, tenant_id, upload_id):

@@ -55,6 +55,23 @@ class TestResumableUploadChunk:
         with pytest.raises(RuntimeError, match="400"):
             resumable_upload.upload_chunk("https://upload.example/s", b"x", 0, 1)
 
+    @patch("core.resumable_upload._session")
+    def test_upload_chunk_final_chunk_308_raises(self, mock_session):
+        """GCS must return 200/201 when the last byte is uploaded; 308 means incomplete."""
+        mock_session.return_value.put.return_value.status_code = 308
+
+        with pytest.raises(RuntimeError, match="final chunk returned 308"):
+            resumable_upload.upload_chunk("https://upload.example/s", b"abcde", 5, 10)
+
+    @patch("core.resumable_upload._session")
+    def test_upload_chunk_non_final_308_succeeds(self, mock_session):
+        mock_session.return_value.put.return_value.status_code = 308
+
+        resumable_upload.upload_chunk("https://upload.example/s", b"abcde", 0, 10)
+
+        call_kw = mock_session.return_value.put.call_args[1]
+        assert call_kw["headers"]["Content-Range"] == "bytes 0-4/10"
+
 
 class TestResumableUploadFinalize:
     @patch("core.resumable_upload._session")
