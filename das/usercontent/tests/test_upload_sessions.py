@@ -1,10 +1,18 @@
 """Unit tests for chunked upload session store (ERA-9210)."""
 
+import threading
 import uuid
 
 import pytest
 
-from usercontent.upload_sessions import append_chunk, create, delete, get, set_gcs_uri
+from usercontent.upload_sessions import (
+    append_chunk,
+    create,
+    delete,
+    get,
+    session_write_lock,
+    set_gcs_uri,
+)
 
 
 @pytest.fixture
@@ -113,3 +121,40 @@ class TestUploadSessionsDelete:
         assert get(tenant_id, upload_id) is not None
         delete(tenant_id, upload_id)
         assert get(tenant_id, upload_id) is None
+
+
+class TestUploadSessionsSessionWriteLock:
+    def test_concurrent_append_chunk_zero_serializes(self, tenant_id, upload_id):
+        """Two threads appending the same first chunk under session_write_lock stay consistent."""
+        create(
+            tenant_id,
+            upload_id,
+            storage_path="p",
+            filename="f",
+            size=10,
+            chunk_size=10,
+            user_id=str(uuid.uuid4()),
+            is_image=False,
+            file_content_id=str(uuid.uuid4()),
+        )
+        chunk = b"0123456789"
+        results = []
+        barrier = threading.Barrier(2)
+
+        def worker() -> None:
+            barrier.wait()
+            with session_write_lock(tenant_id, upload_id):
+                results.append(append_chunk(tenant_id, upload_id, 0, chunk))
+
+        t1 = threading.Thread(target=worker)
+        t2 = threading.Thread(target=worker)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert all(r[0] for r in results), results
+        data = get(tenant_id, upload_id)
+        assert data is not None
+        assert data["next_chunk_index"] == 1
+        assert 0 in data["chunk_hashes"]

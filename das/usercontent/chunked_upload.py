@@ -4,6 +4,8 @@ DRF API for ERA-9210 chunked uploads: Redis session + GCS resumable + FileConten
 Client flow: POST init → PUT each chunk (raw body) → POST complete.
 """
 
+from __future__ import annotations
+
 import logging
 import math
 import uuid
@@ -53,6 +55,14 @@ def _effective_max_chunk_bytes() -> int:
     return min(configured, ceiling)
 
 
+def _chunk_size_validation_message() -> str:
+    cap = _effective_max_chunk_bytes()
+    return (
+        f"chunk_size must not exceed {cap} bytes (effective maximum: the lesser of "
+        "CHUNKED_UPLOAD_CHUNK_SIZE and Django DATA_UPLOAD_MAX_MEMORY_SIZE with a safety margin)."
+    )
+
+
 class ChunkedUploadOctetStreamParser(BaseParser):
     """Accept raw bytes for chunk PUTs; default DRF parsers only allow JSON/form and would return 415."""
 
@@ -72,9 +82,7 @@ class ChunkedUploadInitSerializer(serializers.Serializer):
             return value
         cap = _effective_max_chunk_bytes()
         if value > cap:
-            raise serializers.ValidationError(
-                f"chunk_size must not exceed {cap} bytes (Django request body limit DATA_UPLOAD_MAX_MEMORY_SIZE)."
-            )
+            raise serializers.ValidationError(_chunk_size_validation_message())
         return value
 
     def validate_filename(self, value: str) -> str:
@@ -110,6 +118,29 @@ def _attach_existing_file(instance: Any, storage_path: str) -> None:
     instance.file._committed = True
 
 
+def _chunk_request_validation_response(data: dict[str, Any], chunk_index: int, chunk_body: bytes) -> Response | None:
+    """Return an error Response, or None if the chunk index and body length are valid."""
+    total = data["size"]
+    csize = data["chunk_size"]
+    n = _expected_num_chunks(total, csize)
+    if chunk_index < 0 or chunk_index >= n:
+        return Response(
+            {"detail": f"chunk_index out of range (0..{n - 1})."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    expected_len = _chunk_byte_length(chunk_index, total, csize)
+    if len(chunk_body) != expected_len:
+        return Response(
+            {
+                "detail": "Chunk size mismatch.",
+                "expected_length": expected_len,
+                "actual_length": len(chunk_body),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    return None
+
+
 class ChunkedUploadInitView(APIView):
     permission_classes = (IsAuthenticated,)
 
@@ -129,16 +160,18 @@ class ChunkedUploadInitView(APIView):
 
         try:
             gcs_uri = resumable_upload.initiate(storage_path, size)
-        except Exception as exc:
+        except Exception:
+            error_id = str(uuid.uuid4())
             logger.exception(
-                "chunked_upload init failed tenant=%s upload_id=%s path=%s size=%s",
+                "chunked_upload init failed error_id=%s tenant=%s upload_id=%s path=%s size=%s",
+                error_id,
                 tenant_id,
                 upload_id,
                 storage_path,
                 size,
             )
             return Response(
-                {"detail": "Could not start upload with storage.", "reason": str(exc)},
+                {"detail": "Could not start upload with storage.", "error_id": error_id},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -197,91 +230,94 @@ class ChunkedUploadChunkView(APIView):
 
     def put(self, request, upload_id, chunk_index: int, *args, **kwargs):
         tenant_id = _tenant_key()
-        data = upload_sessions.get(tenant_id, str(upload_id))
+        uid = str(upload_id)
+        data = upload_sessions.get(tenant_id, uid)
         if not data:
             return Response({"detail": "Upload session not found or expired."}, status=status.HTTP_404_NOT_FOUND)
         if data.get("user_id") != str(request.user.pk):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
-        # Parsed body only: ChunkedUploadOctetStreamParser consumes the stream, so request.body is unusable.
         chunk_body = bytes(request.data)
-        total = data["size"]
-        csize = data["chunk_size"]
-        n = _expected_num_chunks(total, csize)
-        if chunk_index < 0 or chunk_index >= n:
-            return Response({"detail": f"chunk_index out of range (0..{n - 1})."}, status=status.HTTP_400_BAD_REQUEST)
+        bad = _chunk_request_validation_response(data, chunk_index, chunk_body)
+        if bad is not None:
+            return bad
 
-        expected_len = _chunk_byte_length(chunk_index, total, csize)
-        if len(chunk_body) != expected_len:
-            return Response(
-                {
-                    "detail": "Chunk size mismatch.",
-                    "expected_length": expected_len,
-                    "actual_length": len(chunk_body),
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        with upload_sessions.session_write_lock(tenant_id, uid):
+            data = upload_sessions.get(tenant_id, uid)
+            if not data:
+                return Response({"detail": "Upload session not found or expired."}, status=status.HTTP_404_NOT_FOUND)
+            if data.get("user_id") != str(request.user.pk):
+                return Response(status=status.HTTP_403_FORBIDDEN)
 
-        next_idx = data["next_chunk_index"]
-        uri = data.get("gcs_resumable_uri")
-        if not uri:
-            logger.error("chunked_upload missing gcs uri tenant=%s upload_id=%s", tenant_id, upload_id)
-            return Response({"detail": "Upload session is invalid."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            bad2 = _chunk_request_validation_response(data, chunk_index, chunk_body)
+            if bad2 is not None:
+                return bad2
 
-        if chunk_index < next_idx:
-            accepted, err = upload_sessions.append_chunk(tenant_id, str(upload_id), chunk_index, chunk_body)
-            if not accepted:
+            next_idx = data["next_chunk_index"]
+            uri = data.get("gcs_resumable_uri")
+            if not uri:
+                logger.error("chunked_upload missing gcs uri tenant=%s upload_id=%s", tenant_id, upload_id)
+                return Response({"detail": "Upload session is invalid."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            if chunk_index < next_idx:
+                accepted, err = upload_sessions.append_chunk(tenant_id, uid, chunk_index, chunk_body)
+                if not accepted:
+                    logger.warning(
+                        "chunked_upload idempotent chunk rejected tenant=%s upload_id=%s index=%s reason=%s",
+                        tenant_id,
+                        upload_id,
+                        chunk_index,
+                        err,
+                    )
+                    return Response({"detail": err or "Chunk rejected."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(status=status.HTTP_204_NO_CONTENT)
+
+            if chunk_index > next_idx:
                 logger.warning(
-                    "chunked_upload idempotent chunk rejected tenant=%s upload_id=%s index=%s reason=%s",
+                    "chunked_upload out-of-order tenant=%s upload_id=%s index=%s expected=%s",
+                    tenant_id,
+                    upload_id,
+                    chunk_index,
+                    next_idx,
+                )
+                return Response({"detail": "Chunk out of order."}, status=status.HTTP_400_BAD_REQUEST)
+
+            start = chunk_index * data["chunk_size"]
+            try:
+                resumable_upload.upload_chunk(uri, chunk_body, start, data["size"])
+            except Exception:
+                error_id = str(uuid.uuid4())
+                logger.exception(
+                    "chunked_upload GCS chunk failed error_id=%s tenant=%s upload_id=%s index=%s start=%s",
+                    error_id,
+                    tenant_id,
+                    upload_id,
+                    chunk_index,
+                    start,
+                )
+                return Response(
+                    {"detail": "Storage chunk upload failed.", "error_id": error_id},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+
+            accepted, err = upload_sessions.append_chunk(tenant_id, uid, chunk_index, chunk_body)
+            if not accepted:
+                error_id = str(uuid.uuid4())
+                logger.error(
+                    "chunked_upload session update failed after GCS success error_id=%s tenant=%s "
+                    "upload_id=%s index=%s err=%s",
+                    error_id,
                     tenant_id,
                     upload_id,
                     chunk_index,
                     err,
                 )
-                return Response({"detail": err or "Chunk rejected."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"detail": "Upload session could not be updated after storage write.", "error_id": error_id},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
             return Response(status=status.HTTP_204_NO_CONTENT)
-
-        if chunk_index > next_idx:
-            logger.warning(
-                "chunked_upload out-of-order tenant=%s upload_id=%s index=%s expected=%s",
-                tenant_id,
-                upload_id,
-                chunk_index,
-                next_idx,
-            )
-            return Response({"detail": "Chunk out of order."}, status=status.HTTP_400_BAD_REQUEST)
-
-        start = chunk_index * csize
-        try:
-            resumable_upload.upload_chunk(uri, chunk_body, start, total)
-        except Exception as exc:
-            logger.exception(
-                "chunked_upload GCS chunk failed tenant=%s upload_id=%s index=%s start=%s",
-                tenant_id,
-                upload_id,
-                chunk_index,
-                start,
-            )
-            return Response(
-                {"detail": "Storage chunk upload failed.", "reason": str(exc)},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
-
-        accepted, err = upload_sessions.append_chunk(tenant_id, str(upload_id), chunk_index, chunk_body)
-        if not accepted:
-            logger.error(
-                "chunked_upload session update failed after GCS success tenant=%s upload_id=%s index=%s err=%s",
-                tenant_id,
-                upload_id,
-                chunk_index,
-                err,
-            )
-            return Response(
-                {"detail": "Upload session could not be updated after storage write.", "reason": err or ""},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ChunkedUploadCompleteView(APIView):
@@ -289,52 +325,62 @@ class ChunkedUploadCompleteView(APIView):
 
     def post(self, request, upload_id, *args, **kwargs):
         tenant_id = _tenant_key()
-        data = upload_sessions.get(tenant_id, str(upload_id))
+        uid = str(upload_id)
+        data = upload_sessions.get(tenant_id, uid)
         if not data:
             return Response({"detail": "Upload session not found or expired."}, status=status.HTTP_404_NOT_FOUND)
         if data.get("user_id") != str(request.user.pk):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
-        total = data["size"]
-        csize = data["chunk_size"]
-        n = _expected_num_chunks(total, csize)
-        if data["next_chunk_index"] != n:
-            return Response(
-                {
-                    "detail": "Upload incomplete.",
-                    "next_chunk_index": data["next_chunk_index"],
-                    "num_chunks": n,
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        with upload_sessions.session_write_lock(tenant_id, uid):
+            data = upload_sessions.get(tenant_id, uid)
+            if not data:
+                return Response({"detail": "Upload session not found or expired."}, status=status.HTTP_404_NOT_FOUND)
+            if data.get("user_id") != str(request.user.pk):
+                return Response(status=status.HTTP_403_FORBIDDEN)
 
-        storage_path = data["storage_path"]
-        content_id = uuid.UUID(data.get("file_content_id") or str(upload_id))
-        is_image = data.get("is_image", False)
+            total = data["size"]
+            csize = data["chunk_size"]
+            n = _expected_num_chunks(total, csize)
+            if data["next_chunk_index"] != n:
+                return Response(
+                    {
+                        "detail": "Upload incomplete.",
+                        "next_chunk_index": data["next_chunk_index"],
+                        "num_chunks": n,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        try:
-            if is_image:
-                instance = ImageFileContent(id=content_id, created_by=request.user)
-                _attach_existing_file(instance, storage_path)
-                instance.save()
-                out = ImageFileContentSerializer(instance, context={"request": request}).data
-            else:
-                instance = FileContent(id=content_id, created_by=request.user)
-                _attach_existing_file(instance, storage_path)
-                instance.save()
-                out = FileContentSerializer(instance, context={"request": request}).data
-        except Exception as exc:
-            logger.exception(
-                "chunked_upload finalize model save failed tenant=%s upload_id=%s path=%s",
-                tenant_id,
-                upload_id,
-                storage_path,
-            )
-            return Response(
-                {"detail": "Failed to register uploaded file.", "reason": str(exc)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            storage_path = data["storage_path"]
+            content_id = uuid.UUID(data.get("file_content_id") or str(upload_id))
+            is_image = data.get("is_image", False)
 
-        upload_sessions.delete(tenant_id, str(upload_id))
-        out["file_type"] = "image" if is_image else "file"
-        return Response(out, status=status.HTTP_200_OK)
+            try:
+                if is_image:
+                    instance = ImageFileContent(id=content_id, created_by=request.user)
+                    _attach_existing_file(instance, storage_path)
+                    instance.save()
+                    out = ImageFileContentSerializer(instance, context={"request": request}).data
+                else:
+                    instance = FileContent(id=content_id, created_by=request.user)
+                    _attach_existing_file(instance, storage_path)
+                    instance.save()
+                    out = FileContentSerializer(instance, context={"request": request}).data
+            except Exception:
+                error_id = str(uuid.uuid4())
+                logger.exception(
+                    "chunked_upload finalize model save failed error_id=%s tenant=%s upload_id=%s path=%s",
+                    error_id,
+                    tenant_id,
+                    upload_id,
+                    storage_path,
+                )
+                return Response(
+                    {"detail": "Failed to register uploaded file.", "error_id": error_id},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+            upload_sessions.delete(tenant_id, uid)
+            out["file_type"] = "image" if is_image else "file"
+            return Response(out, status=status.HTTP_200_OK)

@@ -169,3 +169,18 @@ class TestChunkedUploadAPI(BaseAPITest):
             format="json",
         )
         assert r.status_code == status.HTTP_400_BAD_REQUEST
+
+    @patch(
+        "usercontent.chunked_upload.resumable_upload.initiate", side_effect=RuntimeError("internal bucket/path detail")
+    )
+    def test_init_storage_error_returns_client_safe_payload(self, _mock_init):
+        r = self.client.post(
+            f"{self.base}/",
+            {"filename": "x.txt", "size": 100, "chunk_size": 100},
+            format="json",
+        )
+        assert r.status_code == status.HTTP_502_BAD_GATEWAY
+        payload = self._json_data(r)
+        assert "error_id" in payload
+        assert "reason" not in payload
+        assert "bucket" not in str(payload)

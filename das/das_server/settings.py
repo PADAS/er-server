@@ -462,6 +462,9 @@ CACHES = {
         "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
         "KEY_PREFIX": "vector-tiles",
     },
+    # Chunked upload sessions (ERA-9210): must be shared across Gunicorn/uwsgi workers and pods.
+    # LocMem here is for dev/tests only; production images override this alias to Redis in
+    # local_settings_docker.py (see UPLOAD_SESSION_CACHE_ALIAS).
     UPLOAD_SESSION_CACHE_ALIAS: {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "upload-sessions",
