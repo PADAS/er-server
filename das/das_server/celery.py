@@ -63,6 +63,9 @@ app.conf.task_routes = {
     "das_server.tasks.celerybeat_pulse": {
         "queue": "realtime_p1",
     },
+    "das_server.tasks.refresh_tenants_cache": {
+        "queue": "realtime_p1",
+    },
     "tracking.tasks.run_plugins": {
         "queue": "realtime_p2",
     },
