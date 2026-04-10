@@ -9,12 +9,15 @@ Uses the GCS JSON API resumable upload protocol with google.auth and requests:
 
 import json
 import logging
+import threading
 
 from google.auth.transport.requests import AuthorizedSession
 
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+_tls = threading.local()
 
 CONTENT_TYPE = "application/octet-stream"
 UPLOAD_API = "https://www.googleapis.com/upload/storage/v1/b"
@@ -39,7 +42,12 @@ def _get_credentials():
 
 
 def _session() -> AuthorizedSession:
-    return AuthorizedSession(_get_credentials())
+    """One AuthorizedSession per thread (requests.Session is not thread-safe)."""
+    sess = getattr(_tls, "authorized", None)
+    if sess is None:
+        sess = AuthorizedSession(_get_credentials())
+        _tls.authorized = sess
+    return sess
 
 
 def initiate(storage_path: str, total_size: int) -> str:

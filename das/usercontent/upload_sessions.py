@@ -139,6 +139,7 @@ def append_chunk(
         existing = chunk_hashes.get(chunk_index)
         digest = hashlib.sha256(chunk_bytes).hexdigest()
         if existing == digest:
+            _cache().set(_key(tenant_id, upload_id), data, timeout=TTL)
             return True, None
         return False, "Chunk index already received with different content"
 
