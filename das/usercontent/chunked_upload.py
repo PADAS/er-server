@@ -381,6 +381,22 @@ class ChunkedUploadCompleteView(APIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
+            # Abort the GCS resumable session now that the object is finalized. This closes
+            # the write window for the normal completion path. Abort failures are non-fatal —
+            # the session URI will remain live in GCS until GCS-side expiry (~7 days) for
+            # sessions that are abandoned mid-upload (e.g. Redis TTL expiry without explicit
+            # completion), but the normal path is now explicitly closed.
+            gcs_uri = data.get("gcs_resumable_uri")
+            if gcs_uri:
+                try:
+                    resumable_upload.abort(gcs_uri)
+                except Exception:
+                    logger.warning(
+                        "chunked_upload GCS session abort failed (non-fatal) tenant=%s upload_id=%s",
+                        tenant_id,
+                        upload_id,
+                    )
+
             upload_sessions.delete(tenant_id, uid)
             out["file_type"] = "image" if is_image else "file"
             return Response(out, status=status.HTTP_200_OK)

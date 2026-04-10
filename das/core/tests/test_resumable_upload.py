@@ -90,3 +90,29 @@ class TestResumableUploadFinalize:
 
         with pytest.raises(RuntimeError, match="403"):
             resumable_upload.finalize("https://upload.example/s", 100)
+
+
+class TestResumableUploadAbort:
+    @patch("core.resumable_upload._session")
+    def test_abort_issues_delete_to_uri(self, mock_session):
+        mock_session.return_value.delete.return_value.status_code = 499
+
+        resumable_upload.abort("https://upload.example/session/abc")
+
+        mock_session.return_value.delete.assert_called_once_with("https://upload.example/session/abc", timeout=60)
+
+    @patch("core.resumable_upload._session")
+    def test_abort_treats_499_as_success(self, mock_session):
+        """GCS returns 499 on successful session cancellation; must not raise."""
+        mock_session.return_value.delete.return_value.status_code = 499
+
+        resumable_upload.abort("https://upload.example/session/abc")
+        # no raise
+
+    @patch("core.resumable_upload._session")
+    def test_abort_unexpected_status_does_not_raise(self, mock_session):
+        """Abort failures are non-fatal; unexpected status codes are logged but not raised."""
+        mock_session.return_value.delete.return_value.status_code = 503
+
+        resumable_upload.abort("https://upload.example/session/abc")
+        # no raise

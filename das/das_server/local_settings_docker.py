@@ -34,7 +34,9 @@ CACHES[UPLOAD_SESSION_CACHE_ALIAS] = {
     "BACKEND": "django_redis.cache.RedisCache",
     "LOCATION": REDIS_SERVER,
     "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
-    "KEY_PREFIX": "upload_session",
+    # NOTE: Adding KEY_FUNCTION changes the stored key shape. On first deploy, any in-flight
+    # upload sessions will be invalidated (clients will receive 404 and must restart the upload).
+    "KEY_FUNCTION": "utils.tenant.cache.make_cache_key",
 }
 
 

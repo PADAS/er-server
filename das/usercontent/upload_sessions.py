@@ -99,12 +99,39 @@ def create(
 
 
 def get(tenant_id: str, upload_id: str) -> Optional[dict[str, Any]]:
-    """Return session data or None if not found/expired."""
-    return _cache().get(_key(tenant_id, upload_id))
+    """Return session data or None if not found/expired.
+
+    On a cache miss (TTL expiry or explicit delete) clean up any stale process-local
+    lock entry so the _thread_locks registry does not grow without bound.
+    """
+    data = _cache().get(_key(tenant_id, upload_id))
+    if data is None:
+        key = (tenant_id, upload_id)
+        with _thread_lock_registry_guard:
+            _thread_locks.pop(key, None)
+    return data
 
 
 def set_gcs_uri(tenant_id: str, upload_id: str, uri: str) -> None:
-    """Store the GCS resumable session URI after initiate."""
+    """Store the GCS resumable session URI after initiate.
+
+    Security note — gcs_resumable_uri is a GCS capability URL that grants write access to the
+    target object for the lifetime of the resumable upload session (~7 days on GCS side).
+    Three things to keep in mind:
+      (a) The URI is a bearer capability: anyone who obtains it can write to that GCS path
+          until the GCS session expires on the GCS side. On the normal completion path,
+          ChunkedUploadCompleteView calls resumable_upload.abort() after finalization to
+          explicitly cancel the session and close that write window. Residual risk: sessions
+          that are abandoned mid-upload (e.g. Redis TTL expiry without explicit completion)
+          are not aborted and will remain live in GCS until GCS-side expiry (~7 days). There
+          is no background cleanup for these orphaned sessions.
+      (b) Isolation in Redis depends on KEY_FUNCTION being configured on the
+          UPLOAD_SESSION_CACHE_ALIAS cache (see settings.py / local_settings_docker.py).
+          Without it, keys are not tenant-scoped and cross-tenant access is possible.
+      (c) If encryption at rest for these URIs is required in future, use Django's
+          django.core.signing module (already a project dependency) — do not introduce
+          new crypto dependencies.
+    """
     data = get(tenant_id, upload_id)
     if not data:
         raise ValueError(f"Upload session not found: {upload_id}")

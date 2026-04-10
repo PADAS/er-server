@@ -119,3 +119,20 @@ def finalize(uri: str, total_size: int) -> None:
     if resp.status_code not in (200, 201):
         raise RuntimeError(f"Resumable upload finalize failed: {resp.status_code}")
     logger.info("Resumable upload finalized: %s bytes", total_size)
+
+
+def abort(uri: str) -> None:
+    """
+    Cancel a GCS resumable upload session.
+
+    Issues DELETE to the session URI per GCS resumable upload protocol. GCS returns 499
+    (Client Closed Request) on successful cancellation — this is the expected response
+    and is treated as success, not an error. Any other non-successful status is logged as
+    a warning; abort failures are non-fatal (the session will expire on the GCS side).
+    """
+    resp = _session().delete(uri, timeout=60)
+    if resp.status_code == 499:
+        logger.info("Aborted GCS resumable upload session")
+        return
+    if resp.status_code not in (200, 204):
+        logger.warning("GCS resumable abort returned unexpected status: %s", resp.status_code)

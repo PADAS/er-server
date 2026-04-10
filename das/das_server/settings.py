@@ -465,10 +465,12 @@ CACHES = {
     # Chunked upload sessions (ERA-9210): must be shared across Gunicorn/uwsgi workers and pods.
     # LocMem here is for dev/tests only; production images override this alias to Redis in
     # local_settings_docker.py (see UPLOAD_SESSION_CACHE_ALIAS).
+    # NOTE: Adding KEY_FUNCTION changes the stored key shape. On first deploy, any in-flight
+    # upload sessions will be invalidated (clients will receive 404 and must restart the upload).
     UPLOAD_SESSION_CACHE_ALIAS: {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "upload-sessions",
-        "KEY_PREFIX": "upload_session",
+        "KEY_FUNCTION": "utils.tenant.cache.make_cache_key",
     },
 }
 
