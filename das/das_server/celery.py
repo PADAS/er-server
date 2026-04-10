@@ -66,6 +66,12 @@ app.conf.task_routes = {
     "das_server.tasks.refresh_tenants_cache": {
         "queue": "realtime_p1",
     },
+    "observations.tasks.process_gpxtrack_file": {
+        "queue": "realtime_p1",
+    },
+    "observations.tasks.process_gpxdata_api": {
+        "queue": "realtime_p1",
+    },
     "tracking.tasks.run_plugins": {
         "queue": "realtime_p2",
     },
