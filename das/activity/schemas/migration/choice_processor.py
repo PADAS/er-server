@@ -1,15 +1,16 @@
 """Hardcoded choice processing for migrated V2 schemas."""
 
+from __future__ import annotations
+
 import logging
-import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
 
 from django.db import models
-from django.urls import reverse
 
 from choices.models import Choice
+
+from .utils import normalize_for_matching, slugify_for_choice, smart_abbreviate
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +26,12 @@ class ResolutionStrategy(str, Enum):
 @dataclass
 class HardcodedChoiceResolution:
     strategy: ResolutionStrategy
-    choice_field_name: Optional[str] = None
-    missing_choices: Optional[List[Dict[str, str]]] = None
-    property_path: Optional[List[str]] = None
+    choice_field_name: str
+    missing_choices: list[dict[str, str]] | None = None
+    property_path: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "HardcodedChoiceResolution":
+    def from_dict(cls, data: dict) -> HardcodedChoiceResolution:
         normalized_data = data.copy()
         strategy = normalized_data.get("strategy")
         if not isinstance(strategy, ResolutionStrategy):
@@ -44,9 +45,9 @@ class HardcodedChoiceResolution:
 
 @dataclass
 class HardcodedChoice:
-    property_path: List[str]
-    choices: List[Dict[str, str]] = field(default_factory=list)
-    resolution_options: List[HardcodedChoiceResolution] = field(default_factory=list)
+    property_path: list[str] = field(default_factory=list)
+    choices: list[dict[str, str]] = field(default_factory=list)
+    resolution_options: list[HardcodedChoiceResolution] = field(default_factory=list)
 
     def needs_resolution(self) -> bool:
         """
@@ -62,75 +63,6 @@ class HardcodedChoice:
         return False
 
 
-def get_field_schema_from_prop_path(v2_schema: Dict[str, Any], prop_path: List[str]) -> Dict[str, Any]:
-    """Get the field schema from a v2_schema, following the property path."""
-    current_properties = v2_schema.get("json", {}).get("properties", {})
-    field_schema: Dict[str, Any] | None = None
-
-    for field_name in prop_path:
-        if field_name not in current_properties:
-            raise KeyError(f"Invalid property path: {str(prop_path)}")
-        field_schema = current_properties[field_name]
-
-        if field_schema.get("type") == "array":
-            current_properties = field_schema.get("items", {}).get("properties", {})
-        elif field_schema.get("type") == "object":
-            current_properties = field_schema.get("properties", {})
-
-    return field_schema
-
-
-def rewrite_field_to_ref(field_schema: Dict[str, Any], choice_field_name: str) -> None:
-    """Replace hardcoded anyOf/oneOf with a $ref to the choices endpoint. Mutates in-place."""
-    ref_url = f"{reverse('schemas:choices')}?field={choice_field_name}"
-    field_schema["anyOf"] = [{"$ref": ref_url}]
-
-
-def normalize_for_matching(value: str) -> str:
-    """Lowercase and collapse separators to a single dash for fuzzy comparison."""
-    # Separator normalization pattern for matching
-    SEPARATOR_PATTERN = re.compile(r"[-_.\s]+")
-    normalized = value.lower()
-    normalized = SEPARATOR_PATTERN.sub("-", normalized)
-    return normalized.strip("-")
-
-
-def slugify_for_choice(value: str) -> str:
-    """Convert a string to a valid choice field name (lowercase, underscores only)."""
-    slugified = value.lower()
-    slugified = re.sub(r"[^a-z0-9]+", "_", slugified)
-    slugified = re.sub(r"_+", "_", slugified)
-    return slugified.strip("_")
-
-
-def smart_abbreviate(text: str, max_length: int = 40) -> str:
-    """
-    Abbreviates a snake_case string to fit within max_length by:
-    1. Removing vowels from words (except the first letter).
-    2. Strict truncation if still too long.
-    """
-    if len(text) <= max_length:
-        return text
-
-    parts = text.split("_")
-
-    def drop_vowels(word: str) -> str:
-        if not word:
-            return word
-        first = word[0]
-        rest = re.sub(r"[aeiou]", "", word[1:])
-        return first + rest
-
-    abbrev_parts = [drop_vowels(p) for p in parts]
-    new_text = "_".join(abbrev_parts)
-
-    if len(new_text) <= max_length:
-        return new_text
-
-    # Still too long, strictly truncate and clean up trailing underscores
-    return new_text[:max_length].rstrip("_")
-
-
 class ChoiceProcessor:
     """Detects inline choice values in V2 schemas and matches them against
     existing Choice objects and proposed choices from the current batch.
@@ -141,37 +73,25 @@ class ChoiceProcessor:
     # Minimum overlap ratio to consider an existing (or proposed) choice field a "match"
     MATCH_THRESHOLD = 2 / 3
 
-    def __init__(
-        self,
-        event_type_value: str = "",
-        proposed_choices: Optional[Dict[str, List[str]]] = None,
-        existing_choices: Optional[Dict[str, List[str]]] = None,
-    ):
-        self.event_type_value = event_type_value
-        self.proposed_choices = proposed_choices or {}
-        self.existing_choices = existing_choices or {}
+    def __init__(self):
+        self.event_type_value: str = ""
+        self.proposed_choices: dict[str, list[str]] = {}
+        self.existing_choices: dict[str, list[str]] = {}
 
     def normalize_for_matching(self, value: str) -> str:
         return normalize_for_matching(value)
 
-    def get_hardcoded_choices(self, v2_schema: dict) -> List[HardcodedChoice]:
+    def get_hardcoded_choices(self, v2_schema: dict) -> list[HardcodedChoice]:
         """Analyze all fields, builds a data structure with the results."""
         return self._collect_hardcoded_choices_from_properties(v2_schema.get("json", {}).get("properties", {}), [])
 
     def _collect_hardcoded_choices_from_properties(
-        self,
-        properties: dict,
-        current_path: List[str],
-    ) -> List[HardcodedChoice]:
+        self, properties: dict, current_path: list[str]
+    ) -> list[HardcodedChoice]:
         """
         Recursively traverse properties to find hardcoded choices.
-
-        Returns:
-            List of tuples (path, hardcoded_choices) where:
-            - path is a list of field names (property path from root)
-            - hardcoded_choices is a list of choice definitions
         """
-        hardcoded_choices: List[HardcodedChoice] = []
+        hardcoded_choices: list[HardcodedChoice] = []
 
         for field_name, field_schema in properties.items():
             if field_schema.get("type") == "array":
@@ -182,6 +102,7 @@ class ChoiceProcessor:
                 hardcoded_choices.extend(self._collect_hardcoded_choices_from_properties(collection_properties, path))
                 continue
 
+            # Note: "type" == "object" doesn't "exist" in v1 schemas, at least not officially
             field_hardcoded_choices = self.extract_field_hardcoded_choices(field_schema)
             if not field_hardcoded_choices:
                 continue
@@ -192,13 +113,13 @@ class ChoiceProcessor:
 
         return hardcoded_choices
 
-    def extract_field_hardcoded_choices(self, field_schema: dict) -> List[dict]:
+    def extract_field_hardcoded_choices(self, field_schema: dict) -> list[dict]:
         """Extract hardcoded choices from anyOf > {title: "Hardcoded", oneOf: [...]}
         structure produced by transform_schema.
 
         Returns (list of {value, display}).
         """
-        hardcoded_choices: List[dict] = []
+        hardcoded_choices: list[dict] = []
         any_of = field_schema.get("anyOf", [])
 
         if not any_of:
@@ -218,7 +139,7 @@ class ChoiceProcessor:
 
         # Deduplication
         seen = {}
-        deduplicated_choices: List[dict] = []
+        deduplicated_choices: list[dict] = []
 
         for choice in hardcoded_choices:
             if choice["value"] not in seen:
@@ -230,8 +151,8 @@ class ChoiceProcessor:
     def populate_resolution_options(
         self,
         results,
-        existing_choices: Dict[str, List[str]],
-        proposed_choices: Dict[str, List[str]],
+        existing_choices: dict[str, list[str]],
+        proposed_choices: dict[str, list[str]],
     ):
         """Analyze migration results and determine choice resolutions."""
         self.existing_choices = existing_choices
@@ -257,10 +178,8 @@ class ChoiceProcessor:
                     )
 
     def find_matching_resolution_option(
-        self,
-        hardcoded_choice: HardcodedChoice,
-        selection: HardcodedChoiceResolution,
-    ) -> Optional[HardcodedChoiceResolution]:
+        self, hardcoded_choice: HardcodedChoice, selection: HardcodedChoiceResolution
+    ) -> HardcodedChoiceResolution | None:
         for option in hardcoded_choice.resolution_options:
             if self._selected_resolution_matches_option(selection, option):
                 return option
@@ -268,9 +187,7 @@ class ChoiceProcessor:
         return None
 
     def _selected_resolution_matches_option(
-        self,
-        selection: HardcodedChoiceResolution,
-        option: HardcodedChoiceResolution,
+        self, selection: HardcodedChoiceResolution, option: HardcodedChoiceResolution
     ) -> bool:
         if selection.strategy == ResolutionStrategy.CREATE_NEW:
             return selection.property_path == option.property_path and selection.strategy == option.strategy
@@ -282,7 +199,7 @@ class ChoiceProcessor:
 
     def get_resolution_options(
         self, migration_result, hardcoded_choice: HardcodedChoice
-    ) -> List[HardcodedChoiceResolution]:
+    ) -> list[HardcodedChoiceResolution]:
         """Analyze possible choice resolutions for a migration result."""
         # We rely on the phase 1 and that the migration_result has the hardcoded_choices attribute already populated
         # First we atempt to find a perfect match in the existing choices
@@ -300,7 +217,7 @@ class ChoiceProcessor:
         existing_score = existing_match[1] if existing_match else 0.0
         proposed_score = proposed_match[1] if proposed_match else 0.0
 
-        if existing_score == 1.0 or proposed_score == 1.0:
+        if (existing_match and existing_score == 1.0) or proposed_score == 1.0:
             # Perfect match found
             if existing_score == 1.0:
                 strategy = ResolutionStrategy.USE_EXISTING
@@ -357,8 +274,8 @@ class ChoiceProcessor:
     def find_best_matching_choice_field(
         self,
         hardcoded_choice: HardcodedChoice,
-        against_values: Dict[str, List[str]],  # just a dict of lists of values, not the full choice objects
-    ) -> Optional[Tuple[str, float, List[Dict[str, str]]]]:
+        against_values: dict[str, list[str]],  # just a dict of lists of values, not the full choice objects
+    ) -> tuple[str, float, list[dict[str, str]]] | None:
         """Find an the best match choice field for the given hardcoded choices.
 
         Uses Jaccard similarity on normalized values for treshhold comparison and name-match for real comparison.
@@ -371,7 +288,7 @@ class ChoiceProcessor:
 
         against_values = against_values.copy()
 
-        best_match: Optional[Tuple[str, float, List[Dict[str, str]]]] = None
+        best_match: tuple[str, float, list[dict[str, str]]] | None = None
 
         for choice_field_name, values in against_values.items():
             # Normalize existing values for comparison
@@ -402,7 +319,7 @@ class ChoiceProcessor:
 
         return best_match
 
-    def generate_unique_choice_field_name(self, field_path: List[str], event_type_value: str) -> str:
+    def generate_unique_choice_field_name(self, field_path: list[str], event_type_value: str) -> str:
         """Generate a unique choice field name, strictly bounded to 40 chars.
 
         Tries: field_name, path, event_type + field_name, event_type + path.
@@ -454,7 +371,7 @@ class ChoiceProcessor:
                 return name
             counter += 1
 
-    def create_choice_field(self, field_name: str, values: List[Dict[str, str]]) -> None:
+    def create_choice_field(self, field_name: str, values: list[dict[str, str]]) -> None:
         """Create Choice objects for a new choice field."""
         seen_values = set()
         ordernum = 0
@@ -485,7 +402,7 @@ class ChoiceProcessor:
         if choices_to_create:
             Choice.objects.bulk_create(choices_to_create)
 
-    def add_values_to_choice_field(self, field_name: str, values: List[Dict[str, str]]) -> int:
+    def add_values_to_choice_field(self, field_name: str, values: list[dict[str, str]]) -> int:
         """Add missing values to an existing choice field. Returns count added."""
         # Get next ordernum for this field
         max_order = Choice.objects.filter(model=Choice.EVENT_MODEL, field=field_name).aggregate(

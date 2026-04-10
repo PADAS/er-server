@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import json
 import logging
-from typing import List
 
 from rest_framework import serializers
 
@@ -115,7 +116,7 @@ class EventTypeRevisionSerializer(serializers.Serializer):
     def get_action(self, obj) -> str:
         return obj.get_action_display()
 
-    def get_updated_fields(self, obj) -> List[str]:
+    def get_updated_fields(self, obj) -> list[str]:
         """Get the fields that have been updated in this revision."""
         non_user_fields = ["updated_at", "created_at"]
         if obj.action != ACTION_ADDED and isinstance(obj.data, dict):

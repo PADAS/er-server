@@ -7,10 +7,12 @@ This is the main entry point for migration operations, coordinating:
 - Result collection with warnings/errors
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from schema_migration_tool import LogCollector, transform_schema
 from schema_migration_tool.batch.normalize_export import preprocess_template_vars
@@ -27,10 +29,9 @@ from .choice_processor import (
     HardcodedChoice,
     HardcodedChoiceResolution,
     ResolutionStrategy,
-    get_field_schema_from_prop_path,
-    rewrite_field_to_ref,
 )
 from .logger import ErrorCode, EventTypeMigrationLogger, MigrationLogger
+from .utils import get_field_schema_from_prop_path, rewrite_field_to_ref
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +39,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MigrationRequest:
     event_type_value: str
-    hardcoded_choices_resolutions: Optional[List[HardcodedChoiceResolution]] = None
-    event_type: Optional[EventType] = None
+    hardcoded_choices_resolutions: list[HardcodedChoiceResolution] | None = None
+    event_type: EventType | None = None
 
     @classmethod
     def _normalize_resolution(cls, data: HardcodedChoiceResolution | dict) -> HardcodedChoiceResolution:
@@ -48,7 +49,7 @@ class MigrationRequest:
         return HardcodedChoiceResolution.from_dict(data)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "MigrationRequest":
+    def from_dict(cls, data: dict) -> MigrationRequest:
         normalized_data = data.copy()
 
         if "hardcoded_choices_resolutions" in normalized_data and normalized_data["hardcoded_choices_resolutions"]:
@@ -59,7 +60,7 @@ class MigrationRequest:
         return cls(**normalized_data)
 
     @classmethod
-    def from_input(cls, data: "MigrationRequest | str | Dict[str, Any]") -> "MigrationRequest":
+    def from_input(cls, data: MigrationRequest | str | dict[str, Any]) -> MigrationRequest:
         if isinstance(data, cls):
             return data
 
@@ -74,8 +75,8 @@ class MigrationRequest:
 
 @dataclass
 class ResolvedHardcodedChoice:
-    property_path: List[str]
-    choices: List[Dict[str, str]]
+    property_path: list[str]
+    choices: list[dict[str, str]]
     resolution: HardcodedChoiceResolution
 
 
@@ -83,24 +84,23 @@ class ResolvedHardcodedChoice:
 class MigrationResult:
     """Result of migrating a single EventType."""
 
+    log: EventTypeMigrationLogger
     event_type_value: str = ""
-    log: EventTypeMigrationLogger | None = field(repr=False, default=None)
-    event_type: Optional[EventType] = None
-    migration_request: Optional[MigrationRequest] = None
-    v2_schema: Optional[Dict[str, Any]] = None
-    warnings: List[str] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    event_type: EventType | None = None
+    migration_request: MigrationRequest | None = None
+    v2_schema: dict[str, Any] | None = None
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    hardcoded_choices: Optional[List[HardcodedChoice]] = None
-    resolved_hardcoded_choices: Optional[List[ResolvedHardcodedChoice]] = None
+    hardcoded_choices: list[HardcodedChoice] | None = None
+    resolved_hardcoded_choices: list[ResolvedHardcodedChoice] | None = None
 
     @property
     def success(self) -> bool:
         return len(self.errors) == 0
 
-    def to_dict(self) -> Dict[str, Any]:
-        # TODO: add hardcoded_choices to the result
+    def to_dict(self) -> dict[str, Any]:
         return {
             "event_type": self.event_type_value,
             "v2_schema": self.v2_schema,
@@ -121,14 +121,14 @@ class MigrationService:
         *,
         request,
         dry_run: bool = True,
-        queryset: Optional[QuerySet] = None,
+        queryset: QuerySet | None = None,
         logger: MigrationLogger | None = None,
     ):
         self.request = request
         self._queryset = queryset
         self.dry_run = dry_run
-        self.existing_choices: Dict[str, List[str]] = {}
-        self.proposed_choices: Dict[str, List[str]] = {}
+        self.existing_choices: dict[str, list[str]] = {}
+        self.proposed_choices: dict[str, list[str]] = {}
         self.logger: MigrationLogger = logger or MigrationLogger.from_request(request, dry_run=dry_run)
 
     def get_queryset(self) -> QuerySet[EventType]:
@@ -141,11 +141,11 @@ class MigrationService:
 
         return self._queryset
 
-    def load_existing_choice_fields(self) -> Dict[str, List[str]]:
+    def load_existing_choice_fields(self) -> dict[str, list[str]]:
         """
         Get existing choice fields from the database.
         """
-        fields: Dict[str, List[str]] = {}
+        fields: dict[str, list[str]] = {}
         choices = Choice.objects.filter(model=Choice.EVENT_MODEL, is_active=True).values_list("field", "value")
 
         for field_name, value in choices:
@@ -155,11 +155,11 @@ class MigrationService:
 
         return fields
 
-    def index_selected_resolutions(self, result: MigrationResult) -> Dict[tuple[str, ...], HardcodedChoiceResolution]:
+    def index_selected_resolutions(self, result: MigrationResult) -> dict[tuple[str, ...], HardcodedChoiceResolution]:
         """
         Index selected resolutions by property path (as tuple) for quick lookup.
         """
-        selected_resolutions: Dict[tuple[str, ...], HardcodedChoiceResolution] = {}
+        selected_resolutions: dict[tuple[str, ...], HardcodedChoiceResolution] = {}
 
         if not result.migration_request or not result.migration_request.hardcoded_choices_resolutions:
             return selected_resolutions
@@ -183,8 +183,8 @@ class MigrationService:
     def validate_selected_resolutions(
         self,
         result: MigrationResult,
-        selected_resolutions: Dict[tuple[str, ...], HardcodedChoiceResolution],
-        hardcoded_choices_by_path: Dict[tuple[str, ...], HardcodedChoice],
+        selected_resolutions: dict[tuple[str, ...], HardcodedChoiceResolution],
+        hardcoded_choices_by_path: dict[tuple[str, ...], HardcodedChoice],
         choice_processor: ChoiceProcessor,
     ) -> None:
         for property_path, resolution in selected_resolutions.items():
@@ -210,7 +210,7 @@ class MigrationService:
     def validate_required_resolutions(
         self,
         result: MigrationResult,
-        selected_resolutions: Dict[tuple[str, ...], HardcodedChoiceResolution],
+        selected_resolutions: dict[tuple[str, ...], HardcodedChoiceResolution],
     ) -> None:
         for hardcoded_choice in result.hardcoded_choices:
             if tuple(hardcoded_choice.property_path) in selected_resolutions:
@@ -227,7 +227,7 @@ class MigrationService:
     def get_effective_resolution(
         self,
         hardcoded_choice: HardcodedChoice,
-        selected_resolutions: Dict[tuple[str, ...], HardcodedChoiceResolution],
+        selected_resolutions: dict[tuple[str, ...], HardcodedChoiceResolution],
         choice_processor: ChoiceProcessor,
     ) -> HardcodedChoiceResolution | None:
         property_path = tuple(hardcoded_choice.property_path)
@@ -259,10 +259,10 @@ class MigrationService:
     def build_resolved_hardcoded_choices(
         self,
         result: MigrationResult,
-        selected_resolutions: Dict[tuple[str, ...], HardcodedChoiceResolution],
+        selected_resolutions: dict[tuple[str, ...], HardcodedChoiceResolution],
         choice_processor: ChoiceProcessor,
-    ) -> List["ResolvedHardcodedChoice"]:
-        resolved_hardcoded_choices: List[ResolvedHardcodedChoice] = []
+    ) -> list[ResolvedHardcodedChoice]:
+        resolved_hardcoded_choices: list[ResolvedHardcodedChoice] = []
 
         for hardcoded_choice in result.hardcoded_choices or []:
             effective_resolution = self.get_effective_resolution(
@@ -285,9 +285,9 @@ class MigrationService:
 
     def validate_and_index_create_new_targets(
         self,
-        results: List[MigrationResult],
-    ) -> Dict[str, int]:
-        create_new_targets: Dict[str, int] = {}
+        results: list[MigrationResult],
+    ) -> dict[str, int]:
+        create_new_targets: dict[str, int] = {}
 
         for result_index, result in enumerate(results):
             if not result.success or not result.resolved_hardcoded_choices:
@@ -324,8 +324,8 @@ class MigrationService:
 
     def validate_resolution_dependencies(
         self,
-        results: List[MigrationResult],
-        create_new_targets: Dict[str, int],
+        results: list[MigrationResult],
+        create_new_targets: dict[str, int],
     ) -> None:
         for result_index, result in enumerate(results):
             if not result.success or not result.resolved_hardcoded_choices:
@@ -371,10 +371,10 @@ class MigrationService:
 
     def resolve_and_validate_migration_requests(
         self,
-        results: List[MigrationResult],
+        results: list[MigrationResult],
         choice_processor: ChoiceProcessor,
     ) -> None:
-        selected_resolutions_by_result: Dict[int, Dict[tuple[str, ...], HardcodedChoiceResolution]] = {}
+        selected_resolutions_by_result: dict[int, dict[tuple[str, ...], HardcodedChoiceResolution]] = {}
 
         for result in results:
             if not result.success or not result.hardcoded_choices:
@@ -448,9 +448,11 @@ class MigrationService:
 
         for resolved_choice in result.resolved_hardcoded_choices or []:
             field_schema = get_field_schema_from_prop_path(result.v2_schema, resolved_choice.property_path)
+            if field_schema is None:
+                raise KeyError(f"Property path not found in v2 schema: {resolved_choice.property_path}")
             rewrite_field_to_ref(field_schema, resolved_choice.resolution.choice_field_name)
 
-    def migrate(self, migration_requests: List[str | dict]) -> List[MigrationResult]:
+    def migrate(self, migration_requests: list[str | dict]) -> list[MigrationResult]:
         """
         Main entry point for migrating EventTypes. Migrate multiple EventTypes.
         Atomic per EventType: each commits or rolls back independently.
@@ -483,7 +485,7 @@ class MigrationService:
             if result.success:
                 try:
                     self.rewrite_resolved_choice_refs(result)
-                except KeyError as e:
+                except (KeyError, TypeError) as e:
                     # Known case: Property path not found in v2 schema
                     result.errors.append(
                         result.log.error(
@@ -601,7 +603,7 @@ class MigrationService:
         result.v2_schema = transformed_schema
 
     def persist_migration(self, result: MigrationResult, choice_processor: ChoiceProcessor) -> None:
-        if not result.success:
+        if not result.success or not result.event_type:
             return
 
         event_type = result.event_type

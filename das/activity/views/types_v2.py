@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 
 from django_filters import rest_framework as filters

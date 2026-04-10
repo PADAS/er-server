@@ -6,10 +6,12 @@ from activity.schemas.migration.choice_processor import (
     ChoiceProcessor,
     HardcodedChoice,
     ResolutionStrategy,
+)
+from activity.schemas.migration.service import MigrationResult
+from activity.schemas.migration.utils import (
     get_field_schema_from_prop_path,
     rewrite_field_to_ref,
 )
-from activity.schemas.migration.service import MigrationResult
 from choices.models import Choice
 
 
@@ -149,7 +151,8 @@ class TestFindMatchingChoiceField:
 
 class TestChoiceResolutionPlanning:
     def test_returns_use_existing_for_exact_existing_match(self, hardcoded_values):
-        processor = ChoiceProcessor(existing_choices={"severity": ["low", "high"]})
+        processor = ChoiceProcessor()
+        processor.existing_choices = {"severity": ["low", "high"]}
         migration_result = MigrationResult(event_type_value="fire_rep")
         hardcoded_choice = HardcodedChoice(
             property_path=["severity"],
@@ -165,7 +168,8 @@ class TestChoiceResolutionPlanning:
         assert resolutions[0].choice_field_name == "severity"
 
     def test_returns_create_and_merge_into_existing_for_partial_existing_match(self, hardcoded_values):
-        processor = ChoiceProcessor(existing_choices={"severity": ["low", "high"]})
+        processor = ChoiceProcessor()
+        processor.existing_choices = {"severity": ["low", "high"]}
         migration_result = MigrationResult(event_type_value="fire_rep")
         hardcoded_choice = HardcodedChoice(
             property_path=["severity"],

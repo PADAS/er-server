@@ -39,7 +39,7 @@ def _load_existing_choices():
 @pytest.fixture
 def choice_processor(choices_base_url):
     """Eager ChoiceProcessor instance (no DB choices loaded)."""
-    return ChoiceProcessor(event_type_value="")
+    return ChoiceProcessor()
 
 
 @pytest.fixture
@@ -50,13 +50,11 @@ def make_choice_processor(choices_base_url):
     objects before building the processor.
     """
 
-    def _create(event_type_value="", **kwargs):
-        defaults = {
-            "event_type_value": event_type_value,
-            "existing_choices": _load_existing_choices(),
-        }
-        defaults.update(kwargs)
-        return ChoiceProcessor(**defaults)
+    def _create(event_type_value="", existing_choices=None):
+        processor = ChoiceProcessor()
+        processor.event_type_value = event_type_value
+        processor.existing_choices = existing_choices or _load_existing_choices()
+        return processor
 
     return _create
 
@@ -65,13 +63,11 @@ def make_choice_processor(choices_base_url):
 def choice_processor_with_event_type(choices_base_url):
     """Factory fixture for ChoiceProcessor with event_type_value (loads DB choices)."""
 
-    def _create(event_type_value="test_event", **kwargs):
-        defaults = {
-            "event_type_value": event_type_value,
-            "existing_choices": _load_existing_choices(),
-        }
-        defaults.update(kwargs)
-        return ChoiceProcessor(**defaults)
+    def _create(event_type_value="test_event", existing_choices=None):
+        processor = ChoiceProcessor()
+        processor.event_type_value = event_type_value
+        processor.existing_choices = existing_choices or _load_existing_choices()
+        return processor
 
     return _create
 

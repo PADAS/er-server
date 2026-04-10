@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import logging
 import re
@@ -91,7 +93,7 @@ class LogContext:
         return cls.build_migration_request_id(tenant_name=tenant_name)
 
     @classmethod
-    def from_request(cls, request: Request, dry_run: bool) -> "LogContext":
+    def from_request(cls, request: Request, dry_run: bool) -> LogContext:
         raw_request = getattr(request, "_request", request)
         headers = getattr(request, "headers", None) or getattr(raw_request, "headers", {}) or {}
         tenant_name = ""
@@ -148,7 +150,7 @@ class MigrationLogger:
     @classmethod
     def from_request(
         cls, request: Request, *, dry_run: bool = True, sink: logging.Logger | None = None
-    ) -> "MigrationLogger":
+    ) -> MigrationLogger:
         return cls(context=LogContext.from_request(request, dry_run=dry_run), sink=sink)
 
     @property
@@ -159,7 +161,7 @@ class MigrationLogger:
 
     # ── Scoped child ────────────────────────────────────────────────
 
-    def for_event_type(self, event_type_value: str) -> "EventTypeMigrationLogger":
+    def for_event_type(self, event_type_value: str) -> EventTypeMigrationLogger:
         """Create a child logger scoped to a specific EventType."""
         return EventTypeMigrationLogger(parent=self, event_type=event_type_value)
 
