@@ -76,6 +76,15 @@ with open(Path(__file__).parent / "core/fixtures/tenant-response.json") as tenan
     TENANT_RESPONSE = json.load(tenant_response_body)
 
 
+def pytest_collection_modifyitems(config, items):
+    """Skip tests marked 'perf' unless explicitly selected with -m perf."""
+    if "perf" not in (config.option.markexpr or ""):
+        skip = pytest.mark.skip(reason="opt-in test; run explicitly with: pytest -m perf")
+        for item in items:
+            if "perf" in item.keywords:
+                item.add_marker(skip)
+
+
 class APIClientWithUser(APIClient):
     user: User = None
 

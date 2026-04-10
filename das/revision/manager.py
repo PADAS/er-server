@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import logging
 import re
 import uuid
+from typing import Protocol, runtime_checkable
 
 import simplejson as json
 from django_multitenant.fields import TenantForeignKey
@@ -15,7 +18,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.core import serializers
-from django.db.models import Max, QuerySet
+from django.db.models import Max
 
 from activity.constants import PRIORITY_CHOICES
 from core.fields import CompoundTenantForeignKey
@@ -300,9 +303,17 @@ class RevisionMixin(object):
             return super().save(*args, **kwargs)
 
 
+@runtime_checkable
+class OrderableQuerySet(Protocol):
+    def order_by(self, *field_names: str) -> OrderableQuerySet: ...
+
+
 class RevisionMessage:
-    def __init__(self, revisions: QuerySet):
-        self.revisions = list(revisions.order_by("-revision_at"))
+    def __init__(self, revisions: OrderableQuerySet | list) -> None:
+        if isinstance(revisions, OrderableQuerySet):
+            self.revisions = list(revisions.order_by("-revision_at"))
+        else:
+            self.revisions = sorted(revisions, key=lambda r: r.revision_at, reverse=True)
 
     def get_action(self, revision) -> str:
         if revision.action in (ACTION_ADDED,):

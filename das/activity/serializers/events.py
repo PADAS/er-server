@@ -518,10 +518,13 @@ class EventSerializerMixin:
     def render_updates(self, event: Event) -> List[Dict]:
         result = []
 
-        if hasattr(event, "revision"):
-            revisions = event.revision.all()
+        revisions_cache = self.context.get("revisions_cache")
+        if revisions_cache is not None:
+            revisions = revisions_cache.get(event.pk, [])
+        elif hasattr(event, "revision"):
+            revisions = list(event.revision.all())
         else:
-            revisions = event.revision.all_user().order_by("sequence")
+            revisions = list(event.revision.all_user().order_by("sequence"))
 
         revision_message = RevisionMessage(revisions)
         for revision in reversed(revisions):
@@ -1279,7 +1282,7 @@ class EventPhotoSerializer(ModelSerializer):
     def render_updates(self, photo):
         if not self.context.get("include_updates", True):
             return []
-            
+
         def get_action(revision):
             return revision.get_action_display()
 
