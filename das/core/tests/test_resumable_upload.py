@@ -73,25 +73,6 @@ class TestResumableUploadChunk:
         assert call_kw["headers"]["Content-Range"] == "bytes 0-4/10"
 
 
-class TestResumableUploadFinalize:
-    @patch("core.resumable_upload._session")
-    def test_finalize_sends_bytes_star_total(self, mock_session):
-        mock_session.return_value.put.return_value.status_code = 200
-
-        resumable_upload.finalize("https://upload.example/s", 100)
-
-        call_kw = mock_session.return_value.put.call_args[1]
-        assert call_kw["headers"]["Content-Range"] == "bytes */100"
-        assert call_kw["data"] == b""
-
-    @patch("core.resumable_upload._session")
-    def test_finalize_bad_status_raises(self, mock_session):
-        mock_session.return_value.put.return_value.status_code = 403
-
-        with pytest.raises(RuntimeError, match="403"):
-            resumable_upload.finalize("https://upload.example/s", 100)
-
-
 class TestResumableUploadAbort:
     @patch("core.resumable_upload._session")
     def test_abort_issues_delete_to_uri(self, mock_session):
@@ -99,7 +80,7 @@ class TestResumableUploadAbort:
 
         resumable_upload.abort("https://upload.example/session/abc")
 
-        mock_session.return_value.delete.assert_called_once_with("https://upload.example/session/abc", timeout=60)
+        mock_session.return_value.delete.assert_called_once_with("https://upload.example/session/abc", timeout=120)
 
     @patch("core.resumable_upload._session")
     def test_abort_treats_499_as_success(self, mock_session):

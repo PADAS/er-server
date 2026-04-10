@@ -11,7 +11,6 @@ from usercontent.upload_sessions import (
     delete,
     get,
     session_write_lock,
-    set_gcs_uri,
 )
 
 
@@ -60,16 +59,24 @@ class TestUploadSessionsCreateGet:
         assert get(t2, upload_id) is None
 
 
-class TestUploadSessionsSetGcsUri:
-    def test_set_gcs_uri(self, tenant_id, upload_id):
-        create(tenant_id, upload_id, storage_path="p", filename="f", size=1, chunk_size=1)
-        set_gcs_uri(tenant_id, upload_id, "https://storage.googleapis.com/...")
+class TestUploadSessionsCreateWithGcsUri:
+    def test_create_with_gcs_uri(self, tenant_id, upload_id):
+        create(
+            tenant_id,
+            upload_id,
+            storage_path="p",
+            filename="f",
+            size=1,
+            chunk_size=1,
+            gcs_resumable_uri="https://storage.googleapis.com/...",
+        )
         data = get(tenant_id, upload_id)
         assert data["gcs_resumable_uri"] == "https://storage.googleapis.com/..."
 
-    def test_set_gcs_uri_missing_session_raises(self, tenant_id, upload_id):
-        with pytest.raises(ValueError, match="Upload session not found"):
-            set_gcs_uri(tenant_id, upload_id, "https://...")
+    def test_create_without_gcs_uri_defaults_empty(self, tenant_id, upload_id):
+        create(tenant_id, upload_id, storage_path="p", filename="f", size=1, chunk_size=1)
+        data = get(tenant_id, upload_id)
+        assert data["gcs_resumable_uri"] == ""
 
 
 class TestUploadSessionsAppendChunk:

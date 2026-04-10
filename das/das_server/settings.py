@@ -208,6 +208,9 @@ REST_FRAMEWORK = {
     "MAX_PAGE_SIZE": 4000,
     "COUNT_TIMEOUT": 60 * 5,
     "ORDERING_PARAM": "sort_by",
+    "DEFAULT_THROTTLE_RATES": {
+        "chunked_upload_init": "60/min",
+    },
 }
 
 AUTHENTICATION_BACKENDS = (
@@ -559,39 +562,71 @@ VERSATILEIMAGEFIELD_SETTINGS = {
 }
 
 USERCONTENT_SETTINGS = {
-    # For a file with one of these extensions, we'll attempt to save it as an
-    # ImageFile.
-    "imagefile_extensions": ("jpg", "jpeg", "png", "gif", "tif", "tiff"),
-    # Prohibit uploading files with these extensions.
-    "prohibited_extensions": (
-        "bin",
-        "exe",
-        "dll",
-        "deb",
-        "sh",
+    # ---------------------------------------------------------------------------
+    # UPLOAD ALLOWLIST
+    # Only files whose extension appears here are accepted by the chunked upload
+    # API.  Add extensions freely; remove with care (existing stored files are
+    # unaffected, but clients will no longer be able to upload that type).
+    # Extensions must be lowercase and without the leading dot.
+    # ---------------------------------------------------------------------------
+    "allowed_extensions": (
+        # Images
+        "jpg",
+        "jpeg",
+        "png",
+        "gif",
+        "tif",
+        "tiff",
+        "webp",
+        "heic",
+        "bmp",
+        "svg",
+        # Documents
+        "pdf",
+        "doc",
+        "docx",
+        "xls",
+        "xlsx",
+        "csv",
+        "ppt",
+        "pptx",
+        "odt",
+        "ods",
+        "txt",
+        "rtf",
+        # Audio
+        "mp3",
+        "wav",
+        "aac",
+        "ogg",
+        "flac",
+        "m4a",
+        "opus",
+        # Video
+        "mp4",
+        "mov",
+        "avi",
+        "mkv",
+        "wmv",
+        "webm",
+        "m4v",
+        "3gp",
     ),
-    # Always serve files with these mime-types as application/octet-stream.
+    # ---------------------------------------------------------------------------
+    # IMAGE ROUTING
+    # Files with these extensions are stored as ImageFileContent (with thumbnail
+    # generation) rather than plain FileContent.  Must be a subset of
+    # allowed_extensions above.
+    # ---------------------------------------------------------------------------
+    "imagefile_extensions": ("jpg", "jpeg", "png", "gif", "tif", "tiff"),
+    # ---------------------------------------------------------------------------
+    # SERVE BEHAVIOUR
+    # Force these MIME types to download as application/octet-stream so browsers
+    # never render or execute them inline.
+    # ---------------------------------------------------------------------------
     "force_download_mimetypes": (
         "text/html",
         "text/javascript",
-    ),
-    # Edit these extensions by appending a .txt
-    "edit_extensions": (
-        "html",
-        "htm",
-        "js",
-        "css",
-        "exe",
-        "sh",
-        "bin",
-        "dll",
-        "deb",
-        "dmg",
-        "iso",
-        "img",
-        "msi",
-        "msp",
-        "msm",
     ),
 }
 
@@ -601,6 +636,7 @@ USERCONTENT_SETTINGS = {
 CHUNKED_UPLOAD_CHUNK_SIZE = env.int("CHUNKED_UPLOAD_CHUNK_SIZE", 2 * 1024 * 1024)  # 2 MiB
 CHUNKED_UPLOAD_MAX_FILE_SIZE = env.int("CHUNKED_UPLOAD_MAX_FILE_SIZE", 500 * 1024 * 1024)  # 500 MiB
 CHUNKED_UPLOAD_SESSION_TTL_SECONDS = env.int("CHUNKED_UPLOAD_SESSION_TTL_SECONDS", 86400)  # 24 hours
+CHUNKED_UPLOAD_GCS_TIMEOUT_SECONDS = env.int("CHUNKED_UPLOAD_GCS_TIMEOUT_SECONDS", 120)
 
 SHOW_TRACK_DAYS = 16
 DEFAULT_EVENT_FILTER_FROM_DAYS = -1

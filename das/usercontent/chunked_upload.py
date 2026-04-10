@@ -20,6 +20,7 @@ from rest_framework import serializers, status
 from rest_framework.parsers import BaseParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from core import resumable_upload
@@ -32,12 +33,6 @@ from utils.tenant.thread import get_tenant_settings
 logger = logging.getLogger(__name__)
 
 MAX_SIZE = getattr(settings, "CHUNKED_UPLOAD_MAX_FILE_SIZE", 500 * 1024 * 1024)
-PROHIBITED = set(
-    getattr(settings, "USERCONTENT_SETTINGS", {}).get(
-        "prohibited_extensions",
-        (),
-    )
-)
 
 
 def _effective_max_chunk_bytes() -> int:
@@ -87,8 +82,13 @@ class ChunkedUploadInitSerializer(serializers.Serializer):
 
     def validate_filename(self, value: str) -> str:
         ext = value.rsplit(".", 1)[-1].lower() if "." in value else ""
-        if ext in PROHIBITED:
-            raise serializers.ValidationError(f"Prohibited file extension: {ext}")
+        allowed = set(getattr(settings, "USERCONTENT_SETTINGS", {}).get("allowed_extensions", ()))
+        if ext not in allowed:
+            raise serializers.ValidationError(
+                f"File type '.{ext}' is not permitted. "
+                "Allowed types: images, documents, audio, and video files. "
+                "Contact your administrator to request additional file types."
+            )
         return value
 
 
@@ -143,6 +143,8 @@ def _chunk_request_validation_response(data: dict[str, Any], chunk_index: int, c
 
 class ChunkedUploadInitView(APIView):
     permission_classes = (IsAuthenticated,)
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "chunked_upload_init"
 
     def post(self, request, *args, **kwargs):
         ser = ChunkedUploadInitSerializer(data=request.data)
@@ -185,8 +187,8 @@ class ChunkedUploadInitView(APIView):
             user_id=str(request.user.pk),
             is_image=is_image_filename(filename),
             file_content_id=str(upload_id),
+            gcs_resumable_uri=gcs_uri,
         )
-        upload_sessions.set_gcs_uri(tenant_id, str(upload_id), gcs_uri)
 
         return Response(
             {
@@ -194,7 +196,6 @@ class ChunkedUploadInitView(APIView):
                 "chunk_size": chunk_size,
                 "size": size,
                 "num_chunks": _expected_num_chunks(size, chunk_size),
-                "storage_path": storage_path,
             },
             status=status.HTTP_201_CREATED,
         )

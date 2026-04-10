@@ -4,7 +4,7 @@ GCS resumable upload helper for chunked file uploads (ERA-9210).
 Uses the GCS JSON API resumable upload protocol with google.auth and requests:
 (1) initiate(storage_path, total_size) -> session URI
 (2) upload_chunk(uri, chunk_bytes, start_byte, total_size) -> None
-(3) finalize(uri, total_size) -> complete upload
+(3) abort(uri) -> cancel the resumable session
 """
 
 import json
@@ -21,6 +21,10 @@ _tls = threading.local()
 
 CONTENT_TYPE = "application/octet-stream"
 UPLOAD_API = "https://www.googleapis.com/upload/storage/v1/b"
+
+
+def _gcs_timeout() -> int:
+    return getattr(settings, "CHUNKED_UPLOAD_GCS_TIMEOUT_SECONDS", 120)
 
 
 def _get_bucket_name() -> str:
@@ -52,7 +56,7 @@ def _session() -> AuthorizedSession:
 
 def initiate(storage_path: str, total_size: int) -> str:
     """
-    Start a GCS resumable upload session. Returns the session URI for upload_chunk/finalize.
+    Start a GCS resumable upload session. Returns the session URI for upload_chunk/abort.
     """
     bucket = _get_bucket_name()
     url = f"{UPLOAD_API}/{bucket}/o?uploadType=resumable"
@@ -61,7 +65,7 @@ def initiate(storage_path: str, total_size: int) -> str:
         url,
         data=body,
         headers={"Content-Type": "application/json", "X-Upload-Content-Length": str(total_size)},
-        timeout=60,
+        timeout=_gcs_timeout(),
     )
     resp.raise_for_status()
     location = resp.headers.get("Location")
@@ -82,7 +86,7 @@ def upload_chunk(
 
     Intermediate chunks typically receive HTTP 308 (Resume Incomplete). The final
     chunk (this PUT covers the last byte of ``total_size``) must receive 200/201 when
-    the object is complete; 308 on the final chunk means the object is not finalized.
+    the object is complete; 308 on the final chunk means the object was not written.
     """
     end_byte = start_byte + len(chunk_bytes) - 1
     content_range = f"bytes {start_byte}-{end_byte}/{total_size}"
@@ -93,7 +97,7 @@ def upload_chunk(
             "Content-Length": str(len(chunk_bytes)),
             "Content-Range": content_range,
         },
-        timeout=60,
+        timeout=_gcs_timeout(),
     )
     if resp.status_code in (200, 201):
         return
@@ -108,19 +112,6 @@ def upload_chunk(
     raise RuntimeError(f"Resumable upload chunk failed: {resp.status_code}")
 
 
-def finalize(uri: str, total_size: int) -> None:
-    """Complete the upload (PUT bytes * / total with empty body)."""
-    resp = _session().put(
-        uri,
-        data=b"",
-        headers={"Content-Range": f"bytes */{total_size}", "Content-Length": "0"},
-        timeout=60,
-    )
-    if resp.status_code not in (200, 201):
-        raise RuntimeError(f"Resumable upload finalize failed: {resp.status_code}")
-    logger.info("Resumable upload finalized: %s bytes", total_size)
-
-
 def abort(uri: str) -> None:
     """
     Cancel a GCS resumable upload session.
@@ -130,7 +121,7 @@ def abort(uri: str) -> None:
     and is treated as success, not an error. Any other non-successful status is logged as
     a warning; abort failures are non-fatal (the session will expire on the GCS side).
     """
-    resp = _session().delete(uri, timeout=60)
+    resp = _session().delete(uri, timeout=_gcs_timeout())
     if resp.status_code == 499:
         logger.info("Aborted GCS resumable upload session")
         return
