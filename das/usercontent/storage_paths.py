@@ -10,6 +10,7 @@ from datetime import datetime
 import pytz
 
 from django.conf import settings
+
 from utils.tenant.thread import get_tenant_settings
 
 USERCONTENT_SETTINGS = getattr(settings, "USERCONTENT_SETTINGS", {})
@@ -26,7 +27,7 @@ def build_usercontent_storage_path(file_content_id: uuid.UUID, filename: str, *,
     uploads_root: "file_uploads" or "image_fileuploads"
     """
     name, extension = filename.rsplit(".", 1) if "." in filename else (filename, "")
-    if extension.lower() in EDIT_EXTENSIONS:
+    if extension in EDIT_EXTENSIONS:
         extension = extension + ".txt"
 
     # Match FileContent/ImageFileContent: naive UTC converted to aware UTC (historical behavior).

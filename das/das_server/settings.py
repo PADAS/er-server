@@ -591,7 +591,9 @@ USERCONTENT_SETTINGS = {
 }
 
 # Chunked, resumable file upload (ERA-9210)
-CHUNKED_UPLOAD_CHUNK_SIZE = env.int("CHUNKED_UPLOAD_CHUNK_SIZE", 5 * 1024 * 1024)  # 5 MiB
+# Default 2 MiB: each chunk PUT must stay below Django's DATA_UPLOAD_MAX_MEMORY_SIZE (2621440 bytes by default).
+# See usercontent.chunked_upload._effective_max_chunk_bytes() which also clamps env overrides to that ceiling.
+CHUNKED_UPLOAD_CHUNK_SIZE = env.int("CHUNKED_UPLOAD_CHUNK_SIZE", 2 * 1024 * 1024)  # 2 MiB
 CHUNKED_UPLOAD_MAX_FILE_SIZE = env.int("CHUNKED_UPLOAD_MAX_FILE_SIZE", 500 * 1024 * 1024)  # 500 MiB
 CHUNKED_UPLOAD_SESSION_TTL_SECONDS = env.int("CHUNKED_UPLOAD_SESSION_TTL_SECONDS", 86400)  # 24 hours
 

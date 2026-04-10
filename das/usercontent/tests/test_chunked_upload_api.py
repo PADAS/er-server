@@ -2,10 +2,9 @@
 
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APIClient
-
-from django.contrib.auth import get_user_model
 
 from core.tests import BaseAPITest
 from usercontent.models import FileContent
@@ -21,6 +20,11 @@ class TestChunkedUploadAPI(BaseAPITest):
         self.client.credentials(HTTP_AUTHORIZATION=self.create_authorization_header(self.token))
         self.base = f"{self.api_base}/usercontent/chunked-uploads"
 
+    @staticmethod
+    def _json_data(response):
+        """Payload inside ExtendedJSONRenderer envelope ``{\"data\": ..., \"status\": ...}``."""
+        return response.json()["data"]
+
     @patch("usercontent.chunked_upload.resumable_upload.upload_chunk")
     @patch("usercontent.chunked_upload.resumable_upload.initiate", return_value="https://gcs.example/resumable")
     def test_full_flow_creates_filecontent(self, _mock_init, mock_upload_chunk):
@@ -30,7 +34,7 @@ class TestChunkedUploadAPI(BaseAPITest):
             format="json",
         )
         assert r0.status_code == status.HTTP_201_CREATED, r0.content
-        body = r0.json()
+        body = self._json_data(r0)
         upload_id = body["upload_id"]
         assert body["num_chunks"] == 1
 
@@ -39,7 +43,8 @@ class TestChunkedUploadAPI(BaseAPITest):
             data=b"0123456789",
             content_type="application/octet-stream",
         )
-        assert r1.status_code == status.HTTP_204_NO_CONTENT
+        # ExtendedJSONRenderer maps 204 No Content to 200 with data: null
+        assert r1.status_code == status.HTTP_200_OK
         mock_upload_chunk.assert_called_once()
 
         r2 = self.client.post(f"{self.base}/{upload_id}/complete/")
@@ -53,7 +58,7 @@ class TestChunkedUploadAPI(BaseAPITest):
             {"filename": "a.txt", "size": 20, "chunk_size": 10},
             format="json",
         )
-        upload_id = r0.json()["upload_id"]
+        upload_id = self._json_data(r0)["upload_id"]
         r1 = self.client.put(
             f"{self.base}/{upload_id}/chunks/1/",
             data=b"0123456789",
@@ -69,11 +74,11 @@ class TestChunkedUploadAPI(BaseAPITest):
             {"filename": "b.txt", "size": 5, "chunk_size": 5},
             format="json",
         )
-        upload_id = r0.json()["upload_id"]
+        upload_id = self._json_data(r0)["upload_id"]
         chunk = b"abcde"
         url = f"{self.base}/{upload_id}/chunks/0/"
-        assert self.client.put(url, data=chunk, content_type="application/octet-stream").status_code == 204
-        assert self.client.put(url, data=chunk, content_type="application/octet-stream").status_code == 204
+        assert self.client.put(url, data=chunk, content_type="application/octet-stream").status_code == 200
+        assert self.client.put(url, data=chunk, content_type="application/octet-stream").status_code == 200
         mock_upload_chunk.assert_called_once()
 
     @patch("usercontent.chunked_upload.resumable_upload.initiate", return_value="https://gcs.example/resumable")
@@ -83,7 +88,7 @@ class TestChunkedUploadAPI(BaseAPITest):
             {"filename": "c.txt", "size": 5, "chunk_size": 5},
             format="json",
         )
-        upload_id = r0.json()["upload_id"]
+        upload_id = self._json_data(r0)["upload_id"]
 
         other = User.objects.create_user(
             "other-uploader",
@@ -94,12 +99,73 @@ class TestChunkedUploadAPI(BaseAPITest):
             is_staff=True,
         )
         other_client = APIClient()
-        other_client.credentials(
-            HTTP_AUTHORIZATION=self.create_authorization_header(self.create_access_token(other))
-        )
+        other_client.credentials(HTTP_AUTHORIZATION=self.create_authorization_header(self.create_access_token(other)))
         r1 = other_client.put(
             f"{self.base}/{upload_id}/chunks/0/",
             data=b"abcde",
             content_type="application/octet-stream",
         )
         assert r1.status_code == status.HTTP_403_FORBIDDEN
+
+    @patch("usercontent.chunked_upload.resumable_upload.initiate", return_value="https://gcs.example/resumable")
+    def test_other_user_cannot_get_status(self, _mock_init):
+        r0 = self.client.post(
+            f"{self.base}/",
+            {"filename": "status.txt", "size": 5, "chunk_size": 5},
+            format="json",
+        )
+        upload_id = self._json_data(r0)["upload_id"]
+
+        other = User.objects.create_user(
+            "other-status",
+            "other-status@test.com",
+            "x",
+            last_name="l",
+            first_name="f",
+            is_staff=True,
+        )
+        other_client = APIClient()
+        other_client.credentials(HTTP_AUTHORIZATION=self.create_authorization_header(self.create_access_token(other)))
+        r = other_client.get(f"{self.base}/{upload_id}/")
+        assert r.status_code == status.HTTP_403_FORBIDDEN
+
+    @patch("usercontent.chunked_upload.resumable_upload.initiate", return_value="https://gcs.example/resumable")
+    def test_other_user_cannot_complete(self, _mock_init):
+        r0 = self.client.post(
+            f"{self.base}/",
+            {"filename": "complete.txt", "size": 5, "chunk_size": 5},
+            format="json",
+        )
+        upload_id = self._json_data(r0)["upload_id"]
+
+        other = User.objects.create_user(
+            "other-complete",
+            "other-complete@test.com",
+            "x",
+            last_name="l",
+            first_name="f",
+            is_staff=True,
+        )
+        other_client = APIClient()
+        other_client.credentials(HTTP_AUTHORIZATION=self.create_authorization_header(self.create_access_token(other)))
+        r = other_client.post(f"{self.base}/{upload_id}/complete/")
+        assert r.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_unauthenticated_post_init_returns_401(self):
+        anon = APIClient()
+        r = anon.post(
+            f"{self.base}/",
+            {"filename": "anon.txt", "size": 10, "chunk_size": 10},
+            format="json",
+        )
+        assert r.status_code == status.HTTP_401_UNAUTHORIZED
+
+    @patch("usercontent.chunked_upload.resumable_upload.initiate", return_value="https://gcs.example/resumable")
+    def test_init_rejects_chunk_size_above_django_request_body_limit(self, _mock_init):
+        """chunk_size must stay below DATA_UPLOAD_MAX_MEMORY_SIZE (see _effective_max_chunk_bytes)."""
+        r = self.client.post(
+            f"{self.base}/",
+            {"filename": "huge.txt", "size": 10_000_000, "chunk_size": 3 * 1024 * 1024},
+            format="json",
+        )
+        assert r.status_code == status.HTTP_400_BAD_REQUEST

@@ -15,6 +15,7 @@ from versatileimagefield.files import VersatileImageFieldFile
 from django.conf import settings
 from django.db.models.fields.files import FieldFile
 from rest_framework import serializers, status
+from rest_framework.parsers import BaseParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -29,7 +30,6 @@ from utils.tenant.thread import get_tenant_settings
 logger = logging.getLogger(__name__)
 
 MAX_SIZE = getattr(settings, "CHUNKED_UPLOAD_MAX_FILE_SIZE", 500 * 1024 * 1024)
-DEFAULT_CHUNK = getattr(settings, "CHUNKED_UPLOAD_CHUNK_SIZE", 5 * 1024 * 1024)
 PROHIBITED = set(
     getattr(settings, "USERCONTENT_SETTINGS", {}).get(
         "prohibited_extensions",
@@ -38,10 +38,44 @@ PROHIBITED = set(
 )
 
 
+def _effective_max_chunk_bytes() -> int:
+    """
+    Upper bound for a single chunk request body.
+
+    Django rejects bodies larger than DATA_UPLOAD_MAX_MEMORY_SIZE (default 2621440) with
+    RequestDataTooBig / SuspiciousOperation; keep a margin below that ceiling so production
+    does not fail after parsing headers.
+    """
+    django_limit = int(getattr(settings, "DATA_UPLOAD_MAX_MEMORY_SIZE", 2621440))
+    margin = 64 * 1024
+    ceiling = max(django_limit - margin, 1)
+    configured = int(getattr(settings, "CHUNKED_UPLOAD_CHUNK_SIZE", 2 * 1024 * 1024))
+    return min(configured, ceiling)
+
+
+class ChunkedUploadOctetStreamParser(BaseParser):
+    """Accept raw bytes for chunk PUTs; default DRF parsers only allow JSON/form and would return 415."""
+
+    media_type = "application/octet-stream"
+
+    def parse(self, stream, media_type=None, parser_context=None) -> bytes:
+        return stream.read()
+
+
 class ChunkedUploadInitSerializer(serializers.Serializer):
     filename = serializers.CharField(max_length=512)
     size = serializers.IntegerField(min_value=1, max_value=MAX_SIZE)
-    chunk_size = serializers.IntegerField(required=False, min_value=1, max_value=DEFAULT_CHUNK)
+    chunk_size = serializers.IntegerField(required=False, min_value=1)
+
+    def validate_chunk_size(self, value: int | None) -> int | None:
+        if value is None:
+            return value
+        cap = _effective_max_chunk_bytes()
+        if value > cap:
+            raise serializers.ValidationError(
+                f"chunk_size must not exceed {cap} bytes (Django request body limit DATA_UPLOAD_MAX_MEMORY_SIZE)."
+            )
+        return value
 
     def validate_filename(self, value: str) -> str:
         ext = value.rsplit(".", 1)[-1].lower() if "." in value else ""
@@ -84,7 +118,9 @@ class ChunkedUploadInitView(APIView):
         ser.is_valid(raise_exception=True)
         filename = ser.validated_data["filename"]
         size = ser.validated_data["size"]
-        chunk_size = min(ser.validated_data.get("chunk_size") or DEFAULT_CHUNK, DEFAULT_CHUNK)
+        max_chunk = _effective_max_chunk_bytes()
+        preferred = int(getattr(settings, "CHUNKED_UPLOAD_CHUNK_SIZE", 2 * 1024 * 1024))
+        chunk_size = min(ser.validated_data.get("chunk_size") or preferred, max_chunk)
 
         upload_id = uuid.uuid4()
         uploads_root = "image_fileuploads" if is_image_filename(filename) else "file_uploads"
@@ -157,6 +193,7 @@ class ChunkedUploadStatusView(APIView):
 
 class ChunkedUploadChunkView(APIView):
     permission_classes = (IsAuthenticated,)
+    parser_classes = (ChunkedUploadOctetStreamParser,)
 
     def put(self, request, upload_id, chunk_index: int, *args, **kwargs):
         tenant_id = _tenant_key()
@@ -166,7 +203,8 @@ class ChunkedUploadChunkView(APIView):
         if data.get("user_id") != str(request.user.pk):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
-        chunk_body = bytes(request.body)
+        # Parsed body only: ChunkedUploadOctetStreamParser consumes the stream, so request.body is unusable.
+        chunk_body = bytes(request.data)
         total = data["size"]
         csize = data["chunk_size"]
         n = _expected_num_chunks(total, csize)
