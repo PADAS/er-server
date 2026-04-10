@@ -85,6 +85,7 @@ class StatusView(generics.RetrieveAPIView):
         resp["patrol_enabled"] = tenant.env_settings.patrol_enabled
         resp["show_stationary_subjects_on_map"] = tenant.env_settings.show_stationary_subjects_on_map
         resp["show_track_days"] = tenant.env_settings.show_track_days
+        resp["geo_span"] = tenant.env_settings.geo_span.to_dict() if tenant.env_settings.geo_span else None
         resp["tableau_enabled"] = self.request.user.is_superuser and tenant.feature_flags.tableau_enabled
         resp["track_length"] = tenant.env_settings.track_length
         resp["events_enabled"] = tenant.feature_flags.events_enabled
@@ -109,6 +110,10 @@ class StatusView(generics.RetrieveAPIView):
         resp["site_name"] = get_site_name()
         resp["tenant_domain"] = tenant.domain
         resp["messaging_enabled"] = has_message_view_permission(self.request.user)
+
+        resp["dwh_settings"] = {
+            "api_url": getattr(settings, "DWH_API_URL", ""),
+        }
 
         if self.get_support_settings():
             resp["eus_settings"] = self.get_support_settings()

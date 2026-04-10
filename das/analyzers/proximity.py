@@ -26,7 +26,9 @@ class ProximityAnalyzer(SubjectAnalyzer):
     @classmethod
     def subject_analyzers(cls, subject, analyzer_class):
         subject_groups = subject.get_ancestor_subject_groups()
-        for ac in analyzer_class.objects.filter(subject_group__in=subject_groups, is_active=True):
+        for ac in analyzer_class.objects.select_related("feature_group_filter").filter(
+            subject_group__in=subject_groups, is_active=True
+        ):
             yield cls(subject=subject, config=ac)
 
     def default_observations(self):

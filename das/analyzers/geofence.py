@@ -8,7 +8,7 @@ from django.contrib.gis.geos import Point as DjangoPoint
 from django.utils.translation import gettext_lazy as _
 
 from activity.models import Event, EventType
-from analyzers.base import SubjectAnalyzer
+from analyzers.base import DEFAULT_SEARCH_TIME_HOURS, SubjectAnalyzer
 from analyzers.geofence_crossings_analysis import DasGeofenceAnalysis
 from analyzers.models import GeofenceAnalyzerConfig, SubjectAnalyzerResult
 from analyzers.models.base import CRITICAL, EVENT_PRIORITY_MAP, WARNING
@@ -33,7 +33,9 @@ class GeofenceAnalyzer(SubjectAnalyzer):
     @classmethod
     def get_subject_analyzers(cls, subject):
         subject_groups = subject.get_ancestor_subject_groups()
-        for ac in GeofenceAnalyzerConfig.objects.filter(subject_group__in=subject_groups, is_active=True):
+        for ac in GeofenceAnalyzerConfig.objects.select_related("feature_group_filter").filter(
+            subject_group__in=subject_groups, is_active=True
+        ):
             yield cls(subject=subject, config=ac)
 
     def _create_geofence_analysis_param(self):
@@ -79,7 +81,13 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         logger.info("Using default observations for subject %s", self.subject)
         # observations get passed back in temporally descending order
         if self.config.search_time_hours <= 0:
-            return list(self.subject.observations()[:2])
+            logger.warning(
+                "GeofenceAnalyzer: search_time_hours=%s for config id=%s, " "using default of %s hours.",
+                self.config.search_time_hours,
+                self.config.id,
+                DEFAULT_SEARCH_TIME_HOURS,
+            )
+            return list(self.subject.observations(last_hours=DEFAULT_SEARCH_TIME_HOURS)[:2])
         else:
             return list(self.subject.observations(last_hours=self.config.search_time_hours))
 

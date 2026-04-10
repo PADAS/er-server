@@ -84,11 +84,8 @@ class HasManufacturerSubjectGroupPermission(BasePermission):
         if request.user.is_superuser:
             return True
 
-        # obj is a SubjectSource instance from get_object()
-        if not hasattr(obj, "subject") or not obj.subject:
-            return False
-
-        subject = obj.subject
+        # obj is a Subject instance from get_object()
+        subject = obj
 
         # Get user's allowed SubjectGroups based on their permission sets
         user_permission_sets = (

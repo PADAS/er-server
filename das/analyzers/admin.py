@@ -53,6 +53,7 @@ class ImmobilityAnalyzerAdmin(BaseModelAdminMixin):
                 "classes": ("wide", "collapse"),
                 "fields": (
                     "id",
+                    "feature_group_filter",
                     "search_time_hours",
                     "quiet_period",
                     "notes",
@@ -145,6 +146,7 @@ class EnvironmentalSubjectAnalyzerAdmin(BaseModelAdminMixin):
                 "classes": ("wide", "collapse"),
                 "fields": (
                     "id",
+                    "feature_group_filter",
                     "search_time_hours",
                     "quiet_period",
                     "notes",
@@ -195,6 +197,7 @@ class FeatureProximityAnalyzerAdmin(BaseModelAdminMixin):
                 "classes": ("wide", "collapse"),
                 "fields": (
                     "id",
+                    "feature_group_filter",
                     "search_time_hours",
                     "quiet_period",
                     "notes",
@@ -249,6 +252,7 @@ class SubjectProximityAnalyzerAdmin(BaseModelAdminMixin):
                 "classes": ("wide", "collapse"),
                 "fields": (
                     "id",
+                    "feature_group_filter",
                     "analysis_search_time_hours",
                     "quiet_period",
                     "notes",
@@ -318,6 +322,7 @@ class GeofenceSubjectAnalyzerAdmin(BaseModelAdminMixin):
                 "fields": (
                     "id",
                     "trigger_on_corner_clip",
+                    "feature_group_filter",
                     "search_time_hours",
                     "quiet_period",
                     "notes",
@@ -376,6 +381,7 @@ class LowSpeedWilcoxSubjectAnalyzerAdmin(BaseModelAdminMixin):
                 "classes": ("wide", "collapse"),
                 "fields": (
                     "id",
+                    "feature_group_filter",
                     "search_time_hours",
                     "quiet_period",
                     "notes",
@@ -424,6 +430,7 @@ class LowSpeedPercentileSubjectAnalyzerAdmin(BaseModelAdminMixin):
                 "classes": ("wide", "collapse"),
                 "fields": (
                     "id",
+                    "feature_group_filter",
                     "search_time_hours",
                     "quiet_period",
                     "notes",
@@ -476,6 +483,7 @@ class ObservationAttributeAnalyzerAdmin(BaseModelAdminMixin):
                 "fields": (
                     "id",
                     "adjust_to_order_of_magnitude",
+                    "feature_group_filter",
                     "search_time_hours",
                     "quiet_period",
                     "notes",
@@ -531,6 +539,7 @@ class MovementClusterAnalyzerAdmin(BaseModelAdminMixin):
                 "classes": ("wide", "collapse"),
                 "fields": (
                     "id",
+                    "feature_group_filter",
                     "search_time_hours",
                     "quiet_period",
                     "notes",

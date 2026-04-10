@@ -19,7 +19,9 @@ V2_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 ISO_DATETIME_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$")
 ISO_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 ISO_TIME_PATTERN = re.compile(r"^\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$")
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 URL_PATTERN = re.compile(r"^https?://", re.IGNORECASE)
+UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.IGNORECASE)
 
 
 class V2FieldType:
@@ -30,7 +32,6 @@ class V2FieldType:
     BOOLEAN = "BOOLEAN"
     DATE_TIME = "DATE_TIME"
     LOCATION = "LOCATION"
-    LINK = "LINK"
 
 
 class V2SchemaAutoBuilder:
@@ -116,12 +117,8 @@ class V2SchemaAutoBuilder:
             A tuple of (field_type, format_hint). Returns (None, None) if
             the value type is not supported for auto-generation.
         """
-        # TODO: Add boolean field support when V2 schema spec includes boolean_field_schema.
-        # Currently, V2 schemas don't have a defined boolean field type. When the spec is
-        # updated, change this to return V2FieldType.BOOLEAN instead of (None, None).
-        # Note: bool check must come before int check since Python's bool is a subclass of int.
         if isinstance(value, bool):
-            return None, None
+            return V2FieldType.BOOLEAN, None
 
         if isinstance(value, (int, float)):
             return V2FieldType.NUMERIC, None
@@ -154,7 +151,13 @@ class V2SchemaAutoBuilder:
             return V2FieldType.DATE_TIME, "time"
 
         if URL_PATTERN.match(value):
-            return V2FieldType.LINK, "uri"
+            return V2FieldType.TEXT, "uri"
+
+        if UUID_PATTERN.match(value):
+            return V2FieldType.TEXT, "uuid"
+
+        if EMAIL_PATTERN.match(value):
+            return V2FieldType.TEXT, "email"
 
         return V2FieldType.TEXT, None
 
@@ -232,14 +235,6 @@ class V2SchemaAutoBuilder:
                 "type": "string",
             }
 
-        if field_type == V2FieldType.LINK:
-            return {
-                "deprecated": False,
-                "format": "uri",
-                "title": title,
-                "type": "string",
-            }
-
         if field_type == V2FieldType.LOCATION:
             return {
                 "deprecated": False,
@@ -261,12 +256,17 @@ class V2SchemaAutoBuilder:
                 "unevaluatedProperties": False,
             }
 
-        return {
+        json_field = {
             "default": "",
             "deprecated": False,
             "title": title,
             "type": "string",
         }
+
+        if format_hint is not None:
+            json_field["format"] = format_hint
+
+        return json_field
 
     def _build_ui_field(self, field_type: str) -> dict:
         """
@@ -294,9 +294,6 @@ class V2SchemaAutoBuilder:
 
         if field_type == V2FieldType.LOCATION:
             return {**base, "type": "LOCATION"}
-
-        if field_type == V2FieldType.LINK:
-            return {**base, "placeholder": "", "type": "LINK"}
 
         return {**base, "inputType": "SHORT_TEXT", "placeholder": "", "type": "TEXT"}
 

@@ -1,42 +1,34 @@
+"""Django signal handlers for segment vector tile cache invalidation (optional).
+
+This module is **not** imported from ``ObservationsConfig.ready()`` so production web
+workers and Celery processes do not register these handlers. Import it explicitly in
+tests (or a future Celery-based invalidation worker) when hook registration is desired.
+
+See ``segment_tile_cache_invalidation`` for the implementation and
+``docs/plans/observation-segment-tile-cache-invalidation-celery.md`` for the async plan.
+"""
+
 import logging
-import math
-from typing import Iterable, Tuple
 
 from django.apps import apps
-from django.conf import settings
+from django.core.signals import request_started
+from django.db import DEFAULT_DB_ALIAS
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from utils.cache import get_effective_cache_version, invalidate_tile_cache_keys
+from observations.segment_tile_cache_invalidation import (
+    _append_point_invalidation,
+    _append_segment_invalidation,
+    clear_tile_invalidation_connection_state,
+)
 
-# Reasonable zoom range to consider for invalidation; align to typical vector tile usage
-SEGMENTS_TILE_INVALIDATION_ZOOMS = getattr(settings, "SEGMENTS_TILE_INVALIDATION_ZOOMS", range(6, 23))
-
-# Layer IDs must match the ids set on the VectorLayer subclasses used by
-# ObservationSegmentTileView.layer_classes so the cache-key prefix matches.
-TILE_LAYER_IDS = ("observation_segments", "subjects")
-
-
-def lonlat_to_tile_xy(lon: float, lat: float, z: int) -> Tuple[int, int]:
-    """Convert WGS84 lon/lat to XYZ tile at zoom z (WebMercator).
-    Uses standard slippy map tiling.
-    """
-    lat_rad = math.radians(lat)
-    n = 2.0**z
-    xtile = int((lon + 180.0) / 360.0 * n)
-    ytile = int((1.0 - math.log(math.tan(lat_rad) + (1 / math.cos(lat_rad))) / math.pi) / 2.0 * n)
-    return xtile, ytile
+logger = logging.getLogger(__name__)
 
 
-def _invalidate_for_point(*, tenant_id: str, layer_ids: Iterable[str], lon: float, lat: float) -> int:
-    deleted = 0
-    version = get_effective_cache_version()
-    for z in SEGMENTS_TILE_INVALIDATION_ZOOMS:
-        x, y = lonlat_to_tile_xy(lon, lat, z)
-        deleted += invalidate_tile_cache_keys(
-            tenant_id=tenant_id, layer_ids=layer_ids, cache_version=version, z=z, x=x, y=y
-        )
-    return deleted
+@receiver(request_started)
+def _clear_stale_observation_tile_batch(sender, **kwargs) -> None:
+    """Avoid unbounded batch growth on pooled connections if a txn rolled back without commit."""
+    clear_tile_invalidation_connection_state()
 
 
 Observation = apps.get_model("observations", "Observation")
@@ -44,15 +36,12 @@ ObservationSegment = apps.get_model("observations", "ObservationSegment")
 SubjectStatus = apps.get_model("observations", "SubjectStatus")
 
 
-logger = logging.getLogger(__name__)
-
-
 @receiver(post_save, sender=Observation)
-def invalidate_segment_tiles_on_observation_change(sender=None, instance=None, **kwargs):
+def invalidate_segment_tiles_on_observation_change(sender=None, instance=None, using=None, **kwargs):
     """Invalidate vector tile cache when an observation changes.
 
-    We invalidate tiles containing the observation location across relevant zoom levels.
-    Segments are built from observations, so this is a safe heuristic and avoids computing line intersections.
+    Batched and deferred until transaction commit so bulk ingests (e.g. 200 points)
+    perform one deduped Redis pass instead of one scan per observation per zoom.
     """
     try:
         if not instance or not instance.location:
@@ -60,55 +49,49 @@ def invalidate_segment_tiles_on_observation_change(sender=None, instance=None, *
         lon = float(instance.location.x)
         lat = float(instance.location.y)
         tenant_id = str(instance.das_tenant_id)
-        _invalidate_for_point(tenant_id=tenant_id, layer_ids=TILE_LAYER_IDS, lon=lon, lat=lat)
+        db = using or DEFAULT_DB_ALIAS
+        _append_point_invalidation(tenant_id, lon, lat, using=db)
     except Exception as exc:
         logger.error("Tile cache invalidation failed on Observation change: %s", exc, exc_info=True)
 
 
 @receiver(post_save, sender=ObservationSegment)
-def invalidate_segment_tiles_on_segment_change(sender=None, instance=None, **kwargs):
-    """Invalidate vector tile cache when a segment changes.
-
-    Invalidate tiles for both endpoints to improve coverage.
-    """
+def invalidate_segment_tiles_on_segment_change(sender=None, instance=None, using=None, **kwargs):
+    """Invalidate vector tile cache when a segment changes (all tiles along the line)."""
     try:
         if not instance:
             return
         tenant_id = str(instance.das_tenant_id)
+        db = using or DEFAULT_DB_ALIAS
         a = instance.start_observation.location
         b = instance.end_observation.location
-        if a:
-            _invalidate_for_point(
-                tenant_id=tenant_id,
-                layer_ids=TILE_LAYER_IDS,
-                lon=float(a.x),
-                lat=float(a.y),
+        if a and b:
+            _append_segment_invalidation(
+                tenant_id,
+                float(a.x),
+                float(a.y),
+                float(b.x),
+                float(b.y),
+                using=db,
             )
-        if b:
-            _invalidate_for_point(
-                tenant_id=tenant_id,
-                layer_ids=TILE_LAYER_IDS,
-                lon=float(b.x),
-                lat=float(b.y),
-            )
+        elif a:
+            _append_point_invalidation(tenant_id, float(a.x), float(a.y), using=db)
+        elif b:
+            _append_point_invalidation(tenant_id, float(b.x), float(b.y), using=db)
     except Exception as exc:
         logger.error("Tile cache invalidation failed on ObservationSegment change: %s", exc, exc_info=True)
 
 
 @receiver(post_save, sender=SubjectStatus)
-def invalidate_subject_tiles_on_status_change(sender=None, instance=None, **kwargs):
-    """Invalidate vector tile cache when a SubjectStatus changes.
-
-    SubjectStatus holds the materialised subject position at each delay_hours
-    bucket.  When the position (or radio_state, etc.) changes, cached tiles
-    containing that point need to be refreshed so clients see the update.
-    """
+def invalidate_subject_tiles_on_status_change(sender=None, instance=None, using=None, **kwargs):
+    """Invalidate vector tile cache when a SubjectStatus changes."""
     try:
         if not instance or not instance.location:
             return
         lon = float(instance.location.x)
         lat = float(instance.location.y)
         tenant_id = str(instance.das_tenant_id)
-        _invalidate_for_point(tenant_id=tenant_id, layer_ids=TILE_LAYER_IDS, lon=lon, lat=lat)
+        db = using or DEFAULT_DB_ALIAS
+        _append_point_invalidation(tenant_id, lon, lat, using=db)
     except Exception as exc:
         logger.error("Tile cache invalidation failed on SubjectStatus change: %s", exc, exc_info=True)

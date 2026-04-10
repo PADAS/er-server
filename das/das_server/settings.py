@@ -336,6 +336,10 @@ SPECTACULAR_SETTINGS = {
     "COMPONENT_SPLIT_REQUEST": True,
     "GENERIC_ADDITIONAL_PROPERTIES": "bool",
     "AUTHENTICATION_WHITELIST": [],
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "utils.json.wrap_responses_with_data_envelope",
+    ],
     "OAUTH2_FLOWS": {
         "password": {
             "tokenUrl": "/oauth2/token/",
@@ -784,3 +788,6 @@ else:
 
 # Initialize ALT_SERVER_NAMES as an empty list
 ALT_SERVER_NAMES = []
+
+# Data Warehouse API
+DWH_API_URL = env.str("DWH_API_URL", "")

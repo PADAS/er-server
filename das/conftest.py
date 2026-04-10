@@ -312,8 +312,9 @@ def gear_subjectsource_with_observations():
         "additional": additional,
     }
 
-    observation = Observation.objects.create(**data)
-    observation.save()
+    Observation.objects.create(**data)
+    gear_subjectsource.location = point
+    gear_subjectsource.save()
 
     gear_subjectsource.subject.additional = additional
     gear_subjectsource.subject.save()

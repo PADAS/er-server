@@ -111,6 +111,30 @@ class TestStatusView:
 
         assert response.status_code == status.HTTP_200_OK
 
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_get_status_includes_dwh_settings(
+        self, monkeypatch, superuser_client, tenant_document_cache_client_mock
+    ):
+        monkeypatch.setattr("das_server.views.settings.DWH_API_URL", "https://warehouse-api.example.com")
+        url = reverse("api-status")
+
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["dwh_settings"] == {"api_url": "https://warehouse-api.example.com"}
+
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_get_status_dwh_settings_empty_when_not_configured(
+        self, monkeypatch, superuser_client, tenant_document_cache_client_mock
+    ):
+        monkeypatch.setattr("das_server.views.settings.DWH_API_URL", "")
+        url = reverse("api-status")
+
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["dwh_settings"] == {"api_url": ""}
+
     def _assert_feature_flags_response_match(self, response):
         assert response.status_code == status.HTTP_200_OK
         assert response.data["event_matrix_enabled"] is False

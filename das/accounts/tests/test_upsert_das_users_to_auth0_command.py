@@ -346,14 +346,26 @@ test-user\tUser test-user already has auth0_id 'auth0|existing-user-123' but Aut
             is_active=True,
         )
 
-        mock_provisioner.provision_user.side_effect = [
-            AuthZeroUserProvisioningResult(auth0_id="auth0|new-id-1", password_reset_link="https://reset1.example.com"),
-            AuthZeroUserProvisioningResult(auth0_id="auth0|new-id-2", password_reset_link="https://reset2.example.com"),
-            AuthZeroUserProvisioningResult(auth0_id="auth0|new-id-3", password_reset_link="https://reset3.example.com"),
-            AuthZeroUserProvisioningResult(auth0_id="auth0|some-id", password_reset_link=None),
-            AuthZeroUserProvisioningResult(
+        per_user_results = {
+            "first-new-user": AuthZeroUserProvisioningResult(
+                auth0_id="auth0|new-id-1", password_reset_link="https://reset1.example.com"
+            ),
+            "second-new-user": AuthZeroUserProvisioningResult(
+                auth0_id="auth0|new-id-2", password_reset_link="https://reset2.example.com"
+            ),
+            "emailless-user": AuthZeroUserProvisioningResult(
+                auth0_id="auth0|new-id-3", password_reset_link="https://reset3.example.com"
+            ),
+            "existing-user-with-matching-id": AuthZeroUserProvisioningResult(
+                auth0_id="auth0|some-id", password_reset_link=None
+            ),
+            "existing-user-conflicting-id": AuthZeroUserProvisioningResult(
                 auth0_id="auth0|a-different-id-than-what-we-expect", password_reset_link=None
             ),
+        }
+        # The factory is always called immediately before provision_user(), so call_args reflects the current user.
+        mock_provisioner.provision_user.side_effect = lambda: per_user_results[
+            mock_provisioner_factory.call_args.kwargs["das_user_username"]
         ]
 
         with pytest.raises(CommandError) as exc_info:
@@ -376,16 +388,22 @@ test-user\tUser test-user already has auth0_id 'auth0|existing-user-123' but Aut
 
         assert mock_provisioner.provision_user.call_count == 5
 
-        output = mock_stdout.getvalue()
-        expected_output = """SUCCESSFULLY PROVISIONED:
-first-new-user\thttps://reset1.example.com
-second-new-user\thttps://reset2.example.com
-emailless-user\thttps://reset3.example.com
-existing-user-with-matching-id\tNone
-FAILED TO PROVISION:
-existing-user-conflicting-id\tUser existing-user-conflicting-id already has auth0_id 'auth0|an-unexpected-id' but Auth0 returned 'auth0|a-different-id-than-what-we-expect'
-"""
-        assert output == expected_output
+        output_lines = mock_stdout.getvalue().splitlines()
+        success_header = output_lines.index("SUCCESSFULLY PROVISIONED:")
+        failure_header = output_lines.index("FAILED TO PROVISION:")
+        assert success_header < failure_header
+        success_lines = set(output_lines[success_header + 1 : failure_header])
+        failure_lines = set(output_lines[failure_header + 1 :])
+
+        assert success_lines == {
+            "first-new-user\thttps://reset1.example.com",
+            "second-new-user\thttps://reset2.example.com",
+            "emailless-user\thttps://reset3.example.com",
+            "existing-user-with-matching-id\tNone",
+        }
+        assert failure_lines == {
+            "existing-user-conflicting-id\tUser existing-user-conflicting-id already has auth0_id 'auth0|an-unexpected-id' but Auth0 returned 'auth0|a-different-id-than-what-we-expect'",
+        }
 
         error_message = str(exc_info.value)
         assert "Failed to provision 1 users!" in error_message

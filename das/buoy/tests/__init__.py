@@ -33,8 +33,10 @@ def get_custom_location_gear_subjectsource(location: Point = TEST_LOCATION):
         "additional": additional,
     }
 
-    observation = Observation.objects.create(**data)
-    observation.save()
+    Observation.objects.create(**data)
+
+    gear_subjectsource.location = location
+    gear_subjectsource.save()
 
     gear_subjectsource.subject.additional = additional
     gear_subjectsource.subject.save()
