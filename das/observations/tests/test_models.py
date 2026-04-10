@@ -822,6 +822,52 @@ class TestObservationQuerySet(TestCase):
         # Should also return empty QuerySet
         self.assertEqual(queryset_default.count(), 0)
 
+    def test_get_latest_observation_for_subject_recent(self):
+        """Test that get_latest_observation_for_subject returns the most recent observation within the lookback window."""
+        now = timezone.now()
+        subject = Subject.objects.create(name="Test Subject Recent")
+        source = Source.objects.create(provider_id=1)
+        SubjectSource.objects.create(
+            subject=subject, source=source, assigned_range=(now - timedelta(days=10), now + timedelta(days=1))
+        )
+
+        obs = Observation.objects.create(source=source, recorded_at=now - timedelta(hours=1), location="POINT(1.0 1.0)")
+
+        result = Observation.objects.get_latest_observation_for_subject(subject)
+        self.assertEqual(result.id, obs.id)
+
+    def test_get_latest_observation_for_subject_old_fallback(self):
+        """Test that get_latest_observation_for_subject falls back to older observations outside the lookback window."""
+        from observations.models import RECENT_OBSERVATION_LOOKBACK_DAYS
+
+        now = timezone.now()
+        subject = Subject.objects.create(name="Test Subject Old")
+        source = Source.objects.create(provider_id=1)
+        SubjectSource.objects.create(
+            subject=subject, source=source, assigned_range=(now - timedelta(days=365), now + timedelta(days=1))
+        )
+
+        old_obs = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=RECENT_OBSERVATION_LOOKBACK_DAYS + 10),
+            location="POINT(1.0 1.0)",
+        )
+
+        result = Observation.objects.get_latest_observation_for_subject(subject)
+        self.assertEqual(result.id, old_obs.id)
+
+    def test_get_latest_observation_for_subject_none(self):
+        """Test that get_latest_observation_for_subject returns None when no observations exist."""
+        now = timezone.now()
+        subject = Subject.objects.create(name="Test Subject None")
+        source = Source.objects.create(provider_id=1)
+        SubjectSource.objects.create(
+            subject=subject, source=source, assigned_range=(now - timedelta(days=1), now + timedelta(days=1))
+        )
+
+        result = Observation.objects.get_latest_observation_for_subject(subject)
+        self.assertIsNone(result)
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
