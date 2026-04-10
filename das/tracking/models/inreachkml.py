@@ -70,7 +70,8 @@ class InreachKMLClient(object):
         data_str = data.decode("utf8")
 
         if res.code != 200:
-            msg = f"Failed to get InReach KML feed for {imei} code {res.code} msg {data_str}"
+            truncated_body = data_str[:200]
+            msg = f"Failed to get InReach KML feed for {imei} code {res.code} msg {truncated_body}"
             logger.warning(msg, extra=dict(imei=imei, status=res.code))
             raise DasPluginFetchError(msg)
 

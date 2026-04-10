@@ -126,8 +126,11 @@ def run_source_plugin(self, source_plugin_id, **kwargs):
     except DasPluginConfigurationError as dex:
         logger.warning("Plugin %s, configuration error: %s", sp, dex)
     except DasPluginSourceRetryError as ex:
-        logger.debug("Retry plugin {} for source {} after {}".format(sp, sp.source, ex.retry_seconds))
-        self.retry(countdown=ex.retry_seconds)
+        logger.debug("Retry plugin %s for source %s after %s", sp, sp.source, ex.retry_seconds)
+        try:
+            self.retry(countdown=ex.retry_seconds)
+        except self.MaxRetriesExceededError:
+            logger.warning("Source plugin %s exceeded max retries: %s", sp, ex)
     else:
         logger.debug(
             "Finished running plugin {} for source {} with result.count={}".format(sp, sp.source, result.count)

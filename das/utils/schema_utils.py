@@ -316,7 +316,7 @@ def extract_from_list(items: list = list, schema_item=None, event=None):
     return ";".join(ids), ";".join(names)
 
 
-def extract_from_dict_or_string(schema_item, value):
+def extract_from_dict_or_string(schema_item, value, event=None):
     # value might be a dict, in which case it includes a 'value' attribute.
     display = value
     if isinstance(value, dict):
@@ -325,8 +325,27 @@ def extract_from_dict_or_string(schema_item, value):
 
     # Get the value and display value for the current value
     if schema_item.get("type", None) == "string":
-        if value in schema_item.get("enumNames", {}):
-            display = schema_item["enumNames"][value]
+        enum_names = schema_item.get("enumNames", {})
+        if isinstance(enum_names, dict) and value in enum_names:
+            display = enum_names[value]
+        elif isinstance(enum_names, list):
+            # enumNames should be a dict, not a list — log so the event type can be fixed
+            event_type_value = ""
+            if event and hasattr(event, "event_type"):
+                event_type_value = event.event_type.value
+            logger.warning(
+                "enumNames is a list instead of a dict for event type '%s', schema key '%s'. "
+                "This event type schema should be corrected.",
+                event_type_value,
+                schema_item.get("key", "unknown"),
+            )
+            # Fall back: use the parallel enum list to find the index
+            enum_values = schema_item.get("enum", [])
+            try:
+                idx = enum_values.index(value)
+                display = enum_names[idx]
+            except (ValueError, IndexError):
+                pass
         elif is_uuid(value):
             subject = Subject.objects.filter(id=value)
             if subject.exists() and not subject.first().is_active:
@@ -387,7 +406,7 @@ def extractor(schema_item, definition, key, eventdetail_value, event=None):
     if isinstance(eventdetail_value, list):
         extracted_value, display = extract_from_list(eventdetail_value, schema_item, event=event)
     else:
-        extracted_value, display = extract_from_dict_or_string(schema_item, eventdetail_value)
+        extracted_value, display = extract_from_dict_or_string(schema_item, eventdetail_value, event=event)
 
     # The simplest case is when the json schema specifies the title.
     if "title" in schema_item:
