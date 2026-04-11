@@ -82,19 +82,20 @@ class EventFilesView(ListCreateAPIView):
 
         event = get_object_or_404(Event.objects.all(), pk=self.kwargs["id"])
 
-        # TODO: This conditional is to handle the case where a file is uploaded
-        # via XHR. Figure out why.
-        if "filecontent.file" not in request.data:
-            try:
-                # Ajax request.
-                request.data["filecontent.file"] = request.stream.FILES["filecontent.file"]
-            except KeyError:
-                pass
-
         this_data = copy.copy(request.data)
         this_data["event"] = event.id
 
-        this_data["usercontent.file"] = this_data["filecontent.file"]
+        if "usercontent_id" not in request.data:
+            # Legacy path: inline file upload (direct POST or XHR multipart).
+            # TODO: This conditional is to handle the case where a file is uploaded
+            # via XHR. Figure out why.
+            if "filecontent.file" not in request.data:
+                try:
+                    # Ajax request.
+                    request.data["filecontent.file"] = request.stream.FILES["filecontent.file"]
+                except KeyError:
+                    pass
+            this_data["usercontent.file"] = this_data["filecontent.file"]
 
         serializer = self.get_serializer(data=this_data)
         serializer.is_valid(raise_exception=True)

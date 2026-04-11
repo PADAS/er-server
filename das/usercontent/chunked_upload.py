@@ -1,7 +1,18 @@
 """
 DRF API for ERA-9210 chunked uploads: Redis session + GCS resumable + FileContent / ImageFileContent.
 
-Client flow: POST init → PUT each chunk (raw body) → POST complete.
+Client flow:
+  1. POST  /usercontent/chunked-uploads/                          — init, get upload_id + chunk_size
+  2. PUT   /usercontent/chunked-uploads/<id>/chunks/<index>/     — upload each chunk (raw octet-stream)
+  3. POST  /usercontent/chunked-uploads/<id>/complete/           — finalize; returns FileContent/ImageFileContent
+
+After step 3, attach the file to an event or patrol:
+  4. POST  /activity/event/<event_id>/files/   { "usercontent_id": "<upload_id>" }
+     POST  /activity/patrols/<id>/files/        { "usercontent_id": "<upload_id>" }
+
+File type routing: filenames with image extensions (jpg, jpeg, png, gif, tif, tiff) create an
+ImageFileContent; all others create a FileContent.  The complete response includes a ``file_type``
+field ("image" or "file") so clients know which model was created without needing to guess.
 """
 
 from __future__ import annotations

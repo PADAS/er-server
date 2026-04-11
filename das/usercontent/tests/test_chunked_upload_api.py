@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from core.tests import BaseAPITest
-from usercontent.models import FileContent
+from usercontent.models import FileContent, ImageFileContent
 
 User = get_user_model()
 
@@ -169,6 +169,31 @@ class TestChunkedUploadAPI(BaseAPITest):
             format="json",
         )
         assert r.status_code == status.HTTP_400_BAD_REQUEST
+
+    @patch("usercontent.chunked_upload.resumable_upload.upload_chunk")
+    @patch("usercontent.chunked_upload.resumable_upload.initiate", return_value="https://gcs.example/resumable")
+    def test_full_flow_image_creates_imagefilecontent(self, _mock_init, _mock_chunk):
+        """An image filename routes the completed upload to ImageFileContent, not FileContent."""
+        r0 = self.client.post(
+            f"{self.base}/",
+            {"filename": "photo.jpg", "size": 5, "chunk_size": 5},
+            format="json",
+        )
+        assert r0.status_code == status.HTTP_201_CREATED, r0.content
+        upload_id = self._json_data(r0)["upload_id"]
+
+        self.client.put(
+            f"{self.base}/{upload_id}/chunks/0/",
+            data=b"abcde",
+            content_type="application/octet-stream",
+        )
+
+        r2 = self.client.post(f"{self.base}/{upload_id}/complete/")
+        assert r2.status_code == status.HTTP_200_OK, r2.content
+        payload = self._json_data(r2)
+        assert payload["file_type"] == "image"
+        assert ImageFileContent.objects.filter(id=upload_id).exists()
+        assert not FileContent.objects.filter(id=upload_id).exists()
 
     @patch(
         "usercontent.chunked_upload.resumable_upload.initiate", side_effect=RuntimeError("internal bucket/path detail")

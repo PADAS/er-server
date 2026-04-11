@@ -2,11 +2,13 @@ import versatileimagefield.files
 from versatileimagefield.utils import IMAGE_SETS
 
 from django.urls import reverse
+from rest_framework import serializers as drf_serializers
 
 import usercontent.serializers
 import utils
 from accounts.serializers import UserDisplaySerializer
 from revision.manager import ACTION_RELATION_DELETED, ACTION_UPDATED
+from usercontent.models import FileContent, ImageFileContent
 
 # Make dictionaries from the IMAGE_SETS, to make lookups a little easier.
 IMAGE_RENDITION_SETS = dict((k, dict(v)) for k, v in IMAGE_SETS.items())
@@ -14,15 +16,41 @@ IMAGE_RENDITION_SETS = dict((k, dict(v)) for k, v in IMAGE_SETS.items())
 
 class FileSerializerMixin:
     def pre_create(self, validated_data):
-        """The inheriting class can override create(), but we still need
-        to validate the incomind file content data
+        """Resolve file content before the parent model instance is created.
+
+        Supports two paths:
+
+        Chunked-upload path — client already uploaded the file via the chunked upload
+        API and supplies ``usercontent_id`` in the request body.  We look up the
+        existing FileContent or ImageFileContent (tenant-scoped automatically by
+        CommonTenantManager) and set ``validated_data["usercontent"]`` from it.
+
+        Legacy path — file bytes arrive in the same request as ``filecontent.file``
+        (multipart or XHR).  We create a new FileContent/ImageFileContent via
+        UserContentSerializer before the parent model is saved.
 
         Args:
-            validated_data (dict): validated_data
+            validated_data (dict): validated_data from the calling serializer
 
         Returns:
-            dict: validated_data
+            dict: validated_data with ``usercontent`` set to the resolved instance
         """
+        usercontent_id = validated_data.pop("usercontent_id", None)
+        validated_data.pop("usercontent_type", None)
+
+        if usercontent_id is not None:
+            # Chunked-upload path: the file was already uploaded; attach by ID.
+            # CommonTenantManager scopes both queries to the current tenant automatically.
+            instance = (
+                FileContent.objects.filter(id=usercontent_id).first()
+                or ImageFileContent.objects.filter(id=usercontent_id).first()
+            )
+            if instance is None:
+                raise drf_serializers.ValidationError({"usercontent_id": "No file found with this ID."})
+            validated_data["usercontent"] = instance
+            return validated_data
+
+        # Legacy path: inline file upload in the same request.
         ser = usercontent.serializers.UserContentSerializer(
             data=dict(
                 file=self.context["request"].data["filecontent.file"],
@@ -120,7 +148,7 @@ class FileSerializerMixin:
 
         if not self.context.get("include_updates", True):
             return []
-            
+
         def get_action(revision):
             return revision.get_action_display()
 
