@@ -1,10 +1,12 @@
 """
 Redis-backed session store for chunked, resumable file uploads (ERA-9210).
 
-Cache keys are built from a *fragment* ``{tenant_id}:{upload_id}`` (see ``_key``). The
-Django cache backend adds its own prefix — e.g. ``KEY_PREFIX`` is ``upload_session`` by
-default — so the full Redis/mem key is not literally ``upload_session:{tenant_id}:...``
-at the application level; see ``CACHES[UPLOAD_SESSION_CACHE_ALIAS]``.
+Application code addresses sessions by the fragment ``{tenant_id}:{upload_id}`` (see
+``_key``). The actual backend key stored in Redis/memcache is derived by the configured
+cache alias in ``CACHES[UPLOAD_SESSION_CACHE_ALIAS]`` and may be transformed by a custom
+``KEY_FUNCTION`` (for example ``utils.tenant.cache.make_cache_key``), so operators should
+inspect cache settings rather than assume a literal ``KEY_PREFIX:{tenant_id}:{upload_id}``
+shape.
 
 ``django_redis`` exposes ``cache.lock`` for distributed locking; LocMem (tests/dev
 single-process) uses a per-session ``threading.Lock`` fallback — see ``session_write_lock``.
