@@ -29,7 +29,7 @@ from observations.models import (
     SubjectStatus,
 )
 from observations.serializers import ObservationSerializer
-from observations.utils import parse_comma, dateparse
+from observations.utils import parse_comma
 from observations.views import SourcesView, SubjectSourcesAssignmentView
 
 User = get_user_model()
@@ -333,7 +333,7 @@ class TestSourceAPITestCase:
         assert response.status_code == status.HTTP_201_CREATED
         source_id = response.data["id"]
 
-        urlpath = reverse("source-view", kwargs={"id": source_id})
+        urlpath = reverse("source-view", kwargs={"identifier": source_id})
 
         response = superuser_client.delete(urlpath, data=source_data)
         response.render()
@@ -363,6 +363,48 @@ class TestSourceAPITestCase:
         response = superuser_client.delete(urlpath, data=source_data)
 
         assert response.status_code == status.HTTP_200_OK
+
+    def test_sources_api_duplicate_manufacturer_id_different_providers(self, superuser_client):
+        """Two Sources with the same manufacturer_id but different providers
+        must both appear in GET /api/v1.0/sources and each must be retrievable
+        individually via GET /api/v1.0/source/<manufacturer_id>?provider=<key>."""
+        set_current_tenant(self._get_tenant())
+        shared_manufacturer_id = "SHARED-MFR-001"
+
+        provider_a, _ = SourceProvider.objects.get_or_create(provider_key="provider-alpha")
+        provider_b, _ = SourceProvider.objects.get_or_create(provider_key="provider-beta")
+
+        source_a, _ = Source.objects.get_or_create(manufacturer_id=shared_manufacturer_id, provider=provider_a)
+        source_b, _ = Source.objects.get_or_create(manufacturer_id=shared_manufacturer_id, provider=provider_b)
+        assert source_a.pk != source_b.pk
+
+        # --- /api/v1.0/sources?manufacturer_id=SHARED-MFR-001 returns both ---
+        url = reverse("sources-view")
+        response = superuser_client.get(url, {"manufacturer_id": shared_manufacturer_id})
+        assert response.status_code == status.HTTP_200_OK
+        returned_ids = {r["id"] for r in response.data["results"]}
+        assert {str(source_a.id), str(source_b.id)}.issubset(returned_ids)
+
+        # --- /api/v1.0/source/<manufacturer_id> without provider returns 409 ---
+        url = f"/api/v1.0/source/{shared_manufacturer_id}"
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_409_CONFLICT
+        detail = response.data["status"]["detail"]
+        assert shared_manufacturer_id in detail
+        assert "provider-alpha" in detail
+        assert "provider-beta" in detail
+        assert "?provider=" in detail
+
+        # --- /api/v1.0/source/<manufacturer_id>?provider=<key> returns the correct one ---
+        response = superuser_client.get(url, {"provider": "provider-alpha"})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == str(source_a.id)
+
+        response = superuser_client.get(url, {"provider": "provider-beta"})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == str(source_b.id)
+
+        unset_current_tenant()
 
     def _get_tenant(self):
         return das_tenant_management.get_or_create_tenant()
