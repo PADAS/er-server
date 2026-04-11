@@ -21,10 +21,10 @@ from activity.models import (
     PatrolNote,
     PatrolSegment,
 )
+from activity.tasks import evaluate_alert_rules, maintain_patrol_state
 from activity.util import ensure_eventcategory_perms_exist
 from das_server import celery, pubsub
 from usercontent.tasks import imagefile_rendered
-from utils.features import features
 from utils.tenant import get_tenant_settings
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 
@@ -41,18 +41,7 @@ def event_post_save(sender, instance, created, **kwargs):
         )
     )
 
-    if features.tms.is_on():
-        transaction.on_commit(
-            lambda: celery.app.send_task(
-                "activity.tasks.evaluate_alert_rules",
-                args=(instance.id, created),
-                kwargs={"domain": get_tenant_settings().domain},
-            )
-        )
-    else:
-        transaction.on_commit(
-            lambda: celery.app.send_task("activity.tasks.evaluate_alert_rules", args=(instance.id, created))
-        )
+    transaction.on_commit(lambda: evaluate_alert_rules.apply_async(args=(instance.id, created)))
     for segment in instance.patrol_segments.all():
         # Send patrol_update rt message
         verify_patrol_constituent_for_rt_messaging(segment)
@@ -156,11 +145,7 @@ def set_eta(instance):
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         upper_bound = instance.time_range.upper
         if upper_bound and upper_bound > now:
-            celery.app.send_task(
-                "activity.tasks.maintain_patrol_state",
-                eta=upper_bound,
-                kwargs={"domain": get_tenant_settings().domain},
-            )
+            maintain_patrol_state.apply_async(eta=upper_bound)
 
 
 def check_and_update_patrol_open_state(patrol_id):

@@ -42,7 +42,7 @@ def handle_subject(subject_id, *args, **kwargs):
     analyze_subject.apply_async(args=(subject_id,))
 
 
-@celery.app.task(base=TenantTask)
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True, "timeout": 3 * 60})
 def handle_source(source_id, *args, **kwargs):
     logger.info("Handling source %s", str(source_id))
 
