@@ -63,6 +63,15 @@ app.conf.task_routes = {
     "das_server.tasks.celerybeat_pulse": {
         "queue": "realtime_p1",
     },
+    "das_server.tasks.refresh_tenants_cache": {
+        "queue": "realtime_p1",
+    },
+    "observations.tasks.process_gpxtrack_file": {
+        "queue": "realtime_p1",
+    },
+    "observations.tasks.process_gpxdata_api": {
+        "queue": "realtime_p1",
+    },
     "tracking.tasks.run_plugins": {
         "queue": "realtime_p2",
     },
@@ -132,9 +141,6 @@ app.conf.task_routes = {
     "reports.tasks.run_check_sources_threshold": {"queue": "maintenance"},
     "observations.tasks.run_partition_table_check": {"queue": "maintenance"},
     "observations.tasks.run_observation_segment_partition_table_check": {"queue": "maintenance"},
-    "das_server.tasks.refresh_tenants_cache": {
-        "queue": "maintenance",
-    },
     "mapping.tasks.load_features_from_wfs": {"queue": "maintenance"},
     # Queue analyzer tasks separately.
     "analyzers.tasks.*": {

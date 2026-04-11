@@ -89,6 +89,17 @@ def set_tenant_by_request(request: Union[Request, WSGIRequest]) -> None:
         except DisallowedHost:
             add_new_tenant_domains_to_settings()
 
+        try:
+            return request.get_host()
+        except DisallowedHost:
+            # Host is still not in ALLOWED_HOSTS after refreshing cached
+            # tenant domains. Extract the raw hostname and validate it
+            # against the tenant cache / TMS before allowing it through.
+            raw_host = request.META.get("HTTP_HOST", request.META.get("SERVER_NAME", ""))
+            hostname = raw_host.split(":")[0]
+            get_tenant_data_by_host(hostname)
+            add_new_tenant_domains_to_settings(hostname=hostname)
+
         return request.get_host()
 
     host_name = get_host(request)
