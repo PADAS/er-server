@@ -120,7 +120,7 @@ class TestSetTenantByRequestDisallowedHost:
 
     def test_raises_when_host_not_in_tms(self, monkeypatch):
         """When the host is not in ALLOWED_HOSTS and not a valid tenant,
-        TenantNotFoundException should propagate."""
+        DisallowedHost should propagate."""
         from utils.tenant.exceptions import TenantNotFoundException
         from utils.tenant.managers import set_tenant_by_request
 
@@ -148,5 +148,5 @@ class TestSetTenantByRequestDisallowedHost:
 
         import pytest
 
-        with pytest.raises(TenantNotFoundException):
+        with pytest.raises(DisallowedHost):
             set_tenant_by_request(request)
