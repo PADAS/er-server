@@ -627,6 +627,7 @@ USERCONTENT_SETTINGS = {
     "force_download_mimetypes": (
         "text/html",
         "text/javascript",
+        "image/svg+xml",
     ),
 }
 
