@@ -50,7 +50,7 @@ class FileContent(TenantModelMixin, TimestampedModel, RevisionMixin):
         related_name="file_contents",
         related_query_name="file_content",
     )
-    file = models.FileField(upload_to=file_content_upload_to)
+    file = models.FileField(upload_to=file_content_upload_to, max_length=512)
     filename = models.TextField(verbose_name="Name of uploaded file.", default="noname")
     revision = Revision()
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os.path
 import uuid
 from typing import Any
 
@@ -81,6 +82,9 @@ class ChunkedUploadInitSerializer(serializers.Serializer):
         return value
 
     def validate_filename(self, value: str) -> str:
+        value = os.path.basename(value)
+        if not value or "\x00" in value:
+            raise serializers.ValidationError("Invalid filename.")
         ext = value.rsplit(".", 1)[-1].lower() if "." in value else ""
         allowed = set(getattr(settings, "USERCONTENT_SETTINGS", {}).get("allowed_extensions", ()))
         if ext not in allowed:
