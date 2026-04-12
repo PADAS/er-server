@@ -321,17 +321,25 @@ class BuoyService:
 
             # Store last_updated in Source's additional field if provided
             if device_data.get("last_updated"):
+                new_last_updated = BuoyService._make_serializable(device_data["last_updated"])
                 source_additional = source.additional or {}
-                source_additional["last_updated"] = BuoyService._make_serializable(device_data["last_updated"])
-                source.additional = source_additional
-                source.save()
+                if source_additional.get("last_updated") != new_last_updated:
+                    source_additional["last_updated"] = new_last_updated
+                    source.additional = source_additional
+                    source.save()
 
-            # Store the validated payload as the raw field for traceability
-            observation = models.Observation.objects.create(
+            # Store the validated payload as the raw field for traceability.
+            # Use update_or_create so that re-submitting the same device at the same
+            # recorded_at (e.g. when a device is added to an existing gearset and the
+            # full set is re-sent) is idempotent instead of hitting the unique constraint
+            # on (das_tenant_id, source_id, recorded_at).
+            observation, _obs_created = models.Observation.objects.update_or_create(
                 source=source,
-                location=device_location,
                 recorded_at=recorded_at,
-                additional={"raw": serializable_validated},
+                defaults={
+                    "location": device_location,
+                    "additional": {"raw": serializable_validated},
+                },
             )
             observations.append(observation)
 
