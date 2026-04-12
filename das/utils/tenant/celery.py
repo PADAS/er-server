@@ -108,7 +108,7 @@ class OverAllTenantTask(QueueOnce):
                     logger.info("Running: %s for Tenant domain: %s", self.name, tenant_domain)
                     return self.run(*args, **run_kwargs)
             except DASTenant.DoesNotExist:
-                logger.warning("Tenant with domain %s missing in local DB", tenant_domain)
+                logger.debug("Tenant with domain %s missing in local DB", tenant_domain)
             except TenantNotFoundException:
                 logger.warning("Tenant with domain %s missing in TMS", tenant_domain)
             return

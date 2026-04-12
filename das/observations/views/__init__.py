@@ -22,7 +22,12 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework import generics, status
-from rest_framework.exceptions import ParseError, PermissionDenied, ValidationError
+from rest_framework.exceptions import (
+    APIException,
+    ParseError,
+    PermissionDenied,
+    ValidationError,
+)
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
@@ -526,22 +531,91 @@ class ObservationView(generics.RetrieveUpdateDestroyAPIView):
         return queryset
 
 
+class ConflictError(APIException):
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = "Request conflicts with the current state of the resource."
+    default_code = "conflict"
+
+
+class SourceViewSchema(CustomSchema):
+    def get_operation(self, *args, **kwargs):
+        operation = super().get_operation(*args, **kwargs)
+        if self.method == "GET":
+            query_params = [
+                {
+                    "name": "provider",
+                    "in": "query",
+                    "required": False,
+                    "description": (
+                        "Source-provider key used to disambiguate when multiple "
+                        "sources share the same manufacturer_id. A source's "
+                        "manufacturer_id is only unique within a single provider, "
+                        "so different providers may each have a source with the "
+                        "same manufacturer_id. When that happens, a request "
+                        "without this parameter returns 409 Conflict. Supply the "
+                        "provider key to select the exact source you need. "
+                        "Example: ?provider=awt-skygistics"
+                    ),
+                    "schema": {"type": "string"},
+                },
+            ]
+            operation["parameters"] = operation.get("parameters", [])
+            operation["parameters"].extend(query_params)
+
+            operation["responses"]["409"] = {
+                "description": (
+                    "Multiple sources share this manufacturer_id under different "
+                    "providers. The response body lists all matching provider keys "
+                    "and explains how to add ?provider=<provider_key> to "
+                    "disambiguate."
+                ),
+            }
+        return operation
+
+
 class SourceView(AsyncDeleteObjectMixin, generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
-    lookup_fields = ("id", "manufacturer_id")
+    schema = SourceViewSchema()
     serializer_class = SourceSerializer
+
+    def _resolve_identifier(self) -> dict:
+        """Turn the single ``identifier`` URL kwarg into either an ``id``
+        or ``manufacturer_id`` lookup, depending on whether it parses as a
+        UUID."""
+        identifier = self.kwargs.get("identifier")
+        if identifier is None:
+            return {}
+        try:
+            return {"id": uuid.UUID(identifier)}
+        except ValueError:
+            return {"manufacturer_id": identifier}
 
     def get_object(self):
         queryset = self.get_queryset()
         queryset = self.filter_queryset(queryset)
 
-        filter = {}
+        lookup_filter = self._resolve_identifier()
 
-        for p in self.lookup_fields:
-            pval = self.kwargs.get(p, None)
-            if pval is not None:
-                filter[p] = pval
+        provider_key = self.request.query_params.get("provider")
+        if provider_key:
+            lookup_filter["provider__provider_key"] = provider_key
 
-        return generics.get_object_or_404(queryset, **filter)
+        try:
+            return generics.get_object_or_404(queryset, **lookup_filter)
+        except Source.MultipleObjectsReturned:
+            manufacturer_id = lookup_filter.get("manufacturer_id", "unknown")
+            matching_sources = queryset.filter(**lookup_filter).select_related("provider")
+            provider_keys = [source.provider.provider_key for source in matching_sources]
+            raise ConflictError(
+                f"Multiple sources found with manufacturer_id '{manufacturer_id}'. "
+                f"This manufacturer_id exists under the following source providers: "
+                f"{', '.join(repr(pk) for pk in provider_keys)}. "
+                f"To retrieve a specific source, add a '?provider=<provider_key>' "
+                f"query parameter to disambiguate, for example: "
+                f"/api/v1.0/source/{manufacturer_id}?provider={provider_keys[0]} "
+                f"Alternatively, use the list endpoint "
+                f"/api/v1.0/sources?manufacturer_id={manufacturer_id} "
+                f"to retrieve all sources with this manufacturer_id."
+            )
 
     def get_queryset(self):
         return Source.objects.all()

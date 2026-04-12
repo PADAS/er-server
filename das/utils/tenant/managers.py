@@ -64,7 +64,7 @@ class TenantContextManager:
             try:
                 tenant = DASTenant.objects.get(id=tenant_data["id"])
             except DASTenant.DoesNotExist:
-                logger.warning("DASTenant with id %s does not exist", tenant_data["id"])
+                logger.debug("DASTenant with id %s does not exist", tenant_data["id"])
                 raise
 
         set_tenant_settings(value=tenant_data)

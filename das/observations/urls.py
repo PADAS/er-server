@@ -74,7 +74,7 @@ urlpatterns = [
     ),
     re_path(r"^sources/?$", views.SourcesView.as_view(), name="sources-view"),
     re_path(
-        rf"^source/(?P<id>{regex.UUID})/?$",
+        rf"^source/(?P<identifier>{regex.UUID}|[0-9a-zA-Z\-\.]{{1,80}})/?$",
         views.SourceView.as_view(),
         name="source-view",
     ),
@@ -82,10 +82,6 @@ urlpatterns = [
         rf"^source/(?P<id>{regex.UUID})/subjects/?$",
         views.SourceSubjectsView.as_view(),
         name="source-subjects-view",
-    ),
-    re_path(
-        r"^source/(?P<manufacturer_id>[0-9a-zA-Z\-\.]{1,80})/?$",
-        views.SourceView.as_view(),
     ),
     re_path(
         rf"^source/(?P<id>{regex.UUID})/gpxdata/?$",
