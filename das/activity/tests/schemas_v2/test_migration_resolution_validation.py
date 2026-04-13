@@ -53,7 +53,6 @@ class TestResolutionSelectionValidation:
                     property_path=["severity"],
                     strategy=ResolutionStrategy.USE_EXISTING,
                     choice_field_name="severity",
-                    missing_choices=[{"value": "minor", "display": "Minor"}],
                 )
             ],
         )
@@ -68,7 +67,7 @@ class TestResolutionSelectionValidation:
         assert matched_option is not None
         assert matched_option.choice_field_name == "severity"
 
-    def test_requires_selection_when_multiple_options_exist(self):
+    def test_auto_resolves_first_option_when_no_selection_provided(self):
         service = MigrationService(request=None, logger=_test_logger)
         processor = ChoiceProcessor()
         hardcoded_choice = HardcodedChoice(
@@ -76,13 +75,13 @@ class TestResolutionSelectionValidation:
             resolution_options=[
                 HardcodedChoiceResolution(
                     property_path=["severity"],
-                    strategy=ResolutionStrategy.CREATE_NEW,
+                    strategy=ResolutionStrategy.USE_EXISTING,
                     choice_field_name="severity",
                 ),
                 HardcodedChoiceResolution(
                     property_path=["severity"],
-                    strategy=ResolutionStrategy.MERGE_INTO_EXISTING,
-                    choice_field_name="existing_severity",
+                    strategy=ResolutionStrategy.CREATE_NEW,
+                    choice_field_name="new_severity",
                 ),
             ],
         )
@@ -95,15 +94,15 @@ class TestResolutionSelectionValidation:
 
         service.resolve_and_validate_migration_requests([result], processor)
 
-        assert result.success is False
-        assert "Resolution required for property path" in result.errors[0]
+        assert result.success is True
+        assert result.resolved_hardcoded_choices[0].resolution.strategy == ResolutionStrategy.USE_EXISTING
 
     def test_accepts_matching_selected_resolution(self):
         service = MigrationService(request=None, logger=_test_logger)
         processor = ChoiceProcessor()
         selection = HardcodedChoiceResolution(
             property_path=["severity"],
-            strategy=ResolutionStrategy.MERGE_INTO_EXISTING,
+            strategy=ResolutionStrategy.USE_EXISTING,
             choice_field_name="existing_severity",
         )
         hardcoded_choice = HardcodedChoice(
@@ -111,14 +110,13 @@ class TestResolutionSelectionValidation:
             resolution_options=[
                 HardcodedChoiceResolution(
                     property_path=["severity"],
-                    strategy=ResolutionStrategy.CREATE_NEW,
-                    choice_field_name="severity",
+                    strategy=ResolutionStrategy.USE_EXISTING,
+                    choice_field_name="existing_severity",
                 ),
                 HardcodedChoiceResolution(
                     property_path=["severity"],
-                    strategy=ResolutionStrategy.MERGE_INTO_EXISTING,
-                    choice_field_name="existing_severity",
-                    missing_choices=[{"value": "minor", "display": "Minor"}],
+                    strategy=ResolutionStrategy.CREATE_NEW,
+                    choice_field_name="severity",
                 ),
             ],
         )

@@ -18,6 +18,7 @@ from activity.schemas.migration.choice_processor import (
     HardcodedChoiceResolution,
     ResolutionStrategy,
 )
+from activity.schemas.migration.logger import LogContext, MigrationLogger
 from activity.schemas.migration.service import MigrationResult
 from activity.serializers.event_types_v2 import EventTypeV2Serializer
 from activity.tests.helpers.schema_test_utils import (
@@ -1675,7 +1676,10 @@ class TestEventTypeMigration:
 
     @patch("activity.views.types_v2.MigrationService.migrate")
     def test_migrate_accepts_structured_event_type_requests(self, mock_migrate, superuser_client):
-        mock_migrate.return_value = [MigrationResult(event_type_value="fire_rep")]
+        _logger = MigrationLogger(context=LogContext(migration_request_id="MR-test", tenant_name="test", dry_run=True))
+        mock_migrate.return_value = [
+            MigrationResult(log=_logger.for_event_type("fire_rep"), event_type_value="fire_rep")
+        ]
         url = reverse("v2-eventtype-migrate")
         data = {
             "dry_run": True,
@@ -1703,8 +1707,10 @@ class TestEventTypeMigration:
 
     @patch("activity.views.types_v2.MigrationService.migrate")
     def test_migrate_response_includes_hardcoded_choices(self, mock_migrate, superuser_client):
+        _logger = MigrationLogger(context=LogContext(migration_request_id="MR-test", tenant_name="test", dry_run=True))
         mock_migrate.return_value = [
             MigrationResult(
+                log=_logger.for_event_type("fire_rep"),
                 event_type_value="fire_rep",
                 v2_schema={"json": {"properties": {}}},
                 hardcoded_choices=[

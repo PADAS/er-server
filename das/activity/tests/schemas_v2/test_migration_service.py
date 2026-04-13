@@ -28,11 +28,13 @@ class TestMigrationResult:
     """Tests for MigrationResult dataclass."""
 
     def test_success_when_no_errors(self):
-        result = MigrationResult(event_type_value="test")
+        result = MigrationResult(event_type_value="test", log=_test_logger.for_event_type("test"))
         assert result.success is True
 
     def test_failure_when_errors_present(self):
-        result = MigrationResult(event_type_value="test", errors=["Something failed"])
+        result = MigrationResult(
+            event_type_value="test", log=_test_logger.for_event_type("test"), errors=["Something failed"]
+        )
         assert result.success is False
 
 
@@ -391,20 +393,17 @@ class TestMigrate:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings")
 class TestPersistMigration:
-    def test_same_result_merge_into_proposed_creates_then_merges(self, migration_service_live, v1_event_type):
+    def test_creates_choice_field_and_rewrites_refs(self, migration_service_live, v1_event_type):
         result = MigrationResult(
             event_type_value=v1_event_type.value,
             event_type=v1_event_type,
+            log=migration_service_live.logger.for_event_type(v1_event_type.value),
             v2_schema={
                 "json": {
                     "properties": {
                         "severity": {
                             "type": "string",
                             "anyOf": [{"title": "Hardcoded", "oneOf": [{"const": "low", "title": "Low"}]}],
-                        },
-                        "impact": {
-                            "type": "string",
-                            "anyOf": [{"title": "Hardcoded", "oneOf": [{"const": "high", "title": "High"}]}],
                         },
                     }
                 },
@@ -420,16 +419,6 @@ class TestPersistMigration:
                         choice_field_name="shared_severity",
                     ),
                 ),
-                ResolvedHardcodedChoice(
-                    property_path=["impact"],
-                    choices=[{"value": "high", "display": "High"}],
-                    resolution=HardcodedChoiceResolution(
-                        property_path=["impact"],
-                        strategy=ResolutionStrategy.MERGE_INTO_PROPOSED,
-                        choice_field_name="shared_severity",
-                        missing_choices=[{"value": "high", "display": "High"}],
-                    ),
-                ),
             ],
         )
 
@@ -439,9 +428,8 @@ class TestPersistMigration:
         assert result.metadata["persisted"] is True
         assert list(
             Choice.objects.filter(field="shared_severity").order_by("ordernum").values_list("value", flat=True)
-        ) == ["low", "high"]
+        ) == ["low"]
         assert result.v2_schema["json"]["properties"]["severity"]["anyOf"][0]["$ref"].endswith("?field=shared_severity")
-        assert result.v2_schema["json"]["properties"]["impact"]["anyOf"][0]["$ref"].endswith("?field=shared_severity")
 
 
 @pytest.mark.django_db
@@ -482,7 +470,9 @@ class TestChoiceResolutionAnalysis:
         assert result.resolved_hardcoded_choices[0].resolution.strategy == ResolutionStrategy.CREATE_NEW
 
     @patch("activity.schemas.migration.service.transform_schema")
-    def test_same_result_overlap_requires_explicit_resolution(self, mock_transform, migration_service, v1_event_type):
+    def test_overlapping_fields_auto_resolve_to_separate_create_new(
+        self, mock_transform, migration_service, v1_event_type
+    ):
         mock_transform.return_value = {
             "json": {
                 "properties": {
@@ -524,11 +514,12 @@ class TestChoiceResolutionAnalysis:
 
         result = migration_service.migrate([v1_event_type.value])[0]
 
-        assert result.success is False
-        assert any("Resolution required for property path" in error for error in result.errors)
-        assert result.v2_schema is not None
-        assert any("oneOf" in option for option in result.v2_schema["json"]["properties"]["severity"]["anyOf"])
-        assert any("oneOf" in option for option in result.v2_schema["json"]["properties"]["impact"]["anyOf"])
+        assert result.success is True
+        assert result.resolved_hardcoded_choices is not None
+        assert len(result.resolved_hardcoded_choices) == 2
+        strategies = {r.resolution.choice_field_name: r.resolution.strategy for r in result.resolved_hardcoded_choices}
+        # severity is created first, impact has a subset {b,c,d} ⊂ {a,b,c,d} so no exact match → also CREATE_NEW
+        assert all(s == ResolutionStrategy.CREATE_NEW for s in strategies.values())
 
 
 @pytest.mark.django_db
@@ -639,10 +630,10 @@ class TestEndToEndRewrite:
         assert result.v2_schema == clean_schema
 
     @patch("activity.schemas.migration.service.transform_schema")
-    def test_candidate_field_blocks_migration(
+    def test_partial_match_auto_resolves_to_create_new(
         self, mock_transform, make_migration_service, v1_event_type, create_choice_field
     ):
-        """Candidate (partial match) fields should block migration entirely."""
+        """Partial matches auto-resolve to CREATE_NEW (no MERGE options)."""
         create_choice_field("severity", [("low", "Low"), ("high", "High")])
         service = make_migration_service()
         mock_transform.return_value = {
@@ -670,47 +661,9 @@ class TestEndToEndRewrite:
 
         result = service.migrate([v1_event_type.value])[0]
 
-        assert result.success is False
-        assert any("Resolution required for property path" in e for e in result.errors)
-        # Schema is still set for preview purposes
-        assert result.v2_schema is not None
-        # Candidate field should NOT be rewritten to $ref
-        severity = result.v2_schema["json"]["properties"]["severity"]
-        assert any("oneOf" in opt for opt in severity["anyOf"])
-
-    @patch("activity.schemas.migration.service.transform_schema")
-    @patch.object(MigrationService, "can_modify_event_type", return_value=True)
-    def test_candidate_field_prevents_persistence(
-        self, mock_perm, mock_transform, make_migration_service, v1_event_type, create_choice_field
-    ):
-        """Candidate fields should prevent persistence even with dry_run=False."""
-        create_choice_field("severity", [("low", "Low"), ("high", "High")])
-        service = make_migration_service(dry_run=False)
-        mock_transform.return_value = {
-            "json": {
-                "properties": {
-                    "severity": {
-                        "title": "Severity",
-                        "anyOf": [
-                            {
-                                "title": "Hardcoded",
-                                "type": "string",
-                                "oneOf": [
-                                    {"const": "low", "title": "Low"},
-                                    {"const": "high", "title": "High"},
-                                    {"const": "critical", "title": "Critical"},
-                                ],
-                            }
-                        ],
-                    },
-                }
-            },
-            "ui": {},
-        }
-
-        result = service.migrate([v1_event_type.value])[0]
-
-        assert result.success is False
-        # Should NOT persist
-        v1_event_type.refresh_from_db()
-        assert v1_event_type.version == EventType.VersionChoices.VERSION_1
+        assert result.success is True
+        assert result.resolved_hardcoded_choices is not None
+        resolution = result.resolved_hardcoded_choices[0].resolution
+        assert resolution.strategy == ResolutionStrategy.CREATE_NEW
+        # A new field name is generated since "severity" is already taken
+        assert resolution.choice_field_name != "severity"

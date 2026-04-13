@@ -3,12 +3,16 @@ from activity.schemas.migration.choice_processor import (
     HardcodedChoiceResolution,
     ResolutionStrategy,
 )
+from activity.schemas.migration.logger import LogContext, MigrationLogger
 from activity.schemas.migration.service import MigrationResult
 from activity.serializers.event_types_v2 import (
     MigrationEventTypeRequestItemSerializer,
     MigrationRequestSerializer,
     MigrationResultSerializer,
 )
+
+_test_context = LogContext(migration_request_id="MR-test", tenant_name="test", dry_run=True)
+_test_logger = MigrationLogger(context=_test_context)
 
 
 class TestMigrationSerializerContracts:
@@ -106,6 +110,7 @@ class TestMigrationSerializerContracts:
         serializer = MigrationResultSerializer(
             MigrationResult(
                 event_type_value="fire_rep",
+                log=_test_logger.for_event_type("fire_rep"),
                 v2_schema={"json": {"properties": {}}},
                 warnings=[],
                 errors=[],

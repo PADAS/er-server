@@ -8,7 +8,7 @@ from rest_framework.test import APIRequestFactory
 from activity.models import EventType
 from activity.schemas.migration.choice_processor import ChoiceProcessor
 from activity.schemas.migration.logger import LogContext, MigrationLogger
-from activity.schemas.migration.service import MigrationResult, MigrationService
+from activity.schemas.migration.service import MigrationService
 from choices.models import Choice
 from factories import EventTypeFactory
 
@@ -50,22 +50,8 @@ def make_choice_processor(choices_base_url):
     objects before building the processor.
     """
 
-    def _create(event_type_value="", existing_choices=None):
+    def _create(existing_choices=None):
         processor = ChoiceProcessor()
-        processor.event_type_value = event_type_value
-        processor.existing_choices = existing_choices or _load_existing_choices()
-        return processor
-
-    return _create
-
-
-@pytest.fixture
-def choice_processor_with_event_type(choices_base_url):
-    """Factory fixture for ChoiceProcessor with event_type_value (loads DB choices)."""
-
-    def _create(event_type_value="test_event", existing_choices=None):
-        processor = ChoiceProcessor()
-        processor.event_type_value = event_type_value
         processor.existing_choices = existing_choices or _load_existing_choices()
         return processor
 
@@ -168,29 +154,6 @@ def hardcoded_field_schema():
             one_of.append({"const": const, "title": title})
 
         return {"anyOf": [{"title": "Hardcoded", "type": "string", "oneOf": one_of}]}
-
-    return _create
-
-
-@pytest.fixture
-def v2_schema_with_fields(hardcoded_field_schema):
-    """Factory for creating complete V2 schemas with multiple fields."""
-
-    def _create(fields_config):
-        """
-        Args:
-            fields_config: Dict of {field_name: list of values} or {field_name: {"type": "string"}}
-        Returns:
-            Complete V2 schema structure
-        """
-        properties = {}
-        for field_name, config in fields_config.items():
-            if isinstance(config, dict) and "type" in config:
-                properties[field_name] = config
-            else:
-                properties[field_name] = hardcoded_field_schema(*config)
-
-        return {"json": {"properties": properties}}
 
     return _create
 
@@ -409,25 +372,6 @@ def create_v1_event_type(cat1_cat2_categories):
             category=category,
             schema=schema,
             version=EventType.VersionChoices.VERSION_1,
-        )
-
-    return _create
-
-
-# =============================================================================
-# MigrationResult Fixtures
-# =============================================================================
-
-
-@pytest.fixture
-def migration_result(migration_logger):
-    """Factory fixture for creating MigrationResult objects."""
-
-    def _create(event_type_value="test_event", **kwargs):
-        return MigrationResult(
-            event_type_value=event_type_value,
-            log=migration_logger.for_event_type(event_type_value),
-            **kwargs,
         )
 
     return _create
