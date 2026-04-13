@@ -6,11 +6,9 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 
-from django.db import models
-
 from choices.models import Choice
 
-from .utils import normalize_for_matching, slugify_for_choice, smart_abbreviate
+from .utils import slugify_for_choice, smart_abbreviate
 
 logger = logging.getLogger(__name__)
 
@@ -19,15 +17,12 @@ class ResolutionStrategy(str, Enum):
     CREATE_NEW = "CREATE_NEW"
     USE_EXISTING = "USE_EXISTING"
     USE_PROPOSED = "USE_PROPOSED"
-    MERGE_INTO_EXISTING = "MERGE_INTO_EXISTING"
-    MERGE_INTO_PROPOSED = "MERGE_INTO_PROPOSED"
 
 
 @dataclass
 class HardcodedChoiceResolution:
     strategy: ResolutionStrategy
     choice_field_name: str
-    missing_choices: list[dict[str, str]] | None = None
     property_path: list[str] = field(default_factory=list)
 
     @classmethod
@@ -49,37 +44,17 @@ class HardcodedChoice:
     choices: list[dict[str, str]] = field(default_factory=list)
     resolution_options: list[HardcodedChoiceResolution] = field(default_factory=list)
 
-    def needs_resolution(self) -> bool:
-        """
-        Determines if the hardcoded choice needs a resolution specified by the user.
-        """
-        for resolution in self.resolution_options:
-            if resolution.strategy in [
-                ResolutionStrategy.MERGE_INTO_EXISTING,
-                ResolutionStrategy.MERGE_INTO_PROPOSED,
-            ]:
-                return True
-
-        return False
-
 
 class ChoiceProcessor:
     """Detects inline choice values in V2 schemas and matches them against
     existing Choice objects and proposed choices from the current batch.
 
-    Statuses: matched (100%), candidate (partial, blocks migration), to_create (new).
+    Resolution: exact match → USE_EXISTING / USE_PROPOSED, otherwise → CREATE_NEW.
     """
 
-    # Minimum overlap ratio to consider an existing (or proposed) choice field a "match"
-    MATCH_THRESHOLD = 2 / 3
-
     def __init__(self):
-        self.event_type_value: str = ""
         self.proposed_choices: dict[str, list[str]] = {}
         self.existing_choices: dict[str, list[str]] = {}
-
-    def normalize_for_matching(self, value: str) -> str:
-        return normalize_for_matching(value)
 
     def get_hardcoded_choices(self, v2_schema: dict) -> list[HardcodedChoice]:
         """Analyze all fields, builds a data structure with the results."""
@@ -201,38 +176,30 @@ class ChoiceProcessor:
         self, migration_result, hardcoded_choice: HardcodedChoice
     ) -> list[HardcodedChoiceResolution]:
         """Analyze possible choice resolutions for a migration result."""
-        # We rely on the phase 1 and that the migration_result has the hardcoded_choices attribute already populated
-        # First we atempt to find a perfect match in the existing choices
-        # Then we attempt to find a perfect match in the proposed choices
-        # If no perfect match is found, we propose to merge against one existing or proposed choice field
-
-        # Finally we propose a new choice field name, indeed it's always possible to create a new choice field
-        # For create new we automatically propose a choice field name that is unique
+        # First we attempt to find a perfect match in existing or proposed choices.
+        # CREATE_NEW is always offered as an option.
 
         resolutions = []
 
-        existing_match = self.find_best_matching_choice_field(hardcoded_choice, self.existing_choices)
-        proposed_match = self.find_best_matching_choice_field(hardcoded_choice, self.proposed_choices)
+        existing_match = self.find_exact_matching_choice_field(hardcoded_choice, self.existing_choices)
+        proposed_match = self.find_exact_matching_choice_field(hardcoded_choice, self.proposed_choices)
 
-        existing_score = existing_match[1] if existing_match else 0.0
-        proposed_score = proposed_match[1] if proposed_match else 0.0
-
-        if (existing_match and existing_score == 1.0) or proposed_score == 1.0:
-            # Perfect match found
-            if existing_score == 1.0:
-                strategy = ResolutionStrategy.USE_EXISTING
-                choice_field_name = existing_match[0]
-            else:
-                # in case of proposed match, we depend on successful creation
-                strategy = ResolutionStrategy.USE_PROPOSED
-                choice_field_name = proposed_match[0]
-
-            resolution = HardcodedChoiceResolution(
-                strategy=strategy,
-                choice_field_name=choice_field_name,
-                property_path=list(hardcoded_choice.property_path),
+        if existing_match:
+            resolutions.append(
+                HardcodedChoiceResolution(
+                    strategy=ResolutionStrategy.USE_EXISTING,
+                    choice_field_name=existing_match,
+                    property_path=list(hardcoded_choice.property_path),
+                )
             )
-            resolutions.append(resolution)
+        elif proposed_match:
+            resolutions.append(
+                HardcodedChoiceResolution(
+                    strategy=ResolutionStrategy.USE_PROPOSED,
+                    choice_field_name=proposed_match,
+                    property_path=list(hardcoded_choice.property_path),
+                )
+            )
 
         proposed_name = self.generate_unique_choice_field_name(
             hardcoded_choice.property_path,
@@ -245,79 +212,24 @@ class ChoiceProcessor:
         )
         resolutions.append(create_resolution)
 
-        if not existing_match and not proposed_match:
-            # No match found, return just the create resolution
-            return resolutions
-
-        if existing_match and existing_score >= proposed_score and existing_score < 1.0:
-            match_field_name, score, missing_choices = existing_match
-            resolution = HardcodedChoiceResolution(
-                strategy=ResolutionStrategy.MERGE_INTO_EXISTING,
-                choice_field_name=match_field_name,
-                missing_choices=missing_choices,
-                property_path=list(hardcoded_choice.property_path),
-            )
-            resolutions.append(resolution)
-
-        if proposed_match and proposed_score > existing_score and proposed_score < 1.0:
-            match_field_name, score, missing_choices = proposed_match
-            resolution = HardcodedChoiceResolution(
-                strategy=ResolutionStrategy.MERGE_INTO_PROPOSED,
-                choice_field_name=match_field_name,
-                missing_choices=missing_choices,
-                property_path=list(hardcoded_choice.property_path),
-            )
-            resolutions.append(resolution)
-
         return resolutions
 
-    def find_best_matching_choice_field(
+    def find_exact_matching_choice_field(
         self,
         hardcoded_choice: HardcodedChoice,
-        against_values: dict[str, list[str]],  # just a dict of lists of values, not the full choice objects
-    ) -> tuple[str, float, list[dict[str, str]]] | None:
-        """Find an the best match choice field for the given hardcoded choices.
+        against_values: dict[str, list[str]],
+    ) -> str | None:
+        """Find a choice field whose values exactly match the hardcoded choices.
 
-        Uses Jaccard similarity on normalized values for treshhold comparison and name-match for real comparison.
-        Returns (choice_field_name, score, missing_values) or None.
+        Returns the choice field name or None.
         """
-        # Build normalized -> original mapping for hardcoded values
-        hardcoded_by_normalized = {normalize_for_matching(v["value"]): v for v in hardcoded_choice.choices}
-        hardcoded_normalized_values = set(hardcoded_by_normalized.keys())
         hardcoded_values = {v["value"] for v in hardcoded_choice.choices}
 
-        against_values = against_values.copy()
-
-        best_match: tuple[str, float, list[dict[str, str]]] | None = None
-
         for choice_field_name, values in against_values.items():
-            # Normalize existing values for comparison
-            normalized_values = {normalize_for_matching(v) for v in values}
+            if hardcoded_values == set(values):
+                return choice_field_name
 
-            # Calculate overlap score (Jaccard similarity)
-            # using normalized values
-            intersection = hardcoded_normalized_values & normalized_values
-            union = hardcoded_normalized_values | normalized_values
-            normalized_score = len(intersection) / len(union)
-            # using original values
-            intersection = hardcoded_values & set(values)
-            union = hardcoded_values | set(values)
-            value_score = len(intersection) / len(union)
-
-            # Early exit if with first exact match on actual values
-            if value_score == 1.0:
-                best_match = (choice_field_name, value_score, [])
-                break
-
-            if normalized_score >= self.MATCH_THRESHOLD:
-                # Find missing values (in hardcoded but not in existing)
-                missing_values = hardcoded_values - set(values)
-                missing_choices = [hardcoded_by_normalized[normalize_for_matching(v)] for v in missing_values]
-
-                if best_match is None or value_score > best_match[1]:
-                    best_match = (choice_field_name, value_score, missing_choices)
-
-        return best_match
+        return None
 
     def generate_unique_choice_field_name(self, field_path: list[str], event_type_value: str) -> str:
         """Generate a unique choice field name, strictly bounded to 40 chars.
@@ -340,9 +252,7 @@ class ChoiceProcessor:
 
         # Candidate 2: event_type + field_name
         if event_type_value:
-            raw_candidates.append(slugify_for_choice(f"{event_type_value}_{field_path[-1]}"))
-            if len(field_path) > 1:
-                raw_candidates.append(slugify_for_choice(f"{event_type_value}_{'_'.join(field_path)}"))
+            raw_candidates.append(slugify_for_choice(f"{event_type_value}_{'_'.join(field_path)}"))
 
         # Apply abbreviation and filter unique ordered candidates
         candidates = []
@@ -401,40 +311,3 @@ class ChoiceProcessor:
 
         if choices_to_create:
             Choice.objects.bulk_create(choices_to_create)
-
-    def add_values_to_choice_field(self, field_name: str, values: list[dict[str, str]]) -> int:
-        """Add missing values to an existing choice field. Returns count added."""
-        # Get next ordernum for this field
-        max_order = Choice.objects.filter(model=Choice.EVENT_MODEL, field=field_name).aggregate(
-            max_order=models.Max("ordernum")
-        )["max_order"]
-        next_order = (max_order or 0) + 1
-        existing_values = set(
-            Choice.objects.filter(model=Choice.EVENT_MODEL, field=field_name).values_list("value", flat=True)
-        )
-        choices_to_create = []
-
-        for item in values:
-            value = item["value"]
-            if not value:
-                continue
-
-            if value in existing_values:
-                continue
-
-            existing_values.add(value)
-            choices_to_create.append(
-                Choice(
-                    model=Choice.EVENT_MODEL,
-                    field=field_name,
-                    value=value,
-                    display=item.get("display", value),
-                    ordernum=next_order,
-                )
-            )
-            next_order += 1
-
-        if choices_to_create:
-            Choice.objects.bulk_create(choices_to_create)
-
-        return len(choices_to_create)

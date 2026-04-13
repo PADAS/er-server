@@ -4,16 +4,6 @@ import re
 
 from django.urls import reverse
 
-SEPARATOR_PATTERN = re.compile(r"[-_.\s]+")
-
-
-def normalize_for_matching(value: str) -> str:
-    """Lowercase and collapse separators to a single dash for fuzzy comparison."""
-    # Separator normalization pattern for matching
-    normalized = value.lower()
-    normalized = SEPARATOR_PATTERN.sub("-", normalized)
-    return normalized.strip("-")
-
 
 def slugify_for_choice(value: str) -> str:
     """Convert a string to a valid choice field name (lowercase, underscores only)."""

@@ -39,8 +39,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MigrationRequest:
     event_type_value: str
-    hardcoded_choices_resolutions: list[HardcodedChoiceResolution] | None = None
     event_type: EventType | None = None
+    hardcoded_choices_resolutions: list[HardcodedChoiceResolution] | None = None
 
     @classmethod
     def _normalize_resolution(cls, data: HardcodedChoiceResolution | dict) -> HardcodedChoiceResolution:
@@ -99,15 +99,6 @@ class MigrationResult:
     @property
     def success(self) -> bool:
         return len(self.errors) == 0
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "event_type": self.event_type_value,
-            "v2_schema": self.v2_schema,
-            "warnings": self.warnings,
-            "errors": self.errors,
-            "metadata": self.metadata,
-        }
 
 
 class MigrationService:
@@ -207,23 +198,6 @@ class MigrationService:
                     )
                 )
 
-    def validate_required_resolutions(
-        self,
-        result: MigrationResult,
-        selected_resolutions: dict[tuple[str, ...], HardcodedChoiceResolution],
-    ) -> None:
-        for hardcoded_choice in result.hardcoded_choices:
-            if tuple(hardcoded_choice.property_path) in selected_resolutions:
-                continue
-
-            if hardcoded_choice.needs_resolution():
-                result.errors.append(
-                    result.log.error(
-                        ErrorCode.CHOICE_RESOLUTION_REQUIRED,
-                        f"Resolution required for property path: {hardcoded_choice.property_path}",
-                    )
-                )
-
     def get_effective_resolution(
         self,
         hardcoded_choice: HardcodedChoice,
@@ -234,14 +208,10 @@ class MigrationService:
         selected_resolution = selected_resolutions.get(property_path)
 
         if selected_resolution is None:
-            if hardcoded_choice.needs_resolution():
-                return None
-
             option = hardcoded_choice.resolution_options[0]
             return HardcodedChoiceResolution(
                 strategy=option.strategy,
                 choice_field_name=option.choice_field_name,
-                missing_choices=option.missing_choices,
                 property_path=list(option.property_path or hardcoded_choice.property_path),
             )
 
@@ -252,7 +222,6 @@ class MigrationService:
         return HardcodedChoiceResolution(
             strategy=selected_resolution.strategy,
             choice_field_name=selected_resolution.choice_field_name or matched_option.choice_field_name,
-            missing_choices=matched_option.missing_choices,
             property_path=list(selected_resolution.property_path or matched_option.property_path or property_path),
         )
 
@@ -335,10 +304,7 @@ class MigrationService:
                 resolution = resolved_choice.resolution
                 choice_field_name = resolution.choice_field_name
 
-                if resolution.strategy not in (
-                    ResolutionStrategy.USE_PROPOSED,
-                    ResolutionStrategy.MERGE_INTO_PROPOSED,
-                ):
+                if resolution.strategy != ResolutionStrategy.USE_PROPOSED:
                     continue
 
                 producer_index = create_new_targets.get(choice_field_name)
@@ -389,7 +355,6 @@ class MigrationService:
                 hardcoded_choices_by_path,
                 choice_processor,
             )
-            self.validate_required_resolutions(result, selected_resolutions)
 
         for result in results:
             if not result.success or not result.hardcoded_choices:
@@ -421,11 +386,7 @@ class MigrationService:
             {
                 resolved_choice.resolution.choice_field_name
                 for resolved_choice in result.resolved_hardcoded_choices or []
-                if resolved_choice.resolution.strategy
-                in (
-                    ResolutionStrategy.USE_PROPOSED,
-                    ResolutionStrategy.MERGE_INTO_PROPOSED,
-                )
+                if resolved_choice.resolution.strategy == ResolutionStrategy.USE_PROPOSED
                 and resolved_choice.resolution.choice_field_name not in local_created_fields
                 and resolved_choice.resolution.choice_field_name not in persisted_choice_fields
             }
@@ -458,18 +419,19 @@ class MigrationService:
         Atomic per EventType: each commits or rolls back independently.
         """
         results: list[MigrationResult] = []
+        _migration_requests: list[MigrationRequest] = []
 
         if not migration_requests:
-            migration_requests = [
+            _migration_requests = [
                 MigrationRequest(event_type=et, event_type_value=et.value)
                 for et in self.get_queryset().filter(version=EventType.VersionChoices.VERSION_1)
             ]
         else:
             # Normalize migration requests to MigrationRequest objects
-            migration_requests = [MigrationRequest.from_input(item) for item in migration_requests]
+            _migration_requests = [MigrationRequest.from_input(item) for item in migration_requests]
 
         # Phase 1: Transform all v1 schemas to v2, gathering info about hardcoded choices
-        for mr in migration_requests:
+        for mr in _migration_requests:
             result = self.build_migration_result(mr)
             results.append(result)
 
@@ -615,20 +577,7 @@ class MigrationService:
                     continue
                 choice_processor.create_choice_field(resolution.choice_field_name, resolved_choice.choices)
 
-            for resolved_choice in result.resolved_hardcoded_choices or []:
-                resolution = resolved_choice.resolution
-                if resolution.strategy not in (
-                    ResolutionStrategy.MERGE_INTO_EXISTING,
-                    ResolutionStrategy.MERGE_INTO_PROPOSED,
-                ):
-                    continue
-                choice_processor.add_values_to_choice_field(
-                    resolution.choice_field_name,
-                    resolution.missing_choices or [],
-                )
-
             self.rewrite_resolved_choice_refs(result)
-
             event_type.schema = json.dumps(result.v2_schema, indent=2)
             event_type.version = EventType.VersionChoices.VERSION_2
             event_type.save(update_fields=["schema", "version", "updated_at"])
