@@ -13,7 +13,6 @@ from .postgresql import (
     PSQLExtension,
     execute_sql_query,
     is_postgresql_extension_installed,
-    partman_fully_qualified_default_table,
     partman_get_config_query,
     partman_list_partitions_query,
     partman_partition_maintenance_proc_query,
@@ -118,17 +117,6 @@ def run_partition_table_check(schema: str, table_name: str, logger: Logger) -> N
             fetch_type=FetchType.ONE_DICT,
         )
         fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
-        fully_qualified_default_partition = partman_fully_qualified_default_table(
-            schema=schema,
-            table_name=table_name,
-        )
-        default_table_count_query = f"SELECT COUNT(*) FROM {fully_qualified_default_partition};"
-        result_default_table_count = execute_sql_query(
-            query=default_table_count_query,
-            logger=logger,
-            fetch_type=FetchType.ONE_DICT,
-        )
-
         # Computing the future partitions that should be have been created
         future_partition_table_names = set()
         already_created_partition_table_names = {
@@ -151,12 +139,6 @@ def run_partition_table_check(schema: str, table_name: str, logger: Logger) -> N
 
         # Prefix used to create a monitor and alert in our infrastructure
         prefix_message = "ER Partman:"
-        error_default_table_count = {
-            "message": f"{prefix_message} The default table {fully_qualified_default_partition} contains {result_default_table_count['count']} rows. It should be empty. Make sure that the partitions are being created ahead of time."
-        }
-        error_partman_config_infinite_time_partitions = {
-            "message": f"{prefix_message} The partman config `infinite_time_partitions` is set to False. It must be set to True to make partitions ahead of time with the maintenance procedure."
-        }
         error_partman_config_premake_small = {
             "message": f"{prefix_message} The partman config `premake` is too small. It must be >=3 and is currently set to {result_partman_config['premake']}."
         }
@@ -165,12 +147,9 @@ def run_partition_table_check(schema: str, table_name: str, logger: Logger) -> N
         }
 
         # Sanity checks
-        if result_default_table_count["count"] > 0:
-            errors.append(error_default_table_count)
-
-        # When retention is set, infinite_time_partitions is false by design
-        if not result_partman_config["infinite_time_partitions"] and not result_partman_config.get("retention"):
-            errors.append(error_partman_config_infinite_time_partitions)
+        # Note: data in the default partition is allowed, so we skip that check.
+        # Note: infinite_time_partitions is intentionally off to avoid creating
+        # partitions far into the future due to future-dated data in the default table.
 
         if result_partman_config["premake"] < 3:
             errors.append(error_partman_config_premake_small)
