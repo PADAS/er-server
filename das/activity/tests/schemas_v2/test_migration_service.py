@@ -422,6 +422,8 @@ class TestPersistMigration:
             ],
         )
 
+        # Phase 3 rewrites refs before persist; replicate that here.
+        migration_service_live.rewrite_resolved_choice_refs(result)
         migration_service_live.persist_migration(result, ChoiceProcessor())
 
         assert result.success is True

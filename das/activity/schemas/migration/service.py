@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+from copy import copy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -577,7 +578,6 @@ class MigrationService:
                     continue
                 choice_processor.create_choice_field(resolution.choice_field_name, resolved_choice.choices)
 
-            self.rewrite_resolved_choice_refs(result)
             event_type.schema = json.dumps(result.v2_schema, indent=2)
             event_type.version = EventType.VersionChoices.VERSION_2
             event_type.save(update_fields=["schema", "version", "updated_at"])
@@ -588,11 +588,9 @@ class MigrationService:
         result.metadata["persisted"] = True
 
     def can_modify_event_type(self, event_type: EventType) -> bool:
-        # Simulate PATCH to reuse DRF object-level permission check
-        original_method = self.request.method
-        try:
-            self.request.method = "PATCH"
-            permission = EventCategoryPermissions()
-            return permission.has_object_permission(self.request, view=None, obj=event_type)
-        finally:
-            self.request.method = original_method
+        # Simulate PATCH to reuse DRF object-level permission check.
+        # Use a shallow copy to avoid mutating the live request (thread-safety).
+        request_copy = copy(self.request)
+        request_copy.method = "PATCH"
+        permission = EventCategoryPermissions()
+        return permission.has_object_permission(request_copy, view=None, obj=event_type)
