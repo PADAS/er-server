@@ -76,6 +76,7 @@ class TestOverAllTenantTask:
 
     @patch("utils.tenant.celery.TenantContextManager")
     def test_tenant_not_found_handling(self, mock_tenant_context, caplog):
+        caplog.set_level(logging.DEBUG)
         mock_tenant_context.side_effect = DASTenant.DoesNotExist()
         task = OverAllTenantTask()
         task(tenant_domain="missing.com")
