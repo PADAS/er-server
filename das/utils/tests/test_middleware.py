@@ -25,6 +25,7 @@ from utils.middleware import (
     RequestLoggingMiddleware,
     TenantSettingsMiddleware,
 )
+from utils.tenant.exceptions import TenantNotFoundException
 from utils.tenant.thread import Tenant, get_tenant_settings
 
 
@@ -146,7 +147,7 @@ class TestTenantSettingsMiddleware:
         self, mocked_cluster_domains, mocked_tenant_client, tenant_response, caplog, rf
     ):
         caplog.set_level(logging.INFO)
-        mocked_tenant_client.return_value = tenant_response
+        mocked_tenant_client.side_effect = TenantNotFoundException(domain="not-a-tenant.testserver.org")
         mocked_cluster_domains.return_value = ["tenant.testserver.org"]
         client = HTTPClient()
         user = client.app_user

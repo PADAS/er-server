@@ -344,10 +344,12 @@ class FirmsPlugin(TrackingPlugin):
             except Exception as ex:
                 logger.info("failed to use union_geofilterfeatures: %s, trying polyunion", ex)
                 try:
-                    polyunion = geometries[0][0]
+                    first_geom = geometries[0][0]
+                    polyunion = first_geom if first_geom.is_valid else first_geom.buffer(0)
                     for geom, name in geometries[1:]:
                         try:
-                            polyunion = polyunion.union(geom)
+                            safe_geom = geom if geom.is_valid else geom.buffer(0)
+                            polyunion = polyunion.union(safe_geom)
                         except GEOSException as gex:
                             logger.warning(
                                 "failed to union firms group %s with Feature: %s, error: %s",

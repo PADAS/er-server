@@ -43,7 +43,7 @@ def _get_perf_threshold_ms():
         return 0
 
 
-@pytest.mark.perf
+@pytest.mark.diag
 @pytest.mark.django_db
 class TestObservationSegmentTilePerformance:
     """Performance and reliability checks for observation segment vector tiles.
@@ -74,12 +74,8 @@ class TestObservationSegmentTilePerformance:
     ):
         """Each sampled tile returns 200/204 and correct Content-Type."""
         for z, x, y in TILE_SAMPLES:
-            response, _ = self._tile_response(
-                user_with_realtime_access, patch_vector_tile_tenant, z, x, y
-            )
-            assert response.status_code in (200, 204), (
-                f"tile {z}/{x}/{y} returned {response.status_code}"
-            )
+            response, _ = self._tile_response(user_with_realtime_access, patch_vector_tile_tenant, z, x, y)
+            assert response.status_code in (200, 204), f"tile {z}/{x}/{y} returned {response.status_code}"
             assert response.get("Content-Type", "").startswith(
                 "application/vnd.mapbox-vector-tile"
             ), f"tile {z}/{x}/{y} wrong Content-Type: {response.get('Content-Type')}"
@@ -98,13 +94,7 @@ class TestObservationSegmentTilePerformance:
             pytest.skip("VECTOR_TILE_PERF_THRESHOLD_MS not set or 0; skipping latency assertion")
         threshold_sec = threshold_ms / 1000.0
         for z, x, y in TILE_SAMPLES:
-            response, elapsed = self._tile_response(
-                user_with_realtime_access, patch_vector_tile_tenant, z, x, y
-            )
-            assert response.status_code in (200, 204), (
-                f"tile {z}/{x}/{y} returned {response.status_code}"
-            )
-            assert elapsed < threshold_sec, (
-                f"tile {z}/{x}/{y} took {elapsed:.3f}s (threshold {threshold_sec}s)"
-            )
+            response, elapsed = self._tile_response(user_with_realtime_access, patch_vector_tile_tenant, z, x, y)
+            assert response.status_code in (200, 204), f"tile {z}/{x}/{y} returned {response.status_code}"
+            assert elapsed < threshold_sec, f"tile {z}/{x}/{y} took {elapsed:.3f}s (threshold {threshold_sec}s)"
             logger.info("tile %s/%s/%s: %d ms", z, x, y, int(elapsed * 1000))

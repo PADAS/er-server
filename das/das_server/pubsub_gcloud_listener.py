@@ -115,9 +115,16 @@ class GCloudPubSubListener:
         )
         retry = Retry(predicate=predicate, initial=0.1, maximum=60.0, multiplier=2.0, deadline=300.0)
 
+        # enable_message_ordering is immutable — existing subscriptions must be
+        # manually deleted and recreated to inherit this setting.
+        # enable_message_ordering must be passed via the request dict; this
+        # version of the library doesn't expose it as a keyword argument.
         return self.subscriber.create_subscription(
-            name=self.get_subscription_path(),
-            topic=self.get_topic_path(),
+            request={
+                "name": self.get_subscription_path(),
+                "topic": self.get_topic_path(),
+                "enable_message_ordering": True,
+            },
             retry=retry,
         )
 

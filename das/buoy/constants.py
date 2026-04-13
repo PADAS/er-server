@@ -1,7 +1,12 @@
 # Constants for buoy gearset and device management
 
+# Subject type for gear
+GEAR_SUBJECT_TYPE = "gear"
+GEAR_SUBJECT_TYPE_DISPLAY = "Gear"
+
 # New Data Model Subject Subtype for buoy gearsets
 BUOY_GEAR_SUBJECT_SUBTYPE = "ropeless_buoy_gearset"
+BUOY_GEAR_SUBJECT_SUBTYPE_DISPLAY = "Ropeless Buoy Gearset"
 # Old Data Model Subject Subtype for buoy devices
 BUOY_DEVICE_SUBJECT_SUBTYPE = "ropeless_buoy_device"
 

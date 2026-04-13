@@ -3,6 +3,9 @@ from functools import wraps
 
 from utils.tenant.thread import get_tenant_settings
 
+# Registry of all memoize caches for introspection (memory profiling)
+_all_caches = {}
+
 
 def memoize(function):
     """
@@ -15,6 +18,9 @@ def memoize(function):
             return ret
 
     caches_per_tenant = defaultdict(FunctionCache)
+
+    cache_name = f"{function.__module__}.{function.__qualname__}"
+    _all_caches[cache_name] = caches_per_tenant
 
     @wraps(function)
     def wrapper(key):

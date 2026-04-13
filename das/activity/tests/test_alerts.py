@@ -40,6 +40,7 @@ from activity.alerts_views import AlertRuleListView
 from activity.models import (
     NOTIFICATION_METHOD_EMAIL,
     NOTIFICATION_METHOD_SMS,
+    NOTIFICATION_METHOD_WHATSAPP,
     AlertRule,
     Event,
     EventCategory,
@@ -54,7 +55,13 @@ from choices.models import DynamicChoice
 from core.tests import BaseAPITest
 from core.utils import NonHttpRequest
 from factories import PermissionSetFactory
-from observations.models import SEX_FEMALE, Subject, SubjectSubType, SubjectType
+from observations.models import (
+    SEX_FEMALE,
+    Subject,
+    SubjectGroup,
+    SubjectSubType,
+    SubjectType,
+)
 from utils.tenant import Tenant
 
 logger = logging.getLogger(__name__)
@@ -91,7 +98,7 @@ class TestAlerts(BaseAPITest):
             {"name": "Resolved", "value": "resolved"},
         ]
 
-        self.alerts_permissionset = PermissionSet.objects.get(name="Alert Rule Permissions")
+        self.alerts_permissionset, _ = PermissionSet.objects.get_or_create(name="Alert Rule Permissions")
 
         for perm in user_permissions:
             self.alerts_permissionset.permissions.add(
@@ -504,6 +511,88 @@ class TestAlerts(BaseAPITest):
         _, kwargs = mock_send_email.call_args
         self.assertEqual(alert_rule.override_message, kwargs.get("html_content"))
         self.assertEqual(alert_rule.override_message, kwargs.get("text_content"))
+
+    @patch("activity.alerting.message.send_whatsapp")
+    def test_whatsapp_alert_for_geofence_event_with_nested_subject_group(self, mock_send_whatsapp):
+        """A WhatsApp alert should fire for a geofence-break event whose subject belongs
+        to a child subject group when the alert rule is conditioned on the parent subject
+        group (i.e. the group assigned to the geofence analyzer)."""
+        with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
+            subject_type, _ = SubjectType.objects.get_or_create(value="wildlife", defaults={"display": "Wildlife"})
+            subject_subtype, _ = SubjectSubType.objects.get_or_create(
+                value="elephant", defaults={"display": "Elephant", "subject_type": subject_type}
+            )
+            subject = Subject.objects.create(name="Geofence Elephant", subject_subtype=subject_subtype)
+
+            # Build the hierarchy: parent_sg → child_sg → subject.
+            # The geofence analyzer is conceptually assigned to parent_sg; the subject
+            # is only a direct member of child_sg.
+            child_sg = SubjectGroup.objects.create(name="alert_test_child_sg")
+            child_sg.subjects.add(subject)
+            # Give the alert rule owner subject-level access via the child group, so that
+            # render_event_alert_context can render the event when sending the notification.
+            child_sg.permission_sets.add(self.alerts_permissionset)
+
+            parent_sg = SubjectGroup.objects.create(name="alert_test_parent_sg")
+            parent_sg.children.add(child_sg)
+
+            # Geofence-break event type (mirrors what the analyzer creates).
+            analyzer_ec, _ = EventCategory.objects.get_or_create(
+                value="analyzer_event", defaults={"display": "Analyzer Events"}
+            )
+            geofence_event_type, _ = EventType.objects.get_or_create(
+                value="geofence_break",
+                category=analyzer_ec,
+                defaults={"display": "Geofence Break"},
+            )
+
+            whatsapp_nm = NotificationMethod.objects.create(
+                owner=self.owner,
+                title="WhatsApp",
+                method=NOTIFICATION_METHOD_WHATSAPP,
+                value="+14155552671",
+            )
+
+            # Alert rule conditioned on parent_sg; the subject is only directly in child_sg.
+            alert_rule = AlertRule.objects.create(
+                owner=self.owner,
+                title="Geofence WhatsApp Alert",
+                conditions={
+                    "all": [
+                        {
+                            "name": "subject_group",
+                            "value": [str(parent_sg.id)],
+                            "operator": "shares_at_least_one_element_with",
+                        }
+                    ]
+                },
+                schedule={"timezone": "Africa/Nairobi"},
+            )
+            alert_rule.notification_methods.add(whatsapp_nm)
+            alert_rule.event_types.add(geofence_event_type)
+
+            # render_event_alert_context renders the event as the alert rule owner, so the
+            # owner must have read permission on the event category. Grant it here.
+            analyzer_event_read = Permission.objects.get_by_natural_key(
+                codename="analyzer_event_read", app_label="activity", model="event"
+            )
+            self.alerts_permissionset.permissions.add(analyzer_event_read)
+
+            # Simulate the event the geofence analyzer would create.
+            event = Event.objects.create(
+                title="Elephant crossed geofence",
+                event_type=geofence_event_type,
+                created_by_user=self.owner,
+            )
+            event.related_subjects.add(subject)
+
+            execute_evaluate_alert_rules(event.id, created=True, domain="zoo.com")
+
+            self.assertTrue(
+                mock_send_whatsapp.called,
+                "Expected a WhatsApp message for a geofence event whose subject is in a "
+                "child subject group of the group specified in the alert rule condition.",
+            )
 
 
 @pytest.mark.django_db

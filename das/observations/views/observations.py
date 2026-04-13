@@ -65,7 +65,7 @@ class ObservationsViewSchema(CustomSchema):
                 {
                     "name": "until",
                     "in": "query",
-                    "description": "get observations up to this ISO8061 date, include timezone",
+                    "description": "get observations up to this ISO8061 date, include timezone. Defaults to the current time if not provided.",
                 },
                 {
                     "name": "filter",

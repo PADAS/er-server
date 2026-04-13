@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from google.cloud.pubsub_v1 import SubscriberClient
@@ -69,6 +69,14 @@ class TestGCloudPubSubListener:
 
         assert isinstance(subscription, Subscription)
         assert subscription.name == "test-subscription"
+        gcloud_pubsub_listener.subscriber.create_subscription.assert_called_once_with(
+            request={
+                "name": gcloud_pubsub_listener.get_subscription_path(),
+                "topic": gcloud_pubsub_listener.get_topic_path(),
+                "enable_message_ordering": True,
+            },
+            retry=ANY,
+        )
 
     def test_get_subscription_listener(self, gcloud_pubsub_listener):
         callback = MagicMock()

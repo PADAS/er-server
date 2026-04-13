@@ -32,6 +32,7 @@ from observations.models import (
     update_subject_status_from_post,
 )
 from observations.serializers import ObservationSerializer
+from rt_api.tasks import broadcast_service_status_tenant
 from sensors.serializers import SensorPostParameters
 from sensors.subject_name_change import HandlerERTrack
 from sensors.vehicle_tracker import (
@@ -65,6 +66,8 @@ class GenericSensorHandler:
     @classmethod
     def handle_heartbeat(cls, data: dict, provider_key: str):
         servicesutils.store_service_status(provider_key=provider_key, data=data)
+
+        broadcast_service_status_tenant.apply_async()
 
         extradata = {"data": {"provider_key": provider_key, **data}}
         logger.info("DRA heartbeat", extra=extradata)

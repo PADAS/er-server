@@ -1,5 +1,11 @@
 from das_server.local_settings_docker import *  # noqa
 
+# Silk profiling middleware adds its own DB queries (inserts, EXPLAIN ANALYZE,
+# per-query counter updates) that corrupt CaptureQueriesContext counts in tests.
+ENABLE_SILK = False
+INSTALLED_APPS = [app for app in INSTALLED_APPS if app != "silk"]
+MIDDLEWARE = [m for m in MIDDLEWARE if "silk" not in m.lower()]
+
 SHOW_TRACK_DAYS = 16
 
 TIME_ZONE = "America/Los_Angeles"
