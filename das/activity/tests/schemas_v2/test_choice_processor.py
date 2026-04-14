@@ -166,40 +166,54 @@ class TestFindExactMatchingChoiceField:
         assert match is None
 
 
-class TestChoiceResolutionPlanning:
-    def test_returns_use_existing_for_exact_existing_match(self, hardcoded_values):
+class TestPopulateResolutionOptions:
+    """All tests exercise the public populate_resolution_options entry point."""
+
+    def test_offers_use_existing_when_exact_match_exists(self, hardcoded_values):
+        result = MigrationResult(
+            event_type_value="fire_rep",
+            log=_test_logger.for_event_type("fire_rep"),
+            hardcoded_choices=[
+                HardcodedChoice(
+                    property_path=["severity"],
+                    choices=hardcoded_values(("low", "Low"), ("high", "High")),
+                )
+            ],
+        )
         processor = ChoiceProcessor()
-        processor.existing_choices = {"severity": ["low", "high"]}
-        migration_result = MigrationResult(event_type_value="fire_rep", log=_test_logger.for_event_type("fire_rep"))
-        hardcoded_choice = HardcodedChoice(
-            property_path=["severity"],
-            choices=hardcoded_values(("low", "Low"), ("high", "High")),
+
+        processor.populate_resolution_options(
+            [result], existing_choices={"severity": ["low", "high"]}, proposed_choices={}
         )
 
-        resolutions = processor.get_resolution_options(migration_result, hardcoded_choice)
-
-        assert [r.strategy for r in resolutions] == [
+        options = result.hardcoded_choices[0].resolution_options
+        assert [o.strategy for o in options] == [
             ResolutionStrategy.USE_EXISTING,
             ResolutionStrategy.CREATE_NEW,
         ]
-        assert resolutions[0].choice_field_name == "severity"
+        assert options[0].choice_field_name == "severity"
 
-    def test_returns_only_create_new_for_partial_existing_match(self, hardcoded_values):
+    def test_offers_only_create_new_when_existing_partially_overlaps(self, hardcoded_values):
+        result = MigrationResult(
+            event_type_value="fire_rep",
+            log=_test_logger.for_event_type("fire_rep"),
+            hardcoded_choices=[
+                HardcodedChoice(
+                    property_path=["severity"],
+                    choices=hardcoded_values(("low", "Low"), ("high", "High"), ("critical", "Critical")),
+                )
+            ],
+        )
         processor = ChoiceProcessor()
-        processor.existing_choices = {"severity": ["low", "high"]}
-        migration_result = MigrationResult(event_type_value="fire_rep", log=_test_logger.for_event_type("fire_rep"))
-        hardcoded_choice = HardcodedChoice(
-            property_path=["severity"],
-            choices=hardcoded_values(("low", "Low"), ("high", "High"), ("critical", "Critical")),
+
+        processor.populate_resolution_options(
+            [result], existing_choices={"severity": ["low", "high"]}, proposed_choices={}
         )
 
-        resolutions = processor.get_resolution_options(migration_result, hardcoded_choice)
+        options = result.hardcoded_choices[0].resolution_options
+        assert [o.strategy for o in options] == [ResolutionStrategy.CREATE_NEW]
 
-        assert [resolution.strategy for resolution in resolutions] == [
-            ResolutionStrategy.CREATE_NEW,
-        ]
-
-    def test_populate_resolution_options_makes_earlier_create_available_as_use_proposed(self, hardcoded_values):
+    def test_earlier_create_new_becomes_use_proposed_for_later_result(self, hardcoded_values):
         first_result = MigrationResult(
             event_type_value="fire_rep",
             log=_test_logger.for_event_type("fire_rep"),
@@ -224,14 +238,89 @@ class TestChoiceResolutionPlanning:
 
         processor.populate_resolution_options([first_result, second_result], existing_choices={}, proposed_choices={})
 
-        assert [option.strategy for option in first_result.hardcoded_choices[0].resolution_options] == [
-            ResolutionStrategy.CREATE_NEW
-        ]
-        assert [option.strategy for option in second_result.hardcoded_choices[0].resolution_options] == [
+        first_options = first_result.hardcoded_choices[0].resolution_options
+        assert [o.strategy for o in first_options] == [ResolutionStrategy.CREATE_NEW]
+
+        second_options = second_result.hardcoded_choices[0].resolution_options
+        assert [o.strategy for o in second_options] == [
             ResolutionStrategy.USE_PROPOSED,
             ResolutionStrategy.CREATE_NEW,
         ]
-        assert second_result.hardcoded_choices[0].resolution_options[0].choice_field_name == "severity"
+        assert second_options[0].choice_field_name == "severity"
+
+    def test_skips_failed_results(self, hardcoded_values):
+        failed_result = MigrationResult(
+            event_type_value="broken",
+            log=_test_logger.for_event_type("broken"),
+            errors=["schema transform failed"],
+            hardcoded_choices=[
+                HardcodedChoice(
+                    property_path=["status"],
+                    choices=hardcoded_values(("open", "Open")),
+                )
+            ],
+        )
+        processor = ChoiceProcessor()
+
+        processor.populate_resolution_options([failed_result], existing_choices={}, proposed_choices={})
+
+        assert failed_result.hardcoded_choices[0].resolution_options == []
+
+    def test_skips_results_with_no_hardcoded_choices(self):
+        result = MigrationResult(
+            event_type_value="clean",
+            log=_test_logger.for_event_type("clean"),
+            hardcoded_choices=None,
+        )
+        processor = ChoiceProcessor()
+
+        processor.populate_resolution_options([result], existing_choices={}, proposed_choices={})
+        # No error raised, nothing to populate
+
+    def test_property_path_preserved_on_all_resolution_options(self, hardcoded_values):
+        result = MigrationResult(
+            event_type_value="fire_rep",
+            log=_test_logger.for_event_type("fire_rep"),
+            hardcoded_choices=[
+                HardcodedChoice(
+                    property_path=["details", "severity"],
+                    choices=hardcoded_values(("minor", "Minor")),
+                )
+            ],
+        )
+        processor = ChoiceProcessor()
+
+        processor.populate_resolution_options([result], existing_choices={}, proposed_choices={})
+
+        options = result.hardcoded_choices[0].resolution_options
+        assert options
+        assert all(o.property_path == ["details", "severity"] for o in options)
+
+    def test_multiple_hardcoded_choices_in_one_result(self, hardcoded_values):
+        result = MigrationResult(
+            event_type_value="fire_rep",
+            log=_test_logger.for_event_type("fire_rep"),
+            hardcoded_choices=[
+                HardcodedChoice(
+                    property_path=["severity"],
+                    choices=hardcoded_values(("low", "Low"), ("high", "High")),
+                ),
+                HardcodedChoice(
+                    property_path=["status"],
+                    choices=hardcoded_values(("open", "Open"), ("closed", "Closed")),
+                ),
+            ],
+        )
+        processor = ChoiceProcessor()
+
+        processor.populate_resolution_options([result], existing_choices={}, proposed_choices={})
+
+        severity_options = result.hardcoded_choices[0].resolution_options
+        status_options = result.hardcoded_choices[1].resolution_options
+        assert [o.strategy for o in severity_options] == [ResolutionStrategy.CREATE_NEW]
+        assert [o.strategy for o in status_options] == [ResolutionStrategy.CREATE_NEW]
+        # Each gets its own unique proposed name
+        assert severity_options[0].choice_field_name != status_options[0].choice_field_name
 
 
 class TestGenerateUniqueName:

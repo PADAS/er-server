@@ -28,19 +28,23 @@ class TestHardcodedChoiceResolutionContract:
         assert resolution.property_path == ["details", "severity"]
 
     def test_generated_resolution_options_include_property_path(self):
-        processor = ChoiceProcessor()
-        processor.existing_choices = {}
-        processor.proposed_choices = {}
-        hardcoded_choice = HardcodedChoice(
-            property_path=["details", "severity"],
-            choices=[{"value": "minor", "display": "Minor"}],
+        result = MigrationResult(
+            event_type_value="fire_rep",
+            log=_test_logger.for_event_type("fire_rep"),
+            hardcoded_choices=[
+                HardcodedChoice(
+                    property_path=["details", "severity"],
+                    choices=[{"value": "minor", "display": "Minor"}],
+                )
+            ],
         )
-        migration_result = MigrationResult(event_type_value="fire_rep", log=_test_logger.for_event_type("fire_rep"))
+        processor = ChoiceProcessor()
 
-        resolution_options = processor.get_resolution_options(migration_result, hardcoded_choice)
+        processor.populate_resolution_options([result], existing_choices={}, proposed_choices={})
 
-        assert resolution_options
-        assert all(option.property_path == ["details", "severity"] for option in resolution_options)
+        options = result.hardcoded_choices[0].resolution_options
+        assert options
+        assert all(option.property_path == ["details", "severity"] for option in options)
 
 
 class TestResolutionSelectionValidation:

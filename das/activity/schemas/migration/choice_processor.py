@@ -137,7 +137,7 @@ class ChoiceProcessor:
             if not result.success or not result.hardcoded_choices:
                 continue
             for hardcoded_choice in result.hardcoded_choices:
-                hardcoded_choice.resolution_options = self.get_resolution_options(result, hardcoded_choice)
+                hardcoded_choice.resolution_options = self._get_resolution_options(result, hardcoded_choice)
                 create_resolution = next(
                     (
                         option
@@ -172,7 +172,7 @@ class ChoiceProcessor:
             and selection.choice_field_name == option.choice_field_name
         )
 
-    def get_resolution_options(
+    def _get_resolution_options(
         self, migration_result, hardcoded_choice: HardcodedChoice
     ) -> list[HardcodedChoiceResolution]:
         """Analyze possible choice resolutions for a migration result."""
