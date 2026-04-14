@@ -42,22 +42,6 @@ def choice_processor(choices_base_url):
     return ChoiceProcessor()
 
 
-@pytest.fixture
-def make_choice_processor(choices_base_url):
-    """Factory fixture that loads existing choices from DB at call time.
-
-    Use this instead of choice_processor when the test creates DB Choice
-    objects before building the processor.
-    """
-
-    def _create(existing_choices=None):
-        processor = ChoiceProcessor()
-        processor.existing_choices = existing_choices or _load_existing_choices()
-        return processor
-
-    return _create
-
-
 # =============================================================================
 # Choice Model Fixtures
 # =============================================================================

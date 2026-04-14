@@ -78,7 +78,7 @@ class ChoiceProcessor:
                 continue
 
             # Note: "type" == "object" doesn't "exist" in v1 schemas, at least not officially
-            field_hardcoded_choices = self.extract_field_hardcoded_choices(field_schema)
+            field_hardcoded_choices = self._extract_field_hardcoded_choices(field_schema)
             if not field_hardcoded_choices:
                 continue
 
@@ -88,7 +88,7 @@ class ChoiceProcessor:
 
         return hardcoded_choices
 
-    def extract_field_hardcoded_choices(self, field_schema: dict) -> list[dict]:
+    def _extract_field_hardcoded_choices(self, field_schema: dict) -> list[dict]:
         """Extract hardcoded choices from anyOf > {title: "Hardcoded", oneOf: [...]}
         structure produced by transform_schema.
 

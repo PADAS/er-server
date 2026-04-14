@@ -16,29 +16,39 @@ _test_logger = MigrationLogger(context=_test_context)
 
 
 class TestHardcodedChoiceExtraction:
-    def test_extract_hardcoded_choices_deduplicates_values(self, choice_processor):
-        field_schema = {
-            "anyOf": [
-                {
-                    "title": "Hardcoded",
-                    "type": "string",
-                    "oneOf": [
-                        {"const": "open", "title": "Open"},
-                        {"const": "open", "title": "Open Duplicate"},
-                        {"const": "closed"},
-                    ],
+    """All tests exercise the public get_hardcoded_choices entry point."""
+
+    def test_deduplicates_values_within_a_field(self, choice_processor):
+        v2_schema = {
+            "json": {
+                "properties": {
+                    "status": {
+                        "anyOf": [
+                            {
+                                "title": "Hardcoded",
+                                "type": "string",
+                                "oneOf": [
+                                    {"const": "open", "title": "Open"},
+                                    {"const": "open", "title": "Open Duplicate"},
+                                    {"const": "closed"},
+                                ],
+                            }
+                        ]
+                    }
                 }
-            ]
+            }
         }
 
-        values = choice_processor.extract_field_hardcoded_choices(field_schema)
+        results = choice_processor.get_hardcoded_choices(v2_schema)
 
-        assert values == [
+        assert len(results) == 1
+        assert results[0].property_path == ["status"]
+        assert results[0].choices == [
             {"value": "open", "display": "Open"},
             {"value": "closed", "display": "closed"},
         ]
 
-    def test_get_hardcoded_choices_collects_root_and_array_nested_paths(self, choice_processor, hardcoded_field_schema):
+    def test_collects_root_and_array_nested_paths(self, choice_processor, hardcoded_field_schema):
         v2_schema = {
             "json": {
                 "properties": {
@@ -52,29 +62,67 @@ class TestHardcodedChoiceExtraction:
             }
         }
 
-        hardcoded_choices = choice_processor.get_hardcoded_choices(v2_schema)
+        results = choice_processor.get_hardcoded_choices(v2_schema)
 
-        assert [(choice.property_path, choice.choices) for choice in hardcoded_choices] == [
-            (
-                ["status"],
-                [
-                    {"value": "open", "display": "Open"},
-                    {"value": "closed", "display": "Closed"},
-                ],
-            ),
-            (
-                ["details", "severity"],
-                [
-                    {"value": "low", "display": "Low"},
-                    {"value": "high", "display": "High"},
-                ],
-            ),
+        assert [(r.property_path, r.choices) for r in results] == [
+            (["status"], [{"value": "open", "display": "Open"}, {"value": "closed", "display": "Closed"}]),
+            (["details", "severity"], [{"value": "low", "display": "Low"}, {"value": "high", "display": "High"}]),
         ]
 
-    def test_extract_hardcoded_choices_ignores_ref_fields(self, choice_processor):
-        assert (
-            choice_processor.extract_field_hardcoded_choices({"anyOf": [{"$ref": "#/definitions/some_choice"}]}) == []
-        )
+    def test_ignores_fields_with_ref(self, choice_processor):
+        v2_schema = {
+            "json": {
+                "properties": {
+                    "category": {"anyOf": [{"$ref": "#/definitions/some_choice"}]},
+                }
+            }
+        }
+
+        assert choice_processor.get_hardcoded_choices(v2_schema) == []
+
+    def test_ignores_plain_fields_without_choices(self, choice_processor):
+        v2_schema = {
+            "json": {
+                "properties": {
+                    "description": {"type": "string"},
+                    "count": {"type": "number"},
+                }
+            }
+        }
+
+        assert choice_processor.get_hardcoded_choices(v2_schema) == []
+
+    def test_returns_empty_for_schema_with_no_properties(self, choice_processor):
+        assert choice_processor.get_hardcoded_choices({"json": {}}) == []
+        assert choice_processor.get_hardcoded_choices({}) == []
+
+    def test_skips_empty_array_collections(self, choice_processor):
+        v2_schema = {
+            "json": {
+                "properties": {
+                    "items_list": {"type": "array", "items": {}},
+                }
+            }
+        }
+
+        assert choice_processor.get_hardcoded_choices(v2_schema) == []
+
+    def test_mixed_ref_and_hardcoded_fields(self, choice_processor, hardcoded_field_schema):
+        v2_schema = {
+            "json": {
+                "properties": {
+                    "ref_field": {"anyOf": [{"$ref": "/api/v1.0/choices?field=status"}]},
+                    "hardcoded_field": hardcoded_field_schema(("a", "A"), ("b", "B")),
+                    "plain_field": {"type": "string"},
+                }
+            }
+        }
+
+        results = choice_processor.get_hardcoded_choices(v2_schema)
+
+        assert len(results) == 1
+        assert results[0].property_path == ["hardcoded_field"]
+        assert results[0].choices == [{"value": "a", "display": "A"}, {"value": "b", "display": "B"}]
 
 
 class TestFindExactMatchingChoiceField:
@@ -227,9 +275,9 @@ class TestGenerateUniqueName:
         # We need to simulate taking ALL fallback options to force the _1 suffix
         # The generator tries:
         # 1. field_name directly (and_a_very_long_field_name)
-        # 2. path (another_long_folder_path_and_a_very_long_field_name -> anthr_lng_fldr_pth_and_a_vry_lng_fld_nm)
-        # 3. event_type + field (an_extremely_long_event_type_name_with_many_words_and_a_very_long_field_name -> an_extrmly_lng_evnt_typ_nm_wth_mny_wrds)
-        # 4. event_type + path (an_extremely_long_event_type_name_with_many_words_another_long_folder_path_and_a_very_long_field_name -> an_extrmly_lng_evnt_typ_nm_wth_mny_wrds)
+        # 2. path -> anthr_lng_fldr_pth_and_a_vry_lng_fld_nm
+        # 3. event_type + field -> an_extrmly_lng_evnt_typ_nm_wth_mny_wrds
+        # 4. event_type + path  -> same abbreviation as #3 (deduped)
 
         # Fill the dictionary with all possible fallback names
         choice_processor.existing_choices = {
