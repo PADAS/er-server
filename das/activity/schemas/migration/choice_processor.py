@@ -156,21 +156,15 @@ class ChoiceProcessor:
         self, hardcoded_choice: HardcodedChoice, selection: HardcodedChoiceResolution
     ) -> HardcodedChoiceResolution | None:
         for option in hardcoded_choice.resolution_options:
-            if self._selected_resolution_matches_option(selection, option):
+            if option.property_path != selection.property_path or option.strategy != selection.strategy:
+                continue
+            # CREATE_NEW matches by path+strategy only; others also require exact choice_field_name.
+            if selection.strategy == ResolutionStrategy.CREATE_NEW:
+                return option
+            if option.choice_field_name == selection.choice_field_name:
                 return option
 
         return None
-
-    def _selected_resolution_matches_option(
-        self, selection: HardcodedChoiceResolution, option: HardcodedChoiceResolution
-    ) -> bool:
-        if selection.strategy == ResolutionStrategy.CREATE_NEW:
-            return selection.property_path == option.property_path and selection.strategy == option.strategy
-        return (
-            selection.property_path == option.property_path
-            and selection.strategy == option.strategy
-            and selection.choice_field_name == option.choice_field_name
-        )
 
     def _get_resolution_options(
         self, migration_result, hardcoded_choice: HardcodedChoice

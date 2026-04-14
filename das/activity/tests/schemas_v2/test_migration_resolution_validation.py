@@ -48,7 +48,7 @@ class TestHardcodedChoiceResolutionContract:
 
 
 class TestResolutionSelectionValidation:
-    def test_matches_selection_against_generated_options(self):
+    def test_matches_use_existing_selection_against_generated_options(self):
         processor = ChoiceProcessor()
         hardcoded_choice = HardcodedChoice(
             property_path=["severity"],
@@ -66,10 +66,156 @@ class TestResolutionSelectionValidation:
             choice_field_name="severity",
         )
 
-        matched_option = processor.find_matching_resolution_option(hardcoded_choice, selection)
+        matched = processor.find_matching_resolution_option(hardcoded_choice, selection)
 
-        assert matched_option is not None
-        assert matched_option.choice_field_name == "severity"
+        assert matched is not None
+        assert matched.choice_field_name == "severity"
+
+    def test_create_new_matches_by_path_and_strategy_ignoring_choice_field_name(self):
+        processor = ChoiceProcessor()
+        hardcoded_choice = HardcodedChoice(
+            property_path=["severity"],
+            resolution_options=[
+                HardcodedChoiceResolution(
+                    property_path=["severity"],
+                    strategy=ResolutionStrategy.CREATE_NEW,
+                    choice_field_name="fire_rep_severity",
+                )
+            ],
+        )
+        selection = HardcodedChoiceResolution(
+            property_path=["severity"],
+            strategy=ResolutionStrategy.CREATE_NEW,
+            choice_field_name="user_chosen_name",
+        )
+
+        matched = processor.find_matching_resolution_option(hardcoded_choice, selection)
+
+        assert matched is not None
+        assert matched.choice_field_name == "fire_rep_severity"
+
+    def test_use_existing_requires_exact_choice_field_name(self):
+        processor = ChoiceProcessor()
+        hardcoded_choice = HardcodedChoice(
+            property_path=["severity"],
+            resolution_options=[
+                HardcodedChoiceResolution(
+                    property_path=["severity"],
+                    strategy=ResolutionStrategy.USE_EXISTING,
+                    choice_field_name="severity",
+                )
+            ],
+        )
+        selection = HardcodedChoiceResolution(
+            property_path=["severity"],
+            strategy=ResolutionStrategy.USE_EXISTING,
+            choice_field_name="wrong_field_name",
+        )
+
+        assert processor.find_matching_resolution_option(hardcoded_choice, selection) is None
+
+    def test_use_proposed_requires_exact_choice_field_name(self):
+        processor = ChoiceProcessor()
+        hardcoded_choice = HardcodedChoice(
+            property_path=["impact"],
+            resolution_options=[
+                HardcodedChoiceResolution(
+                    property_path=["impact"],
+                    strategy=ResolutionStrategy.USE_PROPOSED,
+                    choice_field_name="severity",
+                )
+            ],
+        )
+        selection = HardcodedChoiceResolution(
+            property_path=["impact"],
+            strategy=ResolutionStrategy.USE_PROPOSED,
+            choice_field_name="wrong_field",
+        )
+
+        assert processor.find_matching_resolution_option(hardcoded_choice, selection) is None
+
+    def test_returns_none_when_property_path_does_not_match(self):
+        processor = ChoiceProcessor()
+        hardcoded_choice = HardcodedChoice(
+            property_path=["severity"],
+            resolution_options=[
+                HardcodedChoiceResolution(
+                    property_path=["severity"],
+                    strategy=ResolutionStrategy.CREATE_NEW,
+                    choice_field_name="severity",
+                )
+            ],
+        )
+        selection = HardcodedChoiceResolution(
+            property_path=["status"],
+            strategy=ResolutionStrategy.CREATE_NEW,
+            choice_field_name="severity",
+        )
+
+        assert processor.find_matching_resolution_option(hardcoded_choice, selection) is None
+
+    def test_returns_none_when_strategy_does_not_match(self):
+        processor = ChoiceProcessor()
+        hardcoded_choice = HardcodedChoice(
+            property_path=["severity"],
+            resolution_options=[
+                HardcodedChoiceResolution(
+                    property_path=["severity"],
+                    strategy=ResolutionStrategy.USE_EXISTING,
+                    choice_field_name="severity",
+                )
+            ],
+        )
+        selection = HardcodedChoiceResolution(
+            property_path=["severity"],
+            strategy=ResolutionStrategy.CREATE_NEW,
+            choice_field_name="severity",
+        )
+
+        assert processor.find_matching_resolution_option(hardcoded_choice, selection) is None
+
+    def test_selects_correct_option_from_multiple(self):
+        processor = ChoiceProcessor()
+        hardcoded_choice = HardcodedChoice(
+            property_path=["severity"],
+            resolution_options=[
+                HardcodedChoiceResolution(
+                    property_path=["severity"],
+                    strategy=ResolutionStrategy.USE_EXISTING,
+                    choice_field_name="existing_severity",
+                ),
+                HardcodedChoiceResolution(
+                    property_path=["severity"],
+                    strategy=ResolutionStrategy.CREATE_NEW,
+                    choice_field_name="fire_rep_severity",
+                ),
+            ],
+        )
+        selection = HardcodedChoiceResolution(
+            property_path=["severity"],
+            strategy=ResolutionStrategy.CREATE_NEW,
+            choice_field_name="",
+        )
+
+        matched = processor.find_matching_resolution_option(hardcoded_choice, selection)
+
+        assert matched is not None
+        assert matched.strategy == ResolutionStrategy.CREATE_NEW
+        assert matched.choice_field_name == "fire_rep_severity"
+
+    def test_returns_none_when_no_options_exist(self):
+        processor = ChoiceProcessor()
+        hardcoded_choice = HardcodedChoice(
+            property_path=["severity"],
+            resolution_options=[],
+        )
+        selection = HardcodedChoiceResolution(
+            property_path=["severity"],
+            strategy=ResolutionStrategy.CREATE_NEW,
+            choice_field_name="severity",
+        )
+
+        assert processor.find_matching_resolution_option(hardcoded_choice, selection) is None
 
     def test_auto_resolves_first_option_when_no_selection_provided(self):
         service = MigrationService(request=None, logger=_test_logger)
