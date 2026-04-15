@@ -1,6 +1,7 @@
 import copy
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -12,6 +13,13 @@ from rest_framework import status
 from accounts.models import PermissionSet
 from activity.constants import PRI_IMPORTANT, PRI_URGENT
 from activity.models import AlertRule, Event, EventType
+from activity.schemas.migration.choice_processor import (
+    HardcodedChoice,
+    HardcodedChoiceResolution,
+    ResolutionStrategy,
+)
+from activity.schemas.migration.logger import LogContext, MigrationLogger
+from activity.schemas.migration.service import MigrationResult
 from activity.serializers.event_types_v2 import EventTypeV2Serializer
 from activity.tests.helpers.schema_test_utils import (
     V2SchemaBuilder,
@@ -1567,8 +1575,8 @@ class TestEventTypeMigration:
         assert response.data[0]["event_type"] == v1_event_type.value
         assert response.data[1]["event_type"] == v1_event_type_2.value
 
-    def test_migrate_empty_event_types_returns_400(self, superuser_client):
-        """Test empty event_types list returns 400."""
+    def test_migrate_empty_event_types_returns_all_v1_preview(self, superuser_client, v1_event_type):
+        """Test empty event_types list returns a dry-run preview for all V1 event types."""
         url = reverse("v2-eventtype-migrate")
         data = {
             "dry_run": True,
@@ -1577,7 +1585,26 @@ class TestEventTypeMigration:
 
         response = superuser_client.post(url, data=data)
 
+        assert response.status_code == status.HTTP_200_OK
+        assert isinstance(response.data, list)
+        assert any(result["event_type"] == v1_event_type.value for result in response.data)
+
+        v1_event_type.refresh_from_db()
+        assert v1_event_type.version == EventType.VersionChoices.VERSION_1
+
+    @patch("activity.views.types_v2.MigrationService.migrate")
+    def test_migrate_empty_event_types_requires_dry_run(self, mock_migrate, superuser_client):
+        url = reverse("v2-eventtype-migrate")
+        data = {
+            "dry_run": False,
+            "event_types": [],
+        }
+
+        response = superuser_client.post(url, data=data, format="json")
+
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["event_types"] == ["This list may not be empty when dry_run is false."]
+        mock_migrate.assert_not_called()
 
     def test_migrate_missing_event_types_returns_400(self, superuser_client):
         """Test missing event_types field returns 400."""
@@ -1619,3 +1646,94 @@ class TestEventTypeMigration:
         result = response.data[0]
         assert len(result["errors"]) > 0
         assert "not V1" in result["errors"][0]
+
+    @patch("activity.views.types_v2.MigrationService.migrate")
+    def test_migrate_rejects_resolution_request_without_property_path(self, mock_migrate, superuser_client):
+        url = reverse("v2-eventtype-migrate")
+        data = {
+            "dry_run": True,
+            "event_types": [
+                {
+                    "event_type_value": "fire_rep",
+                    "hardcoded_choices_resolutions": [
+                        {
+                            # missing property_path
+                            "strategy": "USE_EXISTING",
+                            "choice_field_name": "severity",
+                        }
+                    ],
+                }
+            ],
+        }
+
+        response = superuser_client.post(url, data=data, format="json")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["event_types"][0]["hardcoded_choices_resolutions"][0]["property_path"] == [
+            "This field is required."
+        ]
+        mock_migrate.assert_not_called()
+
+    @patch("activity.views.types_v2.MigrationService.migrate")
+    def test_migrate_accepts_structured_event_type_requests(self, mock_migrate, superuser_client):
+        _logger = MigrationLogger(context=LogContext(migration_request_id="MR-test", tenant_name="test", dry_run=True))
+        mock_migrate.return_value = [
+            MigrationResult(log=_logger.for_event_type("fire_rep"), event_type_value="fire_rep")
+        ]
+        url = reverse("v2-eventtype-migrate")
+        data = {
+            "dry_run": True,
+            "event_types": [
+                {
+                    "event_type_value": "fire_rep",
+                    "hardcoded_choices_resolutions": [
+                        {
+                            "property_path": ["severity"],
+                            "strategy": "USE_EXISTING",
+                            "choice_field_name": "severity",
+                        }
+                    ],
+                }
+            ],
+        }
+
+        response = superuser_client.post(url, data=data, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+        event_types = mock_migrate.call_args.args[0]
+        assert event_types[0]["event_type_value"] == "fire_rep"
+        assert event_types[0]["hardcoded_choices_resolutions"][0]["property_path"] == ["severity"]
+        assert event_types[0]["hardcoded_choices_resolutions"][0]["strategy"] == "USE_EXISTING"
+
+    @patch("activity.views.types_v2.MigrationService.migrate")
+    def test_migrate_response_includes_hardcoded_choices(self, mock_migrate, superuser_client):
+        _logger = MigrationLogger(context=LogContext(migration_request_id="MR-test", tenant_name="test", dry_run=True))
+        mock_migrate.return_value = [
+            MigrationResult(
+                log=_logger.for_event_type("fire_rep"),
+                event_type_value="fire_rep",
+                v2_schema={"json": {"properties": {}}},
+                hardcoded_choices=[
+                    HardcodedChoice(
+                        property_path=["severity"],
+                        choices=[{"value": "minor", "display": "Minor"}],
+                        resolution_options=[
+                            HardcodedChoiceResolution(
+                                property_path=["severity"],
+                                strategy=ResolutionStrategy.CREATE_NEW,
+                                choice_field_name="severity",
+                            )
+                        ],
+                    )
+                ],
+            )
+        ]
+        url = reverse("v2-eventtype-migrate")
+
+        response = superuser_client.post(url, data={"dry_run": True, "event_types": ["fire_rep"]}, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+        payload = response.data[0]
+        assert payload["hardcoded_choices"][0]["property_path"] == ["severity"]
+        assert payload["hardcoded_choices"][0]["choices"][0]["value"] == "minor"
+        assert payload["hardcoded_choices"][0]["resolution_options"][0]["strategy"] == "CREATE_NEW"
