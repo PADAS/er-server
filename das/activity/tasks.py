@@ -7,7 +7,6 @@ from versatileimagefield.image_warmer import VersatileImageFieldWarmer
 import django.contrib.auth
 from django.db.models import DateTimeField, ExpressionWrapper, F, Q
 
-from activity.alerting.businessrules import resolve_event_revisions
 from activity.alerting.message import (
     get_revised_event_details_fields,
     get_revised_event_fields,
@@ -18,6 +17,7 @@ from activity.alerting.rate_limit import (
     reset_alert_metrics,
     reset_alerts_counter,
 )
+from activity.alerting.rendering import resolve_event_revisions
 from activity.alerting.service import evaluate_event
 from activity.materialized_view import re_create_view, refresh_materialized_view
 from activity.models import (
