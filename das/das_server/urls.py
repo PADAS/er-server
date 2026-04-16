@@ -94,6 +94,10 @@ django.conf.urls.handler404 = "utils.drf.error404View"
 
 if settings.ENABLE_SILK:
     urlpatterns += [path("silk/", include("silk.urls", namespace="silk"))]
+if settings.MEMORY_PROFILING_ENABLED:
+    from das_server.debug_views import MemoryDebugView
+
+    urlpatterns += [re_path("api/v1.0/debug/memory/?$", MemoryDebugView.as_view(), name="debug-memory")]
 if settings.DEV:
     urlpatterns += [
         re_path(r"^(?:index.html)?$", django.contrib.staticfiles.views.serve, kwargs={"path": "index.html"}),

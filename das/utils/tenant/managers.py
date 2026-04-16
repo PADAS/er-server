@@ -64,7 +64,7 @@ class TenantContextManager:
             try:
                 tenant = DASTenant.objects.get(id=tenant_data["id"])
             except DASTenant.DoesNotExist:
-                logger.warning("DASTenant with id %s does not exist", tenant_data["id"])
+                logger.debug("DASTenant with id %s does not exist", tenant_data["id"])
                 raise
 
         set_tenant_settings(value=tenant_data)
@@ -88,6 +88,20 @@ def set_tenant_by_request(request: Union[Request, WSGIRequest]) -> None:
             return request.get_host()
         except DisallowedHost:
             add_new_tenant_domains_to_settings()
+
+        try:
+            return request.get_host()
+        except DisallowedHost:
+            # Host is still not in ALLOWED_HOSTS after refreshing cached
+            # tenant domains. Extract the raw hostname and validate it
+            # against the tenant cache / TMS before allowing it through.
+            raw_host = request.META.get("HTTP_HOST", request.META.get("SERVER_NAME", ""))
+            hostname = raw_host.split(":")[0]
+            try:
+                get_tenant_data_by_host(hostname)
+                add_new_tenant_domains_to_settings(hostname=hostname)
+            except Exception:
+                pass
 
         return request.get_host()
 

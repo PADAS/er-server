@@ -135,7 +135,7 @@ def create_subject_group_func(user=None):
         return [
             str(subj_group.id)
             for subject in self.event.get("related_subjects")
-            for subj_group in Subject.objects.get(id=subject.get("id")).groups.all()
+            for subj_group in Subject.objects.get(id=subject.get("id")).get_ancestor_subject_groups()
         ]
 
     options_list = []

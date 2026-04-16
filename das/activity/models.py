@@ -854,10 +854,18 @@ class EventRelationship(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     type = TenantForeignKey("EventRelationshipType", on_delete=models.PROTECT)
     from_event = TenantForeignKey(
-        "Event", related_name="out_relationships", related_query_name="out_relationship", on_delete=models.CASCADE
+        "Event",
+        related_name="out_relationships",
+        related_query_name="out_relationship",
+        on_delete=models.CASCADE,
+        db_index=False,
     )
     to_event = TenantForeignKey(
-        "Event", related_name="in_relationships", related_query_name="in_relationship", on_delete=models.CASCADE
+        "Event",
+        related_name="in_relationships",
+        related_query_name="in_relationship",
+        on_delete=models.CASCADE,
+        db_index=False,
     )
     ordernum = models.SmallIntegerField(blank=True, null=True)
 
@@ -872,6 +880,10 @@ class EventRelationship(TenantModelMixin, TimestampedModel):
                 fields=["das_tenant", "type", "from_event", "to_event"],
                 name="%(app_label)s_%(class)s_tenant_type_event_unique",
             ),
+        ]
+        indexes = [
+            models.Index(fields=["das_tenant", "from_event"], name="evtrel_tenant_from_evt_idx"),
+            models.Index(fields=["das_tenant", "to_event"], name="evtrel_tenant_to_evt_idx"),
         ]
         ordering = [
             "type",
@@ -957,6 +969,9 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
             models.Index(fields=["das_tenant", "created_at"]),
             models.Index(fields=["das_tenant", "updated_at"]),
             models.Index(fields=["das_tenant", "event_time"]),
+            models.Index(fields=["das_tenant", "sort_at"], name="evt_tenant_sort_at_idx"),
+            models.Index(fields=["das_tenant", "event_type"], name="evt_tenant_event_type_idx"),
+            models.Index(fields=["das_tenant", "state"], name="evt_tenant_state_idx"),
         ]
         constraints = [
             UniqueConstraint(
@@ -982,15 +997,16 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
         blank=True,
         related_name="events",
         related_query_name="event",
+        db_index=False,
     )
 
     event_time = models.DateTimeField(default=django.utils.timezone.now)
     end_time = models.DateTimeField(null=True, blank=True, verbose_name="End Time")
     provenance = models.CharField(max_length=40, choices=PROVENANCE_CHOICES, blank=True)
 
-    event_type = TenantForeignKey(EventType, on_delete=models.PROTECT, blank=True, null=True)
+    event_type = TenantForeignKey(EventType, on_delete=models.PROTECT, blank=True, null=True, db_index=False)
 
-    state = models.CharField(max_length=40, choices=STATE_CHOICES, default=SC_NEW, db_index=True)
+    state = models.CharField(max_length=40, choices=STATE_CHOICES, default=SC_NEW, db_index=False)
 
     location = models.PointField(srid=4326, null=True, blank=True)
 
@@ -1011,7 +1027,12 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
     )
 
     reported_by_content_type = models.ForeignKey(
-        ContentType, on_delete=models.CASCADE, limit_choices_to=reported_by_limits, null=True, blank=True
+        ContentType,
+        on_delete=models.CASCADE,
+        limit_choices_to=reported_by_limits,
+        null=True,
+        blank=True,
+        db_index=False,
     )
 
     reported_by_id = models.UUIDField(null=True, blank=True, default=None)
@@ -1022,7 +1043,7 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
     patrol_segments = models.ManyToManyField(
         to="PatrolSegment", through="EventRelatedSegments", related_name="events", related_query_name="event"
     )
-    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id, db_index=False)
     objects = EventManager()
     tenant_id = "das_tenant_id"
 

@@ -354,8 +354,16 @@ def _union_assigned_range_bounds(assigned_range_a, assigned_range_b):
         return assigned_range_b.lower, assigned_range_b.upper
     if assigned_range_b is None:
         return assigned_range_a.lower, assigned_range_a.upper
-    lower = min(assigned_range_a.lower, assigned_range_b.lower)
-    upper = max(assigned_range_a.upper, assigned_range_b.upper)
+    a_lower, b_lower = assigned_range_a.lower, assigned_range_b.lower
+    a_upper, b_upper = assigned_range_a.upper, assigned_range_b.upper
+    if a_lower is None or b_lower is None:
+        lower = None
+    else:
+        lower = min(a_lower, b_lower)
+    if a_upper is None or b_upper is None:
+        upper = None
+    else:
+        upper = max(a_upper, b_upper)
     return lower, upper
 
 

@@ -12,7 +12,7 @@ class TestAsyncDelete:
     def test_delete_source_async(self, superuser_client, source, settings):
         settings.CELERY_TASK_ALWAYS_EAGER = True
 
-        delete_url = reverse("source-view", kwargs={"id": source.id})
+        delete_url = reverse("source-view", kwargs={"identifier": source.id})
         delete_url += "?async=true"
 
         response = superuser_client.delete(delete_url)

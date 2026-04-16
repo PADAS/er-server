@@ -1925,3 +1925,88 @@ class TestDeviceWithNullLocation:
         assert ss_with_loc.location.x == -70.5142263
         assert ss_with_loc.location.y == 40.6014382
         assert ss_null_lat_lon.location is None
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_add_device_to_existing_gearset(superuser):
+    """Test that re-submitting a gearset with an additional device succeeds.
+
+    When a device is added to an existing gearset, the integration re-sends
+    the full set (including the original device at its original recorded_at).
+    The Observation for the original device must be upserted, not duplicated,
+    so the unique constraint on (das_tenant, source_id, recorded_at) is not
+    violated.
+    """
+    subject_group = SubjectGroup.objects.create(name="TestAddDevice")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    now = timezone.now()
+    deploy_time = now - timedelta(hours=1)
+    device_id_1 = str(uuid4())
+    device_id_2 = str(uuid4())
+    set_id = str(uuid4())
+
+    # First POST: single device
+    data_1 = {
+        "manufacturer_name": "TestAddDevice",
+        "set_id": set_id,
+        "deployment_type": "single",
+        "initial_deployment_date": deploy_time,
+        "devices_in_set": 1,
+        "devices": [
+            {
+                "device_id": device_id_1,
+                "last_deployed": deploy_time,
+                "last_updated": deploy_time,
+                "device_status": "deployed",
+                "location": {"latitude": 43.63, "longitude": -69.74},
+                "recorded_at": deploy_time,
+            }
+        ],
+    }
+    serializer = GearCreateSerializer(data=data_1, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, obs1 = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+    assert len(obs1) == 1
+    assert SubjectSource.objects.filter(subject=subject).count() == 1
+
+    # Second POST: same set_id, now with two devices (original + new)
+    deploy_time_2 = deploy_time + timedelta(minutes=1)
+    data_2 = {
+        "manufacturer_name": "TestAddDevice",
+        "set_id": set_id,
+        "deployment_type": "trawl",
+        "devices_in_set": 2,
+        "devices": [
+            {
+                "device_id": device_id_1,
+                "last_deployed": deploy_time,
+                "last_updated": now,
+                "device_status": "deployed",
+                "location": {"latitude": 43.63, "longitude": -69.74},
+                "recorded_at": deploy_time,  # Same recorded_at as first POST
+            },
+            {
+                "device_id": device_id_2,
+                "last_deployed": deploy_time_2,
+                "last_updated": now,
+                "device_status": "deployed",
+                "location": {"latitude": 43.64, "longitude": -69.73},
+                "recorded_at": deploy_time_2,
+            },
+        ],
+    }
+    serializer = GearCreateSerializer(data=data_2, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, obs2 = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Both devices processed successfully
+    assert len(obs2) == 2
+    assert SubjectSource.objects.filter(subject=subject).count() == 2
+    assert subject.is_active is True
+
+    # Original device observation was updated, not duplicated
+    assert Observation.objects.filter(source_id=device_id_1, recorded_at=deploy_time).count() == 1

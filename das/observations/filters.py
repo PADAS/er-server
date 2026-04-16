@@ -310,6 +310,8 @@ class ObservationsFilter(BaseFilterBackend):
         until = query_params.get("until")
         _, recorded_since = check_valid_date_string(since, "since")
         _, recorded_until = check_valid_date_string(until, "until")
+        if recorded_until is None:
+            recorded_until = timezone.now()
         subject_id = query_params.get("subject_id")
         source_id = query_params.get("source_id")
         subjectsource_id = query_params.get("subjectsource_id")

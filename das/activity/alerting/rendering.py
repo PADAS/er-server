@@ -2,6 +2,8 @@
 
 import logging
 
+from django.core.exceptions import ObjectDoesNotExist
+
 from activity.models import Event, EventDetails
 from activity.permissions import EventCategoryPermissions
 from activity.serializers import EventSerializer
@@ -57,7 +59,7 @@ def resolve_event_revisions(event):
     revision = event.revision.all_user().latest("revision_at")
     try:
         details_revision = event.event_details.latest("updated_at").revision.all_user().latest("revision_at")
-    except (AttributeError, EventDetails.DoesNotExist):
+    except (AttributeError, EventDetails.DoesNotExist, ObjectDoesNotExist):
         return revision, None
 
     # If the revision and details revision are both added, return the revisions.

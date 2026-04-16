@@ -9,8 +9,11 @@ from django.db import IntegrityError, transaction
 
 from buoy.constants import (
     BUOY_GEAR_SUBJECT_SUBTYPE,
+    BUOY_GEAR_SUBJECT_SUBTYPE_DISPLAY,
     DEVICE_STATUS_DEPLOYED,
     DEVICE_STATUS_HAULED,
+    GEAR_SUBJECT_TYPE,
+    GEAR_SUBJECT_TYPE_DISPLAY,
 )
 from observations import models
 from observations.models import DEFAULT_ASSIGNED_RANGE, EMPTY_POINT
@@ -197,12 +200,13 @@ class BuoyService:
         )
 
         # Ensure subject subtype exists for buoy gear
-        subject_subtype = None
-        try:
-            subject_subtype = models.SubjectSubType.objects.get(value=BUOY_GEAR_SUBJECT_SUBTYPE)
-        except models.SubjectSubType.DoesNotExist:
-            # If subtype not present, proceed without setting it (maintain backward compatibility)
-            subject_subtype = None
+        gear_subject_type, _ = models.SubjectType.objects.get_or_create(
+            value=GEAR_SUBJECT_TYPE, defaults={"display": GEAR_SUBJECT_TYPE_DISPLAY}
+        )
+        subject_subtype, _ = models.SubjectSubType.objects.get_or_create(
+            value=BUOY_GEAR_SUBJECT_SUBTYPE,
+            defaults={"display": BUOY_GEAR_SUBJECT_SUBTYPE_DISPLAY, "subject_type": gear_subject_type},
+        )
 
         # Build additional dict for Subject, starting with set_additional_data
         additional = set_additional_data.copy() if set_additional_data else {}
@@ -220,12 +224,9 @@ class BuoyService:
         subject_defaults = {"name": mfr_set_id, "additional": additional} if additional else {"name": mfr_set_id}
 
         # Create or get Subject using set_id as the primary key
-        if subject_subtype is not None:
-            subject, created = models.Subject.objects.get_or_create(
-                id=set_id, subject_subtype=subject_subtype, defaults=subject_defaults
-            )
-        else:
-            subject, created = models.Subject.objects.get_or_create(id=set_id, defaults=subject_defaults)
+        subject, created = models.Subject.objects.get_or_create(
+            id=set_id, subject_subtype=subject_subtype, defaults=subject_defaults
+        )
 
         # Add subject to the SubjectGroup if not already a member
         if not subject.groups.filter(id=subject_group.id).exists():
@@ -321,17 +322,25 @@ class BuoyService:
 
             # Store last_updated in Source's additional field if provided
             if device_data.get("last_updated"):
+                new_last_updated = BuoyService._make_serializable(device_data["last_updated"])
                 source_additional = source.additional or {}
-                source_additional["last_updated"] = BuoyService._make_serializable(device_data["last_updated"])
-                source.additional = source_additional
-                source.save()
+                if source_additional.get("last_updated") != new_last_updated:
+                    source_additional["last_updated"] = new_last_updated
+                    source.additional = source_additional
+                    source.save()
 
-            # Store the validated payload as the raw field for traceability
-            observation = models.Observation.objects.create(
+            # Store the validated payload as the raw field for traceability.
+            # Use update_or_create so that re-submitting the same device at the same
+            # recorded_at (e.g. when a device is added to an existing gearset and the
+            # full set is re-sent) is idempotent instead of hitting the unique constraint
+            # on (das_tenant_id, source_id, recorded_at).
+            observation, _obs_created = models.Observation.objects.update_or_create(
                 source=source,
-                location=device_location,
                 recorded_at=recorded_at,
-                additional={"raw": serializable_validated},
+                defaults={
+                    "location": device_location,
+                    "additional": {"raw": serializable_validated},
+                },
             )
             observations.append(observation)
 

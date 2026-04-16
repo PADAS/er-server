@@ -61,7 +61,7 @@ class CeleryConfigurationTests(TestCase):
             "reports.tasks.alert_lag_delay",
             "reports.tasks.run_check_sources_threshold",
             "reports.tasks.subjectsource_report",
-            "rt_api.tasks._broadcast_service_status",
+            "rt_api.tasks.broadcast_service_status_tenant",
             "rt_api.tasks.broadcast_service_status",
             "rt_api.tasks.check_redis_queues",
             "rt_api.tasks.handle_delete_event",

@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Dict, List, Type, Union
 
 import pytz
+from django_multitenant.utils import get_current_tenant
 from psycopg2.errors import InvalidTextRepresentation
 from rest_framework_extensions.etag.decorators import etag
 
@@ -43,6 +44,7 @@ from activity.models import (
     EventFile,
     EventFilter,
     EventGeometry,
+    EventNote,
     EventProvider,
     EventRelationship,
 )
@@ -630,17 +632,40 @@ class EventsView(ListCreateAPIView):
 
     schema = EventsViewSchema()
 
+    def _build_revisions_cache(self, events: list) -> dict:
+        """Bulk-fetch all EventRevision rows for a page of events in one query."""
+        event_ids = [e.pk for e in events]
+        if not event_ids:
+            return {}
+        revision_model = Event.revision.model
+        revisions = (
+            revision_model.objects.filter(object_id__in=event_ids, das_tenant=get_current_tenant())
+            .select_related("user")
+            .order_by("sequence")
+        )
+        cache: dict = {}
+        for rev in revisions:
+            cache.setdefault(rev.object_id, []).append(rev)
+        return cache
+
     def list(self, request: Request, *args, **kwargs) -> Response:
         queryset = self.filter_queryset(self.get_queryset())
         queryset = self.optimize_queryset(queryset)
 
         try:
             if self.paginator:
-                queryset = self.paginate_queryset(queryset)
-                serializer = self.get_serializer(queryset, many=True)
+                page = self.paginate_queryset(queryset)
+                context = self.get_serializer_context()
+                if context.get("include_updates"):
+                    context["revisions_cache"] = self._build_revisions_cache(page)
+                serializer = self.get_serializer(page, many=True, context=context)
                 return self.get_paginated_response(serializer.data)
 
-            serializer = self.get_serializer(queryset, many=True)
+            events = list(queryset)
+            context = self.get_serializer_context()
+            if context.get("include_updates"):
+                context["revisions_cache"] = self._build_revisions_cache(events)
+            serializer = self.get_serializer(events, many=True, context=context)
             return Response(serializer.data)
 
         except InvalidTextRepresentation as error:
@@ -708,7 +733,11 @@ class EventsView(ListCreateAPIView):
         serializer_context = self.get_serializer_context()
         permitted_categories = get_permitted_event_categories(self.request)
 
-        queryset = queryset.select_related("event_type__category", "created_by_user")
+        queryset = queryset.select_related("event_type__category", "created_by_user", "reported_by_content_type")
+
+        _rel_qs = EventRelationship.objects.select_related(
+            "type", "to_event__event_type__category", "from_event__event_type__category"
+        )
 
         prefetches = [
             Prefetch("eventsource_event_refs__eventsource__eventprovider"),
@@ -719,36 +748,30 @@ class EventsView(ListCreateAPIView):
             Prefetch(
                 "in_relationships",
                 to_attr="relationship_in_contains",
-                queryset=EventRelationship.objects.filter(type__value="contains")
-                .order_by("ordernum", "to_event__created_at")
-                .all(),
+                queryset=_rel_qs.filter(type__value="contains").order_by("ordernum", "to_event__created_at"),
             ),
             Prefetch(
                 "out_relationships",
                 to_attr="relationship_out_contains",
-                queryset=EventRelationship.objects.filter(
+                queryset=_rel_qs.filter(
                     to_event__event_type__category__in=permitted_categories, type__value="contains"
-                )
-                .order_by("ordernum", "to_event__created_at")
-                .all(),
+                ).order_by("ordernum", "to_event__created_at"),
             ),
             Prefetch(
                 "out_relationships",
                 to_attr="relationship_out_is_linked_to",
-                queryset=EventRelationship.objects.filter(
+                queryset=_rel_qs.filter(
                     to_event__event_type__category__in=permitted_categories, type__value="is_linked_to"
-                )
-                .order_by("ordernum", "to_event__created_at")
-                .all(),
+                ).order_by("ordernum", "to_event__created_at"),
             ),
         ]
 
         if serializer_context.get("include_details"):
             prefetches.append(Prefetch("event_details", to_attr="event_details_set"))
         if serializer_context.get("include_notes"):
-            prefetches.append(Prefetch("notes"))
+            prefetches.append(Prefetch("notes", queryset=EventNote.objects.select_related("created_by_user")))
         if serializer_context.get("include_files"):
-            prefetches.append(Prefetch("files"))
+            prefetches.append(Prefetch("files", queryset=EventFile.objects.select_related("created_by")))
 
         queryset = queryset.prefetch_related(*prefetches)
         queryset = queryset.annotate(patrol_ids=ArrayAgg("patrol_segments__patrol_id"))

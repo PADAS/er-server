@@ -102,6 +102,10 @@ GPX_FILES_FOLDER = getattr(settings, "GPX_FILES_FOLDER", "observations/gpxfile")
 # Threshold for warning about high SubjectSource assignment counts that may cause deeply nested SQL
 HIGH_ASSIGNMENT_COUNT_THRESHOLD = 10
 
+# Default lookback window (in days) for queries that need the latest observation
+# without scanning the entire observation table.
+RECENT_OBSERVATION_LOOKBACK_DAYS = 30
+
 SOURCE_TYPES = sorted(
     (
         ("tracking-device", "Tracking Device"),
@@ -895,6 +899,25 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             subject, since=since, until=until, limit=limit, values=values, filter_flag=filter_flag
         )
 
+    def get_latest_observation_for_subject(self, subject, until=None):
+        """Get the most recent observation for a subject.
+
+        Tries a recent time window first to avoid a full table scan, then falls
+        back to an unbounded query if no observation is found.
+        """
+        if until is None:
+            until = datetime.now(tz=timezone.utc)
+
+        since = until - timedelta(days=RECENT_OBSERVATION_LOOKBACK_DAYS)
+        observation = self.get_subject_observations_partitioned(
+            subject=subject, since=since, until=until, limit=1
+        ).first()
+
+        if observation is None:
+            observation = self.get_subject_observations_partitioned(subject=subject, until=until, limit=1).first()
+
+        return observation
+
 
 class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(ObservationQuerySet)):
     use_in_migrations = True
@@ -1232,8 +1255,9 @@ class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset
         if segment is not None:
             return segment, False
         try:
-            segment = self.create_segment(start_obs, end_obs, subject)
-            return segment, True
+            with transaction.atomic():
+                segment = self.create_segment(start_obs, end_obs, subject)
+                return segment, True
         except IntegrityError:
             # Segment was created by another process or backfill (race / rollout).
             # Re-fetch and return it so the operation is idempotent.
@@ -2755,9 +2779,7 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
 
         until = datetime.now(tz=timezone.utc)
 
-        observation = Observation.objects.get_subject_observations_partitioned(
-            subject=subject, until=until, limit=1
-        ).first()
+        observation = Observation.objects.get_latest_observation_for_subject(subject=subject, until=until)
 
         # March through the view windows.
         for key, delay_days in self.delayed_windows:
@@ -2773,9 +2795,7 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
                 update_subjectstatus_from_observation(subject, observation, delay_hours=delay_hours, force=True)
             else:
                 # Refresh the 'latest observation' for the given window.
-                observation = Observation.objects.get_subject_observations_partitioned(
-                    subject=subject, until=until, limit=1
-                ).first()
+                observation = Observation.objects.get_latest_observation_for_subject(subject=subject, until=until)
                 if observation:
                     update_subjectstatus_from_observation(subject, observation, delay_hours=delay_hours, force=True)
 
@@ -2829,9 +2849,7 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
         else:
             logger.info("SubjectStatus maintenance for Subject: %s, id: %s", subject.name, subject_id)
 
-            observation = Observation.objects.get_subject_observations_partitioned(
-                subject=subject, until=datetime.now(tz=timezone.utc), limit=1
-            ).first()
+            observation = Observation.objects.get_latest_observation_for_subject(subject=subject)
             self.ensure_for_subject(subject, force=not observation)
             self.update_from_subject(subject)
 
