@@ -284,6 +284,62 @@ class TestAlertingSchemaPropertiesAdapter:
         assert choice_options["option1"] == "Option 1"
         assert choice_options["option2"] == "Option 2"
 
+    def test_v2_choice_list_field_processing(self, five_event_categories):
+        """V2 multi-select (choice list) fields have choice options extracted."""
+        adapter = AlertingSchemaPropertiesAdapter()
+
+        multi_choices = {"bushmeat": "Bush Meat", "ivory": "Ivory", "timber": "Timber"}
+        v2_schema = V2SchemaBuilder.choice_list_field("items_confiscated", multi_choices)
+        v2_event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="test_v2_multi_choice",
+            display="Test V2 Multi-Select Choice",
+        )
+
+        result = adapter.get_alert_properties(v2_event_type)
+
+        assert result.status == "success"
+        assert "items_confiscated" in result.properties
+
+        # Multi-select should have its choice options extracted
+        assert "items_confiscated" in result.choice_options_map
+        choice_options = result.choice_options_map["items_confiscated"]
+        assert choice_options == multi_choices
+
+    def test_v2_mixed_single_and_multi_select(self, five_event_categories):
+        """Schema with both single-select and multi-select fields."""
+        adapter = AlertingSchemaPropertiesAdapter()
+
+        single_choices = {"low": "Low", "high": "High"}
+        multi_choices = {"bushmeat": "Bush Meat", "ivory": "Ivory"}
+        v2_schema = V2SchemaBuilder.choice_list_field("items", multi_choices)
+        # Add a single-select field
+        v2_schema["json"]["properties"]["severity"] = {
+            "type": "string",
+            "title": "Severity",
+            "deprecated": False,
+            "description": "",
+            "anyOf": [{"oneOf": [{"const": k, "title": v} for k, v in single_choices.items()]}],
+        }
+
+        v2_event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="test_v2_mixed_select",
+            display="Test V2 Mixed Select",
+        )
+
+        result = adapter.get_alert_properties(v2_event_type)
+
+        assert result.status == "success"
+        assert "items" in result.choice_options_map
+        assert result.choice_options_map["items"] == multi_choices
+        assert "severity" in result.choice_options_map
+        assert result.choice_options_map["severity"] == single_choices
+
     def test_v1_schema_processing_error_handling(self, five_event_categories):
         """Test V1 schema processing error handling."""
         adapter = AlertingSchemaPropertiesAdapter()

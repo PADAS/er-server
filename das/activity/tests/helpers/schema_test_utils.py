@@ -199,6 +199,35 @@ class V2SchemaBuilder:
         }
 
     @staticmethod
+    def choice_list_field(field_name: str, choices: dict, **kwargs) -> dict:
+        """Create V2 schema with a multi-select choice list field (type=array, uniqueItems=true)."""
+        one_of_choices = [{"const": key, "title": value} for key, value in choices.items()]
+        field_config = {
+            "deprecated": False,
+            "description": "",
+            "title": field_name.replace("_", " ").title(),
+            "type": "array",
+            "uniqueItems": True,
+            "items": {
+                "type": "string",
+                "anyOf": [{"oneOf": one_of_choices}],
+            },
+            **kwargs,
+        }
+        return {
+            "json": {
+                "$schema": V2_DRAFT,
+                "additionalProperties": False,
+                "type": "object",
+                "properties": {
+                    field_name: field_config,
+                },
+                "required": [],
+            },
+            "ui": V2SchemaBuilder._ui_section(field_name, field_config),
+        }
+
+    @staticmethod
     def multi_field(fields: dict) -> dict:
         """Create V2 schema with multiple fields.
 

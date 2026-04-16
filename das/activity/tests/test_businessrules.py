@@ -23,9 +23,12 @@ from activity.alerting.businessrules import (
     EventActions,
     EventVariables,
     _generate_aggregate_event_variables_class,
-    render_event,
+    render_aggregate_event_variables,
 )
+from activity.alerting.rendering import render_event
+from activity.alerting.schema_properties import AlertingSchemaPropertiesAdapter
 from activity.alerting.service import evaluate_event, evaluate_event_on_alertrules
+from activity.alerting.variables import MultiSelectChoiceType
 from activity.alerts_views import (
     AlertRuleListView,
     EventAlertConditionsListView,
@@ -192,6 +195,535 @@ class TestV2EventTypeAlerts:
             mixed_event_types, ["category_select", "count_number"]
         )
         EventTypeTestHelpers.assert_choice_options(variables_class, "category", list(standard_choices.keys()))
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestV2MultiSelectAlerts:
+    """Multi-select choice field alert support."""
+
+    multi_select_choices = {"bushmeat": "Bush Meat", "ivory": "Ivory", "timber": "Timber", "skins": "Skins"}
+
+    def test_v2_multi_select_variable_generation(self, five_event_categories):
+        """V2 choice_list (multi-select) field is detected as multi_select type."""
+        v2_schema = V2SchemaBuilder.choice_list_field("items_confiscated", self.multi_select_choices)
+        v2_event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="confiscation_v2",
+            display="Confiscation V2",
+        )
+
+        variables_class, applies_to = EventTypeTestHelpers.assert_variable_generation(
+            [v2_event_type], ["items_confiscated_multiselect"]
+        )
+        EventTypeTestHelpers.assert_choice_options(
+            variables_class, "items_confiscated", list(self.multi_select_choices.keys())
+        )
+
+    def test_v2_multi_select_with_single_select_mixed(self, five_event_categories):
+        """Schema with both single-select and multi-select fields."""
+        single_choices = {"low": "Low", "high": "High"}
+        v2_schema = V2SchemaBuilder.choice_list_field("items", self.multi_select_choices)
+        # Add a single-select field
+        v2_schema["json"]["properties"]["severity"] = {
+            "type": "string",
+            "title": "Severity",
+            "deprecated": False,
+            "description": "",
+            "anyOf": [{"oneOf": [{"const": k, "title": v} for k, v in single_choices.items()]}],
+        }
+
+        v2_event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="mixed_select_v2",
+            display="Mixed Select V2",
+        )
+
+        variables_class, applies_to = EventTypeTestHelpers.assert_variable_generation(
+            [v2_event_type], ["items_multiselect", "severity_select"]
+        )
+
+    def test_v2_multi_select_rules_engine_is_one_of(self, five_event_categories):
+        """End-to-end: multi-select field evaluated with is_one_of operator."""
+        v2_schema = V2SchemaBuilder.choice_list_field("items_confiscated", self.multi_select_choices)
+        v2_event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="confiscation_rules_v2",
+            display="Confiscation Rules V2",
+        )
+
+        variables_class, _ = _generate_aggregate_event_variables_class(
+            [v2_event_type], support_legacy_event_variables=True
+        )
+
+        sample_rules = [
+            {
+                "conditions": {
+                    "all": [
+                        {
+                            "name": "items_confiscated",
+                            "operator": "is_one_of",
+                            "value": ["bushmeat", "ivory"],
+                        },
+                    ]
+                },
+                "actions": [
+                    {"name": "send_alert", "params": {"alert_rule_id": "test-rule"}},
+                ],
+            }
+        ]
+
+        # Event with matching multi-select value
+        matching_event = {
+            "id": 1,
+            "state": "active",
+            "priority": 200,
+            "event_details": {"items_confiscated": ["bushmeat", "timber"]},
+        }
+        action_list = []
+        run_all(
+            rule_list=sample_rules,
+            defined_variables=variables_class(matching_event),
+            defined_actions=EventActions(matching_event, action_list),
+            stop_on_first_trigger=False,
+        )
+        assert len(action_list) == 1
+
+        # Event with non-matching multi-select value
+        non_matching_event = {
+            "id": 2,
+            "state": "active",
+            "priority": 200,
+            "event_details": {"items_confiscated": ["timber", "skins"]},
+        }
+        action_list = []
+        run_all(
+            rule_list=sample_rules,
+            defined_variables=variables_class(non_matching_event),
+            defined_actions=EventActions(non_matching_event, action_list),
+            stop_on_first_trigger=False,
+        )
+        assert len(action_list) == 0
+
+    def test_v2_multi_select_rules_engine_is_not_empty(self, five_event_categories):
+        """End-to-end: multi-select field evaluated with is_not_empty operator."""
+        v2_schema = V2SchemaBuilder.choice_list_field("items_confiscated", self.multi_select_choices)
+        v2_event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="confiscation_empty_v2",
+            display="Confiscation Empty V2",
+        )
+
+        variables_class, _ = _generate_aggregate_event_variables_class(
+            [v2_event_type], support_legacy_event_variables=True
+        )
+
+        sample_rules = [
+            {
+                "conditions": {
+                    "all": [
+                        {
+                            "name": "items_confiscated",
+                            "operator": "is_not_empty",
+                            "value": [],
+                        },
+                    ]
+                },
+                "actions": [
+                    {"name": "send_alert", "params": {"alert_rule_id": "test-rule"}},
+                ],
+            }
+        ]
+
+        # Event with values → should trigger
+        event_with_values = {
+            "id": 1,
+            "state": "active",
+            "priority": 200,
+            "event_details": {"items_confiscated": ["bushmeat"]},
+        }
+        action_list = []
+        run_all(
+            rule_list=sample_rules,
+            defined_variables=variables_class(event_with_values),
+            defined_actions=EventActions(event_with_values, action_list),
+            stop_on_first_trigger=False,
+        )
+        assert len(action_list) == 1
+
+        # Event with empty list → should not trigger
+        event_empty = {
+            "id": 2,
+            "state": "active",
+            "priority": 200,
+            "event_details": {"items_confiscated": []},
+        }
+        action_list = []
+        run_all(
+            rule_list=sample_rules,
+            defined_variables=variables_class(event_empty),
+            defined_actions=EventActions(event_empty, action_list),
+            stop_on_first_trigger=False,
+        )
+        assert len(action_list) == 0
+
+    def test_v2_multi_select_render_whitelisted_operators(self, five_event_categories):
+        """render_aggregate_event_variables exposes correct whitelisted operators for multiselect."""
+        v2_schema = V2SchemaBuilder.choice_list_field("items_confiscated", self.multi_select_choices)
+        v2_event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="confiscation_whitelist_v2",
+            display="Confiscation Whitelist V2",
+        )
+
+        request = NonHttpRequest()
+        request.method = "GET"
+        request.user = User(is_superuser=True)
+
+        rules = render_aggregate_event_variables([v2_event_type], request=request)
+
+        # Verify the multi_select_choice type has whitelisted operators
+        assert fields.FIELD_MULTI_SELECT_CHOICE in rules["variable_type_operators"]
+        ms_operators = list(rules["variable_type_operators"][fields.FIELD_MULTI_SELECT_CHOICE])
+        ms_operator_names = [op["name"] for op in ms_operators]
+        expected_ops = ["contains", "is_exactly", "is_empty", "is_not_empty", "is_one_of", "is_not_one_of"]
+        for op_name in expected_ops:
+            assert op_name in ms_operator_names, f"Expected operator '{op_name}' not in {ms_operator_names}"
+
+        # Verify the multiselect variable has options (not pruned)
+        ms_var = next((v for v in rules["variables"] if "items_confiscated" in v["name"]), None)
+        assert ms_var is not None
+        assert "options" in ms_var
+        option_values = [opt["name"] for opt in ms_var["options"]]
+        for choice_key in self.multi_select_choices:
+            assert choice_key in option_values
+
+    def test_v1_array_choice_field_extraction(self, five_event_categories):
+        """V1 schemas with type=array + enumNames in items extract choices correctly."""
+        v1_multi_choices = {"bushmeat": "Bush Meat", "ivory": "Ivory", "timber": "Timber"}
+        v1_schema = {
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Test Schema",
+                "type": "object",
+                "properties": {
+                    "items_seized": {
+                        "type": "array",
+                        "title": "Items Seized",
+                        "items": {
+                            "type": "string",
+                            "enum": list(v1_multi_choices.keys()),
+                            "enumNames": v1_multi_choices,
+                        },
+                    },
+                },
+            },
+            "definition": [{"key": "items_seized", "htmlClass": "col-lg-6"}],
+        }
+
+        adapter = AlertingSchemaPropertiesAdapter()
+        v1_event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_1,
+            schema=json.dumps(v1_schema),
+            value="v1_array_choice",
+            display="V1 Array Choice",
+        )
+
+        result = adapter.get_alert_properties(v1_event_type)
+        assert result.status == "success"
+        assert "items_seized" in result.choice_options_map
+        assert result.choice_options_map["items_seized"] == v1_multi_choices
+
+    def test_full_pipeline_evaluate_event_with_multi_select(self, five_event_categories):
+        """Full pipeline: real Event + AlertRule DB objects with multi-select condition."""
+        v2_schema = V2SchemaBuilder.choice_list_field("items_confiscated", self.multi_select_choices)
+        v2_event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="confiscation_pipeline_v2",
+            display="Confiscation Pipeline V2",
+        )
+
+        # Create a real Event via the serializer
+        request = NonHttpRequest()
+        request.user = User.objects.create_superuser(
+            username="multiselect_test_admin",
+            email="multiselect_test@test.com",
+            password="testpass",
+        )
+        request.method = "POST"
+
+        event_data = {
+            "state": "active",
+            "title": "Multi-select test event",
+            "event_time": timezone.now().isoformat(),
+            "provenance": Event.PC_STAFF,
+            "event_type": v2_event_type.value,
+            "priority": Event.PRI_IMPORTANT,
+            "location": {"longitude": 37.5, "latitude": 1.4},
+            "event_details": {"items_confiscated": ["bushmeat", "timber"]},
+        }
+
+        ser = EventSerializer(data=event_data, context={"request": request})
+        assert ser.is_valid(), ser.errors
+        event = ser.create(ser.validated_data)
+        event = Event.objects.get(id=event.id)
+
+        # Create an AlertRule with a multi-select condition
+        alert_rule = AlertRule.objects.create(
+            owner=request.user,
+            title="Test multi-select alert",
+            is_active=True,
+            conditions={
+                "all": [
+                    {
+                        "name": "items_confiscated",
+                        "operator": "is_one_of",
+                        "value": ["bushmeat", "ivory"],
+                    },
+                ]
+            },
+            schedule={"periods": {}},
+        )
+        alert_rule.event_types.add(v2_event_type)
+
+        # Evaluate through the full pipeline
+        action_list = evaluate_event_on_alertrules([alert_rule], event)
+
+        # Should trigger because event has "bushmeat" which is in the condition
+        alert_actions = [a for a in action_list if a.get("alert_rule_id") == str(alert_rule.id)]
+        assert len(alert_actions) == 1
+
+
+class TestMultiSelectChoiceTypeOperators:
+    """Unit tests for MultiSelectChoiceType operator logic."""
+
+    def test_contains_all_present(self):
+        mst = MultiSelectChoiceType(["bushmeat", "ivory", "timber"])
+        assert mst.contains(["bushmeat", "ivory"]) is True
+
+    def test_contains_some_missing(self):
+        mst = MultiSelectChoiceType(["bushmeat", "timber"])
+        assert mst.contains(["bushmeat", "ivory"]) is False
+
+    def test_contains_empty_condition(self):
+        mst = MultiSelectChoiceType(["bushmeat"])
+        assert mst.contains([]) is True
+
+    def test_is_exactly_match(self):
+        mst = MultiSelectChoiceType(["bushmeat", "ivory"])
+        assert mst.is_exactly(["ivory", "bushmeat"]) is True
+
+    def test_is_exactly_no_match(self):
+        mst = MultiSelectChoiceType(["bushmeat", "ivory"])
+        assert mst.is_exactly(["bushmeat"]) is False
+
+    def test_is_empty_true(self):
+        mst = MultiSelectChoiceType([])
+        assert mst.is_empty() is True
+
+    def test_is_empty_false(self):
+        mst = MultiSelectChoiceType(["bushmeat"])
+        assert mst.is_empty() is False
+
+    def test_is_not_empty_true(self):
+        mst = MultiSelectChoiceType(["bushmeat"])
+        assert mst.is_not_empty() is True
+
+    def test_is_not_empty_false(self):
+        mst = MultiSelectChoiceType([])
+        assert mst.is_not_empty() is False
+
+    def test_is_one_of_match(self):
+        mst = MultiSelectChoiceType(["bushmeat", "timber"])
+        assert mst.is_one_of(["ivory", "timber"]) is True
+
+    def test_is_one_of_no_match(self):
+        mst = MultiSelectChoiceType(["bushmeat", "timber"])
+        assert mst.is_one_of(["ivory", "skins"]) is False
+
+    def test_is_not_one_of_true(self):
+        mst = MultiSelectChoiceType(["bushmeat", "timber"])
+        assert mst.is_not_one_of(["ivory", "skins"]) is True
+
+    def test_is_not_one_of_false(self):
+        mst = MultiSelectChoiceType(["bushmeat", "timber"])
+        assert mst.is_not_one_of(["ivory", "timber"]) is False
+
+    def test_cast_none_to_empty_list(self):
+        mst = MultiSelectChoiceType(None)
+        assert mst.value == []
+
+    def test_cast_dict_extracts_value(self):
+        mst = MultiSelectChoiceType({"name": "Bush Meat", "value": "bushmeat"})
+        assert mst.value == ["bushmeat"]
+
+    def test_cast_string_to_single_list(self):
+        mst = MultiSelectChoiceType("bushmeat")
+        assert mst.value == ["bushmeat"]
+
+    def test_cast_list_passthrough(self):
+        mst = MultiSelectChoiceType(["a", "b"])
+        assert mst.value == ["a", "b"]
+
+    def test_is_one_of_empty_selection(self):
+        """Empty selection should not match anything."""
+        mst = MultiSelectChoiceType([])
+        assert mst.is_one_of(["bushmeat"]) is False
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.django_db
+class TestBooleanFieldAlertSupport:
+    """Boolean fields should produce alert conditions with is_true/is_false operators."""
+
+    def test_v1_boolean_field_generates_alert_variable(self, five_event_categories):
+        """V1 boolean field produces a boolean rule variable."""
+        v1_schema = V1SchemaBuilder.simple_field("is_captive", "boolean", title="Captive")
+        event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_1,
+            schema=json.dumps(v1_schema),
+            value="v1_bool_test",
+            display="V1 Bool Test",
+        )
+
+        variables_class, applies_to = _generate_aggregate_event_variables_class([event_type])
+        assert "is_captive_boolean" in applies_to
+
+    def test_v2_boolean_field_generates_alert_variable(self, five_event_categories):
+        """V2 boolean field produces a boolean rule variable."""
+        v2_schema = V2SchemaBuilder.simple_field("is_captive", "boolean")
+        event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="v2_bool_test",
+            display="V2 Bool Test",
+        )
+
+        variables_class, applies_to = _generate_aggregate_event_variables_class([event_type])
+        assert "is_captive_boolean" in applies_to
+
+    def test_boolean_variable_evaluates_is_true(self, five_event_categories):
+        """Boolean rule variable evaluates is_true operator correctly."""
+        v2_schema = V2SchemaBuilder.simple_field("is_captive", "boolean")
+        event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="v2_bool_eval",
+            display="V2 Bool Eval",
+        )
+
+        variables_class, _ = _generate_aggregate_event_variables_class(
+            [event_type], support_legacy_event_variables=True
+        )
+
+        sample_rules = [
+            {
+                "conditions": {"all": [{"name": "is_captive", "operator": "is_true", "value": []}]},
+                "actions": [
+                    {"name": "send_alert", "params": {"alert_rule_id": "test-rule"}},
+                ],
+            }
+        ]
+
+        # Event with True → should trigger
+        event_true = {
+            "id": 1,
+            "state": "active",
+            "priority": 200,
+            "event_details": {"is_captive": True},
+        }
+        action_list = []
+        run_all(
+            rule_list=sample_rules,
+            defined_variables=variables_class(event_true),
+            defined_actions=EventActions(event_true, action_list),
+            stop_on_first_trigger=False,
+        )
+        assert len(action_list) == 1
+
+        # Event with False → should not trigger
+        event_false = {
+            "id": 2,
+            "state": "active",
+            "priority": 200,
+            "event_details": {"is_captive": False},
+        }
+        action_list = []
+        run_all(
+            rule_list=sample_rules,
+            defined_variables=variables_class(event_false),
+            defined_actions=EventActions(event_false, action_list),
+            stop_on_first_trigger=False,
+        )
+        assert len(action_list) == 0
+
+    def test_boolean_render_exposes_whitelisted_operators(self, five_event_categories):
+        """render_aggregate_event_variables exposes is_true/is_false for boolean fields."""
+        v2_schema = V2SchemaBuilder.simple_field("is_captive", "boolean")
+        event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="v2_bool_render",
+            display="V2 Bool Render",
+        )
+
+        rules = render_aggregate_event_variables([event_type], request=None)
+        assert "boolean" in rules["variable_type_operators"]
+        bool_ops = list(rules["variable_type_operators"]["boolean"])
+        bool_op_names = [op["name"] for op in bool_ops]
+        assert "is_true" in bool_op_names
+        assert "is_false" in bool_op_names
+
+    def test_v1_v2_boolean_parity(self, five_event_categories):
+        """V1 and V2 boolean fields produce equivalent alert variables and operators."""
+        v1_schema = V1SchemaBuilder.simple_field("is_captive", "boolean", title="Captive")
+        v1_event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_1,
+            schema=json.dumps(v1_schema),
+            value="v1_bool_parity",
+            display="V1 Bool Parity",
+        )
+
+        v2_schema = V2SchemaBuilder.simple_field("is_captive", "boolean")
+        v2_event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="v2_bool_parity",
+            display="V2 Bool Parity",
+        )
+
+        _, v1_applies = _generate_aggregate_event_variables_class([v1_event_type])
+        _, v2_applies = _generate_aggregate_event_variables_class([v2_event_type])
+
+        assert set(v1_applies.keys()) == set(
+            v2_applies.keys()
+        ), f"V1 keys={set(v1_applies.keys())}, V2 keys={set(v2_applies.keys())}"
+
+        v1_rules = render_aggregate_event_variables([v1_event_type], request=None)
+        v2_rules = render_aggregate_event_variables([v2_event_type], request=None)
+
+        v1_var = next(v for v in v1_rules["variables"] if "is_captive" in v["name"])
+        v2_var = next(v for v in v2_rules["variables"] if "is_captive" in v["name"])
+        assert v1_var["field_type"] == v2_var["field_type"] == "boolean"
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
