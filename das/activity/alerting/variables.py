@@ -58,7 +58,7 @@ def case_insensitive_string_rule_variable(label=None):
     return rule_variable(CaseInsensitiveStringType, label=label)
 
 
-business_rules.operators.CaseInxsensitiveStringType = CaseInsensitiveStringType
+business_rules.operators.CaseInsensitiveStringType = CaseInsensitiveStringType
 
 
 @export_type

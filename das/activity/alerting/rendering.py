@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def render_event(event, user, method="GET"):
-    # This is a covenience function to render an Event
+    # This is a convenience function to render an Event
     request = NonHttpRequest()
     request.method = method
     request.user = user
