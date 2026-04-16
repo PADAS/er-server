@@ -707,6 +707,12 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
         # list_filter includes M2M "groups" and SourceProviderFilter joins sources; DISTINCT avoids duplicate rows.
         return qs.distinct()
 
+    def delete_queryset(self, request, queryset):
+        # get_queryset() returns a .distinct() queryset (needed for M2M/join filters in the
+        # changelist), but Django forbids .delete() after .distinct().  Re-querying by pk
+        # gives us a clean queryset while still respecting cascades and delete signals.
+        self.model.objects.filter(pk__in=queryset.values_list("pk", flat=True)).delete()
+
     def _subject_subtype_display(self, o):
         return o.subject_subtype.display
 
