@@ -1,12 +1,10 @@
 """
 Redis-backed session store for chunked, resumable file uploads (ERA-9210).
 
-Application code addresses sessions by the fragment ``{tenant_id}:{upload_id}`` (see
-``_key``). The actual backend key stored in Redis/memcache is derived by the configured
-cache alias in ``CACHES[UPLOAD_SESSION_CACHE_ALIAS]`` and may be transformed by a custom
-``KEY_FUNCTION`` (for example ``utils.tenant.cache.make_cache_key``), so operators should
-inspect cache settings rather than assume a literal ``KEY_PREFIX:{tenant_id}:{upload_id}``
-shape.
+Tenant isolation is provided by the KEY_FUNCTION configured on the cache alias
+(``utils.tenant.cache.make_cache_key``), which embeds the thread-local tenant ID in every
+Redis key.  Session IDs (upload_id UUIDs) are used as the raw cache key; the KEY_FUNCTION
+transforms them before they reach Redis.
 
 ``django_redis`` exposes ``cache.lock`` for distributed locking; LocMem (tests/dev
 single-process) uses a per-session ``threading.Lock`` fallback — see ``session_write_lock``.
@@ -38,10 +36,6 @@ def _cache():
     return caches[CACHE_ALIAS]
 
 
-def _key(tenant_id: str, upload_id: str) -> str:
-    return f"{tenant_id}:{upload_id}"
-
-
 def _thread_lock_for_session(tenant_id: str, upload_id: str) -> threading.Lock:
     """Return a process-local lock for (tenant_id, upload_id); creation is serialized."""
     key = (tenant_id, upload_id)
@@ -60,7 +54,7 @@ def session_write_lock(tenant_id: str, upload_id: str) -> Iterator[None]:
     process-local lock so tests and single-worker dev remain correct under concurrency.
     """
     cache = _cache()
-    lock_key = f"session_write:{tenant_id}:{upload_id}"
+    lock_key = f"session_write:{upload_id}"
     if hasattr(cache, "lock"):
         # Hold long enough for a slow GCS resumable PUT; block long enough for overlapping retries.
         with cache.lock(lock_key, timeout=300, blocking_timeout=300):
@@ -97,7 +91,7 @@ def create(
         "is_image": is_image,
         "file_content_id": file_content_id,
     }
-    _cache().set(_key(tenant_id, upload_id), data, timeout=TTL)
+    _cache().set(upload_id, data, timeout=TTL)
     logger.info("Created upload session %s for tenant %s", upload_id, tenant_id)
 
 
@@ -107,7 +101,7 @@ def get(tenant_id: str, upload_id: str) -> Optional[dict[str, Any]]:
     On a cache miss (TTL expiry or explicit delete) clean up any stale process-local
     lock entry so the _thread_locks registry does not grow without bound.
     """
-    data = _cache().get(_key(tenant_id, upload_id))
+    data = _cache().get(upload_id)
     if data is None:
         key = (tenant_id, upload_id)
         with _thread_lock_registry_guard:
@@ -142,7 +136,7 @@ def append_chunk(
         existing = chunk_hashes.get(chunk_index)
         digest = hashlib.sha256(chunk_bytes).hexdigest()
         if existing == digest:
-            _cache().set(_key(tenant_id, upload_id), data, timeout=TTL)
+            _cache().set(upload_id, data, timeout=TTL)
             return True, None
         return False, "Chunk index already received with different content"
 
@@ -150,13 +144,13 @@ def append_chunk(
     chunk_hashes[chunk_index] = digest
     data["next_chunk_index"] = next_idx + 1
     data["chunk_hashes"] = chunk_hashes
-    _cache().set(_key(tenant_id, upload_id), data, timeout=TTL)
+    _cache().set(upload_id, data, timeout=TTL)
     return True, None
 
 
 def delete(tenant_id: str, upload_id: str) -> None:
     """Remove session (e.g. after finalize). Drops the LocMem fallback lock entry if present."""
-    _cache().delete(_key(tenant_id, upload_id))
+    _cache().delete(upload_id)
     key = (tenant_id, upload_id)
     with _thread_lock_registry_guard:
         _thread_locks.pop(key, None)

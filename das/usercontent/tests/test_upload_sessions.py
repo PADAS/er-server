@@ -2,6 +2,7 @@
 
 import threading
 import uuid
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -53,10 +54,17 @@ class TestUploadSessionsCreateGet:
         assert get(tenant_id, upload_id) is None
 
     def test_different_tenant_same_upload_id_isolated(self, upload_id):
-        t1, t2 = str(uuid.uuid4()), str(uuid.uuid4())
-        create(t1, upload_id, storage_path="p1", filename="a", size=10, chunk_size=10)
-        assert get(t1, upload_id) is not None
-        assert get(t2, upload_id) is None
+        t1_id, t2_id = str(uuid.uuid4()), str(uuid.uuid4())
+        mock_t1, mock_t2 = MagicMock(), MagicMock()
+        mock_t1.id, mock_t2.id = t1_id, t2_id
+
+        # Drive KEY_FUNCTION isolation via thread-local tenant — same mechanism as production.
+        with patch("utils.tenant.cache.get_tenant_settings", return_value=mock_t1):
+            create(t1_id, upload_id, storage_path="p1", filename="a", size=10, chunk_size=10)
+            assert get(t1_id, upload_id) is not None
+
+        with patch("utils.tenant.cache.get_tenant_settings", return_value=mock_t2):
+            assert get(t2_id, upload_id) is None
 
 
 class TestUploadSessionsCreateWithGcsUri:
