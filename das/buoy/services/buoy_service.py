@@ -350,13 +350,19 @@ class BuoyService:
             if device_data.get("device_status") == DEVICE_STATUS_DEPLOYED:
                 assigned_range = DateTimeTZRange(lower=recorded_at, upper=DEFAULT_ASSIGNED_RANGE[1])
             else:
-                # For haul events we expect subject_source to have a lower bound already set
-                if subject_source_created:
-                    logger.warning(
-                        f"SubjectSource created for {subject.name} and {source.manufacturer_id} but device status is {device_data.get('device_status')}, the assigned_range lower bound will be the default min time"
-                    )
                 assigned_range_upper = recorded_at + HAUL_TIME_OFFSET if recorded_at != datetime.max else recorded_at
-                assigned_range = DateTimeTZRange(lower=subject_source.assigned_range.lower, upper=assigned_range_upper)
+                if subject_source_created:
+                    # New device appearing for the first time in a haul payload (e.g. added to an
+                    # existing trawl). Use last_deployed as the lower bound so the deployment window
+                    # is meaningful; fall back to recorded_at if last_deployed is missing.
+                    assigned_range_lower = device_data.get("last_deployed") or recorded_at
+                    logger.info(
+                        f"SubjectSource created during haul for {subject.name} and {source.manufacturer_id}; "
+                        f"using last_deployed={assigned_range_lower} as assigned_range lower bound"
+                    )
+                else:
+                    assigned_range_lower = subject_source.assigned_range.lower
+                assigned_range = DateTimeTZRange(lower=assigned_range_lower, upper=assigned_range_upper)
 
             # Only set SubjectSource.location if we have real location data (not EMPTY_POINT)
             # SubjectSource.location allows null, so None is more semantically correct for "no location"
