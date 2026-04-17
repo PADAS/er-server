@@ -41,9 +41,11 @@ class FileSerializerMixin:
         if usercontent_id is not None:
             # Chunked-upload path: the file was already uploaded; attach by ID.
             # CommonTenantManager scopes both queries to the current tenant automatically.
+            # created_by=user prevents one tenant member from attaching another's uploaded file.
+            user = self.context["request"].user
             instance = (
-                FileContent.objects.filter(id=usercontent_id).first()
-                or ImageFileContent.objects.filter(id=usercontent_id).first()
+                FileContent.objects.filter(id=usercontent_id, created_by=user).first()
+                or ImageFileContent.objects.filter(id=usercontent_id, created_by=user).first()
             )
             if instance is None:
                 raise drf_serializers.ValidationError({"usercontent_id": "No file found with this ID."})

@@ -210,6 +210,7 @@ REST_FRAMEWORK = {
     "ORDERING_PARAM": "sort_by",
     "DEFAULT_THROTTLE_RATES": {
         "chunked_upload_init": "60/min",
+        "chunked_upload_chunk": "200/min",
     },
 }
 

@@ -195,6 +195,26 @@ class TestChunkedUploadAPI(BaseAPITest):
         assert ImageFileContent.objects.filter(id=upload_id).exists()
         assert not FileContent.objects.filter(id=upload_id).exists()
 
+    @patch("usercontent.chunked_upload.resumable_upload.upload_chunk")
+    @patch("usercontent.chunked_upload.resumable_upload.initiate", return_value="https://gcs.example/resumable")
+    def test_double_complete_second_call_returns_404(self, _mock_init, _mock_chunk):
+        """Session is deleted after the first complete; a second call returns 404, not IntegrityError."""
+        r0 = self.client.post(
+            f"{self.base}/",
+            {"filename": "d.txt", "size": 5, "chunk_size": 5},
+            format="json",
+        )
+        upload_id = self._json_data(r0)["upload_id"]
+        self.client.put(
+            f"{self.base}/{upload_id}/chunks/0/",
+            data=b"abcde",
+            content_type="application/octet-stream",
+        )
+        r1 = self.client.post(f"{self.base}/{upload_id}/complete/")
+        assert r1.status_code == status.HTTP_200_OK
+        r2 = self.client.post(f"{self.base}/{upload_id}/complete/")
+        assert r2.status_code == status.HTTP_404_NOT_FOUND
+
     @patch(
         "usercontent.chunked_upload.resumable_upload.initiate", side_effect=RuntimeError("internal bucket/path detail")
     )

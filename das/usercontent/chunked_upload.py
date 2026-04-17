@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import logging
 import math
-import os.path
 import uuid
 from typing import Any
 
@@ -27,6 +26,7 @@ from versatileimagefield.fields import VersatileImageField
 from versatileimagefield.files import VersatileImageFieldFile
 
 from django.conf import settings
+from django.db import IntegrityError
 from django.db.models.fields.files import FieldFile
 from rest_framework import serializers, status
 from rest_framework.parsers import BaseParser
@@ -45,6 +45,7 @@ from utils.tenant.thread import get_tenant_settings
 logger = logging.getLogger(__name__)
 
 MAX_SIZE = getattr(settings, "CHUNKED_UPLOAD_MAX_FILE_SIZE", 500 * 1024 * 1024)
+_ALLOWED_EXTENSIONS = set(getattr(settings, "USERCONTENT_SETTINGS", {}).get("allowed_extensions", ()))
 
 
 def _effective_max_chunk_bytes() -> int:
@@ -80,7 +81,7 @@ class ChunkedUploadOctetStreamParser(BaseParser):
 
 
 class ChunkedUploadInitSerializer(serializers.Serializer):
-    filename = serializers.CharField(max_length=512)
+    filename = serializers.CharField(max_length=255)
     size = serializers.IntegerField(min_value=1, max_value=MAX_SIZE)
     chunk_size = serializers.IntegerField(required=False, min_value=1)
 
@@ -96,8 +97,7 @@ class ChunkedUploadInitSerializer(serializers.Serializer):
         if not value or "\x00" in value or "/" in value or "\\" in value:
             raise serializers.ValidationError("Invalid filename.")
         ext = value.rsplit(".", 1)[-1].lower() if "." in value else ""
-        allowed = set(getattr(settings, "USERCONTENT_SETTINGS", {}).get("allowed_extensions", ()))
-        if ext not in allowed:
+        if ext not in _ALLOWED_EXTENSIONS:
             raise serializers.ValidationError(
                 f"File type '.{ext}' is not permitted. "
                 "Allowed types: images, documents, audio, and video files. "
@@ -170,7 +170,8 @@ class ChunkedUploadInitView(APIView):
         chunk_size = min(ser.validated_data.get("chunk_size") or preferred, max_chunk)
 
         upload_id = uuid.uuid4()
-        uploads_root = "image_fileuploads" if is_image_filename(filename) else "file_uploads"
+        is_image = is_image_filename(filename)
+        uploads_root = "image_fileuploads" if is_image else "file_uploads"
         storage_path = build_usercontent_storage_path(upload_id, filename, uploads_root=uploads_root)
         tenant_id = _tenant_key()
 
@@ -199,7 +200,7 @@ class ChunkedUploadInitView(APIView):
             size=size,
             chunk_size=chunk_size,
             user_id=str(request.user.pk),
-            is_image=is_image_filename(filename),
+            is_image=is_image,
             file_content_id=str(upload_id),
             gcs_resumable_uri=gcs_uri,
         )
@@ -242,10 +243,13 @@ class ChunkedUploadStatusView(APIView):
 class ChunkedUploadChunkView(APIView):
     permission_classes = (IsAuthenticated,)
     parser_classes = (ChunkedUploadOctetStreamParser,)
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "chunked_upload_chunk"
 
     def put(self, request, upload_id, chunk_index: int, *args, **kwargs):
         tenant_id = _tenant_key()
         uid = str(upload_id)
+        # Pre-lock fast-path: reject obviously bad requests before paying lock acquisition cost.
         data = upload_sessions.get(tenant_id, uid)
         if not data:
             return Response({"detail": "Upload session not found or expired."}, status=status.HTTP_404_NOT_FOUND)
@@ -341,6 +345,7 @@ class ChunkedUploadCompleteView(APIView):
     def post(self, request, upload_id, *args, **kwargs):
         tenant_id = _tenant_key()
         uid = str(upload_id)
+        # Pre-lock fast-path: reject obviously bad requests before paying lock acquisition cost.
         data = upload_sessions.get(tenant_id, uid)
         if not data:
             return Response({"detail": "Upload session not found or expired."}, status=status.HTTP_404_NOT_FOUND)
@@ -382,6 +387,12 @@ class ChunkedUploadCompleteView(APIView):
                     _attach_existing_file(instance, storage_path)
                     instance.save()
                     out = FileContentSerializer(instance, context={"request": request}).data
+            except IntegrityError:
+                # Session delete failed after a prior complete; the FileContent already exists.
+                return Response(
+                    {"detail": "Upload already finalized."},
+                    status=status.HTTP_409_CONFLICT,
+                )
             except Exception:
                 error_id = str(uuid.uuid4())
                 logger.exception(
