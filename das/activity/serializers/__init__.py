@@ -2,6 +2,7 @@ from .alert import AlertRuleSerializer
 from .community import CommunitySerializer
 from .event_details import EventDetailsSerializer
 from .events import (
+    EventBulkDeleteSerializer,
     EventCategoryRelatedField,
     EventCategorySerializer,
     EventClassFactorSerializer,
@@ -56,6 +57,7 @@ __all__ = (
     "CommunitySerializer",
     "DuplicateResourceException",
     "EventAttributesField",
+    "EventBulkDeleteSerializer",
     "EventCategoryRelatedField",
     "EventCategorySerializer",
     "EventClassFactorSerializer",

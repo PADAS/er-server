@@ -760,6 +760,24 @@ class EventFilterSpecificationSerializer(Serializer):
         return value
 
 
+class EventBulkDeleteSerializer(Serializer):
+    """Request payload for bulk-deleting events.
+
+    Body shape: ``{"ids": ["<uuid>", "<uuid>", ...]}``. An empty list is allowed
+    and is a no-op (returns ``{"deleted": 0}``).
+    """
+
+    ids = ListField(
+        child=UUIDField(help_text="UUID of an event to delete."),
+        allow_empty=True,
+        help_text=(
+            "List of event UUIDs to delete. All-or-nothing: if any id is unknown "
+            "or the caller lacks `{category}_delete` for any event's category, "
+            "nothing is deleted and the request returns 403."
+        ),
+    )
+
+
 class EventFilterSerializer(ModelSerializer):
     filter_spec = JSONField()
     filter_name = CharField()
