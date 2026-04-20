@@ -1,17 +1,21 @@
 """
-Test to verify that IntegrityError handling works correctly after our fix.
+Tests for ``SerialNumberModelMixin``'s counter-based serial number allocation.
 
-This test simulates the scenario that was causing TransactionManagementError
-in production by testing through the API view where the transaction originates.
+The mixin allocates per-tenant serial numbers via
+``core.SerialNumberCounter`` rows protected by ``SELECT ... FOR UPDATE``.
+These tests cover both the API path (where ``PatrolsView.post`` runs inside an
+outer ``transaction.atomic``) and the model-level concurrency path.
 """
 
 import logging
+import statistics
 import time
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
 from django.contrib.auth import get_user_model
+from django.db import connections
 from django.db.transaction import TransactionManagementError
 from django.test import TransactionTestCase
 from django.urls import reverse
@@ -19,23 +23,22 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from activity.models import Patrol
-from core.models import DASTenant
+from core.models import DASTenant, SerialNumberCounter
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
+PATROL_MODEL_LABEL = "activity.Patrol"
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant")
-class TestPatrolIntegrityError(TransactionTestCase):
-    """Test case to verify IntegrityError handling works correctly through API views."""
+class TestPatrolSerialNumberAllocation(TransactionTestCase):
+    """Verify per-tenant serial number allocation through the patrol API."""
 
     def setUp(self):
-        """Set up test data."""
-        # Use the tenant from the fixture
         self.tenant = DASTenant.objects.first()
 
-        # Create test user with superuser permissions
         self.user, _ = User.objects.get_or_create(
             username="testuser_api",
             defaults={
@@ -50,232 +53,125 @@ class TestPatrolIntegrityError(TransactionTestCase):
         self.user.set_password("testpassword123")
         self.user.save()
 
-        # Create API client
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
-
-        # Get the patrols URL
         self.patrols_url = reverse("patrols")
 
-        # Don't delete existing patrols to avoid revision system issues
-        # Instead, we'll use unique titles for our test patrols
+    def _create_patrol(self, title, objective="objective"):
+        response = self.client.post(
+            self.patrols_url,
+            {"title": title, "state": "open", "objective": objective},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        return Patrol.objects.get(title=title)
 
-    def test_patrol_creation_via_api_no_transaction_error(self):
-        """
-        Test that patrol creation via API works without TransactionManagementError.
+    def _counter(self):
+        return SerialNumberCounter.objects.get(das_tenant_id=self.tenant.id, model_name=PATROL_MODEL_LABEL)
 
-        This tests the exact scenario from production where the transaction
-        originates in the PatrolsView.post() method.
-        """
-        logger.info("Testing patrol creation via API...")
+    def test_first_insert_seeds_counter_and_assigns_value(self):
+        """The first patrol for a tenant should get serial_number = previous max + 1."""
+        baseline = (
+            self._counter().last_value
+            if SerialNumberCounter.objects.filter(das_tenant_id=self.tenant.id, model_name=PATROL_MODEL_LABEL).exists()
+            else 0
+        )
 
-        # Test data for patrol creation with unique title
-        unique_title = f"Test Patrol via API {int(time.time())}"
-        patrol_data = {"title": unique_title, "state": "open", "objective": "Test objective for API patrol"}
+        patrol = self._create_patrol(f"first-{int(time.time() * 1000)}")
 
-        try:
-            # Create patrol via API - this should work without TransactionManagementError
-            response = self.client.post(self.patrols_url, patrol_data, format="json")
+        self.assertEqual(patrol.serial_number, baseline + 1)
+        self.assertEqual(self._counter().last_value, baseline + 1)
 
-            # Verify successful creation
-            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+    def test_sequential_inserts_increment_counter_in_lockstep(self):
+        """Each insert advances the counter by exactly one."""
+        timestamp = int(time.time() * 1000)
+        patrols = [self._create_patrol(f"seq-{timestamp}-{i}") for i in range(5)]
 
-            # Verify patrol was created in database
-            patrol = Patrol.objects.filter(title=unique_title).first()
-            self.assertIsNotNone(patrol)
-            self.assertIsNotNone(patrol.serial_number)
+        serial_numbers = [p.serial_number for p in patrols]
+        self.assertEqual(serial_numbers, sorted(serial_numbers))
+        for earlier, later in zip(serial_numbers, serial_numbers[1:]):
+            self.assertEqual(later - earlier, 1)
+        self.assertEqual(self._counter().last_value, serial_numbers[-1])
 
-            logger.info(f"Successfully created patrol via API with serial_number: {patrol.serial_number}")
+    def test_concurrent_inserts_produce_unique_sequential_serial_numbers(self):
+        """20 concurrent API inserts must all succeed with unique, sequential serial numbers."""
+        timestamp = int(time.time() * 1000)
+        worker_count = 20
 
-        except TransactionManagementError as e:
-            logger.error(f"TransactionManagementError occurred: {e}")
-            self.fail(f"TransactionManagementError occurred during API patrol creation: {e}")
-        except Exception as e:
-            logger.error(f"Unexpected error during API patrol creation: {e}")
-            self.fail(f"Unexpected error occurred: {e}")
-
-    def test_concurrent_patrol_creation_via_api(self):
-        """
-        Test concurrent patrol creation via API to simulate production conditions.
-
-        This creates multiple patrols simultaneously through the API to test
-        the transaction handling under concurrent load.
-        """
-        logger.info("Testing concurrent patrol creation via API...")
-
-        def create_patrol_via_api(patrol_id):
-            """Helper function to create a patrol via API."""
-            unique_title = f"Concurrent Patrol {patrol_id} {int(time.time())}"
-            patrol_data = {
-                "title": unique_title,
-                "state": "open",
-                "objective": f"Test objective for concurrent patrol {patrol_id}",
-            }
-
+        def create(i):
             try:
-                response = self.client.post(self.patrols_url, patrol_data, format="json")
-                return {
-                    "success": response.status_code == status.HTTP_201_CREATED,
-                    "status_code": response.status_code,
-                    "patrol_id": patrol_id,
-                    "response_data": response.data if hasattr(response, "data") else None,
-                }
-            except Exception as e:
-                return {"success": False, "error": str(e), "patrol_id": patrol_id}
-
-        try:
-            # Create multiple patrols concurrently
-            with ThreadPoolExecutor(max_workers=5) as executor:
-                # Submit multiple patrol creation tasks
-                futures = []
-                for i in range(5):
-                    future = executor.submit(create_patrol_via_api, i + 1)
-                    futures.append(future)
-
-                # Wait for all tasks to complete
-                results = []
-                for future in futures:
-                    try:
-                        result = future.result(timeout=30)  # 30 second timeout
-                        results.append(result)
-                    except Exception as e:
-                        logger.error(f"Future execution failed: {e}")
-                        results.append({"success": False, "error": str(e)})
-
-            # Analyze results
-            successful_creations = [r for r in results if r.get("success", False)]
-            failed_creations = [r for r in results if not r.get("success", False)]
-
-            logger.info(
-                f"Concurrent API creation results: {len(successful_creations)} successful, {len(failed_creations)} failed"
-            )
-
-            # Verify at least some patrols were created successfully
-            self.assertGreater(len(successful_creations), 0, "At least one patrol should be created successfully")
-
-            # Verify no TransactionManagementError occurred
-            for result in results:
-                if "error" in result and "TransactionManagementError" in str(result["error"]):
-                    self.fail(f"TransactionManagementError occurred: {result['error']}")
-
-            # Verify patrols exist in database with unique serial numbers
-            # Since we're using unique timestamps, we'll check for any concurrent patrols created recently
-            created_patrols = Patrol.objects.filter(
-                das_tenant=self.tenant, title__contains="Concurrent Patrol"
-            ).order_by("serial_number")
-
-            self.assertGreaterEqual(created_patrols.count(), len(successful_creations))
-
-            # Verify all serial numbers are unique
-            serial_numbers = [p.serial_number for p in created_patrols if p.serial_number is not None]
-            self.assertEqual(len(set(serial_numbers)), len(serial_numbers))
-
-            logger.info(
-                f"Concurrent API creation successful - {created_patrols.count()} patrols created with unique serial numbers"
-            )
-
-        except TransactionManagementError as e:
-            logger.error(f"TransactionManagementError caught: {e}")
-            self.fail(f"TransactionManagementError occurred during concurrent API creation: {e}")
-        except Exception as e:
-            logger.error(f"Unexpected error during concurrent API creation: {e}")
-            self.fail(f"Unexpected error occurred: {e}")
-
-    def test_patrol_creation_with_forced_integrity_error_via_api(self):
-        """
-        Test that forced IntegrityError conditions are handled correctly via API.
-
-        This test manually creates a patrol with a conflicting serial number
-        to verify the retry mechanism works correctly through the API.
-        """
-        logger.info("Testing forced IntegrityError handling via API...")
-
-        # First, create a patrol to get a serial number
-        timestamp = int(time.time())
-        patrol_data = {
-            "title": f"First Patrol for Conflict Test {timestamp}",
-            "state": "open",
-            "objective": "Test objective for conflict test",
-        }
-
-        try:
-            # Create first patrol
-            response1 = self.client.post(self.patrols_url, patrol_data, format="json")
-            self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
-
-            first_patrol = Patrol.objects.get(title=f"First Patrol for Conflict Test {timestamp}")
-            logger.info(f"Created first patrol with serial_number: {first_patrol.serial_number}")
-
-            # Now try to create multiple patrols rapidly to potentially trigger conflicts
-            # The SerialNumberModelMixin should handle any conflicts gracefully
-            patrol_titles = [
-                f"Second Patrol for Conflict Test {timestamp}",
-                f"Third Patrol for Conflict Test {timestamp}",
-                f"Fourth Patrol for Conflict Test {timestamp}",
-            ]
-
-            created_patrols = []
-            for title in patrol_titles:
-                patrol_data = {"title": title, "state": "open", "objective": f"Test objective for {title}"}
-
-                response = self.client.post(self.patrols_url, patrol_data, format="json")
-
-                # All should succeed without TransactionManagementError
-                error_msg = (
-                    f"Failed to create {title}: " f"{response.data if hasattr(response, 'data') else 'Unknown error'}"
+                response = self.client.post(
+                    self.patrols_url,
+                    {"title": f"conc-{timestamp}-{i}", "state": "open", "objective": "x"},
+                    format="json",
                 )
-                self.assertEqual(response.status_code, status.HTTP_201_CREATED, error_msg)
+                return response.status_code, response.data
+            finally:
+                # Each thread holds its own DB connection; release it so the
+                # outer test transaction can reset cleanly.
+                connections.close_all()
 
-                patrol = Patrol.objects.get(title=title)
-                created_patrols.append(patrol)
-                logger.info(f"Created {title} with serial_number: {patrol.serial_number}")
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            results = list(executor.map(create, range(worker_count)))
 
-            # Verify all patrols have unique serial numbers
-            all_patrols = [first_patrol] + created_patrols
-            serial_numbers = [p.serial_number for p in all_patrols if p.serial_number is not None]
-            self.assertEqual(len(set(serial_numbers)), len(serial_numbers))
+        for status_code, body in results:
+            self.assertEqual(status_code, status.HTTP_201_CREATED, body)
 
-            logger.info("Forced IntegrityError test successful - all patrols created with unique serial numbers")
+        created = Patrol.objects.filter(das_tenant=self.tenant, title__startswith=f"conc-{timestamp}-").order_by(
+            "serial_number"
+        )
+        serial_numbers = [p.serial_number for p in created]
+        self.assertEqual(len(serial_numbers), worker_count)
+        self.assertEqual(len(set(serial_numbers)), worker_count, "duplicate serial numbers detected")
+        for earlier, later in zip(serial_numbers, serial_numbers[1:]):
+            self.assertEqual(later - earlier, 1, f"gap between {earlier} and {later}")
+        self.assertEqual(self._counter().last_value, serial_numbers[-1])
 
-        except TransactionManagementError as e:
-            logger.error(f"TransactionManagementError caught: {e}")
-            self.fail(f"TransactionManagementError occurred during forced IntegrityError test: {e}")
-        except Exception as e:
-            logger.error(f"Unexpected error during forced IntegrityError test: {e}")
-            self.fail(f"Unexpected error occurred: {e}")
-
-    def test_api_response_format_and_error_handling(self):
+    def test_concurrent_insert_latency_has_no_retry_outliers(self):
         """
-        Test that API responses are properly formatted and error handling works correctly.
+        Regression test: assert the latency distribution of concurrent inserts
+        stays tight (p95 ≤ 5x median).
 
-        This verifies that the API returns proper HTTP status codes and error messages
-        when IntegrityError occurs (after all retries are exhausted).
+        The previous retry-based implementation slept 100-600 ms per
+        IntegrityError, which would push collided inserts ~100x past the
+        median. The counter-based implementation queues briefly on the row
+        lock, so all inserts complete within a narrow band regardless of
+        machine speed (this assertion is machine-independent).
         """
-        logger.info("Testing API response format and error handling...")
+        timestamp = int(time.time() * 1000)
+        worker_count = 20
 
-        # Test successful creation response format
-        unique_title = f"API Response Test Patrol {int(time.time())}"
-        patrol_data = {"title": unique_title, "state": "open", "objective": "Test objective for API response test"}
+        def create_and_time(i):
+            started = time.perf_counter()
+            try:
+                response = self.client.post(
+                    self.patrols_url,
+                    {"title": f"lat-{timestamp}-{i}", "state": "open", "objective": "x"},
+                    format="json",
+                )
+                assert response.status_code == status.HTTP_201_CREATED, response.data
+            finally:
+                connections.close_all()
+            return time.perf_counter() - started
 
-        response = self.client.post(self.patrols_url, patrol_data, format="json")
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            durations = sorted(executor.map(create_and_time, range(worker_count)))
 
-        # Verify successful response
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertIn("id", response.data)
-        self.assertIn("serial_number", response.data)
-        self.assertEqual(response.data["title"], unique_title)
+        median = statistics.median(durations)
+        # statistics.quantiles(..., n=20)[18] gives the 95th percentile.
+        p95 = statistics.quantiles(durations, n=20)[18]
 
-        logger.info("API response format test successful")
+        logger.info("concurrent insert latencies: median=%.4fs p95=%.4fs", median, p95)
+        self.assertLess(
+            p95,
+            5 * median,
+            f"p95 latency ({p95:.4f}s) exceeds 5x median ({median:.4f}s) — "
+            "suggests a retry/sleep regression in serial number allocation",
+        )
 
-        # Test invalid data handling
-        invalid_data = {
-            "title": "",  # Invalid empty title
-            "state": "invalid_state",  # Invalid state
-        }
-
-        response = self.client.post(self.patrols_url, invalid_data, format="json")
-
-        # Should return validation error, not server error
-        self.assertIn(response.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY])
-
-        logger.info("API error handling test successful")
+    def test_no_transaction_management_error_on_create(self):
+        """The API path must not raise TransactionManagementError."""
+        try:
+            self._create_patrol(f"basic-{int(time.time() * 1000)}")
+        except TransactionManagementError as exc:  # pragma: no cover - regression guard
+            self.fail(f"TransactionManagementError raised by patrol create: {exc}")

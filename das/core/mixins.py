@@ -1,19 +1,11 @@
-import logging
-import time
-from random import uniform
-
 from django.conf import settings
-from django.db import IntegrityError
-from django.db.models import BigIntegerField, Subquery, Value
-from django.db.models.functions import Coalesce
+from django.db import transaction
 
 from mapping.models import TileLayer
 
 
 class FailedToSetSerialNumberError(Exception):
-    """
-    Exception raised when a serial number cannot be set.
-    """
+    """Raised when a serial number cannot be allocated for an inserted row."""
 
 
 class TileLayersMixin:
@@ -38,81 +30,63 @@ class TileLayersMixin:
 
 class SerialNumberModelMixin:
     """
-    Adds an incremental serial number on inserts.
-    The model must have a field of a numeric type.
-    The default field name is serial_number but it can be overriden by setting
-    'serial_number_field = "your_field_name"' in the model.
+    Adds a per-tenant monotonically-increasing serial number to inserts.
+
+    The model must declare a numeric ``serial_number`` field (or override the
+    name with ``serial_number_field = "your_field_name"``) and a ``das_tenant``
+    foreign key.
+
+    Allocation goes through ``core.SerialNumberCounter``: the counter row for
+    ``(tenant, model)`` is locked with ``SELECT ... FOR UPDATE`` and incremented
+    inside the same transaction as the insert. The row-level lock serializes
+    concurrent inserts on the same tenant+model, so the unique constraint on
+    ``(das_tenant, serial_number)`` cannot collide and no retry loop is needed.
     """
 
     def save(self, *args, **kwargs):
-        """
-        Save method with transaction-aware serial number generation.
-
-        This method handles IntegrityError exceptions that can occur during
-        concurrent serial number generation by using a transaction-aware
-        retry mechanism that properly handles transaction rollbacks.
-        """
         if self._state.adding:
             return self._save_with_serial_number(*args, **kwargs)
-        else:
-            return super().save(*args, **kwargs)
+        return super().save(*args, **kwargs)
 
     def _save_with_serial_number(self, *args, **kwargs):
-        """
-        Save method for new objects with automatic serial number generation.
-
-        Uses a retry mechanism to handle IntegrityError exceptions that can occur
-        during concurrent serial number generation. This method avoids nested
-        transaction.atomic() blocks to prevent TransactionManagementError.
-        """
         serial_number_field_name = self._get_serial_number_field_name()
-        max_retries = 40
-        retries = 0
+        model_label = f"{self._meta.app_label}.{self.__class__.__name__}"
+        tenant_id = getattr(self, "das_tenant_id", None)
 
-        while retries < max_retries:
-            try:
-                # Generate the serial number
-                setattr(
-                    self,
-                    serial_number_field_name,
-                    Coalesce(
-                        Subquery(
-                            self.__class__.objects.filter(serial_number__isnull=False)
-                            .order_by(f"-{serial_number_field_name}")
-                            .values(serial_number_field_name)[:1],
-                            output_field=BigIntegerField(),
-                        ),
-                        Value(0),
-                    )
-                    + Value(1),
-                )
+        if tenant_id is None:
+            raise FailedToSetSerialNumberError(
+                f"Cannot generate serial number without a tenant for {self.__class__.__name__}"
+            )
 
-                # Save without nested atomic block - let the caller handle transactions
-                result = super().save(*args, **kwargs)
-                self.refresh_from_db()
-                return result
+        # transaction.atomic() acts as a savepoint when nested inside an outer
+        # transaction (e.g. PatrolsView.post) and a real transaction otherwise
+        # (e.g. Celery tasks). Either way, the row lock taken below is held for
+        # the duration of the insert, so no other writer can grab the same value.
+        with transaction.atomic():
+            next_value = self._get_next_serial_number(tenant_id, model_label)
+            setattr(self, serial_number_field_name, next_value)
+            result = super().save(*args, **kwargs)
 
-            except IntegrityError as exc:
-                retries += 1
-                if retries < max_retries:
-                    # Log the retry attempt
-                    logger = logging.getLogger(self.__class__.__module__)
-                    logger.warning(
-                        "Caught IntegrityError during serial number generation: %s. " "Retrying %s (attempt %d/%d).",
-                        str(exc),
-                        self.__class__.__name__,
-                        retries,
-                        max_retries,
-                    )
-                    # Small random delay to reduce collision probability
-                    time.sleep(uniform(0.1, 0.6))
-                    # Reset the serial number field to None so it gets regenerated
-                    setattr(self, serial_number_field_name, None)
-                else:
-                    # Max retries exceeded, raise the exception
-                    raise FailedToSetSerialNumberError(
-                        f"Failed to set serial number after {max_retries} retries: {exc}"
-                    )
+        self.refresh_from_db()
+        return result
+
+    def _get_next_serial_number(self, tenant_id, model_label):
+        from core.models import SerialNumberCounter
+
+        # First-ever insert for a (tenant, model) pair: get_or_create uses
+        # INSERT ... ON CONFLICT on Postgres, so concurrent first-inserts are
+        # safe — one wins and the others fall through to the SELECT.
+        counter, _ = SerialNumberCounter.objects.get_or_create(
+            das_tenant_id=tenant_id,
+            model_name=model_label,
+            defaults={"last_value": 0},
+        )
+
+        counter = SerialNumberCounter.objects.select_for_update().get(pk=counter.pk)
+        counter.last_value += 1
+        counter.save(update_fields=["last_value"])
+
+        return counter.last_value
 
     def _get_serial_number_field_name(self):
         if hasattr(self, "serial_number_field"):

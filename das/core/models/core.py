@@ -1,5 +1,9 @@
 import uuid
 
+from django_multitenant.fields import TenantForeignKey
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
+from django_multitenant.models import TenantManager, TenantModel
+
 import django.db.models.fields.related
 from django.conf import settings
 from django.contrib.gis.db import models
@@ -9,9 +13,7 @@ from django.db.models.fields.related import (
     make_model_tuple,
     resolve_relation,
 )
-from django_multitenant.fields import TenantForeignKey
-from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
-from django_multitenant.models import TenantManager, TenantModel
+
 from utils.migrations.columns import default_tenant_id
 
 
@@ -245,6 +247,38 @@ class HierarchyModel(TenantModelMixin, models.Model):
 
     def get_ancestor_ids(self):
         return [a.id for a in self.get_ancestors()]
+
+
+class SerialNumberCounterManager(TenantManagerMixin, models.Manager):
+    pass
+
+
+class SerialNumberCounter(TenantModelMixin, models.Model):
+    """
+    Per-tenant, per-model counter for monotonically increasing serial numbers.
+
+    Used by ``SerialNumberModelMixin`` to allocate the next serial number under
+    a row-level lock (``SELECT ... FOR UPDATE``), eliminating races between
+    concurrent inserts on the same tenant+model.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    model_name = models.CharField(max_length=255)
+    last_value = models.BigIntegerField(default=0)
+
+    tenant_id = "das_tenant_id"
+    objects = SerialNumberCounterManager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["das_tenant", "model_name"],
+                name="core_serialnumbercounter_tenant_model_unique",
+            ),
+        ]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
 
 class TenantSingletonModel(TenantModelMixin, UUIDModel):
