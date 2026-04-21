@@ -41,7 +41,7 @@ class SerialNumberModelMixin:
     name with ``serial_number_field = "your_field_name"``), a ``das_tenant``
     foreign key, and a ``serial_number_counter_model`` class attribute pointing
     at a per-model counter table built via
-    :func:`core.models.create_serial_number_counter_model`.
+    :func:`core.models.serial_number.create_serial_number_counter_model`.
 
     Allocation locks the counter row for the tenant with ``SELECT ... FOR
     UPDATE`` and reconciles ``last_value`` against

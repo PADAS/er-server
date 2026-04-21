@@ -51,7 +51,8 @@ from django.utils.translation import gettext_lazy as _
 from accounts.models.permissionset import PermissionSet
 from accounts.system_users import DELETED_SENTINEL_USER
 from core.mixins import SerialNumberModelMixin
-from core.models import DASTenant, TenantSingletonModel, TimestampedModel, UUIDModel, create_serial_number_counter_model
+from core.models import DASTenant, TenantSingletonModel, TimestampedModel, UUIDModel
+from core.models.serial_number import create_serial_number_counter_model
 from core.utils import static_image_finder
 from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import dateparse as dparse

@@ -7,7 +7,7 @@ from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager
 
 
-def create_serial_number_counter_model(model):
+def create_serial_number_counter_model(model: type[models.Model]) -> type[models.Model]:
     """Build a per-tenant serial-number counter model scoped to ``model``.
 
     Each consuming model gets its own table (e.g. ``activity_eventserialnumbercounter``),
