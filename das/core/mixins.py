@@ -10,7 +10,9 @@ from mapping.models import TileLayer
 
 
 class FailedToSetSerialNumberError(Exception):
-    """Raised when a serial number cannot be allocated for an inserted row."""
+    """
+    Exception raised when a serial number cannot be set.
+    """
 
 
 class TileLayersMixin:
@@ -53,11 +55,26 @@ class SerialNumberModelMixin:
     """
 
     def save(self, *args, **kwargs):
+        """
+        Save method with transaction-aware serial number generation.
+
+        This method handles IntegrityError exceptions that can occur during
+        concurrent serial number generation by using a transaction-aware
+        retry mechanism that properly handles transaction rollbacks.
+        """
         if self._state.adding:
             return self._save_with_serial_number(*args, **kwargs)
-        return super().save(*args, **kwargs)
+        else:
+            return super().save(*args, **kwargs)
 
     def _save_with_serial_number(self, *args, **kwargs):
+        """
+        Save method for new objects with automatic serial number generation.
+
+        Uses a retry mechanism to handle IntegrityError exceptions that can occur
+        during concurrent serial number generation. This method avoids nested
+        transaction.atomic() blocks to prevent TransactionManagementError.
+        """
         serial_number_field_name = self._get_serial_number_field_name()
         Counter = self.serial_number_counter_model
         tenant_id = getattr(self, "das_tenant_id", None)
@@ -99,6 +116,7 @@ class SerialNumberModelMixin:
             except IntegrityError as exc:
                 retries += 1
                 if retries < max_retries:
+                    # Log the retry attempt
                     logger = logging.getLogger(self.__class__.__module__)
                     logger.warning(
                         "Caught IntegrityError during serial number generation: %s. " "Retrying %s (attempt %d/%d).",
@@ -107,9 +125,12 @@ class SerialNumberModelMixin:
                         retries,
                         max_retries,
                     )
+                    # Small random delay to reduce collision probability
                     time.sleep(uniform(0.1, 0.6))
+                    # Reset the serial number field to None so it gets regenerated
                     setattr(self, serial_number_field_name, None)
                 else:
+                    # Max retries exceeded, raise the exception
                     raise FailedToSetSerialNumberError(
                         f"Failed to set serial number after {max_retries} retries: {exc}"
                     )
