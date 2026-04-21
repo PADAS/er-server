@@ -2579,3 +2579,190 @@ class TestV2AlertIntegration:
         # Should only have one action (from active user's alert rule)
         assert len(action_list) == 1
         assert action_list[0]["alert_rule_id"] == str(active_alert_rule.id)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestMultiSelectAlertAPIIntegration:
+    """Full API integration tests for multi-select choice field alerts.
+
+    Verifies that multi-select alerts can be configured and triggered
+    entirely through the HTTP API layer.
+    """
+
+    multi_select_choices = {
+        "bushmeat": "Bush Meat",
+        "ivory": "Ivory",
+        "timber": "Timber",
+        "skins": "Skins",
+    }
+
+    @pytest.fixture()
+    def v2_multiselect_event_type(self, five_event_categories):
+        v2_schema = V2SchemaBuilder.choice_list_field("items_confiscated", self.multi_select_choices)
+        return EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_2,
+            schema=json.dumps(v2_schema),
+            value="confiscation_api_v2",
+            display="Confiscation API V2",
+        )
+
+    def test_conditions_endpoint_exposes_multiselect_operators(self, superuser_client, v2_multiselect_event_type):
+        """GET /activity/alerts/conditions returns multi-select operators for V2 choice_list fields."""
+        response = superuser_client.get(
+            reverse("alerts-conditions-view"),
+            {"event_type": v2_multiselect_event_type.value},
+        )
+        assert response.status_code == 200
+
+        # Use response.json() — response.data returns raw Python objects
+        # that may contain unconsumed generators from whitelist_operators.
+        data = response.json()["data"]
+        assert "variables" in data
+        assert "variable_type_operators" in data
+
+        # The multi_select_choice type should be present with its operators
+        assert fields.FIELD_MULTI_SELECT_CHOICE in data["variable_type_operators"]
+        ms_operators = data["variable_type_operators"][fields.FIELD_MULTI_SELECT_CHOICE]
+        ms_op_names = [op["name"] for op in ms_operators]
+        for expected in ("contains", "is_exactly", "is_empty", "is_not_empty", "is_one_of", "is_not_one_of"):
+            assert expected in ms_op_names, f"Missing operator '{expected}' in {ms_op_names}"
+
+        # The items_confiscated variable should be present with options
+        ms_var = next((v for v in data["variables"] if "items_confiscated" in v["name"]), None)
+        assert ms_var is not None, f"No items_confiscated variable in {[v['name'] for v in data['variables']]}"
+        assert "options" in ms_var
+        option_values = [opt["name"] for opt in ms_var["options"]]
+        for choice_key in self.multi_select_choices:
+            assert choice_key in option_values
+
+    def test_create_alert_rule_with_multiselect_condition_via_api(self, superuser_client, v2_multiselect_event_type):
+        """POST /activity/alerts creates an alert rule with a multi-select condition."""
+        notification_method = NotificationMethod.objects.create(
+            owner=superuser_client.user,
+            title="Test Email",
+            method="email",
+            value="multiselect-api-test@test.com",
+        )
+
+        alert_payload = {
+            "title": "Multi-select API alert",
+            "reportTypes": [v2_multiselect_event_type.value],
+            "notification_method_ids": [str(notification_method.id)],
+            "conditions": {
+                "all": [
+                    {
+                        "name": "items_confiscated",
+                        "operator": "is_one_of",
+                        "value": ["bushmeat", "ivory"],
+                    },
+                ]
+            },
+        }
+
+        response = superuser_client.post(reverse("alert-list-view"), alert_payload)
+        assert response.status_code == 201, f"Failed to create alert rule: {response.data}"
+
+        alert_rule = AlertRule.objects.get(id=response.data["id"])
+        assert alert_rule.conditions["all"][0]["operator"] == "is_one_of"
+        assert alert_rule.conditions["all"][0]["value"] == ["bushmeat", "ivory"]
+        assert v2_multiselect_event_type in alert_rule.event_types.all()
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_full_api_lifecycle_multiselect_alert_triggers_email(self, superuser_client, v2_multiselect_event_type):
+        """End-to-end: create alert via API, create event via API, evaluate → email sent."""
+        # 1. Create notification method
+        notification_method = NotificationMethod.objects.create(
+            owner=superuser_client.user,
+            title="Lifecycle Email",
+            method="email",
+            value="lifecycle-test@test.com",
+        )
+
+        # 2. Create alert rule via API
+        alert_payload = {
+            "title": "Lifecycle multi-select alert",
+            "reportTypes": [v2_multiselect_event_type.value],
+            "notification_method_ids": [str(notification_method.id)],
+            "conditions": {
+                "all": [
+                    {
+                        "name": "items_confiscated",
+                        "operator": "is_one_of",
+                        "value": ["bushmeat", "ivory"],
+                    },
+                ]
+            },
+        }
+        alert_response = superuser_client.post(reverse("alert-list-view"), alert_payload)
+        assert alert_response.status_code == 201
+
+        # 3. Create event via API with matching multi-select data
+        event_payload = {
+            "title": "Confiscation event",
+            "event_time": timezone.now().isoformat(),
+            "provenance": Event.PC_STAFF,
+            "event_type": v2_multiselect_event_type.value,
+            "priority": Event.PRI_IMPORTANT,
+            "location": {"longitude": 37.5, "latitude": 1.4},
+            "event_details": {"items_confiscated": ["bushmeat", "timber"]},
+        }
+        event_response = superuser_client.post(reverse("events"), event_payload)
+        assert event_response.status_code == 201
+
+        event = Event.objects.get(id=event_response.data["id"])
+
+        # 4. Evaluate alert rules (simulates what the Celery task does)
+        execute_evaluate_alert_rules(event.id, created=True, domain="zoo.com")
+
+        # 5. Verify email was sent
+        assert len(mail.outbox) == 1
+        assert "lifecycle-test@test.com" in mail.outbox[0].to
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_full_api_lifecycle_multiselect_alert_does_not_trigger_on_non_match(
+        self, superuser_client, v2_multiselect_event_type
+    ):
+        """End-to-end: event with non-matching multi-select values does NOT trigger alert."""
+        notification_method = NotificationMethod.objects.create(
+            owner=superuser_client.user,
+            title="No-match Email",
+            method="email",
+            value="nomatch-test@test.com",
+        )
+
+        alert_payload = {
+            "title": "Non-matching multi-select alert",
+            "reportTypes": [v2_multiselect_event_type.value],
+            "notification_method_ids": [str(notification_method.id)],
+            "conditions": {
+                "all": [
+                    {
+                        "name": "items_confiscated",
+                        "operator": "is_one_of",
+                        "value": ["ivory", "skins"],
+                    },
+                ]
+            },
+        }
+        alert_response = superuser_client.post(reverse("alert-list-view"), alert_payload)
+        assert alert_response.status_code == 201
+
+        # Event with values that do NOT overlap with the condition
+        event_payload = {
+            "title": "Non-matching confiscation",
+            "event_time": timezone.now().isoformat(),
+            "provenance": Event.PC_STAFF,
+            "event_type": v2_multiselect_event_type.value,
+            "priority": Event.PRI_IMPORTANT,
+            "location": {"longitude": 37.5, "latitude": 1.4},
+            "event_details": {"items_confiscated": ["bushmeat", "timber"]},
+        }
+        event_response = superuser_client.post(reverse("events"), event_payload)
+        assert event_response.status_code == 201
+
+        event = Event.objects.get(id=event_response.data["id"])
+        execute_evaluate_alert_rules(event.id, created=True, domain="zoo.com")
+
+        assert len(mail.outbox) == 0
