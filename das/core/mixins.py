@@ -1,5 +1,10 @@
+import logging
+import time
+from random import uniform
+
 from django.conf import settings
-from django.db import transaction
+from django.db import IntegrityError, transaction
+from django.db.models import Max
 
 from mapping.models import TileLayer
 
@@ -33,14 +38,18 @@ class SerialNumberModelMixin:
     Adds a per-tenant monotonically-increasing serial number to inserts.
 
     The model must declare a numeric ``serial_number`` field (or override the
-    name with ``serial_number_field = "your_field_name"``) and a ``das_tenant``
-    foreign key.
+    name with ``serial_number_field = "your_field_name"``), a ``das_tenant``
+    foreign key, and a ``serial_number_counter_model`` class attribute pointing
+    at a per-model counter table built via
+    :func:`core.models.create_serial_number_counter_model`.
 
-    Allocation goes through ``core.SerialNumberCounter``: the counter row for
-    ``(tenant, model)`` is locked with ``SELECT ... FOR UPDATE`` and incremented
-    inside the same transaction as the insert. The row-level lock serializes
-    concurrent inserts on the same tenant+model, so the unique constraint on
-    ``(das_tenant, serial_number)`` cannot collide and no retry loop is needed.
+    Allocation locks the counter row for the tenant with ``SELECT ... FOR
+    UPDATE`` and reconciles ``last_value`` against
+    ``MAX(serial_number)`` on every call, so the counter self-heals when rows
+    are inserted outside this mixin (bulk_create, raw SQL) or when the counter
+    table is brand-new with no seed row. The retry loop is a safety net for
+    the narrow window in which a non-mixin writer commits between our
+    ``MAX()`` and our ``INSERT``.
     """
 
     def save(self, *args, **kwargs):
@@ -50,7 +59,7 @@ class SerialNumberModelMixin:
 
     def _save_with_serial_number(self, *args, **kwargs):
         serial_number_field_name = self._get_serial_number_field_name()
-        model_label = f"{self._meta.app_label}.{self.__class__.__name__}"
+        Counter = self.serial_number_counter_model
         tenant_id = getattr(self, "das_tenant_id", None)
 
         if tenant_id is None:
@@ -58,35 +67,52 @@ class SerialNumberModelMixin:
                 f"Cannot generate serial number without a tenant for {self.__class__.__name__}"
             )
 
-        # transaction.atomic() acts as a savepoint when nested inside an outer
-        # transaction (e.g. PatrolsView.post) and a real transaction otherwise
-        # (e.g. Celery tasks). Either way, the row lock taken below is held for
-        # the duration of the insert, so no other writer can grab the same value.
-        with transaction.atomic():
-            next_value = self._get_next_serial_number(tenant_id, model_label)
-            setattr(self, serial_number_field_name, next_value)
-            result = super().save(*args, **kwargs)
+        max_retries = 40
+        retries = 0
 
-        self.refresh_from_db()
-        return result
+        while retries < max_retries:
+            try:
+                with transaction.atomic():
+                    counter, _ = Counter.objects.get_or_create(das_tenant_id=tenant_id, defaults={"last_value": 0})
+                    # Row lock serializes concurrent mixin writers for this
+                    # tenant, so no two of them compute the same next_value.
+                    counter = Counter.objects.select_for_update().get(pk=counter.pk)
+                    # MAX() reconciles against rows inserted outside the mixin
+                    # (bulk_create, raw SQL) that would leave last_value
+                    # trailing the true maximum. Cheap: backwards index scan
+                    # on the existing (das_tenant, serial_number) unique index.
+                    true_max = (
+                        self.__class__.objects.filter(
+                            das_tenant_id=tenant_id,
+                            **{f"{serial_number_field_name}__isnull": False},
+                        ).aggregate(m=Max(serial_number_field_name))["m"]
+                        or 0
+                    )
+                    next_value = max(counter.last_value, true_max) + 1
+                    setattr(self, serial_number_field_name, next_value)
+                    result = super().save(*args, **kwargs)
+                    counter.last_value = next_value
+                    counter.save(update_fields=["last_value"])
+                self.refresh_from_db()
+                return result
 
-    def _get_next_serial_number(self, tenant_id, model_label):
-        from core.models import SerialNumberCounter
-
-        # First-ever insert for a (tenant, model) pair: get_or_create uses
-        # INSERT ... ON CONFLICT on Postgres, so concurrent first-inserts are
-        # safe — one wins and the others fall through to the SELECT.
-        counter, _ = SerialNumberCounter.objects.get_or_create(
-            das_tenant_id=tenant_id,
-            model_name=model_label,
-            defaults={"last_value": 0},
-        )
-
-        counter = SerialNumberCounter.objects.select_for_update().get(pk=counter.pk)
-        counter.last_value += 1
-        counter.save(update_fields=["last_value"])
-
-        return counter.last_value
+            except IntegrityError as exc:
+                retries += 1
+                if retries < max_retries:
+                    logger = logging.getLogger(self.__class__.__module__)
+                    logger.warning(
+                        "Caught IntegrityError during serial number generation: %s. " "Retrying %s (attempt %d/%d).",
+                        str(exc),
+                        self.__class__.__name__,
+                        retries,
+                        max_retries,
+                    )
+                    time.sleep(uniform(0.1, 0.6))
+                    setattr(self, serial_number_field_name, None)
+                else:
+                    raise FailedToSetSerialNumberError(
+                        f"Failed to set serial number after {max_retries} retries: {exc}"
+                    )
 
     def _get_serial_number_field_name(self):
         if hasattr(self, "serial_number_field"):

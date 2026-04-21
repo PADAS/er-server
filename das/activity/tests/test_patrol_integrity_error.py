@@ -2,7 +2,7 @@
 Tests for ``SerialNumberModelMixin``'s counter-based serial number allocation.
 
 The mixin allocates per-tenant serial numbers via
-``core.SerialNumberCounter`` rows protected by ``SELECT ... FOR UPDATE``.
+per-model counter rows protected by ``SELECT ... FOR UPDATE``.
 These tests cover both the API path (where ``PatrolsView.post`` runs inside an
 outer ``transaction.atomic``) and the model-level concurrency path.
 """
@@ -23,12 +23,12 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from activity.models import Patrol
-from core.models import DASTenant, SerialNumberCounter
+from core.models import DASTenant
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
-PATROL_MODEL_LABEL = "activity.Patrol"
+PatrolSerialNumberCounter = Patrol.serial_number_counter_model
 
 
 @pytest.mark.django_db
@@ -67,13 +67,13 @@ class TestPatrolSerialNumberAllocation(TransactionTestCase):
         return Patrol.objects.get(title=title)
 
     def _counter(self):
-        return SerialNumberCounter.objects.get(das_tenant_id=self.tenant.id, model_name=PATROL_MODEL_LABEL)
+        return PatrolSerialNumberCounter.objects.get(das_tenant_id=self.tenant.id)
 
     def test_first_insert_seeds_counter_and_assigns_value(self):
         """The first patrol for a tenant should get serial_number = previous max + 1."""
         baseline = (
             self._counter().last_value
-            if SerialNumberCounter.objects.filter(das_tenant_id=self.tenant.id, model_name=PATROL_MODEL_LABEL).exists()
+            if PatrolSerialNumberCounter.objects.filter(das_tenant_id=self.tenant.id).exists()
             else 0
         )
 
@@ -168,6 +168,32 @@ class TestPatrolSerialNumberAllocation(TransactionTestCase):
             f"p95 latency ({p95:.4f}s) exceeds 5x median ({median:.4f}s) — "
             "suggests a retry/sleep regression in serial number allocation",
         )
+
+    def test_first_insert_reconciles_with_preexisting_rows(self):
+        """No counter row + existing rows → new insert lands at MAX(serial_number) + 1."""
+        patrol = self._create_patrol(f"legacy-{int(time.time() * 1000)}")
+        # Simulate a legacy row written without the counter being seeded:
+        # bump its serial_number out of band and drop the counter row.
+        Patrol.objects.filter(pk=patrol.pk).update(serial_number=9999)
+        PatrolSerialNumberCounter.objects.filter(das_tenant_id=self.tenant.id).delete()
+
+        created = self._create_patrol(f"after-legacy-{int(time.time() * 1000)}")
+
+        self.assertEqual(created.serial_number, 10000)
+        self.assertEqual(self._counter().last_value, 10000)
+
+    def test_drift_is_healed_on_next_call(self):
+        """last_value below MAX(serial_number) is reconciled on the next insert."""
+        patrol = self._create_patrol(f"drift-{int(time.time() * 1000)}")
+        Patrol.objects.filter(pk=patrol.pk).update(serial_number=500)
+        counter = self._counter()
+        counter.last_value = 1
+        counter.save(update_fields=["last_value"])
+
+        created = self._create_patrol(f"after-drift-{int(time.time() * 1000)}")
+
+        self.assertEqual(created.serial_number, 501)
+        self.assertEqual(self._counter().last_value, 501)
 
     def test_no_transaction_management_error_on_create(self):
         """The API path must not raise TransactionManagementError."""
