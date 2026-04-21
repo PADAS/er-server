@@ -22,6 +22,7 @@ from accounts.utils import permission_get_by_natural_key
 from activity.alerting.businessrules import (
     EventActions,
     EventVariables,
+    RuleVariableSpec,
     _generate_aggregate_event_variables_class,
     render_aggregate_event_variables,
 )
@@ -505,6 +506,22 @@ class TestV2MultiSelectAlerts:
         # Should trigger because event has "bushmeat" which is in the condition
         alert_actions = [a for a in action_list if a.get("alert_rule_id") == str(alert_rule.id)]
         assert len(alert_actions) == 1
+
+
+class TestRuleVariableSpecDefaults:
+    """Regression tests for RuleVariableSpec default values."""
+
+    def test_default_optionsdict_is_none(self):
+        spec = RuleVariableSpec(attrname="field", return_type=str, label="Field")
+        assert spec.optionsdict is None
+
+    def test_explicit_optionsdict_is_independent(self):
+        a = RuleVariableSpec(attrname="a", return_type=str, label="A", optionsdict={"x": "X"})
+        b = RuleVariableSpec(attrname="b", return_type=str, label="B", optionsdict={"y": "Y"})
+        assert isinstance(a.optionsdict, dict)
+        assert isinstance(b.optionsdict, dict)
+        assert "x" not in b.optionsdict
+        assert "y" not in a.optionsdict
 
 
 class TestMultiSelectChoiceTypeOperators:

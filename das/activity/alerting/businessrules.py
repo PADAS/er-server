@@ -79,7 +79,7 @@ class RuleVariableSpec(NamedTuple):
     attrname: str
     return_type: Any
     label: str
-    optionsdict: dict = dict
+    optionsdict: dict | None = None
 
 
 _WHITELISTED_OPERATORS = {
@@ -345,7 +345,9 @@ def _generate_aggregate_event_variables_class(
                 logger.debug("%s.%s options = %s", event_type_value, composite_key, list(field_choice_options.keys()))
                 if existing_attr.return_type == rule_return_type:
                     # Merge choice options into existing attribute
-                    existing_attr.optionsdict.update(field_choice_options)
+                    merged = dict(existing_attr.optionsdict or {})
+                    merged.update(field_choice_options)
+                    attributes_accumulator[composite_key] = existing_attr._replace(optionsdict=merged)
                 else:
                     logger.warning(
                         "Collision on %s with different return types. Adding a new object with different return type",
