@@ -1,9 +1,5 @@
 import uuid
 
-from django_multitenant.fields import TenantForeignKey
-from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
-from django_multitenant.models import TenantManager, TenantModel
-
 import django.db.models.fields.related
 from django.conf import settings
 from django.contrib.gis.db import models
@@ -13,7 +9,9 @@ from django.db.models.fields.related import (
     make_model_tuple,
     resolve_relation,
 )
-
+from django_multitenant.fields import TenantForeignKey
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
+from django_multitenant.models import TenantManager, TenantModel
 from utils.migrations.columns import default_tenant_id
 
 
