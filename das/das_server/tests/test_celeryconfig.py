@@ -77,6 +77,7 @@ class CeleryConfigurationTests(TestCase):
             "rt_api.tasks.handle_update_event",
             "rt_api.tasks.handle_update_message",
             "rt_api.tasks.handle_update_patrol",
+            "rt_api.tasks.sweep_orphan_socketio_queues",
             "tracking.tasks.run_firms_plugin",
             "tracking.tasks.run_plugin_class",
             "tracking.tasks.run_plugins",

@@ -28,6 +28,17 @@ EXPIRED_CLIENT_TRACES_LIST = "rt_api.expired_traces"
 REALTIME_SERVICES_KEY = "rt_api.services"
 TRACE_TTL = 60
 CLIENT_REALTIME_SERVICES_TTL = 3600  # 1 hour
+# Session cursor keys (sid-session-timestamp-*, sid-subject-timestamps-*)
+# track the last-emitted observation timestamp for each connected client.
+# They need a much longer TTL than counter/registry keys because a single
+# WebSocket session can legitimately stay idle for days (e.g. a subject with
+# no new observations) and losing the cursor drops the first post-idle
+# observation from the realtime emit.
+SESSION_CURSOR_TTL = 7 * 24 * 3600  # 7 days
+# Trailing window used when a cursor key is missing so the first observation
+# after a cursor miss isn't excluded by FlattenObservationsView's
+# created_at >= created_after filter.
+SESSION_CURSOR_GRACE_WINDOW = datetime.timedelta(minutes=5)
 
 
 @dataclass_json
@@ -378,7 +389,12 @@ def trace_expiration_handler(msg):
     trace_id = ch.split(":")[-1]
     if trace_id.startswith("trace"):
         sid = trace_id.split("-")[-2]
-        hset_result = redis_client.hset(EXPIRED_CLIENT_TRACES_LIST, sid, msg)
+        # redis-py delivers pub/sub messages as dicts; Redis HSET can only
+        # store scalar values, so serialize before writing.
+        with redis_client.pipeline(transaction=True) as pipe:
+            pipe.hset(EXPIRED_CLIENT_TRACES_LIST, sid, str(msg))
+            pipe.expire(EXPIRED_CLIENT_TRACES_LIST, CLIENT_REALTIME_SERVICES_TTL)
+            hset_result, _ = pipe.execute()
         logger.info("hset_result = %s", hset_result)
 
 
@@ -416,17 +432,26 @@ def pop_trace(trace_id):
 
 
 def message_index(sid, message_type):
-    return redis_client.hincrby(f"mid-{sid}", message_type, 1)
+    key = f"mid-{sid}"
+    pipe = redis_client.pipeline(transaction=False)
+    pipe.hincrby(key, message_type, 1)
+    pipe.expire(key, CLIENT_REALTIME_SERVICES_TTL)
+    result, _ = pipe.execute()
+    return result
 
 
 def save_session_timestamp(sid, subject_id=None):
     timestamp = datetime.datetime.now(tz=pytz.utc).isoformat()
 
     if subject_id:
-        redis_client.hset(SID_SUBJECTS_TIMESTAMPS_KEY.format(sid), subject_id, timestamp)
+        subject_key = SID_SUBJECTS_TIMESTAMPS_KEY.format(sid)
+        with redis_client.pipeline(transaction=True) as pipe:
+            pipe.hset(subject_key, subject_id, timestamp)
+            pipe.expire(subject_key, SESSION_CURSOR_TTL)
+            pipe.execute()
 
     # Always set the session's default timestamp.
-    redis_client.set(SID_SESSION_TIMESTAMP_KEY.format(sid), timestamp)
+    redis_client.set(SID_SESSION_TIMESTAMP_KEY.format(sid), timestamp, ex=SESSION_CURSOR_TTL)
 
 
 def get_sid_subject_timestamp(sid, subject_id):
@@ -434,4 +459,9 @@ def get_sid_subject_timestamp(sid, subject_id):
     ts = redis_client.hget(SID_SUBJECTS_TIMESTAMPS_KEY.format(sid), subject_id)
     sid_ts = redis_client.get(SID_SESSION_TIMESTAMP_KEY.format(sid))
     ts = ts or sid_ts
-    return ts.decode() if ts else datetime.datetime.now(tz=pytz.utc).isoformat()
+    if ts:
+        return ts.decode()
+    # Fall back to a short trailing window so the first observation after a
+    # cursor miss isn't dropped by FlattenObservationsView's
+    # created_at >= created_after filter.
+    return (datetime.datetime.now(tz=pytz.utc) - SESSION_CURSOR_GRACE_WINDOW).isoformat()
