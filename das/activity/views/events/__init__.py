@@ -1,5 +1,6 @@
 from .base import (
     EventAlertTargetsListView,
+    EventBulkDeleteView,
     EventCountView,
     EventFactorsView,
     EventFiltersView,
@@ -21,6 +22,7 @@ from .types import EventTypeRankView, EventTypesView, EventTypeView
 
 __all__ = (
     "EventAlertTargetsListView",
+    "EventBulkDeleteView",
     "EventCategoriesView",
     "EventCategoryRankView",
     "EventCategoryView",

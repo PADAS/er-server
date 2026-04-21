@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import logging
 import re
@@ -38,11 +40,23 @@ class ErrorCode(tuple[ErrorCategory, str], Enum):
 
     # Hardcoded choice resolution
     CHOICE_RESOLUTION_REQUIRED = (ErrorCategory.CHOICES_RESOLUTION, "choice_resolution_required")
+    DUPLICATE_RESOLUTION = (ErrorCategory.CHOICES_RESOLUTION, "duplicate_resolution")
+    UNKNOWN_RESOLUTION_PATH = (ErrorCategory.CHOICES_RESOLUTION, "unknown_resolution_path")
+    INVALID_RESOLUTION = (ErrorCategory.CHOICES_RESOLUTION, "invalid_resolution")
+    CHOICE_FIELD_EXISTS = (ErrorCategory.CHOICES_RESOLUTION, "choice_field_exists")
+    CHOICE_FIELD_BATCH_CONFLICT = (ErrorCategory.CHOICES_RESOLUTION, "choice_field_batch_conflict")
+    DEPENDENCY_NOT_FOUND = (ErrorCategory.CHOICES_RESOLUTION, "dependency_not_found")
+    DEPENDENCY_ORDER = (ErrorCategory.CHOICES_RESOLUTION, "dependency_order")
+    DEPENDENCY_INVALID = (ErrorCategory.CHOICES_RESOLUTION, "dependency_invalid")
+    DEPENDENCY_NOT_PERSISTED = (ErrorCategory.CHOICES_RESOLUTION, "dependency_not_persisted")
+    REPLACE_REF_FAILED = (ErrorCategory.CHOICES_RESOLUTION, "replace_ref_failed")
+
+    # Persistence
     CHOICE_CREATION_FAILED = (ErrorCategory.PERSISTENCE, "choice_creation_failed")
+    PERSIST_FAILED = (ErrorCategory.PERSISTENCE, "persist_failed")
 
     # General
     EXCEPTION = (ErrorCategory.GENERAL, "exception")
-    PERSIST_SUCCESS = (ErrorCategory.PERSISTENCE, "persist_success")
 
     @property
     def category(self) -> ErrorCategory:
@@ -79,7 +93,7 @@ class LogContext:
         return cls.build_migration_request_id(tenant_name=tenant_name)
 
     @classmethod
-    def from_request(cls, request: Request, dry_run: bool) -> "LogContext":
+    def from_request(cls, request: Request, dry_run: bool) -> LogContext:
         raw_request = getattr(request, "_request", request)
         headers = getattr(request, "headers", None) or getattr(raw_request, "headers", {}) or {}
         tenant_name = ""
@@ -136,7 +150,7 @@ class MigrationLogger:
     @classmethod
     def from_request(
         cls, request: Request, *, dry_run: bool = True, sink: logging.Logger | None = None
-    ) -> "MigrationLogger":
+    ) -> MigrationLogger:
         return cls(context=LogContext.from_request(request, dry_run=dry_run), sink=sink)
 
     @property
@@ -147,7 +161,7 @@ class MigrationLogger:
 
     # ── Scoped child ────────────────────────────────────────────────
 
-    def for_event_type(self, event_type_value: str) -> "EventTypeMigrationLogger":
+    def for_event_type(self, event_type_value: str) -> EventTypeMigrationLogger:
         """Create a child logger scoped to a specific EventType."""
         return EventTypeMigrationLogger(parent=self, event_type=event_type_value)
 

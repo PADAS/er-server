@@ -249,18 +249,17 @@ class GearCreateSerializer(serializers.Serializer):
             # Re-submitting the same deploy state is idempotent in BuoyService.process_gearset.
             if device.get("device_status") == "deployed":
                 pass
-            # If device is being hauled, ensure it's currently deployed
+            # If device is being hauled: only reject when an existing SubjectSource is already hauled.
+            # A device with no prior SubjectSource may legitimately appear for the first time in a haul
+            # payload (e.g. a newly-discovered device on an existing trawl); BuoyService will create the
+            # SubjectSource with a lower bound from last_deployed so the deploy-then-haul happens atomically.
             else:
-                # If there's an existing subject_source, ensure it hasn't already been hauled
                 if subject_source is not None:
                     is_currently_deployed = subject_source.has_assigned_lower_range and subject_source.is_current
                     if not is_currently_deployed:
                         device_errors.setdefault(idx, []).append(
                             f"Device {subject_source.source.manufacturer_id} is already hauled"
                         )
-                # If we expect to haul but there's no subject_source (or no subject/source) that's invalid
-                if subject_source is None:
-                    device_errors.setdefault(idx, []).append(f"Device {device_id} is not deployed, cannot be hauled.")
 
         if device_errors:
             raise serializers.ValidationError({"devices": device_errors})

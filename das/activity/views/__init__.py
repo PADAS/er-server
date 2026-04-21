@@ -1,5 +1,6 @@
 from .events import (
     EventAlertTargetsListView,
+    EventBulkDeleteView,
     EventCategoriesView,
     EventCategoryRankView,
     EventCategoryView,
@@ -55,6 +56,7 @@ from .schemas import (
 __all__ = (
     "BadRequestAPIException",
     "EventAlertTargetsListView",
+    "EventBulkDeleteView",
     "EventCategoriesView",
     "EventCategoryRankView",
     "EventCategoryView",

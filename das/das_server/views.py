@@ -52,6 +52,20 @@ class CustomSchema(AutoSchema):
     def get_tags(self):
         return [self.view.__module__.split(".")[0].replace("_", " ").title()]
 
+    def _get_request_body(self, direction="request"):
+        # drf-spectacular's parent silently drops request bodies on DELETE
+        # (it allow-lists only PUT/PATCH/POST). OpenAPI 3.x permits DELETE
+        # bodies, and we rely on them for bulk-delete endpoints. Temporarily
+        # spoof the method so the parent runs its body-extraction logic.
+        if self.method == "DELETE":
+            original_method = self.method
+            self.method = "POST"
+            try:
+                return super()._get_request_body(direction)
+            finally:
+                self.method = original_method
+        return super()._get_request_body(direction)
+
 
 class DRFMVTView(BaseVectorTileView, generics.GenericAPIView):
     """

@@ -10,8 +10,7 @@ from uuid import UUID
 from celery_once.tasks import QueueOnce
 from django_multitenant.utils import get_current_tenant
 
-from django.db import close_old_connections
-from django.urls import reverse
+from django.db import InterfaceError, OperationalError, close_old_connections
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request
 
@@ -21,10 +20,27 @@ from activity.serializers import EventSerializer, PatrolSerializer
 from activity.views import EventView, PatrolView
 from das_server import celery, pubsub
 from observations import servicesutils
-from observations.models import Announcement, Message, SocketClient, Subject
-from observations.serializers import AnnouncementSerializer, MessageSerializer
-from observations.utils import LOCATION, get_position, get_user_key
-from observations.views import FlattenObservationsView, SubjectStatusView
+from observations.models import (
+    Announcement,
+    Message,
+    Observation,
+    SocketClient,
+    Subject,
+)
+from observations.serializers import (
+    AnnouncementSerializer,
+    FlattenObservationSerializer,
+    MessageSerializer,
+)
+from observations.utils import (
+    LOCATION,
+    VIEW_SUBJECT_PERMS,
+    dateparse,
+    get_minimum_allowed_age,
+    get_position,
+    get_user_key,
+)
+from observations.views import SubjectStatusView
 from rt_api import client
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from utils.stats import update_gauge
@@ -259,7 +275,7 @@ def _subjectstatus_update_handler(subject_id, user_sids_map=None):
         # Curry this getter to re-use the view in the for-loop below.
         get_subjectstatus_payload = partial(get_subjectstatus_view, SubjectStatusView.as_view())
 
-        get_observations_payload = partial(get_observations_view, FlattenObservationsView.as_view())
+        get_observations_payload = get_observations_for_subject
 
         logger.debug("user_sids_map: %s", user_sids_map)
 
@@ -321,7 +337,9 @@ def _subjectstatus_update_handler(subject_id, user_sids_map=None):
                     for sid in sids:
                         client.save_session_timestamp(sid, subject_id)
 
-            except:
+            except (InterfaceError, OperationalError):
+                raise
+            except Exception:
                 logger.exception("Error creating subject-status payload. username=%s", username)
             finally:
                 close_old_connections()
@@ -353,15 +371,45 @@ def get_subjectstatus_view(view, user, subject_id):
     return result.data
 
 
-def get_observations_view(view, user, subject_id, created_after):
-    url = reverse("flatten-observations")
-    query_parameter = {"subject_id": subject_id, "created_after": created_after}
-    request = DummyRequest(uri=url, http_method="GET", user=user, query_parameters=query_parameter)
+def get_observations_for_subject(user, subject_id, created_after):
+    """Fetch new observations for a subject, respecting user permissions.
 
-    result = view(request, subject_id=subject_id)
-    if result.status_code != 200 or not result.data:
-        return
-    return result.data
+    Applies the user's delay permission (access_ends_*) so users with
+    delayed access only see observations older than their delay window.
+
+    Unlike the previous DummyRequest approach, exceptions (e.g.
+    InterfaceError from stale DB connections) propagate to the caller so
+    TenantTaskMixin can retry the Celery task.
+    """
+    try:
+        subject = Subject.objects.get(pk=subject_id)
+    except Subject.DoesNotExist:
+        return None
+
+    if not user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
+        return None
+
+    if not created_after:
+        return None
+
+    if isinstance(created_after, str):
+        created_after = dateparse(created_after)
+
+    min_age_days = get_minimum_allowed_age(user) or 0
+    delay_hours = min_age_days * 24
+
+    queryset = Observation.objects.get_subject_newly_created_observations(subject, created_after)
+
+    if delay_hours:
+        cutoff = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(hours=delay_hours)
+        queryset = queryset.filter(recorded_at__lt=cutoff)
+
+    observations = list(queryset)
+    if not observations:
+        return None
+
+    serializer = FlattenObservationSerializer(observations, many=True)
+    return serializer.data
 
 
 @celery.app.task(base=TenantTask)

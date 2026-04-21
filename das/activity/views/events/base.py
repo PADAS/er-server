@@ -6,6 +6,7 @@ from typing import Dict, List, Type, Union
 
 import pytz
 from django_multitenant.utils import get_current_tenant
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from psycopg2.errors import InvalidTextRepresentation
 from rest_framework_extensions.etag.decorators import etag
 
@@ -28,7 +29,7 @@ from rest_framework.generics import (
 )
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.serializers import Serializer
+from rest_framework.serializers import IntegerField, Serializer
 from rest_framework.views import APIView
 
 from accounts.serializers import UserDisplaySerializer
@@ -55,6 +56,7 @@ from activity.permissions import (
 )
 from activity.schemas.schema_adapter import SchemaAdapterFactory
 from activity.serializers import (
+    EventBulkDeleteSerializer,
     EventFactorSerializer,
     EventFilterSerializer,
     EventGeoJsonSerializer,
@@ -786,6 +788,61 @@ class EventsView(ListCreateAPIView):
             else:
                 record["patrol_segments"].append(patrol_segment_id)
         return new_record
+
+
+class EventBulkDeleteView(APIView):
+    http_method_names = ["delete", "options"]
+    permission_classes = (EventCategoryPermissions,)
+
+    @extend_schema(
+        request=EventBulkDeleteSerializer,
+        responses={
+            200: inline_serializer("EventBulkDeleteResponse", {"deleted": IntegerField()}),
+            400: OpenApiResponse(description="Invalid payload (ids missing, not a list, or not valid UUIDs)."),
+            403: OpenApiResponse(
+                description="Caller lacks delete permission for one or more events, or an id was not found."
+            ),
+        },
+        summary="Bulk-delete events",
+        description=(
+            "Delete multiple events atomically. All-or-nothing: if any id is unknown or the caller lacks "
+            "`{category}_delete` for any event's category, nothing is deleted."
+        ),
+    )
+    def delete(self, request, *args, **kwargs):
+        serializer = EventBulkDeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ids = serializer.validated_data["ids"]
+
+        if not ids:
+            return Response({"deleted": 0})
+
+        with transaction.atomic():
+            events_qs = (
+                Event.objects.select_for_update(of=("self",))
+                .filter(id__in=ids)
+                .select_related("event_type__category")
+                .prefetch_related("related_subjects")
+            )
+            events = list(events_qs)
+
+            found_ids = {event.id for event in events}
+            requested_ids = set(ids)
+
+            if found_ids != requested_ids:
+                # 403 (not 404) on missing IDs so we don't leak the existence
+                # of events the caller can't otherwise see.
+                return Response(
+                    {"detail": "You do not have permission to delete one or more of the requested events."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            for event in events:
+                self.check_object_permissions(request, event)
+
+            events_qs.delete()
+
+        return Response({"deleted": len(found_ids)})
 
 
 class EventsGeoJsonView(EventsView):
