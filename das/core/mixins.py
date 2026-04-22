@@ -97,13 +97,14 @@ class SerialNumberModelMixin:
                 f"Cannot generate serial number without a tenant for {self.__class__.__name__}"
             )
 
+        lock_key = _serial_number_lock_key(tenant_id, self.__class__)
+
         max_retries = 40
         retries = 0
 
         while retries < max_retries:
             try:
                 with transaction.atomic():
-                    lock_key = _serial_number_lock_key(tenant_id, self.__class__)
                     with connection.cursor() as cursor:
                         cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_key])
 
