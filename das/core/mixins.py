@@ -104,10 +104,6 @@ class SerialNumberModelMixin:
             try:
                 with transaction.atomic():
                     lock_key = _serial_number_lock_key(tenant_id, self.__class__)
-                    # 8-byte digest -> pg_advisory_xact_lock bigint keyspace.
-                    # blake2b (not hash()) because PYTHONHASHSEED randomizes
-                    # hash() per-process, which would break cross-worker lock
-                    # agreement.
                     with connection.cursor() as cursor:
                         cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_key])
 
