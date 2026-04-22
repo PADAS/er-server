@@ -52,7 +52,6 @@ from accounts.models.permissionset import PermissionSet
 from accounts.system_users import DELETED_SENTINEL_USER
 from core.mixins import SerialNumberModelMixin
 from core.models import DASTenant, TenantSingletonModel, TimestampedModel, UUIDModel
-from core.models.serial_number import create_serial_number_counter_model
 from core.utils import static_image_finder
 from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import dateparse as dparse
@@ -1235,10 +1234,6 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
         return f"{self.serial_number}: ({self.title}, {self.event_type})"
 
 
-EventSerialNumberCounter = create_serial_number_counter_model(Event)
-Event.serial_number_counter_model = EventSerialNumberCounter
-
-
 class EventRelatedSegments(TenantModelMixin, UUIDModel):
     event = TenantForeignKey(Event, on_delete=models.CASCADE, null=False)
     patrol_segment = TenantForeignKey(to="PatrolSegment", on_delete=models.CASCADE, null=False)
@@ -2202,10 +2197,6 @@ class Patrol(TenantModelMixin, SerialNumberModelMixin, TimestampedModel, Revisio
                 self.state = PC_DONE
             elif segment.time_range and all([segment.time_range.upper is None, self.state == PC_DONE]):
                 self.state = PC_OPEN
-
-
-PatrolSerialNumberCounter = create_serial_number_counter_model(Patrol)
-Patrol.serial_number_counter_model = PatrolSerialNumberCounter
 
 
 class PatrolNote(TenantModelMixin, RevisionMixin, TimestampedModel):

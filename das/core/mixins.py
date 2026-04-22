@@ -1,10 +1,14 @@
+import hashlib
 import logging
 import time
+import uuid
 from random import uniform
 
 from django.conf import settings
-from django.db import IntegrityError, transaction
-from django.db.models import Max
+from django.contrib.contenttypes.models import ContentType
+from django.db import IntegrityError, connection, models, transaction
+from django.db.models import BigIntegerField, Subquery, Value
+from django.db.models.functions import Coalesce
 
 from mapping.models import TileLayer
 
@@ -35,23 +39,31 @@ class TileLayersMixin:
         return f"{url}?access_token={token}"
 
 
+def _serial_number_lock_key(tenant_id: uuid.UUID | str, model_class: type[models.Model]) -> int:
+    """Derive a stable signed int64 advisory-lock key from ``(tenant, model)``.
+
+    ``tenant_id`` may be a ``uuid.UUID`` or ``str`` pre-save depending on how
+    the caller assigned it; both must produce the same key so workers agree on
+    the lock.
+    """
+    tenant_uuid = uuid.UUID(str(tenant_id))
+    content_type_id = ContentType.objects.get_for_model(model_class).id
+    return int.from_bytes(
+        hashlib.blake2b(
+            tenant_uuid.bytes + content_type_id.to_bytes(4, "big"),
+            digest_size=8,
+        ).digest(),
+        byteorder="big",
+        signed=True,
+    )
+
+
 class SerialNumberModelMixin:
     """
-    Adds a per-tenant monotonically-increasing serial number to inserts.
-
-    The model must declare a numeric ``serial_number`` field (or override the
-    name with ``serial_number_field = "your_field_name"``), a ``das_tenant``
-    foreign key, and a ``serial_number_counter_model`` class attribute pointing
-    at a per-model counter table built via
-    :func:`core.models.serial_number.create_serial_number_counter_model`.
-
-    Allocation locks the counter row for the tenant with ``SELECT ... FOR
-    UPDATE`` and reconciles ``last_value`` against
-    ``MAX(serial_number)`` on every call, so the counter self-heals when rows
-    are inserted outside this mixin (bulk_create, raw SQL) or when the counter
-    table is brand-new with no seed row. The retry loop is a safety net for
-    the narrow window in which a non-mixin writer commits between our
-    ``MAX()`` and our ``INSERT``.
+    Adds an incremental serial number on inserts.
+    The model must have a field of a numeric type.
+    The default field name is serial_number but it can be overriden by setting
+    'serial_number_field = "your_field_name"' in the model.
     """
 
     def save(self, *args, **kwargs):
@@ -71,12 +83,13 @@ class SerialNumberModelMixin:
         """
         Save method for new objects with automatic serial number generation.
 
-        Uses a retry mechanism to handle IntegrityError exceptions that can occur
-        during concurrent serial number generation. This method avoids nested
-        transaction.atomic() blocks to prevent TransactionManagementError.
+        Serializes concurrent mixin writers for a given ``(tenant, model)``
+        with ``pg_advisory_xact_lock`` so the embedded ``MAX+1`` subquery
+        cannot race against itself. The retry loop remains as a safety net
+        for non-mixin writers (bulk_create, raw SQL) that can still commit
+        between our subquery and INSERT.
         """
         serial_number_field_name = self._get_serial_number_field_name()
-        Counter = self.serial_number_counter_model
         tenant_id = getattr(self, "das_tenant_id", None)
 
         if tenant_id is None:
@@ -90,26 +103,33 @@ class SerialNumberModelMixin:
         while retries < max_retries:
             try:
                 with transaction.atomic():
-                    counter, _ = Counter.objects.get_or_create(das_tenant_id=tenant_id, defaults={"last_value": 0})
-                    # Row lock serializes concurrent mixin writers for this
-                    # tenant, so no two of them compute the same next_value.
-                    counter = Counter.objects.select_for_update().get(pk=counter.pk)
-                    # MAX() reconciles against rows inserted outside the mixin
-                    # (bulk_create, raw SQL) that would leave last_value
-                    # trailing the true maximum. Cheap: backwards index scan
-                    # on the existing (das_tenant, serial_number) unique index.
-                    true_max = (
-                        self.__class__.objects.filter(
-                            das_tenant_id=tenant_id,
-                            **{f"{serial_number_field_name}__isnull": False},
-                        ).aggregate(m=Max(serial_number_field_name))["m"]
-                        or 0
+                    lock_key = _serial_number_lock_key(tenant_id, self.__class__)
+                    # 8-byte digest -> pg_advisory_xact_lock bigint keyspace.
+                    # blake2b (not hash()) because PYTHONHASHSEED randomizes
+                    # hash() per-process, which would break cross-worker lock
+                    # agreement.
+                    with connection.cursor() as cursor:
+                        cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_key])
+
+                    setattr(
+                        self,
+                        serial_number_field_name,
+                        Coalesce(
+                            Subquery(
+                                self.__class__.objects.filter(
+                                    das_tenant_id=tenant_id,
+                                    **{f"{serial_number_field_name}__isnull": False},
+                                )
+                                .order_by(f"-{serial_number_field_name}")
+                                .values(serial_number_field_name)[:1],
+                                output_field=BigIntegerField(),
+                            ),
+                            Value(0),
+                        )
+                        + Value(1),
                     )
-                    next_value = max(counter.last_value, true_max) + 1
-                    setattr(self, serial_number_field_name, next_value)
+
                     result = super().save(*args, **kwargs)
-                    counter.last_value = next_value
-                    counter.save(update_fields=["last_value"])
                 self.refresh_from_db()
                 return result
 
