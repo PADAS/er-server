@@ -287,7 +287,7 @@ def task_prerun_handler(task, *args, **kwargs):
     published_at = (task.request.headers or {}).get("published_at")
     if published_at:
         queue_name = (task.request.delivery_info or {}).get("routing_key", "unknown")
-        utils.stats.histogram("task.queue_wait", time.time() - published_at, tags=[f"queue:{queue_name}"])
+        utils.stats.update_gauge("task.queue_wait_mean", time.time() - published_at, tags=[f"queue:{queue_name}"])
 
 
 @task_postrun.connect
