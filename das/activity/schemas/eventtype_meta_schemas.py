@@ -435,7 +435,7 @@ collection_field_json_schema = {
                             "anyOf": [
                                 {"$ref": "#/$defs/attachmentFieldJSONSchema"},
                                 {"$ref": "#/$defs/booleanFieldJSONSchema"},
-                                {"$dynamicRef": "#collectionFieldJSONSchema"},
+                                {"$ref": "#/$defs/collectionFieldJSONSchema"},
                                 {"$ref": "#/$defs/dateTimeFieldJSONSchema"},
                                 {"$ref": "#/$defs/locationFieldJSONSchema"},
                                 {"$ref": "#/$defs/multipleChoiceListFieldJSONSchema"},
@@ -468,20 +468,6 @@ collection_field_json_schema = {
     },
     "required": ["deprecated", "items", "title", "type", "unevaluatedItems"],
     "additionalProperties": False,
-    "$defs": {
-        "attachmentFieldJSONSchema": attachment_field_json_schema,
-        "booleanFieldJSONSchema": boolean_field_json_schema,
-        "collectionFieldJSONSchema": {
-            "$dynamicAnchor": "collectionFieldJSONSchema",
-            "$ref": "#",
-        },
-        "dateTimeFieldJSONSchema": date_time_field_json_schema,
-        "locationFieldJSONSchema": location_field_json_schema,
-        "multipleChoiceListFieldJSONSchema": multiple_choice_list_field_json_schema,
-        "numericFieldJSONSchema": numeric_field_json_schema,
-        "singleChoiceListFieldJSONSchema": single_choice_list_field_json_schema,
-        "textFieldJSONSchema": text_field_json_schema,
-    },
 }
 
 COLLECTION_FIELD_BUTTON_TEXT_MAX_LENGTH = 50
@@ -1358,18 +1344,6 @@ ui_schema = {
     },
     "required": ["fields", "headers", "order", "sections"],
     "additionalProperties": False,
-    "$defs": {
-        "attachmentFieldUISchema": attachment_field_ui_schema,
-        "booleanFieldUISchema": boolean_field_ui_schema,
-        "choiceListFieldUISchema": choice_list_field_ui_schema,
-        "collectionFieldUISchema": collection_field_ui_schema,
-        "dateTimeFieldUISchema": date_time_field_ui_schema,
-        "headerUISchema": header_ui_schema,
-        "locationFieldUISchema": location_field_ui_schema,
-        "numericFieldUISchema": numeric_field_ui_schema,
-        "sectionUISchema": section_ui_schema,
-        "textFieldUISchema": text_field_ui_schema,
-    },
 }
 
 
@@ -1477,23 +1451,6 @@ json_field_schema = {
     },
     "required": ["$schema", "properties", "required", "type", "unevaluatedProperties"],
     "additionalProperties": False,
-    "$defs": {
-        "attachmentFieldJSONSchema": attachment_field_json_schema,
-        "booleanFieldJSONSchema": boolean_field_json_schema,
-        "collectionFieldJSONSchema": collection_field_json_schema,
-        "dateTimeFieldJSONSchema": date_time_field_json_schema,
-        "locationFieldJSONSchema": location_field_json_schema,
-        "multipleChoiceListFieldJSONSchema": multiple_choice_list_field_json_schema,
-        "numericFieldJSONSchema": numeric_field_json_schema,
-        "singleChoiceListFieldJSONSchema": single_choice_list_field_json_schema,
-        "textFieldJSONSchema": text_field_json_schema,
-        "containsConditionSchema": contains_condition_schema,
-        "isEmptyConditionSchema": is_empty_condition_schema,
-        "isNotEmptyConditionSchema": is_not_empty_condition_schema,
-        "isExactlyConditionSchema": is_exactly_condition_schema,
-        "isContainedByConditionSchema": is_contained_by_condition_schema,
-        "isNotContainedByConditionSchema": is_not_contained_by_condition_schema,
-    },
 }
 
 
@@ -1513,5 +1470,37 @@ main_event_type_schema = {
         "image_url": {"type": "string"},
     },
     "required": ["json", "ui"],
+    "$defs": {
+        # Form element JSON subschemas
+        "attachmentFieldJSONSchema": attachment_field_json_schema,
+        "booleanFieldJSONSchema": boolean_field_json_schema,
+        "collectionFieldJSONSchema": collection_field_json_schema,
+        "dateTimeFieldJSONSchema": date_time_field_json_schema,
+        "locationFieldJSONSchema": location_field_json_schema,
+        "multipleChoiceListFieldJSONSchema": multiple_choice_list_field_json_schema,
+        "numericFieldJSONSchema": numeric_field_json_schema,
+        "singleChoiceListFieldJSONSchema": single_choice_list_field_json_schema,
+        "textFieldJSONSchema": text_field_json_schema,
+
+        # Condition JSON subschemas
+        "containsConditionSchema": contains_condition_schema,
+        "isEmptyConditionSchema": is_empty_condition_schema,
+        "isNotEmptyConditionSchema": is_not_empty_condition_schema,
+        "isExactlyConditionSchema": is_exactly_condition_schema,
+        "isContainedByConditionSchema": is_contained_by_condition_schema,
+        "isNotContainedByConditionSchema": is_not_contained_by_condition_schema,
+
+        # Form element UI subschemas
+        "attachmentFieldUISchema": attachment_field_ui_schema,
+        "booleanFieldUISchema": boolean_field_ui_schema,
+        "choiceListFieldUISchema": choice_list_field_ui_schema,
+        "collectionFieldUISchema": collection_field_ui_schema,
+        "dateTimeFieldUISchema": date_time_field_ui_schema,
+        "headerUISchema": header_ui_schema,
+        "locationFieldUISchema": location_field_ui_schema,
+        "numericFieldUISchema": numeric_field_ui_schema,
+        "sectionUISchema": section_ui_schema,
+        "textFieldUISchema": text_field_ui_schema,
+    },
     "additionalProperties": False,
 }
