@@ -487,6 +487,12 @@ collection_field_json_schema = {
 COLLECTION_FIELD_BUTTON_TEXT_MAX_LENGTH = 50
 COLLECTION_FIELD_ITEM_NAME_MAX_LENGTH = 100
 
+collection_field_ui_schema_column_schema = {
+    "type": "array",
+    "items": {"type": "string", "pattern": FIELD_ID_PATTERN},
+    "uniqueItems": True,
+}
+
 collection_field_ui_schema = {
     "type": "object",
     "title": "Collection field UI schema",
@@ -496,17 +502,9 @@ collection_field_ui_schema = {
         "conditionalDependents": conditional_dependents_schema,
         "itemIdentifier": {"type": "string", "pattern": FIELD_ID_PATTERN},
         "itemName": {"type": "string", "maxLength": COLLECTION_FIELD_ITEM_NAME_MAX_LENGTH},
-        "leftColumn": {
-            "type": "array",
-            "items": {"type": "string", "pattern": FIELD_ID_PATTERN},
-            "uniqueItems": True,
-        },
+        "leftColumn": collection_field_ui_schema_column_schema,
         "parent": field_parent_schema,
-        "rightColumn": {
-            "type": "array",
-            "items": {"type": "string", "pattern": FIELD_ID_PATTERN},
-            "uniqueItems": True,
-        },
+        "rightColumn": collection_field_ui_schema_column_schema,
         "type": {"const": "COLLECTION"},
     },
     "required": ["columns", "itemName", "leftColumn", "parent", "rightColumn", "type"],
