@@ -2,11 +2,18 @@ import logging
 from typing import Any, Dict, NamedTuple
 
 from business_rules import actions, export_rule_data, fields, variables
+from business_rules.operators import (
+    BooleanType,
+    NumericType,
+    SelectMultipleType,
+    StringType,
+)
 
 from django.utils.translation import gettext as _
 
 from activity.alerting.schema_properties import AlertingSchemaPropertiesAdapter
 from activity.alerting.variables import (
+    MultiSelectChoiceType,
     case_insensitive_string_rule_variable,
     multi_select_choice_rule_variable,
 )
@@ -82,8 +89,11 @@ class RuleVariableSpec(NamedTuple):
     optionsdict: dict | None = None
 
 
+# Keyed by type name (BaseType.name) — the same keys that export_rule_data
+# puts into variable_type_operators. Do NOT confuse with fields.FIELD_*
+# constants, which are operator *input widget* identifiers.
 _WHITELISTED_OPERATORS = {
-    fields.FIELD_NUMERIC: {
+    NumericType.name: {
         "equal_to": "=",
         "greater_than": ">",
         "less_than": "<",
@@ -94,11 +104,14 @@ _WHITELISTED_OPERATORS = {
         "greater_than_or_equal_to": "≥",
         "less_than_or_equal_to": "≤",
     },
-    fields.FIELD_SELECT_MULTIPLE: {
+    # Single-select fields (V1 and V2) wrap their value in a list so the
+    # library's set-comparison operators work as "is one of".
+    SelectMultipleType.name: {
         "shares_at_least_one_element_with": "Is One Of",
         "shares_no_elements_with": "Is Not One Of",
     },
-    fields.FIELD_MULTI_SELECT_CHOICE: {
+    # V2 multi-select choice fields that store native lists.
+    MultiSelectChoiceType.name: {
         "contains": "Contains",
         "is_exactly": "Is Exactly",
         "is_empty": "Is Empty",
@@ -106,11 +119,11 @@ _WHITELISTED_OPERATORS = {
         "is_one_of": "Is One Of",
         "is_not_one_of": "Is Not One Of",
     },
-    "boolean": {
+    BooleanType.name: {
         "is_true": "Is True",
         "is_false": "Is False",
     },
-    "string": {
+    StringType.name: {
         "contains": "Includes",
         "non_empty": "Is Not Empty",
     },
@@ -394,11 +407,12 @@ def _generate_aggregate_event_variables_class(
     return type(classname, (EventVariables,), attrs), applies_to_map
 
 
+# Type names whose variables should not carry options to the UI.
+# Compared against item["field_type"], which is BaseType.name.
 PRUNE_OPTIONS_FROM = (
-    fields.FIELD_TEXT,
-    fields.FIELD_NO_INPUT,
-    fields.FIELD_NUMERIC,
-    "boolean",
+    StringType.name,
+    NumericType.name,
+    BooleanType.name,
 )
 
 

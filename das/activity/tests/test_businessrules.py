@@ -394,8 +394,8 @@ class TestV2MultiSelectAlerts:
         rules = render_aggregate_event_variables([v2_event_type], request=request)
 
         # Verify the multi_select_choice type has whitelisted operators
-        assert fields.FIELD_MULTI_SELECT_CHOICE in rules["variable_type_operators"]
-        ms_operators = list(rules["variable_type_operators"][fields.FIELD_MULTI_SELECT_CHOICE])
+        assert MultiSelectChoiceType.name in rules["variable_type_operators"]
+        ms_operators = list(rules["variable_type_operators"][MultiSelectChoiceType.name])
         ms_operator_names = [op["name"] for op in ms_operators]
         expected_ops = ["contains", "is_exactly", "is_empty", "is_not_empty", "is_one_of", "is_not_one_of"]
         for op_name in expected_ops:
@@ -2640,8 +2640,8 @@ class TestMultiSelectAlertAPIIntegration:
         assert "variable_type_operators" in data
 
         # The multi_select_choice type should be present with its operators
-        assert fields.FIELD_MULTI_SELECT_CHOICE in data["variable_type_operators"]
-        ms_operators = data["variable_type_operators"][fields.FIELD_MULTI_SELECT_CHOICE]
+        assert MultiSelectChoiceType.name in data["variable_type_operators"]
+        ms_operators = data["variable_type_operators"][MultiSelectChoiceType.name]
         ms_op_names = [op["name"] for op in ms_operators]
         for expected in ("contains", "is_exactly", "is_empty", "is_not_empty", "is_one_of", "is_not_one_of"):
             assert expected in ms_op_names, f"Missing operator '{expected}' in {ms_op_names}"

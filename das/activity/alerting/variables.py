@@ -1,6 +1,5 @@
 import re
 
-import business_rules.fields
 import business_rules.operators
 from business_rules.fields import FIELD_NO_INPUT, FIELD_SELECT_MULTIPLE, FIELD_TEXT
 from business_rules.operators import export_type, type_operator
@@ -8,8 +7,9 @@ from business_rules.variables import BaseType, rule_variable
 
 # -- Custom type names -------------------------------------------------------
 # These identify our custom BaseType subclasses in the business-rules engine.
-# They are assigned to the `name` attribute of each type class and registered
-# into ``business_rules.fields`` at module load time.
+# They are assigned to the `name` attribute of each type class and the class
+# is registered into ``business_rules.operators`` at module load time so that
+# ``export_rule_data`` can discover them.
 TYPE_NAME_CI_STRING = "ci_string"
 TYPE_NAME_MULTI_SELECT_CHOICE = "multi_select_choice"
 
@@ -121,4 +121,3 @@ def multi_select_choice_rule_variable(label=None, options=None):
 
 
 business_rules.operators.MultiSelectChoiceType = MultiSelectChoiceType
-business_rules.fields.FIELD_MULTI_SELECT_CHOICE = TYPE_NAME_MULTI_SELECT_CHOICE
