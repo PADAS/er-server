@@ -321,16 +321,16 @@ location_field_json_schema = {
                     "additionalProperties": False,
                 },
             },
-            "required": {
-                "type": "array",
-                "items": {"enum": ["latitude", "longitude"]},
-                "minItems": 2,
-                "maxItems": 2,
-                "uniqueItems": True,
-            },
+            "required": ["latitude", "longitude"],
             "additionalProperties": False,
         },
-        "required": {"const": ["latitude", "longitude"]},
+        "required": {
+            "type": "array",
+            "items": {"enum": ["latitude", "longitude"]},
+            "minItems": 2,
+            "maxItems": 2,
+            "uniqueItems": True,
+        },
         "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
         "type": {"const": "object"},
         "unevaluatedProperties": {"const": False},
@@ -486,7 +486,12 @@ collection_field_ui_schema = {
         "buttonText": {"type": "string", "maxLength": COLLECTION_FIELD_BUTTON_TEXT_MAX_LENGTH},
         "columns": {"enum": [1, 2]},
         "conditionalDependents": conditional_dependents_schema,
-        "itemIdentifier": {"type": "string", "pattern": FIELD_ID_PATTERN},
+        "itemIdentifier": {
+            "anyOf": [
+                {"const": ""},
+                {"type": "string", "pattern": FIELD_ID_PATTERN},
+            ],
+        },
         "itemName": {"type": "string", "maxLength": COLLECTION_FIELD_ITEM_NAME_MAX_LENGTH},
         "leftColumn": collection_field_ui_schema_column_schema,
         "parent": field_parent_schema,
@@ -1481,7 +1486,6 @@ main_event_type_schema = {
         "numericFieldJSONSchema": numeric_field_json_schema,
         "singleChoiceListFieldJSONSchema": single_choice_list_field_json_schema,
         "textFieldJSONSchema": text_field_json_schema,
-
         # Condition JSON subschemas
         "containsConditionSchema": contains_condition_schema,
         "isEmptyConditionSchema": is_empty_condition_schema,
@@ -1489,7 +1493,6 @@ main_event_type_schema = {
         "isExactlyConditionSchema": is_exactly_condition_schema,
         "isContainedByConditionSchema": is_contained_by_condition_schema,
         "isNotContainedByConditionSchema": is_not_contained_by_condition_schema,
-
         # Form element UI subschemas
         "attachmentFieldUISchema": attachment_field_ui_schema,
         "booleanFieldUISchema": boolean_field_ui_schema,
