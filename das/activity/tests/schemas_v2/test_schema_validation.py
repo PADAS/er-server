@@ -5,7 +5,7 @@ import pytest
 from rest_framework.serializers import ValidationError
 
 from activity.schemas.eventtype_meta_schemas import (
-    FIELD_SCHEMA_TITLE_MAX_LENGTH,
+    FIELD_TITLE_MAX_LENGTH,
     main_event_type_schema,
 )
 from activity.serializers.fields.json_schema import VALID_DRAFT, JSONSchemaField
@@ -171,21 +171,21 @@ class TestJsonSchemaFieldBasics:
 
 
 class TestFieldSchemaTitleMaxLength:
-    """Tests for field schema title maxLength constraint (FIELD_SCHEMA_TITLE_MAX_LENGTH)."""
+    """Tests for field schema title maxLength constraint (FIELD_TITLE_MAX_LENGTH)."""
 
-    def test_field_schema_title_max_length_constant(self):
-        """FIELD_SCHEMA_TITLE_MAX_LENGTH must be 1000."""
-        assert FIELD_SCHEMA_TITLE_MAX_LENGTH == 1000
+    def test_field_title_max_length_constant(self):
+        """FIELD_TITLE_MAX_LENGTH must be 1000."""
+        assert FIELD_TITLE_MAX_LENGTH == 1000
 
     def test_valid_text_field_with_title_at_max_length(self):
-        """A text field with title length equal to FIELD_SCHEMA_TITLE_MAX_LENGTH is valid."""
+        """A text field with title length equal to FIELD_TITLE_MAX_LENGTH is valid."""
         schema = {
             "json": {
                 **copy.deepcopy(minimal_json_schema),
                 "properties": {
                     "long_title_field": {
                         "type": "string",
-                        "title": "x" * FIELD_SCHEMA_TITLE_MAX_LENGTH,
+                        "title": "x" * FIELD_TITLE_MAX_LENGTH,
                         "deprecated": False,
                     }
                 },
@@ -198,14 +198,14 @@ class TestFieldSchemaTitleMaxLength:
         assert result is not None
 
     def test_invalid_text_field_with_title_over_max_length(self):
-        """A text field with title length exceeding FIELD_SCHEMA_TITLE_MAX_LENGTH is invalid."""
+        """A text field with title length exceeding FIELD_TITLE_MAX_LENGTH is invalid."""
         schema = {
             "json": {
                 **copy.deepcopy(minimal_json_schema),
                 "properties": {
                     "too_long_title_field": {
                         "type": "string",
-                        "title": "x" * (FIELD_SCHEMA_TITLE_MAX_LENGTH + 1),
+                        "title": "x" * (FIELD_TITLE_MAX_LENGTH + 1),
                         "deprecated": False,
                     }
                 },
