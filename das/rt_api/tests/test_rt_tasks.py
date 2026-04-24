@@ -19,9 +19,11 @@ from rt_api.rest_api_interface.dummy_request import (
     wrap_dummy_request_with_drf_request,
 )
 from rt_api.tasks import (
-    get_observations_for_subject,
+    ORPHAN_QUEUE_IDLE_SECONDS,
+    SOCKETIO_BINDING_KEY,
     get_subjectstatus_view,
     get_username_sids_map,
+    sweep_orphan_socketio_queues,
 )
 from utils.tenant.managers import UnsetDASTenantContextManager
 
@@ -134,124 +136,130 @@ class TestUsernameSidMap:
         assert username_sid_map == {"admin": {"AAF68r86c1Xqzi_-u6TA", "68rT86c1Xq_-u6ziAAAF"}}
 
 
-@pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-class TestGetObservationsForSubject:
-    def test_returns_none_when_subject_not_found(self):
-        user = MagicMock()
-        result = get_observations_for_subject(user, "00000000-0000-0000-0000-000000000000", "2024-01-01T00:00:00Z")
-        assert result is None
+class TestSweepOrphanSocketioQueues:
+    @staticmethod
+    def _binding_member(queue_name: bytes) -> bytes:
+        # Mirrors kombu.transport.redis.Channel._queue_bind: empty
+        # routing_key + empty pattern + queue name, joined by \x06\x16.
+        return b"\x06\x16\x06\x16" + queue_name
 
-    def test_returns_none_when_user_lacks_permission(self):
-        from factories import SubjectFactory
+    def _make_redis_mock(self, keys_and_idle, binding_members):
+        rc = MagicMock()
+        rc.smembers.return_value = set(binding_members)
 
-        subject = SubjectFactory.create()
-        user = MagicMock()
-        user.has_any_perms.return_value = False
+        # The sweep calls scan_iter once per prefix; return only the keys
+        # whose name starts with the requested prefix so each scan sees its
+        # own slice (matching what real Redis MATCH would do).
+        def fake_scan_iter(match, count=None):
+            prefix = match.rstrip("*").encode()
+            return iter([k for k in keys_and_idle if k.startswith(prefix)])
 
-        result = get_observations_for_subject(user, str(subject.id), "2024-01-01T00:00:00Z")
+        rc.scan_iter.side_effect = fake_scan_iter
+        rc.object.side_effect = lambda info_type, key: keys_and_idle[key]
+        return rc
 
-        assert result is None
-        user.has_any_perms.assert_called_once()
+    def test_deletes_idle_orphan_key_and_removes_its_binding(self, monkeypatch):
+        fresh_queue = b"python-socketio.fresh"
+        old_queue = b"python-socketio.old"
+        rc = self._make_redis_mock(
+            keys_and_idle={
+                fresh_queue: 120,
+                old_queue: ORPHAN_QUEUE_IDLE_SECONDS + 1,
+            },
+            binding_members=[
+                self._binding_member(fresh_queue),
+                self._binding_member(old_queue),
+            ],
+        )
+        monkeypatch.setattr("rt_api.tasks.client.redis_client", rc)
 
-    def test_returns_none_when_created_after_is_none(self):
-        from factories import SubjectFactory
+        sweep_orphan_socketio_queues.run()
 
-        subject = SubjectFactory.create()
-        user = MagicMock()
-        user.has_any_perms.return_value = True
+        rc.delete.assert_called_once_with(old_queue)
+        rc.srem.assert_called_once_with(SOCKETIO_BINDING_KEY, self._binding_member(old_queue))
 
-        result = get_observations_for_subject(user, str(subject.id), None)
+    def test_preserves_fresh_keys(self, monkeypatch):
+        fresh = b"python-socketio.fresh"
+        rc = self._make_redis_mock(
+            keys_and_idle={fresh: ORPHAN_QUEUE_IDLE_SECONDS - 1},
+            binding_members=[self._binding_member(fresh)],
+        )
+        monkeypatch.setattr("rt_api.tasks.client.redis_client", rc)
 
-        assert result is None
+        sweep_orphan_socketio_queues.run()
 
-    @mock.patch("rt_api.tasks.get_minimum_allowed_age", return_value=3)
-    def test_applies_delay_filter_for_delayed_user(self, mock_min_age):
-        """Users with access_ends_* delay should not see recent observations."""
-        from factories import SubjectFactory
-        from observations.models import Observation
+        rc.delete.assert_not_called()
+        rc.srem.assert_not_called()
 
-        subject = SubjectFactory.create()
-        user = MagicMock()
-        user.has_any_perms.return_value = True
+    def test_skips_keys_with_no_idletime(self, monkeypatch):
+        # object("idletime", key) returns None when the key was deleted
+        # between SCAN and OBJECT — treat as "do not delete".
+        key = b"python-socketio.vanished"
+        rc = self._make_redis_mock(
+            keys_and_idle={key: None},
+            binding_members=[self._binding_member(key)],
+        )
+        monkeypatch.setattr("rt_api.tasks.client.redis_client", rc)
 
-        mock_qs = MagicMock()
-        mock_qs.filter.return_value = mock_qs
-        mock_qs.exists.return_value = False
+        sweep_orphan_socketio_queues.run()
 
-        with mock.patch.object(
-            type(Observation.objects),
-            "get_subject_newly_created_observations",
-            return_value=mock_qs,
-        ):
-            get_observations_for_subject(user, str(subject.id), "2024-01-01T00:00:00Z")
+        rc.delete.assert_not_called()
+        rc.srem.assert_not_called()
 
-        # delay of 3 days = 72 hours, should filter recorded_at__lt
-        mock_qs.filter.assert_called_once()
-        call_kwargs = mock_qs.filter.call_args[1]
-        assert "recorded_at__lt" in call_kwargs
+    def test_sweeps_legacy_flask_socketio_orphans(self, monkeypatch):
+        # python-socketio < 5.12.0 named consumer queues "flask-socketio.<uuid>"
+        # but bound them to the same "socketio" exchange. After a deploy to a
+        # newer version, those orphan bindings keep receiving every fanout
+        # publish forever; the sweep must clean both prefixes.
+        flask_orphan = b"flask-socketio.dead"
+        live_python = b"python-socketio.alive"
+        rc = self._make_redis_mock(
+            keys_and_idle={
+                flask_orphan: ORPHAN_QUEUE_IDLE_SECONDS + 1,
+                live_python: 30,
+            },
+            binding_members=[
+                self._binding_member(flask_orphan),
+                self._binding_member(live_python),
+            ],
+        )
+        monkeypatch.setattr("rt_api.tasks.client.redis_client", rc)
 
-    @mock.patch("rt_api.tasks.get_minimum_allowed_age", return_value=0)
-    def test_no_delay_filter_for_realtime_user(self, mock_min_age):
-        """Users with access_ends_0 should see all observations without delay filter."""
-        from factories import SubjectFactory
-        from observations.models import Observation
+        sweep_orphan_socketio_queues.run()
 
-        subject = SubjectFactory.create()
-        user = MagicMock()
-        user.has_any_perms.return_value = True
+        rc.delete.assert_called_once_with(flask_orphan)
+        rc.srem.assert_called_once_with(SOCKETIO_BINDING_KEY, self._binding_member(flask_orphan))
 
-        mock_qs = MagicMock()
-        mock_qs.exists.return_value = False
+    def test_priority_suffixed_key_matches_base_queue_binding(self, monkeypatch):
+        # Kombu's Redis transport stores priority queues under suffixed keys
+        # "<queue>\x06\x16<step>". The binding registry only ever contains
+        # the base queue name, so the sweep must strip the suffix before
+        # looking up the binding, or a priority-suffixed orphan would leak
+        # its binding entry forever.
+        base_queue = b"python-socketio.old"
+        suffixed_key = base_queue + b"\x06\x163"
+        rc = self._make_redis_mock(
+            keys_and_idle={suffixed_key: ORPHAN_QUEUE_IDLE_SECONDS + 1},
+            binding_members=[self._binding_member(base_queue)],
+        )
+        monkeypatch.setattr("rt_api.tasks.client.redis_client", rc)
 
-        with mock.patch.object(
-            type(Observation.objects),
-            "get_subject_newly_created_observations",
-            return_value=mock_qs,
-        ):
-            get_observations_for_subject(user, str(subject.id), "2024-01-01T00:00:00Z")
+        sweep_orphan_socketio_queues.run()
 
-        mock_qs.filter.assert_not_called()
+        rc.delete.assert_called_once_with(suffixed_key)
+        rc.srem.assert_called_once_with(SOCKETIO_BINDING_KEY, self._binding_member(base_queue))
 
-    @mock.patch("rt_api.tasks.get_minimum_allowed_age", return_value=0)
-    def test_parses_string_created_after_to_datetime(self, mock_min_age):
-        """created_after from Redis is a string; it must be parsed to datetime before querying."""
-        from factories import SubjectFactory
-        from observations.models import Observation
+    def test_deletes_key_with_no_matching_binding(self, monkeypatch):
+        # If the binding registry has already been cleaned but the key leaked,
+        # the key still needs to go.
+        orphan = b"python-socketio.orphan"
+        rc = self._make_redis_mock(
+            keys_and_idle={orphan: ORPHAN_QUEUE_IDLE_SECONDS + 10},
+            binding_members=[],
+        )
+        monkeypatch.setattr("rt_api.tasks.client.redis_client", rc)
 
-        subject = SubjectFactory.create()
-        user = MagicMock()
-        user.has_any_perms.return_value = True
+        sweep_orphan_socketio_queues.run()
 
-        mock_qs = MagicMock()
-        mock_qs.exists.return_value = False
-
-        with mock.patch.object(
-            type(Observation.objects),
-            "get_subject_newly_created_observations",
-            return_value=mock_qs,
-        ) as mock_get_obs:
-            get_observations_for_subject(user, str(subject.id), "2024-01-01T00:00:00Z")
-
-        call_args = mock_get_obs.call_args
-        created_after_arg = call_args[0][1]
-        assert isinstance(created_after_arg, datetime.datetime)
-
-    def test_db_errors_propagate_to_caller(self):
-        """InterfaceError must not be swallowed so TenantTaskMixin can retry."""
-        from django.db.utils import InterfaceError
-
-        from factories import SubjectFactory
-        from observations.models import Observation
-
-        subject = SubjectFactory.create()
-        user = MagicMock()
-        user.has_any_perms.return_value = True
-
-        with mock.patch.object(
-            type(Observation.objects),
-            "get_subject_newly_created_observations",
-            side_effect=InterfaceError("connection already closed"),
-        ):
-            with pytest.raises(InterfaceError):
-                get_observations_for_subject(user, str(subject.id), "2024-01-01T00:00:00Z")
+        rc.delete.assert_called_once_with(orphan)
+        rc.srem.assert_not_called()

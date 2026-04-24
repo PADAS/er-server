@@ -144,6 +144,7 @@ app.conf.task_routes = {
     "observations.tasks.run_partition_table_check": {"queue": "maintenance"},
     "observations.tasks.run_observation_segment_partition_table_check": {"queue": "maintenance"},
     "mapping.tasks.load_features_from_wfs": {"queue": "maintenance"},
+    "rt_api.tasks.sweep_orphan_socketio_queues": {"queue": "maintenance"},
     # Queue analyzer tasks separately.
     "analyzers.tasks.*": {
         "queue": "analyzers",
@@ -189,6 +190,10 @@ app.conf.beat_schedule = {
     "redis-status": {
         "task": "rt_api.tasks.check_redis_queues",
         "schedule": timedelta(seconds=60),
+    },
+    "sweep-orphan-socketio-queues": {
+        "task": "rt_api.tasks.sweep_orphan_socketio_queues",
+        "schedule": timedelta(minutes=10),
     },
     "observation-lag-report": {
         "task": "reports.tasks.alert_lag_delay",

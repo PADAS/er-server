@@ -671,6 +671,75 @@ def handle_emit_data(event_id, **kwargs):
     logger.info("event mailer event_id: %s", event_id)
 
 
+# Both prefixes have been used for the per-consumer Kombu queue name in the
+# python-socketio history: "flask-socketio." prior to release 5.12.0
+# (2024-12-18) and "python-socketio." since. Both versions bind to the same
+# fanout exchange "socketio", so old orphan queues keep receiving every
+# publish from the current cluster forever and accumulate unbounded.
+SOCKETIO_QUEUE_KEY_PREFIXES = ("python-socketio.", "flask-socketio.")
+# Kombu's fanout-exchange binding registry key. The exchange name is the
+# python-socketio `channel` default of "socketio"; DASKombuManager does not
+# override it.
+SOCKETIO_BINDING_KEY = "_kombu.binding.socketio"
+# kombu.transport.redis.Channel.sep — separator in binding-set members
+# (routing_key, pattern, queue_name).
+SOCKETIO_BINDING_SEP = b"\x06\x16"
+# Queues idle for this long have no live consumer (a live consumer's queue
+# gets LPUSH'd on every cluster-wide emit, keeping IDLETIME near zero).
+ORPHAN_QUEUE_IDLE_SECONDS = 24 * 3600
+
+
+def _queue_name_from_key(key: bytes) -> bytes:
+    # Kombu may suffix priority keys as "<queue>\x06\x16<step>"; strip it.
+    idx = key.find(SOCKETIO_BINDING_SEP)
+    return key if idx == -1 else key[:idx]
+
+
+@celery.app.task(base=QueueOnce, once={"graceful": True})
+def sweep_orphan_socketio_queues():
+    """Delete orphan python-socketio.* queue keys in the realtime broker Redis.
+
+    Kombu's Redis transport documents "Supports TTL: No" — queue keys leak
+    when a socketio consumer terminates abnormally (SIGKILL, OOM, node loss),
+    because neither the consumer's close() nor Kombu's own auto-delete path
+    runs. This task removes keys that have been idle long enough to be
+    confidently dead and cleans up the matching entry in Kombu's binding
+    registry so the registry set does not grow unbounded.
+    """
+    rc = client.redis_client
+
+    members = rc.smembers(SOCKETIO_BINDING_KEY) or set()
+    queue_name_to_member: dict[bytes, bytes] = {}
+    for member in members:
+        parts = member.split(SOCKETIO_BINDING_SEP)
+        if len(parts) >= 3 and parts[2]:
+            queue_name_to_member[parts[2]] = member
+
+    deleted_keys = 0
+    deleted_bindings = 0
+    for prefix in SOCKETIO_QUEUE_KEY_PREFIXES:
+        for key in rc.scan_iter(match=f"{prefix}*", count=500):
+            idle = rc.object("idletime", key)
+            if idle is None or idle < ORPHAN_QUEUE_IDLE_SECONDS:
+                continue
+
+            rc.delete(key)
+            deleted_keys += 1
+
+            member = queue_name_to_member.pop(_queue_name_from_key(key), None)
+            if member is not None:
+                rc.srem(SOCKETIO_BINDING_KEY, member)
+                deleted_bindings += 1
+
+    if deleted_keys or deleted_bindings:
+        logger.info(
+            "sweep_orphan_socketio_queues deleted %d queue keys and %d binding entries",
+            deleted_keys,
+            deleted_bindings,
+        )
+    update_gauge(metric="rt_api_orphan_socketio_queues_deleted", value=deleted_keys)
+
+
 @celery.app.task(base=QueueOnce, once={"graceful": True})
 def check_redis_queues():
     """

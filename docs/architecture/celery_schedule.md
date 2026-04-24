@@ -42,6 +42,12 @@ This document outlines the scheduled tasks in the DAS system organized by hour o
   - Task: `observations.tasks.poll_news_gcs_bucket`
   - Schedule: Every 15 minutes
 
+### Every 10 Minutes
+- **sweep-orphan-socketio-queues** - Deletes orphan `python-socketio.*` queue keys left in the realtime broker Redis when a socketio consumer terminates abnormally. Removes keys idle for more than 24h and the matching entry in the `_kombu.binding.socketio` registry.
+  - Task: `rt_api.tasks.sweep_orphan_socketio_queues`
+  - Schedule: Every 10 minutes
+  - Queue: `maintenance`
+
 ### Every 5 Minutes
 - **plugins** - Runs tracking plugins
   - Task: `tracking.tasks.run_plugins`
