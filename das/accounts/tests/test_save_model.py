@@ -4,8 +4,11 @@ import pytest
 
 from django.contrib.admin import site
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.test import RequestFactory
+from django.urls import reverse
 
+from accounts.account_linker import ACCOUNT_LINKER_LANDING_URL_NAME
 from accounts.admin import UserAdmin
 
 User = get_user_model()
@@ -13,7 +16,9 @@ User = get_user_model()
 
 @pytest.fixture
 def fake_request():
-    return RequestFactory().post("/")
+    request = RequestFactory().post("/")
+    request.build_absolute_uri = lambda path: f"https://testsite.pamdas.org{path}"
+    return request
 
 
 @pytest.fixture
@@ -61,12 +66,19 @@ def mock_send_reset_email(user_admin):
     # test surface. We mock it here because these tests care about *when*
     # a reset is triggered, not the mechanics of the reset email itself.
     # A future improvement could let this run for real with proper fixtures.
-    with patch.object(user_admin, "send_reset_email") as mock:
+    with patch.object(user_admin, "_send_reset_email") as mock:
         yield mock
 
 
 @pytest.mark.django_db
 class TestSaveModelNonIdp:
+
+    @pytest.fixture(autouse=True)
+    def non_idp_tenant_settings(self):
+        mock = MagicMock()
+        mock.feature_flags.require_idp = False
+        with patch("accounts.admin.get_tenant_settings", return_value=mock):
+            yield mock
 
     class TestShouldResetPassword:
 
@@ -190,3 +202,145 @@ class TestSaveModelNonIdp:
             user_admin.save_model(fake_request, user_with_email, form, change=False)
 
             subject.save.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestSaveModelWithIdp:
+
+    @pytest.fixture
+    def magic_link_token(self):
+        return "test-token"
+
+    @pytest.fixture(autouse=True)
+    def fake_account_linker(self, magic_link_token):
+        with patch("accounts.admin.create_magic_link_token", return_value=magic_link_token):
+            yield
+
+    @pytest.fixture(autouse=True)
+    def mock_current_tenant(self):
+        with patch("accounts.admin.get_current_tenant") as mock:
+            mock.return_value.domain = "testsite.pamdas.org"
+            yield mock
+
+    @pytest.fixture(autouse=True)
+    def _default_from_email(self, settings):
+        settings.DEFAULT_FROM_EMAIL = "noreply@example.com"
+
+    @pytest.fixture(autouse=True)
+    def idp_tenant_settings(self):
+        mock = MagicMock()
+        mock.feature_flags.require_idp = True
+        with patch("accounts.admin.get_tenant_settings", return_value=mock):
+            yield mock
+
+    @pytest.fixture
+    def sent_invitation_email(
+        self,
+        user_admin,
+        fake_request,
+        user_with_email,
+        form,
+        mock_super_save_model,
+        mailoutbox,
+    ):
+        user_admin.save_model(fake_request, user_with_email, form, change=False)
+        assert len(mailoutbox) == 1, f"Expected 1 email, got {len(mailoutbox)}"
+        return mailoutbox[0]
+
+    def test_sent_to_user_email_address(self, sent_invitation_email, user_with_email):
+        assert sent_invitation_email.to == [user_with_email.email]
+
+    def test_sent_from_default_from_email(self, sent_invitation_email):
+        assert sent_invitation_email.from_email == "noreply@example.com"
+
+    def test_subject(self, sent_invitation_email):
+        assert sent_invitation_email.subject == "Your invitation to testsite.pamdas.org"
+
+    def test_body_contains_invitation_url_on_its_own_line(self, sent_invitation_email, magic_link_token):
+        expected_url = f"https://testsite.pamdas.org{reverse(ACCOUNT_LINKER_LANDING_URL_NAME)}?token={magic_link_token}"
+        assert expected_url in sent_invitation_email.body.splitlines()
+
+    class TestShouldNotSendIdpEmail:
+
+        def test_no_email_when_change_is_true(
+            self,
+            user_admin,
+            fake_request,
+            user_with_email,
+            form,
+            mock_super_save_model,
+            mailoutbox,
+        ):
+            user_admin.save_model(fake_request, user_with_email, form, change=True)
+
+            assert len(mailoutbox) == 0
+
+        def test_no_email_when_user_has_no_email(
+            self,
+            user_admin,
+            fake_request,
+            user_without_email,
+            form,
+            mock_super_save_model,
+            mailoutbox,
+        ):
+            user_admin.save_model(fake_request, user_without_email, form, change=False)
+
+            assert len(mailoutbox) == 0
+
+
+@pytest.mark.django_db(transaction=True)
+class TestEmailDeferredToCommit:
+    """Django admin's changeform_view wraps save_model in transaction.atomic().
+    If that transaction rolls back (e.g. a signal handler raises), any email
+    sent inline would already be delivered for a user that no longer exists.
+    These tests simulate this by wrapping save_model in an atomic block that
+    is rolled back, then asserting no email escaped the transaction boundary."""
+
+    class Rollback(Exception):
+        pass
+
+    @pytest.fixture
+    def user_with_email(self):
+        # A mock user avoids hitting the DB (and the das_tenant FK) so that
+        # transactional test isolation doesn't conflict with multi-tenant state.
+        user = MagicMock()
+        user.email = "newuser@example.com"
+        user.has_usable_password.return_value = False
+        return user
+
+    @pytest.fixture(autouse=True)
+    def _mock_super_save_model(self):
+        with patch("django.contrib.auth.admin.UserAdmin.save_model"):
+            yield
+
+    def test_reset_email_not_sent_on_rollback(
+        self, user_admin, fake_request, user_with_email, form, mock_send_reset_email
+    ):
+        mock = MagicMock()
+        mock.feature_flags.require_idp = False
+        with patch("accounts.admin.get_tenant_settings", return_value=mock):
+            with pytest.raises(self.Rollback):
+                with transaction.atomic():
+                    user_admin.save_model(fake_request, user_with_email, form, change=False)
+                    raise self.Rollback()
+
+        mock_send_reset_email.assert_not_called()
+
+    def test_invitation_email_not_sent_on_rollback(self, user_admin, fake_request, user_with_email, form, settings):
+        settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+        settings.DEFAULT_FROM_EMAIL = "noreply@example.com"
+
+        mock_ts = MagicMock()
+        mock_ts.feature_flags.require_idp = True
+        with patch("accounts.admin.get_tenant_settings", return_value=mock_ts):
+            with patch("accounts.admin.create_magic_link_token", return_value="test-token"):
+                with patch("accounts.admin.get_current_tenant") as mock_tenant:
+                    mock_tenant.return_value.domain = "testsite.pamdas.org"
+
+                    with pytest.raises(self.Rollback):
+                        with transaction.atomic():
+                            user_admin.save_model(fake_request, user_with_email, form, change=False)
+                            raise self.Rollback()
+
+        assert len(mail.outbox) == 0

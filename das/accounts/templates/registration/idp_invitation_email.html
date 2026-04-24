@@ -1,0 +1,7 @@
+{% load i18n %}{% autoescape off %}
+{% blocktranslate %}Hello,{% endblocktranslate %}
+{% blocktranslate with site_name=site_name %}You have been invited to join {{ site_name }}.{% endblocktranslate %}
+{% blocktranslate %}To complete your registration, please sign in with your email or create a new account with your email using the following link:{% endblocktranslate %}
+{{ invitation_url }}
+{% blocktranslate %}If you have any questions, please contact support@earthranger.com{% endblocktranslate %}
+{% endautoescape %}
