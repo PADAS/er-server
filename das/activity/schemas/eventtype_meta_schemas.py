@@ -547,6 +547,78 @@ section_ui_schema_column_schema = {
     "uniqueItems": True,
 }
 
+section_ui_schema_contains_condition_schema = {
+    "type": "object",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "CONTAINS"},
+        "value": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]},
+    },
+    "required": ["field", "id", "operator", "value"],
+    "additionalProperties": False,
+}
+
+section_ui_schema_is_empty_condition_schema = {
+    "type": "object",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_EMPTY"},
+        "value": {"const": None},
+    },
+    "required": ["field", "id", "operator"],
+    "additionalProperties": False,
+}
+
+section_ui_schema_is_not_empty_condition_schema = {
+    "type": "object",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_NOT_EMPTY"},
+        "value": {"const": None},
+    },
+    "required": ["field", "id", "operator"],
+    "additionalProperties": False,
+}
+
+section_ui_schema_is_exactly_condition_schema = {
+    "type": "object",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_EXACTLY"},
+        "value": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]},
+    },
+    "required": ["field", "id", "operator", "value"],
+    "additionalProperties": False,
+}
+
+section_ui_schema_is_contained_by_condition_schema = {
+    "type": "object",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_CONTAINED_BY"},
+        "value": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    },
+    "required": ["field", "id", "operator", "value"],
+    "additionalProperties": False,
+}
+
+section_ui_schema_is_not_contained_by_condition_schema = {
+    "type": "object",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_NOT_CONTAINED_BY"},
+        "value": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    },
+    "required": ["field", "id", "operator", "value"],
+    "additionalProperties": False,
+}
+
 section_ui_schema = {
     "type": "object",
     "title": "Section UI schema",
@@ -555,26 +627,14 @@ section_ui_schema = {
         "conditions": {
             "type": "array",
             "items": {
-                "type": "object",
-                "properties": {
-                    "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
-                    "id": {"type": "string", "pattern": "^condition-.+$"},
-                    "operator": {
-                        "enum": [
-                            "CONTAINS",
-                            "IS_CONTAINED_BY",
-                            "IS_NOT_CONTAINED_BY",
-                            "IS_EMPTY",
-                            "IS_NOT_EMPTY",
-                            "IS_EXACTLY",
-                        ]
-                    },
-                    "value": {
-                        "anyOf": [{"type": "string"}, {"type": "null"}, {"type": "array", "items": {"type": "string"}}]
-                    },
-                },
-                "required": ["field", "id", "operator"],
-                "additionalProperties": False,
+                "oneOf": [
+                    section_ui_schema_contains_condition_schema,
+                    section_ui_schema_is_empty_condition_schema,
+                    section_ui_schema_is_not_empty_condition_schema,
+                    section_ui_schema_is_exactly_condition_schema,
+                    section_ui_schema_is_contained_by_condition_schema,
+                    section_ui_schema_is_not_contained_by_condition_schema,
+                ],
             },
         },
         "isActive": {"type": "boolean"},
