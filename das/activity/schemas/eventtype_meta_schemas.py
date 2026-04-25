@@ -217,8 +217,13 @@ choice_list_field_ui_schema = {
                 },
                 {
                     "if": {
-                        "properties": {"myDataType": {"const": "EVENT_TYPES_FROM_EVENT_CATEGORY"}},
-                        "required": ["myDataType"],
+                        "allOf": [
+                            {"properties": {"type": {"const": "MY_DATA"}}, "required": ["type"]},
+                            {
+                                "properties": {"myDataType": {"const": "EVENT_TYPES_FROM_EVENT_CATEGORY"}},
+                                "required": ["myDataType"],
+                            },
+                        ]
                     },
                     "then": {
                         "properties": {"eventTypeCategories": {"minItems": 1}},
@@ -227,22 +232,37 @@ choice_list_field_ui_schema = {
                 },
                 {
                     "if": {
-                        "properties": {"myDataType": {"const": "FEATURES_FROM_FEATURE_CATEGORY"}},
-                        "required": ["myDataType"],
+                        "allOf": [
+                            {"properties": {"type": {"const": "MY_DATA"}}, "required": ["type"]},
+                            {
+                                "properties": {"myDataType": {"const": "FEATURES_FROM_FEATURE_CATEGORY"}},
+                                "required": ["myDataType"],
+                            },
+                        ]
                     },
                     "then": {"properties": {"featureCategories": {"minItems": 1}}, "required": ["featureCategories"]},
                 },
                 {
                     "if": {
-                        "properties": {"myDataType": {"const": "SUBJECTS_FROM_SUBJECT_GROUP"}},
-                        "required": ["myDataType"],
+                        "allOf": [
+                            {"properties": {"type": {"const": "MY_DATA"}}, "required": ["type"]},
+                            {
+                                "properties": {"myDataType": {"const": "SUBJECTS_FROM_SUBJECT_GROUP"}},
+                                "required": ["myDataType"],
+                            },
+                        ]
                     },
                     "then": {"properties": {"subjectGroups": {"minItems": 1}}, "required": ["subjectGroups"]},
                 },
                 {
                     "if": {
-                        "properties": {"myDataType": {"const": "SUBJECTS_FROM_SUBJECT_SUBTYPE"}},
-                        "required": ["myDataType"],
+                        "allOf": [
+                            {"properties": {"type": {"const": "MY_DATA"}}, "required": ["type"]},
+                            {
+                                "properties": {"myDataType": {"const": "SUBJECTS_FROM_SUBJECT_SUBTYPE"}},
+                                "required": ["myDataType"],
+                            },
+                        ]
                     },
                     "then": {"properties": {"subjectSubtypes": {"minItems": 1}}, "required": ["subjectSubtypes"]},
                 },
