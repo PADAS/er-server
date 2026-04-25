@@ -518,140 +518,10 @@ header_ui_schema = {
 }
 
 
-# Section
-
-section_ui_schema_column_schema = {
-    "type": "array",
-    "items": {
-        "anyOf": [
-            {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "pattern": HEADER_ID_PATTERN},
-                    "type": {"const": "header"},
-                },
-                "required": ["name", "type"],
-                "additionalProperties": False,
-            },
-            {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "pattern": FIELD_ID_PATTERN},
-                    "type": {"const": "field"},
-                },
-                "required": ["name", "type"],
-                "additionalProperties": False,
-            },
-        ]
-    },
-    "uniqueItems": True,
-}
-
-section_ui_schema_contains_condition_schema = {
-    "type": "object",
-    "properties": {
-        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
-        "id": {"type": "string", "pattern": "^condition-.+$"},
-        "operator": {"const": "CONTAINS"},
-        "value": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]},
-    },
-    "required": ["field", "id", "operator", "value"],
-    "additionalProperties": False,
-}
-
-section_ui_schema_is_empty_condition_schema = {
-    "type": "object",
-    "properties": {
-        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
-        "id": {"type": "string", "pattern": "^condition-.+$"},
-        "operator": {"const": "IS_EMPTY"},
-        "value": {"const": None},
-    },
-    "required": ["field", "id", "operator"],
-    "additionalProperties": False,
-}
-
-section_ui_schema_is_not_empty_condition_schema = {
-    "type": "object",
-    "properties": {
-        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
-        "id": {"type": "string", "pattern": "^condition-.+$"},
-        "operator": {"const": "IS_NOT_EMPTY"},
-        "value": {"const": None},
-    },
-    "required": ["field", "id", "operator"],
-    "additionalProperties": False,
-}
-
-section_ui_schema_is_exactly_condition_schema = {
-    "type": "object",
-    "properties": {
-        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
-        "id": {"type": "string", "pattern": "^condition-.+$"},
-        "operator": {"const": "IS_EXACTLY"},
-        "value": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]},
-    },
-    "required": ["field", "id", "operator", "value"],
-    "additionalProperties": False,
-}
-
-section_ui_schema_is_contained_by_condition_schema = {
-    "type": "object",
-    "properties": {
-        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
-        "id": {"type": "string", "pattern": "^condition-.+$"},
-        "operator": {"const": "IS_CONTAINED_BY"},
-        "value": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-    },
-    "required": ["field", "id", "operator", "value"],
-    "additionalProperties": False,
-}
-
-section_ui_schema_is_not_contained_by_condition_schema = {
-    "type": "object",
-    "properties": {
-        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
-        "id": {"type": "string", "pattern": "^condition-.+$"},
-        "operator": {"const": "IS_NOT_CONTAINED_BY"},
-        "value": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-    },
-    "required": ["field", "id", "operator", "value"],
-    "additionalProperties": False,
-}
-
-section_ui_schema = {
-    "type": "object",
-    "title": "Section UI schema",
-    "properties": {
-        "columns": {"enum": [1, 2]},
-        "conditions": {
-            "type": "array",
-            "items": {
-                "oneOf": [
-                    section_ui_schema_contains_condition_schema,
-                    section_ui_schema_is_empty_condition_schema,
-                    section_ui_schema_is_not_empty_condition_schema,
-                    section_ui_schema_is_exactly_condition_schema,
-                    section_ui_schema_is_contained_by_condition_schema,
-                    section_ui_schema_is_not_contained_by_condition_schema,
-                ],
-            },
-        },
-        "isActive": {"type": "boolean"},
-        "label": {"type": "string"},
-        "leftColumn": section_ui_schema_column_schema,
-        "rightColumn": section_ui_schema_column_schema,
-    },
-    "required": ["columns", "isActive", "leftColumn", "rightColumn"],
-    "additionalProperties": False,
-}
-
-
 # Contains condition
 
-contains_condition_schema = {
+contains_condition_json_schema = {
     "type": "object",
-    "title": "Contains condition schema",
     "properties": {
         "properties": {
             "type": "object",
@@ -734,12 +604,23 @@ contains_condition_schema = {
     "additionalProperties": False,
 }
 
+contains_condition_ui_schema = {
+    "type": "object",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "CONTAINS"},
+        "value": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]},
+    },
+    "required": ["field", "id", "operator", "value"],
+    "additionalProperties": False,
+}
+
 
 # Is Empty condition
 
-is_empty_condition_schema = {
+is_empty_condition_json_schema = {
     "type": "object",
-    "title": "Is Empty condition schema",
     "properties": {
         "anyOf": {
             "type": "array",
@@ -897,12 +778,23 @@ is_empty_condition_schema = {
     "additionalProperties": False,
 }
 
+is_empty_condition_ui_schema = {
+    "type": "object",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_EMPTY"},
+        "value": {"const": None},
+    },
+    "required": ["field", "id", "operator"],
+    "additionalProperties": False,
+}
+
 
 # Is Not Empty condition
 
-is_not_empty_condition_schema = {
+is_not_empty_condition_json_schema = {
     "type": "object",
-    "title": "Is Not Empty condition schema",
     "properties": {
         "properties": {
             "type": "object",
@@ -1008,12 +900,23 @@ is_not_empty_condition_schema = {
     "additionalProperties": False,
 }
 
+is_not_empty_condition_ui_schema = {
+    "type": "object",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_NOT_EMPTY"},
+        "value": {"const": None},
+    },
+    "required": ["field", "id", "operator"],
+    "additionalProperties": False,
+}
+
 
 # Is Exactly condition
 
-is_exactly_condition_schema = {
+is_exactly_condition_json_schema = {
     "type": "object",
-    "title": "Is Exactly condition schema",
     "properties": {
         "properties": {
             "type": "object",
@@ -1113,12 +1016,23 @@ is_exactly_condition_schema = {
     "additionalProperties": False,
 }
 
+is_exactly_condition_ui_schema = {
+    "type": "object",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_EXACTLY"},
+        "value": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]},
+    },
+    "required": ["field", "id", "operator", "value"],
+    "additionalProperties": False,
+}
+
 
 # Is Contained By condition
 
-is_contained_by_condition_schema = {
+is_contained_by_condition_json_schema = {
     "type": "object",
-    "title": "Is Contained By condition schema",
     "properties": {
         "properties": {
             "type": "object",
@@ -1200,12 +1114,23 @@ is_contained_by_condition_schema = {
     "additionalProperties": False,
 }
 
+is_contained_by_condition_ui_schema = {
+    "type": "object",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_CONTAINED_BY"},
+        "value": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    },
+    "required": ["field", "id", "operator", "value"],
+    "additionalProperties": False,
+}
+
 
 # Is Not Contained By condition
 
-is_not_contained_by_condition_schema = {
+is_not_contained_by_condition_json_schema = {
     "type": "object",
-    "title": "Is Not Contained By condition schema",
     "properties": {
         "properties": {
             "type": "object",
@@ -1362,6 +1287,75 @@ is_not_contained_by_condition_schema = {
     "additionalProperties": False,
 }
 
+is_not_contained_by_condition_ui_schema = {
+    "type": "object",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_NOT_CONTAINED_BY"},
+        "value": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    },
+    "required": ["field", "id", "operator", "value"],
+    "additionalProperties": False,
+}
+
+
+# Section
+
+section_ui_schema_column_schema = {
+    "type": "array",
+    "items": {
+        "anyOf": [
+            {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "pattern": HEADER_ID_PATTERN},
+                    "type": {"const": "header"},
+                },
+                "required": ["name", "type"],
+                "additionalProperties": False,
+            },
+            {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "pattern": FIELD_ID_PATTERN},
+                    "type": {"const": "field"},
+                },
+                "required": ["name", "type"],
+                "additionalProperties": False,
+            },
+        ]
+    },
+    "uniqueItems": True,
+}
+
+section_ui_schema = {
+    "type": "object",
+    "title": "Section UI schema",
+    "properties": {
+        "columns": {"enum": [1, 2]},
+        "conditions": {
+            "type": "array",
+            "items": {
+                "oneOf": [
+                    contains_condition_ui_schema,
+                    is_empty_condition_ui_schema,
+                    is_not_empty_condition_ui_schema,
+                    is_exactly_condition_ui_schema,
+                    is_contained_by_condition_ui_schema,
+                    is_not_contained_by_condition_ui_schema,
+                ],
+            },
+        },
+        "isActive": {"type": "boolean"},
+        "label": {"type": "string"},
+        "leftColumn": section_ui_schema_column_schema,
+        "rightColumn": section_ui_schema_column_schema,
+    },
+    "required": ["columns", "isActive", "leftColumn", "rightColumn"],
+    "additionalProperties": False,
+}
+
 
 # UI
 
@@ -1431,12 +1425,12 @@ json_field_schema = {
                                 "type": "array",
                                 "items": {
                                     "anyOf": [
-                                        {"$ref": "#/$defs/containsConditionSchema"},
-                                        {"$ref": "#/$defs/isEmptyConditionSchema"},
-                                        {"$ref": "#/$defs/isNotEmptyConditionSchema"},
-                                        {"$ref": "#/$defs/isExactlyConditionSchema"},
-                                        {"$ref": "#/$defs/isContainedByConditionSchema"},
-                                        {"$ref": "#/$defs/isNotContainedByConditionSchema"},
+                                        contains_condition_json_schema,
+                                        is_empty_condition_json_schema,
+                                        is_not_empty_condition_json_schema,
+                                        is_exactly_condition_json_schema,
+                                        is_contained_by_condition_json_schema,
+                                        is_not_contained_by_condition_json_schema,
                                     ]
                                 },
                             }
@@ -1546,13 +1540,6 @@ main_event_type_schema = {
         "numericFieldJSONSchema": numeric_field_json_schema,
         "singleChoiceListFieldJSONSchema": single_choice_list_field_json_schema,
         "textFieldJSONSchema": text_field_json_schema,
-        # Condition JSON subschemas
-        "containsConditionSchema": contains_condition_schema,
-        "isEmptyConditionSchema": is_empty_condition_schema,
-        "isNotEmptyConditionSchema": is_not_empty_condition_schema,
-        "isExactlyConditionSchema": is_exactly_condition_schema,
-        "isContainedByConditionSchema": is_contained_by_condition_schema,
-        "isNotContainedByConditionSchema": is_not_contained_by_condition_schema,
         # Form element UI subschemas
         "attachmentFieldUISchema": attachment_field_ui_schema,
         "booleanFieldUISchema": boolean_field_ui_schema,
