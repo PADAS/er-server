@@ -200,18 +200,39 @@ class SpatialFeatureTypeAdmin(ModelAdminDisplayingManyToManyFieldMixin):
                     "name",
                     "display_category",
                     "is_visible",
-                    "presentation",
                 )
+            },
+        ),
+        (
+            "Line Formatting",
+            {
+                "fields": ("stroke", "stroke_width", "stroke_opacity"),
+            },
+        ),
+        (
+            "Point Formatting",
+            {
+                "fields": ("point_image", "point_width", "point_height"),
+            },
+        ),
+        (
+            "Polygon Formatting",
+            {
+                "fields": ("fill_color", "fill_outline_color", "fill_opacity"),
             },
         ),
         (
             "Advanced Attributes",
             {
                 "classes": ("wide", "collapse"),
-                "fields": ("tags", "attribute_schema", "provenance", "external_id", "external_source"),
+                "fields": ("tags", "attribute_schema", "presentation", "provenance", "external_id", "external_source"),
             },
         ),
     )
+
+    class Media:
+        css = {"all": ("css/spatial_feature_type_admin.css",)}
+        js = ("js/spatial_feature_type_admin.js",)
 
 
 class GeometryTypeFilter(django_admin.SimpleListFilter):
@@ -547,7 +568,8 @@ class SpatialFeatureFileAdmin(BaseSpatialFileAdmin):
         }
         msg = format_html(
             _(
-                'The Feature Import File "{obj}" {action} successfully. Feature download in progress, check loaded {features} after a few minutes'
+                'The Feature Import File "{obj}" {action} successfully. Feature download in progress, '
+                "check loaded {features} after a few minutes"
             ),
             **msg_dict,
         )

@@ -1,0 +1,45 @@
+<div class="color-picker-field">
+  <input type="text" name="{{ widget.name }}" value="{{ widget.value|default:'' }}" data-default="{{ widget.default_color }}"{% include "django/forms/widgets/attrs.html" %}>
+  <input type="color" class="color-swatch" tabindex="-1" aria-label="Color picker swatch">
+</div>
+<script>
+(function () {
+  var wrapper = document.currentScript.previousElementSibling;
+  var textInput = wrapper.querySelector('input[type="text"]');
+  var swatchInput = wrapper.querySelector('input[type="color"]');
+  var defaultColor = textInput.getAttribute('data-default') || '';
+
+  function toHex(value) {
+    if (!value) return null;
+    value = value.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
+    if (/^#[0-9a-fA-F]{3}$/.test(value)) {
+      var r = value[1], g = value[2], b = value[3];
+      return '#' + r + r + g + g + b + b;
+    }
+    // Try to resolve named colors via a temporary canvas element
+    try {
+      var ctx = document.createElement('canvas').getContext('2d');
+      ctx.fillStyle = value;
+      var hex = ctx.fillStyle;
+      if (/^#[0-9a-fA-F]{6}$/.test(hex)) return hex;
+    } catch (e) {}
+    return null;
+  }
+
+  function syncSwatchFromText() {
+    var hex = toHex(textInput.value) || toHex(textInput.defaultValue) || toHex(defaultColor);
+    if (hex) swatchInput.value = hex;
+  }
+
+  syncSwatchFromText();
+
+  textInput.addEventListener('input', syncSwatchFromText);
+  textInput.addEventListener('change', syncSwatchFromText);
+
+  swatchInput.addEventListener('input', function () {
+    textInput.value = swatchInput.value;
+    textInput.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+})();
+</script>
