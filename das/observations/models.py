@@ -31,6 +31,7 @@ from bitfield import BitField
 from dateutil.parser import parse as parse_date
 from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
+from django_multitenant.utils import get_current_tenant
 from psycopg2.extras import DateTimeTZRange
 
 from django.contrib.auth import get_user_model
@@ -90,6 +91,7 @@ from utils.interfaces import SharedResourceHandler
 from utils.json import parse_bool, zeroout_microseconds
 from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager, get_next_int_val
+from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 from utils.tenant.thread import get_tenant_settings
 
 User = get_user_model()
@@ -119,10 +121,19 @@ SOURCE_TYPES = sorted(
 
 
 def to_rgb(color):
+    """Convert a ``"R,G,B"`` CSV string to ``"#RRGGBB"``.
+
+    Returns ``None`` on malformed input (wrong component count, non-numeric values) so
+    callers can fall back to a default.  Mirrors the SQL-side ``_CsvRgbToHex`` behaviour;
+    a malformed value should not break feature rendering.
+    """
     try:
-        return "#{0:02X}{1:02X}{2:02X}".format(*[int(val) for val in color.split(",")])
-    except:
-        raise
+        parts = [int(val) for val in color.split(",")]
+        if len(parts) != 3:
+            return None
+        return "#{0:02X}{1:02X}{2:02X}".format(*parts)
+    except (ValueError, AttributeError):
+        return None
 
 
 DEFAULT_COLOR = "255,255,0"
@@ -925,10 +936,44 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
     def set_flag(self, id_list, flags):
         """Hide the nuances of manipulating a bitmap associated with an observation."""
         Observation.objects.filter(id__in=id_list).update(exclusion_flags=F("exclusion_flags").bitor(flags))
+        self._enqueue_segment_recompute_for_flag_change(id_list, flags)
 
     def unset_flag(self, id_list, flags):
         """Hide the nuances of zeroing bits in a bitmap."""
         Observation.objects.filter(id__in=id_list).update(exclusion_flags=F("exclusion_flags").bitand(~flags))
+        self._enqueue_segment_recompute_for_flag_change(id_list, flags)
+
+    @staticmethod
+    def _enqueue_segment_recompute_for_flag_change(id_list, flags):
+        """Bulk ``.update()`` skips post_save, so segments referencing a now-(in/un)excluded
+        observation aren't rebuilt automatically.  When system exclusion bits move, queue a
+        recompute for the affected IDs.  Third-party flags don't affect segment selection
+        (see ``ObservationQuerySet.by_exclusion_flags``), so we skip enqueue for those.
+
+        The ``apply_async`` is deferred to ``transaction.on_commit`` so a rolled-back
+        ``set_flag`` / ``unset_flag`` does not enqueue a no-op recompute task.
+        """
+        if not id_list or not (flags & Observation.SYSTEM_FLAGS_MASK):
+            return
+
+        # observations.tasks imports from observations.models — keep this one inline.
+        from observations.tasks import recompute_observation_segments_task
+
+        try:
+            tenant = get_current_tenant()
+        except TenantNotFoundInLocalThreadException:
+            tenant = None
+        domain = getattr(tenant, "domain", None) if tenant else None
+        if not domain:
+            logger.warning("set/unset_flag: no tenant context; skipping segment recompute for %d ids", len(id_list))
+            return
+
+        observation_ids = [str(i) for i in id_list]
+        transaction.on_commit(
+            lambda: recompute_observation_segments_task.apply_async(
+                kwargs={"observation_ids": observation_ids, "domain": domain},
+            )
+        )
 
     def get_subject_source_observation_values(self, subject_source, since=None, until=None, limit=None, filter_flag=0):
         values = ("recorded_at", "location")
@@ -1090,27 +1135,34 @@ class Observation(TenantModelMixin, models.Model):
         """Check if any system exclusion flags are set."""
         return bool(self.system_exclusion_flags & self.DEFAULT_EXCLUSION_MASK)
 
-    def get_neighbor_observations(self, subject):
-        """
-        Get the previous and next observations for a subject's track relative to this observation.
+    def get_neighbor_observations(self):
+        """Previous and next non-excluded observation from the SAME source.
 
-        Uses two bounded indexed queries (prev/next by recorded_at) so the cost is
-        O(1) regardless of track length and no per-subject cache is needed.
+        Scoped to ``source_id`` rather than to a subject so the query maps directly to the
+        unique-constraint B-tree on ``(das_tenant, source, recorded_at)``: a partition-pruned
+        index seek with ``LIMIT 1`` per direction.  Subject identity for segment attachment
+        is resolved separately via ``get_subject_for_observation``.
 
-        Args:
-            subject: Subject instance (defines the track via its SubjectSources)
+        Excludes:
+            - rows with ``location IS NULL``
+            - rows where ``Point(0, 0)`` snuck in untagged
+            - rows with system exclusion flags set (manual / automatic)
 
         Returns:
             tuple: (prev_observation, next_observation) - either can be None
         """
-        base_qs = Observation.objects.filter(
-            source__subjectsource__subject=subject,
-            source__subjectsource__assigned_range__contains=F("recorded_at"),
-            location__isnull=False,
-        ).exclude(id=self.id)
+        base_qs = (
+            Observation.objects.filter(
+                source_id=self.source_id,
+                das_tenant_id=self.das_tenant_id,
+                location__isnull=False,
+            )
+            .by_exclusion_flags(filter_flag=0, include_empty_location=False)
+            .exclude(id=self.id)
+        )
 
-        prev_obs = base_qs.filter(recorded_at__lte=self.recorded_at).order_by("-recorded_at").first()
-        next_obs = base_qs.filter(recorded_at__gte=self.recorded_at).order_by("recorded_at").first()
+        prev_obs = base_qs.filter(recorded_at__lt=self.recorded_at).order_by("-recorded_at").first()
+        next_obs = base_qs.filter(recorded_at__gt=self.recorded_at).order_by("recorded_at").first()
         return prev_obs, next_obs
 
     def _delete_observation_segments(self):
@@ -1240,27 +1292,28 @@ class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset
         """
         Get or create a segment between two observations.
 
-        Idempotent: if no segment exists (e.g. backfill not run yet),
-        we create; if create raises IntegrityError (e.g. race with backfill), we
-        re-fetch and return the existing segment so callers do not see an error.
+        Uses a row lock on the two endpoint observations so concurrent workers cannot
+        both pass the existence check and insert (TOCTOU). IntegrityError remains a
+        fallback for races with code paths that do not take these locks.
+
+        The lock and the create are wrapped in a single ``atomic()`` because
+        ``select_for_update`` requires an explicit transaction (Postgres has nothing to
+        hold the row lock against in autocommit) — this keeps the method correct when
+        the caller is running outside a transaction (e.g. Celery task body).
 
         Returns:
             (ObservationSegment, created) tuple
         """
-        segment = self.filter(
-            start_observation=start_obs,
-            end_observation=end_obs,
-            das_tenant_id=subject.das_tenant_id,
-        ).first()
-        if segment is not None:
-            return segment, False
-        try:
-            with transaction.atomic():
-                segment = self.create_segment(start_obs, end_obs, subject)
-                return segment, True
-        except IntegrityError:
-            # Segment was created by another process or backfill (race / rollout).
-            # Re-fetch and return it so the operation is idempotent.
+        with transaction.atomic():
+            # Lock the two endpoint rows in a deterministic order (by pk) so concurrent
+            # workers acquiring the same pair of locks can't deadlock.
+            list(
+                Observation.objects.filter(pk__in=[start_obs.pk, end_obs.pk])
+                .select_for_update()
+                .order_by("pk")
+                .values_list("pk", flat=True)
+            )
+
             segment = self.filter(
                 start_observation=start_obs,
                 end_observation=end_obs,
@@ -1268,7 +1321,25 @@ class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset
             ).first()
             if segment is not None:
                 return segment, False
-            raise
+
+            # Inner atomic creates a savepoint so an IntegrityError doesn't poison the
+            # outer transaction (Postgres aborts the txn on error; subsequent queries
+            # would otherwise fail until rollback).
+            try:
+                with transaction.atomic():
+                    segment = self.create_segment(start_obs, end_obs, subject)
+                    return segment, True
+            except IntegrityError:
+                # Segment was created by another process or backfill (race / rollout).
+                # Re-fetch and return it so the operation is idempotent.
+                segment = self.filter(
+                    start_observation=start_obs,
+                    end_observation=end_obs,
+                    das_tenant_id=subject.das_tenant_id,
+                ).first()
+                if segment is not None:
+                    return segment, False
+                raise
 
 
 class ObservationSegment(TenantModelMixin, models.Model):

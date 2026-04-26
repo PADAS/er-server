@@ -139,6 +139,12 @@ app.conf.task_routes = {
     "observations.tasks.recompute_observation_segments_task": {
         "queue": "maintenance",
     },
+    "observations.tasks.reconcile_observation_segments_task": {
+        "queue": "maintenance",
+    },
+    "observations.tasks.bump_observation_segment_tile_cache_for_tenant_task": {
+        "queue": "maintenance",
+    },
     "observations.tasks.poll_news_gcs_bucket": {"queue": "maintenance"},
     "reports.tasks.run_check_sources_threshold": {"queue": "maintenance"},
     "observations.tasks.run_partition_table_check": {"queue": "maintenance"},
@@ -249,6 +255,16 @@ app.conf.beat_schedule = {
     "refresh-auth0-jwks": {
         "task": "utils.auth0.tasks.refresh_cached_auth0_jwks",
         "schedule": timedelta(minutes=30),
+    },
+    "reconcile-observation-segments": {
+        "task": "observations.tasks.reconcile_observation_segments_task",
+        # Daily at 03:00 tenant-local (settings.TIME_ZONE).  Off the busy ingest path,
+        # before the 04:00 routine-delete-observational-data run.  Start conservative;
+        # tighten cadence if WARN-level gap logs / reconcile.gap_detected metrics are quiet.
+        "schedule": crontab(hour=3, minute=0),
+        # Drop stale per-tenant messages well before the next run so we don't pile up
+        # if workers fall behind on the maintenance queue.
+        "options": {"expires": int(timedelta(hours=20).total_seconds())},
     },
 }
 

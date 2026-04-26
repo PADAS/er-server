@@ -1,20 +1,28 @@
+from __future__ import annotations
+
 import json
 import logging
 import random
 import tempfile
+import time
 from datetime import datetime, timedelta, timezone
+from typing import Any
+from uuid import UUID
 
 import xmltodict
 from celery_once import QueueOnce
+from django_multitenant.utils import get_current_tenant
 from google.api_core import exceptions
 from google.cloud import storage
 
+from django.conf import settings as django_settings
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
-from django.db.models import F
+from django.db.models import F, Max, Min
 from django.utils.translation import gettext as _
 
 import utils.db.task_helpers as utils_db_task_helpers
+import utils.stats as stats
 from das_server import celery, pubsub
 from observations.materialized_views import patrols_view
 from observations.message_adapters import SendError, _handle_outbox_message
@@ -22,6 +30,7 @@ from observations.models import (
     Announcement,
     GPXTrackFile,
     Observation,
+    ObservationSegment,
     Source,
     SourceProvider,
     Subject,
@@ -29,11 +38,69 @@ from observations.models import (
 )
 from observations.serializers import ObservationSerializer
 from observations.utils import dateparse
-from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask
+from utils.cache import bump_observation_segment_tile_version
+from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask, TenantTask
+
+# NOTE: ``observations.signals`` imports from this module at load time, so anything we need
+# from there has to be imported inside the function bodies below — top-level imports here
+# would deadlock the module load.
 
 logger = logging.getLogger(__name__)
 
 MAX_MAINTAIN_SUBJECTSTATUS_DELAY_SECONDS = 600
+
+
+def _emit_segment_task_metrics(
+    metric_prefix: str,
+    domain: str | None,
+    batch_size: int,
+    oldest_recorded_at: datetime | None,
+    duration_ms: float,
+) -> None:
+    """Emit lag/throughput metrics for a segment maintenance task.
+
+    - ``observation_segment.<prefix>.batch_size``: per-task batch cardinality.
+    - ``observation_segment.<prefix>.lag_seconds``: now - oldest obs.recorded_at; proxy for end-to-end
+      freshness (observation insert → segment row).
+    - ``observation_segment.<prefix>.duration_ms``: wall-clock processing time.
+    - ``observation_segment.<prefix>.backlog_threshold_breach``: incremented when lag exceeds
+      ``OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS`` so log-based alerts can fire.
+    """
+    tags = [f"domain:{domain}"] if domain else []
+    stats.histogram(f"observation_segment.{metric_prefix}.batch_size", batch_size, tags=tags)
+    stats.histogram(f"observation_segment.{metric_prefix}.duration_ms", duration_ms, tags=tags)
+
+    if oldest_recorded_at is None:
+        return
+    lag_seconds = (datetime.now(tz=timezone.utc) - oldest_recorded_at).total_seconds()
+    stats.histogram(f"observation_segment.{metric_prefix}.lag_seconds", lag_seconds, tags=tags)
+    threshold = int(getattr(django_settings, "OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS", 300))
+    if lag_seconds > threshold:
+        stats.increment(f"observation_segment.{metric_prefix}.backlog_threshold_breach", tags=tags)
+        logger.warning(
+            "observation_segment.%s lag %.1fs exceeds threshold %ds (batch=%d, domain=%s)",
+            metric_prefix,
+            lag_seconds,
+            threshold,
+            batch_size,
+            domain,
+        )
+
+
+def _coerce_task_datetime(value: Any) -> datetime | None:
+    """Parse Celery-serialized datetimes; return None if value is missing or unparsable."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        from django.utils.dateparse import parse_datetime
+
+        parsed = parse_datetime(value)
+        if parsed is None:
+            logger.warning("Could not parse datetime string for segment recompute task: %r", value)
+        return parsed
+    return None
 
 
 @celery.app.task(
@@ -41,33 +108,324 @@ MAX_MAINTAIN_SUBJECTSTATUS_DELAY_SECONDS = 600
     once={"graceful": True},
 )
 def recompute_observation_segments_task(source_id=None, lower=None, upper=None, observation_ids=None, **kwargs):
-    """
-    Single async entry point for recomputing ObservationSegments.
+    """Single async entry point for recomputing ObservationSegments.
 
     Invoke with either:
-      - source_id, lower, upper: recompute segments for all observations of that source in [lower, upper]
-      - observation_ids: recompute segments for those observation IDs
+      - source_id, lower, upper: recompute segments for all observations of that
+        source in [lower, upper].  Bounds are clamped to the 3-year partition
+        retention window and enable partition pruning on the observation table.
+      - observation_ids: recompute segments for those observation IDs.  The task
+        loads ``MIN``/``MAX`` ``recorded_at`` for those IDs (one aggregate query),
+        merges optional ``lower``/``upper`` kwargs so the window always covers
+        every listed row, clamps to the 3-year retention window, then runs the
+        main fetch with ``recorded_at`` bounds so PostgreSQL can prune
+        partitions.  Optional ``lower``/``upper`` hint a wider window when the
+        caller already knows it (e.g. ingest batch time range).
 
-    Used by SubjectSource signals (source_id + range) and by the backfill command (same).
+    Used by SubjectSource signals (source_id + range) and by the backfill command.
+
+    The per-tenant segment tile version is bumped **after** the full recompute
+    completes; during a long-running job, tiles may be stale until it finishes.
     """
     from observations.signals import (
+        _clamp_recompute_bounds,
         recompute_observation_segments,
         recompute_observation_segments_for_source_range,
     )
 
     if source_id is not None and lower is not None and upper is not None:
-        # Ensure timezone-aware datetimes (Celery may pass serialized form)
-        from django.utils.dateparse import parse_datetime
-
-        if isinstance(lower, str):
-            lower = parse_datetime(lower) or lower
-        if isinstance(upper, str):
-            upper = parse_datetime(upper) or upper
-        recompute_observation_segments_for_source_range(source_id, lower, upper)
+        lower_dt = _coerce_task_datetime(lower)
+        upper_dt = _coerce_task_datetime(upper)
+        if lower_dt is None or upper_dt is None:
+            logger.warning(
+                "recompute_observation_segments_task: invalid lower/upper for source_id path: %r, %r",
+                lower,
+                upper,
+            )
+            return
+        recompute_observation_segments_for_source_range(source_id, lower_dt, upper_dt)
     elif observation_ids:
-        recompute_observation_segments(observation_ids)
+        uuids: list[UUID] = []
+        for oid in observation_ids:
+            try:
+                uuids.append(UUID(str(oid)))
+            except ValueError:
+                logger.warning("Invalid observation_id for recompute task: %s", oid)
+        if not uuids:
+            return
+
+        # Don't shadow the imported ``utils.stats`` module — name this aggregate result distinctly.
+        range_stats = Observation.objects.filter(pk__in=uuids).aggregate(
+            mn=Min("recorded_at"),
+            mx=Max("recorded_at"),
+        )
+        mn, mx = range_stats["mn"], range_stats["mx"]
+        if mn is None or mx is None:
+            logger.warning("recompute_observation_segments_task: no rows for observation_ids")
+            return
+
+        lo, hi = mn, mx
+        lower_dt = _coerce_task_datetime(lower)
+        upper_dt = _coerce_task_datetime(upper)
+        if lower_dt is not None:
+            lo = min(lo, lower_dt)
+        if upper_dt is not None:
+            hi = max(hi, upper_dt)
+
+        lo, hi = _clamp_recompute_bounds(lo, hi)
+        recompute_observation_segments(uuids, lower=lo, upper=hi)
     else:
         logger.warning("recompute_observation_segments_task called with no source_id+range or observation_ids")
+        return
+
+    tenant = get_current_tenant()
+    if tenant:
+        bump_observation_segment_tile_version(str(tenant.id))
+
+
+@celery.app.task(base=TenantTask)
+def update_observation_segments_for_observation_task(observation_id: str | UUID, created: bool, **kwargs: Any) -> None:
+    """Maintain ObservationSegments for one observation after save.
+
+    Kept for in-flight Celery messages; new post-save work uses
+    ``update_observation_segments_batch_task``.
+
+    TODO(ERA-12969): remove after the release that ships this PR has been deployed
+    long enough for the realtime_p3 queue to drain its old single-id messages
+    (typically one full deploy cycle).  No producer in this codebase still enqueues
+    this task — the only callers are pre-deploy messages still in flight.
+
+    Runs in tenant context (domain in kwargs).  Loads the observation by id and
+    calls update_segments_for_observation; if the row was deleted before the task
+    runs, exits quietly.
+
+    Enqueued from observation_segment_post_save with queue=realtime_p3 for creates
+    and updates (legacy single-id path).
+
+    For updates (``created=False``), bumps the per-tenant segment tile version so
+    cached tiles become stale.  Creates rely on natural TTL expiry.
+    """
+    # observations.signals imports from observations.tasks at module load — cycle.
+    from observations.signals import (
+        RECOMPUTE_OBSERVATION_ONLY_FIELDS,
+        update_segments_for_observation,
+    )
+
+    try:
+        obs_uuid = UUID(str(observation_id))
+    except ValueError:
+        logger.warning("Invalid observation_id for segment task: %s", observation_id)
+        return
+
+    started = time.monotonic()
+    obs = Observation.objects.filter(pk=obs_uuid).only(*RECOMPUTE_OBSERVATION_ONLY_FIELDS).first()
+    if obs is None:
+        logger.debug("Observation %s not found; skipping segment update", observation_id)
+        return
+    update_segments_for_observation(obs, created=created)
+
+    if not created:
+        bump_observation_segment_tile_version(str(obs.das_tenant_id))
+
+    _emit_segment_task_metrics(
+        metric_prefix="single",
+        domain=kwargs.get("domain"),
+        batch_size=1,
+        oldest_recorded_at=obs.recorded_at,
+        duration_ms=(time.monotonic() - started) * 1000.0,
+    )
+
+
+@celery.app.task(base=TenantTask)
+def update_observation_segments_batch_task(observation_ids: list[str], created: bool, **kwargs: Any) -> None:
+    """Maintain ObservationSegments for many observations after save (batched post-save path).
+
+    Loads all rows in one query, sorts by ``(subject_id, recorded_at, pk)`` in Python so
+    neighbor work runs in chronological order per subject. For ``created=False``, bumps
+    the segment tile version at most once for the whole batch (same net effect as N
+    single-id tasks without multiplying bumps).
+
+    Emits ``observation_segment.batch.*`` metrics — see ``_emit_segment_task_metrics``.
+
+    ``domain`` must be passed in kwargs for :class:`TenantTask`.
+    """
+    # observations.signals imports from observations.tasks at module load — cycle.
+    from observations.signals import (
+        RECOMPUTE_OBSERVATION_ONLY_FIELDS,
+        get_subject_for_observation,
+        update_segments_for_observation,
+    )
+
+    if not observation_ids:
+        return
+
+    uuids: list[UUID] = []
+    for oid in observation_ids:
+        try:
+            uuids.append(UUID(str(oid)))
+        except ValueError:
+            logger.warning("Invalid observation_id in batch segment task: %s", oid)
+
+    if not uuids:
+        return
+
+    started = time.monotonic()
+    observations = list(Observation.objects.filter(pk__in=uuids).only(*RECOMPUTE_OBSERVATION_ONLY_FIELDS))
+
+    def sort_key(obs: Observation) -> tuple[str, datetime, UUID]:
+        subj = get_subject_for_observation(obs)
+        sid = str(subj.pk) if subj else ""
+        return (sid, obs.recorded_at, obs.pk)
+
+    observations.sort(key=sort_key)
+
+    for obs in observations:
+        update_segments_for_observation(obs, created=created)
+
+    if not created:
+        tenant = get_current_tenant()
+        if tenant:
+            bump_observation_segment_tile_version(str(tenant.id))
+        elif observations:
+            bump_observation_segment_tile_version(str(observations[0].das_tenant_id))
+
+    duration_ms = (time.monotonic() - started) * 1000.0
+    oldest = min((o.recorded_at for o in observations), default=None)
+    _emit_segment_task_metrics(
+        metric_prefix="batch",
+        domain=kwargs.get("domain"),
+        batch_size=len(observations),
+        oldest_recorded_at=oldest,
+        duration_ms=duration_ms,
+    )
+
+
+@celery.app.task(base=TenantTask)
+def bump_observation_segment_tile_cache_for_tenant_task(**kwargs: Any) -> None:
+    """Increment per-tenant segment tile version (O(1) Redis INCR).
+
+    Invalidates observation segment MVT keys (they embed the version) without SCAN.
+    Used when operators run ``manage.py bust_observation_tile_cache --enqueue``.
+    """
+    tenant = get_current_tenant()
+    if not tenant:
+        logger.warning("bump_observation_segment_tile_cache_for_tenant_task: no current tenant in context")
+        return
+    bump_observation_segment_tile_version(str(tenant.id))
+
+
+@celery.app.task(base=OverAllTenantTask, once={"graceful": True})
+def reconcile_observation_segments_task(**kwargs: Any) -> None:
+    """Daily safety net: detect and rebuild segment gaps in the recent window.
+
+    For each tenant the OverAllTenantTask runs as, walks every source that had
+    activity in the last ``OBSERVATION_SEGMENT_RECONCILE_HOURS`` hours.  Quick gap
+    check first: ``count(valid_obs) - 1`` should equal ``count(segments)`` for the
+    window.  When the counts diverge we run ``recompute_observation_segments_for_source_range``,
+    which is idempotent (``select_for_update`` + ``IntegrityError`` fallback).
+
+    Closes the gap left by paths that bypass post_save (bulk update on
+    ``exclusion_flags`` is the known case; this catches the unknowns).
+
+    Logging:
+        - Per-source gap: ``WARNING`` (one line per affected source) so log-based
+          alerts can fire without metrics access.
+        - End-of-run summary: ``WARNING`` if any gaps were found, ``INFO`` otherwise.
+
+    Emits:
+        - ``observation_segment.reconcile.sources_checked``
+        - ``observation_segment.reconcile.gaps_detected``
+        - ``observation_segment.reconcile.duration_ms``
+        - ``observation_segment.reconcile.gap_detected`` (counter, only on gap)
+    """
+    # observations.signals imports from observations.tasks at module load — cycle.
+    from observations.signals import recompute_observation_segments_for_source_range
+
+    tenant = get_current_tenant()
+    if not tenant:
+        logger.warning("reconcile_observation_segments_task: no current tenant; skipping")
+        return
+
+    domain = getattr(tenant, "domain", None)
+    tags = [f"domain:{domain}"] if domain else []
+
+    started = time.monotonic()
+    hours = int(getattr(django_settings, "OBSERVATION_SEGMENT_RECONCILE_HOURS", 6))
+    upper = datetime.now(tz=timezone.utc)
+    lower = upper - timedelta(hours=hours)
+
+    # Clear Meta.ordering so DISTINCT operates on source_id only (otherwise the
+    # implicit ORDER BY recorded_at sneaks into the SELECT list and dedupes on
+    # (source_id, recorded_at), defeating the point).
+    source_ids = list(
+        Observation.objects.filter(recorded_at__gte=lower, recorded_at__lte=upper)
+        .order_by()
+        .values_list("source_id", flat=True)
+        .distinct()
+    )
+
+    sources_checked = 0
+    gaps_detected = 0
+    for source_id in source_ids:
+        sources_checked += 1
+        valid_obs_count = (
+            Observation.objects.filter(
+                source_id=source_id,
+                recorded_at__gte=lower,
+                recorded_at__lte=upper,
+                location__isnull=False,
+            )
+            .by_exclusion_flags(filter_flag=0, include_empty_location=False)
+            .count()
+        )
+        if valid_obs_count < 2:
+            continue
+
+        segment_count = ObservationSegment.objects.filter(
+            start_observation__source_id=source_id,
+            start_recorded_at__gte=lower,
+            end_recorded_at__lte=upper,
+        ).count()
+
+        if segment_count >= valid_obs_count - 1:
+            continue
+
+        gaps_detected += 1
+        logger.warning(
+            "reconcile: gap detected domain=%s source=%s window=%dh valid_obs=%d segments=%d (rebuilding)",
+            domain,
+            source_id,
+            hours,
+            valid_obs_count,
+            segment_count,
+        )
+        try:
+            recompute_observation_segments_for_source_range(str(source_id), lower, upper)
+        except Exception:
+            logger.exception("reconcile_observation_segments_task: recompute failed for source %s", source_id)
+
+    duration_ms = (time.monotonic() - started) * 1000.0
+    stats.histogram("observation_segment.reconcile.sources_checked", sources_checked, tags=tags)
+    stats.histogram("observation_segment.reconcile.gaps_detected", gaps_detected, tags=tags)
+    stats.histogram("observation_segment.reconcile.duration_ms", duration_ms, tags=tags)
+    if gaps_detected:
+        stats.increment("observation_segment.reconcile.gap_detected", value=gaps_detected, tags=tags)
+        logger.warning(
+            "reconcile complete domain=%s sources_checked=%d gaps=%d duration_ms=%.0f window=%dh",
+            domain,
+            sources_checked,
+            gaps_detected,
+            duration_ms,
+            hours,
+        )
+    else:
+        logger.info(
+            "reconcile complete domain=%s sources_checked=%d gaps=0 duration_ms=%.0f window=%dh",
+            domain,
+            sources_checked,
+            duration_ms,
+            hours,
+        )
 
 
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})

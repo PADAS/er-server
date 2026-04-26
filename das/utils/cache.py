@@ -23,6 +23,26 @@ from django.http import HttpRequest, QueryDict
 logger = logging.getLogger(__name__)
 
 
+def _coerce_vector_tile_cache_int(value: object, *, fallback: int = 0) -> int:
+    """Normalize values from cache.get(); backends may deserialize as str or bytes."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return fallback
+    if isinstance(value, (bytes, bytearray)):
+        try:
+            return int(value.decode("utf-8").strip())
+        except (ValueError, UnicodeDecodeError):
+            return fallback
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
 def get_vector_tile_cache():
     """Return the cache instance configured for vector tiles.
 
@@ -44,13 +64,14 @@ VECTOR_TILE_DATA_VERSION_KEY = "vector_tile_data_version"
 
 
 def get_vector_tile_data_version() -> int:
-    return get_vector_tile_cache().get(VECTOR_TILE_DATA_VERSION_KEY, 0)
+    raw = get_vector_tile_cache().get(VECTOR_TILE_DATA_VERSION_KEY, 0)
+    return _coerce_vector_tile_cache_int(raw, fallback=0)
 
 
 def bump_vector_tile_data_version() -> None:
     cache = get_vector_tile_cache()
     try:
-        cache.add(VECTOR_TILE_DATA_VERSION_KEY, 0)
+        cache.add(VECTOR_TILE_DATA_VERSION_KEY, 0, timeout=None)
         cache.incr(VECTOR_TILE_DATA_VERSION_KEY)
     except Exception:  # pragma: no cover - defensive path
         cache.set(VECTOR_TILE_DATA_VERSION_KEY, int(time.time()), timeout=None)
@@ -135,6 +156,42 @@ def build_tile_cache_key(
     return cache_key
 
 
+OBSERVATION_SEGMENT_TILE_VERSION_KEY_PREFIX = "obs_seg_tile_ver"
+
+
+def get_observation_segment_tile_version(tenant_id: str) -> int:
+    """Return the per-tenant observation segment tile version (0 if never bumped)."""
+    key = f"{OBSERVATION_SEGMENT_TILE_VERSION_KEY_PREFIX}:{tenant_id}"
+    raw = get_vector_tile_cache().get(key, 0)
+    return _coerce_vector_tile_cache_int(raw, fallback=0)
+
+
+def bump_observation_segment_tile_version(tenant_id: str) -> None:
+    """Increment the per-tenant segment tile version so cached tiles become stale.
+
+    Called on observation delete/update (rare operations) — NOT on creates (the hot
+    path).  One atomic Redis INCR replaces the old per-tile Bresenham SCAN/DELETE.
+    """
+    vt_cache = get_vector_tile_cache()
+    key = f"{OBSERVATION_SEGMENT_TILE_VERSION_KEY_PREFIX}:{tenant_id}"
+    try:
+        vt_cache.add(key, 0, timeout=None)
+        vt_cache.incr(key)
+    except Exception:  # pragma: no cover - defensive path
+        vt_cache.set(key, int(time.time()), timeout=None)
+
+
+def get_observation_segment_cache_version(tenant_id: str) -> str:
+    """Cache version string for observation segment tiles.
+
+    Combines the global effective version (shared with SpatialFeature tiles) with a
+    per-tenant segment counter that is bumped only on deletes/edits.
+    """
+    base = get_effective_cache_version()
+    seg_ver = get_observation_segment_tile_version(tenant_id)
+    return f"{base}-s{seg_ver}"
+
+
 __all__ = [
     "build_tile_cache_key",
     "get_effective_cache_version",
@@ -145,6 +202,10 @@ __all__ = [
     "VECTOR_TILE_DATA_VERSION_KEY",
     "delete_tile_keys_by_prefix",
     "invalidate_tile_cache_keys",
+    "OBSERVATION_SEGMENT_TILE_VERSION_KEY_PREFIX",
+    "get_observation_segment_tile_version",
+    "bump_observation_segment_tile_version",
+    "get_observation_segment_cache_version",
 ]
 
 # --- Prefix-based invalidation utilities (Redis) ---

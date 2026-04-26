@@ -10,10 +10,12 @@ from django.urls import reverse
 from rest_framework.test import APIRequestFactory
 
 from utils.cache import (
+    OBSERVATION_SEGMENT_TILE_VERSION_KEY_PREFIX,
     VECTOR_TILE_DATA_VERSION_KEY,
     build_tile_cache_key,
     bump_vector_tile_data_version,
     get_effective_cache_version,
+    get_observation_segment_tile_version,
     get_vector_tile_cache,
     get_vector_tile_data_version,
 )
@@ -268,6 +270,32 @@ def test_bump_vector_tile_data_version_increments():
     assert v0 == 0
     assert v1 == 1
     assert v2 == 2
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("stored", "expected"),
+    [
+        ("42", 42),
+        ("  3  ", 3),
+        (b"7", 7),
+        ("not-int", 0),
+        (b"\xff", 0),
+    ],
+)
+def test_get_vector_tile_data_version_coerces_cache_value(stored, expected):
+    cache = get_vector_tile_cache()
+    cache.set(VECTOR_TILE_DATA_VERSION_KEY, stored, timeout=None)
+    assert get_vector_tile_data_version() == expected
+
+
+@pytest.mark.django_db
+def test_get_observation_segment_tile_version_coerces_string_cache_value():
+    tenant_id = "tenant-coerce-test"
+    key = f"{OBSERVATION_SEGMENT_TILE_VERSION_KEY_PREFIX}:{tenant_id}"
+    cache = get_vector_tile_cache()
+    cache.set(key, "  9 ", timeout=None)
+    assert get_observation_segment_tile_version(tenant_id) == 9
 
 
 @pytest.mark.django_db
