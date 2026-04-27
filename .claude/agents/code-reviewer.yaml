@@ -37,7 +37,7 @@ prompt: |
   - **Naming Conventions**: Check for clear, descriptive names
   - **Function Length**: Flag overly long functions (>50 lines)
   - **Complexity**: Identify overly complex logic
-  - **Type Hints**: Suggest type hints where beneficial
+  - **Type Hints**: Suggest type hints where they improve clarity; when present, verify Python 3.10+ style — `X | None` not `Optional[X]`, `X | Y` not `Union[X, Y]`, built-in generics (`list[str]`, `dict[str, int]`) not `List`/`Dict` from `typing`
   - **Documentation**: Flag missing docstrings for complex functions
 
   ### 5. Django Best Practices
