@@ -1,0 +1,506 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Import Observations{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% trans "Home" %}</a> &rsaquo;
+  <a href="{% url 'admin:observations_observation_changelist' %}">{% trans "Observations" %}</a> &rsaquo;
+  {% trans "Import Observations" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>{% trans "Import Observations" %}</h1>
+
+{# ── Step 1: file upload ──────────────────────────────────────────────────── #}
+{% if step == 1 %}
+<div class="module aligned">
+  <p style="color:#666;">
+    Upload a CSV or Excel file. On the next screen you will map its columns to
+    observation fields (<strong>Recorded At</strong>, <strong>Latitude</strong>,
+    and <strong>Longitude</strong> are required). If a <strong>Subject Name</strong>
+    column is mapped, a source will be created per unique subject. Otherwise you
+    will be asked to select a subject.
+  </p>
+  {% if error %}<p class="errornote">{{ error }}</p>{% endif %}
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div style="padding:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <input type="file" name="csv_file" id="id_csv_file" accept=".csv,.xlsx,.xls,text/csv" required style="display:none;">
+      <label for="id_csv_file" class="default button" id="id_choose_btn" style="cursor:pointer;margin:0;">{% trans "Choose File…" %}</label>
+      <span id="id_filename" style="font-size:13px;color:#555;"></span>
+      <input type="submit" value="{% trans "Import →" %}" class="default" id="id_submit_btn" style="display:none;">
+      <script>
+      (function () {
+        // Match label size to submit button after both are rendered
+        var btn = document.getElementById('id_submit_btn');
+        var lbl = document.getElementById('id_choose_btn');
+        btn.style.display = '';
+        var cs = window.getComputedStyle(btn);
+        lbl.style.padding    = cs.padding;
+        lbl.style.fontSize   = cs.fontSize;
+        lbl.style.lineHeight = cs.lineHeight;
+        lbl.style.fontFamily = cs.fontFamily;
+        lbl.style.fontWeight = cs.fontWeight;
+        btn.style.display = 'none';
+      })();
+      </script>
+    </div>
+  </form>
+  <script>
+  document.getElementById('id_csv_file').addEventListener('change', function () {
+    const name = this.files.length ? this.files[0].name : '';
+    document.getElementById('id_filename').textContent = name;
+    document.getElementById('id_submit_btn').style.display = name ? '' : 'none';
+    document.getElementById('id_choose_btn').textContent = name ? '{% trans "Change File…" %}' : '{% trans "Choose File…" %}';
+  });
+  </script>
+</div>
+
+{# ── Step 2: column mapping ────────────────────────────────────────────────── #}
+{% elif step == 2 %}
+
+{{ raw_lines|json_script:"csv-raw-lines" }}
+
+<div class="module aligned">
+  <p style="color:#666;">
+    Specify which row contains the column headers and where your data begins, then
+    map each column to an observation field. If you map a column to
+    <em>Subject Name</em>, a source will be created automatically per unique name.
+    Otherwise you will be asked to select a subject on the next step.
+  </p>
+  {% if error %}<p class="errornote">{{ error }}</p>{% endif %}
+  <form method="post" id="import-form" action="{% url 'admin:observations_observation_import_csv_map_columns' %}">
+    {% csrf_token %}
+    <input type="hidden" name="temp_key" value="{{ temp_key }}">
+
+    {# ── Raw file preview ── #}
+    <fieldset class="module aligned" style="margin-bottom:14px;">
+      <h2 style="margin:0;padding:8px 12px;font-size:13px;background:#f8f8f8;border-bottom:1px solid #ccc;">File Preview</h2>
+      <div style="overflow-x:auto;max-height:220px;overflow-y:auto;">
+        <table id="preview-table" style="border-collapse:collapse;width:100%;font-size:12px;font-family:monospace;">
+          <tbody id="preview-tbody"></tbody>
+        </table>
+      </div>
+    </fieldset>
+
+    {# ── Row configuration ── #}
+    <fieldset class="module aligned" style="margin-bottom:14px;">
+      <div class="form-row" style="display:flex;gap:32px;align-items:center;padding:10px 12px;">
+        <div>
+          <label for="id_header_row" style="font-weight:bold;margin-right:6px;">Header row:</label>
+          <input type="number" id="id_header_row" name="header_row"
+                 value="{{ header_row }}" min="1" style="width:64px;font-size:13px;">
+        </div>
+        <div>
+          <label for="id_data_start_row" style="font-weight:bold;margin-right:6px;">Data starts at row:</label>
+          <input type="number" id="id_data_start_row" name="data_start_row"
+                 value="{{ data_start_row }}" min="1" style="width:64px;font-size:13px;">
+        </div>
+        <span id="row-hint" style="color:#888;font-size:12px;"></span>
+      </div>
+    </fieldset>
+
+    {# ── Mapping table ── #}
+    <table id="mapping-table" style="border-collapse:collapse;width:100%;margin-bottom:14px;">
+      <thead>
+        <tr id="mapping-thead-row" style="background:#f8f8f8;">
+          <th style="padding:7px 10px;border:1px solid #ccc;text-align:left;">CSV Column</th>
+          <th style="padding:7px 10px;border:1px solid #ccc;text-align:left;">Maps To</th>
+          {% for _ in sample_header %}
+            <th style="padding:7px 10px;border:1px solid #ccc;color:#888;text-align:left;">Sample</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody id="mapping-tbody">
+        {% for col in columns %}
+        <tr data-col="{{ col.name }}">
+          <td style="padding:6px 10px;border:1px solid #ccc;font-weight:bold;">{{ col.name }}</td>
+          <td style="padding:6px 10px;border:1px solid #ccc;">
+            <select name="map_{{ col.name }}" style="font-size:12px;">
+              <option value="">-- Ignore --</option>
+              <option value="recorded_at"  {% if col.auto == "recorded_at"  %}selected{% endif %}>Recorded At</option>
+              <option value="latitude"     {% if col.auto == "latitude"     %}selected{% endif %}>Latitude</option>
+              <option value="longitude"    {% if col.auto == "longitude"    %}selected{% endif %}>Longitude</option>
+              <option value="subject_name" {% if col.auto == "subject_name" %}selected{% endif %}>Subject Name</option>
+              <option value="additional"   {% if col.auto == "additional"   %}selected{% endif %}>Additional Data</option>
+            </select>
+          </td>
+          {% for sample in col.samples %}
+            <td style="padding:6px 10px;border:1px solid #ccc;color:#666;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">{{ sample }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="submit-row" style="display:flex;justify-content:flex-end;gap:8px;align-items:center;">
+      <input type="submit" value="{% trans "Next →" %}" class="default">
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  const RAW_LINES = JSON.parse(document.getElementById('csv-raw-lines').textContent);
+
+  const AUTO_MAP = {
+    recorded_at:  new Set(['recorded_at', 'timestamp', 'time', 'datetime']),
+    latitude:     new Set(['latitude', 'lat']),
+    longitude:    new Set(['longitude', 'lon', 'lng', 'long']),
+    subject_name: new Set(['subject_name', 'subject', 'animal']),
+  };
+  const FIELD_OPTIONS = [
+    ['', '-- Ignore --'],
+    ['recorded_at',  'Recorded At'],
+    ['latitude',     'Latitude'],
+    ['longitude',    'Longitude'],
+    ['subject_name', 'Subject Name'],
+    ['additional',   'Additional Data'],
+  ];
+
+  const CELL_STYLE   = 'padding:6px 10px;border:1px solid #ccc;';
+  const SAMPLE_STYLE = CELL_STYLE + 'color:#666;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;';
+  const TH_STYLE     = 'padding:7px 10px;border:1px solid #ccc;color:#888;text-align:left;';
+
+  function parseCSVLine(line) {
+    const result = [];
+    let inQuotes = false, field = '';
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { field += '"'; i++; }
+        else { inQuotes = !inQuotes; }
+      } else if (ch === ',' && !inQuotes) {
+        result.push(field); field = '';
+      } else {
+        field += ch;
+      }
+    }
+    result.push(field);
+    return result;
+  }
+
+  function guessMapping(colName) {
+    const key = colName.toLowerCase().replace(/[\s\-]+/g, '_');
+    for (const [target, aliases] of Object.entries(AUTO_MAP)) {
+      if (aliases.has(key)) return target;
+    }
+    return 'additional';
+  }
+
+  function makeSelect(colName, currentValue) {
+    const sel = document.createElement('select');
+    sel.name = 'map_' + colName;
+    sel.style.fontSize = '12px';
+    const chosen = currentValue !== undefined ? currentValue : guessMapping(colName);
+    FIELD_OPTIONS.forEach(([val, label]) => {
+      const opt = document.createElement('option');
+      opt.value = val; opt.textContent = label;
+      if (val === chosen) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    return sel;
+  }
+
+  function updatePreview() {
+    const headerIdx    = parseInt(document.getElementById('id_header_row').value, 10) - 1;
+    const dataStartIdx = parseInt(document.getElementById('id_data_start_row').value, 10) - 1;
+    const previewTbody = document.getElementById('preview-tbody');
+    previewTbody.innerHTML = '';
+
+    const PREVIEW_COUNT = 10;
+    const lines = RAW_LINES.slice(0, Math.max(PREVIEW_COUNT, headerIdx + 1, dataStartIdx + 1));
+
+    lines.forEach((line, i) => {
+      const isHeader   = i === headerIdx;
+      const isData     = i >= dataStartIdx && i !== headerIdx;
+      const rowNum     = i + 1;
+
+      let bg = '';
+      if (isHeader) bg = 'background:#e8f4e8;';
+      else if (!isData && i < dataStartIdx) bg = 'opacity:0.35;';
+
+      const tr = document.createElement('tr');
+      tr.style.cssText = bg;
+
+      const tdNum = document.createElement('td');
+      tdNum.style.cssText = 'padding:2px 8px;border:1px solid #ddd;color:#999;text-align:right;user-select:none;min-width:32px;';
+      tdNum.textContent = rowNum;
+      if (isHeader) { tdNum.title = 'Header row'; tdNum.style.color = '#2a7a2a'; tdNum.style.fontWeight = 'bold'; }
+      else if (!isData) { tdNum.title = 'Skipped row'; }
+      tr.appendChild(tdNum);
+
+      const tdLine = document.createElement('td');
+      tdLine.style.cssText = 'padding:2px 8px;border:1px solid #ddd;white-space:pre;color:' + (isHeader ? '#2a7a2a' : '#333') + ';';
+      if (isHeader) tdLine.style.fontWeight = 'bold';
+      tdLine.textContent = line;
+      tr.appendChild(tdLine);
+
+      previewTbody.appendChild(tr);
+    });
+  }
+
+  function updateTable() {
+    const headerIdx    = parseInt(document.getElementById('id_header_row').value, 10) - 1;
+    const dataStartIdx = parseInt(document.getElementById('id_data_start_row').value, 10) - 1;
+    const hint = document.getElementById('row-hint');
+
+    if (isNaN(headerIdx) || headerIdx < 0 || headerIdx >= RAW_LINES.length) {
+      hint.textContent = 'Header row is out of range (' + RAW_LINES.length + ' lines loaded).';
+      return;
+    }
+    hint.textContent = RAW_LINES.length + ' line(s) loaded from file.';
+
+    const headers = parseCSVLine(RAW_LINES[headerIdx]).map(h => h.trim());
+    const actualDataStart = Math.max(dataStartIdx, 0);
+    const sampleLines = RAW_LINES.slice(actualDataStart, actualDataStart + 5)
+                                 .filter((_, i) => (actualDataStart + i) !== headerIdx);
+    const sampleRows = sampleLines.map(parseCSVLine);
+
+    const saved = {};
+    document.querySelectorAll('#mapping-tbody tr').forEach(row => {
+      const col = row.dataset.col, sel = row.querySelector('select');
+      if (col && sel) saved[col] = sel.value;
+    });
+
+    const theadRow = document.getElementById('mapping-thead-row');
+    while (theadRow.children.length > 2) theadRow.removeChild(theadRow.lastChild);
+    sampleRows.forEach(() => {
+      const th = document.createElement('th');
+      th.style.cssText = TH_STYLE; th.textContent = 'Sample';
+      theadRow.appendChild(th);
+    });
+
+    const tbody = document.getElementById('mapping-tbody');
+    tbody.innerHTML = '';
+    headers.forEach((col, colIdx) => {
+      if (!col) return;
+      const tr = document.createElement('tr');
+      tr.dataset.col = col;
+
+      const tdName = document.createElement('td');
+      tdName.style.cssText = CELL_STYLE + 'font-weight:bold;';
+      tdName.textContent = col;
+      tr.appendChild(tdName);
+
+      const tdSel = document.createElement('td');
+      tdSel.style.cssText = CELL_STYLE;
+      tdSel.appendChild(makeSelect(col, saved[col]));
+      tr.appendChild(tdSel);
+
+      const colValues = sampleRows.map(row => (row[colIdx] || '').trim()).filter(v => v !== '');
+      const allNumeric = colValues.length > 0 && colValues.every(v => !isNaN(v) && v !== '');
+
+      sampleRows.forEach(row => {
+        const raw = (row[colIdx] || '').trim();
+        const td = document.createElement('td');
+        td.style.cssText = SAMPLE_STYLE;
+        if (allNumeric && raw !== '') {
+          td.textContent = Number(raw).toLocaleString();
+          td.style.textAlign = 'right';
+          td.style.fontVariantNumeric = 'tabular-nums';
+        } else {
+          td.textContent = raw;
+        }
+        tr.appendChild(td);
+      });
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('id_header_row').addEventListener('change', () => { updatePreview(); updateTable(); });
+  document.getElementById('id_data_start_row').addEventListener('change', () => { updatePreview(); updateTable(); });
+  document.getElementById('row-hint').textContent = RAW_LINES.length + ' line(s) loaded from file.';
+  updatePreview();
+})();
+</script>
+
+{# ── Step 3: select subject ───────────────────────────────────────────────── #}
+{% elif step == 3 %}
+<div class="module aligned">
+  <p style="color:#666;">
+    No column was mapped to <strong>subject name</strong>. Select the subject
+    these observations belong to. A new source will be created and linked to the
+    selected subject.
+  </p>
+  {% if error %}<p class="errornote">{{ error }}</p>{% endif %}
+  <form method="post" action="{% url 'admin:observations_observation_import_csv_select_subject' %}">
+    {% csrf_token %}
+    <input type="hidden" name="temp_key" value="{{ temp_key }}">
+    <fieldset class="module aligned">
+      <div class="form-row">
+        <label for="id_subject_id" style="font-weight:bold;margin-right:6px;">Subject:</label>
+        <select name="subject_id" id="id_subject_id" style="font-size:13px;min-width:300px;">
+          <option value="">-- select a subject --</option>
+          {% for subject in subjects %}
+            <option value="{{ subject.id }}">{{ subject.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </fieldset>
+    <div class="submit-row" style="display:flex;justify-content:flex-end;gap:8px;align-items:center;">
+      <input type="submit" value="{% trans "Import Observations" %}" class="default">
+    </div>
+  </form>
+</div>
+{% endif %}
+
+{# ── Pending jobs table (always rendered) ─────────────────────────────────── #}
+{{ pending_import_task_ids|json_script:"pending-task-ids" }}
+{{ import_status_base_url|json_script:"import-status-base-url" }}
+{{ import_dismiss_base_url|json_script:"import-dismiss-base-url" }}
+{{ import_pending_url|json_script:"import-pending-url" }}
+<div id="csv-import-jobs" class="module" style="padding:10px 12px;margin-top:16px;display:none;">
+    <h2 style="margin:0 0 8px;font-size:14px;">{% trans "Pending Import Jobs" %}</h2>
+    <table style="border-collapse:collapse;width:100%;">
+        <thead>
+            <tr style="background:#f8f8f8;">
+                <th style="padding:6px 10px;border:1px solid #ccc;text-align:left;width:1%;white-space:nowrap;">Date</th>
+                <th style="padding:6px 10px;border:1px solid #ccc;text-align:left;">Filename</th>
+                <th style="padding:6px 10px;border:1px solid #ccc;text-align:left;width:1%;white-space:nowrap;">Status</th>
+                <th style="padding:6px 10px;border:1px solid #ccc;text-align:left;">Result</th>
+                <th style="padding:6px 10px;border:1px solid #ccc;width:1%;white-space:nowrap;"></th>
+            </tr>
+        </thead>
+        <tbody id="import-jobs-tbody"></tbody>
+    </table>
+</div>
+
+<script>
+(function () {
+    const STATUS_BASE  = JSON.parse(document.getElementById('import-status-base-url').textContent);
+    const DISMISS_BASE = JSON.parse(document.getElementById('import-dismiss-base-url').textContent);
+    const PENDING_URL  = JSON.parse(document.getElementById('import-pending-url').textContent);
+    const ACTIVE_POLL_MS = 10000;
+    const IDLE_POLL_MS   = 30000;
+
+    const STATUS_LABELS = {
+        PENDING: { text: 'Pending',   color: '#888' },
+        QUEUED:  { text: 'Queued',    color: '#888' },
+        STARTED: { text: 'Running…',  color: '#0064c8' },
+        SUCCESS: { text: 'Complete',  color: '#218838' },
+        FAILURE: { text: 'Failed',    color: '#c0392b' },
+        REVOKED: { text: 'Cancelled', color: '#888' },
+    };
+
+    const section = document.getElementById('csv-import-jobs');
+    const tbody   = document.getElementById('import-jobs-tbody');
+    const tasks   = {};
+    let idleTimer = null;
+
+    function getCsrf() {
+        const el = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
+        return el ? el.split('=')[1] : '';
+    }
+
+    function statusLabel(status) {
+        const s = STATUS_LABELS[status] || { text: status, color: '#888' };
+        return `<span style="color:${s.color};font-weight:bold;">${s.text}</span>`;
+    }
+
+    function formatDate(iso) {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    }
+
+    function addRow(taskId) {
+        if (document.getElementById('task-row-' + taskId)) return;
+        const tr = document.createElement('tr');
+        tr.id = 'task-row-' + taskId;
+        tr.innerHTML = `
+            <td class="date-cell" style="padding:6px 10px;border:1px solid #ccc;font-size:12px;color:#555;width:1%;white-space:nowrap;">—</td>
+            <td class="filename-cell" style="padding:6px 10px;border:1px solid #ccc;font-size:12px;color:#555;">—</td>
+            <td class="status-cell" style="padding:6px 10px;border:1px solid #ccc;width:1%;white-space:nowrap;">${statusLabel('PENDING')}</td>
+            <td class="result-cell" style="padding:6px 10px;border:1px solid #ccc;font-size:12px;color:#555;">—</td>
+            <td style="padding:6px 10px;border:1px solid #ccc;width:1%;white-space:nowrap;text-align:center;">
+                <button type="button" style="font-size:11px;cursor:pointer;" onclick="dismissTask('${taskId}')">Cancel</button>
+            </td>`;
+        tbody.appendChild(tr);
+        section.style.display = '';
+    }
+
+    function removeRow(taskId) {
+        const tr = document.getElementById('task-row-' + taskId);
+        if (tr) tr.remove();
+        if (tbody.children.length === 0) {
+            section.style.display = 'none';
+            startIdlePolling();
+        }
+    }
+
+    function updateRow(taskId, data) {
+        const tr = document.getElementById('task-row-' + taskId);
+        if (!tr) return;
+        tr.querySelector('.status-cell').innerHTML = statusLabel(data.status);
+        tr.querySelector('.result-cell').textContent = data.result || '—';
+        tr.querySelector('.date-cell').textContent = formatDate(data.queued_at);
+        tr.querySelector('.filename-cell').textContent = data.filename || '—';
+    }
+
+    function pollTask(taskId) {
+        fetch(STATUS_BASE + taskId + '/')
+            .then(r => r.json())
+            .then(data => {
+                if (!document.getElementById('task-row-' + taskId)) addRow(taskId, data);
+                updateRow(taskId, data);
+                if (data.done) {
+                    clearInterval(tasks[taskId].timer);
+                    delete tasks[taskId];
+                    const tr = document.getElementById('task-row-' + taskId);
+                    if (tr) {
+                        const btn = tr.querySelector('button');
+                        if (btn) btn.textContent = 'Close';
+                    }
+                }
+            })
+            .catch(() => {});
+    }
+
+    function startPolling(taskId) {
+        stopIdlePolling();
+        tasks[taskId] = { timer: setInterval(() => pollTask(taskId), ACTIVE_POLL_MS) };
+        pollTask(taskId);
+        if (!tasks[taskId]) {
+            tasks[taskId] = { timer: setInterval(() => pollTask(taskId), ACTIVE_POLL_MS) };
+        }
+    }
+
+    function dismiss(taskId) {
+        if (tasks[taskId]) { clearInterval(tasks[taskId].timer); delete tasks[taskId]; }
+        fetch(DISMISS_BASE + taskId + '/', { method: 'POST', headers: { 'X-CSRFToken': getCsrf() } }).catch(() => {});
+        removeRow(taskId);
+    }
+
+    function pollPending() {
+        fetch(PENDING_URL)
+            .then(r => r.json())
+            .then(data => { (data.task_ids || []).forEach(id => { if (!tasks[id]) startPolling(id); }); })
+            .catch(() => {});
+    }
+
+    function startIdlePolling() {
+        if (idleTimer) return;
+        idleTimer = setInterval(pollPending, IDLE_POLL_MS);
+    }
+
+    function stopIdlePolling() {
+        if (idleTimer) { clearInterval(idleTimer); idleTimer = null; }
+    }
+
+    window.dismissTask = dismiss;
+
+    const initialIds = JSON.parse(document.getElementById('pending-task-ids').textContent);
+    if (initialIds.length > 0) {
+        initialIds.forEach(id => startPolling(id));
+    } else {
+        startIdlePolling();
+    }
+})();
+</script>
+
+{% endblock %}

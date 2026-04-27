@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 import logging
 import random
 import tempfile
 import time
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
@@ -24,9 +27,11 @@ from django.utils.translation import gettext as _
 import utils.db.task_helpers as utils_db_task_helpers
 import utils.stats as stats
 from das_server import celery, pubsub
+from observations.csv_import_jobs import set_job_status
 from observations.materialized_views import patrols_view
 from observations.message_adapters import SendError, _handle_outbox_message
 from observations.models import (
+    DEFAULT_ASSIGNED_RANGE,
     Announcement,
     GPXTrackFile,
     Observation,
@@ -34,6 +39,7 @@ from observations.models import (
     Source,
     SourceProvider,
     Subject,
+    SubjectSource,
     SubjectStatus,
 )
 from observations.serializers import ObservationSerializer
@@ -468,7 +474,9 @@ def maintain_observation_data():
             days_data_retain = int(days_data_retain)
         except ValueError:
             logger.warning(
-                f"Mis-configured field days_data_retain {days_data_retain} not an integer for source_provider: {ssprovider.display_name}"
+                "Mis-configured field days_data_retain %s not an integer for source_provider: %s",
+                days_data_retain,
+                ssprovider.display_name,
             )
             continue
 
@@ -498,7 +506,10 @@ def maintain_observation_data_for_source_provider(
     """
     if search_back_days < days_data_retain:
         logger.warning(
-            f"search_back_days {search_back_days} is less than days_data_retain {days_data_retain} for source_provider_id: {source_provider_id}"
+            "search_back_days %s is less than days_data_retain %s for source_provider_id: %s",
+            search_back_days,
+            days_data_retain,
+            source_provider_id,
         )
         return
 
@@ -691,6 +702,210 @@ def process_gpxtrack_file(gpx_id, **kwargs):
             failed_process_gpxtrack(gpx_id, obs_errors)
         else:
             failed_process_gpxtrack(gpx_id)
+
+
+def _coerce(v):
+    """Convert a CSV string value to int or float if it looks numeric, else return as-is."""
+    if v is None:
+        return v
+    try:
+        int_v = int(v)
+        return int_v if str(int_v) == str(v).strip() else float(v)
+    except (ValueError, TypeError):
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return v
+
+
+def _process_rows_for_source(source_id, rows, mappings, col_for):
+    """
+    Validate and bulk-create Observation records for a single source.
+    Returns (ok, message) from process_observation.
+    """
+    recorded_ats = []
+    for row in rows:
+        raw = row.get(col_for.get("recorded_at", ""), "")
+        try:
+            recorded_ats.append(dateparse(raw))
+        except Exception:
+            pass
+
+    existing_times = set(
+        Observation.objects.filter(source_id=source_id, recorded_at__in=recorded_ats).values_list(
+            "recorded_at", flat=True
+        )
+    )
+
+    obs_records = []
+    obs_errors = []
+
+    for row in rows:
+        try:
+            recorded_at = dateparse(row[col_for["recorded_at"]])
+            lat = float(row[col_for["latitude"]])
+            lon = float(row[col_for["longitude"]])
+        except (KeyError, TypeError, ValueError) as exc:
+            obs_errors.append(str(exc))
+            continue
+
+        if recorded_at in existing_times:
+            continue
+
+        additional = {col: _coerce(row.get(col)) for col, target in mappings.items() if target == "additional"}
+
+        validate_observation(
+            {"latitude": lat, "longitude": lon},
+            recorded_at,
+            source_id,
+            additional,
+            obs_records,
+            obs_errors,
+        )
+        existing_times.add(recorded_at)
+
+    return process_observation(observation_records=obs_records, observation_errors=obs_errors)
+
+
+def _delete_storage_file(storage_path):
+    """Best-effort delete of an uploaded CSV after a successful import."""
+    if not storage_path:
+        return
+    try:
+        default_storage.delete(storage_path)
+    except Exception:
+        logger.warning("Failed to delete CSV from storage: %s", storage_path, exc_info=True)
+
+
+@celery.app.task(base=TenantTask, bind=True)
+def process_csv_observations(
+    self,
+    storage_path,
+    mappings,
+    header_row=1,
+    data_start_row=2,
+    source_id=None,
+    subject_id=None,
+    subject_name_col=False,
+    **kwargs,
+):
+    """
+    Read a stored CSV from default_storage, apply column mappings, and bulk-create
+    Observation records. The file is deleted on success and left in storage on
+    failure for debugging.
+
+    storage_path: path returned by default_storage.save(...) at upload time.
+    mappings: {csv_column: target_field}
+    target_field: recorded_at | latitude | longitude | additional | subject_name
+
+    Modes (mutually exclusive):
+      source_id       — legacy: write all rows to an existing Source
+      subject_id      — create a new Source for the given Subject, write all rows
+      subject_name_col=True — group rows by subject_name column; find-or-create
+                              Source+Subject+SubjectSource per unique name
+    """
+    logger.info(
+        "process_csv_observations received: task_id=%s storage_path=%s source_id=%s subject_id=%s subject_name_col=%s",
+        self.request.id,
+        storage_path,
+        source_id,
+        subject_id,
+        subject_name_col,
+    )
+    task_id = self.request.id
+    try:
+        if task_id:
+            set_job_status(task_id, "STARTED")
+
+        with default_storage.open(storage_path, "rb") as f:
+            csv_content = f.read().decode("utf-8-sig")
+
+        lines = csv_content.splitlines()
+        header_row = max(1, int(header_row))
+        data_start_row = max(1, int(data_start_row))
+        if header_row > len(lines):
+            message = "No header found at the specified row."
+            if task_id:
+                set_job_status(task_id, "FAILURE", error=message)
+            return message
+
+        header_line = lines[header_row - 1]
+        data_lines = lines[data_start_row - 1 :] if data_start_row <= len(lines) else []
+        rows = list(csv.DictReader(io.StringIO(header_line + "\n" + "\n".join(data_lines))))
+
+        col_for = {target: col for col, target in mappings.items()}
+
+        if subject_name_col:
+            # Group rows by unique subject name and process each group separately
+            rows_by_subject = defaultdict(list)
+            subject_col = col_for.get("subject_name", "")
+            for row in rows:
+                name = row.get(subject_col, "").strip()
+                if name:
+                    rows_by_subject[name].append(row)
+
+            messages = []
+            for sname, srows in rows_by_subject.items():
+                subject, _ = Subject.objects.get_or_create(name=sname)
+                source, _ = Source.objects.get_or_create(
+                    manufacturer_id=sname,
+                    provider_id=SourceProvider.objects.get_or_create(
+                        provider_key="file-upload",
+                        defaults={"display_name": "File Upload"},
+                    )[0].id,
+                )
+                SubjectSource.objects.get_or_create(
+                    source=source,
+                    subject=subject,
+                    defaults={"assigned_range": DEFAULT_ASSIGNED_RANGE},
+                )
+                ok, msg = _process_rows_for_source(source.id, srows, mappings, col_for)
+                messages.append(f"{sname}: {msg}")
+
+            message = "; ".join(messages) if messages else "No valid subject names found in CSV."
+            if task_id:
+                set_job_status(task_id, "SUCCESS", result=message)
+            _delete_storage_file(storage_path)
+            return message
+
+        elif subject_id:
+            # Create a new Source tied to the selected Subject
+            subject = Subject.objects.get(id=subject_id)
+            ts = datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S")
+            provider, _ = SourceProvider.objects.get_or_create(
+                provider_key="file-upload",
+                defaults={"display_name": "CSV Import"},
+            )
+            source = Source.objects.create(
+                manufacturer_id=f"{subject.name}_{ts}",
+                provider=provider,
+            )
+            SubjectSource.objects.create(
+                source=source,
+                subject=subject,
+                assigned_range=DEFAULT_ASSIGNED_RANGE,
+            )
+            ok, message = _process_rows_for_source(source.id, rows, mappings, col_for)
+
+        else:
+            # Legacy mode: write to existing source
+            source = Source.objects.get(id=source_id)
+            ok, message = _process_rows_for_source(source.id, rows, mappings, col_for)
+
+        if ok:
+            if task_id:
+                set_job_status(task_id, "SUCCESS", result=message)
+            _delete_storage_file(storage_path)
+            return message
+        else:
+            if task_id:
+                set_job_status(task_id, "FAILURE", error=message)
+            raise ValidationError(message)
+
+    except Exception as exc:
+        if task_id:
+            set_job_status(task_id, "FAILURE", error=str(exc))
+        raise
 
 
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True}, bind=True, track_started=True, ignore_result=False)

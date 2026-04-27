@@ -19,6 +19,11 @@ from rest_framework.urlpatterns import format_suffix_patterns
 
 from observations import views
 from observations.views import vector_tiles_segments
+from observations.views.csv_import import (
+    CSVImportStatusView,
+    CSVObservationImportView,
+    CSVObservationUploadView,
+)
 from utils.constants import regex
 
 urlpatterns = [
@@ -92,6 +97,21 @@ urlpatterns = [
         rf"^source/(?P<id>{regex.UUID})/gpxdata/status/(?P<task_id>{regex.UUID})/?$",
         views.GPXTaskStatusView.as_view(),
         name="gpx-status",
+    ),
+    re_path(
+        rf"^source/(?P<id>{regex.UUID})/csvdata/?$",
+        CSVObservationUploadView.as_view(),
+        name="csv-upload",
+    ),
+    re_path(
+        rf"^source/(?P<id>{regex.UUID})/csvdata/import/?$",
+        CSVObservationImportView.as_view(),
+        name="csv-import",
+    ),
+    re_path(
+        rf"^source/(?P<id>{regex.UUID})/csvdata/status/(?P<task_id>[0-9a-f-]+)/?$",
+        CSVImportStatusView.as_view(),
+        name="csv-import-status",
     ),
     re_path(
         rf"^observation/(?P<id>{regex.UUID})/?$",

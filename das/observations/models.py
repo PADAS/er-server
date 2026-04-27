@@ -2754,6 +2754,15 @@ class SubjectPositionSummary(Observation):
         verbose_name_plural = _("Subject Positions")
 
 
+class CSVObservationImport(Observation):
+    """Proxy model used solely to surface the CSV import page in the admin index."""
+
+    class Meta:
+        proxy = True
+        verbose_name = _("Import Observations")
+        verbose_name_plural = _("Import Observations")
+
+
 class SubjectStatusQuerySet(models.QuerySet):
     def get_last(self):
         for row in self:
