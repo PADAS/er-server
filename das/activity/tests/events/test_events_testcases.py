@@ -1112,6 +1112,68 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertIn("Attachments", raw_csv)
         self.assertIn(self.notes_line2_prefix, raw_csv)
 
+    def test_export_csv_preloads_multiple_attachment_urls(self):
+        """Exports with multiple attachments per event must resolve every URL.
+
+        Exercises the batched file-URL preload path: two attachments share a
+        content type, so a single model query should populate both cache
+        entries. Missing URLs would indicate a regression in that path.
+        """
+        carcass_data = json.loads(
+            """{"event_type":"carcass_rep","priority":200,"event_details":{"carcassrep_species":"elephant","carcassrep_sex":"male","carcassrep_ageofanimal":"adult","carcassrep_ageofcarcass":"fresh","carcassrep_trophystatus":"intact","carcassrep_causeofdeath":"naturaldisease"},"location":{"latitude":"0.28118","longitude":"37.38544"}}"""
+        )
+
+        request = self.factory.post(reverse("events"), carcass_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        event_id = response.data["id"]
+        event_serial = response.data["serial_number"]
+
+        expected_filenames = ["preload-one.txt", "preload-two.txt"]
+        for name in expected_filenames:
+            path = os.path.join(self.temporary_folder, name)
+            with open(path, "w") as f:
+                f.write(f"contents of {name}")
+            with open(path, "rb") as f:
+                upload_request = self.factory.post(
+                    reverse("event-view-files", kwargs={"id": event_id}),
+                    {"filecontent.file": f},
+                    format="multipart",
+                )
+                self.force_authenticate(upload_request, self.all_perms_user)
+                upload_response = views.EventFilesView.as_view()(upload_request, id=event_id)
+                self.assertEqual(upload_response.status_code, 201)
+
+        export_request = self.factory.get(reverse("events-export"))
+        self.force_authenticate(export_request, self.all_perms_user)
+
+        with CaptureQueriesContext(connection) as ctx:
+            export_response = views.EventsExportView.as_view()(export_request)
+            self.assertEqual(export_response.status_code, 200)
+            raw_csv = read_streaming_response_content(export_response)
+
+        # Both uploads share the FileContent content type, so the batched preload
+        # path must resolve them in a single SELECT against usercontent_filecontent.
+        # If this jumps to 2, _preload_file_url_cache has regressed to per-row lookup.
+        file_content_selects = [
+            q["sql"]
+            for q in ctx.captured_queries
+            if 'FROM "usercontent_filecontent"' in q["sql"] and q["sql"].lstrip().upper().startswith("SELECT")
+        ]
+        self.assertEqual(
+            len(file_content_selects),
+            1,
+            f"Expected 1 batched SELECT on usercontent_filecontent, got {len(file_content_selects)}: {file_content_selects}",
+        )
+
+        rows = self.convert_rendered_csv_to_dict(raw_csv)
+        matching_rows = [r for r in rows if r.get("Report_Id") == str(event_serial)]
+        self.assertEqual(len(matching_rows), 1)
+        attachments_cell = matching_rows[0].get("Attachments", "")
+        for name in expected_filenames:
+            self.assertIn(name, attachments_cell)
+
     def test_export_csv_with_qparam_value_cols_true(self):
         carcass_data = json.loads(
             """{"event_type":"carcass_rep","priority":200,"event_details":{"carcassrep_species":"elephant","carcassrep_sex":"male","carcassrep_ageofanimal":"adult","carcassrep_ageofcarcass":"fresh","carcassrep_trophystatus":"intact","carcassrep_causeofdeath":"naturaldisease"},"location":{"latitude":"0.28118","longitude":"37.38544"}}"""
