@@ -28,6 +28,14 @@ EXPIRED_CLIENT_TRACES_LIST = "rt_api.expired_traces"
 REALTIME_SERVICES_KEY = "rt_api.services"
 TRACE_TTL = 60
 CLIENT_REALTIME_SERVICES_TTL = 3600  # 1 hour
+# Per-pod heartbeat key for the live socketio Kombu consumer queue. The
+# orphan-queue sweep treats any python-socketio.* / flask-socketio.* queue
+# whose name lacks a matching heartbeat as dead. TTL must comfortably exceed
+# the refresh interval so a single missed refresh does not get a live pod's
+# queue swept.
+LIVE_SOCKETIO_QUEUE_HEARTBEAT_PREFIX = "rt_api.socketio_queue_heartbeat:"
+LIVE_SOCKETIO_QUEUE_HEARTBEAT_TTL = 15 * 60
+LIVE_SOCKETIO_QUEUE_HEARTBEAT_INTERVAL = 60
 # Session cursor keys (sid-session-timestamp-*, sid-subject-timestamps-*)
 # track the last-emitted observation timestamp for each connected client.
 # They need a much longer TTL than counter/registry keys because a single
