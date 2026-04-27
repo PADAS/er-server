@@ -90,6 +90,8 @@ class RequestLoggingMiddleware(object):
             user_agent = request.META.get("HTTP_USER_AGENT", "")
             status_code = response.status_code
             request_path = request.path
+            query_string = request.META.get("QUERY_STRING", "")
+            full_path = f"{request_path}?{query_string}" if query_string else request_path
             host = request.get_host()
             method = request.method
             protocol = request.META.get("SERVER_PROTOCOL", "")
@@ -116,7 +118,7 @@ class RequestLoggingMiddleware(object):
                 referer=referer,
                 user_agent=user_agent,
                 status=status_code,
-                path=request_path,
+                path=full_path,
                 method=method,
                 protocol=protocol,
                 tenant=tenant_domain,
