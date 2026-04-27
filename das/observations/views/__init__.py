@@ -34,6 +34,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.permissions import UserCanExportDataPermission
+from core.tasks import delete_source_task
 from core.view_utils import AsyncDeleteObjectMixin
 from das_server import celery
 from das_server.views import CustomSchema
@@ -619,6 +620,29 @@ class SourceView(AsyncDeleteObjectMixin, generics.RetrieveUpdateDestroyAPIView, 
 
     def get_queryset(self):
         return Source.objects.all()
+
+    def delete(self, request, *args, **kwargs):
+        if not parse_bool(request.query_params.get("async", False)):
+            return super().delete(request, *args, **kwargs)
+
+        # For async source deletion use delete_source_task instead of the generic
+        # delete_object_task. delete_source_task uses delete_source_cascade which
+        # batch-deletes observations with _raw_delete (no per-row signals, no memory
+        # spike from the ORM collector) and explicitly cleans up related models that
+        # Django's app-level cascade would normally handle.
+        obj = self.get_object()
+        task = delete_source_task.apply_async(
+            args=[str(obj.id)],
+            kwargs=dict(domain=get_tenant_settings().domain),
+        )
+        data = {
+            "task_id": task.id,
+            "location": reverse("task-status", args=[task.id]),
+            "status": task.status,
+        }
+        # 202 Accepted: request enqueued, work runs asynchronously. 204 forbids a
+        # body, which would silently strip task_id/location/status for some clients.
+        return Response(status=status.HTTP_202_ACCEPTED, data=data)
 
 
 class SourcesView(

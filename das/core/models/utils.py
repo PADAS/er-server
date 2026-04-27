@@ -14,17 +14,11 @@ def delete_data_from_qs(qs, delete_revision=False) -> None:
     Returns:
         None
     """
-    if qs.exists():
-        if delete_revision:
-            for row in qs:
-                _raw_delete_revisions(qs.model, row.id)
-        _raw_delete(qs)
-
-
-def _raw_delete_revisions(model, object_id):
-    return _raw_delete(model.revision.model.objects.filter(object_id=object_id))
+    if delete_revision:
+        # Bulk-delete all revisions via a DB-side subquery — avoids loading IDs into memory.
+        _raw_delete(qs.model.revision.model.objects.filter(object_id__in=qs.values("id")))
+    _raw_delete(qs)
 
 
 def _raw_delete(qs):
-    if qs.exists():
-        qs._raw_delete(qs.db)
+    qs._raw_delete(qs.db)

@@ -21,13 +21,16 @@ from django_multitenant.utils import get_current_tenant
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
-from django.contrib.admin import SimpleListFilter
+from django.contrib.admin import SimpleListFilter, helpers
+from django.contrib.admin.models import DELETION, LogEntry
 from django.contrib.admin.options import FORMFIELD_FOR_DBFIELD_DEFAULTS
 from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
-from django.contrib.admin.utils import quote
+from django.contrib.admin.utils import model_ngettext, quote
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth import get_permission_codename
 from django.contrib.contenttypes.admin import GenericTabularInline
+from django.contrib.contenttypes.models import ContentType
+from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
@@ -54,6 +57,7 @@ from django.http import HttpResponse, HttpResponseNotAllowed, JsonResponse
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
+from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.functional import cached_property
 from django.utils.html import escape, format_html
@@ -72,6 +76,7 @@ from core.admin import (
 )
 from core.common import TIMEZONE_USED
 from core.openlayers import OSMGeoExtendedAdmin
+from core.tasks import SOURCE_DELETING_CACHE_KEY, delete_source_task
 from observations.csv_import_jobs import (
     add_pending_task,
     delete_job_status,
@@ -88,6 +93,7 @@ from observations.forms import (
     SubjectChangeListForm,
     SubjectSourceForm,
 )
+from observations.services.source_deletion import OBSERVATION_DELETE_BATCH_SIZE
 from observations.tasks import (
     maintain_observation_data_for_source_provider,
     maintain_subjectstatus_for_subject,
@@ -403,7 +409,91 @@ class SourceIdFilter(InputFilter, ValidateFilterMixin):
 
 
 @admin.register(models.Observation)
-class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
+class ObservationAdmin(BaseModelAdminMixin, ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
+    def delete_selected_observations(self, request, queryset):
+        """
+        Replacement for Django's built-in delete_selected action that avoids two
+        O(N) bottlenecks for large observation sets:
+
+        1. Confirmation GET: Django's default template emits one hidden <input> per
+           selected object.  For 100k observations this produces a huge HTML page.
+           We pass select_across=True so the template emits a single hidden field
+           instead of iterating the queryset.
+
+        2. Confirmation POST: Django's default action calls log_deletion() per row
+           (100k LogEntry inserts) before deleting.  We replace that with a single
+           summary LogEntry per bulk invocation — preserves audit trail without the
+           per-row write amplification.
+        """
+        deletable_objects, model_count, perms_needed, protected = self.get_deleted_objects(queryset, request)
+
+        if request.POST.get("post") and not protected:
+            if perms_needed:
+                raise PermissionDenied
+            n = queryset.count()
+            if n:
+                # Capture filter context BEFORE deletion so the audit entry can describe
+                # the user's intent even after rows are gone.
+                query_description = str(queryset.query) if request.GET or request.POST.get("select_across") else ""
+                self.delete_queryset(request, queryset)
+                LogEntry.objects.log_action(
+                    user_id=request.user.pk,
+                    content_type_id=ContentType.objects.get_for_model(self.model).pk,
+                    object_id="",
+                    object_repr=f"{n} {model_ngettext(self.opts, n)} (bulk delete)",
+                    action_flag=DELETION,
+                    change_message=(
+                        f"Bulk deleted {n} observation(s) via "
+                        f"{type(self).__name__}.delete_selected_observations"
+                        + (f"; queryset: {query_description}" if query_description else "")
+                    ),
+                )
+                self.message_user(
+                    request,
+                    _("Successfully deleted %(count)d %(items)s.")
+                    % {
+                        "count": n,
+                        "items": model_ngettext(self.opts, n),
+                    },
+                    messages.SUCCESS,
+                )
+            return None
+
+        select_across = request.POST.get("select_across", "0") == "1"
+        objects_name = model_ngettext(queryset)
+        title = (
+            _("Cannot delete %(name)s") % {"name": objects_name} if (perms_needed or protected) else _("Are you sure?")
+        )
+        context = {
+            **self.admin_site.each_context(request),
+            "title": title,
+            "objects_name": str(objects_name),
+            "deletable_objects": [deletable_objects],
+            "model_count": dict(model_count).items(),
+            "queryset": queryset,
+            "select_across": select_across,
+            "perms_lacking": perms_needed,
+            "protected": protected,
+            "opts": self.model._meta,
+            "action_checkbox_name": helpers.ACTION_CHECKBOX_NAME,
+            "action_name": request.POST.get("action", "delete_selected_observations"),
+            "media": self.media,
+        }
+        request.current_app = self.admin_site.name
+        return TemplateResponse(
+            request,
+            self.delete_selected_confirmation_template
+            or [
+                "admin/%s/%s/delete_selected_confirmation.html"
+                % (self.model._meta.app_label, self.model._meta.model_name),
+                "admin/%s/delete_selected_confirmation.html" % self.model._meta.app_label,
+                "admin/delete_selected_confirmation.html",
+            ],
+            context,
+        )
+
+    delete_selected_observations.short_description = _("Delete selected observations")
+
     readonly_fields = ("created_at", "id")
     fields = ("id", "recorded_at", "created_at", "location", "exclusion_flags", "source", "additional")
     list_display = (
@@ -482,6 +572,17 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     _recorded_at.short_description = "recorded at %s" % TIMEZONE_USED
     _recorded_at.admin_order_field = "recorded_at"
     _recorded_at.admin_order_first_type = "desc"
+
+    def delete_queryset(self, _request, queryset):
+        # Django's default calls queryset.delete() which fires the ORM collector
+        # and a post_delete signal per row — catastrophically slow for large sets.
+        # _raw_delete issues a plain DELETE statement with no Python overhead.
+        db = queryset.db
+        while True:
+            ids = list(queryset.values_list("id", flat=True)[:OBSERVATION_DELETE_BATCH_SIZE])
+            if not ids:
+                break
+            models.Observation.objects.filter(id__in=ids)._raw_delete(db)
 
     def get_queryset(self, request):
         qs = super(ObservationAdmin, self).get_queryset(request)
@@ -920,7 +1021,13 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
 
     actions = [
         "export_as_csv",
+        "delete_selected_observations",
     ]
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions.pop("delete_selected", None)
+        return actions
 
 
 class SourceProviderFilter(admin.SimpleListFilter, SaveCoordinatesToCookieMixin):
@@ -1626,7 +1733,7 @@ class CSVObservationImportAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.Source)
-class SourceAdmin(admin.ModelAdmin, ObservationsContextMixin):
+class SourceAdmin(BaseModelAdminMixin, ObservationsContextMixin):
     list_display = [
         "manufacturer_id",
         "source_type",
@@ -1704,7 +1811,40 @@ class SourceAdmin(admin.ModelAdmin, ObservationsContextMixin):
 
     _source_provider.admin_order_field = "provider"
 
+    def delete_model(self, request, obj):
+        cache.set(SOURCE_DELETING_CACHE_KEY.format(obj.id), True, 60 * 60)
+        delete_source_task.apply_async(
+            args=[str(obj.id)],
+            kwargs={"domain": get_tenant_settings().domain},
+        )
+
+    def response_delete(self, request, obj_display, _obj_id):
+        opts = self.model._meta
+        if self.has_change_permission(request, None):
+            post_url = reverse(
+                "admin:%s_%s_changelist" % (opts.app_label, opts.model_name),
+                current_app=self.admin_site.name,
+            )
+            post_url = add_preserved_filters(
+                {"preserved_filters": self.get_preserved_filters(request), "opts": opts},
+                post_url,
+            )
+        else:
+            post_url = reverse("admin:index", current_app=self.admin_site.name)
+        self.message_user(request, f'The source "{obj_display}" is being deleted in the background.')
+        return HttpResponseRedirect(post_url)
+
     def change_view(self, request, object_id, form_url="", extra_context=None):
+        if cache.get(SOURCE_DELETING_CACHE_KEY.format(object_id)):
+            opts = self.model._meta
+            self.message_user(request, "This source is currently being deleted.", level=messages.WARNING)
+            return HttpResponseRedirect(
+                reverse(
+                    "admin:%s_%s_changelist" % (opts.app_label, opts.model_name),
+                    current_app=self.admin_site.name,
+                )
+            )
+
         latest_observations = (
             models.Observation.objects.filter(
                 source__id=object_id, source__subjectsource__assigned_range__contains=F("recorded_at")

@@ -80,6 +80,78 @@ class BaseModelAdminMixin(ModelAdminHistoryViewHideSharedAdminUserRevisionsMixin
             kwargs["widgets"] = dict(das_tenant=HiddenInput())
         return super().get_form(request, obj, **kwargs)
 
+    def get_deleted_objects(self, objs, request):
+        # Django's default implementation runs a NestedObjects collector which
+        # issues SELECT * for every related table — loading every cascade row into
+        # Python memory before we can count them.  For models with large cascade
+        # sets (e.g. a Source with 100k Observations) this makes the confirmation
+        # page unusably slow.
+        #
+        # Instead, walk the model graph using metadata only and issue one
+        # COUNT(*) per related model.  This is O(number of distinct related
+        # model types) DB round-trips rather than O(total related rows).
+        from django.db import router
+        from django.db.models import QuerySet
+        from django.db.models.deletion import CASCADE, PROTECT
+
+        using = router.db_for_write(self.model)
+        # model label -> (model class, list of querysets reaching it via different FK paths)
+        model_qs_map = {}
+        perms_needed = set()
+        protected = []
+        # Track visited (model_label, accessor_name) edges to prevent infinite loops on
+        # self-referential or mutually-referential models, while still counting the same
+        # model when it is reachable via multiple FK paths (e.g. EventRelationship has
+        # both from_event and to_event FKs to Event).
+        _visited_edges = set()
+
+        def _walk(model, qs):
+            label = model._meta.label
+            if label not in model_qs_map:
+                model_qs_map[label] = (model, [])
+            model_qs_map[label][1].append(qs)
+
+            for rel in model._meta.related_objects:
+                if rel.many_to_many:
+                    continue
+                edge = (label, rel.get_accessor_name())
+                if edge in _visited_edges:
+                    continue
+                _visited_edges.add(edge)
+                child_qs = rel.related_model._default_manager.using(using).filter(
+                    **{"%s__in" % rel.field.name: qs.values("pk")}
+                )
+                if rel.on_delete is CASCADE:
+                    _walk(rel.related_model, child_qs)
+                elif rel.on_delete is PROTECT and child_qs.exists():
+                    protected.extend(child_qs[:3])
+
+        # delete_selected passes a QuerySet; delete_view passes a list of instances.
+        # Avoid evaluating a large queryset into Python memory — use a subquery instead.
+        if isinstance(objs, QuerySet):
+            root_qs = objs
+        else:
+            root_qs = self.model._default_manager.using(using).filter(pk__in=[o.pk for o in objs])
+
+        _walk(self.model, root_qs)
+
+        # Union querysets per model so rows reachable via multiple FK paths are not
+        # double-counted, then build the summary dict with correct singular/plural labels.
+        model_count = {}
+        for _label, (model, qs_list) in model_qs_map.items():
+            combined = qs_list[0].values("pk")
+            for q in qs_list[1:]:
+                combined = combined.union(q.values("pk"))
+            count = combined.count()
+            if not count:
+                continue
+            if not request.user.has_perm("%s.delete_%s" % (model._meta.app_label, model._meta.model_name)):
+                perms_needed.add(model._meta.verbose_name)
+            verbose = model._meta.verbose_name if count == 1 else model._meta.verbose_name_plural
+            model_count[verbose] = model_count.get(verbose, 0) + count
+
+        return [], model_count, perms_needed, protected
+
 
 class ModelAdminDisplayingManyToManyFieldMixin(admin.ModelAdmin):
     def formfield_for_manytomany(self, db_field, request, **kwargs):

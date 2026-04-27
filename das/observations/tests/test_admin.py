@@ -1,11 +1,13 @@
 import pytest
 
 from django.contrib.admin import site as admin_site
+from django.contrib.admin.models import DELETION, LogEntry
+from django.contrib.contenttypes.models import ContentType
 from django.test import RequestFactory
 
-from factories import SubjectFactory
-from observations.admin import SubjectAdmin
-from observations.models import Subject
+from factories import ObservationFactory, SubjectFactory
+from observations.admin import ObservationAdmin, SubjectAdmin
+from observations.models import Observation, Subject
 
 
 @pytest.mark.django_db
@@ -32,3 +34,91 @@ def test_subject_admin_delete_queryset_with_distinct(superuser):
     admin_instance.delete_queryset(request, selected)
 
     assert not Subject.objects.filter(pk__in=[subject1.pk, subject2.pk]).exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestObservationAdminBulkDelete:
+    """Covers the custom delete_selected_observations action that replaces Django's
+    default to avoid per-row LogEntry inserts and per-row hidden inputs in the
+    confirmation form."""
+
+    def _make_request(self, method, superuser, post_data=None):
+        factory = RequestFactory()
+        request = factory.post("/", post_data or {}) if method == "POST" else factory.get("/")
+        request.user = superuser
+        # delete_selected_observations writes flash messages — RequestFactory doesn't
+        # attach a messages backend, so add a no-op storage.
+        from django.contrib.messages.storage.fallback import FallbackStorage
+
+        setattr(request, "session", {})
+        setattr(request, "_messages", FallbackStorage(request))
+        return request
+
+    def test_bulk_delete_post_removes_rows_and_writes_single_summary_log_entry(self, superuser):
+        observations = ObservationFactory.create_batch(3)
+        ids = [o.id for o in observations]
+        ct = ContentType.objects.get_for_model(Observation)
+        log_count_before = LogEntry.objects.filter(content_type=ct, action_flag=DELETION).count()
+
+        admin = ObservationAdmin(model=Observation, admin_site=admin_site)
+        request = self._make_request("POST", superuser, post_data={"post": "yes"})
+        queryset = Observation.objects.filter(id__in=ids)
+
+        admin.delete_selected_observations(request, queryset)
+
+        assert not Observation.objects.filter(id__in=ids).exists(), "rows must be deleted"
+
+        new_entries = LogEntry.objects.filter(content_type=ct, action_flag=DELETION).order_by("-id")
+        assert (
+            new_entries.count() - log_count_before == 1
+        ), "exactly one summary LogEntry per bulk action — not one per row"
+        entry = new_entries.first()
+        assert "3" in entry.object_repr, "summary entry must include the count"
+        assert "bulk" in entry.object_repr.lower()
+        assert entry.user_id == superuser.pk
+
+    def test_bulk_delete_select_across_emits_single_hidden_field(self, superuser):
+        # When the user picks "select all 100k" on the changelist, the action receives
+        # select_across=1 and must emit ONE hidden field, not one per row — otherwise
+        # the confirmation page is hundreds of MBs of HTML.
+        ObservationFactory.create_batch(3)
+
+        admin = ObservationAdmin(model=Observation, admin_site=admin_site)
+        request = self._make_request("POST", superuser, post_data={"select_across": "1"})
+        queryset = Observation.objects.all()
+
+        response = admin.delete_selected_observations(request, queryset)
+        assert response is not None
+        rendered = response.render().content.decode()
+
+        # With select_across, the template renders <input name="select_across" value="1">
+        # exactly once and skips the per-row {% for %} loop.
+        assert rendered.count('name="select_across"') == 1
+        assert (
+            rendered.count('name="_selected_action"') == 0
+        ), "select_across path must not iterate the queryset to emit per-row inputs"
+
+    def test_bulk_delete_get_renders_confirmation_with_summary_count(self, superuser):
+        # GET path (initial confirmation) should render the model-count summary so
+        # the user sees "Observations: N" without paying the cost of the default
+        # collector or rendering an unordered_list per row.
+        ObservationFactory.create_batch(4)
+
+        admin = ObservationAdmin(model=Observation, admin_site=admin_site)
+        request = self._make_request("GET", superuser)
+        queryset = Observation.objects.all()
+
+        response = admin.delete_selected_observations(request, queryset)
+        assert response is not None
+        rendered = response.render().content.decode()
+        # The custom template includes admin/includes/object_delete_summary.html
+        # which renders the model_count dict as "<verbose_name>: <count>" lines.
+        assert "4" in rendered, "summary count must appear on the confirmation page"
+
+    def test_default_delete_selected_action_is_removed(self, superuser):
+        admin = ObservationAdmin(model=Observation, admin_site=admin_site)
+        request = self._make_request("GET", superuser)
+        actions = admin.get_actions(request)
+        assert "delete_selected" not in actions, "default action would re-introduce per-row LogEntry inserts"
+        assert "delete_selected_observations" in actions
