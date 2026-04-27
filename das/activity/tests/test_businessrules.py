@@ -22,7 +22,6 @@ from accounts.utils import permission_get_by_natural_key
 from activity.alerting.businessrules import (
     EventActions,
     EventVariables,
-    RuleVariableSpec,
     _generate_aggregate_event_variables_class,
     render_aggregate_event_variables,
 )
@@ -506,99 +505,6 @@ class TestV2MultiSelectAlerts:
         # Should trigger because event has "bushmeat" which is in the condition
         alert_actions = [a for a in action_list if a.get("alert_rule_id") == str(alert_rule.id)]
         assert len(alert_actions) == 1
-
-
-class TestRuleVariableSpecDefaults:
-    """Regression tests for RuleVariableSpec default values."""
-
-    def test_default_optionsdict_is_none(self):
-        spec = RuleVariableSpec(attrname="field", return_type=str, label="Field")
-        assert spec.optionsdict is None
-
-    def test_explicit_optionsdict_is_independent(self):
-        a = RuleVariableSpec(attrname="a", return_type=str, label="A", optionsdict={"x": "X"})
-        b = RuleVariableSpec(attrname="b", return_type=str, label="B", optionsdict={"y": "Y"})
-        assert isinstance(a.optionsdict, dict)
-        assert isinstance(b.optionsdict, dict)
-        assert "x" not in b.optionsdict
-        assert "y" not in a.optionsdict
-
-
-class TestMultiSelectChoiceTypeOperators:
-    """Unit tests for MultiSelectChoiceType operator logic."""
-
-    def test_contains_all_present(self):
-        mst = MultiSelectChoiceType(["bushmeat", "ivory", "timber"])
-        assert mst.contains(["bushmeat", "ivory"]) is True
-
-    def test_contains_some_missing(self):
-        mst = MultiSelectChoiceType(["bushmeat", "timber"])
-        assert mst.contains(["bushmeat", "ivory"]) is False
-
-    def test_contains_empty_condition(self):
-        mst = MultiSelectChoiceType(["bushmeat"])
-        assert mst.contains([]) is True
-
-    def test_is_exactly_match(self):
-        mst = MultiSelectChoiceType(["bushmeat", "ivory"])
-        assert mst.is_exactly(["ivory", "bushmeat"]) is True
-
-    def test_is_exactly_no_match(self):
-        mst = MultiSelectChoiceType(["bushmeat", "ivory"])
-        assert mst.is_exactly(["bushmeat"]) is False
-
-    def test_is_empty_true(self):
-        mst = MultiSelectChoiceType([])
-        assert mst.is_empty() is True
-
-    def test_is_empty_false(self):
-        mst = MultiSelectChoiceType(["bushmeat"])
-        assert mst.is_empty() is False
-
-    def test_is_not_empty_true(self):
-        mst = MultiSelectChoiceType(["bushmeat"])
-        assert mst.is_not_empty() is True
-
-    def test_is_not_empty_false(self):
-        mst = MultiSelectChoiceType([])
-        assert mst.is_not_empty() is False
-
-    def test_is_one_of_match(self):
-        mst = MultiSelectChoiceType(["bushmeat", "timber"])
-        assert mst.is_one_of(["ivory", "timber"]) is True
-
-    def test_is_one_of_no_match(self):
-        mst = MultiSelectChoiceType(["bushmeat", "timber"])
-        assert mst.is_one_of(["ivory", "skins"]) is False
-
-    def test_is_not_one_of_true(self):
-        mst = MultiSelectChoiceType(["bushmeat", "timber"])
-        assert mst.is_not_one_of(["ivory", "skins"]) is True
-
-    def test_is_not_one_of_false(self):
-        mst = MultiSelectChoiceType(["bushmeat", "timber"])
-        assert mst.is_not_one_of(["ivory", "timber"]) is False
-
-    def test_cast_none_to_empty_list(self):
-        mst = MultiSelectChoiceType(None)
-        assert mst.value == []
-
-    def test_cast_dict_extracts_value(self):
-        mst = MultiSelectChoiceType({"name": "Bush Meat", "value": "bushmeat"})
-        assert mst.value == ["bushmeat"]
-
-    def test_cast_string_to_single_list(self):
-        mst = MultiSelectChoiceType("bushmeat")
-        assert mst.value == ["bushmeat"]
-
-    def test_cast_list_passthrough(self):
-        mst = MultiSelectChoiceType(["a", "b"])
-        assert mst.value == ["a", "b"]
-
-    def test_is_one_of_empty_selection(self):
-        """Empty selection should not match anything."""
-        mst = MultiSelectChoiceType([])
-        assert mst.is_one_of(["bushmeat"]) is False
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")

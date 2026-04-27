@@ -284,6 +284,31 @@ class TestAlertingSchemaPropertiesAdapter:
         assert choice_options["option1"] == "Option 1"
         assert choice_options["option2"] == "Option 2"
 
+    def test_v1_choice_list_field_processing(self, five_event_categories):
+        """V1 array fields with enumNames inside items have choice options extracted."""
+        adapter = AlertingSchemaPropertiesAdapter()
+
+        multi_choices = {"bushmeat": "Bush Meat", "ivory": "Ivory", "timber": "Timber"}
+        v1_schema = V1SchemaBuilder.choice_list_field("items_confiscated", multi_choices)
+        v1_event_type = EventTypeFactory.create(
+            category=five_event_categories[0],
+            version=EventType.VersionChoices.VERSION_1,
+            schema=json.dumps(v1_schema),
+            value="test_v1_multi_choice",
+            display="Test V1 Multi-Select Choice",
+        )
+
+        result = adapter.get_alert_properties(v1_event_type)
+
+        assert result.status == "success"
+        assert "items_confiscated" in result.properties
+        assert result.properties["items_confiscated"]["type"] == "array"
+
+        # Array field should have its choice options extracted from items.enumNames
+        assert "items_confiscated" in result.choice_options_map
+        choice_options = result.choice_options_map["items_confiscated"]
+        assert choice_options == multi_choices
+
     def test_v2_choice_list_field_processing(self, five_event_categories):
         """V2 multi-select (choice list) fields have choice options extracted."""
         adapter = AlertingSchemaPropertiesAdapter()

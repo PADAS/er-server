@@ -265,7 +265,6 @@ def get_schema_type(option: Dict[str, str]) -> str:
             return "multiselect"
 
     if "type" not in option:
-        logger.warning("No 'type' present in option, so using str. option=%s", option)
         return "string"
 
     return option["type"]

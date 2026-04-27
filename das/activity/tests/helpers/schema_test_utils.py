@@ -87,6 +87,29 @@ class V1SchemaBuilder:
         return V1SchemaBuilder.simple_field(field_name, "string", enumNames=choices, **kwargs)
 
     @staticmethod
+    def choice_list_field(field_name: str, choices: dict, **kwargs) -> dict:
+        """Create V1 schema with an array/multi-select field using enumNames inside items."""
+        field_props = {
+            "type": "array",
+            "title": field_name.replace("_", " ").title(),
+            "items": {
+                "type": "string",
+                "enum": list(choices.keys()),
+                "enumNames": choices,
+            },
+            **kwargs,
+        }
+        return {
+            "schema": {
+                "$schema": V1_DRAFT,
+                "title": "Test Schema",
+                "type": "object",
+                "properties": {field_name: field_props},
+            },
+            "definition": [{"key": field_name, "htmlClass": "col-lg-6"}],
+        }
+
+    @staticmethod
     def readonly_schema(readonly_value=True, with_field=True) -> dict:
         """Create V1 schema with readonly property set.
         Args:
