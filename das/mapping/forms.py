@@ -1,8 +1,10 @@
+import re
 from math import isclose
 
 from django import forms
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.gis.geos import Point
+from django.core.exceptions import ValidationError
 from django.forms import JSONField
 from django.utils.translation import gettext_lazy as _
 
@@ -12,7 +14,6 @@ from core.forms_utils import JSONFieldFormMixin
 from mapping.models import (
     ArcgisConfiguration,
     DisplayCategory,
-    FeatureType,
     Map,
     SpatialFeatureGroupStatic,
     SpatialFeatureType,
@@ -138,43 +139,132 @@ class SpatialFeatureGroupStaticForm(forms.ModelForm):
         fields = ("spatial_feature_groupstatic",)
 
 
-class PresentationWidget(forms.Textarea):
-    template_name = "admin/mapping/featuretype/presentation_textarea.html"
+class ColorPickerWidget(forms.TextInput):
+    template_name = "admin/mapping/spatialfeaturetype/color_picker_widget.html"
 
-    def __init__(self, attrs=None):
-        # Use slightly better defaults than HTML's 20x2 box
-        default_attrs = {"cols": "50", "rows": "100"}
-        if attrs:
-            default_attrs.update(attrs)
-        super().__init__(default_attrs)
+    def __init__(self, *args, default_color=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.default_color = default_color or ""
+
+    def get_context(self, name, value, attrs):
+        ctx = super().get_context(name, value, attrs)
+        ctx["widget"]["default_color"] = self.default_color
+        return ctx
 
     class Media:
         css = {
-            "all": ("css/presentation_textarea.css",),
+            "all": ("css/color_picker_widget.css",),
         }
 
 
-class BaseFeatureTypeForm(forms.ModelForm):
-    presentation = JSONField(widget=PresentationWidget(attrs={"rows": 20, "cols": 80}))
+class SpatialFeatureTypeForm(forms.ModelForm):
+    # Maps form field names to their keys in the presentation JSON.
+    PRESENTATION_FORM_FIELDS = {
+        "stroke": "stroke",
+        "stroke_width": "stroke-width",
+        "stroke_opacity": "stroke-opacity",
+        "point_image": "image",
+        "point_width": "width",
+        "point_height": "height",
+        "fill_opacity": "fill-opacity",
+        "fill_outline_color": "fill-outline-color",
+        "fill_color": "fill",
+    }
 
-    class Meta:
-        abstract = True
+    presentation = JSONField(
+        widget=forms.Textarea(attrs={"rows": 20, "cols": 80}),
+        required=False,
+        help_text="Live JSON representation of the formatting controls above. Edit directly for advanced use.",
+    )
 
+    def validate_hex_color(value):
+        if value and not re.fullmatch(r"#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?", value):
+            raise ValidationError(_("Enter a valid hex color (e.g. #fff or #ffffff)."))
 
-class FeatureTypeForm(BaseFeatureTypeForm):
-    class Meta:
-        model = FeatureType
-        fields = [
-            "id",
-            "name",
-            "presentation",
-        ]
+    stroke_width = forms.IntegerField(
+        min_value=1,
+        required=False,
+        label="Stroke Width",
+        initial=2,
+    )
+    stroke_opacity = forms.FloatField(
+        min_value=0,
+        max_value=1,
+        required=False,
+        label="Stroke Opacity",
+        initial=1,
+        widget=forms.NumberInput(attrs={"type": "range", "min": "0", "max": "1", "step": "0.01"}),
+    )
+    fill_opacity = forms.FloatField(
+        min_value=0,
+        max_value=1,
+        required=False,
+        label="Fill Opacity",
+        initial=0.25,
+        widget=forms.NumberInput(attrs={"type": "range", "min": "0", "max": "1", "step": "0.01"}),
+    )
+    point_image = forms.CharField(max_length=500, required=False, label="Image")
+    point_width = forms.FloatField(min_value=1, required=False, label="Width", initial=20, max_value=100)
+    point_height = forms.FloatField(min_value=1, required=False, label="Height", initial=20, max_value=100)
+    stroke = forms.CharField(
+        max_length=50,
+        required=False,
+        label="Stroke Color",
+        initial="#FF6600",
+        widget=ColorPickerWidget,
+        validators=[validate_hex_color],
+    )
+    fill_outline_color = forms.CharField(
+        max_length=50,
+        required=False,
+        label="Fill Outline Color",
+        initial="#FF6600",
+        widget=ColorPickerWidget,
+        validators=[validate_hex_color],
+    )
+    fill_color = forms.CharField(
+        max_length=50,
+        required=False,
+        label="Fill Color",
+        initial="#FF6600",
+        widget=ColorPickerWidget,
+        validators=[validate_hex_color],
+    )
 
-
-class SpatialFeatureTypeForm(BaseFeatureTypeForm):
     class Meta:
         model = SpatialFeatureType
         fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.presentation:
+            presentation = self.instance.presentation
+            for field_name, json_key in self.PRESENTATION_FORM_FIELDS.items():
+                if json_key in presentation:
+                    self.initial[field_name] = presentation[json_key]
+            # Legacy synonym: SimpleStyle uses "fill"; older data may have "fill-color".
+            if "fill" not in presentation and "fill-color" in presentation:
+                self.initial["fill_color"] = presentation["fill-color"]
+        for field_name, form_field in self.fields.items():
+            if isinstance(form_field.widget, ColorPickerWidget):
+                form_field.widget.default_color = self.initial.get(field_name) or form_field.initial or ""
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if not self.cleaned_data.get("presentation"):
+            presentation = {}
+            for field_name, json_key in self.PRESENTATION_FORM_FIELDS.items():
+                value = self.cleaned_data.get(field_name)
+                if value not in (None, ""):
+                    presentation[json_key] = value
+            instance.presentation = presentation
+        # Drop the legacy Mapbox paint name once the canonical SimpleStyle "fill" is set.
+        if instance.presentation and "fill" in instance.presentation:
+            instance.presentation.pop("fill-color", None)
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
 
 
 class DisplayCategoryForm(forms.ModelForm):
@@ -190,6 +280,7 @@ class DisplayCategoryForm(forms.ModelForm):
     feature_classes = forms.ModelMultipleChoiceField(
         queryset=SpatialFeatureType.objects.none(),
         required=False,
+        label=_("Feature Types"),
         widget=FilteredSelectMultiple(verbose_name=_("Feature Types"), is_stacked=False),
     )
 

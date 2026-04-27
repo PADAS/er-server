@@ -446,6 +446,15 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600, "fanout_prefix": 
 # task:
 CELERY_TASK_TRACK_STARTED = True
 
+# Max observation UUIDs per post-save segment Celery message (create/update batches).
+OBSERVATION_SEGMENT_POST_SAVE_BATCH_SIZE = env.int("OBSERVATION_SEGMENT_POST_SAVE_BATCH_SIZE", 200)
+# Lag (seconds) at which a segment task increments observation_segment.backlog_threshold_breach.
+OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS = env.int("OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS", 300)
+# Daily reconciliation looks back this many hours per tenant to verify segment coverage.
+# Wider than 24h gives overlap when the daily run is delayed or skipped, so observations
+# don't fall between cracks.
+OBSERVATION_SEGMENT_RECONCILE_HOURS = env.int("OBSERVATION_SEGMENT_RECONCILE_HOURS", 30)
+
 DEFAULT_CACHE_ALIAS = "default"
 SHARED_CACHE_ALIAS = "shared"
 VECTOR_TILE_CACHE_ALIAS = "vector_tiles"

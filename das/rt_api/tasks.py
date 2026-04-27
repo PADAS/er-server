@@ -671,6 +671,94 @@ def handle_emit_data(event_id, **kwargs):
     logger.info("event mailer event_id: %s", event_id)
 
 
+# Both prefixes have been used for the per-consumer Kombu queue name in the
+# python-socketio history: "flask-socketio." prior to release 5.12.0
+# (2024-12-18) and "python-socketio." since. Both versions bind to the same
+# fanout exchange "socketio", so old orphan queues keep receiving every
+# publish from the current cluster forever and accumulate unbounded.
+SOCKETIO_QUEUE_KEY_PREFIXES = ("python-socketio.", "flask-socketio.")
+# Kombu's fanout-exchange binding registry key. The exchange name is the
+# python-socketio `channel` default of "socketio"; DASKombuManager does not
+# override it.
+SOCKETIO_BINDING_KEY = "_kombu.binding.socketio"
+# kombu.transport.redis.Channel.sep — separator in binding-set members
+# (routing_key, pattern, queue_name).
+SOCKETIO_BINDING_SEP = b"\x06\x16"
+
+
+def _queue_name_from_key(key: bytes) -> bytes:
+    # Kombu may suffix priority keys as "<queue>\x06\x16<step>"; strip it.
+    idx = key.find(SOCKETIO_BINDING_SEP)
+    return key if idx == -1 else key[:idx]
+
+
+@celery.app.task(base=QueueOnce, once={"graceful": True})
+def sweep_orphan_socketio_queues():
+    """Delete python-socketio.* / flask-socketio.* queues with no live consumer.
+
+    Liveness comes from per-pod heartbeat keys written by DASKombuManager:
+    any queue whose name lacks a matching heartbeat is considered dead and
+    its queue key plus binding-registry entry are removed.
+
+    Kombu's Redis transport documents "Supports TTL: No" — queue keys leak
+    when a socketio consumer terminates abnormally (SIGKILL, OOM, node loss).
+    The fanout exchange continues LPUSHing every cluster-wide emit into the
+    orphan queue forever, so OBJECT IDLETIME never grows past the publish
+    interval and is not a usable liveness signal.
+    """
+    rc = client.redis_client
+
+    prefix_bytes = client.LIVE_SOCKETIO_QUEUE_HEARTBEAT_PREFIX.encode()
+    live_queue_names: set[bytes] = set()
+    for hb_key in rc.scan_iter(match=f"{client.LIVE_SOCKETIO_QUEUE_HEARTBEAT_PREFIX}*", count=500):
+        if isinstance(hb_key, str):
+            hb_key = hb_key.encode()
+        if hb_key.startswith(prefix_bytes):
+            live_queue_names.add(hb_key[len(prefix_bytes) :])
+
+    if not live_queue_names:
+        # Defense in depth: if every pod failed to publish a heartbeat we'd
+        # delete every queue, including live ones. Bail out and let the next
+        # sweep retry once heartbeats land.
+        logger.warning(
+            "sweep_orphan_socketio_queues: no live heartbeat keys; skipping "
+            "to avoid mass deletion of socketio queues"
+        )
+        update_gauge(metric="rt_api_orphan_socketio_queues_deleted", value=0)
+        return
+
+    members = rc.smembers(SOCKETIO_BINDING_KEY) or set()
+    queue_name_to_member: dict[bytes, bytes] = {}
+    for member in members:
+        parts = member.split(SOCKETIO_BINDING_SEP)
+        if len(parts) >= 3 and parts[2]:
+            queue_name_to_member[parts[2]] = member
+
+    deleted_keys = 0
+    deleted_bindings = 0
+    for prefix in SOCKETIO_QUEUE_KEY_PREFIXES:
+        for key in rc.scan_iter(match=f"{prefix}*", count=500):
+            queue_name = _queue_name_from_key(key)
+            if queue_name in live_queue_names:
+                continue
+
+            rc.delete(key)
+            deleted_keys += 1
+
+            member = queue_name_to_member.pop(queue_name, None)
+            if member is not None:
+                rc.srem(SOCKETIO_BINDING_KEY, member)
+                deleted_bindings += 1
+
+    if deleted_keys or deleted_bindings:
+        logger.info(
+            "sweep_orphan_socketio_queues deleted %d queue keys and %d binding entries",
+            deleted_keys,
+            deleted_bindings,
+        )
+    update_gauge(metric="rt_api_orphan_socketio_queues_deleted", value=deleted_keys)
+
+
 @celery.app.task(base=QueueOnce, once={"graceful": True})
 def check_redis_queues():
     """

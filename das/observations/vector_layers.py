@@ -17,7 +17,17 @@ from datetime import timedelta
 from vectortiles import VectorLayer
 
 from django.contrib.gis.db.models.functions import Transform
-from django.db.models import BooleanField, Case, CharField, F, Func, Value, When, Window
+from django.db.models import (
+    BooleanField,
+    Case,
+    CharField,
+    F,
+    FloatField,
+    Func,
+    Value,
+    When,
+    Window,
+)
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce, Concat, Lower, RowNumber
 from django.utils import timezone
@@ -41,6 +51,49 @@ class _ISOTimestamp(Func):
     function = "to_char"
     template = "to_char(%(expressions)s AT TIME ZONE 'UTC'," ' \'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"\')'
     output_field = CharField()
+
+
+class _CsvRgbToHex(Func):
+    """Convert ``"R,G,B"`` (e.g. ``"255,0,128"``) to ``"#FF0080"`` in SQL.
+
+    Falls back to the provided default when the input is NULL, empty, or
+    cannot be parsed.  Uses ``split_part`` + ``lpad`` + ``to_hex`` which are
+    available in PostgreSQL 9.5+.
+
+    The JSON/text expression is evaluated in a scalar subquery so its bound
+    parameters appear exactly once.  Repeating the same compiled SQL fragment
+    multiple times in one expression can desync placeholders and params with
+    some Django/psycopg paths (and broke tile/query execution).
+    """
+
+    output_field = CharField()
+
+    def __init__(self, expression, default_hex="#4264FB", **extra):
+        super().__init__(expression, **extra)
+        self.default_hex = default_hex
+
+    def as_sql(self, compiler, connection, **extra_context):
+        connection.ops.check_expression_support(self)
+        inner_sql, inner_params = compiler.compile(self.source_expressions[0])
+        # Bind ``default_hex`` as a query parameter rather than splicing it into the SQL string.
+        # Today it is always a hard-coded constant, but the constructor exposes it — defence in
+        # depth in case a future caller passes user-controllable input.
+        #
+        # Only run the CAST path when the value matches a strict ``R,G,B`` pattern; otherwise
+        # fall back to the default.  ``CAST(... AS INTEGER)`` aborts the whole query on
+        # malformed input (``invalid input syntax for type integer``), which would 500 the
+        # entire vector-tile request because of one bad row.
+        sql = (
+            f"(SELECT CASE "
+            f"WHEN inner_v IS NULL OR inner_v = '' THEN %s "
+            f"WHEN inner_v ~ '^\\s*[0-9]+\\s*,\\s*[0-9]+\\s*,\\s*[0-9]+\\s*$' THEN '#' "
+            f"|| UPPER(LPAD(TO_HEX(CAST(BTRIM(SPLIT_PART(inner_v, ',', 1)) AS INTEGER)), 2, '0')) "
+            f"|| UPPER(LPAD(TO_HEX(CAST(BTRIM(SPLIT_PART(inner_v, ',', 2)) AS INTEGER)), 2, '0')) "
+            f"|| UPPER(LPAD(TO_HEX(CAST(BTRIM(SPLIT_PART(inner_v, ',', 3)) AS INTEGER)), 2, '0')) "
+            f"ELSE %s "
+            f"END FROM (SELECT ({inner_sql}) AS inner_v) _rgb_inner)"
+        )
+        return sql, [self.default_hex, self.default_hex, *inner_params]
 
 
 class SubjectVectorLayer(VectorLayer):
@@ -234,7 +287,7 @@ class ObservationSegmentVectorLayer(VectorLayer):
     # ------------------------------------------------------------------ #
     @property
     def presentation_keys(self):
-        return ["stroke", "stroke-width", "stroke-opacity"]
+        return ["stroke", "stroke_width", "stroke_opacity"]
 
     @property
     def tile_fields(self):
@@ -249,7 +302,10 @@ class ObservationSegmentVectorLayer(VectorLayer):
             "distance_meters",
             "bearing_deg",
             "exclusion_flags",
-            "is_latest",  # computed in get_vector_tile_queryset via Window/RowNumber, not in _get_vector_tile_annotations
+            "is_latest",
+            "stroke",
+            "stroke_width",
+            "stroke_opacity",
         )
 
     # ------------------------------------------------------------------ #
@@ -309,11 +365,22 @@ class ObservationSegmentVectorLayer(VectorLayer):
         segment's ``start_recorded_at`` / ``end_recorded_at``, computed **in SQL**
         so that ``ST_AsMVT`` emits lexicographically-sortable strings the client
         can use in Mapbox GL filter expressions.
+
+        ``stroke`` / ``stroke_width`` / ``stroke_opacity`` are presentation
+        properties derived from the subject's ``additional->>'rgb'`` field.
+        MVT property names use underscores (SQL column alias limitation); the
+        client style layer should reference ``stroke_width`` / ``stroke_opacity``.
         """
         return {
             "subject_name": Coalesce(F("subject__name"), Value("", output_field=CharField())),
             "start_time": _ISOTimestamp(F("start_recorded_at")),
             "end_time": _ISOTimestamp(F("end_recorded_at")),
+            "stroke": _CsvRgbToHex(
+                KeyTextTransform("rgb", F("subject__additional")),
+                default_hex="#FFFF00",
+            ),
+            "stroke_width": Value(2.0, output_field=FloatField()),
+            "stroke_opacity": Value(0.8, output_field=FloatField()),
         }
 
     def get_vector_tile_queryset(self, z=None, x=None, y=None):
@@ -340,25 +407,21 @@ class ObservationSegmentVectorLayer(VectorLayer):
     # Styling / presentation
     # ------------------------------------------------------------------ #
     def get_presentation_properties(self, obj):
-        """
-        Return presentation properties for a segment feature.
-        Uses subject's color/style settings.
+        """Return stroke presentation properties for a segment feature.
+
+        Uses the subject's ``color`` property (which converts ``additional["rgb"]``
+        from CSV ``"R,G,B"`` to hex ``"#RRGGBB"``).  Property names use underscores
+        to match the SQL annotation path used by the PostGIS MVT backend.
         """
         subject = obj.subject
-        additional = getattr(subject, "additional", {}) or {}
-
-        # Default track styling
-        stroke = additional.get("rgb", "#4264fb")  # Default blue
-        stroke_width = 2.0
-        stroke_opacity = 0.8
-
-        # You can add logic here to vary stroke based on speed, time_gap, etc.
-        # For example: thicker lines for faster speeds, dashed for long time gaps
-
+        # Match the SQL/MVT default in ``_get_vector_tile_annotations`` so the Python
+        # feature path renders the same color as ST_AsMVT when ``additional['rgb']`` is
+        # missing or malformed (``Subject.color`` returns ``None`` for bad CSV).
+        stroke = getattr(subject, "color", None) or "#FFFF00"
         return {
             "stroke": stroke,
-            "stroke-width": stroke_width,
-            "stroke-opacity": stroke_opacity,
+            "stroke_width": 2.0,
+            "stroke_opacity": 0.8,
         }
 
     def as_vector_tile_feature(self, obj):

@@ -73,7 +73,7 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
     date_off_or_removed = forms.CharField(required=False, label="Date Off or Removed")
     comments = forms.CharField(required=False, label="Comments", widget=forms.Textarea)
     assigned_range = AssignedDateTimeRangeField(
-        label=f"Assigned Range in GMT",
+        label="Assigned Range in GMT",
         required=True,
         validators=[validate_assigned_range],
     )
@@ -374,7 +374,8 @@ def generate_sample_data(provider):
         """
      select ob.id,
             jsonb_agg(to_jsonb(ob.additional))
-                over (partition by ob.source_id order by ob.recorded_at desc ROWS BETWEEN UNBOUNDED PRECEDING AND %s FOLLOWING)
+                over (partition by ob.source_id
+                    order by ob.recorded_at desc ROWS BETWEEN UNBOUNDED PRECEDING AND %s FOLLOWING)
                     AS agg_data
     from (select row_number()
             over (partition by o.source_id order by o.recorded_at DESC) as rn, o.*

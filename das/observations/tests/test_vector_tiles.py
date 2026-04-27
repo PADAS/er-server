@@ -748,15 +748,15 @@ class TestSubjectLayerProperties:
 
 @pytest.mark.django_db
 class TestSegmentPresentationProperties:
-    """Test segment presentation properties (stroke, stroke-width, stroke-opacity)."""
+    """Test segment presentation properties (stroke, stroke_width, stroke_opacity)."""
 
     def test_presentation_uses_subject_rgb(self, das_tenant, subject_subtype):
-        """Verify presentation stroke uses subject's RGB color."""
+        """Verify presentation stroke uses subject's RGB color (CSV → hex)."""
         subject = Subject.objects.create(
             name="RGB Test",
             subject_subtype=subject_subtype,
             das_tenant=das_tenant,
-            additional={"rgb": "#ff0000"},
+            additional={"rgb": "255,0,0"},
         )
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_rgb", display_name="Test", das_tenant=das_tenant
@@ -776,9 +776,9 @@ class TestSegmentPresentationProperties:
         layer = ObservationSegmentVectorLayer()
         props = layer.get_presentation_properties(segment)
 
-        assert props["stroke"] == "#ff0000"
-        assert props["stroke-width"] == 2.0
-        assert props["stroke-opacity"] == 0.8
+        assert props["stroke"] == "#FF0000"
+        assert props["stroke_width"] == 2.0
+        assert props["stroke_opacity"] == 0.8
 
     def test_presentation_default_stroke_color(self, das_tenant, subject_subtype):
         """Verify default stroke color when subject has no RGB."""
@@ -786,7 +786,7 @@ class TestSegmentPresentationProperties:
             name="Default Color Test",
             subject_subtype=subject_subtype,
             das_tenant=das_tenant,
-            additional={},  # No rgb
+            additional={},
         )
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_default", display_name="Test", das_tenant=das_tenant
@@ -806,9 +806,9 @@ class TestSegmentPresentationProperties:
         layer = ObservationSegmentVectorLayer()
         props = layer.get_presentation_properties(segment)
 
-        assert props["stroke"] == "#4264fb"  # Default blue
-        assert props["stroke-width"] == 2.0
-        assert props["stroke-opacity"] == 0.8
+        assert props["stroke"] == "#FFFF00"  # DEFAULT_COLOR "255,255,0" → hex
+        assert props["stroke_width"] == 2.0
+        assert props["stroke_opacity"] == 0.8
 
     def test_feature_includes_presentation_properties(self, das_tenant, subject_subtype):
         """Verify as_vector_tile_feature includes presentation properties."""
@@ -816,7 +816,7 @@ class TestSegmentPresentationProperties:
             name="Feature Props Test",
             subject_subtype=subject_subtype,
             das_tenant=das_tenant,
-            additional={"rgb": "#00ff00"},
+            additional={"rgb": "0,255,0"},
         )
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_feature", display_name="Test", das_tenant=das_tenant
@@ -834,17 +834,61 @@ class TestSegmentPresentationProperties:
         segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
 
         layer = ObservationSegmentVectorLayer()
-        # Need to get segment from queryset to have annotations
         qs = layer.get_vector_tile_queryset()
         annotated_segment = qs.get(id=segment.id)
         feature = layer.as_vector_tile_feature(annotated_segment)
 
         assert "stroke" in feature["properties"]
-        assert "stroke-width" in feature["properties"]
-        assert "stroke-opacity" in feature["properties"]
-        assert feature["properties"]["stroke"] == "#00ff00"
-        assert feature["properties"]["stroke-width"] == 2.0
-        assert feature["properties"]["stroke-opacity"] == 0.8
+        assert "stroke_width" in feature["properties"]
+        assert "stroke_opacity" in feature["properties"]
+        assert feature["properties"]["stroke"] == "#00FF00"
+        assert feature["properties"]["stroke_width"] == 2.0
+        assert feature["properties"]["stroke_opacity"] == 0.8
+
+    @pytest.mark.parametrize(
+        "rgb_value",
+        [
+            "not-a-color",
+            "255,0",  # too few components
+            "255,0,0,0",  # too many components
+            "abc,def,ghi",
+            "255;0;0",
+            " ",
+        ],
+    )
+    def test_malformed_rgb_falls_back_to_default_without_raising(self, das_tenant, subject_subtype, rgb_value):
+        """Bad ``additional['rgb']`` values must not abort the MVT query.
+
+        Regression for the ``CAST(... AS INTEGER)`` SQL error path on malformed RGB CSV.
+        """
+        subject = Subject.objects.create(
+            name=f"Bad RGB {rgb_value!r}",
+            subject_subtype=subject_subtype,
+            das_tenant=das_tenant,
+            additional={"rgb": rgb_value},
+        )
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key="test_bad_rgb", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(
+            manufacturer_id=f"bad_rgb_{abs(hash(rgb_value))}", provider=provider, das_tenant=das_tenant
+        )
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+        obs1 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+        )
+        obs2 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+        )
+        segment = ObservationSegment.objects.create_segment(obs1, obs2, subject)
+
+        layer = ObservationSegmentVectorLayer()
+        qs = layer.get_vector_tile_queryset()
+        annotated = qs.get(id=segment.id)  # must not raise
+        feature = layer.as_vector_tile_feature(annotated)
+        assert feature["properties"]["stroke"] == "#FFFF00"
 
 
 @pytest.mark.django_db

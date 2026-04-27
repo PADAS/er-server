@@ -1,8 +1,10 @@
 import copy
 import csv
+import io
 import logging
 import random
 import urllib
+import uuid
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from urllib.parse import quote as urlquote
@@ -10,6 +12,7 @@ from uuid import UUID
 
 import dateutil.parser
 import humanize
+import openpyxl
 import pytz
 from bitfield import BitField
 from bitfield.forms import BitFieldCheckboxSelectMultiple
@@ -18,13 +21,19 @@ from django_multitenant.utils import get_current_tenant
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
-from django.contrib.admin import SimpleListFilter
+from django.contrib.admin import SimpleListFilter, helpers
+from django.contrib.admin.models import DELETION, LogEntry
 from django.contrib.admin.options import FORMFIELD_FOR_DBFIELD_DEFAULTS
 from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
-from django.contrib.admin.utils import quote
+from django.contrib.admin.utils import model_ngettext, quote
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth import get_permission_codename
 from django.contrib.contenttypes.admin import GenericTabularInline
+from django.contrib.contenttypes.models import ContentType
+from django.core.cache import cache
+from django.core.exceptions import PermissionDenied
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import (
     Aggregate,
@@ -44,10 +53,12 @@ from django.db.models import (
 from django.db.models.functions import FirstValue, Now, Trunc
 from django.db.utils import IntegrityError
 from django.forms import BaseModelFormSet, modelformset_factory
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseNotAllowed, JsonResponse
 from django.http.response import HttpResponseRedirect
+from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
-from django.urls import reverse
+from django.template.response import TemplateResponse
+from django.urls import path, reverse
 from django.utils.functional import cached_property
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
@@ -65,6 +76,15 @@ from core.admin import (
 )
 from core.common import TIMEZONE_USED
 from core.openlayers import OSMGeoExtendedAdmin
+from core.tasks import SOURCE_DELETING_CACHE_KEY, delete_source_task
+from observations.csv_import_jobs import (
+    add_pending_task,
+    delete_job_status,
+    get_job_status,
+    list_pending_tasks,
+    remove_pending_task,
+    set_job_status,
+)
 from observations.daterange_filter import DateRangeFilter
 from observations.forms import (
     GPXFileForm,
@@ -73,9 +93,11 @@ from observations.forms import (
     SubjectChangeListForm,
     SubjectSourceForm,
 )
+from observations.services.source_deletion import OBSERVATION_DELETE_BATCH_SIZE
 from observations.tasks import (
     maintain_observation_data_for_source_provider,
     maintain_subjectstatus_for_subject,
+    process_csv_observations,
     process_gpxtrack_file,
 )
 from observations.utils import assigned_range_dates, get_cyclic_subjectgroup
@@ -99,6 +121,11 @@ admin.site.index_template = "admin/standard_admin_index.html"
 OBSERVATIONS_HISTORY_LIMIT = timedelta(days=90)
 SUBJECT_REGION_SECTION_NAME = _("WildTracks App")
 MINIMUM_VALID_YEAR = 1971
+
+CSV_IMPORT_FOLDER = "csv-imports"
+MAX_CSV_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
+CSV_PREVIEW_BYTES = 1024 * 1024  # 1 MB read budget for column-mapping preview
+CSV_PREVIEW_LINES = 100
 
 logger = logging.getLogger(__name__)
 
@@ -382,7 +409,91 @@ class SourceIdFilter(InputFilter, ValidateFilterMixin):
 
 
 @admin.register(models.Observation)
-class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
+class ObservationAdmin(BaseModelAdminMixin, ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
+    def delete_selected_observations(self, request, queryset):
+        """
+        Replacement for Django's built-in delete_selected action that avoids two
+        O(N) bottlenecks for large observation sets:
+
+        1. Confirmation GET: Django's default template emits one hidden <input> per
+           selected object.  For 100k observations this produces a huge HTML page.
+           We pass select_across=True so the template emits a single hidden field
+           instead of iterating the queryset.
+
+        2. Confirmation POST: Django's default action calls log_deletion() per row
+           (100k LogEntry inserts) before deleting.  We replace that with a single
+           summary LogEntry per bulk invocation — preserves audit trail without the
+           per-row write amplification.
+        """
+        deletable_objects, model_count, perms_needed, protected = self.get_deleted_objects(queryset, request)
+
+        if request.POST.get("post") and not protected:
+            if perms_needed:
+                raise PermissionDenied
+            n = queryset.count()
+            if n:
+                # Capture filter context BEFORE deletion so the audit entry can describe
+                # the user's intent even after rows are gone.
+                query_description = str(queryset.query) if request.GET or request.POST.get("select_across") else ""
+                self.delete_queryset(request, queryset)
+                LogEntry.objects.log_action(
+                    user_id=request.user.pk,
+                    content_type_id=ContentType.objects.get_for_model(self.model).pk,
+                    object_id="",
+                    object_repr=f"{n} {model_ngettext(self.opts, n)} (bulk delete)",
+                    action_flag=DELETION,
+                    change_message=(
+                        f"Bulk deleted {n} observation(s) via "
+                        f"{type(self).__name__}.delete_selected_observations"
+                        + (f"; queryset: {query_description}" if query_description else "")
+                    ),
+                )
+                self.message_user(
+                    request,
+                    _("Successfully deleted %(count)d %(items)s.")
+                    % {
+                        "count": n,
+                        "items": model_ngettext(self.opts, n),
+                    },
+                    messages.SUCCESS,
+                )
+            return None
+
+        select_across = request.POST.get("select_across", "0") == "1"
+        objects_name = model_ngettext(queryset)
+        title = (
+            _("Cannot delete %(name)s") % {"name": objects_name} if (perms_needed or protected) else _("Are you sure?")
+        )
+        context = {
+            **self.admin_site.each_context(request),
+            "title": title,
+            "objects_name": str(objects_name),
+            "deletable_objects": [deletable_objects],
+            "model_count": dict(model_count).items(),
+            "queryset": queryset,
+            "select_across": select_across,
+            "perms_lacking": perms_needed,
+            "protected": protected,
+            "opts": self.model._meta,
+            "action_checkbox_name": helpers.ACTION_CHECKBOX_NAME,
+            "action_name": request.POST.get("action", "delete_selected_observations"),
+            "media": self.media,
+        }
+        request.current_app = self.admin_site.name
+        return TemplateResponse(
+            request,
+            self.delete_selected_confirmation_template
+            or [
+                "admin/%s/%s/delete_selected_confirmation.html"
+                % (self.model._meta.app_label, self.model._meta.model_name),
+                "admin/%s/delete_selected_confirmation.html" % self.model._meta.app_label,
+                "admin/delete_selected_confirmation.html",
+            ],
+            context,
+        )
+
+    delete_selected_observations.short_description = _("Delete selected observations")
+
     readonly_fields = ("created_at", "id")
     fields = ("id", "recorded_at", "created_at", "location", "exclusion_flags", "source", "additional")
     list_display = (
@@ -462,6 +573,17 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     _recorded_at.admin_order_field = "recorded_at"
     _recorded_at.admin_order_first_type = "desc"
 
+    def delete_queryset(self, _request, queryset):
+        # Django's default calls queryset.delete() which fires the ORM collector
+        # and a post_delete signal per row — catastrophically slow for large sets.
+        # _raw_delete issues a plain DELETE statement with no Python overhead.
+        db = queryset.db
+        while True:
+            ids = list(queryset.values_list("id", flat=True)[:OBSERVATION_DELETE_BATCH_SIZE])
+            if not ids:
+                break
+            models.Observation.objects.filter(id__in=ids)._raw_delete(db)
+
     def get_queryset(self, request):
         qs = super(ObservationAdmin, self).get_queryset(request)
 
@@ -500,6 +622,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
 
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
+        extra_context["csv_import_url"] = reverse("admin:observations_observation_import_csv")
         daterange_set = self.is_date_range_set(request)
         if daterange_set:
             d1, d2 = daterange_set
@@ -508,9 +631,403 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
         extra_context["history_limit_days"] = OBSERVATIONS_HISTORY_LIMIT.days
         return super().changelist_view(request, extra_context=extra_context)
 
+    def get_urls(self):
+        info = self.model._meta.app_label, self.model._meta.model_name
+        base = "import-csv/"
+        custom_urls = [
+            path(
+                base,
+                self.admin_site.admin_view(self.import_csv_view),
+                name="%s_%s_import_csv" % info,
+            ),
+            path(
+                base + "map-columns/",
+                self.admin_site.admin_view(self.import_csv_map_columns_view),
+                name="%s_%s_import_csv_map_columns" % info,
+            ),
+            path(
+                base + "select-subject/",
+                self.admin_site.admin_view(self.import_csv_select_subject_view),
+                name="%s_%s_import_csv_select_subject" % info,
+            ),
+            path(
+                base + "status/<task_id>/",
+                self.admin_site.admin_view(self.import_csv_status_view),
+                name="%s_%s_import_csv_status" % info,
+            ),
+            path(
+                base + "dismiss/<task_id>/",
+                self.admin_site.admin_view(self.import_csv_dismiss_view),
+                name="%s_%s_import_csv_dismiss" % info,
+            ),
+            path(
+                base + "pending/",
+                self.admin_site.admin_view(self.import_csv_pending_view),
+                name="%s_%s_import_csv_pending" % info,
+            ),
+        ]
+        return custom_urls + super().get_urls()
+
+    # ── Shared helpers ────────────────────────────────────────────────────────
+
+    _CSV_AUTO_MAP = {
+        "recorded_at": {"recorded_at", "timestamp", "time", "datetime"},
+        "latitude": {"latitude", "lat"},
+        "longitude": {"longitude", "lon", "lng", "long"},
+        "subject_name": {"subject_name", "subject", "animal"},
+    }
+
+    def _csv_guess(self, col):
+        key = col.lower().replace(" ", "_").replace("-", "_")
+        for target, aliases in self._CSV_AUTO_MAP.items():
+            if key in aliases:
+                return target
+        return "additional"
+
+    def _excel_to_csv(self, file_bytes):
+        """Convert an Excel workbook (xlsx/xls) to a CSV string using the first sheet."""
+        wb = openpyxl.load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
+        ws = wb.active
+        out = io.StringIO()
+        writer = csv.writer(out)
+        for row in ws.iter_rows(values_only=True):
+            writer.writerow(["" if v is None else str(v) for v in row])
+        wb.close()
+        return out.getvalue()
+
+    def _csv_parse_from_lines(self, lines, header_row, data_start_row):
+        if header_row < 1 or header_row > len(lines):
+            return [], []
+        header_line = lines[header_row - 1]
+        data_lines = lines[data_start_row - 1 :] if data_start_row <= len(lines) else []
+        reader = csv.DictReader(io.StringIO(header_line + "\n" + "\n".join(data_lines)))
+        cols = list(reader.fieldnames or [])
+        samples = [row for _, row in zip(range(5), reader)]
+        return cols, samples
+
+    def _csv_read_preview_lines(self, storage_path, n=CSV_PREVIEW_LINES):
+        """Read up to ``n`` lines (capped at ~1 MB) from a stored CSV — never the full file."""
+        try:
+            with default_storage.open(storage_path, "rb") as f:
+                raw = f.read(CSV_PREVIEW_BYTES)
+        except FileNotFoundError:
+            return []
+        return raw.decode("utf-8-sig", errors="replace").splitlines()[:n]
+
+    def _csv_queue_task(
+        self,
+        request,
+        storage_path,
+        mappings,
+        header_row,
+        data_start_row,
+        subject_id=None,
+        subject_name_col=False,
+        filename=None,
+    ):
+        kwargs = {"header_row": header_row, "data_start_row": data_start_row}
+        if subject_name_col:
+            kwargs["subject_name_col"] = True
+        elif subject_id:
+            kwargs["subject_id"] = str(subject_id)
+
+        async_result = process_csv_observations.apply_async(args=(storage_path, mappings), kwargs=kwargs)
+        set_job_status(
+            async_result.id,
+            "QUEUED",
+            filename=filename or "",
+            queued_at=datetime.now(tz=timezone.utc).isoformat(),
+        )
+        # Tenant-scoped pending list — visible to every staff user in this tenant.
+        add_pending_task(async_result.id)
+        logger.info("csv_import queued: task_id=%s kwargs=%s", async_result.id, kwargs)
+        return async_result.id
+
+    def _csv_require_import_permission(self, request):
+        """Raise PermissionDenied if the user lacks observations.add_observation."""
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+
+    def _csv_render(self, request, step, ctx):
+        import_url = reverse("admin:observations_observation_import_csv")
+        status_base = import_url + "status/"
+        dismiss_base = import_url + "dismiss/"
+        pending_url = import_url + "pending/"
+        return render(
+            request,
+            "admin/observations/observation/import_csv.html",
+            {
+                **self.admin_site.each_context(request),
+                "step": step,
+                "import_status_base_url": status_base,
+                "import_dismiss_base_url": dismiss_base,
+                "import_pending_url": pending_url,
+                "pending_import_task_ids": list_pending_tasks(),
+                **ctx,
+            },
+        )
+
+    # ── Step 1: upload ────────────────────────────────────────────────────────
+
+    def import_csv_view(self, request):
+        self._csv_require_import_permission(request)
+        if request.method == "POST":
+            csv_file = request.FILES.get("csv_file")
+            if not csv_file:
+                return self._csv_render(request, 1, {"error": "Please select a file."})
+
+            if csv_file.size and csv_file.size > MAX_CSV_UPLOAD_BYTES:
+                limit_mb = MAX_CSV_UPLOAD_BYTES // (1024 * 1024)
+                return self._csv_render(request, 1, {"error": f"File exceeds the {limit_mb} MB upload limit."})
+
+            filename = csv_file.name or ""
+            lower_filename = filename.lower()
+
+            if lower_filename.endswith(".xls"):
+                return self._csv_render(
+                    request,
+                    1,
+                    {
+                        "error": (
+                            "Legacy .xls Excel files are not supported. "
+                            "Please resave the file as .xlsx (or export it as CSV) and try again."
+                        )
+                    },
+                )
+
+            is_excel = lower_filename.endswith((".xlsx", ".xlsm", ".xltx", ".xltm"))
+
+            # Persist to default_storage so any Celery worker can read it.
+            # For Excel, convert to CSV at upload time and save the converted bytes.
+            # For CSV, save the upload directly without ever loading it fully into Python.
+            stored_basename = f"{uuid.uuid4().hex}-{filename or 'upload.csv'}"
+            if is_excel:
+                try:
+                    content = self._excel_to_csv(csv_file.read())
+                except Exception as exc:
+                    return self._csv_render(request, 1, {"error": f"Could not read Excel file: {exc}"})
+                # Always store as .csv so the worker has one format to deal with.
+                if not stored_basename.lower().endswith(".csv"):
+                    stored_basename = f"{stored_basename}.csv"
+                storage_path = default_storage.save(
+                    f"{CSV_IMPORT_FOLDER}/{stored_basename}",
+                    ContentFile(content.encode("utf-8")),
+                )
+            else:
+                storage_path = default_storage.save(
+                    f"{CSV_IMPORT_FOLDER}/{stored_basename}",
+                    csv_file,
+                )
+
+            preview_lines = self._csv_read_preview_lines(storage_path, n=5)
+            raw_columns, _ = self._csv_parse_from_lines(preview_lines, 1, 2)
+            if not raw_columns:
+                default_storage.delete(storage_path)
+                return self._csv_render(request, 1, {"error": "File has no column headers."})
+
+            session_key = f"csv_import_{uuid.uuid4().hex}"
+            request.session[session_key] = {
+                "storage_path": storage_path,
+                "header_row": 1,
+                "data_start_row": 2,
+                "filename": csv_file.name,
+            }
+
+            map_url = reverse("admin:observations_observation_import_csv_map_columns")
+            return redirect(f"{map_url}?key={session_key}")
+
+        return self._csv_render(request, 1, {})
+
+    # ── Step 2: map columns ───────────────────────────────────────────────────
+
+    def import_csv_map_columns_view(self, request):
+        self._csv_require_import_permission(request)
+        if request.method == "POST":
+            session_key = request.POST.get("temp_key", "")
+            mappings = {key[4:]: value for key, value in request.POST.items() if key.startswith("map_") and value}
+            try:
+                header_row = max(1, int(request.POST.get("header_row", 1)))
+                data_start_row = max(1, int(request.POST.get("data_start_row", 2)))
+            except (TypeError, ValueError):
+                header_row, data_start_row = 1, 2
+
+            required = {"recorded_at", "latitude", "longitude"}
+            missing = required - set(mappings.values())
+
+            session_data = request.session.get(session_key, {})
+            storage_path = session_data.get("storage_path", "")
+            preview_lines = self._csv_read_preview_lines(storage_path) if storage_path else []
+
+            if missing:
+                raw_columns, sample_rows = self._csv_parse_from_lines(preview_lines, header_row, data_start_row)
+                columns = [
+                    {"name": col, "auto": mappings.get(col, ""), "samples": [r.get(col, "") for r in sample_rows]}
+                    for col in raw_columns
+                ]
+                return self._csv_render(
+                    request,
+                    2,
+                    {
+                        "temp_key": session_key,
+                        "columns": columns,
+                        "sample_header": sample_rows,
+                        "header_row": header_row,
+                        "data_start_row": data_start_row,
+                        "raw_lines": preview_lines[:20],
+                        "error": f"Required fields not mapped: {', '.join(sorted(missing))}",
+                    },
+                )
+
+            if not storage_path:
+                return self._csv_render(request, 1, {"error": "Upload session expired. Please re-upload the file."})
+
+            # Update session with confirmed row settings
+            session_data.update({"mappings": mappings, "header_row": header_row, "data_start_row": data_start_row})
+            request.session[session_key] = session_data
+
+            if "subject_name" in mappings.values():
+                # Fire immediately — subject names come from the CSV
+                filename = session_data.get("filename", "")
+                request.session.pop(session_key)
+                self._csv_queue_task(
+                    request,
+                    storage_path,
+                    mappings,
+                    header_row,
+                    data_start_row,
+                    subject_name_col=True,
+                    filename=filename,
+                )
+                messages.success(request, "CSV import queued.")
+                return redirect(reverse("admin:observations_observation_import_csv"))
+            else:
+                select_url = reverse("admin:observations_observation_import_csv_select_subject")
+                return redirect(f"{select_url}?key={session_key}")
+
+        # GET
+        session_key = request.GET.get("key", "")
+        session_data = request.session.get(session_key, {})
+        storage_path = session_data.get("storage_path", "")
+        if not storage_path:
+            return self._csv_render(request, 1, {"error": "Upload session expired. Please re-upload the file."})
+
+        header_row = session_data.get("header_row", 1)
+        data_start_row = session_data.get("data_start_row", 2)
+        preview_lines = self._csv_read_preview_lines(storage_path)
+        raw_columns, sample_rows = self._csv_parse_from_lines(preview_lines, header_row, data_start_row)
+        columns = [
+            {"name": col, "auto": self._csv_guess(col), "samples": [r.get(col, "") for r in sample_rows]}
+            for col in raw_columns
+        ]
+        return self._csv_render(
+            request,
+            2,
+            {
+                "temp_key": session_key,
+                "columns": columns,
+                "sample_header": sample_rows,
+                "header_row": header_row,
+                "data_start_row": data_start_row,
+                "raw_lines": preview_lines[:20],
+            },
+        )
+
+    # ── Step 3: select subject ────────────────────────────────────────────────
+
+    def import_csv_select_subject_view(self, request):
+        self._csv_require_import_permission(request)
+        if request.method == "POST":
+            session_key = request.POST.get("temp_key", "")
+            subject_id = request.POST.get("subject_id", "")
+            session_data = request.session.pop(session_key, None)
+
+            if not session_data:
+                return self._csv_render(request, 1, {"error": "Upload session expired. Please re-upload the file."})
+
+            if not subject_id:
+                return self._csv_render(
+                    request,
+                    3,
+                    {
+                        "temp_key": session_key,
+                        "subjects": models.Subject.objects.order_by("name"),
+                        "error": "Please select a subject.",
+                    },
+                )
+
+            storage_path = session_data["storage_path"]
+            mappings = session_data["mappings"]
+            header_row = session_data.get("header_row", 1)
+            data_start_row = session_data.get("data_start_row", 2)
+            filename = session_data.get("filename", "")
+
+            self._csv_queue_task(
+                request,
+                storage_path,
+                mappings,
+                header_row,
+                data_start_row,
+                subject_id=subject_id,
+                filename=filename,
+            )
+            messages.success(request, "CSV import queued.")
+            return redirect(reverse("admin:observations_observation_import_csv"))
+
+        # GET
+        session_key = request.GET.get("key", "")
+        if not request.session.get(session_key):
+            return self._csv_render(request, 1, {"error": "Upload session expired. Please re-upload the file."})
+
+        return self._csv_render(
+            request,
+            3,
+            {
+                "temp_key": session_key,
+                "subjects": models.Subject.objects.order_by("name"),
+            },
+        )
+
+    # ── Status / dismiss / pending ────────────────────────────────────────────
+
+    def import_csv_status_view(self, request, task_id):
+        self._csv_require_import_permission(request)
+        job = get_job_status(task_id)
+        status = job.get("status", "PENDING")
+        done = status not in ("PENDING", "QUEUED", "STARTED")
+        data = {
+            "task_id": task_id,
+            "status": status,
+            "done": done,
+            "success": status == "SUCCESS",
+            "failed": status == "FAILURE",
+            "result": job.get("result") or job.get("error"),
+            "filename": job.get("filename", ""),
+            "queued_at": job.get("queued_at", ""),
+        }
+        return JsonResponse(data)
+
+    def import_csv_dismiss_view(self, request, task_id):
+        self._csv_require_import_permission(request)
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+
+        delete_job_status(task_id)
+        remove_pending_task(task_id)
+        return JsonResponse({"dismissed": True})
+
+    def import_csv_pending_view(self, request):
+        self._csv_require_import_permission(request)
+        return JsonResponse({"task_ids": list_pending_tasks()})
+
     actions = [
         "export_as_csv",
+        "delete_selected_observations",
     ]
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions.pop("delete_selected", None)
+        return actions
 
 
 class SourceProviderFilter(admin.SimpleListFilter, SaveCoordinatesToCookieMixin):
@@ -1195,8 +1712,28 @@ class SubjectSourceSummaryAdmin(BaseModelAdminMixin):
     )
 
 
+@admin.register(models.CSVObservationImport)
+class CSVObservationImportAdmin(admin.ModelAdmin):
+    """Appears in the admin index as 'Import Observations' and redirects there."""
+
+    def has_add_permission(self, _request):
+        return False
+
+    def has_change_permission(self, _request, _obj=None):
+        return False
+
+    def has_delete_permission(self, _request, _obj=None):
+        return False
+
+    def has_view_permission(self, request, _obj=None):
+        return request.user.is_staff
+
+    def changelist_view(self, _request, _extra_context=None):
+        return redirect(reverse("admin:observations_observation_import_csv"))
+
+
 @admin.register(models.Source)
-class SourceAdmin(admin.ModelAdmin, ObservationsContextMixin):
+class SourceAdmin(BaseModelAdminMixin, ObservationsContextMixin):
     list_display = [
         "manufacturer_id",
         "source_type",
@@ -1274,7 +1811,40 @@ class SourceAdmin(admin.ModelAdmin, ObservationsContextMixin):
 
     _source_provider.admin_order_field = "provider"
 
+    def delete_model(self, request, obj):
+        cache.set(SOURCE_DELETING_CACHE_KEY.format(obj.id), True, 60 * 60)
+        delete_source_task.apply_async(
+            args=[str(obj.id)],
+            kwargs={"domain": get_tenant_settings().domain},
+        )
+
+    def response_delete(self, request, obj_display, _obj_id):
+        opts = self.model._meta
+        if self.has_change_permission(request, None):
+            post_url = reverse(
+                "admin:%s_%s_changelist" % (opts.app_label, opts.model_name),
+                current_app=self.admin_site.name,
+            )
+            post_url = add_preserved_filters(
+                {"preserved_filters": self.get_preserved_filters(request), "opts": opts},
+                post_url,
+            )
+        else:
+            post_url = reverse("admin:index", current_app=self.admin_site.name)
+        self.message_user(request, f'The source "{obj_display}" is being deleted in the background.')
+        return HttpResponseRedirect(post_url)
+
     def change_view(self, request, object_id, form_url="", extra_context=None):
+        if cache.get(SOURCE_DELETING_CACHE_KEY.format(object_id)):
+            opts = self.model._meta
+            self.message_user(request, "This source is currently being deleted.", level=messages.WARNING)
+            return HttpResponseRedirect(
+                reverse(
+                    "admin:%s_%s_changelist" % (opts.app_label, opts.model_name),
+                    current_app=self.admin_site.name,
+                )
+            )
+
         latest_observations = (
             models.Observation.objects.filter(
                 source__id=object_id, source__subjectsource__assigned_range__contains=F("recorded_at")

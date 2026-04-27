@@ -7,7 +7,7 @@ import pytest
 import yaml
 from django_multitenant.utils import set_current_tenant
 
-from django.contrib.gis.geos import LineString, Point
+from django.contrib.gis.geos import LineString, Point, Polygon
 from django.core.files import File
 from django.db import connection
 from django.test import TestCase
@@ -23,7 +23,12 @@ from analyzers.models import (
 )
 from analyzers.proximity import FeatureProximityAnalyzer
 from analyzers.subject_proximity import SubjectProximityAnalyzer
-from mapping.models import SpatialFeature, SpatialFeatureFile, SpatialFeatureGroupStatic
+from mapping.models import (
+    SpatialFeature,
+    SpatialFeatureFile,
+    SpatialFeatureGroupStatic,
+    SpatialFeatureType,
+)
 from mapping.spatialfile_utils import process_spatialfile
 from observations import models
 from observations.models import (
@@ -175,6 +180,319 @@ class TestProximityAnalyzer(TestCase):
         for event in Event.objects.all():
             for event_details in event.event_details.all():
                 print(f"Event Details: {event_details.data}")
+
+    def _make_proximity_feature(self):
+        """Small polygon in East Africa; northern edge at lat=-1.0."""
+        feature_type = SpatialFeatureType.objects.first()
+        feature = SpatialFeature.objects.create(
+            feature_type=feature_type,
+            name="Nearby Feature",
+            feature_geometry=Polygon(((34.0, -1.01), (34.01, -1.01), (34.01, -1.0), (34.0, -1.0), (34.0, -1.01))),
+        )
+        sf_grp = SpatialFeatureGroupStatic.objects.create(name="Proximity Feature Group")
+        sf_grp.features.add(feature)
+        return sf_grp
+
+    def test_event_located_at_closest_point_on_segment_when_moving_away_from_feature(self):
+        """
+        Trajectory: fix A north of feature, fix B ~5 km south of feature.
+        The segment A→B passes through the polygon.
+
+        The event is placed at the closest point on the segment to the feature —
+        the polygon boundary — not at the latest fix.
+
+        Both fixes are ~5 km apart over 1 h, keeping the trajectory segment
+        well under the 7 km/h SubjectTrackSegmentFilter speed limit.
+        """
+        sub = Subject.objects.create(name="MovingAway", subject_subtype_id="elephant")
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
+        sf_grp = self._make_proximity_feature()
+
+        sg = SubjectGroup.objects.create(name="moving_away_sg")
+        sg.subjects.add(sub)
+
+        # Feature spans lat -1.01 to -1.0, lon 34.0 to 34.01.
+        # A (earlier): ~110 m north of northern edge — within 500 m threshold.
+        # B (later):   ~5 km south — outside 500 m threshold.
+        # Segment passes through the polygon; closest point is on polygon boundary.
+        # Segment speed ≈ 5.1 km/h < 7 km/h filter limit.
+        obs_a = Observation(recorded_at=timezone.now() - timedelta(hours=2), location=Point(34.005, -0.999))
+        obs_b = Observation(recorded_at=timezone.now() - timedelta(hours=1), location=Point(34.005, -1.045))
+
+        config = FeatureProximityAnalyzerConfig.objects.create(
+            name="Moving Away Proximity Analyzer",
+            subject_group=sg,
+            threshold_dist_meters=500,
+            proximal_features=sf_grp,
+        )
+        FeatureProximityAnalyzer(config=config, subject=sub).analyze(observations=[obs_a, obs_b])
+
+        events = list(Event.objects.all())
+        self.assertEqual(len(events), 1)
+
+        # Event is on the polygon boundary, not at either fix.
+        event_location = events[0].location
+        self.assertAlmostEqual(event_location.x, 34.005, places=3)
+        self.assertTrue(
+            any(abs(event_location.y - expected_y) < 1e-3 for expected_y in (-1.0, -1.01)),
+            f"Expected event latitude to be on either polygon boundary intersection (-1.0 or -1.01), got {event_location.y}",
+        )
+
+    def test_event_located_at_closest_point_on_segment_when_approaching_feature(self):
+        """
+        Trajectory: fix A ~5 km south of feature, fix B north of feature.
+        The segment A→B passes through the polygon.
+
+        The event is placed at the closest point on the segment to the feature —
+        the polygon boundary — not at either fix.
+
+        Both fixes are ~5 km apart over 1 h, keeping the trajectory segment
+        well under the 7 km/h SubjectTrackSegmentFilter speed limit.
+        """
+        sub = Subject.objects.create(name="Approaching", subject_subtype_id="elephant")
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
+        sf_grp = self._make_proximity_feature()
+
+        sg = SubjectGroup.objects.create(name="approaching_sg")
+        sg.subjects.add(sub)
+
+        # Feature spans lat -1.01 to -1.0, lon 34.0 to 34.01.
+        # A (earlier): ~5 km south — outside 500 m threshold.
+        # B (later):   ~110 m north of northern edge — within 500 m threshold.
+        # Segment passes through the polygon; closest point is on polygon boundary.
+        # Segment speed ≈ 5.1 km/h < 7 km/h filter limit.
+        obs_a = Observation(recorded_at=timezone.now() - timedelta(hours=2), location=Point(34.005, -1.045))
+        obs_b = Observation(recorded_at=timezone.now() - timedelta(hours=1), location=Point(34.005, -0.999))
+
+        config = FeatureProximityAnalyzerConfig.objects.create(
+            name="Approaching Proximity Analyzer",
+            subject_group=sg,
+            threshold_dist_meters=500,
+            proximal_features=sf_grp,
+        )
+        FeatureProximityAnalyzer(config=config, subject=sub).analyze(observations=[obs_a, obs_b])
+
+        events = list(Event.objects.all())
+        self.assertEqual(len(events), 1)
+
+        # Event is on the polygon boundary, not at either fix.
+        # The segment crosses both the southern (-1.01) and northern (-1.0) edges,
+        # so nearest_points may return either intersection; accept both.
+        event_location = events[0].location
+        self.assertAlmostEqual(event_location.x, 34.005, places=3)
+        self.assertTrue(
+            any(abs(event_location.y - expected_y) < 1e-3 for expected_y in (-1.0, -1.01)),
+            f"Expected event latitude to be on either polygon boundary intersection (-1.0 or -1.01), got {event_location.y}",
+        )
+
+    def test_event_fires_and_locates_correctly_for_point_feature(self):
+        """
+        Feature is a single point at (34.005, -1.005).
+        Trajectory: A far south, B ~333 m south of the feature point (within 500 m threshold).
+
+        The closest point on segment A→B to the point feature is B — the northern
+        endpoint of the segment — because the feature lies just north of B.
+        """
+        sub = Subject.objects.create(name="PointApproach", subject_subtype_id="elephant")
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
+
+        feature_type = SpatialFeatureType.objects.first()
+        feature = SpatialFeature.objects.create(
+            feature_type=feature_type,
+            name="Point Feature",
+            feature_geometry=Point(34.005, -1.005),
+        )
+        sf_grp = SpatialFeatureGroupStatic.objects.create(name="Point Feature Group")
+        sf_grp.features.add(feature)
+
+        sg = SubjectGroup.objects.create(name="point_approach_sg")
+        sg.subjects.add(sub)
+
+        # A: ~4.1 km south of feature; B: ~333 m south of feature (within 500 m threshold).
+        # Segment speed ≈ 4.1 km/h < 7 km/h filter limit.
+        obs_a = Observation(recorded_at=timezone.now() - timedelta(hours=2), location=Point(34.005, -1.045))
+        obs_b = Observation(recorded_at=timezone.now() - timedelta(hours=1), location=Point(34.005, -1.008))
+
+        config = FeatureProximityAnalyzerConfig.objects.create(
+            name="Point Feature Proximity Analyzer",
+            subject_group=sg,
+            threshold_dist_meters=500,
+            proximal_features=sf_grp,
+        )
+        FeatureProximityAnalyzer(config=config, subject=sub).analyze(observations=[obs_a, obs_b])
+
+        events = list(Event.objects.all())
+        self.assertEqual(len(events), 1)
+
+        # Closest point on A→B to the point feature is B (feature is north of B).
+        event_location = events[0].location
+        self.assertAlmostEqual(event_location.x, obs_b.location.x, places=3)
+        self.assertAlmostEqual(event_location.y, obs_b.location.y, places=3)
+
+    def test_event_fires_and_locates_correctly_for_line_feature(self):
+        """
+        Feature is a horizontal line at lat=-1.005, from lon=34.0 to lon=34.01.
+        Trajectory: A far south, B just north of the line (within 500 m threshold).
+        The segment A→B crosses the line at (34.005, -1.005).
+
+        The closest point on the segment to the line is the crossing point,
+        so the event is placed at (34.005, -1.005).
+        """
+        sub = Subject.objects.create(name="LineApproach", subject_subtype_id="elephant")
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
+
+        feature_type = SpatialFeatureType.objects.first()
+        feature = SpatialFeature.objects.create(
+            feature_type=feature_type,
+            name="Line Feature",
+            feature_geometry=LineString(Point(34.0, -1.005), Point(34.01, -1.005)),
+        )
+        sf_grp = SpatialFeatureGroupStatic.objects.create(name="Line Feature Group")
+        sf_grp.features.add(feature)
+
+        sg = SubjectGroup.objects.create(name="line_approach_sg")
+        sg.subjects.add(sub)
+
+        # A: far south of line; B: ~444 m north of line (within 500 m threshold).
+        # Segment crosses line at (34.005, -1.005). Speed ≈ 4.9 km/h < 7 km/h filter limit.
+        obs_a = Observation(recorded_at=timezone.now() - timedelta(hours=2), location=Point(34.005, -1.045))
+        obs_b = Observation(recorded_at=timezone.now() - timedelta(hours=1), location=Point(34.005, -1.001))
+
+        config = FeatureProximityAnalyzerConfig.objects.create(
+            name="Line Feature Proximity Analyzer",
+            subject_group=sg,
+            threshold_dist_meters=500,
+            proximal_features=sf_grp,
+        )
+        FeatureProximityAnalyzer(config=config, subject=sub).analyze(observations=[obs_a, obs_b])
+
+        events = list(Event.objects.all())
+        self.assertEqual(len(events), 1)
+
+        # Closest point on A→B to the line is the crossing point at lat=-1.005.
+        event_location = events[0].location
+        self.assertAlmostEqual(event_location.x, 34.005, places=3)
+        self.assertAlmostEqual(event_location.y, -1.005, places=3)
+
+    def test_only_approach_fires_not_departure(self):
+        """
+        Trajectory: A (far) → B (near feature) → C (far).
+
+        Call 1: analyze([A, B])       — no prior segment, B is proximal → 1 event.
+        Call 2: analyze([A, B, C])    — prior segment A→B was already proximal,
+                                        so departure segment B→C is suppressed → still 1 event.
+
+        Both adjacent segments are ~5 km apart over 1 h (≈5.1 km/h), well
+        under the 7 km/h SubjectTrackSegmentFilter speed limit.
+        """
+        sub = Subject.objects.create(name="ApproachThenLeave", subject_subtype_id="elephant")
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
+        sf_grp = self._make_proximity_feature()
+
+        sg = SubjectGroup.objects.create(name="approach_depart_sg")
+        sg.subjects.add(sub)
+
+        # Feature northern edge at lat=-1.0.
+        # A: ~5 km south — outside 500 m threshold.
+        # B: ~110 m north — within 500 m threshold.
+        # C: ~5 km south again — outside 500 m threshold.
+        now = timezone.now()
+        obs_a = Observation(recorded_at=now - timedelta(hours=3), location=Point(34.005, -1.045))
+        obs_b = Observation(recorded_at=now - timedelta(hours=2), location=Point(34.005, -0.999))
+        obs_c = Observation(recorded_at=now - timedelta(hours=1), location=Point(34.005, -1.045))
+
+        config = FeatureProximityAnalyzerConfig.objects.create(
+            name="Approach Then Depart Analyzer",
+            subject_group=sg,
+            threshold_dist_meters=500,
+            proximal_features=sf_grp,
+        )
+        analyzer = FeatureProximityAnalyzer(config=config, subject=sub)
+
+        # First call: only A and B available — no prior segment, B is proximal.
+        analyzer.analyze(observations=[obs_a, obs_b])
+        self.assertEqual(Event.objects.count(), 1)
+
+        # Second call: all three points — prior segment A→B was proximal, so
+        # departure segment B→C should not produce another event.
+        analyzer.analyze(observations=[obs_a, obs_b, obs_c])
+        self.assertEqual(Event.objects.count(), 1)
+
+    def test_one_event_per_feature_on_sequential_approach(self):
+        """
+        Trajectory: A (away) → B (near F1) → C (near F2) → D (away).
+
+        Both features are in the same feature group. Adjacent fixes are ~5 km
+        apart over 1 h (≈5 km/h), well under the 7 km/h speed filter.
+
+        Feature 1: polygon at lon 34.00-34.01, northern edge lat=-1.0.
+        Feature 2: polygon at lon 34.05-34.06, northern edge lat=-1.0 (~5.5 km east).
+
+        Call 1: analyze([A, B])
+          - no prior segment; A→B proximal to F1 only → 1 event (F1)
+        Call 2: analyze([A, B, C])
+          - prior A→B was proximal to F1 (suppressed) but NOT F2
+          - current B→C is proximal to both F1 and F2
+          - → fires only for F2  (total 2 events)
+        Call 3: analyze([B, C, D])
+          - prior B→C was proximal to F2
+          - current C→D is proximal to F2 only (F1 is ~5 km away)
+          - → suppressed for F2; F1 not proximal → no new event  (total 2 events)
+        """
+        sub = Subject.objects.create(name="SeqApproach", subject_subtype_id="elephant")
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
+
+        feature_type = SpatialFeatureType.objects.first()
+        feature_1 = SpatialFeature.objects.create(
+            feature_type=feature_type,
+            name="West Feature",
+            feature_geometry=Polygon(((34.0, -1.01), (34.01, -1.01), (34.01, -1.0), (34.0, -1.0), (34.0, -1.01))),
+        )
+        feature_2 = SpatialFeature.objects.create(
+            feature_type=feature_type,
+            name="East Feature",
+            feature_geometry=Polygon(((34.05, -1.01), (34.06, -1.01), (34.06, -1.0), (34.05, -1.0), (34.05, -1.01))),
+        )
+        sf_grp = SpatialFeatureGroupStatic.objects.create(name="Two Feature Group")
+        sf_grp.features.add(feature_1, feature_2)
+
+        sg = SubjectGroup.objects.create(name="seq_approach_sg")
+        sg.subjects.add(sub)
+
+        now = timezone.now()
+        obs_a = Observation(recorded_at=now - timedelta(hours=4), location=Point(34.005, -1.045))
+        obs_b = Observation(recorded_at=now - timedelta(hours=3), location=Point(34.005, -0.999))
+        obs_c = Observation(recorded_at=now - timedelta(hours=2), location=Point(34.055, -0.999))
+        obs_d = Observation(recorded_at=now - timedelta(hours=1), location=Point(34.055, -1.045))
+
+        config = FeatureProximityAnalyzerConfig.objects.create(
+            name="Sequential Approach Analyzer",
+            subject_group=sg,
+            threshold_dist_meters=500,
+            proximal_features=sf_grp,
+        )
+        analyzer = FeatureProximityAnalyzer(config=config, subject=sub)
+
+        analyzer.analyze(observations=[obs_a, obs_b])
+        self.assertEqual(Event.objects.count(), 1)
+        self.assertEqual(
+            Event.objects.filter(event_details__data__event_details__spatial_feature_name="West Feature").count(), 1
+        )
+        self.assertEqual(
+            Event.objects.filter(event_details__data__event_details__spatial_feature_name="East Feature").count(), 0
+        )
+
+        analyzer.analyze(observations=[obs_a, obs_b, obs_c])
+        self.assertEqual(Event.objects.count(), 2)
+        self.assertEqual(
+            Event.objects.filter(event_details__data__event_details__spatial_feature_name="West Feature").count(), 1
+        )
+        self.assertEqual(
+            Event.objects.filter(event_details__data__event_details__spatial_feature_name="East Feature").count(), 1
+        )
+
+        analyzer.analyze(observations=[obs_b, obs_c, obs_d])
+        self.assertEqual(Event.objects.count(), 2)
 
     def test_subject_proximity_analyzer_logic(self):
         """Test the functioning of the proximity analyzer"""
@@ -517,7 +835,7 @@ class TestProximityAnalyzerConfig:
 class TestDefaultObservations:
     """Regression tests for ProximityAnalyzer.default_observations().
 
-    Ensures the method fetches at most two observations from the DB and that
+    Ensures the method fetches at most three observations from the DB and that
     the LIMIT is pushed down to the database query rather than being applied
     in Python after loading all rows.
     """
@@ -532,8 +850,8 @@ class TestDefaultObservations:
                 additional={},
             )
 
-    def test_default_observations_no_time_window_returns_two(self, subject_source, feature_proximity_analyzer_config):
-        """When search_time_hours <= 0, default_observations() returns exactly 2 items."""
+    def test_default_observations_no_time_window_returns_three(self, subject_source, feature_proximity_analyzer_config):
+        """When search_time_hours <= 0, default_observations() returns exactly 3 items."""
         self._create_observations(subject_source.source, count=5)
 
         feature_proximity_analyzer_config.search_time_hours = 0
@@ -543,10 +861,12 @@ class TestDefaultObservations:
 
         result = analyzer.default_observations()
 
-        assert len(result) == 2
+        assert len(result) == 3
 
-    def test_default_observations_with_time_window_returns_two(self, subject_source, feature_proximity_analyzer_config):
-        """When search_time_hours > 0, default_observations() returns exactly 2 items."""
+    def test_default_observations_with_time_window_returns_three(
+        self, subject_source, feature_proximity_analyzer_config
+    ):
+        """When search_time_hours > 0, default_observations() returns exactly 3 items."""
         self._create_observations(subject_source.source, count=5)
 
         feature_proximity_analyzer_config.search_time_hours = 24.0
@@ -556,12 +876,12 @@ class TestDefaultObservations:
 
         result = analyzer.default_observations()
 
-        assert len(result) == 2
+        assert len(result) == 3
 
     def test_default_observations_no_time_window_queries_db_with_limit(
         self, subject_source, feature_proximity_analyzer_config
     ):
-        """The DB query from default_observations() (no time window) contains LIMIT 2."""
+        """The DB query from default_observations() (no time window) contains LIMIT 3."""
         self._create_observations(subject_source.source, count=5)
 
         feature_proximity_analyzer_config.search_time_hours = 0
@@ -573,12 +893,12 @@ class TestDefaultObservations:
             analyzer.default_observations()
 
         combined_sql = " ".join(q["sql"] for q in ctx.captured_queries)
-        assert "LIMIT 2" in combined_sql
+        assert "LIMIT 3" in combined_sql
 
     def test_default_observations_with_time_window_queries_db_with_limit(
         self, subject_source, feature_proximity_analyzer_config
     ):
-        """The DB query from default_observations() (with time window) contains LIMIT 2."""
+        """The DB query from default_observations() (with time window) contains LIMIT 3."""
         self._create_observations(subject_source.source, count=5)
 
         feature_proximity_analyzer_config.search_time_hours = 24.0
@@ -590,4 +910,4 @@ class TestDefaultObservations:
             analyzer.default_observations()
 
         combined_sql = " ".join(q["sql"] for q in ctx.captured_queries)
-        assert "LIMIT 2" in combined_sql
+        assert "LIMIT 3" in combined_sql

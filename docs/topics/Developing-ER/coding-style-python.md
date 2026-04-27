@@ -41,9 +41,13 @@ VSCode has a recommended docstring generator which can be found [here](https://m
 
 ## Python Type Hints
 
-As supported since Python 3.5, we can now annotate our code to express types for all function arguments, return values and more generally data structures. This is not enforced at run-time, but most modern IDEs with python extensions can warn when types are crossed.
+Type hints are required for Python code and should be validated with `mypy` and/or `pyright`. Use them consistently to make interfaces explicit and easier to understand. See the [typing module docs](https://docs.python.org/3.10/library/typing.html).
 
-It is recommended that new code expresses types. See [type hints](https://docs.python.org/3.7/library/typing.html).
+When adding type hints, use Python 3.10+ style:
+- Use `X | None` instead of `Optional[X]`.
+- Use `X | Y` instead of `Union[X, Y]`.
+- Use built-in generics: `list[str]`, `dict[str, int]`, `tuple[int, ...]` — not `List`, `Dict`, `Tuple` from `typing`.
+- Use `TypeAlias`, `TypedDict`, `Protocol`, `Final`, `@overload` from `typing` as appropriate.
 
 ## Managing python requirements
 

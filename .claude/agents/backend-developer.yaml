@@ -99,6 +99,15 @@ prompt: |
   - Periodic tasks via Celery Beat
   - Pub/Sub messaging for real-time updates using Kombu
 
+  ## Python Type Annotations
+
+  Type hints are optional but encouraged where they improve clarity or help readers understand non-obvious interfaces.
+
+  When adding type hints, use Python 3.10+ style:
+  - Use `X | None` instead of `Optional[X]`; use `X | Y` instead of `Union[X, Y]`.
+  - Use built-in generics: `list[str]`, `dict[str, int]`, `tuple[int, ...]` — not `List`, `Dict`, `Tuple` from `typing`.
+  - Use `TypeAlias`, `TypedDict`, `Protocol`, `Final`, `@overload` from `typing` as appropriate.
+
   ## Code Quality
   The project uses Django's built-in code style. Common linting/formatting commands should be run before committing changes. We write pytest style unittests for views and other code.
 

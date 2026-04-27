@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List
 
 from django.contrib.auth.models import User
 from rest_framework.request import Request as DRFRequest
@@ -27,11 +26,11 @@ class SchemaPropertiesResult:
     """Standardized result for alert schema processing."""
 
     event_type_value: str
-    properties: Dict[str, dict]  # Flattened properties ready for alert processing
-    choice_options_map: Dict[str, dict]  # Field name -> resolved choice options
+    properties: dict[str, dict]  # Flattened properties ready for alert processing
+    choice_options_map: dict[str, dict]  # Field name -> resolved choice options
     version: EventType.VersionChoices
     status: str  # 'success', 'partial', 'failure'
-    errors: List[SchemaError] = field(default_factory=list)
+    errors: list[SchemaError] = field(default_factory=list)
 
 
 class AlertingSchemaPropertiesAdapter:
@@ -42,7 +41,7 @@ class AlertingSchemaPropertiesAdapter:
     def __init__(self):
         self.v2_service = EventTypeSchemaService()
 
-    def get_alert_properties(self, event_type: EventType, request: DRFRequest = None) -> SchemaPropertiesResult:
+    def get_alert_properties(self, event_type: EventType, request: DRFRequest | None = None) -> SchemaPropertiesResult:
         """Main entry point - detects version and routes appropriately.
 
         Args:
@@ -79,12 +78,16 @@ class AlertingSchemaPropertiesAdapter:
             for field_name, field_props in properties.items():
                 if "enumNames" in field_props:
                     choice_options_map[field_name] = self._extract_v1_choice_options(field_props)
+                elif field_props.get("type") == "array":
+                    items = field_props.get("items", {})
+                    if "enumNames" in items:
+                        choice_options_map[field_name] = self._extract_v1_choice_options(items)
 
             return SchemaPropertiesResult(
                 event_type_value=event_type.value,
                 properties=properties,
                 choice_options_map=choice_options_map,
-                version=event_type.version,
+                version=EventType.VersionChoices.VERSION_1,
                 status="success",
             )
 
@@ -94,7 +97,7 @@ class AlertingSchemaPropertiesAdapter:
                 event_type_value=event_type.value,
                 properties={},
                 choice_options_map={},
-                version=event_type.version,
+                version=EventType.VersionChoices.VERSION_1,
                 status="failure",
                 errors=[
                     SchemaError(
@@ -127,7 +130,7 @@ class AlertingSchemaPropertiesAdapter:
             event_type_value=event_type.value,
             properties=properties,
             choice_options_map=choice_options_map,
-            version=event_type.version,
+            version=EventType.VersionChoices.VERSION_2,
             status=schema_result.status.value,
             errors=schema_result.errors,
         )
@@ -142,10 +145,19 @@ class AlertingSchemaPropertiesAdapter:
             return {}
 
     def _extract_v2_choice_options(self, field_properties: dict) -> dict:
-        """Extract choice options from V2 field properties with $ref resolution."""
+        """Extract choice options from V2 field properties with $ref resolution.
+
+        Handles both single-select (anyOf at top level) and multi-select
+        (type=array with anyOf inside items).
+        """
         try:
-            # Look for resolved choice options in anyOf structure
-            any_of = field_properties.get("anyOf", [])
+            # Multi-select: type=array with anyOf/oneOf inside items
+            if field_properties.get("type") == "array":
+                source = field_properties.get("items", {})
+            else:
+                source = field_properties
+
+            any_of = source.get("anyOf", [])
             choice_options = {}
 
             for option in any_of:

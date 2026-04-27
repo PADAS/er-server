@@ -1,0 +1,38 @@
+.format-preview-layout {
+    display: inline-flex;
+    align-items: center;
+    gap: 70px;
+    width: 100%;
+}
+
+.format-preview-fields {
+    flex: 0 0 550px;
+}
+
+.format-preview-col {
+    flex: 0 0 350px;
+}
+
+.format-preview {
+    display: block;
+    width: 100%;
+    height: 120px;
+    background: repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0 0 / 16px 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.format-preview--plain {
+    background: none;
+    border: none;
+}
+
+.slider-output {
+    display: inline-block;
+    min-width: 3.5em;
+    margin-left: 8px;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: #444;
+    vertical-align: middle;
+}
