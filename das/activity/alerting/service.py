@@ -8,8 +8,8 @@ from accounts.models import User
 from activity.alerting.businessrules import (
     EventActions,
     _generate_aggregate_event_variables_class,
-    render_event,
 )
+from activity.alerting.rendering import render_event
 from activity.models import AlertRule
 from core.utils import OneWeekSchedule
 

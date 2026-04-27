@@ -87,6 +87,29 @@ class V1SchemaBuilder:
         return V1SchemaBuilder.simple_field(field_name, "string", enumNames=choices, **kwargs)
 
     @staticmethod
+    def choice_list_field(field_name: str, choices: dict, **kwargs) -> dict:
+        """Create V1 schema with an array/multi-select field using enumNames inside items."""
+        field_props = {
+            "type": "array",
+            "title": field_name.replace("_", " ").title(),
+            "items": {
+                "type": "string",
+                "enum": list(choices.keys()),
+                "enumNames": choices,
+            },
+            **kwargs,
+        }
+        return {
+            "schema": {
+                "$schema": V1_DRAFT,
+                "title": "Test Schema",
+                "type": "object",
+                "properties": {field_name: field_props},
+            },
+            "definition": [{"key": field_name, "htmlClass": "col-lg-6"}],
+        }
+
+    @staticmethod
     def readonly_schema(readonly_value=True, with_field=True) -> dict:
         """Create V1 schema with readonly property set.
         Args:
@@ -183,6 +206,35 @@ class V2SchemaBuilder:
             "title": field_name.replace("_", " ").title(),
             "type": "string",
             "anyOf": [{"oneOf": one_of_choices}],
+            **kwargs,
+        }
+        return {
+            "json": {
+                "$schema": V2_DRAFT,
+                "additionalProperties": False,
+                "type": "object",
+                "properties": {
+                    field_name: field_config,
+                },
+                "required": [],
+            },
+            "ui": V2SchemaBuilder._ui_section(field_name, field_config),
+        }
+
+    @staticmethod
+    def choice_list_field(field_name: str, choices: dict, **kwargs) -> dict:
+        """Create V2 schema with a multi-select choice list field (type=array, uniqueItems=true)."""
+        one_of_choices = [{"const": key, "title": value} for key, value in choices.items()]
+        field_config = {
+            "deprecated": False,
+            "description": "",
+            "title": field_name.replace("_", " ").title(),
+            "type": "array",
+            "uniqueItems": True,
+            "items": {
+                "type": "string",
+                "anyOf": [{"oneOf": one_of_choices}],
+            },
             **kwargs,
         }
         return {

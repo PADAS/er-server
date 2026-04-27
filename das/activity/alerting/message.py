@@ -8,15 +8,15 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from activity.alerting.businessrules import (
-    infer_event_state,
-    render_event,
-    resolve_event_revisions,
-)
 from activity.alerting.rate_limit import (
     get_remaining_alert_count,
     increment_alert_counter,
     prepend_alert_warning_message,
+)
+from activity.alerting.rendering import (
+    infer_event_state,
+    render_event,
+    resolve_event_revisions,
 )
 from activity.models import (
     NOTIFICATION_METHOD_EMAIL,
