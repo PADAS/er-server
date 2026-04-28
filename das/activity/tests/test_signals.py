@@ -115,6 +115,47 @@ class TestEventCategorySignals:
             # Restore the original request context
             request_context.request = original_request
 
+    def test_value_change_updates_permission_codenames(self):
+        """Changing value renames existing permission codenames to match the new value."""
+        category = EventCategory.objects.create(value="old-type", display="Old Type", flag="user")
+        permission_set = PermissionSet.objects.get(name=category.auto_permissionset_name)
+        old_codenames = set(permission_set.permissions.values_list("codename", flat=True))
+        assert all("old-type" in c for c in old_codenames)
+
+        category.value = "new-type"
+        category.save()
+
+        permission_set.refresh_from_db()
+        new_codenames = set(permission_set.permissions.values_list("codename", flat=True))
+        assert all("new-type" in c for c in new_codenames), f"Expected new-type in codenames, got {new_codenames}"
+        assert not old_codenames & new_codenames, "Old codenames should have been replaced"
+
+    def test_value_change_updates_geo_permission_codenames(self):
+        """Changing value also renames geographic permission codenames."""
+        category = EventCategory.objects.create(value="old-geo", display="Old Geo", flag="user")
+        geo_set = PermissionSet.objects.get(name=category.auto_geographic_permission_set_name)
+        old_codenames = set(geo_set.permissions.values_list("codename", flat=True))
+
+        category.value = "new-geo"
+        category.save()
+
+        geo_set.refresh_from_db()
+        new_codenames = set(geo_set.permissions.values_list("codename", flat=True))
+        assert all("new-geo" in c for c in new_codenames), f"Expected new-geo in codenames, got {new_codenames}"
+        assert not old_codenames & new_codenames, "Old geo codenames should have been replaced"
+
+    def test_display_only_change_does_not_alter_permission_codenames(self):
+        """Changing only display leaves permission codenames unchanged."""
+        category = EventCategory.objects.create(value="stable-value", display="Original", flag="user")
+        permission_set = PermissionSet.objects.get(name=category.auto_permissionset_name)
+        original_codenames = set(permission_set.permissions.values_list("codename", flat=True))
+
+        category.display = "Updated Display"
+        category.save()
+
+        permission_set.refresh_from_db()
+        assert set(permission_set.permissions.values_list("codename", flat=True)) == original_codenames
+
     def test_existing_category_update_does_not_add_user(self, superuser_client):
         """Test that when an existing EventCategory is updated via API, no user is added even if there's a request user."""
 

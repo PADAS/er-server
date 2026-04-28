@@ -25,6 +25,7 @@ from activity.tasks import evaluate_alert_rules, maintain_patrol_state
 from activity.util import ensure_eventcategory_perms_exist
 from das_server import celery, pubsub
 from usercontent.tasks import imagefile_rendered
+from utils.categories import EventCategoryRelatedPermissionSetActions
 from utils.tenant import get_tenant_settings
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 
@@ -171,12 +172,37 @@ def ensure_perms_exist(sender, **kwargs):
 
 
 @receiver(pre_save, sender=EventCategory)
-def slugify_category_value_field(sender, instance, **kwargs):
+def slugify_category_value_field(sender: type[EventCategory], instance: EventCategory, **kwargs: object) -> None:
     if instance._state.adding:
         instance.value = slugify(instance.value)
+    else:
+        try:
+            old_value = EventCategory.objects.values_list("value", flat=True).get(pk=instance.pk)
+        except EventCategory.DoesNotExist:
+            return
+        if old_value != instance.value:
+            instance._old_value = old_value
+
+
+@receiver(post_save, sender=EventCategory)
+def update_perms_on_value_change(
+    sender: type[EventCategory], instance: EventCategory, created: bool, **kwargs: object
+) -> None:
+    if created or not hasattr(instance, "_old_value"):
+        return
+    old_value: str = instance._old_value
+    new_value = instance.value
+    # Temporarily restore old value so the helper can locate permissions by their old codename.
+    instance.value = old_value
+    try:
+        EventCategoryRelatedPermissionSetActions(instance).update_permission_sets_and_permissions_related(
+            new_value=new_value, display=instance.display
+        )
+    finally:
+        instance.value = new_value
 
 
 @receiver(post_save, sender=EventCategory)
 @receiver(post_delete, sender=EventCategory)
-def invalidate_active_categories_cache(sender, **kwargs):
+def invalidate_active_categories_cache(sender: type[EventCategory], **kwargs: object) -> None:
     cache.delete(EventCategory.CATEGORIES_CACHE_KEY)
