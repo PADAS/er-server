@@ -25,6 +25,7 @@ from activity.tasks import evaluate_alert_rules, maintain_patrol_state
 from activity.util import ensure_eventcategory_perms_exist
 from das_server import celery, pubsub
 from usercontent.tasks import imagefile_rendered
+from utils.categories import EventCategoryRelatedPermissionSetActions
 from utils.tenant import get_tenant_settings
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 
@@ -171,12 +172,55 @@ def ensure_perms_exist(sender, **kwargs):
 
 
 @receiver(pre_save, sender=EventCategory)
-def slugify_category_value_field(sender, instance, **kwargs):
+def slugify_category_value_field(sender: type[EventCategory], instance: EventCategory, **kwargs: object) -> None:
     if instance._state.adding:
         instance.value = slugify(instance.value)
+    else:
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and not ({"value", "display"} & set(update_fields)):
+            return
+        try:
+            old_value, old_display = EventCategory.objects.values_list("value", "display").get(pk=instance.pk)
+        except EventCategory.DoesNotExist:
+            return
+        if old_value != instance.value:
+            instance._old_value = old_value
+        if old_display != instance.display:
+            instance._old_display = old_display
+
+
+@receiver(post_save, sender=EventCategory)
+def update_perms_on_value_change(
+    sender: type[EventCategory], instance: EventCategory, created: bool, **kwargs: object
+) -> None:
+    if created or (not hasattr(instance, "_old_value") and not hasattr(instance, "_old_display")):
+        return
+    old_value: str = getattr(instance, "_old_value", instance.value)
+    old_display: str = getattr(instance, "_old_display", instance.display)
+    new_value = instance.value
+    new_display = instance.display
+    value_changed = hasattr(instance, "_old_value")
+    # Temporarily restore old value and display so the helper can locate permission sets
+    # and permissions using their pre-update identifiers.
+    instance.value = old_value
+    instance.display = old_display
+    try:
+        permission_set_actions = EventCategoryRelatedPermissionSetActions(instance)
+        if permission_set_actions.is_event_category_permission_set_changed_by_user():
+            return
+        permission_set_actions.update_permission_sets_and_permissions_related(
+            new_value=new_value, display=new_display, update_permissions=value_changed
+        )
+    finally:
+        instance.value = new_value
+        instance.display = new_display
+        if hasattr(instance, "_old_value"):
+            delattr(instance, "_old_value")
+        if hasattr(instance, "_old_display"):
+            delattr(instance, "_old_display")
 
 
 @receiver(post_save, sender=EventCategory)
 @receiver(post_delete, sender=EventCategory)
-def invalidate_active_categories_cache(sender, **kwargs):
+def invalidate_active_categories_cache(sender: type[EventCategory], **kwargs: object) -> None:
     cache.delete(EventCategory.CATEGORIES_CACHE_KEY)
