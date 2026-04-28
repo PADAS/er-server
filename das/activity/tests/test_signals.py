@@ -120,6 +120,7 @@ class TestEventCategorySignals:
         category = EventCategory.objects.create(value="old-type", display="Old Type", flag="user")
         permission_set = PermissionSet.objects.get(name=category.auto_permissionset_name)
         old_codenames = set(permission_set.permissions.values_list("codename", flat=True))
+        assert old_codenames, "Expected permissions to exist before rename"
         assert all("old-type" in c for c in old_codenames)
 
         category.value = "new-type"
@@ -135,6 +136,8 @@ class TestEventCategorySignals:
         category = EventCategory.objects.create(value="old-geo", display="Old Geo", flag="user")
         geo_set = PermissionSet.objects.get(name=category.auto_geographic_permission_set_name)
         old_codenames = set(geo_set.permissions.values_list("codename", flat=True))
+        assert old_codenames, "Expected geo permissions to exist before rename"
+        assert all("old-geo" in c for c in old_codenames)
 
         category.value = "new-geo"
         category.save()
@@ -153,6 +156,8 @@ class TestEventCategorySignals:
         geo_permission_set = PermissionSet.objects.get(name=old_geo_permission_set_name)
         old_codenames = set(permission_set.permissions.values_list("codename", flat=True))
         old_geo_codenames = set(geo_permission_set.permissions.values_list("codename", flat=True))
+        assert old_codenames, "Expected permissions to exist before rename"
+        assert old_geo_codenames, "Expected geo permissions to exist before rename"
 
         category.value = "new-type"
         category.display = "New Type"

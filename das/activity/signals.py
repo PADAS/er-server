@@ -176,6 +176,9 @@ def slugify_category_value_field(sender: type[EventCategory], instance: EventCat
     if instance._state.adding:
         instance.value = slugify(instance.value)
     else:
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and not ({"value", "display"} & set(update_fields)):
+            return
         try:
             old_value, old_display = EventCategory.objects.values_list("value", "display").get(pk=instance.pk)
         except EventCategory.DoesNotExist:
@@ -196,13 +199,17 @@ def update_perms_on_value_change(
     old_display: str = getattr(instance, "_old_display", instance.display)
     new_value = instance.value
     new_display = instance.display
+    value_changed = hasattr(instance, "_old_value")
     # Temporarily restore old value and display so the helper can locate permission sets
     # and permissions using their pre-update identifiers.
     instance.value = old_value
     instance.display = old_display
     try:
-        EventCategoryRelatedPermissionSetActions(instance).update_permission_sets_and_permissions_related(
-            new_value=new_value, display=new_display
+        permission_set_actions = EventCategoryRelatedPermissionSetActions(instance)
+        if permission_set_actions.is_event_category_permission_set_changed_by_user():
+            return
+        permission_set_actions.update_permission_sets_and_permissions_related(
+            new_value=new_value, display=new_display, update_permissions=value_changed
         )
     finally:
         instance.value = new_value
