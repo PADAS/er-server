@@ -144,6 +144,41 @@ class TestEventCategorySignals:
         assert all("new-geo" in c for c in new_codenames), f"Expected new-geo in codenames, got {new_codenames}"
         assert not old_codenames & new_codenames, "Old geo codenames should have been replaced"
 
+    def test_value_and_display_change_updates_permissionsets_and_codenames(self):
+        """Changing value and display together renames permission sets and permission codenames."""
+        category = EventCategory.objects.create(value="old-type", display="Old Type", flag="user")
+        old_permission_set_name = category.auto_permissionset_name
+        old_geo_permission_set_name = category.auto_geographic_permission_set_name
+        permission_set = PermissionSet.objects.get(name=old_permission_set_name)
+        geo_permission_set = PermissionSet.objects.get(name=old_geo_permission_set_name)
+        old_codenames = set(permission_set.permissions.values_list("codename", flat=True))
+        old_geo_codenames = set(geo_permission_set.permissions.values_list("codename", flat=True))
+
+        category.value = "new-type"
+        category.display = "New Type"
+        category.save()
+
+        new_permission_set_name = category.auto_permissionset_name
+        new_geo_permission_set_name = category.auto_geographic_permission_set_name
+
+        assert not PermissionSet.objects.filter(name=old_permission_set_name).exists()
+        assert not PermissionSet.objects.filter(name=old_geo_permission_set_name).exists()
+
+        permission_set = PermissionSet.objects.get(name=new_permission_set_name)
+        geo_permission_set = PermissionSet.objects.get(name=new_geo_permission_set_name)
+
+        new_codenames = set(permission_set.permissions.values_list("codename", flat=True))
+        new_geo_codenames = set(geo_permission_set.permissions.values_list("codename", flat=True))
+
+        assert all("new-type" in c for c in new_codenames), f"Expected new-type in codenames, got {new_codenames}"
+        assert all(
+            "new-type" in c for c in new_geo_codenames
+        ), f"Expected new-type in geo codenames, got {new_geo_codenames}"
+        assert not old_codenames & new_codenames, "Old permission codenames should have been replaced"
+        assert (
+            not old_geo_codenames & new_geo_codenames
+        ), "Old geographic permission codenames should have been replaced"
+
     def test_display_only_change_does_not_alter_permission_codenames(self):
         """Changing only display leaves permission codenames unchanged."""
         category = EventCategory.objects.create(value="stable-value", display="Original", flag="user")

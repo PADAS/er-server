@@ -177,29 +177,40 @@ def slugify_category_value_field(sender: type[EventCategory], instance: EventCat
         instance.value = slugify(instance.value)
     else:
         try:
-            old_value = EventCategory.objects.values_list("value", flat=True).get(pk=instance.pk)
+            old_value, old_display = EventCategory.objects.values_list("value", "display").get(pk=instance.pk)
         except EventCategory.DoesNotExist:
             return
         if old_value != instance.value:
             instance._old_value = old_value
+        if old_display != instance.display:
+            instance._old_display = old_display
 
 
 @receiver(post_save, sender=EventCategory)
 def update_perms_on_value_change(
     sender: type[EventCategory], instance: EventCategory, created: bool, **kwargs: object
 ) -> None:
-    if created or not hasattr(instance, "_old_value"):
+    if created or (not hasattr(instance, "_old_value") and not hasattr(instance, "_old_display")):
         return
-    old_value: str = instance._old_value
+    old_value: str = getattr(instance, "_old_value", instance.value)
+    old_display: str = getattr(instance, "_old_display", instance.display)
     new_value = instance.value
-    # Temporarily restore old value so the helper can locate permissions by their old codename.
+    new_display = instance.display
+    # Temporarily restore old value and display so the helper can locate permission sets
+    # and permissions using their pre-update identifiers.
     instance.value = old_value
+    instance.display = old_display
     try:
         EventCategoryRelatedPermissionSetActions(instance).update_permission_sets_and_permissions_related(
-            new_value=new_value, display=instance.display
+            new_value=new_value, display=new_display
         )
     finally:
         instance.value = new_value
+        instance.display = new_display
+        if hasattr(instance, "_old_value"):
+            delattr(instance, "_old_value")
+        if hasattr(instance, "_old_display"):
+            delattr(instance, "_old_display")
 
 
 @receiver(post_save, sender=EventCategory)
