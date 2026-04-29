@@ -17,6 +17,7 @@ class UsersDynamicSchemaView(DynamicSchemaFromSourceView):
     schema_title = "Users"
     schema_description = "All users list"
     default_title_field = "display_name"
+    default_description_field = "username"
 
     def get_display_name_from_item(self, item: dict) -> str:
         display_name = f"{item.get('first_name')} {item.get('last_name')}".strip()
@@ -69,6 +70,7 @@ class ChoicesDynamicSchemaView(DynamicSchemaFromSourceView):
     schema_description = "All choices schema list"
     default_const_field = "value"
     default_title_field = "display"
+    default_description_field = "field"
 
     def get_source_view(self, request: Request) -> Type[APIView]:
         class PermissionsFreeChoicesView(ChoicesView, DynamicSchemaDataMixin):

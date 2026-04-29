@@ -1,5 +1,6 @@
 import pytest
 
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from choices.models import Choice
@@ -40,9 +41,23 @@ def test_get_choices_dynamic_schemas(superuser_client):
 
     assert response.status_code == 200
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+    value_to_field = {str(c.value): c.field for c in choices}
     for item in data["oneOf"]:
         assert item["const"] in choice_values
         assert item["title"] in choice_displays
+        assert item["description"] == value_to_field[str(item["const"])]
+
+
+@pytest.mark.django_db
+def test_users_schema_includes_username_as_description(superuser_client):
+    url = reverse("schemas:users")
+    response = superuser_client.get(url)
+    assert response.status_code == 200
+    data = response.json()
+    User = get_user_model()
+    for item in data["oneOf"]:
+        user = User.objects.get(pk=item["const"])
+        assert item["description"] == user.username
 
 
 @pytest.mark.django_db
@@ -65,6 +80,9 @@ def test_choices_dynamic_schema_accessible_without_choice_permissions(user_clien
     for item in data["oneOf"]:
         assert "const" in item
         assert "title" in item
+        assert "description" in item
+        choice = next(c for c in five_choices if str(c.value) == str(item["const"]))
+        assert item["description"] == choice.field
 
 
 @pytest.mark.django_db
@@ -88,6 +106,8 @@ def test_get_dynamic_schema_choices_filtered(superuser_client):
     for item in response.json()["oneOf"]:
         assert item["const"] in filtered_choices
         assert item["const"] not in not_in_filter_choices
+        choice = Choice.objects.get(value=item["const"])
+        assert item["description"] == choice.field
 
 
 @pytest.mark.django_db
