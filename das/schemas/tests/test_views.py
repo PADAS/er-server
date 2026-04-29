@@ -51,10 +51,11 @@ def test_users_schema_includes_username_as_description(superuser_client):
     response = superuser_client.get(url)
     assert response.status_code == 200
     data = response.json()
-    User = get_user_model()
+    user_model = get_user_model()
     ids = [item["const"] for item in data["oneOf"]]
     id_to_username = {
-        str(pk): username for pk, username in User.objects.filter(pk__in=ids).values_list("pk", "username")
+        str(pk): username
+        for pk, username in user_model.objects.filter(pk__in=ids).values_list("pk", "username")
     }
     for item in data["oneOf"]:
         assert item["description"] == id_to_username[str(item["const"])]
@@ -109,7 +110,7 @@ def test_get_dynamic_schema_choices_filtered(superuser_client):
     for item in response.json()["oneOf"]:
         assert item["const"] in filtered_choices
         assert item["const"] not in not_in_filter_choices
-        _ = Choice.objects.get(value=item["const"], field=item["description"])
+        assert Choice.objects.filter(value=item["const"], field=item["description"]).exists()
 
 
 @pytest.mark.django_db

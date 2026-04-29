@@ -1,4 +1,6 @@
-from typing import Any, Dict, List, Type
+from __future__ import annotations
+
+from typing import Any, Type
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -19,9 +21,9 @@ class UsersDynamicSchemaView(DynamicSchemaFromSourceView):
     default_title_field = "display_name"
     default_description_field = "username"
 
-    def get_display_name_from_item(self, item: dict) -> str:
+    def get_display_name_from_item(self, item: dict[str, Any]) -> str:
         display_name = f"{item.get('first_name')} {item.get('last_name')}".strip()
-        return display_name or item.get("username") or item.get("email")
+        return display_name or item.get("username") or item.get("email") or ""
 
 
 class SourcesDynamicSchemaView(DynamicSchemaFromSourceView):
@@ -38,9 +40,14 @@ class SourcesDynamicSchemaView(DynamicSchemaFromSourceView):
 
         return PermissionsFreeSourcesView
 
-    def get_source_schema_title_from_item(self, item: dict) -> str:
+    @staticmethod
+    def _stripped_manufacturer_and_model(item: dict[str, Any]) -> tuple[str, str]:
         manufacturer_id = (item.get("manufacturer_id") or "").strip()
         model_name = (item.get("model_name") or "").strip()
+        return manufacturer_id, model_name
+
+    def get_source_schema_title_from_item(self, item: dict[str, Any]) -> str:
+        manufacturer_id, model_name = self._stripped_manufacturer_and_model(item)
         if manufacturer_id and model_name:
             return model_name
         if manufacturer_id:
@@ -49,19 +56,11 @@ class SourcesDynamicSchemaView(DynamicSchemaFromSourceView):
             return model_name
         return item.get("source_type") or f"Source {item.get('id', '')}"
 
-    def get_source_schema_description_from_item(self, item: dict) -> str | None:
-        manufacturer_id = (item.get("manufacturer_id") or "").strip()
-        model_name = (item.get("model_name") or "").strip()
+    def get_source_schema_description_from_item(self, item: dict[str, Any]) -> str | None:
+        manufacturer_id, model_name = self._stripped_manufacturer_and_model(item)
         if manufacturer_id and model_name:
             return manufacturer_id
         return None
-
-    def get_schema_items(self, request: Request, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        items = super().get_schema_items(request, data)
-        for schema_item in items:
-            if schema_item.get("description") is None:
-                schema_item.pop("description", None)
-        return items
 
 
 class SubjectsDynamicSchemaView(DynamicSchemaFromSourceView):

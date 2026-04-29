@@ -259,6 +259,10 @@ class DynamicSchemaFromSourceView(APIView):
                     value = get_nested_value(item, attr_name)
                 schema_item[key] = value
 
+            # Omit description when unresolved so clients do not see JSON null in oneOf entries.
+            if schema_item.get("description") is None:
+                schema_item.pop("description", None)
+
             schema_items.append(schema_item)
 
         return schema_items
