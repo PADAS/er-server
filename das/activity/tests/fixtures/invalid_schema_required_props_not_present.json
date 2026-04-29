@@ -4,7 +4,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-            "what_is_the_response?": {
+            "what_is_the_response": {
                 "default": "",
                 "deprecated": false,
                 "description": "",
@@ -26,7 +26,7 @@
                 "type": "NUMERIC",
                 "parent": "section-s0m38ZMo7h5p4cE2BC8U6"
             },
-            "what_happened?_patrol_activity": {
+            "what_happened_patrol_activity": {
                 "choices": {
                     "eventTypeCategories": [],
                     "existingChoiceList": [
@@ -68,7 +68,7 @@
                     },
                     {
                         "type": "field",
-                        "name": "what_happened?_patrol_activity"
+                        "name": "what_happened_patrol_activity"
                     }
                 ],
                 "rightColumn": [
@@ -78,7 +78,7 @@
                     },
                     {
                         "type": "field",
-                        "name": "what_is_the_response?"
+                        "name": "what_is_the_response"
                     }
                 ]
             }
