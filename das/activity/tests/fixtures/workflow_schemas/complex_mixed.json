@@ -16,7 +16,7 @@
         "type": "string",
         "anyOf": [
           {
-            "$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=service_type"
+            "$ref": "/api/v2.0/schemas/choices.json?field=service_type"
           }
         ]
       },
@@ -30,7 +30,7 @@
           "type": "string",
           "anyOf": [
             {
-              "$ref": "https://zoo.com/api/v2.0/schemas/subjects.json?subject_subtype=wildlife"
+              "$ref": "/api/v2.0/schemas/subjects.json?subject_subtype=wildlife"
             }
           ]
         }

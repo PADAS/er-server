@@ -10,7 +10,7 @@
         "type": "string",
         "anyOf": [
           {
-            "$ref": "https://zoo.com/api/v2.0/schemas/users.json"
+            "$ref": "/api/v2.0/schemas/users.json"
           }
         ]
       }

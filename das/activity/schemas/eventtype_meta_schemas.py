@@ -193,6 +193,7 @@ choice_list_field_ui_schema = {
                 "featureCategories": choice_list_field_ui_schema_choices_array_schema,
                 "myDataType": {
                     "enum": [
+                        "",
                         "EVENT_TYPES_FROM_EVENT_CATEGORY",
                         "FEATURES_FROM_FEATURE_CATEGORY",
                         "SOURCES",
@@ -479,6 +480,7 @@ collection_field_json_schema = {
                 "unevaluatedProperties": {"const": False},
             },
             "required": ["properties", "required", "type", "unevaluatedProperties"],
+            "additionalProperties": False,
         },
         "maxItems": {"type": "integer"},
         "minItems": {"type": "integer"},
@@ -630,7 +632,12 @@ contains_condition_ui_schema = {
         "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
         "id": {"type": "string", "pattern": "^condition-.+$"},
         "operator": {"const": "CONTAINS"},
-        "value": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]},
+        "value": {
+            "anyOf": [
+                {"type": "string"},
+                {"type": "array", "items": {"type": "string"}},
+            ]
+        },
     },
     "required": ["field", "id", "operator", "value"],
     "additionalProperties": False,
