@@ -25,7 +25,7 @@ BASE_URL = "https://zoo.com/api/v2.0/schemas"
 CARCASS_V2_EVENTTYPE_SCHEMA = {
     "json": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "additionalProperties": False,
+        "unevaluatedProperties": False,
         "type": "object",
         "properties": {
             "carcassrep_species": {
@@ -81,7 +81,7 @@ CARCASS_V2_EVENTTYPE_SCHEMA = {
                 "deprecated": False,
                 "description": "",
                 "items": {
-                    "additionalProperties": False,
+                    "unevaluatedProperties": False,
                     "properties": {
                         "species_of_group": {
                             "deprecated": False,
