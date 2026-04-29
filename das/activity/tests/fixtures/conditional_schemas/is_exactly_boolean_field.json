@@ -42,8 +42,12 @@
                     },
                     {
                       "type": "object",
-                      "properties": {},
-                      "required": [],
+                      "properties": {
+                        "true": {}
+                      },
+                      "required": [
+                        "true"
+                      ],
                       "unevaluatedProperties": false
                     },
                     {
