@@ -33,19 +33,16 @@ def test_get_choices_dynamic_schemas(superuser_client):
     url = reverse("schemas:choices")
     response = superuser_client.get(url)
 
-    choices = Choice.objects.all()
-    choice_values = [choice.value for choice in choices]
-    choice_displays = [choice.display for choice in choices]
+    choices = list(Choice.objects.all())
+    choice_triples = {(str(c.value), c.display, c.field) for c in choices}
 
     data = response.json()
 
     assert response.status_code == 200
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    value_to_field = {str(c.value): c.field for c in choices}
     for item in data["oneOf"]:
-        assert item["const"] in choice_values
-        assert item["title"] in choice_displays
-        assert item["description"] == value_to_field[str(item["const"])]
+        triple = (str(item["const"]), item["title"], item["description"])
+        assert triple in choice_triples, f"schema item {triple!r} does not match any Choice row"
 
 
 @pytest.mark.django_db
@@ -55,9 +52,12 @@ def test_users_schema_includes_username_as_description(superuser_client):
     assert response.status_code == 200
     data = response.json()
     User = get_user_model()
+    ids = [item["const"] for item in data["oneOf"]]
+    id_to_username = {
+        str(pk): username for pk, username in User.objects.filter(pk__in=ids).values_list("pk", "username")
+    }
     for item in data["oneOf"]:
-        user = User.objects.get(pk=item["const"])
-        assert item["description"] == user.username
+        assert item["description"] == id_to_username[str(item["const"])]
 
 
 @pytest.mark.django_db
@@ -76,13 +76,16 @@ def test_choices_dynamic_schema_accessible_without_choice_permissions(user_clien
     assert "oneOf" in data
     assert len(data["oneOf"]) >= len(five_choices)
 
-    # Verify the structure matches what's expected from choice data
     for item in data["oneOf"]:
         assert "const" in item
         assert "title" in item
         assert "description" in item
-        choice = next(c for c in five_choices if str(c.value) == str(item["const"]))
-        assert item["description"] == choice.field
+
+    # Every fixture choice must appear in the schema; match on (value, display, field) so values are not ambiguous.
+    items_by_triple = {(str(i["const"]), i["title"], i["description"]) for i in data["oneOf"]}
+    for choice in five_choices:
+        triple = (str(choice.value), choice.display, choice.field)
+        assert triple in items_by_triple, f"expected schema item for fixture choice {triple!r}"
 
 
 @pytest.mark.django_db
@@ -106,8 +109,7 @@ def test_get_dynamic_schema_choices_filtered(superuser_client):
     for item in response.json()["oneOf"]:
         assert item["const"] in filtered_choices
         assert item["const"] not in not_in_filter_choices
-        choice = Choice.objects.get(value=item["const"])
-        assert item["description"] == choice.field
+        _ = Choice.objects.get(value=item["const"], field=item["description"])
 
 
 @pytest.mark.django_db
