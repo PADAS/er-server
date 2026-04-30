@@ -42,8 +42,12 @@
                     },
                     {
                       "type": "object",
-                      "properties": {},
-                      "required": [],
+                      "properties": {
+                        "Arequipa": {}
+                      },
+                      "required": [
+                        "Arequipa"
+                      ],
                       "unevaluatedProperties": false
                     },
                     {

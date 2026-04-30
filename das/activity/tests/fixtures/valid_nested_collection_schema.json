@@ -1,12 +1,12 @@
 {
     "json": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "additionalProperties": false,
+        "unevaluatedProperties": false,
         "properties": {
             "colection_1": {
                 "deprecated": false,
                 "items": {
-                    "additionalProperties": false,
+                    "unevaluatedProperties": false,
                     "properties": {
                         "how_many": {
                             "deprecated": false,
@@ -17,7 +17,7 @@
                         "sub_list": {
                             "deprecated": false,
                             "items": {
-                                "additionalProperties": false,
+                                "unevaluatedProperties": false,
                                 "properties": {
                                     "loc": {
                                         "deprecated": false,

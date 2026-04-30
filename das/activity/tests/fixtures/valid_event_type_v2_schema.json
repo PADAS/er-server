@@ -1,7 +1,7 @@
 {
     "json": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "additionalProperties": false,
+        "unevaluatedProperties": false,
         "properties": {
             "size_of_the_poaching_group": {
                 "deprecated": false,
@@ -10,7 +10,7 @@
                 "title": "Size of the Poaching Group",
                 "type": "number"
             },
-            "what_happened?_patrol_activity": {
+            "what_happened_patrol_activity": {
                 "deprecated": false,
                 "description": "",
                 "title": "What happened? Patrol activity",
@@ -32,7 +32,7 @@
                     }
                 ]
             },
-            "what_is_the_response?": {
+            "what_is_the_response": {
                 "default": "",
                 "deprecated": false,
                 "description": "",
@@ -54,7 +54,7 @@
             "arrests": {
                 "deprecated": false,
                 "items": {
-                    "additionalProperties": false,
+                    "unevaluatedProperties": false,
                     "properties": {
                         "name": {
                             "default": "",
@@ -144,7 +144,7 @@
                 "type": "NUMERIC",
                 "parent": "section-s0m38ZMo7h5p4cE2BC8U6"
             },
-            "what_happened?_patrol_activity": {
+            "what_happened_patrol_activity": {
                 "choices": {
                     "eventTypeCategories": [],
                     "existingChoiceList": [
@@ -178,7 +178,7 @@
                 "type": "CHOICE_LIST",
                 "parent": "section-s0m38ZMo7h5p4cE2BC8U6"
             },
-            "what_is_the_response?": {
+            "what_is_the_response": {
                 "inputType": "LONG_TEXT",
                 "placeholder": "",
                 "type": "TEXT",
@@ -274,7 +274,7 @@
                     },
                     {
                         "type": "field",
-                        "name": "what_happened?_patrol_activity"
+                        "name": "what_happened_patrol_activity"
                     }
                 ],
                 "rightColumn": [
@@ -284,7 +284,7 @@
                     },
                     {
                         "type": "field",
-                        "name": "what_is_the_response?"
+                        "name": "what_is_the_response"
                     }
                 ]
             },

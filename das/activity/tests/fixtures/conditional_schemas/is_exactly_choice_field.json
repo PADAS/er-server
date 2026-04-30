@@ -9,7 +9,7 @@
         "type": "string",
         "anyOf": [
           {
-            "$ref": "https://era-12220.dev.pamdas.org/api/v2.0/schemas/choices.json?field=fire_status"
+            "$ref": "/api/v2.0/schemas/choices.json?field=fire_status"
           }
         ]
       }
@@ -46,8 +46,12 @@
                     },
                     {
                       "type": "object",
-                      "properties": {},
-                      "required": [],
+                      "properties": {
+                        "burning": {}
+                      },
+                      "required": [
+                        "burning"
+                      ],
                       "unevaluatedProperties": false
                     },
                     {
