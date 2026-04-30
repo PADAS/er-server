@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from mapping.forms import SpatialFeatureTypeForm
+from mapping.forms import DisplayCategoryForm, SpatialFeatureTypeForm
 from mapping.models import DisplayCategory, SpatialFeatureType
 
 
@@ -112,3 +112,102 @@ class TestSpatialFeatureTypeFormExtraKeys:
         saved.refresh_from_db()
         assert saved.presentation["fill"] == "#abc123"
         assert "fill-color" not in saved.presentation
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestDisplayCategoryFormFeatureClasses:
+    """The custom feature_classes field must persist through the admin commit=False / save_m2m() flow."""
+
+    def test_feature_classes_persist_when_saved_with_commit_false(self):
+        category = DisplayCategory.objects.create(name="Cat A")
+        ft1 = SpatialFeatureType.objects.create(name="FT1")
+        ft2 = SpatialFeatureType.objects.create(name="FT2")
+
+        form = DisplayCategoryForm(
+            data={
+                "id": str(category.pk),
+                "name": category.name,
+                "feature_classes": [str(ft1.pk), str(ft2.pk)],
+                "description": "",
+            },
+            instance=category,
+        )
+        assert form.is_valid(), form.errors
+
+        # Mimic the Django admin save flow: save(commit=False), instance.save(), form.save_m2m().
+        instance = form.save(commit=False)
+        instance.save()
+        form.save_m2m()
+
+        ft1.refresh_from_db()
+        ft2.refresh_from_db()
+        assert ft1.display_category_id == category.pk
+        assert ft2.display_category_id == category.pk
+
+    def test_feature_classes_replaces_existing_assignments(self):
+        category = DisplayCategory.objects.create(name="Cat B")
+        previously_assigned = SpatialFeatureType.objects.create(name="FT Old", display_category=category)
+        newly_assigned = SpatialFeatureType.objects.create(name="FT New")
+
+        form = DisplayCategoryForm(
+            data={
+                "id": str(category.pk),
+                "name": category.name,
+                "feature_classes": [str(newly_assigned.pk)],
+                "description": "",
+            },
+            instance=category,
+        )
+        assert form.is_valid(), form.errors
+
+        instance = form.save(commit=False)
+        instance.save()
+        form.save_m2m()
+
+        previously_assigned.refresh_from_db()
+        newly_assigned.refresh_from_db()
+        assert previously_assigned.display_category_id is None
+        assert newly_assigned.display_category_id == category.pk
+
+    def test_feature_classes_persist_when_saved_with_commit_true(self):
+        category = DisplayCategory.objects.create(name="Cat C")
+        ft = SpatialFeatureType.objects.create(name="FT Direct")
+
+        form = DisplayCategoryForm(
+            data={
+                "id": str(category.pk),
+                "name": category.name,
+                "feature_classes": [str(ft.pk)],
+                "description": "",
+            },
+            instance=category,
+        )
+        assert form.is_valid(), form.errors
+
+        form.save(commit=True)
+
+        ft.refresh_from_db()
+        assert ft.display_category_id == category.pk
+
+    def test_feature_classes_cleared_when_none_selected(self):
+        category = DisplayCategory.objects.create(name="Cat D")
+        previously_assigned = SpatialFeatureType.objects.create(name="FT To Clear", display_category=category)
+
+        form = DisplayCategoryForm(
+            data={
+                "id": str(category.pk),
+                "name": category.name,
+                "feature_classes": [],
+                "description": "",
+            },
+            instance=category,
+        )
+        assert form.is_valid(), form.errors
+
+        instance = form.save(commit=False)
+        instance.save()
+        form.save_m2m()
+
+        previously_assigned.refresh_from_db()
+        assert previously_assigned.display_category_id is None

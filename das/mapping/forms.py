@@ -305,11 +305,17 @@ class DisplayCategoryForm(forms.ModelForm):
             )
         return name
 
-    def save(self, commit=True):
-        instance = super().save(commit)
+    def save(self, commit: bool = True) -> DisplayCategory:
+        instance = super().save(commit=False)
         if commit:
-            instance.spatialfeaturetype_set.set(self.cleaned_data["feature_classes"])
+            instance.save()
+            self.save_m2m()
         return instance
+
+    def _save_m2m(self) -> None:
+        # feature_classes is a reverse-FK pseudo-M2M not handled by Django's standard _save_m2m.
+        super()._save_m2m()
+        self.instance.spatialfeaturetype_set.set(self.cleaned_data.get("feature_classes", []))
 
 
 class ArcgisConfigurationForm(forms.ModelForm):
