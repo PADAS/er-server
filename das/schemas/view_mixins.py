@@ -272,13 +272,13 @@ class DynamicSchemaFromSourceView(APIView):
         Returns the schema id, based on the url and the query parameters of the request, in order to help the
         caching of the schema, we will sort the query parameters and append them to the url.
         """
-        base_url = request.build_absolute_uri()
         query_params = self.get_query_params(request)
         query_string = sorted_query_parameters_to_string(query_params)
 
         if not query_params:
-            return base_url
+            return request.build_absolute_uri()
 
+        base_url = request.build_absolute_uri(request.path)
         return f"{base_url}?{query_string}"
 
     def generate_dynamic_schema(self, request: Request) -> Dict[str, Any]:
