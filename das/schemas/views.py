@@ -99,5 +99,23 @@ class EventTypesDynamicSchemaView(DynamicSchemaFromSourceView):
     schema_title = "Event Types"
     schema_description = "All event types list"
     default_const_field = "id"
-    default_title_field = "display"
-    default_description_field = "value"
+    default_title_field = "event_type_schema_title"
+    default_description_field = "event_type_schema_description"
+
+    @staticmethod
+    def _stripped_display_and_value(item: dict[str, Any]) -> tuple[str, str]:
+        display = (item.get("display") or "").strip()
+        value = (item.get("value") or "").strip()
+        return display, value
+
+    def get_event_type_schema_title_from_item(self, item: dict[str, Any]) -> str:
+        display, value = self._stripped_display_and_value(item)
+        if display:
+            return display
+        return value
+
+    def get_event_type_schema_description_from_item(self, item: dict[str, Any]) -> str | None:
+        display, value = self._stripped_display_and_value(item)
+        if display and value:
+            return value
+        return None

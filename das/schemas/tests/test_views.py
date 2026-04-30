@@ -339,6 +339,26 @@ def test_event_types_schema_structure(superuser_client):
 
 
 @pytest.mark.django_db
+def test_event_types_schema_blank_display_uses_value_as_title(superuser_client):
+    """When display is blank, title falls back to value and description is omitted."""
+    event_type = EventTypeFactory.create(value="only_value_slug", display="")
+    event_type_ws = EventTypeFactory.create(value="whitespace_display_slug", display="   ")
+
+    url = reverse("schemas:event_types")
+    response = superuser_client.get(url)
+    assert response.status_code == 200
+    items_by_id = {item["const"]: item for item in response.json()["oneOf"]}
+
+    empty_display_item = items_by_id[str(event_type.id)]
+    assert empty_display_item["title"] == "only_value_slug"
+    assert "description" not in empty_display_item
+
+    ws_display_item = items_by_id[str(event_type_ws.id)]
+    assert ws_display_item["title"] == "whitespace_display_slug"
+    assert "description" not in ws_display_item
+
+
+@pytest.mark.django_db
 def test_event_types_permissions_and_categories(superuser_client):
     """Test that event types respect category permissions."""
 
