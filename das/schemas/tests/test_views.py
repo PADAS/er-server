@@ -3,6 +3,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 
+from accounts.models import PermissionSet
 from choices.models import Choice
 from factories import (
     EventCategoryFactory,
@@ -11,6 +12,7 @@ from factories import (
     SubjectFactory,
 )
 from observations.models import SubjectGroup
+from utils.tenant.managers import TenantContextManager
 
 
 @pytest.mark.django_db
@@ -54,8 +56,7 @@ def test_users_schema_includes_username_as_description(superuser_client):
     user_model = get_user_model()
     ids = [item["const"] for item in data["oneOf"]]
     id_to_username = {
-        str(pk): username
-        for pk, username in user_model.objects.filter(pk__in=ids).values_list("pk", "username")
+        str(pk): username for pk, username in user_model.objects.filter(pk__in=ids).values_list("pk", "username")
     }
     for item in data["oneOf"]:
         assert item["description"] == id_to_username[str(item["const"])]
@@ -394,11 +395,15 @@ def test_event_types_permissions_and_categories(superuser_client):
 
 
 @pytest.mark.django_db
-def test_event_types_schema_accessible_to_authenticated_users(user_client):
+def test_event_types_schema_accessible_to_authenticated_users(user_client, tenant):
     """Test that event types dynamic schema is accessible to authenticated users."""
 
-    # Create an event type
-    event_type = EventTypeFactory.create(value="test_event_type", display="Test Event Type")
+    with TenantContextManager(domain=tenant.domain):
+        event_type = EventTypeFactory.create(value="test_event_type", display="Test Event Type")
+        # The ensure_perms_exist signal created a PermissionSet for the category; add the user to it
+        # so the queryset returns this event type for non-superusers.
+        perm_set = PermissionSet.objects.get(name=event_type.category.auto_permissionset_name)
+        perm_set.user_set.add(user_client.user)
 
     url = reverse("schemas:event_types")
     response = user_client.get(url)
