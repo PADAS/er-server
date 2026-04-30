@@ -19,7 +19,7 @@ from factories import (
 from observations.models import SubjectSubType
 from utils.csv_streaming import read_streaming_response_content
 
-BASE_URL = "https://zoo.com/api/v2.0/schemas"
+BASE_URL = "/api/v2.0/schemas"
 
 
 CARCASS_V2_EVENTTYPE_SCHEMA = {
