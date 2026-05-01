@@ -1,6 +1,7 @@
 import json
 import logging
 import uuid
+from datetime import timedelta
 
 import pymet
 from osgeo import ogr
@@ -23,6 +24,21 @@ from analyzers.utils import save_analyzer_event
 
 class ProximityAnalyzer(SubjectAnalyzer):
 
+    # Number of recent fixes to inspect when checking whether the current
+    # proximity streak began inside this analyzer run. Caps the burst-extended
+    # fetch so a high-frequency tracker can't blow up the per-fix proximity
+    # cost.
+    _HISTORY_FIXES = 10
+
+    # Time window used to detect a burst of squashed observations. Set wider
+    # than handle_observation's 60s squash period (countdown=60 in tasks.py)
+    # so jitter at the boundary doesn't flicker between batched and
+    # not-batched. When the most recent 3 observations all fall inside this
+    # window, ``default_observations`` extends the fetch so
+    # ``analyze_trajectory`` can locate the transition into proximity by
+    # inspecting fixes from before the burst.
+    _BURST_DETECT_SECONDS = 120
+
     def __init__(self, subject=None, config=None):
         SubjectAnalyzer.__init__(self, subject=subject, config=config)
         self.logger = logging.getLogger(__name__)
@@ -37,15 +53,40 @@ class ProximityAnalyzer(SubjectAnalyzer):
 
     def default_observations(self):
         """
-        Default set of observations is fetched from the database, limited to the three most recent,
-        based on this analyzer's configuration.
-        :return: a list of at most 3 Observations in descending temporal order
+        Default set of observations is fetched from the database based on this
+        analyzer's configuration.
+
+        Common case: returns the 3 most recent fixes, which is enough for the
+        latest-segment vs prior-segment comparison in ``analyze_trajectory``.
+
+        Burst case: when those 3 fixes all fall inside ``_BURST_DETECT_SECONDS``,
+        observations may have been squashed by ``handle_observation``'s 60s
+        window and the not-proximal → proximal transition could be hidden in
+        the batch. In that case the fetch is extended to all observations in
+        the burst window plus one fix preceding it (capped at
+        ``_HISTORY_FIXES``) so ``analyze_trajectory`` can locate the streak
+        boundary.
+
+        :return: a list of Observations in descending temporal order
         """
-        # observations get passed back in temporally descending order
         if self.config.search_time_hours <= 0:
-            return list(self.subject.observations()[:3])
+            base_qs = self.subject.observations()
         else:
-            return list(self.subject.observations(last_hours=self.config.search_time_hours)[:3])
+            base_qs = self.subject.observations(last_hours=self.config.search_time_hours)
+
+        recent = list(base_qs[:3])
+        if len(recent) < 3:
+            return recent
+
+        # ``recent`` is in descending temporal order — newest at index 0.
+        burst_span = recent[0].recorded_at - recent[-1].recorded_at
+        if burst_span.total_seconds() >= self._BURST_DETECT_SECONDS:
+            return recent
+
+        cutoff = recent[0].recorded_at - timedelta(seconds=self._BURST_DETECT_SECONDS)
+        within_burst = list(base_qs.filter(recorded_at__gte=cutoff)[: self._HISTORY_FIXES - 1])
+        prior = list(base_qs.filter(recorded_at__lt=cutoff)[:1])
+        return within_burst + prior
 
     def save_analyzer_result(self, last_result=None, this_result=None):
 
@@ -144,6 +185,66 @@ class FeatureProximityAnalyzer(ProximityAnalyzer):
         ]
         return ProximityAnalysisParams(spatial_features=sfs)
 
+    @staticmethod
+    def _proximal_feature_ids(geom, threshold_m, analysis_params, restrict_to=None):
+        """Return the set of spatial-feature ids whose distance to ``geom`` is
+        within ``threshold_m`` meters. When ``restrict_to`` is given, features
+        whose ``unique_id`` is not in the set are skipped — used to avoid
+        wasted distance work on features that aren't candidates to fire.
+        """
+        proximal_ids = set()
+        for sf in analysis_params.spatial_features:
+            if restrict_to is not None and sf.unique_id not in restrict_to:
+                continue
+            dist_m = pymet.utils.degrees_to_km(geom.Distance(sf.ogr_geometry)) * 1000.0
+            if dist_m <= threshold_m:
+                proximal_ids.add(sf.unique_id)
+        return proximal_ids
+
+    def _is_streak_already_fired(
+        self,
+        feat_id,
+        feat_name,
+        older_fixes,
+        per_fix_proximal_ids,
+        prior_segment_proximal_feature_ids,
+    ) -> bool:
+        """Return True when a result for this feature has already been recorded
+        for the current proximity streak — meaning the analyzer should suppress
+        the fire so the analyzer doesn't double-emit while a subject stays
+        proximal.
+
+        The streak boundary is the most recent fix in ``older_fixes`` (newest
+        to oldest) where the subject was NOT individually within threshold of
+        ``feat_id``. When a boundary exists in the window we only suppress if a
+        ``SubjectAnalyzerResult`` for ``feat_name`` already has
+        ``estimated_time`` past it. When no boundary exists in the window
+        (every older fix was proximal, or there are no older fixes) we fall
+        back to two checks:
+
+        1. The segment-based prior check from the original 3-fix logic (covers
+           continuous-proximity windows in the 3+ fix case).
+        2. Any existing result for the feature (covers the 1-fix and 2-fix
+           cases where ``prior_two`` is None and the segment check would
+           trivially say "not proximal").
+        """
+        streak_start_time = None
+        for i in range(len(older_fixes) - 1, -1, -1):
+            if feat_id not in per_fix_proximal_ids[i]:
+                streak_start_time = older_fixes[i].fixtime
+                break
+
+        base_qs = SubjectAnalyzerResult.objects.filter(
+            subject=self.subject,
+            subject_analyzer_id=self.config.id,
+            values__spatial_feature_name=feat_name,
+        )
+        if streak_start_time is not None:
+            return base_qs.filter(estimated_time__gt=streak_start_time).exists()
+        if feat_id in prior_segment_proximal_feature_ids:
+            return True
+        return base_qs.exists()
+
     def analyze_trajectory(self, traj=None):
         """
         A function to analyze the trajectory of a subject in relation to a set of spatial features and regions to
@@ -157,47 +258,103 @@ class FeatureProximityAnalyzer(ProximityAnalyzer):
         # Fetch features once — used for both pymet params and the Shapely geometry map.
         features = list(self.config.proximal_features.features.all())
         analysis_params = self._create_proximity_analysis_params(features)
+        threshold_m = self.config.threshold_dist_meters
 
-        # Use the last 3 fixes so we can compare the current segment (fixes[-2:])
-        # against the prior segment (fixes[-3:-1]) and only fire on the transition
-        # from "not proximal" to "proximal".
+        # Look at a wider window than just the latest segment so we can detect
+        # the not-proximal → proximal transition even when several observations
+        # arrive together. ``handle_observation`` queues ``handle_subject`` with
+        # countdown=60 and uses QueueOnce to squash repeated runs, so a batch of
+        # observations that all arrive inside the squash window are processed
+        # in a single analyzer run. If the transition itself is in that batch
+        # but no longer the latest segment, comparing only the latest segment
+        # against the immediate prior segment would see both as proximal and
+        # incorrectly suppress the event.
         #
         # Caveat: `traj` has already been run through the SubjectTrackSegmentFilter,
         # so a high-speed (or otherwise out-of-bounds) fix between two proximal fixes
-        # may have been dropped. In that case `prior_two` won't reflect the true prior
-        # state and a duplicate event can still slip through. This is a pre-existing
-        # limitation of the upstream filter, not something this analyzer can fix on
-        # its own — track via the analyzer's quiet_period if it becomes a problem.
-        all_fixes = traj.relocs.get_fixes()[-3:]
+        # may have been dropped. In that case the prior history won't reflect the
+        # true prior state and a duplicate event can still slip through. This is a
+        # pre-existing limitation of the upstream filter, not something this analyzer
+        # can fix on its own — track via the analyzer's quiet_period if it becomes a problem.
+        all_fixes = traj.relocs.get_fixes()[-self._HISTORY_FIXES :]
+        if not all_fixes:
+            return []
+
         latest_two = all_fixes[-2:]
         prior_two = all_fixes[-3:-1] if len(all_fixes) >= 3 else None
 
-        if len(latest_two) == 0:
+        if len(latest_two) >= 2:
+            current_traj = pymet.base.Trajectory(
+                relocs=pymet.base.Relocations(fixes=latest_two, subject_id=traj.relocs.subject_id)
+            )
+            current_proximity_events = list(
+                ProximityAnalysis.calc_proximity_events(
+                    proximity_analysis_params=analysis_params, trajectories=[current_traj]
+                ).proximity_events
+            )
+        else:
+            # A single-fix trajectory has no segment for pymet's segment-based
+            # iteration, so build point-vs-feature proximity events directly.
+            fix = latest_two[0]
+            fix_geom = fix.geopoint.ogr_geometry
+            current_proximity_events = []
+            for sf in analysis_params.spatial_features:
+                dist_m = pymet.utils.degrees_to_km(fix_geom.Distance(sf.ogr_geometry)) * 1000.0
+                if dist_m <= threshold_m:
+                    current_proximity_events.append(
+                        pymet.proximity.ProximityEvent(
+                            subject_id=traj.relocs.subject_id,
+                            subject_speed=None,
+                            subject_travel_heading=None,
+                            proximity_distance_meters=dist_m,
+                            proximal_fix=fix,
+                            spatial_feature_id=sf.unique_id,
+                            spatial_feature_name=sf.name,
+                        )
+                    )
+
+        # Filter pymet's events to those within threshold (the 1-fix branch
+        # already filters at construction). Most analyzer runs end here — the
+        # subject is rarely near any feature in the group, so we skip all of
+        # the per-fix and prior-segment work below.
+        proximal_events = [p for p in current_proximity_events if p.proximity_distance_meters <= threshold_m]
+        if not proximal_events:
             return []
 
-        current_traj = pymet.base.Trajectory(
-            relocs=pymet.base.Relocations(fixes=latest_two, subject_id=traj.relocs.subject_id)
-        )
-        current_proximity = ProximityAnalysis.calc_proximity_events(
-            proximity_analysis_params=analysis_params, trajectories=[current_traj]
-        )
+        proximal_feat_ids = {p.spatial_feature_id for p in proximal_events}
 
-        # Determine which features were already proximal in the prior segment so
-        # we can suppress repeated results for a subject staying near a feature.
-        # Keyed by feature id, since SpatialFeature.name is not unique within a group.
-        prior_proximal_feature_ids: set = set()
+        # Single-fix proximity per older fix, restricted to features that are
+        # actually candidates to fire — others can't shift the streak boundary.
+        # Distances are computed directly via OGR rather than by routing each
+        # fix through pymet, since pymet's calc_proximity_events iterates over
+        # trajectory segments and returns no events for a single-fix trajectory.
+        older_fixes = all_fixes[:-1]
+        per_fix_proximal_ids = [
+            self._proximal_feature_ids(
+                fix.geopoint.ogr_geometry,
+                threshold_m,
+                analysis_params,
+                restrict_to=proximal_feat_ids,
+            )
+            for fix in older_fixes
+        ]
+
+        # Fallback: if every older fix in the window was proximal to a feature,
+        # we cannot locate the streak boundary inside the window. In that case
+        # fall back to the segment-based prior check (preserves the original
+        # 2-fix and 3-fix-with-no-deeper-history semantics).
+        prior_segment_proximal_feature_ids: set = set()
         if prior_two is not None:
-            prior_traj = pymet.base.Trajectory(
-                relocs=pymet.base.Relocations(fixes=prior_two, subject_id=traj.relocs.subject_id)
+            prior_segment_geom = ogr.Geometry(ogr.wkbLineString)
+            for fix in prior_two:
+                pt = fix.geopoint.ogr_geometry
+                prior_segment_geom.AddPoint_2D(pt.GetX(), pt.GetY())
+            prior_segment_proximal_feature_ids = self._proximal_feature_ids(
+                prior_segment_geom,
+                threshold_m,
+                analysis_params,
+                restrict_to=proximal_feat_ids,
             )
-            prior_proximity = ProximityAnalysis.calc_proximity_events(
-                proximity_analysis_params=analysis_params, trajectories=[prior_traj]
-            )
-            prior_proximal_feature_ids = {
-                p.spatial_feature_id
-                for p in prior_proximity.proximity_events
-                if p.proximity_distance_meters <= self.config.threshold_dist_meters
-            }
 
         # Build an id→Shapely-geometry map for closest-point-on-trajectory projection.
         # For polygons, use the boundary ring so the event lands on the perimeter, not the interior.
@@ -223,12 +380,16 @@ class FeatureProximityAnalyzer(ProximityAnalyzer):
             )
 
         das_analyzer_results = []
-        for prox in current_proximity.proximity_events:
-            if prox.proximity_distance_meters > self.config.threshold_dist_meters:
-                continue
-            # Only fire on the transition into proximity; skip if the prior segment
-            # was already proximal to this same feature.
-            if prox.spatial_feature_id in prior_proximal_feature_ids:
+        for prox in proximal_events:
+            # Only fire on the transition into proximity; skip if we've already
+            # fired for the streak this fix belongs to.
+            if self._is_streak_already_fired(
+                prox.spatial_feature_id,
+                prox.spatial_feature_name,
+                older_fixes,
+                per_fix_proximal_ids,
+                prior_segment_proximal_feature_ids,
+            ):
                 continue
 
             result = SubjectAnalyzerResult(
@@ -257,7 +418,7 @@ class FeatureProximityAnalyzer(ProximityAnalyzer):
             result.values = {
                 "spatial_feature_name": prox.spatial_feature_name,
                 "proximity_dist_meters": round(prox.proximity_distance_meters, 2),
-                "total_fix_count": current_traj.relocs.fix_count,
+                "total_fix_count": len(latest_two),
                 "subject_speed_kmhr": (
                     round(prox.subject_speed_kmhr, 2) if prox.subject_speed_kmhr is not None else None
                 ),

@@ -374,6 +374,130 @@ class TestProximityAnalyzer(TestCase):
         self.assertAlmostEqual(event_location.x, 34.005, places=3)
         self.assertAlmostEqual(event_location.y, -1.005, places=3)
 
+    def test_single_observation_within_threshold_fires(self):
+        """
+        A subject's only observation lying inside the proximity threshold must
+        fire an event. pymet's segment-based proximity returns nothing for a
+        single-fix trajectory, so the analyzer falls back to a direct
+        point-vs-feature distance check.
+        """
+        sub = Subject.objects.create(name="OneFixNear", subject_subtype_id="elephant")
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
+        sf_grp = self._make_proximity_feature()
+
+        sg = SubjectGroup.objects.create(name="one_fix_near_sg")
+        sg.subjects.add(sub)
+
+        obs_only = Observation(
+            recorded_at=timezone.now() - timedelta(hours=1),
+            location=Point(34.005, -1.005),  # inside the feature polygon
+        )
+
+        config = FeatureProximityAnalyzerConfig.objects.create(
+            name="One Fix Near Analyzer",
+            subject_group=sg,
+            threshold_dist_meters=500,
+            proximal_features=sf_grp,
+        )
+        analyzer = FeatureProximityAnalyzer(config=config, subject=sub)
+        analyzer.analyze(observations=[obs_only])
+
+        self.assertEqual(Event.objects.count(), 1)
+
+    def test_single_observation_outside_threshold_does_not_fire(self):
+        """A subject's only observation farther than the threshold doesn't fire."""
+        sub = Subject.objects.create(name="OneFixFar", subject_subtype_id="elephant")
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
+        sf_grp = self._make_proximity_feature()
+
+        sg = SubjectGroup.objects.create(name="one_fix_far_sg")
+        sg.subjects.add(sub)
+
+        # ~5 km south of the feature — far outside the 500m threshold.
+        obs_only = Observation(
+            recorded_at=timezone.now() - timedelta(hours=1),
+            location=Point(34.005, -1.045),
+        )
+
+        config = FeatureProximityAnalyzerConfig.objects.create(
+            name="One Fix Far Analyzer",
+            subject_group=sg,
+            threshold_dist_meters=500,
+            proximal_features=sf_grp,
+        )
+        analyzer = FeatureProximityAnalyzer(config=config, subject=sub)
+        analyzer.analyze(observations=[obs_only])
+
+        self.assertEqual(Event.objects.count(), 0)
+
+    def test_single_observation_does_not_refire_when_second_observation_arrives(self):
+        """
+        A subject's first observation lands inside the feature and fires (the
+        single-fix code path). When a second observation arrives — also inside
+        the feature — and the analyzer is re-run, it must NOT fire a duplicate
+        event for the ongoing proximity streak.
+        """
+        sub = Subject.objects.create(name="OneThenTwoFix", subject_subtype_id="elephant")
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
+        sf_grp = self._make_proximity_feature()
+
+        sg = SubjectGroup.objects.create(name="one_then_two_fix_sg")
+        sg.subjects.add(sub)
+
+        now = timezone.now()
+        # Both fixes inside the feature polygon.
+        obs_1 = Observation(recorded_at=now - timedelta(hours=2), location=Point(34.005, -1.005))
+        obs_2 = Observation(recorded_at=now - timedelta(hours=1), location=Point(34.005, -1.005))
+
+        config = FeatureProximityAnalyzerConfig.objects.create(
+            name="One Then Two Fix Analyzer",
+            subject_group=sg,
+            threshold_dist_meters=500,
+            proximal_features=sf_grp,
+        )
+        analyzer = FeatureProximityAnalyzer(config=config, subject=sub)
+
+        # Run 1: only the first observation exists.
+        analyzer.analyze(observations=[obs_1])
+        self.assertEqual(Event.objects.count(), 1)
+
+        # Run 2: second observation arrives, both are inside the feature.
+        # The streak hasn't ended, so no new event should fire.
+        analyzer.analyze(observations=[obs_1, obs_2])
+        self.assertEqual(Event.objects.count(), 1)
+
+    def test_two_observations_fires_on_transition_into_proximity(self):
+        """
+        A subject whose entire history is two observations — A (far) then B
+        (near) — should fire exactly once for the transition into proximity.
+        Exercises the ``len(prior_two) < 3`` fallback path in
+        ``analyze_trajectory`` under the new burst-detection logic.
+        """
+        sub = Subject.objects.create(name="TwoFix", subject_subtype_id="elephant")
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
+        sf_grp = self._make_proximity_feature()
+
+        sg = SubjectGroup.objects.create(name="two_fix_sg")
+        sg.subjects.add(sub)
+
+        # A: ~5 km south — outside 500 m threshold.
+        # B: ~110 m north — within 500 m threshold.
+        # 1 hour apart → ~5 km/h, under the 7 km/h speed filter.
+        now = timezone.now()
+        obs_a = Observation(recorded_at=now - timedelta(hours=2), location=Point(34.005, -1.045))
+        obs_b = Observation(recorded_at=now - timedelta(hours=1), location=Point(34.005, -0.999))
+
+        config = FeatureProximityAnalyzerConfig.objects.create(
+            name="Two Fix Analyzer",
+            subject_group=sg,
+            threshold_dist_meters=500,
+            proximal_features=sf_grp,
+        )
+        analyzer = FeatureProximityAnalyzer(config=config, subject=sub)
+        analyzer.analyze(observations=[obs_a, obs_b])
+
+        self.assertEqual(Event.objects.count(), 1)
+
     def test_only_approach_fires_not_departure(self):
         """
         Trajectory: A (far) → B (near feature) → C (far).
@@ -416,6 +540,57 @@ class TestProximityAnalyzer(TestCase):
         # Second call: all three points — prior segment A→B was proximal, so
         # departure segment B→C should not produce another event.
         analyzer.analyze(observations=[obs_a, obs_b, obs_c])
+        self.assertEqual(Event.objects.count(), 1)
+
+    def test_event_fires_when_transition_is_within_batched_observations(self):
+        """
+        ``handle_observation`` queues ``handle_subject`` with countdown=60 and
+        relies on ``QueueOnce`` to squash a succession of tasks for the same
+        subject. When several observations arrive inside that 60s window, the
+        analyzer runs once on the combined batch instead of once per fix.
+
+        If the not-proximal → proximal transition is *inside* that batch
+        (i.e., not at the latest segment), the analyzer must still fire.
+        Comparing only the latest segment against the immediate prior segment
+        sees both as proximal — because the prior segment's later endpoint is
+        already inside the threshold — so the event is incorrectly suppressed.
+
+        Trajectory: A, B (far) → C, D, E (near). All five observations are
+        presented to the analyzer in a single ``analyze`` call to simulate the
+        squashed batch.
+        """
+        sub = Subject.objects.create(name="BatchedTransition", subject_subtype_id="elephant")
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
+        sf_grp = self._make_proximity_feature()
+
+        sg = SubjectGroup.objects.create(name="batched_transition_sg")
+        sg.subjects.add(sub)
+
+        # Feature northern edge at lat=-1.0; threshold 500m.
+        # A, B: ~5 km south — well outside threshold.
+        # C, D, E: ~110-330 m north — inside threshold.
+        # Adjacent fixes are spaced ≥1h apart, keeping all segments under the
+        # 7 km/h SubjectTrackSegmentFilter speed limit (the largest jump,
+        # B→C, is ≈4.5 km/h).
+        now = timezone.now()
+        obs_a = Observation(recorded_at=now - timedelta(hours=5), location=Point(34.005, -1.045))
+        obs_b = Observation(recorded_at=now - timedelta(hours=4), location=Point(34.005, -1.040))
+        obs_c = Observation(recorded_at=now - timedelta(hours=3), location=Point(34.005, -0.999))
+        obs_d = Observation(recorded_at=now - timedelta(hours=2), location=Point(34.005, -0.998))
+        obs_e = Observation(recorded_at=now - timedelta(hours=1), location=Point(34.005, -0.997))
+
+        config = FeatureProximityAnalyzerConfig.objects.create(
+            name="Batched Transition Analyzer",
+            subject_group=sg,
+            threshold_dist_meters=500,
+            proximal_features=sf_grp,
+        )
+        analyzer = FeatureProximityAnalyzer(config=config, subject=sub)
+
+        # Single call simulating all 5 obs arriving inside the 60s squash
+        # window.
+        analyzer.analyze(observations=[obs_a, obs_b, obs_c, obs_d, obs_e])
+
         self.assertEqual(Event.objects.count(), 1)
 
     def test_one_event_per_feature_on_sequential_approach(self):
@@ -833,26 +1008,28 @@ class TestProximityAnalyzerConfig:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestDefaultObservations:
-    """Regression tests for ProximityAnalyzer.default_observations().
+    """Regression tests for FeatureProximityAnalyzer.default_observations().
 
-    Ensures the method fetches at most three observations from the DB and that
-    the LIMIT is pushed down to the database query rather than being applied
-    in Python after loading all rows.
+    The analyzer fetches the 3 most recent fixes in the common case and only
+    extends to a wider history when those 3 fixes fall inside the
+    burst-detection window (handle_observation's 60s squash window plus a
+    jitter buffer).
     """
 
-    def _create_observations(self, source, count=5):
+    def _create_observations(self, source, count, interval=timedelta(minutes=1)):
         recorded_at = timezone.now()
         for i in range(count):
             Observation.objects.create(
-                recorded_at=recorded_at - timedelta(minutes=i),
+                recorded_at=recorded_at - i * interval,
                 location=Point(-103.313486, 20.420935),
                 source=source,
                 additional={},
             )
 
-    def test_default_observations_no_time_window_returns_three(self, subject_source, feature_proximity_analyzer_config):
-        """When search_time_hours <= 0, default_observations() returns exactly 3 items."""
-        self._create_observations(subject_source.source, count=5)
+    def test_default_observations_non_burst_returns_three(self, subject_source, feature_proximity_analyzer_config):
+        """Non-burst (fixes spaced beyond the burst window): returns exactly 3 items."""
+        # 1 minute apart — well outside the 120s burst-detection window.
+        self._create_observations(subject_source.source, count=5, interval=timedelta(minutes=1))
 
         feature_proximity_analyzer_config.search_time_hours = 0
         feature_proximity_analyzer_config.save()
@@ -863,26 +1040,11 @@ class TestDefaultObservations:
 
         assert len(result) == 3
 
-    def test_default_observations_with_time_window_returns_three(
+    def test_default_observations_non_burst_pushes_limit_three_to_db(
         self, subject_source, feature_proximity_analyzer_config
     ):
-        """When search_time_hours > 0, default_observations() returns exactly 3 items."""
-        self._create_observations(subject_source.source, count=5)
-
-        feature_proximity_analyzer_config.search_time_hours = 24.0
-        feature_proximity_analyzer_config.save()
-
-        analyzer = FeatureProximityAnalyzer(subject=subject_source.subject, config=feature_proximity_analyzer_config)
-
-        result = analyzer.default_observations()
-
-        assert len(result) == 3
-
-    def test_default_observations_no_time_window_queries_db_with_limit(
-        self, subject_source, feature_proximity_analyzer_config
-    ):
-        """The DB query from default_observations() (no time window) contains LIMIT 3."""
-        self._create_observations(subject_source.source, count=5)
+        """Non-burst case: DB query carries LIMIT 3 (no extension fetch)."""
+        self._create_observations(subject_source.source, count=5, interval=timedelta(minutes=1))
 
         feature_proximity_analyzer_config.search_time_hours = 0
         feature_proximity_analyzer_config.save()
@@ -895,19 +1057,54 @@ class TestDefaultObservations:
         combined_sql = " ".join(q["sql"] for q in ctx.captured_queries)
         assert "LIMIT 3" in combined_sql
 
-    def test_default_observations_with_time_window_queries_db_with_limit(
+    def test_default_observations_burst_extends_window(self, subject_source, feature_proximity_analyzer_config):
+        """Burst case: 3 most recent fixes are within the burst window, so the
+        fetch is extended to all observations inside the burst plus one prior
+        fix."""
+        # 5 obs spaced 10s apart — all 3 most recent fall inside the 120s
+        # burst window. Total span ≈40s; one fix sits well before the cutoff.
+        self._create_observations(subject_source.source, count=5, interval=timedelta(seconds=10))
+
+        feature_proximity_analyzer_config.search_time_hours = 0
+        feature_proximity_analyzer_config.save()
+
+        analyzer = FeatureProximityAnalyzer(subject=subject_source.subject, config=feature_proximity_analyzer_config)
+
+        result = analyzer.default_observations()
+
+        # Burst extension picks up the 3 most recent + further obs in window
+        # plus one prior. With 10s spacing and a 120s cutoff, all 5 obs are in
+        # or just before the cutoff; we should see more than the 3-fix common
+        # case.
+        assert len(result) > 3
+        assert len(result) <= FeatureProximityAnalyzer._HISTORY_FIXES
+
+    def test_default_observations_burst_caps_at_history_fixes(self, subject_source, feature_proximity_analyzer_config):
+        """Burst case with many obs in window: total result is capped at _HISTORY_FIXES."""
+        # 30 obs spaced 5s apart — span 145s reaches past the 120s burst window
+        # so we have plenty inside the burst plus prior fixes outside it.
+        self._create_observations(subject_source.source, count=30, interval=timedelta(seconds=5))
+
+        feature_proximity_analyzer_config.search_time_hours = 0
+        feature_proximity_analyzer_config.save()
+
+        analyzer = FeatureProximityAnalyzer(subject=subject_source.subject, config=feature_proximity_analyzer_config)
+
+        result = analyzer.default_observations()
+
+        assert len(result) == FeatureProximityAnalyzer._HISTORY_FIXES
+
+    def test_default_observations_with_time_window_non_burst_returns_three(
         self, subject_source, feature_proximity_analyzer_config
     ):
-        """The DB query from default_observations() (with time window) contains LIMIT 3."""
-        self._create_observations(subject_source.source, count=5)
+        """search_time_hours > 0, non-burst case still returns 3 items."""
+        self._create_observations(subject_source.source, count=5, interval=timedelta(minutes=1))
 
         feature_proximity_analyzer_config.search_time_hours = 24.0
         feature_proximity_analyzer_config.save()
 
         analyzer = FeatureProximityAnalyzer(subject=subject_source.subject, config=feature_proximity_analyzer_config)
 
-        with CaptureQueriesContext(connection) as ctx:
-            analyzer.default_observations()
+        result = analyzer.default_observations()
 
-        combined_sql = " ".join(q["sql"] for q in ctx.captured_queries)
-        assert "LIMIT 3" in combined_sql
+        assert len(result) == 3
