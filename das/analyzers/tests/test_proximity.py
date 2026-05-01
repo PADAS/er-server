@@ -470,8 +470,8 @@ class TestProximityAnalyzer(TestCase):
         """
         A subject whose entire history is two observations — A (far) then B
         (near) — should fire exactly once for the transition into proximity.
-        Exercises the ``len(prior_two) < 3`` fallback path in
-        ``analyze_trajectory`` under the new burst-detection logic.
+        Exercises the 2-fix path in ``analyze_trajectory`` where there's no
+        prior segment to inspect, so dedup falls through to the DB query.
         """
         sub = Subject.objects.create(name="TwoFix", subject_subtype_id="elephant")
         SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
@@ -551,9 +551,11 @@ class TestProximityAnalyzer(TestCase):
 
         If the not-proximal → proximal transition is *inside* that batch
         (i.e., not at the latest segment), the analyzer must still fire.
-        Comparing only the latest segment against the immediate prior segment
-        sees both as proximal — because the prior segment's later endpoint is
-        already inside the threshold — so the event is incorrectly suppressed.
+        Pre-fix, comparing only the latest segment against the immediate prior
+        segment saw both as proximal and incorrectly suppressed. The DB-based
+        dedup in ``_existing_streak_result`` now handles this directly: with
+        no prior result for the feature, the run fires whether or not the
+        burst extension is engaged.
 
         Trajectory: A, B (far) → C, D, E (near). All five observations are
         presented to the analyzer in a single ``analyze`` call to simulate the
@@ -590,6 +592,93 @@ class TestProximityAnalyzer(TestCase):
         # Single call simulating all 5 obs arriving inside the 60s squash
         # window.
         analyzer.analyze(observations=[obs_a, obs_b, obs_c, obs_d, obs_e])
+
+        self.assertEqual(Event.objects.count(), 1)
+
+    def test_existing_event_updated_when_streak_continues(self):
+        """While a proximity streak is still ongoing, subsequent analyzer runs
+        update the existing event's location and metadata in place — they
+        don't fire duplicates and they don't shift ``event_time``, which
+        records when the streak began."""
+        sub = Subject.objects.create(name="StreakUpdate", subject_subtype_id="elephant")
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
+        sf_grp = self._make_proximity_feature()
+
+        sg = SubjectGroup.objects.create(name="streak_update_sg")
+        sg.subjects.add(sub)
+
+        now = timezone.now()
+        # Both fixes inside the feature polygon.
+        obs_1 = Observation(recorded_at=now - timedelta(hours=2), location=Point(34.005, -1.005))
+        obs_2 = Observation(recorded_at=now - timedelta(hours=1), location=Point(34.006, -1.005))
+
+        config = FeatureProximityAnalyzerConfig.objects.create(
+            name="Streak Update Analyzer",
+            subject_group=sg,
+            threshold_dist_meters=500,
+            proximal_features=sf_grp,
+        )
+        analyzer = FeatureProximityAnalyzer(config=config, subject=sub)
+
+        # Run 1: single-fix, fires the streak event.
+        analyzer.analyze(observations=[obs_1])
+        self.assertEqual(Event.objects.count(), 1)
+        initial_event_time = Event.objects.first().event_time
+
+        # Run 2: streak continues with a second proximal fix. The existing
+        # event must be updated in place — count stays at 1, metadata
+        # reflects the latest segment, and event_time stays at the original
+        # streak start.
+        analyzer.analyze(observations=[obs_1, obs_2])
+        self.assertEqual(Event.objects.count(), 1)
+
+        event = Event.objects.first()
+        self.assertEqual(event.event_time, initial_event_time)
+        details = event.event_details.first().data["event_details"]
+        # Latest segment is 2-fix in Run 2 (vs 1-fix in Run 1).
+        self.assertEqual(details["total_fix_count"], 2)
+
+    def test_event_fires_when_continuous_burst_exceeds_history_window(self):
+        """
+        A subject that's been continuously proximal for longer than
+        ``_HISTORY_FIXES`` fixes — for example, a high-frequency tracker that
+        reports every second from inside a feature — must still fire on the
+        first analyzer run, even though every fix in the analyzer's window is
+        individually proximal so no streak boundary can be located inside it.
+
+        Dedup falls through to the DB query in this case; with no
+        ``SubjectAnalyzerResult`` yet recorded, the run fires.
+        """
+        sub = Subject.objects.create(name="LongBurst", subject_subtype_id="elephant")
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
+        sf_grp = self._make_proximity_feature()
+
+        sg = SubjectGroup.objects.create(name="long_burst_sg")
+        sg.subjects.add(sub)
+
+        # 12 fixes inside the feature polygon, 5 seconds apart. After the
+        # ``[-_HISTORY_FIXES:]`` slice in ``analyze_trajectory`` we get 10
+        # fixes, every one individually proximal — no streak boundary in the
+        # window for the per-fix walk-back to find.
+        now = timezone.now()
+        observations = [
+            Observation(
+                recorded_at=now - timedelta(seconds=5 * i),
+                location=Point(34.005, -1.005),
+            )
+            for i in range(12)
+        ]
+        # Pass in chronological order (oldest first) for the trajectory builder.
+        observations.reverse()
+
+        config = FeatureProximityAnalyzerConfig.objects.create(
+            name="Long Burst Analyzer",
+            subject_group=sg,
+            threshold_dist_meters=500,
+            proximal_features=sf_grp,
+        )
+        analyzer = FeatureProximityAnalyzer(config=config, subject=sub)
+        analyzer.analyze(observations=observations)
 
         self.assertEqual(Event.objects.count(), 1)
 
