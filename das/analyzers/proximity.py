@@ -240,13 +240,9 @@ class FeatureProximityAnalyzer(ProximityAnalyzer):
             feat_name = prox.spatial_feature_name
 
             # Place the event at the closest point on the trajectory to the matched feature.
-            feat_geom = feature_geom_by_id.get(feat_id)
-            if feat_geom is not None:
-                pt_on_trajectory, _pt_on_feature = nearest_points(trajectory_geom, feat_geom)
-                loc_x, loc_y = pt_on_trajectory.x, pt_on_trajectory.y
-            else:
-                loc_x = prox.proximal_fix.geopoint.ogr_geometry.GetX()
-                loc_y = prox.proximal_fix.geopoint.ogr_geometry.GetY()
+            feat_geom = feature_geom_by_id[feat_id]
+            pt_on_trajectory, _pt_on_feature = nearest_points(trajectory_geom, feat_geom)
+            loc_x, loc_y = pt_on_trajectory.x, pt_on_trajectory.y
 
             result = SubjectAnalyzerResult(
                 subject_analyzer=self.config,
