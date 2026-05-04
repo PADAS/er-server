@@ -18,12 +18,14 @@ from django.test import RequestFactory
 
 from accounts.account_linker import (
     MAGIC_LINK_SALT,
-    SESSION_KEY,
+    SESSION_KEY_PREFIX,
     account_linker_callback,
     account_linker_landing,
     create_magic_link_token,
     resolve_user_from_magic_link_token,
 )
+
+FAKE_LINK_ATTEMPT = "test-link-attempt"
 
 User = get_user_model()
 
@@ -99,8 +101,17 @@ class TestAccountLinkerLanding:
             result = account_linker_landing(request)
 
             assert result.content == b"auth0_redirect"
-            assert request.session[SESSION_KEY] == str(active_user.id)
-            mock_redirect.assert_called_once_with(request, "https://example.com/auth/account-linker/callback/")
+            # Verify user_id stored under a link_attempt-keyed session entry
+            session_entries = {k: v for k, v in request.session.items() if k.startswith(SESSION_KEY_PREFIX)}
+            assert len(session_entries) == 1
+            link_attempt = list(session_entries.keys())[0].removeprefix(SESSION_KEY_PREFIX)
+            assert session_entries[f"{SESSION_KEY_PREFIX}{link_attempt}"] == str(active_user.id)
+            # Verify state= passed to authorize_redirect
+            mock_redirect.assert_called_once_with(
+                request,
+                "https://example.com/auth/account-linker/callback/",
+                state=link_attempt,
+            )
 
     def test_magic_link_expired_token_returns_400(self, request_factory, active_user):
         creation_time = 1_000_000
@@ -129,8 +140,9 @@ class TestAccountLinkerLanding:
         assert "Error resolving user from magic link token" in caplog.text
 
     def test_session_flow_valid_user_initiates_pkce(self, request_factory, active_user):
-        request = request_factory.get("/auth/account-linker/")
-        request.session = {SESSION_KEY: str(active_user.id)}
+        session_ref = "caller-provided-ref"
+        request = request_factory.get(f"/auth/account-linker/?session_ref={session_ref}")
+        request.session = {f"{SESSION_KEY_PREFIX}{session_ref}": str(active_user.id)}
         request.build_absolute_uri = lambda path: f"https://example.com{path}"
 
         with patch("accounts.account_linker._account_linker_auth0_client.auth0.authorize_redirect") as mock_redirect:
@@ -139,7 +151,17 @@ class TestAccountLinkerLanding:
             result = account_linker_landing(request)
 
             assert result.content == b"auth0_redirect"
-            mock_redirect.assert_called_once_with(request, "https://example.com/auth/account-linker/callback/")
+            # Caller's session_ref should be consumed; a new link_attempt created
+            assert f"{SESSION_KEY_PREFIX}{session_ref}" not in request.session
+            session_entries = {k: v for k, v in request.session.items() if k.startswith(SESSION_KEY_PREFIX)}
+            assert len(session_entries) == 1
+            link_attempt = list(session_entries.keys())[0].removeprefix(SESSION_KEY_PREFIX)
+            assert session_entries[f"{SESSION_KEY_PREFIX}{link_attempt}"] == str(active_user.id)
+            mock_redirect.assert_called_once_with(
+                request,
+                "https://example.com/auth/account-linker/callback/",
+                state=link_attempt,
+            )
 
     def test_missing_token_and_no_session_returns_400(self, request_factory, caplog):
         request = request_factory.get("/auth/account-linker/")
@@ -150,19 +172,19 @@ class TestAccountLinkerLanding:
 
         assert result.status_code == 400
         assert b"Invalid link. Please contact your site administrator" in result.content
-        assert "Account linker landing reached without token or session user_id" in caplog.text
+        assert "Account linker landing reached without token or valid session_ref" in caplog.text
 
     def test_session_flow_nonexistent_user_returns_400(self, request_factory, caplog):
-        request = request_factory.get("/auth/account-linker/")
-        request.session = {SESSION_KEY: "00000000-0000-0000-0000-000000000000"}
+        session_ref = "caller-provided-ref"
+        request = request_factory.get(f"/auth/account-linker/?session_ref={session_ref}")
+        request.session = {f"{SESSION_KEY_PREFIX}{session_ref}": "00000000-0000-0000-0000-000000000000"}
 
         with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
             result = account_linker_landing(request)
 
         assert result.status_code == 400
         assert b"Invalid link. Please contact your site administrator" in result.content
-        assert SESSION_KEY not in request.session
-        assert "Account linker session contained unknown or inactive user_id" in caplog.text
+        assert "Account linker session_ref contained unknown or inactive user_id" in caplog.text
 
 
 @pytest.mark.django_db
@@ -174,8 +196,9 @@ class TestAccountLinkerCallback:
         return token
 
     def test_successful_linking(self, request_factory, active_user, mock_tenant_settings):
-        request = request_factory.get("/auth/account-linker/callback/")
-        request.session = {SESSION_KEY: str(active_user.id)}
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        session_key = f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}"
+        request.session = {session_key: str(active_user.id)}
 
         with patch(
             "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
@@ -190,14 +213,14 @@ class TestAccountLinkerCallback:
                 mock_add_org.assert_called_once_with("auth0|new_sub_123", "org_test456")
                 assert result.status_code == 302
                 assert result.url == "/"
-                assert SESSION_KEY not in request.session
+                assert session_key not in request.session
 
     def test_already_linked_matching_sub_adds_to_org(self, request_factory, active_user, mock_tenant_settings, caplog):
         active_user.auth0_id = "auth0|existing"
         active_user.save(update_fields=["auth0_id"])
 
-        request = request_factory.get("/auth/account-linker/callback/")
-        request.session = {SESSION_KEY: str(active_user.id)}
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
         with patch(
             "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
@@ -221,8 +244,8 @@ class TestAccountLinkerCallback:
         active_user.auth0_id = "auth0|existing"
         active_user.save(update_fields=["auth0_id"])
 
-        request = request_factory.get("/auth/account-linker/callback/")
-        request.session = {SESSION_KEY: str(active_user.id)}
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
         with patch(
             "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
@@ -241,8 +264,8 @@ class TestAccountLinkerCallback:
         assert "Auth0 subject mismatch" in caplog.text
 
     def test_user_not_found_returns_error(self, request_factory, caplog):
-        request = request_factory.get("/auth/account-linker/callback/")
-        request.session = {SESSION_KEY: "00000000-0000-0000-0000-000000000000"}
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": "00000000-0000-0000-0000-000000000000"}
 
         with caplog.at_level(logging.ERROR, logger="accounts.account_linker"):
             with patch(
@@ -257,9 +280,9 @@ class TestAccountLinkerCallback:
 
     def test_auth0_error_returns_400(self, request_factory, caplog):
         request = request_factory.get(
-            "/auth/account-linker/callback/?error=access_denied&error_description=User+cancelled"
+            f"/auth/account-linker/callback/?error=access_denied&error_description=User+cancelled&state={FAKE_LINK_ATTEMPT}"
         )
-        request.session = {SESSION_KEY: "some-id"}
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": "some-id"}
 
         with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
             result = account_linker_callback(request)
@@ -268,7 +291,7 @@ class TestAccountLinkerCallback:
         assert b"Unable to associate your accounts" in result.content
         assert "Auth0 returned error during account linking: access_denied - User cancelled" in caplog.text
 
-    def test_missing_session_user_id_returns_400(self, request_factory, caplog):
+    def test_missing_link_attempt_returns_400(self, request_factory, caplog):
         request = request_factory.get("/auth/account-linker/callback/")
         request.session = {}
 
@@ -277,11 +300,11 @@ class TestAccountLinkerCallback:
 
         assert result.status_code == 400
         assert b"Unable to associate your accounts" in result.content
-        assert "No user_id found in session during account linker callback" in caplog.text
+        assert "No valid link_attempt in session during account linker callback" in caplog.text
 
-    def test_token_exchange_failure_returns_400_and_preserves_session(self, request_factory, active_user, caplog):
-        request = request_factory.get("/auth/account-linker/callback/")
-        request.session = {SESSION_KEY: str(active_user.id)}
+    def test_token_exchange_failure_returns_400(self, request_factory, active_user, caplog):
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
         with caplog.at_level(logging.ERROR, logger="accounts.account_linker"):
             with patch(
@@ -293,11 +316,10 @@ class TestAccountLinkerCallback:
         assert result.status_code == 400
         assert b"Unable to associate your accounts" in result.content
         assert "Error exchanging authorization code in account linker" in caplog.text
-        assert request.session.get(SESSION_KEY) == str(active_user.id)
 
     def test_missing_sub_claim_returns_400(self, request_factory, active_user, caplog):
-        request = request_factory.get("/auth/account-linker/callback/")
-        request.session = {SESSION_KEY: str(active_user.id)}
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
         mock_token = Mock()
         mock_token.get = lambda key, default=None: default  # No userinfo
@@ -317,8 +339,8 @@ class TestAccountLinkerCallback:
     def test_org_membership_failure_saves_auth0_id_but_returns_error(
         self, request_factory, active_user, mock_tenant_settings, caplog
     ):
-        request = request_factory.get("/auth/account-linker/callback/")
-        request.session = {SESSION_KEY: str(active_user.id)}
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
         with caplog.at_level(logging.ERROR, logger="accounts.account_linker"):
             with patch(

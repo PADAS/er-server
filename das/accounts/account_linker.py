@@ -8,6 +8,7 @@ Two entry points converge on the same PKCE OAuth flow and callback:
 """
 
 import logging
+import secrets
 
 from auth0.management import Auth0 as Auth0Management
 from authlib.integrations.django_client import OAuth
@@ -44,7 +45,7 @@ ACCOUNT_LINKER_LANDING_URL_NAME = "account_linker_landing"
 ACCOUNT_LINKER_CALLBACK_URL_NAME = "account_linker_callback"
 
 MAGIC_LINK_SALT = "account-linker"
-SESSION_KEY = "account_linker_user_id"
+SESSION_KEY_PREFIX = "account_linker_attempt:"
 
 _IDP_NOT_ENABLED_MESSAGE = "Account linking is not available for this site. Please contact support."
 _INVALID_LINK_MESSAGE = "Invalid link. Please contact your site administrator."
@@ -70,14 +71,13 @@ def account_linker_landing(request):
 
     Two modes:
     1. ``?token=<signed_token>`` — magic link flow: verify token, resolve user
-    2. No token — session flow: ``account_linker_user_id`` already in session
+    2. ``?session_ref=<ref>`` — session flow: caller stored user_id in session
     """
     token = request.GET.get("token")
 
     if token:
         try:
             user = resolve_user_from_magic_link_token(token)
-            request.session[SESSION_KEY] = str(user.id)
         except signing.SignatureExpired:
             return HttpResponse(
                 "This link has expired. Please contact your site administrator for a new invitation.",
@@ -87,19 +87,28 @@ def account_linker_landing(request):
             logger.exception("Error resolving user from magic link token")
             return HttpResponse(_INVALID_LINK_MESSAGE, status=400)
     else:
-        user_id = request.session.get(SESSION_KEY)
+        session_ref = request.GET.get("session_ref")
+        user_id = request.session.pop(f"{SESSION_KEY_PREFIX}{session_ref}", None) if session_ref else None
         if not user_id:
-            logger.warning("Account linker landing reached without token or session user_id")
+            logger.warning("Account linker landing reached without token or valid session_ref")
             return HttpResponse(_INVALID_LINK_MESSAGE, status=400)
         try:
-            User.objects.get(id=user_id, is_active=True)
+            user = User.objects.get(id=user_id, is_active=True)
         except User.DoesNotExist:
-            logger.warning("Account linker session contained unknown or inactive user_id=%s", user_id)
-            request.session.pop(SESSION_KEY, None)
+            logger.warning("Account linker session_ref contained unknown or inactive user_id=%s", user_id)
             return HttpResponse(_INVALID_LINK_MESSAGE, status=400)
 
+    # Each linking attempt gets its own session key, passed as OAuth state
+    # so concurrent flows in different tabs cannot collide.
+    link_attempt = secrets.token_urlsafe(32)
+    request.session[f"{SESSION_KEY_PREFIX}{link_attempt}"] = str(user.id)
+
     callback_url = request.build_absolute_uri(reverse(ACCOUNT_LINKER_CALLBACK_URL_NAME))
-    return _account_linker_auth0_client.auth0.authorize_redirect(request, callback_url)
+    return _account_linker_auth0_client.auth0.authorize_redirect(
+        request,
+        callback_url,
+        state=link_attempt,
+    )
 
 
 @csrf_exempt
@@ -117,9 +126,10 @@ def account_linker_callback(request):
             status=400,
         )
 
-    user_id = request.session.get(SESSION_KEY)
+    link_attempt = request.GET.get("state")
+    user_id = request.session.pop(f"{SESSION_KEY_PREFIX}{link_attempt}", None) if link_attempt else None
     if not user_id:
-        logger.error("No user_id found in session during account linker callback")
+        logger.error("No valid link_attempt in session during account linker callback")
         return HttpResponse(
             _UNABLE_TO_LINK_MESSAGE,
             status=400,
@@ -178,7 +188,6 @@ def account_linker_callback(request):
         org_id = get_tenant_settings().feature_flags.idp_org_id
         _add_user_to_auth0_org(user.auth0_id, org_id)
         logger.info("Added user %s to Auth0 org %s", user.username, org_id)
-        request.session.pop(SESSION_KEY, None)
         return redirect("/")
     except Exception:
         logger.exception("Failed to add user %s to Auth0 org", user.username)
