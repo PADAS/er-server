@@ -263,6 +263,36 @@ class TestAccountLinkerCallback:
         assert b"Unable to associate your accounts" in result.content
         assert "Auth0 subject mismatch" in caplog.text
 
+    def test_auth0_sub_already_linked_to_another_user_returns_error(
+        self, request_factory, active_user, mock_tenant_settings, caplog
+    ):
+        other_user = User.objects.create_user(
+            username="otheruser",
+            email="other@example.com",
+            is_active=True,
+        )
+        other_user.auth0_id = "auth0|taken_sub"
+        other_user.save(update_fields=["auth0_id"])
+
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            with patch("accounts.account_linker._add_user_to_auth0_org") as mock_add_org:
+                mock_exchange.return_value = self._make_mock_token(sub="auth0|taken_sub")
+
+                with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
+                    result = account_linker_callback(request)
+
+        active_user.refresh_from_db()
+        assert active_user.auth0_id is None
+        mock_add_org.assert_not_called()
+        assert result.status_code == 400
+        assert b"Unable to associate your accounts" in result.content
+        assert "already linked to another user" in caplog.text
+
     def test_user_not_found_returns_error(self, request_factory, caplog):
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
         request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": "00000000-0000-0000-0000-000000000000"}

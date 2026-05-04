@@ -15,6 +15,7 @@ from authlib.integrations.django_client import OAuth
 
 from django.conf import settings
 from django.core import signing
+from django.db import IntegrityError, transaction
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -181,7 +182,19 @@ def account_linker_callback(request):
         logger.info("User %s already has auth0_id=%s, skipping linking", user.username, user.auth0_id)
     else:
         user.auth0_id = auth0_sub
-        user.save(update_fields=["auth0_id"])
+        try:
+            with transaction.atomic():
+                user.save(update_fields=["auth0_id"])
+        except IntegrityError:
+            logger.warning(
+                "Auth0 sub %s is already linked to another user; cannot link to user %s",
+                auth0_sub,
+                user.username,
+            )
+            return HttpResponse(
+                _UNABLE_TO_LINK_MESSAGE,
+                status=400,
+            )
         logger.info("Linked user %s to Auth0 sub %s", user.username, auth0_sub)
 
     try:
