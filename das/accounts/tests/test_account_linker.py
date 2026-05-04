@@ -56,6 +56,17 @@ def mock_tenant_settings():
             yield mock
 
 
+@pytest.fixture(autouse=True)
+def _bypass_lazy_auth0_client():
+    """Park a mock OAuth client inside the lazy wrapper so that
+    _ensure_registered() is never called during tests."""
+    import accounts.account_linker as mod
+
+    mod._account_linker_auth0_client._client = Mock()
+    yield
+    mod._account_linker_auth0_client._client = None
+
+
 @pytest.mark.django_db
 class TestMagicLinkTokens:
 

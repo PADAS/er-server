@@ -31,16 +31,36 @@ from utils.tenant.decorators import require_enabled_idp_configs
 
 logger = logging.getLogger(__name__)
 
-_account_linker_auth0_client = OAuth()
-_account_linker_auth0_client.register(
-    "auth0",
-    client_id=settings.AUTH0_CLIENT_ID_FOR_ACCOUNT_LINKER,
-    client_kwargs={
-        "scope": "openid profile email",
-        "code_challenge_method": "S256",
-    },
-    server_metadata_url=f"https://{settings.AUTH0_CUSTOM_DOMAIN}/.well-known/openid-configuration",
-)
+
+class _LazyOAuthClient:
+    """Defers OAuth client registration until first use so that settings
+    and helpers (e.g. get_auth0_custom_domain) are not evaluated at
+    module import time."""
+
+    def __init__(self):
+        self._client = None
+
+    def _ensure_registered(self):
+        if self._client is None:
+            domain = get_auth0_custom_domain()
+            self._client = OAuth()
+            self._client.register(
+                "auth0",
+                client_id=settings.AUTH0_CLIENT_ID_FOR_ACCOUNT_LINKER,
+                client_kwargs={
+                    "scope": "openid profile email",
+                    "code_challenge_method": "S256",
+                },
+                server_metadata_url=f"https://{domain}/.well-known/openid-configuration",
+            )
+
+    @property
+    def auth0(self):
+        self._ensure_registered()
+        return self._client.auth0
+
+
+_account_linker_auth0_client = _LazyOAuthClient()
 
 ACCOUNT_LINKER_LANDING_URL_NAME = "account_linker_landing"
 ACCOUNT_LINKER_CALLBACK_URL_NAME = "account_linker_callback"
