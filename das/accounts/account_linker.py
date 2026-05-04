@@ -200,35 +200,32 @@ def account_linker_callback(request):
                 status=400,
             )
         logger.info("User %s already has auth0_id=%s, skipping linking", user.username, user.auth0_id)
-    else:
-        user.auth0_id = auth0_sub
-        try:
-            with transaction.atomic():
-                user.save(update_fields=["auth0_id"])
-        except IntegrityError:
-            logger.warning(
-                "Auth0 sub %s is already linked to another user; cannot link to user %s",
-                auth0_sub,
-                user.username,
-            )
-            return HttpResponse(
-                _UNABLE_TO_LINK_MESSAGE,
-                status=400,
-            )
-        logger.info("Linked user %s to Auth0 sub %s", user.username, auth0_sub)
 
+    # When auth0_id is not yet set, save and org-add run atomically — if either
+    # fails, both roll back. The unique constraint on auth0_id rejects duplicates
+    # at save time, preventing a stolen sub from reaching the org-add call.
+    # When already linked (matching sub), only the org-add runs (idempotent).
     try:
-        org_id = get_tenant_settings().feature_flags.idp_org_id
-        _add_user_to_auth0_org(user.auth0_id, org_id)
-        logger.info("Added user %s to Auth0 org %s", user.username, org_id)
-        return redirect("/")
+        with transaction.atomic():
+            if not user.auth0_id:
+                user.auth0_id = auth0_sub
+                user.save(update_fields=["auth0_id"])
+                logger.info("Linked user %s to Auth0 sub %s", user.username, auth0_sub)
+            org_id = get_tenant_settings().feature_flags.idp_org_id
+            _add_user_to_auth0_org(user.auth0_id, org_id)
+            logger.info("Added user %s to Auth0 org %s", user.username, org_id)
+    except IntegrityError:
+        logger.warning(
+            "Auth0 sub %s is already linked to another user; cannot link to user %s",
+            auth0_sub,
+            user.username,
+        )
+        return HttpResponse(_UNABLE_TO_LINK_MESSAGE, status=400)
     except Exception:
-        logger.exception("Failed to add user %s to Auth0 org", user.username)
+        logger.exception("Failed to link user %s to Auth0", user.username)
+        return HttpResponse(_UNABLE_TO_LINK_MESSAGE, status=400)
 
-    return HttpResponse(
-        _UNABLE_TO_LINK_MESSAGE,
-        status=400,
-    )
+    return redirect("/")
 
 
 def _add_user_to_auth0_org(auth0_sub, org_id):

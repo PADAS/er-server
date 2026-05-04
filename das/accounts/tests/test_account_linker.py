@@ -377,7 +377,7 @@ class TestAccountLinkerCallback:
         assert b"Unable to associate your accounts" in result.content
         assert "Could not extract sub claim from Auth0 token" in caplog.text
 
-    def test_org_membership_failure_saves_auth0_id_but_returns_error(
+    def test_org_membership_failure_does_not_save_auth0_id(
         self, request_factory, active_user, mock_tenant_settings, caplog
     ):
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
@@ -396,10 +396,10 @@ class TestAccountLinkerCallback:
                     result = account_linker_callback(request)
 
         active_user.refresh_from_db()
-        assert active_user.auth0_id == "auth0|new_sub_123"
+        assert active_user.auth0_id is None
         assert result.status_code == 400
         assert b"Unable to associate your accounts" in result.content
-        assert "Failed to add user" in caplog.text
+        assert "Failed to link user" in caplog.text
 
     @pytest.mark.parametrize(
         "view_func, path",
