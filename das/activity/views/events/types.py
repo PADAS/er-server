@@ -43,7 +43,7 @@ class EventTypeView(RetrieveUpdateDestroyAPIView):
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
-        return EventType.objects.all()
+        return EventType.objects.filter(version=EventType.VersionChoices.VERSION_1)
 
     def perform_destroy(self, instance):
         instance.set_to_inactive()

@@ -1,8 +1,8 @@
 import json
 
 import pytest
-from shapely.geometry import shape
-from osgeo import ogr
+
+from django.contrib.gis.geos import GEOSGeometry
 
 
 @pytest.fixture
@@ -7199,7 +7199,10 @@ def firms_polygons():
 
     data = json.loads(data)
 
-    features = [shape(feature["geometry"]) for featurecollection in data["data"]
-                ["features"] for feature in featurecollection['features']]
+    features = [
+        (GEOSGeometry(json.dumps(feature["geometry"])), feature["properties"]["name"])
+        for featurecollection in data["data"]["features"]
+        for feature in featurecollection["features"]
+    ]
 
     return features
