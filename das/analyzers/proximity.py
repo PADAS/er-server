@@ -37,15 +37,14 @@ class ProximityAnalyzer(SubjectAnalyzer):
 
     def default_observations(self):
         """
-        Default set of observations is fetched from the database, limited to the three most recent,
-        based on this analyzer's configuration.
+        Default set of observations is fetched from the database, limited to
+        the three most recent, based on this analyzer's configuration.
+
         :return: a list of at most 3 Observations in descending temporal order
         """
-        # observations get passed back in temporally descending order
         if self.config.search_time_hours <= 0:
             return list(self.subject.observations()[:3])
-        else:
-            return list(self.subject.observations(last_hours=self.config.search_time_hours)[:3])
+        return list(self.subject.observations(last_hours=self.config.search_time_hours)[:3])
 
     def save_analyzer_result(self, last_result=None, this_result=None):
 
@@ -114,6 +113,7 @@ class ProximityAnalyzer(SubjectAnalyzer):
         if this_result.level in (CRITICAL, WARNING):
             event_data = dict(
                 title=this_result.title,
+                state=Event.SC_ACTIVE,
                 time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
                 event_type=event_type,
@@ -148,68 +148,76 @@ class FeatureProximityAnalyzer(ProximityAnalyzer):
         """
         A function to analyze the trajectory of a subject in relation to a set of spatial features and regions to
         determine where/when the subject was proximal to the spatial feature
-         and what the containment of the individual was before and after any proximal events
+         and what the containment of the individual was before and after any proximal events.
         """
 
         if traj is None:
             return []
 
-        # Fetch features once — used for both pymet params and the Shapely geometry map.
         features = list(self.config.proximal_features.features.all())
         analysis_params = self._create_proximity_analysis_params(features)
+        threshold_m = self.config.threshold_dist_meters
 
-        # Use the last 3 fixes so we can compare the current segment (fixes[-2:])
-        # against the prior segment (fixes[-3:-1]) and only fire on the transition
-        # from "not proximal" to "proximal".
-        #
-        # Caveat: `traj` has already been run through the SubjectTrackSegmentFilter,
-        # so a high-speed (or otherwise out-of-bounds) fix between two proximal fixes
-        # may have been dropped. In that case `prior_two` won't reflect the true prior
-        # state and a duplicate event can still slip through. This is a pre-existing
-        # limitation of the upstream filter, not something this analyzer can fix on
-        # its own — track via the analyzer's quiet_period if it becomes a problem.
         all_fixes = traj.relocs.get_fixes()[-3:]
-        latest_two = all_fixes[-2:]
-        prior_two = all_fixes[-3:-1] if len(all_fixes) >= 3 else None
-
-        if len(latest_two) == 0:
+        if not all_fixes:
             return []
 
-        current_traj = pymet.base.Trajectory(
-            relocs=pymet.base.Relocations(fixes=latest_two, subject_id=traj.relocs.subject_id)
-        )
-        current_proximity = ProximityAnalysis.calc_proximity_events(
-            proximity_analysis_params=analysis_params, trajectories=[current_traj]
-        )
+        latest_two = all_fixes[-2:]
 
-        # Determine which features were already proximal in the prior segment so
-        # we can suppress repeated results for a subject staying near a feature.
-        # Keyed by feature id, since SpatialFeature.name is not unique within a group.
-        prior_proximal_feature_ids: set = set()
-        if prior_two is not None:
-            prior_traj = pymet.base.Trajectory(
-                relocs=pymet.base.Relocations(fixes=prior_two, subject_id=traj.relocs.subject_id)
+        if len(latest_two) >= 2:
+            current_traj = pymet.base.Trajectory(
+                relocs=pymet.base.Relocations(fixes=latest_two, subject_id=traj.relocs.subject_id)
             )
-            prior_proximity = ProximityAnalysis.calc_proximity_events(
-                proximity_analysis_params=analysis_params, trajectories=[prior_traj]
+            current_proximity_events = list(
+                ProximityAnalysis.calc_proximity_events(
+                    proximity_analysis_params=analysis_params, trajectories=[current_traj]
+                ).proximity_events
             )
-            prior_proximal_feature_ids = {
-                p.spatial_feature_id
-                for p in prior_proximity.proximity_events
-                if p.proximity_distance_meters <= self.config.threshold_dist_meters
-            }
+        else:
+            # A single-fix trajectory has no segment for pymet's segment-based
+            # iteration, so build point-vs-feature proximity events directly.
+            fix = latest_two[0]
+            fix_geom = fix.geopoint.ogr_geometry
+            current_proximity_events = []
+            for sf in analysis_params.spatial_features:
+                dist_m = pymet.utils.degrees_to_km(fix_geom.Distance(sf.ogr_geometry)) * 1000.0
+                if dist_m <= threshold_m:
+                    current_proximity_events.append(
+                        pymet.proximity.ProximityEvent(
+                            subject_id=traj.relocs.subject_id,
+                            subject_speed=None,
+                            subject_travel_heading=None,
+                            proximity_distance_meters=dist_m,
+                            proximal_fix=fix,
+                            spatial_feature_id=sf.unique_id,
+                            spatial_feature_name=sf.name,
+                        )
+                    )
+
+        # Filter pymet's events to those within threshold (the 1-fix branch
+        # already filters at construction). Most analyzer runs end here — the
+        # subject is rarely near any feature in the group, so we skip all of
+        # the projection and result-building work below.
+        proximal_events = [p for p in current_proximity_events if p.proximity_distance_meters <= threshold_m]
+        if not proximal_events:
+            return []
+
+        proximal_feat_ids = {p.spatial_feature_id for p in proximal_events}
 
         # Build an id→Shapely-geometry map for closest-point-on-trajectory projection.
         # For polygons, use the boundary ring so the event lands on the perimeter, not the interior.
         # Lines and points are used as-is (a line's boundary is only its endpoints, which gives
         # wrong results when approaching the middle of a line).
+        # Only the proximal features need a Shapely geom — others are never projected.
         def _feature_ref_geom(geom):
             if geom.geom_type in ("Polygon", "MultiPolygon"):
                 return geom.boundary
             return geom
 
         feature_geom_by_id = {
-            feat.id: _feature_ref_geom(shapely_wkt_loads(feat.feature_geometry.wkt)) for feat in features
+            feat.id: _feature_ref_geom(shapely_wkt_loads(feat.feature_geometry.wkt))
+            for feat in features
+            if feat.id in proximal_feat_ids
         }
 
         # Trajectory geometry for closest-point projection: a line segment when
@@ -222,47 +230,39 @@ class FeatureProximityAnalyzer(ProximityAnalyzer):
                 [(fix.geopoint.ogr_geometry.GetX(), fix.geopoint.ogr_geometry.GetY()) for fix in latest_two]
             )
 
+        subject_name = self.subject.name
+        feature_group_name = self.config.proximal_features.name
+        total_fix_count = len(latest_two)
+
         das_analyzer_results = []
-        for prox in current_proximity.proximity_events:
-            if prox.proximity_distance_meters > self.config.threshold_dist_meters:
-                continue
-            # Only fire on the transition into proximity; skip if the prior segment
-            # was already proximal to this same feature.
-            if prox.spatial_feature_id in prior_proximal_feature_ids:
-                continue
+        for prox in proximal_events:
+            feat_id = prox.spatial_feature_id
+            feat_name = prox.spatial_feature_name
+
+            # Place the event at the closest point on the trajectory to the matched feature.
+            feat_geom = feature_geom_by_id[feat_id]
+            pt_on_trajectory, _pt_on_feature = nearest_points(trajectory_geom, feat_geom)
+            loc_x, loc_y = pt_on_trajectory.x, pt_on_trajectory.y
 
             result = SubjectAnalyzerResult(
                 subject_analyzer=self.config,
-                title=self.subject.name + str(_(" proximal to ")) + prox.spatial_feature_name,
+                title=subject_name + str(_(" proximal to ")) + feat_name,
                 level=CRITICAL,
-                message=self.subject.name + str(_(" proximal to ")) + prox.spatial_feature_name,
+                message=subject_name + str(_(" proximal to ")) + feat_name,
                 analyzer_revision=1,
                 subject=self.subject,
             )
-
-            # Define the latest fix as the estimated time
             result.estimated_time = prox.proximal_fix.fixtime
-
-            # Place the event at the closest point on the trajectory to the matched feature.
-            feat_geom = feature_geom_by_id.get(prox.spatial_feature_id)
-            if feat_geom is not None:
-                pt_on_trajectory, _pt_on_feature = nearest_points(trajectory_geom, feat_geom)
-                loc_x, loc_y = pt_on_trajectory.x, pt_on_trajectory.y
-            else:
-                loc_x = prox.proximal_fix.geopoint.ogr_geometry.GetX()
-                loc_y = prox.proximal_fix.geopoint.ogr_geometry.GetY()
-
             result.geometry_collection = DjangoGeoColl([DjangoPoint(loc_x, loc_y)])
-
             result.values = {
-                "spatial_feature_name": prox.spatial_feature_name,
+                "spatial_feature_name": feat_name,
                 "proximity_dist_meters": round(prox.proximity_distance_meters, 2),
-                "total_fix_count": current_traj.relocs.fix_count,
+                "total_fix_count": total_fix_count,
                 "subject_speed_kmhr": (
                     round(prox.subject_speed_kmhr, 2) if prox.subject_speed_kmhr is not None else None
                 ),
                 "subject_heading": round(prox.subject_heading, 2) if prox.subject_heading is not None else None,
-                "feature_group_name": self.config.proximal_features.name,
+                "feature_group_name": feature_group_name,
             }
 
             self.logger.info(result.message)
