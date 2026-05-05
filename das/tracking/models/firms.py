@@ -5,7 +5,6 @@ import pytz
 import requests
 from dateutil.parser import parse as parse_date
 from django_multitenant.fields import TenantForeignKey
-from shapely.ops import unary_union
 
 from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.contenttypes.models import ContentType
@@ -306,6 +305,7 @@ class FirmsPlugin(TrackingPlugin):
 
     def execute(self):
         self.logger.info("Running FIRMS Plugin. region-name=%s", self.firms_region_name)
+        self._setup_geo_filter()
         with DasFireEventTarget() as t:
             for observation in self.fetch():
                 t.send(observation)
@@ -332,41 +332,40 @@ class FirmsPlugin(TrackingPlugin):
         return sourceplugin
 
     @staticmethod
-    def union_geofilterfeatures(geometries):
-        return unary_union([g if g.is_valid else g.buffer(0) for g in geometries])
+    def union_geofilterfeatures(named_geometries):
+        """Union an iterable of (geometry, name) pairs into a single Django GEOS geometry.
+
+        Repairs invalid inputs with buffer(0); skips features whose union throws,
+        logging a warning per skip.
+        """
+        iterator = iter(named_geometries)
+        first_geom, _first_name = next(iterator)
+        polyunion = first_geom if first_geom.valid else first_geom.buffer(0)
+        for geom, name in iterator:
+            try:
+                safe_geom = geom if geom.valid else geom.buffer(0)
+                polyunion = polyunion.union(safe_geom)
+            except GEOSException as gex:
+                logger.warning("failed to union firms Feature %s: %s", name, gex)
+        return polyunion
+
+    def _setup_geo_filter(self) -> None:
+        if not self.spatial_feature_group:
+            raise DasPluginConfigurationError(
+                f"FIRMS plugin {self.firms_region_name!r} has no spatial feature group configured."
+            )
+        features = self.spatial_feature_group.features.all()
+        named_geometries = [(f.feature_geometry, f.name) for f in features]
+        try:
+            self._geo_filter = self.union_geofilterfeatures(named_geometries)
+        except (GEOSException, StopIteration) as ex:
+            raise DasPluginConfigurationError(
+                f"Not able to compute firms boundary for {self.spatial_feature_group.name}. Error: {ex}"
+            )
+        logger.debug("Geometry union = %s", self._geo_filter)
 
     def fetch(self):
-        if self.spatial_feature_group:
-            features = self.spatial_feature_group.features.all()
-            geometries = [(f.feature_geometry, f.name) for f in features]
-            try:
-                self._geo_filter = self.union_geofilterfeatures(geometries)
-            except Exception as ex:
-                logger.info("failed to use union_geofilterfeatures: %s, trying polyunion", ex)
-                try:
-                    first_geom = geometries[0][0]
-                    polyunion = first_geom if first_geom.is_valid else first_geom.buffer(0)
-                    for geom, name in geometries[1:]:
-                        try:
-                            safe_geom = geom if geom.is_valid else geom.buffer(0)
-                            polyunion = polyunion.union(safe_geom)
-                        except GEOSException as gex:
-                            logger.warning(
-                                "failed to union firms group %s with Feature: %s, error: %s",
-                                self.spatial_feature_group.name,
-                                name,
-                                gex,
-                            )
-
-                    self._geo_filter = polyunion
-                except GEOSException as gex:
-                    raise DasPluginConfigurationError(
-                        f"Not able to compute firms boundary for {self.spatial_feature_group.name}. Error: {gex}"
-                    )
-
-            logger.debug("Geometry union = %s", self._geo_filter)
-        else:
-            raise ValueError("Stubbornly refusing to allow no geo filter on FIRMS data ingestion.")
+        # _geo_filter is set by _setup_geo_filter(), called from execute() before this generator runs.
 
         # Our additional data keeps track of:
         stored_headers = self.additional.get("stored_headers", None)
