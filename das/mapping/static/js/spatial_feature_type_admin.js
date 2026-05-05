@@ -50,15 +50,35 @@
     h2 ? h2.insertAdjacentElement("afterend", wrapper) : fs.appendChild(wrapper);
   }
 
+  // Paint the filled portion of the track via a linear-gradient so it reaches
+  // the thumb's right edge at max. Firefox uses ::-moz-range-progress (CSS-only),
+  // but WebKit/Chromium need this JS-driven background.
+  function paintRangeFill(el) {
+    const min = parseFloat(el.min) || 0;
+    const max = parseFloat(el.max) || 1;
+    const parsed = parseFloat(el.value);
+    const val = Number.isNaN(parsed) ? min : parsed;
+    const pct = max === min ? 100 : ((val - min) / (max - min)) * 100;
+    el.style.background =
+      `linear-gradient(to right, #2563eb 0 ${pct}%, #d1d5db ${pct}% 100%)`;
+  }
+
   // Show current value next to a range slider and keep it in sync.
   function addSliderOutput(name) {
     const el = field(name);
     if (!el || el.type !== "range") return;
+    el.classList.add("opacity-slider");
     const out = document.createElement("output");
     out.className = "slider-output";
+    if (el.id) out.setAttribute("for", el.id);
+    out.setAttribute("aria-live", "polite");
     out.textContent = parseFloat(el.value).toFixed(2);
     el.insertAdjacentElement("afterend", out);
-    el.addEventListener("input", () => { out.textContent = parseFloat(el.value).toFixed(2); });
+    paintRangeFill(el);
+    el.addEventListener("input", () => {
+      out.textContent = parseFloat(el.value).toFixed(2);
+      paintRangeFill(el);
+    });
   }
 
   function watchFields(names, callback) {

@@ -36,3 +36,61 @@
     color: #444;
     vertical-align: middle;
 }
+
+/* Custom range slider so the fill reaches the thumb's right edge at max
+   (browser default leaves the track unfilled past the thumb's center). */
+input[type="range"].opacity-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: #d1d5db;
+    outline: none;
+    vertical-align: middle;
+    padding: 0;
+}
+
+input[type="range"].opacity-slider:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+
+input[type="range"].opacity-slider::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 3px;
+    background: transparent;
+}
+
+input[type="range"].opacity-slider::-moz-range-track {
+    height: 6px;
+    border-radius: 3px;
+    background: #d1d5db;
+}
+
+input[type="range"].opacity-slider::-moz-range-progress {
+    height: 6px;
+    border-radius: 3px;
+    background: #2563eb;
+}
+
+input[type="range"].opacity-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #2563eb;
+    border: none;
+    cursor: pointer;
+    margin-top: -4px;
+}
+
+input[type="range"].opacity-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #2563eb;
+    border: none;
+    cursor: pointer;
+}

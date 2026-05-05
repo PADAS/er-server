@@ -193,7 +193,18 @@ class SpatialFeatureTypeForm(forms.ModelForm):
         required=False,
         label="Stroke Opacity",
         initial=1,
-        widget=forms.NumberInput(attrs={"type": "range", "min": "0", "max": "1", "step": "0.01"}),
+        widget=forms.NumberInput(
+            attrs={
+                "type": "range",
+                "min": "0",
+                "max": "1",
+                "step": "0.01",
+                "data-lpignore": "true",
+                "data-1p-ignore": "true",
+                "data-form-type": "other",
+                "autocomplete": "off",
+            }
+        ),
     )
     fill_opacity = forms.FloatField(
         min_value=0,
@@ -201,9 +212,20 @@ class SpatialFeatureTypeForm(forms.ModelForm):
         required=False,
         label="Fill Opacity",
         initial=0.25,
-        widget=forms.NumberInput(attrs={"type": "range", "min": "0", "max": "1", "step": "0.01"}),
+        widget=forms.NumberInput(
+            attrs={
+                "type": "range",
+                "min": "0",
+                "max": "1",
+                "step": "0.01",
+                "data-lpignore": "true",
+                "data-1p-ignore": "true",
+                "data-form-type": "other",
+                "autocomplete": "off",
+            }
+        ),
     )
-    point_image = forms.CharField(max_length=500, required=False, label="Image")
+    point_image = forms.CharField(max_length=500, required=False, label="Image URL")
     point_width = forms.FloatField(min_value=1, required=False, label="Width", initial=20, max_value=100)
     point_height = forms.FloatField(min_value=1, required=False, label="Height", initial=20, max_value=100)
     stroke = forms.CharField(
