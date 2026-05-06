@@ -334,6 +334,8 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
 
         if tenant_settings.feature_flags.require_idp:
             should_send_idp_email = not change and bool(obj.email)
+            if not change:
+                obj.set_unusable_password()
         else:
             if not change and (not form.cleaned_data["password1"] or not obj.has_usable_password()):
                 # Django's PasswordResetForm won't let us reset an unusable

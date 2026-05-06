@@ -273,6 +273,18 @@ class TestSaveModelWithIdp:
         expected_url = f"https://testsite.pamdas.org{reverse(ACCOUNT_LINKER_LANDING_URL_NAME)}?token={magic_link_token}"
         assert expected_url in sent_invitation_email.body.splitlines()
 
+    def test_new_user_has_unusable_password(
+        self, user_admin, fake_request, user_with_email, form, mock_super_save_model
+    ):
+        # Simulate the admin having entered a password in the creation form.
+        # On an IdP tenant, save_model should override this to unusable so the
+        # user can only authenticate via ER IdP.
+        user_with_email.set_password("admin-entered-password")
+
+        user_admin.save_model(fake_request, user_with_email, form, change=False)
+
+        assert not user_with_email.has_usable_password()
+
     class TestShouldNotSendIdpEmail:
 
         def test_no_email_when_change_is_true(
