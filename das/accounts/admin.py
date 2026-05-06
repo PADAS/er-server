@@ -21,6 +21,7 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import PasswordResetForm
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
+from django.db import transaction
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
@@ -349,9 +350,9 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
         super(UserAdmin, self).save_model(request, obj, form, change)
 
         if should_send_idp_email:
-            self._send_idp_invitation_email(request, obj)
+            transaction.on_commit(lambda: self._send_idp_invitation_email(request, obj))
         if should_notify_of_password_reset:
-            self._send_reset_email(request, obj)
+            transaction.on_commit(lambda: self._send_reset_email(request, obj))
 
     @staticmethod
     def _send_idp_invitation_email(request, user):

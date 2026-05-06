@@ -4,7 +4,7 @@ import pytest
 
 from django.contrib.admin import site
 from django.contrib.auth import get_user_model
-from django.core import mail
+from django.db import transaction
 from django.test import RequestFactory
 from django.urls import reverse
 
@@ -72,6 +72,14 @@ def mock_send_reset_email(user_admin):
 
 @pytest.mark.django_db
 class TestSaveModelNonIdp:
+
+    @pytest.fixture(autouse=True)
+    def _run_on_commit_callbacks(self):
+        """Execute on_commit callbacks immediately. These tests run inside a
+        rolled-back transaction (default django_db), so on_commit callbacks
+        would otherwise never fire."""
+        with patch("accounts.admin.transaction.on_commit", side_effect=lambda func: func()):
+            yield
 
     @pytest.fixture(autouse=True)
     def non_idp_tenant_settings(self):
@@ -207,6 +215,11 @@ class TestSaveModelNonIdp:
 @pytest.mark.django_db
 class TestSaveModelWithIdp:
 
+    @pytest.fixture(autouse=True)
+    def _run_on_commit_callbacks(self):
+        with patch("accounts.admin.transaction.on_commit", side_effect=lambda func: func()):
+            yield
+
     @pytest.fixture
     def magic_link_token(self):
         return "test-token"
@@ -327,8 +340,9 @@ class TestEmailDeferredToCommit:
 
         mock_send_reset_email.assert_not_called()
 
-    def test_invitation_email_not_sent_on_rollback(self, user_admin, fake_request, user_with_email, form, settings):
-        settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    def test_invitation_email_not_sent_on_rollback(
+        self, user_admin, fake_request, user_with_email, form, settings, mailoutbox
+    ):
         settings.DEFAULT_FROM_EMAIL = "noreply@example.com"
 
         mock_ts = MagicMock()
@@ -343,4 +357,4 @@ class TestEmailDeferredToCommit:
                             user_admin.save_model(fake_request, user_with_email, form, change=False)
                             raise self.Rollback()
 
-        assert len(mail.outbox) == 0
+        assert len(mailoutbox) == 0
