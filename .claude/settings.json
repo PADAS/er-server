@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__github__pull_request_read",
+      "mcp__MIRO__context_get",
+      "mcp__MIRO__board_list_items",
+      "Bash(gcloud logging read *)"
+    ]
+  }
+}
