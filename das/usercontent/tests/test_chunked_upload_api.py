@@ -229,3 +229,32 @@ class TestChunkedUploadAPI(BaseAPITest):
         assert "error_id" in payload
         assert "reason" not in payload
         assert "bucket" not in str(payload)
+
+    @patch("usercontent.chunked_upload.resumable_upload.initiate", return_value="https://gcs.example/resumable")
+    def test_init_sets_force_download_metadata_for_svg(self, mock_init):
+        """SVG (and any USERCONTENT_SETTINGS.force_download_mimetypes type) uploads must be
+        initiated with Content-Type=application/octet-stream and Content-Disposition=attachment
+        so that direct GCS fetches cannot render active content inline (XSS defense).
+        """
+        r = self.client.post(
+            f"{self.base}/",
+            {"filename": "logo.svg", "size": 10, "chunk_size": 10},
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED, r.content
+        _, kwargs = mock_init.call_args
+        assert kwargs["content_type"] == "application/octet-stream"
+        assert kwargs["content_disposition"] == "attachment"
+
+    @patch("usercontent.chunked_upload.resumable_upload.initiate", return_value="https://gcs.example/resumable")
+    def test_init_does_not_set_force_download_metadata_for_safe_types(self, mock_init):
+        """Plain types (e.g. .txt, .pdf) must not get the force-download override."""
+        r = self.client.post(
+            f"{self.base}/",
+            {"filename": "notes.txt", "size": 10, "chunk_size": 10},
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED, r.content
+        _, kwargs = mock_init.call_args
+        assert kwargs["content_type"] is None
+        assert kwargs["content_disposition"] is None

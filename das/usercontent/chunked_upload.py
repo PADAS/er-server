@@ -39,7 +39,11 @@ from core import resumable_upload
 from usercontent import upload_sessions
 from usercontent.models import FileContent, ImageFileContent
 from usercontent.serializers import FileContentSerializer, ImageFileContentSerializer
-from usercontent.storage_paths import build_usercontent_storage_path, is_image_filename
+from usercontent.storage_paths import (
+    build_usercontent_storage_path,
+    force_download_content_headers,
+    is_image_filename,
+)
 from utils.tenant.thread import get_tenant_settings
 
 logger = logging.getLogger(__name__)
@@ -175,8 +179,14 @@ class ChunkedUploadInitView(APIView):
         storage_path = build_usercontent_storage_path(upload_id, filename, uploads_root=uploads_root)
         tenant_id = _tenant_key()
 
+        content_type, content_disposition = force_download_content_headers(filename)
         try:
-            gcs_uri = resumable_upload.initiate(storage_path, size)
+            gcs_uri = resumable_upload.initiate(
+                storage_path,
+                size,
+                content_type=content_type,
+                content_disposition=content_disposition,
+            )
         except Exception:
             error_id = str(uuid.uuid4())
             logger.exception(

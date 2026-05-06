@@ -47,6 +47,15 @@ Key considerations:
 - Tenant-specific configurations and permissions
 - Cross-tenant queries require special authorization
 
+### Tenant-scoped cache and lock keys
+
+Cache aliases configured with `KEY_FUNCTION: utils.tenant.cache.make_cache_key` (see `das_server/settings.py`) automatically prefix every key with the thread-local tenant ID. This applies to:
+
+- `cache.get` / `cache.set` / `cache.delete` — keys are transformed before reaching the backend.
+- `cache.lock(key, ...)` on `django-redis` — the lock key goes through the same `make_key` pipeline, so distributed locks are tenant-isolated by default.
+
+When reviewing or writing code that uses one of these cache aliases, **do not add an explicit `tenant_id` to the key string** — it would double-prefix at the backend. Trust the `KEY_FUNCTION`. Only build a tenant-prefixed key by hand when bypassing the configured cache (e.g. talking to a raw `redis.Redis` client like `MultitenantRedisClient`, where the prefix is applied by the wrapper, not by you).
+
 ## Configuration
 
 ### Settings Structure

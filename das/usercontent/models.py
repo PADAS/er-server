@@ -1,8 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 
-import pytz
 from django_multitenant.fields import TenantForeignKey
 from django_multitenant.mixins import TenantModelMixin
 from versatileimagefield.fields import VersatileImageField
@@ -30,7 +29,7 @@ def _upload_to(root, instance, filename):
 
     name, extension = filename.rsplit(".", 1) if "." in filename else (filename, "")
 
-    d = pytz.utc.localize(datetime.utcnow())
+    d = datetime.now(tz=timezone.utc)
     tenant = get_tenant_settings()
     file_path = f"{tenant.slug_name}/{root}/{d.year}/{d.month}/{d.day}/{instance.id}/{name}.{extension}"
     return file_path

@@ -32,7 +32,15 @@ def _get_bucket_name() -> str:
 
 
 def _get_credentials():
-    """Credentials for GCS (match TenantGoogleCloudStorage when possible)."""
+    """Returns the pod's ambient GCS credentials — NOT tenant-scoped.
+
+    Tenant isolation comes from the storage_path prefix (see
+    usercontent.storage_paths.build_usercontent_storage_path), not from credentials.
+    The per-thread AuthorizedSession cached in _session() relies on this invariant:
+    if this function is ever changed to return tenant-specific credentials, that
+    cache becomes a cross-tenant leak and must be reworked (e.g. keyed by tenant_id,
+    or rebuilt per request).
+    """
     storage_class = getattr(settings, "DEFAULT_FILE_STORAGE", "")
     if "TenantGoogleCloudStorage" in str(storage_class):
         from core.storages import TenantGoogleCloudStorage
@@ -54,19 +62,32 @@ def _session() -> AuthorizedSession:
     return sess
 
 
-def initiate(storage_path: str, total_size: int) -> str:
+def initiate(
+    storage_path: str,
+    total_size: int,
+    *,
+    content_type: str | None = None,
+    content_disposition: str | None = None,
+) -> str:
     """
     Start a GCS resumable upload session. Returns the session URI for upload_chunk/abort.
+
+    content_type / content_disposition: optional GCS object metadata to set on the
+    finalized object. Used to force browsers to download (rather than render) active
+    content like SVG/HTML/JS when fetched directly from GCS.
     """
     bucket = _get_bucket_name()
     url = f"{UPLOAD_API}/{bucket}/o?uploadType=resumable"
-    body = json.dumps({"name": storage_path})
-    resp = _session().post(
-        url,
-        data=body,
-        headers={"Content-Type": "application/json", "X-Upload-Content-Length": str(total_size)},
-        timeout=_gcs_timeout(),
-    )
+    payload: dict[str, str] = {"name": storage_path}
+    if content_type:
+        payload["contentType"] = content_type
+    if content_disposition:
+        payload["contentDisposition"] = content_disposition
+    body = json.dumps(payload)
+    headers = {"Content-Type": "application/json", "X-Upload-Content-Length": str(total_size)}
+    if content_type:
+        headers["X-Upload-Content-Type"] = content_type
+    resp = _session().post(url, data=body, headers=headers, timeout=_gcs_timeout())
     resp.raise_for_status()
     location = resp.headers.get("Location")
     if not location:
