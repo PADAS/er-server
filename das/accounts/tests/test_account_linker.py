@@ -125,6 +125,26 @@ class TestAccountLinkerLanding:
                 connection="testsite",
             )
 
+    def test_magic_link_reuse_after_linking_returns_400(self, request_factory, active_user, caplog):
+        token = create_magic_link_token(active_user.id)
+
+        # Simulate the user having already completed the Account Linker flow
+        active_user.auth0_id = "auth0|already_linked"
+        active_user.save(update_fields=["auth0_id"])
+
+        request = request_factory.get(f"/auth/account-linker/?token={token}")
+        request.session = {}
+
+        with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
+            result = account_linker_landing(request)
+
+        assert result.status_code == 400
+        assert b"Invalid link" in result.content
+        assert (
+            f"Account linker landing for user {active_user.username} who is already linked (auth0_id=auth0|already_linked)"
+            in caplog.text
+        )
+
     def test_magic_link_expired_token_returns_400(self, request_factory, active_user):
         creation_time = 1_000_000
         with patch("django.core.signing.time.time", return_value=creation_time):
@@ -175,6 +195,24 @@ class TestAccountLinkerLanding:
                 state=link_attempt,
                 connection="testsite",
             )
+
+    def test_session_flow_already_linked_user_returns_400(self, request_factory, active_user, caplog):
+        active_user.auth0_id = "auth0|already_linked"
+        active_user.save(update_fields=["auth0_id"])
+
+        session_ref = "caller-provided-ref"
+        request = request_factory.get(f"/auth/account-linker/?session_ref={session_ref}")
+        request.session = {f"{SESSION_KEY_PREFIX}{session_ref}": str(active_user.id)}
+
+        with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
+            result = account_linker_landing(request)
+
+        assert result.status_code == 400
+        assert b"Invalid link" in result.content
+        assert (
+            f"Account linker landing for user {active_user.username} who is already linked (auth0_id=auth0|already_linked)"
+            in caplog.text
+        )
 
     def test_missing_token_and_no_session_returns_400(self, request_factory, caplog):
         request = request_factory.get("/auth/account-linker/")
