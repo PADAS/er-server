@@ -1,52 +1,320 @@
-FIELD_SCHEMA_TITLE_MAX_LENGTH = 1000
+# Constants
 
-text_field_schema = {
-    "type": "object",
-    "title": "Text field schema for EventType Builder",
-    "properties": {
-        "default": {"type": "string"},
-        "deprecated": {"type": "boolean"},
-        "description": {"type": "string"},
-        "format": {"enum": ["uri", "uuid", "email"]},
-        "pattern": {"const": "^[a-zA-Z0-9]+$"},
-        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
-        "type": {"const": "string"},
-    },
-    "additionalProperties": False,
-    "required": ["deprecated", "title", "type"],
+FIELD_PLACEHOLDER_MAX_LENGTH = 32
+FIELD_TITLE_MAX_LENGTH = 1000
+
+FORM_ELEMENT_SEGMENT_PATTERN = r"[a-zA-Z0-9_-]+"
+
+FIELD_NAME_PATTERN = rf"^{FORM_ELEMENT_SEGMENT_PATTERN}$"
+FIELD_ID_PATTERN = rf"^{FORM_ELEMENT_SEGMENT_PATTERN}(?:\.{FORM_ELEMENT_SEGMENT_PATTERN})*$"
+
+HEADER_ID_PATTERN = rf"^header-{FORM_ELEMENT_SEGMENT_PATTERN}$"
+
+SECTION_ID_PATTERN = rf"^section-{FORM_ELEMENT_SEGMENT_PATTERN}$"
+
+
+# Shared schemas
+
+conditional_dependents_schema = {
+    "type": "array",
+    "items": {"type": "string", "pattern": SECTION_ID_PATTERN},
+    "uniqueItems": True,
 }
 
-attachment_field_schema = {
+field_parent_schema = {
+    "anyOf": [
+        {"type": "string", "pattern": FIELD_ID_PATTERN},
+        {"type": "string", "pattern": SECTION_ID_PATTERN},
+    ],
+}
+
+
+# Attachment field
+
+attachment_field_json_schema = {
     "type": "object",
-    "title": "Attachment field schema for EventType Builder",
+    "title": "Attachment field JSON schema",
     "properties": {
         "deprecated": {"type": "boolean"},
         "format": {"const": "uri"},
-        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
+        "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
         "type": {"const": "string"},
     },
     "required": ["deprecated", "format", "title", "type"],
     "additionalProperties": False,
 }
 
-
-date_time_field_schema = {
+attachment_field_ui_schema = {
     "type": "object",
-    "title": "Date Time field schema for EventType Builder",
+    "title": "Attachment field UI schema",
+    "properties": {
+        "allowableFileTypes": {
+            "type": "array",
+            "items": {"enum": ["audio", "document", "image", "video"]},
+            "uniqueItems": True,
+        },
+        "conditionalDependents": conditional_dependents_schema,
+        "parent": field_parent_schema,
+        "type": {"const": "ATTACHMENT"},
+    },
+    "required": ["allowableFileTypes", "parent", "type"],
+    "additionalProperties": False,
+}
+
+
+# Boolean field
+
+boolean_field_json_schema = {
+    "type": "object",
+    "title": "Boolean field JSON schema",
+    "properties": {
+        "default": {"type": "boolean"},
+        "deprecated": {"type": "boolean"},
+        "description": {"type": "string"},
+        "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
+        "type": {"const": "boolean"},
+    },
+    "required": ["deprecated", "title", "type"],
+    "additionalProperties": False,
+}
+
+boolean_field_ui_schema = {
+    "type": "object",
+    "title": "Boolean field UI schema",
+    "properties": {
+        "conditionalDependents": conditional_dependents_schema,
+        "parent": field_parent_schema,
+        "type": {"const": "BOOLEAN"},
+    },
+    "required": ["parent", "type"],
+    "additionalProperties": False,
+}
+
+
+# Choice List field
+
+choice_list_field_json_schema_any_of_schema = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "$ref": {"type": "string", "format": "uri-reference"},
+        },
+        "required": ["$ref"],
+        "additionalProperties": False,
+    },
+    "minItems": 1,
+}
+
+resolved_choice_list_field_json_schema_any_of_schema = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "description": {"type": "string"},
+            "oneOf": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "const": {"type": ["string", "number", "boolean"]},
+                        "description": {"type": "string"},
+                        "title": {"type": "string"},
+                    },
+                    "required": ["const", "title"],
+                },
+            },
+            "title": {"type": "string"},
+            "type": {"type": "string"},
+        },
+        "required": ["oneOf", "title", "type"],
+    },
+    "minItems": 1,
+}
+
+single_choice_list_field_json_schema = {
+    "type": "object",
+    "title": "Single Choice List field JSON schema",
+    "properties": {
+        "anyOf": {
+            "anyOf": [
+                choice_list_field_json_schema_any_of_schema,
+                resolved_choice_list_field_json_schema_any_of_schema,
+            ]
+        },
+        "deprecated": {"type": "boolean"},
+        "description": {"type": "string"},
+        "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
+        "type": {"const": "string"},
+    },
+    "required": ["anyOf", "deprecated", "title", "type"],
+    "additionalProperties": False,
+}
+
+multiple_choice_list_field_json_schema = {
+    "type": "object",
+    "title": "Multiple Choice List field JSON schema",
+    "properties": {
+        "deprecated": {"type": "boolean"},
+        "description": {"type": "string"},
+        "items": {
+            "type": "object",
+            "properties": {
+                "anyOf": {
+                    "anyOf": [
+                        choice_list_field_json_schema_any_of_schema,
+                        resolved_choice_list_field_json_schema_any_of_schema,
+                    ]
+                },
+                "type": {"const": "string"},
+            },
+            "required": ["anyOf", "type"],
+            "additionalProperties": False,
+        },
+        "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
+        "type": {"const": "array"},
+        "uniqueItems": {"const": True},
+    },
+    "required": ["deprecated", "items", "title", "type", "uniqueItems"],
+    "additionalProperties": False,
+}
+
+choice_list_field_ui_schema_choices_array_schema = {"type": "array", "items": {"type": "string"}}
+
+choice_list_field_ui_schema = {
+    "type": "object",
+    "title": "Choice List field UI schema",
+    "properties": {
+        "choices": {
+            "type": "object",
+            "properties": {
+                "eventTypeCategories": choice_list_field_ui_schema_choices_array_schema,
+                "existingChoiceList": choice_list_field_ui_schema_choices_array_schema,
+                "featureCategories": choice_list_field_ui_schema_choices_array_schema,
+                "myDataType": {
+                    "enum": [
+                        "",
+                        "EVENT_TYPES_FROM_EVENT_CATEGORY",
+                        "FEATURES_FROM_FEATURE_CATEGORY",
+                        "SOURCES",
+                        "SUBJECTS_FROM_SUBJECT_GROUP",
+                        "SUBJECTS_FROM_SUBJECT_SUBTYPE",
+                        "USERS",
+                    ],
+                },
+                "subjectGroups": choice_list_field_ui_schema_choices_array_schema,
+                "subjectSubtypes": choice_list_field_ui_schema_choices_array_schema,
+                "type": {"enum": ["EXISTING_CHOICE_LIST", "MY_DATA"]},
+            },
+            "required": ["type"],
+            "allOf": [
+                {
+                    "if": {"properties": {"type": {"const": "EXISTING_CHOICE_LIST"}}, "required": ["type"]},
+                    "then": {"properties": {"existingChoiceList": {"minItems": 1}}, "required": ["existingChoiceList"]},
+                },
+                {
+                    "if": {"properties": {"type": {"const": "MY_DATA"}}, "required": ["type"]},
+                    "then": {"required": ["myDataType"]},
+                },
+                {
+                    "if": {
+                        "allOf": [
+                            {"properties": {"type": {"const": "MY_DATA"}}, "required": ["type"]},
+                            {
+                                "properties": {"myDataType": {"const": "EVENT_TYPES_FROM_EVENT_CATEGORY"}},
+                                "required": ["myDataType"],
+                            },
+                        ]
+                    },
+                    "then": {
+                        "properties": {"eventTypeCategories": {"minItems": 1}},
+                        "required": ["eventTypeCategories"],
+                    },
+                },
+                {
+                    "if": {
+                        "allOf": [
+                            {"properties": {"type": {"const": "MY_DATA"}}, "required": ["type"]},
+                            {
+                                "properties": {"myDataType": {"const": "FEATURES_FROM_FEATURE_CATEGORY"}},
+                                "required": ["myDataType"],
+                            },
+                        ]
+                    },
+                    "then": {"properties": {"featureCategories": {"minItems": 1}}, "required": ["featureCategories"]},
+                },
+                {
+                    "if": {
+                        "allOf": [
+                            {"properties": {"type": {"const": "MY_DATA"}}, "required": ["type"]},
+                            {
+                                "properties": {"myDataType": {"const": "SUBJECTS_FROM_SUBJECT_GROUP"}},
+                                "required": ["myDataType"],
+                            },
+                        ]
+                    },
+                    "then": {"properties": {"subjectGroups": {"minItems": 1}}, "required": ["subjectGroups"]},
+                },
+                {
+                    "if": {
+                        "allOf": [
+                            {"properties": {"type": {"const": "MY_DATA"}}, "required": ["type"]},
+                            {
+                                "properties": {"myDataType": {"const": "SUBJECTS_FROM_SUBJECT_SUBTYPE"}},
+                                "required": ["myDataType"],
+                            },
+                        ]
+                    },
+                    "then": {"properties": {"subjectSubtypes": {"minItems": 1}}, "required": ["subjectSubtypes"]},
+                },
+            ],
+            "additionalProperties": False,
+        },
+        "conditionalDependents": conditional_dependents_schema,
+        "inputType": {"enum": ["DROPDOWN", "LIST"]},
+        "placeholder": {"type": "string", "maxLength": FIELD_PLACEHOLDER_MAX_LENGTH},
+        "parent": field_parent_schema,
+        "type": {"const": "CHOICE_LIST"},
+    },
+    "required": ["choices", "inputType", "parent", "type"],
+    "additionalProperties": False,
+}
+
+
+# Date time field
+
+date_time_field_json_schema = {
+    "type": "object",
+    "title": "Date Time field JSON schema",
     "properties": {
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
         "format": {"enum": ["date-time", "date", "time"]},
-        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
+        "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
         "type": {"const": "string"},
     },
     "required": ["deprecated", "format", "title", "type"],
     "additionalProperties": False,
 }
 
-location_field_schema = {
+date_time_field_ui_schema = {
     "type": "object",
-    "title": "Location field schema for EventType Builder",
+    "title": "Date Time field UI schema",
+    "properties": {
+        "conditionalDependents": conditional_dependents_schema,
+        "parent": field_parent_schema,
+        "type": {"const": "DATE_TIME"},
+    },
+    "required": ["parent", "type"],
+    "additionalProperties": False,
+}
+
+
+# Location field
+
+location_field_json_schema = {
+    "type": "object",
+    "title": "Location field JSON schema",
     "properties": {
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
@@ -77,8 +345,14 @@ location_field_schema = {
             "required": ["latitude", "longitude"],
             "additionalProperties": False,
         },
-        "required": {"const": ["latitude", "longitude"]},
-        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
+        "required": {
+            "type": "array",
+            "items": {"enum": ["latitude", "longitude"]},
+            "minItems": 2,
+            "maxItems": 2,
+            "uniqueItems": True,
+        },
+        "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
         "type": {"const": "object"},
         "unevaluatedProperties": {"const": False},
     },
@@ -86,490 +360,199 @@ location_field_schema = {
     "additionalProperties": False,
 }
 
-numeric_field_schema = {
+location_field_ui_schema = {
     "type": "object",
-    "title": "Numeric field schema for EventType Builder",
+    "title": "Location field UI schema",
+    "properties": {
+        "conditionalDependents": conditional_dependents_schema,
+        "parent": field_parent_schema,
+        "type": {"const": "LOCATION"},
+    },
+    "required": ["parent", "type"],
+    "additionalProperties": False,
+}
+
+
+# Numeric field
+
+numeric_field_json_schema = {
+    "type": "object",
+    "title": "Numeric field JSON schema",
     "properties": {
         "default": {"type": "number"},
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
         "maximum": {"type": "number"},
         "minimum": {"type": "number"},
-        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
+        "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
         "type": {"const": "number"},
     },
     "required": ["deprecated", "title", "type"],
     "additionalProperties": False,
 }
 
-boolean_field_schema = {
+numeric_field_ui_schema = {
     "type": "object",
-    "title": "Boolean field schema for EventType Builder",
+    "title": "Numeric field UI schema",
     "properties": {
-        "default": {"type": "boolean"},
+        "conditionalDependents": conditional_dependents_schema,
+        "parent": field_parent_schema,
+        "placeholder": {"type": "string", "maxLength": FIELD_PLACEHOLDER_MAX_LENGTH},
+        "type": {"const": "NUMERIC"},
+    },
+    "required": ["parent", "type"],
+    "additionalProperties": False,
+}
+
+
+# Text field
+
+text_field_json_schema = {
+    "type": "object",
+    "title": "Text field JSON schema",
+    "properties": {
+        "default": {"type": "string"},
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
-        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
-        "type": {"const": "boolean"},
+        "format": {"enum": ["uri", "uuid", "email"]},
+        "pattern": {"const": "^[a-zA-Z0-9]+$"},
+        "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
+        "type": {"const": "string"},
     },
     "required": ["deprecated", "title", "type"],
     "additionalProperties": False,
 }
 
-reference_choice_object_schema_in_anyOf = {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {
-            "$ref": {"type": "string", "format": "uri"},
-        },
-        "required": ["$ref"],
-    },
-    "minItems": 1,
-}
-
-choice_field_schema = {
+text_field_ui_schema = {
     "type": "object",
-    "title": "Choice field schema for EventType Builder",
+    "title": "Text field UI schema",
     "properties": {
-        "anyOf": reference_choice_object_schema_in_anyOf,
-        "deprecated": {"type": "boolean"},
-        "description": {"type": "string"},
-        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
-        "type": {"const": "string"},
+        "conditionalDependents": conditional_dependents_schema,
+        "inputType": {"enum": ["LONG_TEXT", "SHORT_TEXT"]},
+        "parent": field_parent_schema,
+        "placeholder": {"type": "string", "maxLength": FIELD_PLACEHOLDER_MAX_LENGTH},
+        "type": {"const": "TEXT"},
     },
-    "required": ["anyOf", "deprecated", "title", "type"],
+    "required": ["inputType", "parent", "type"],
     "additionalProperties": False,
 }
 
-choice_list_field_schema = {
+
+# Collection field
+
+collection_field_json_schema = {
     "type": "object",
-    "title": "Choice list field schema for EventType Builder",
+    "title": "Collection field JSON schema",
     "properties": {
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
         "items": {
             "type": "object",
             "properties": {
-                "anyOf": reference_choice_object_schema_in_anyOf,
-                "type": {"const": "string"},
-            },
-            "required": ["anyOf", "type"],
-            "additionalItems": False,
-        },
-        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
-        "type": {"const": "array"},
-        "uniqueItems": {"const": True},
-    },
-    "required": ["deprecated", "items", "title", "type", "uniqueItems"],
-    "additionalProperties": False,
-}
-
-
-# Base definition for a choice object *after* rendering/reference resolution
-# Allows required const/title, optional description, and any other custom properties (like x-icon)
-rendered_choice_item_schema = {
-    "type": "object",
-    "title": "Rendered Choice Item Schema",
-    "properties": {
-        "const": {"type": ["string", "number", "boolean"]},
-        "title": {"type": "string"},
-        "description": {"type": "string"},
-        # Allow any other properties, typically starting with x-
-    },
-    "required": ["const", "title"],
-    "additionalProperties": True,  # Allow x-* and other potential fields
-}
-
-rendered_choice_reference_schema_in_anyOf = {
-    "type": "object",
-    "properties": {
-        "type": {"type": "string"},
-        "title": {"type": "string"},
-        "description": {"type": "string"},
-        "oneOf": {"type": "array", "items": rendered_choice_item_schema},
-    },
-    "required": ["type", "title", "oneOf"],
-}
-
-# Meta-schema for a choice field *after* rendering
-rendered_choice_field_schema = {
-    "type": "object",
-    "title": "Rendered Choice Field Meta-Schema",
-    "properties": {
-        "type": {"type": ["string", "number", "boolean"]},
-        "title": {"type": "string"},
-        "description": {"type": "string"},
-        "deprecated": {"type": "boolean"},
-        "default": {"type": "string"},
-        "anyOf": {
-            "type": "array",
-            "items": rendered_choice_reference_schema_in_anyOf,
-            "minItems": 1,
-        },
-    },
-    "required": ["type", "title", "description", "deprecated", "anyOf"],
-    "additionalProperties": False,
-}
-
-
-rendered_choice_list_field_schema = {
-    "title": "Rendered Multiple Choice Field Meta-Schema",
-    "type": "object",
-    "properties": {
-        "type": {"type": "string", "const": "array"},
-        "title": {"type": "string"},
-        "description": {"type": "string"},
-        "deprecated": {"type": "boolean"},
-        "uniqueItems": {"type": "boolean"},
-        "default": {"type": "array", "items": {"type": "string"}},
-        "items": {
-            "type": "object",
-            "properties": {
-                "type": {"type": "string"},
-                "anyOf": {"type": "array", "items": rendered_choice_reference_schema_in_anyOf, "minItems": 1},
-            },
-            "required": ["anyOf"],
-            "additionalProperties": False,
-        },
-    },
-    "required": ["type", "title", "description", "deprecated", "items"],
-    "additionalProperties": False,
-}
-
-
-collection_field_schema = {
-    "$id": "https://earthranger.com/collection_field.json",
-    "$schema": "http://json-schema.org/draft/2020-12/schema",
-    "additionalProperties": False,
-    "type": "object",
-    "title": "Collection field schema for EventType Builder",
-    "properties": {
-        "deprecated": {"type": "boolean"},
-        "description": {"type": "string"},
-        "items": {
-            "type": "object",
-            "properties": {
-                "additionalProperties": {"const": False},
                 "properties": {
                     "type": "object",
                     "patternProperties": {
-                        ".*": {
+                        FIELD_NAME_PATTERN: {
                             "anyOf": [
-                                {"$ref": "#/$defs/textField"},
-                                {"$ref": "#/$defs/numericField"},
-                                {"$ref": "#/$defs/booleanField"},
-                                {"$ref": "#/$defs/attachmentField"},
-                                {"$dynamicRef": "#collectionField"},  # self reference
-                                {"$ref": "#/$defs/dateTimeField"},
-                                {"$ref": "#/$defs/locationField"},
-                                {"$ref": "#/$defs/choiceField"},
-                                {"$ref": "#/$defs/choiceListField"},
-                                {"$ref": "#/$defs/renderedChoiceField"},
-                                {"$ref": "#/$defs/renderedChoiceListField"},
+                                {"$ref": "#/$defs/attachmentFieldJSONSchema"},
+                                {"$ref": "#/$defs/booleanFieldJSONSchema"},
+                                {"$ref": "#/$defs/collectionFieldJSONSchema"},
+                                {"$ref": "#/$defs/dateTimeFieldJSONSchema"},
+                                {"$ref": "#/$defs/locationFieldJSONSchema"},
+                                {"$ref": "#/$defs/multipleChoiceListFieldJSONSchema"},
+                                {"$ref": "#/$defs/numericFieldJSONSchema"},
+                                {"$ref": "#/$defs/singleChoiceListFieldJSONSchema"},
+                                {"$ref": "#/$defs/textFieldJSONSchema"},
                             ]
                         }
                     },
+                    "additionalProperties": False,
                 },
                 "required": {
                     "type": "array",
-                    "items": {"type": "string"},
-                    "uniqueItems": {"const": True},
+                    "items": {
+                        "type": "string",
+                        "pattern": FIELD_NAME_PATTERN,
+                    },
+                    "uniqueItems": True,
                 },
                 "type": {"const": "object"},
                 "unevaluatedProperties": {"const": False},
             },
-            "required": ["properties", "required", "type"],
-            "oneOf": [
-                {"required": ["additionalProperties"]},
-                {"required": ["unevaluatedProperties"]},
-            ],
+            "required": ["properties", "required", "type", "unevaluatedProperties"],
+            "additionalProperties": False,
         },
         "maxItems": {"type": "integer"},
         "minItems": {"type": "integer"},
-        "title": {"type": "string", "maxLength": FIELD_SCHEMA_TITLE_MAX_LENGTH},
+        "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
         "type": {"const": "array"},
         "unevaluatedItems": {"const": False},
     },
-    "$defs": {
-        "textField": text_field_schema,
-        "numericField": numeric_field_schema,
-        "booleanField": boolean_field_schema,
-        "attachmentField": attachment_field_schema,
-        "collectionField": {
-            "$dynamicAnchor": "collectionField",
-            "$ref": "#",  # Reference the root collection field schema
-        },
-        "dateTimeField": date_time_field_schema,
-        "locationField": location_field_schema,
-        "choiceField": choice_field_schema,
-        "choiceListField": choice_list_field_schema,
-        "renderedChoiceField": rendered_choice_field_schema,
-        "renderedChoiceListField": rendered_choice_list_field_schema,
-    },
+    "required": ["deprecated", "items", "title", "type", "unevaluatedItems"],
+    "additionalProperties": False,
 }
 
-conditional_dependents_schema = {
+COLLECTION_FIELD_BUTTON_TEXT_MAX_LENGTH = 50
+COLLECTION_FIELD_ITEM_NAME_MAX_LENGTH = 100
+
+collection_field_ui_schema_column_schema = {
     "type": "array",
-    "items": {"type": "string", "pattern": "^section-.*"},
-    "uniqueItems": {"const": True},
+    "items": {"type": "string", "pattern": FIELD_ID_PATTERN},
+    "uniqueItems": True,
 }
 
-ui_text_schema = {
-    "additionalProperties": False,
+collection_field_ui_schema = {
     "type": "object",
-    "title": "UI Text schema for EventType Builder",
+    "title": "Collection field UI schema",
     "properties": {
-        "conditionalDependents": conditional_dependents_schema,
-        "inputType": {"enum": ["SHORT_TEXT", "LONG_TEXT"]},
-        "parent": {"type": "string"},
-        "placeholder": {"type": "string"},
-        "type": {"const": "TEXT"},
-    },
-    "required": ["inputType", "parent", "type"],
-}
-
-ui_attachment_schema = {
-    "additionalProperties": False,
-    "type": "object",
-    "title": "UI Attachment schema for EventType Builder",
-    "properties": {
-        "allowableFileTypes": {
-            "type": "array",
-            "items": {"enum": ["video", "document", "audio", "image"]},
-        },
-        "conditionalDependents": conditional_dependents_schema,
-        "parent": {"type": "string"},
-        "type": {"const": "ATTACHMENT"},
-    },
-    "required": ["allowableFileTypes", "parent", "type"],
-}
-
-ui_collection_schema = {
-    "additionalProperties": False,
-    "type": "object",
-    "title": "UI Collection schema for EventType Builder",
-    "properties": {
-        "buttonText": {"type": "string"},
+        "buttonText": {"type": "string", "maxLength": COLLECTION_FIELD_BUTTON_TEXT_MAX_LENGTH},
         "columns": {"enum": [1, 2]},
         "conditionalDependents": conditional_dependents_schema,
-        "itemIdentifier": {"type": "string"},
-        "itemName": {"type": "string"},
-        "leftColumn": {
-            "type": "array",
-            "items": {"type": "string"},
-            "uniqueItems": {"const": True},
+        "itemIdentifier": {
+            "anyOf": [
+                {"const": ""},
+                {"type": "string", "pattern": FIELD_ID_PATTERN},
+            ],
         },
-        "parent": {"type": "string"},
-        "rightColumn": {
-            "type": "array",
-            "items": {"type": "string"},
-            "uniqueItems": {"const": True},
-        },
+        "itemName": {"type": "string", "maxLength": COLLECTION_FIELD_ITEM_NAME_MAX_LENGTH},
+        "leftColumn": collection_field_ui_schema_column_schema,
+        "parent": field_parent_schema,
+        "rightColumn": collection_field_ui_schema_column_schema,
         "type": {"const": "COLLECTION"},
     },
     "required": ["columns", "itemName", "leftColumn", "parent", "rightColumn", "type"],
+    "additionalProperties": False,
 }
 
-ui_choice_schema = {
-    "additionalProperties": False,
-    "type": "object",
-    "title": "UI Choice List schema for EventType Builder",
-    "properties": {
-        "choices": {
-            "type": "object",
-            "properties": {
-                "eventTypeCategories": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                },
-                "existingChoiceList": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                },
-                "featureCategories": {
-                    "type": "array",
-                    "items": {"type": "string", "format": "uuid"},
-                },
-                "subjectGroups": {
-                    "type": "array",
-                    "items": {"type": "string", "format": "uuid"},
-                },
-                "subjectSubtypes": {
-                    "type": "array",
-                    "items": {"type": "string", "format": "uuid"},
-                },
-                "myDataType": {
-                    "enum": [
-                        "",
-                        "EVENT_TYPES_FROM_EVENT_CATEGORY",
-                        "FEATURES_FROM_FEATURE_CATEGORY",
-                        "SOURCES",
-                        "SUBJECTS_FROM_SUBJECT_GROUP",
-                        "SUBJECTS_FROM_SUBJECT_SUBTYPE",
-                        "USERS",
-                    ],
-                },
-                "type": {"enum": ["EXISTING_CHOICE_LIST", "MY_DATA"]},
-            },
-            "additionalProperties": False,
-        },
-        "conditionalDependents": conditional_dependents_schema,
-        "inputType": {"enum": ["DROPDOWN", "LIST"]},
-        "placeholder": {"type": "string"},
-        "parent": {"type": "string"},
-        "type": {"const": "CHOICE_LIST"},
-    },
-    "required": ["choices", "inputType", "parent", "type"],
-}
 
-ui_date_time_schema = {
-    "additionalProperties": False,
-    "type": "object",
-    "title": "UI Date Time schema for EventType Builder",
-    "properties": {
-        "conditionalDependents": conditional_dependents_schema,
-        "parent": {"type": "string"},
-        "type": {"const": "DATE_TIME"},
-    },
-    "required": ["parent", "type"],
-}
+# Header
 
-ui_location_schema = {
-    "additionalProperties": False,
+header_ui_schema = {
     "type": "object",
-    "title": "UI Location schema for EventType Builder",
-    "properties": {
-        "conditionalDependents": conditional_dependents_schema,
-        "parent": {"type": "string"},
-        "type": {"const": "LOCATION"},
-    },
-    "required": ["parent", "type"],
-}
-
-ui_numeric_schema = {
-    "additionalProperties": False,
-    "type": "object",
-    "title": "UI Numeric schema for EventType Builder",
-    "properties": {
-        "conditionalDependents": conditional_dependents_schema,
-        "placeholder": {"type": "string"},
-        "parent": {"type": "string"},
-        "type": {"const": "NUMERIC"},
-    },
-    "required": ["parent", "type"],
-}
-
-ui_boolean_schema = {
-    "additionalProperties": False,
-    "type": "object",
-    "title": "UI Boolean schema for EventType Builder",
-    "properties": {
-        "conditionalDependents": conditional_dependents_schema,
-        "parent": {"type": "string"},
-        "type": {"const": "BOOLEAN"},
-    },
-    "required": ["parent", "type"],
-}
-
-ui_headers_schema = {
-    "additionalProperties": False,
-    "type": "object",
-    "title": "UI Headers schema for EventType Builder",
+    "title": "Header UI schema",
     "properties": {
         "label": {"type": "string"},
-        "section": {"type": "string", "pattern": "^section-.*"},
-        "size": {"enum": ["SMALL", "MEDIUM", "LARGE"]},
+        "section": {"type": "string", "pattern": SECTION_ID_PATTERN},
+        "size": {"enum": ["LARGE", "MEDIUM", "SMALL"]},
     },
     "required": ["label", "section", "size"],
-}
-
-ui_section_columns = {
-    "type": "array",
-    "items": {
-        "anyOf": [
-            {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "type": {"const": "field"},
-                },
-                "required": ["name", "type"],
-                "additionalProperties": False,
-            },
-            {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "pattern": "^header-.*"},
-                    "type": {"const": "header"},
-                },
-                "required": ["name", "type"],
-                "additionalProperties": False,
-            },
-        ],
-    },
-}
-
-ui_sections_schema = {
     "additionalProperties": False,
-    "type": "object",
-    "title": "UI Sections schema for EventType Builder",
-    "properties": {
-        "columns": {"enum": [1, 2]},
-        "conditions": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "field": {"type": "string"},
-                    "id": {"type": "string", "pattern": "^condition-.*"},
-                    "operator": {
-                        "enum": [
-                            "CONTAINS",
-                            "IS_EXACTLY",
-                            "IS_EMPTY",
-                            "IS_NOT_EMPTY",
-                            "IS_CONTAINED_BY",
-                            "IS_NOT_CONTAINED_BY",
-                        ]
-                    },
-                    "value": {
-                        "oneOf": [
-                            {"type": "string"},
-                            {"type": "null"},
-                            {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            }
-                        ]
-                    },
-                },
-                "required": ["field", "id", "operator"],
-                "additionalProperties": False,
-            },
-        },
-        "isActive": {"type": "boolean"},
-        "label": {"type": "string"},
-        "leftColumn": ui_section_columns,
-        "rightColumn": ui_section_columns,
-    },
-    "required": ["columns", "isActive", "leftColumn", "rightColumn"],
 }
 
-contains_condition_schema = {
+
+# Contains condition
+
+contains_condition_json_schema = {
     "type": "object",
-    "title": "Contains condition schema for EventType Builder",
     "properties": {
         "properties": {
             "type": "object",
             "patternProperties": {
-                ".*": {
+                FIELD_NAME_PATTERN: {
                     "type": "object",
                     "properties": {
                         "anyOf": {
                             "type": "array",
-                            "minItems": 3,
-                            "maxItems": 3,
                             "prefixItems": [
                                 {
                                     "type": "object",
@@ -589,6 +572,7 @@ contains_condition_schema = {
                                                 "required": ["contains"],
                                                 "additionalProperties": False,
                                             },
+                                            "minItems": 1,
                                         },
                                         "type": {"const": "array"},
                                     },
@@ -598,7 +582,7 @@ contains_condition_schema = {
                                 {
                                     "type": "object",
                                     "properties": {
-                                        "required": {"type": "array", "items": {"type": "string"}},
+                                        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1},
                                         "type": {"const": "object"},
                                     },
                                     "required": ["required", "type"],
@@ -613,8 +597,10 @@ contains_condition_schema = {
                                     },
                                     "oneOf": [{"required": ["pattern", "type"]}, {"required": ["const", "type"]}],
                                     "additionalProperties": False,
-                                }
+                                },
                             ],
+                            "minItems": 3,
+                            "maxItems": 3,
                             "items": False,
                         }
                     },
@@ -628,7 +614,10 @@ contains_condition_schema = {
         },
         "required": {
             "type": "array",
-            "items": {"type": "string"},
+            "items": {
+                "type": "string",
+                "pattern": FIELD_NAME_PATTERN,
+            },
             "maxItems": 1,
             "minItems": 1,
         },
@@ -637,9 +626,28 @@ contains_condition_schema = {
     "additionalProperties": False,
 }
 
-is_empty_condition_schema = {
+contains_condition_ui_schema = {
     "type": "object",
-    "title": "Is Empty condition schema for EventType Builder",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "CONTAINS"},
+        "value": {
+            "anyOf": [
+                {"type": "string"},
+                {"type": "array", "items": {"type": "string"}},
+            ]
+        },
+    },
+    "required": ["field", "id", "operator", "value"],
+    "additionalProperties": False,
+}
+
+
+# Is Empty condition
+
+is_empty_condition_json_schema = {
+    "type": "object",
     "properties": {
         "anyOf": {
             "type": "array",
@@ -650,7 +658,15 @@ is_empty_condition_schema = {
                         "not": {
                             "type": "object",
                             "properties": {
-                                "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1}
+                                "required": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "pattern": FIELD_NAME_PATTERN,
+                                    },
+                                    "minItems": 1,
+                                    "maxItems": 1,
+                                }
                             },
                             "required": ["required"],
                             "additionalProperties": False,
@@ -664,19 +680,27 @@ is_empty_condition_schema = {
                     "properties": {
                         "properties": {
                             "type": "object",
-                            "minProperties": 1,
-                            "maxProperties": 1,
                             "patternProperties": {
-                                ".*": {
+                                FIELD_NAME_PATTERN: {
                                     "type": "object",
-                                    "properties": {"type": {"const": "array"}, "maxItems": {"const": 0}},
-                                    "required": ["type", "maxItems"],
+                                    "properties": {"maxItems": {"const": 0}, "type": {"const": "array"}},
+                                    "required": ["maxItems", "type"],
                                     "additionalProperties": False,
                                 }
                             },
+                            "minProperties": 1,
+                            "maxProperties": 1,
                             "additionalProperties": False,
                         },
-                        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
+                        "required": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "pattern": FIELD_NAME_PATTERN,
+                            },
+                            "minItems": 1,
+                            "maxItems": 1,
+                        },
                     },
                     "required": ["properties", "required"],
                     "additionalProperties": False,
@@ -686,19 +710,27 @@ is_empty_condition_schema = {
                     "properties": {
                         "properties": {
                             "type": "object",
-                            "minProperties": 1,
-                            "maxProperties": 1,
                             "patternProperties": {
-                                ".*": {
+                                FIELD_NAME_PATTERN: {
                                     "type": "object",
                                     "properties": {"type": {"const": "null"}},
                                     "required": ["type"],
                                     "additionalProperties": False,
                                 }
                             },
+                            "minProperties": 1,
+                            "maxProperties": 1,
                             "additionalProperties": False,
                         },
-                        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
+                        "required": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "pattern": FIELD_NAME_PATTERN,
+                            },
+                            "minItems": 1,
+                            "maxItems": 1,
+                        },
                     },
                     "required": ["properties", "required"],
                     "additionalProperties": False,
@@ -708,19 +740,27 @@ is_empty_condition_schema = {
                     "properties": {
                         "properties": {
                             "type": "object",
-                            "minProperties": 1,
-                            "maxProperties": 1,
                             "patternProperties": {
-                                ".*": {
+                                FIELD_NAME_PATTERN: {
                                     "type": "object",
-                                    "properties": {"type": {"const": "object"}, "maxProperties": {"const": 0}},
-                                    "required": ["type", "maxProperties"],
+                                    "properties": {"maxProperties": {"const": 0}, "type": {"const": "object"}},
+                                    "required": ["maxProperties", "type"],
                                     "additionalProperties": False,
                                 }
                             },
+                            "minProperties": 1,
+                            "maxProperties": 1,
                             "additionalProperties": False,
                         },
-                        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
+                        "required": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "pattern": FIELD_NAME_PATTERN,
+                            },
+                            "minItems": 1,
+                            "maxItems": 1,
+                        },
                     },
                     "required": ["properties", "required"],
                     "additionalProperties": False,
@@ -730,24 +770,34 @@ is_empty_condition_schema = {
                     "properties": {
                         "properties": {
                             "type": "object",
-                            "minProperties": 1,
-                            "maxProperties": 1,
                             "patternProperties": {
-                                ".*": {
+                                FIELD_NAME_PATTERN: {
                                     "type": "object",
-                                    "properties": {"type": {"const": "string"}, "maxLength": {"const": 0}},
-                                    "required": ["type", "maxLength"],
+                                    "properties": {"maxLength": {"const": 0}, "type": {"const": "string"}},
+                                    "required": ["maxLength", "type"],
                                     "additionalProperties": False,
                                 }
                             },
+                            "minProperties": 1,
+                            "maxProperties": 1,
                             "additionalProperties": False,
                         },
-                        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
+                        "required": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "pattern": FIELD_NAME_PATTERN,
+                            },
+                            "minItems": 1,
+                            "maxItems": 1,
+                        },
                     },
                     "required": ["properties", "required"],
                     "additionalProperties": False,
                 },
             ],
+            "minItems": 5,
+            "maxItems": 5,
             "items": False,
         }
     },
@@ -755,22 +805,32 @@ is_empty_condition_schema = {
     "additionalProperties": False,
 }
 
-is_not_empty_condition_schema = {
+is_empty_condition_ui_schema = {
     "type": "object",
-    "title": "Is Not Empty condition schema for EventType Builder",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_EMPTY"},
+        "value": {"const": None},
+    },
+    "required": ["field", "id", "operator"],
+    "additionalProperties": False,
+}
+
+
+# Is Not Empty condition
+
+is_not_empty_condition_json_schema = {
+    "type": "object",
     "properties": {
         "properties": {
             "type": "object",
-            "minProperties": 1,
-            "maxProperties": 1,
             "patternProperties": {
-                ".*": {
+                FIELD_NAME_PATTERN: {
                     "type": "object",
                     "properties": {
                         "allOf": {
                             "type": "array",
-                            "minItems": 2,
-                            "maxItems": 2,
                             "prefixItems": [
                                 {
                                     "type": "object",
@@ -790,16 +850,14 @@ is_not_empty_condition_schema = {
                                     "properties": {
                                         "anyOf": {
                                             "type": "array",
-                                            "minItems": 5,
-                                            "maxItems": 5,
                                             "prefixItems": [
                                                 {
                                                     "type": "object",
                                                     "properties": {
-                                                        "type": {"const": "array"},
                                                         "minItems": {"const": 1},
+                                                        "type": {"const": "array"},
                                                     },
-                                                    "required": ["type", "minItems"],
+                                                    "required": ["minItems", "type"],
                                                     "additionalProperties": False,
                                                 },
                                                 {
@@ -817,22 +875,24 @@ is_not_empty_condition_schema = {
                                                 {
                                                     "type": "object",
                                                     "properties": {
-                                                        "type": {"const": "object"},
                                                         "minProperties": {"const": 1},
+                                                        "type": {"const": "object"},
                                                     },
-                                                    "required": ["type", "minProperties"],
+                                                    "required": ["minProperties", "type"],
                                                     "additionalProperties": False,
                                                 },
                                                 {
                                                     "type": "object",
                                                     "properties": {
-                                                        "type": {"const": "string"},
                                                         "minLength": {"const": 1},
+                                                        "type": {"const": "string"},
                                                     },
-                                                    "required": ["type", "minLength"],
+                                                    "required": ["minLength", "type"],
                                                     "additionalProperties": False,
                                                 },
                                             ],
+                                            "minItems": 5,
+                                            "maxItems": 5,
                                             "items": False,
                                         }
                                     },
@@ -840,6 +900,8 @@ is_not_empty_condition_schema = {
                                     "additionalProperties": False,
                                 },
                             ],
+                            "minItems": 2,
+                            "maxItems": 2,
                             "items": False,
                         }
                     },
@@ -847,35 +909,54 @@ is_not_empty_condition_schema = {
                     "additionalProperties": False,
                 }
             },
+            "minProperties": 1,
+            "maxProperties": 1,
             "additionalProperties": False,
         },
-        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
+        "required": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": FIELD_NAME_PATTERN,
+            },
+            "minItems": 1,
+            "maxItems": 1,
+        },
     },
     "required": ["properties", "required"],
     "additionalProperties": False,
 }
 
-is_exactly_condition_schema = {
+is_not_empty_condition_ui_schema = {
     "type": "object",
-    "title": "Is Exactly condition schema for EventType Builder",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_NOT_EMPTY"},
+        "value": {"const": None},
+    },
+    "required": ["field", "id", "operator"],
+    "additionalProperties": False,
+}
+
+
+# Is Exactly condition
+
+is_exactly_condition_json_schema = {
+    "type": "object",
     "properties": {
         "properties": {
             "type": "object",
-            "minProperties": 1,
-            "maxProperties": 1,
             "patternProperties": {
-                ".*": {
+                FIELD_NAME_PATTERN: {
                     "type": "object",
                     "properties": {
                         "anyOf": {
                             "type": "array",
-                            "minItems": 5,
-                            "maxItems": 5,
                             "prefixItems": [
                                 {
                                     "type": "object",
                                     "properties": {
-                                        "type": {"const": "array"},
                                         "allOf": {
                                             "type": "array",
                                             "items": {
@@ -891,19 +972,21 @@ is_exactly_condition_schema = {
                                                 "required": ["contains"],
                                                 "additionalProperties": False,
                                             },
+                                            "minItems": 1,
                                         },
-                                        "maxItems": {"type": "number"},
+                                        "maxItems": {"type": "integer"},
+                                        "type": {"const": "array"},
                                     },
-                                    "required": ["type", "allOf", "maxItems"],
+                                    "required": ["allOf", "maxItems", "type"],
                                     "additionalProperties": False,
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
-                                        "type": {"const": "boolean"},
                                         "const": {"type": ["boolean", "null"]},
+                                        "type": {"const": "boolean"},
                                     },
-                                    "required": ["type", "const"],
+                                    "required": ["const", "type"],
                                     "additionalProperties": False,
                                 },
                                 {
@@ -915,15 +998,15 @@ is_exactly_condition_schema = {
                                 {
                                     "type": "object",
                                     "properties": {
-                                        "type": {"const": "object"},
                                         "properties": {
                                             "type": "object",
                                             "additionalProperties": {"type": "object", "maxProperties": 0},
                                         },
-                                        "required": {"type": "array", "items": {"type": "string"}},
+                                        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+                                        "type": {"const": "object"},
                                         "unevaluatedProperties": {"const": False},
                                     },
-                                    "required": ["type", "properties", "required", "unevaluatedProperties"],
+                                    "required": ["properties", "required", "type", "unevaluatedProperties"],
                                     "additionalProperties": False,
                                 },
                                 {
@@ -933,6 +1016,8 @@ is_exactly_condition_schema = {
                                     "additionalProperties": False,
                                 },
                             ],
+                            "minItems": 5,
+                            "maxItems": 5,
                             "items": False,
                         }
                     },
@@ -940,75 +1025,97 @@ is_exactly_condition_schema = {
                     "additionalProperties": False,
                 }
             },
+            "minProperties": 1,
+            "maxProperties": 1,
             "additionalProperties": False,
         },
-        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
+        "required": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": FIELD_NAME_PATTERN,
+            },
+            "minItems": 1,
+            "maxItems": 1,
+        },
     },
     "required": ["properties", "required"],
     "additionalProperties": False,
 }
 
-is_contained_by_condition_schema = {
+is_exactly_condition_ui_schema = {
     "type": "object",
-    "title": "Is Contained By condition schema for EventType Builder",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_EXACTLY"},
+        "value": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]},
+    },
+    "required": ["field", "id", "operator", "value"],
+    "additionalProperties": False,
+}
+
+
+# Is Contained By condition
+
+is_contained_by_condition_json_schema = {
+    "type": "object",
     "properties": {
         "properties": {
             "type": "object",
-            "minProperties": 1,
-            "maxProperties": 1,
             "patternProperties": {
-                ".*": {
+                FIELD_NAME_PATTERN: {
                     "type": "object",
                     "properties": {
                         "anyOf": {
                             "type": "array",
-                            "minItems": 3,
-                            "maxItems": 3,
                             "prefixItems": [
                                 {
                                     "type": "object",
                                     "properties": {
-                                        "type": {"const": "array"},
-                                        "minItems": {"const": 1},
                                         "items": {
                                             "type": "object",
                                             "properties": {
-                                                "enum": {"type": "array", "items": {"type": "string"}}
+                                                "enum": {"type": "array", "items": {"type": "string"}, "minItems": 1}
                                             },
                                             "required": ["enum"],
                                             "additionalProperties": False,
                                         },
+                                        "minItems": {"const": 1},
+                                        "type": {"const": "array"},
                                     },
-                                    "required": ["type", "minItems", "items"],
+                                    "required": ["items", "minItems", "type"],
                                     "additionalProperties": False,
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
-                                        "type": {"const": "object"},
                                         "minProperties": {"const": 1},
                                         "propertyNames": {
                                             "type": "object",
                                             "properties": {
-                                                "enum": {"type": "array", "items": {"type": "string"}}
+                                                "enum": {"type": "array", "items": {"type": "string"}, "minItems": 1}
                                             },
                                             "required": ["enum"],
                                             "additionalProperties": False,
                                         },
+                                        "type": {"const": "object"},
                                     },
-                                    "required": ["type", "minProperties", "propertyNames"],
+                                    "required": ["minProperties", "propertyNames", "type"],
                                     "additionalProperties": False,
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
+                                        "enum": {"type": "array", "items": {"type": "string"}, "minItems": 1},
                                         "type": {"const": "string"},
-                                        "enum": {"type": "array", "items": {"type": "string"}},
                                     },
-                                    "required": ["type", "enum"],
+                                    "required": ["enum", "type"],
                                     "additionalProperties": False,
                                 },
                             ],
+                            "minItems": 3,
+                            "maxItems": 3,
                             "items": False,
                         }
                     },
@@ -1016,46 +1123,64 @@ is_contained_by_condition_schema = {
                     "additionalProperties": False,
                 }
             },
+            "minProperties": 1,
+            "maxProperties": 1,
             "additionalProperties": False,
         },
-        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
+        "required": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": FIELD_NAME_PATTERN,
+            },
+            "minItems": 1,
+            "maxItems": 1,
+        },
     },
     "required": ["properties", "required"],
     "additionalProperties": False,
 }
 
-is_not_contained_by_condition_schema = {
+is_contained_by_condition_ui_schema = {
     "type": "object",
-    "title": "Is Not Contained By condition schema for EventType Builder",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_CONTAINED_BY"},
+        "value": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    },
+    "required": ["field", "id", "operator", "value"],
+    "additionalProperties": False,
+}
+
+
+# Is Not Contained By condition
+
+is_not_contained_by_condition_json_schema = {
+    "type": "object",
     "properties": {
         "properties": {
             "type": "object",
-            "minProperties": 1,
-            "maxProperties": 1,
             "patternProperties": {
-                ".*": {
+                FIELD_NAME_PATTERN: {
                     "type": "object",
                     "properties": {
                         "anyOf": {
                             "type": "array",
-                            "minItems": 3,
-                            "maxItems": 3,
                             "prefixItems": [
                                 {
                                     "type": "object",
                                     "properties": {
                                         "allOf": {
                                             "type": "array",
-                                            "minItems": 2,
-                                            "maxItems": 2,
                                             "prefixItems": [
                                                 {
                                                     "type": "object",
                                                     "properties": {
-                                                        "type": {"const": "array"},
                                                         "minItems": {"const": 1},
+                                                        "type": {"const": "array"},
                                                     },
-                                                    "required": ["type", "minItems"],
+                                                    "required": ["minItems", "type"],
                                                     "additionalProperties": False,
                                                 },
                                                 {
@@ -1064,20 +1189,21 @@ is_not_contained_by_condition_schema = {
                                                         "not": {
                                                             "type": "object",
                                                             "properties": {
-                                                                "type": {"const": "array"},
                                                                 "items": {
                                                                     "type": "object",
                                                                     "properties": {
                                                                         "enum": {
                                                                             "type": "array",
-                                                                            "items": {"type": "string"}
+                                                                            "items": {"type": "string"},
+                                                                            "minItems": 1,
                                                                         }
                                                                     },
                                                                     "required": ["enum"],
                                                                     "additionalProperties": False,
                                                                 },
+                                                                "type": {"const": "array"},
                                                             },
-                                                            "required": ["type", "items"],
+                                                            "required": ["items", "type"],
                                                             "additionalProperties": False,
                                                         }
                                                     },
@@ -1085,6 +1211,8 @@ is_not_contained_by_condition_schema = {
                                                     "additionalProperties": False,
                                                 },
                                             ],
+                                            "minItems": 2,
+                                            "maxItems": 2,
                                             "items": False,
                                         }
                                     },
@@ -1096,16 +1224,14 @@ is_not_contained_by_condition_schema = {
                                     "properties": {
                                         "allOf": {
                                             "type": "array",
-                                            "minItems": 2,
-                                            "maxItems": 2,
                                             "prefixItems": [
                                                 {
                                                     "type": "object",
                                                     "properties": {
-                                                        "type": {"const": "object"},
                                                         "minProperties": {"const": 1},
+                                                        "type": {"const": "object"},
                                                     },
-                                                    "required": ["type", "minProperties"],
+                                                    "required": ["minProperties", "type"],
                                                     "additionalProperties": False,
                                                 },
                                                 {
@@ -1114,20 +1240,21 @@ is_not_contained_by_condition_schema = {
                                                         "not": {
                                                             "type": "object",
                                                             "properties": {
-                                                                "type": {"const": "object"},
                                                                 "propertyNames": {
                                                                     "type": "object",
                                                                     "properties": {
                                                                         "enum": {
                                                                             "type": "array",
-                                                                            "items": {"type": "string"}
+                                                                            "items": {"type": "string"},
+                                                                            "minItems": 1,
                                                                         }
                                                                     },
                                                                     "required": ["enum"],
                                                                     "additionalProperties": False,
                                                                 },
+                                                                "type": {"const": "object"},
                                                             },
-                                                            "required": ["type", "propertyNames"],
+                                                            "required": ["propertyNames", "type"],
                                                             "additionalProperties": False,
                                                         }
                                                     },
@@ -1135,6 +1262,8 @@ is_not_contained_by_condition_schema = {
                                                     "additionalProperties": False,
                                                 },
                                             ],
+                                            "minItems": 2,
+                                            "maxItems": 2,
                                             "items": False,
                                         }
                                     },
@@ -1144,20 +1273,22 @@ is_not_contained_by_condition_schema = {
                                 {
                                     "type": "object",
                                     "properties": {
-                                        "type": {"const": "string"},
                                         "not": {
                                             "type": "object",
                                             "properties": {
-                                                "enum": {"type": "array", "items": {"type": "string"}}
+                                                "enum": {"type": "array", "items": {"type": "string"}, "minItems": 1}
                                             },
                                             "required": ["enum"],
                                             "additionalProperties": False,
                                         },
+                                        "type": {"const": "string"},
                                     },
-                                    "required": ["type", "not"],
+                                    "required": ["not", "type"],
                                     "additionalProperties": False,
                                 },
                             ],
+                            "minItems": 3,
+                            "maxItems": 3,
                             "items": False,
                         }
                     },
@@ -1165,68 +1296,150 @@ is_not_contained_by_condition_schema = {
                     "additionalProperties": False,
                 }
             },
+            "minProperties": 1,
+            "maxProperties": 1,
             "additionalProperties": False,
         },
-        "required": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1},
+        "required": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": FIELD_NAME_PATTERN,
+            },
+            "minItems": 1,
+            "maxItems": 1,
+        },
     },
     "required": ["properties", "required"],
     "additionalProperties": False,
 }
 
-ui_schema = {
-    "additionalProperties": False,
+is_not_contained_by_condition_ui_schema = {
     "type": "object",
-    "title": "UI schema for EventTypeV2 Builder",
+    "properties": {
+        "field": {"type": "string", "pattern": FIELD_NAME_PATTERN},
+        "id": {"type": "string", "pattern": "^condition-.+$"},
+        "operator": {"const": "IS_NOT_CONTAINED_BY"},
+        "value": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    },
+    "required": ["field", "id", "operator", "value"],
+    "additionalProperties": False,
+}
+
+
+# Section
+
+section_ui_schema_column_schema = {
+    "type": "array",
+    "items": {
+        "anyOf": [
+            {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "pattern": HEADER_ID_PATTERN},
+                    "type": {"const": "header"},
+                },
+                "required": ["name", "type"],
+                "additionalProperties": False,
+            },
+            {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "pattern": FIELD_ID_PATTERN},
+                    "type": {"const": "field"},
+                },
+                "required": ["name", "type"],
+                "additionalProperties": False,
+            },
+        ]
+    },
+    "uniqueItems": True,
+}
+
+section_ui_schema = {
+    "type": "object",
+    "title": "Section UI schema",
+    "properties": {
+        "columns": {"enum": [1, 2]},
+        "conditions": {
+            "type": "array",
+            "items": {
+                "oneOf": [
+                    contains_condition_ui_schema,
+                    is_empty_condition_ui_schema,
+                    is_not_empty_condition_ui_schema,
+                    is_exactly_condition_ui_schema,
+                    is_contained_by_condition_ui_schema,
+                    is_not_contained_by_condition_ui_schema,
+                ],
+            },
+        },
+        "isActive": {"type": "boolean"},
+        "label": {"type": "string"},
+        "leftColumn": section_ui_schema_column_schema,
+        "rightColumn": section_ui_schema_column_schema,
+    },
+    "required": ["columns", "isActive", "leftColumn", "rightColumn"],
+    "additionalProperties": False,
+}
+
+
+# UI
+
+ui_schema = {
+    "type": "object",
+    "title": "UI schema",
     "properties": {
         "fields": {
             "type": "object",
-            "additionalProperties": False,
             "patternProperties": {
-                ".*": {
-                    "oneOf": [
-                        {"$ref": "#/$defs/uiTextSchema"},
-                        {"$ref": "#/$defs/uiNumericSchema"},
-                        {"$ref": "#/$defs/uiBooleanSchema"},
-                        {"$ref": "#/$defs/uiAttachmentSchema"},
-                        {"$ref": "#/$defs/uiCollectionSchema"},
-                        {"$ref": "#/$defs/uiDateTimeSchema"},
-                        {"$ref": "#/$defs/uiLocationSchema"},
-                        {"$ref": "#/$defs/uiChoiceSchema"},
+                FIELD_ID_PATTERN: {
+                    "anyOf": [
+                        {"$ref": "#/$defs/attachmentFieldUISchema"},
+                        {"$ref": "#/$defs/booleanFieldUISchema"},
+                        {"$ref": "#/$defs/choiceListFieldUISchema"},
+                        {"$ref": "#/$defs/collectionFieldUISchema"},
+                        {"$ref": "#/$defs/dateTimeFieldUISchema"},
+                        {"$ref": "#/$defs/locationFieldUISchema"},
+                        {"$ref": "#/$defs/numericFieldUISchema"},
+                        {"$ref": "#/$defs/textFieldUISchema"},
                     ]
                 }
             },
+            "additionalProperties": False,
         },
         "headers": {
             "type": "object",
-            "additionalProperties": False,
             "patternProperties": {
-                "^header-.*": {"$ref": "#/$defs/uiHeadersSchema"},
+                HEADER_ID_PATTERN: {"$ref": "#/$defs/headerUISchema"},
             },
+            "additionalProperties": False,
         },
         "order": {
             "type": "array",
-            "items": {"type": "string", "pattern": "^section-.*"},
+            "items": {"type": "string", "pattern": SECTION_ID_PATTERN},
             "uniqueItems": True,
         },
         "sections": {
             "type": "object",
-            "additionalProperties": False,
             "patternProperties": {
-                "^section-.*": {"$ref": "#/$defs/uiSectionsSchema"},
+                SECTION_ID_PATTERN: {"$ref": "#/$defs/sectionUISchema"},
             },
+            "additionalProperties": False,
         },
     },
     "required": ["fields", "headers", "order", "sections"],
+    "additionalProperties": False,
 }
 
 
+# JSON
+
 json_field_schema = {
-    "additionalProperties": False,
     "type": "object",
-    "title": "Json schema for EventTypeV2 Builder",
+    "title": "JSON schema",
     "properties": {
         "$schema": {"const": "https://json-schema.org/draft/2020-12/schema"},
-        "additionalProperties": {"const": False},
         "allOf": {
             "type": "array",
             "items": {
@@ -1239,12 +1452,12 @@ json_field_schema = {
                                 "type": "array",
                                 "items": {
                                     "anyOf": [
-                                        {"$ref": "#/$defs/containsCondition"},
-                                        {"$ref": "#/$defs/isExactlyCondition"},
-                                        {"$ref": "#/$defs/isEmptyCondition"},
-                                        {"$ref": "#/$defs/isNotEmptyCondition"},
-                                        {"$ref": "#/$defs/isContainedByCondition"},
-                                        {"$ref": "#/$defs/isNotContainedByCondition"},
+                                        contains_condition_json_schema,
+                                        is_empty_condition_json_schema,
+                                        is_not_empty_condition_json_schema,
+                                        is_exactly_condition_json_schema,
+                                        is_contained_by_condition_json_schema,
+                                        is_not_contained_by_condition_json_schema,
                                     ]
                                 },
                             }
@@ -1257,31 +1470,36 @@ json_field_schema = {
                         "properties": {
                             "properties": {
                                 "type": "object",
-                                "additionalProperties": False,
                                 "patternProperties": {
-                                    ".*": {
+                                    FIELD_NAME_PATTERN: {
                                         "anyOf": [
-                                            {"$ref": "#/$defs/textField"},
-                                            {"$ref": "#/$defs/numericField"},
-                                            {"$ref": "#/$defs/booleanField"},
-                                            {"$ref": "#/$defs/attachmentField"},
-                                            {"$ref": "#/$defs/collectionField"},
-                                            {"$ref": "#/$defs/dateTimeField"},
-                                            {"$ref": "#/$defs/locationField"},
-                                            {"$ref": "#/$defs/choiceField"},
-                                            {"$ref": "#/$defs/choiceListField"},
-                                            {"$ref": "#/$defs/renderedChoiceField"},
-                                            {"$ref": "#/$defs/renderedChoiceListField"},
+                                            {"$ref": "#/$defs/attachmentFieldJSONSchema"},
+                                            {"$ref": "#/$defs/booleanFieldJSONSchema"},
+                                            {"$ref": "#/$defs/collectionFieldJSONSchema"},
+                                            {"$ref": "#/$defs/dateTimeFieldJSONSchema"},
+                                            {"$ref": "#/$defs/locationFieldJSONSchema"},
+                                            {"$ref": "#/$defs/multipleChoiceListFieldJSONSchema"},
+                                            {"$ref": "#/$defs/numericFieldJSONSchema"},
+                                            {"$ref": "#/$defs/singleChoiceListFieldJSONSchema"},
+                                            {"$ref": "#/$defs/textFieldJSONSchema"},
                                         ]
                                     }
                                 },
+                                "additionalProperties": False,
                             },
-                            "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": True},
+                            "required": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "pattern": FIELD_NAME_PATTERN,
+                                },
+                                "uniqueItems": True,
+                            },
                         },
                         "required": ["properties", "required"],
                         "additionalProperties": False,
                     },
-                    "x-section": {"type": "string"},
+                    "x-section": {"type": "string", "pattern": SECTION_ID_PATTERN},
                 },
                 "required": ["if", "then", "x-section"],
                 "additionalProperties": False,
@@ -1289,43 +1507,46 @@ json_field_schema = {
         },
         "properties": {
             "type": "object",
-            "additionalProperties": False,
             "patternProperties": {
-                ".*": {
+                FIELD_NAME_PATTERN: {
                     "anyOf": [
-                        {"$ref": "#/$defs/textField"},
-                        {"$ref": "#/$defs/numericField"},
-                        {"$ref": "#/$defs/booleanField"},
-                        {"$ref": "#/$defs/attachmentField"},
-                        {"$ref": "#/$defs/collectionField"},
-                        {"$ref": "#/$defs/dateTimeField"},
-                        {"$ref": "#/$defs/locationField"},
-                        {"$ref": "#/$defs/choiceField"},
-                        {"$ref": "#/$defs/choiceListField"},
-                        {"$ref": "#/$defs/renderedChoiceField"},
-                        {"$ref": "#/$defs/renderedChoiceListField"},
+                        {"$ref": "#/$defs/attachmentFieldJSONSchema"},
+                        {"$ref": "#/$defs/booleanFieldJSONSchema"},
+                        {"$ref": "#/$defs/collectionFieldJSONSchema"},
+                        {"$ref": "#/$defs/dateTimeFieldJSONSchema"},
+                        {"$ref": "#/$defs/locationFieldJSONSchema"},
+                        {"$ref": "#/$defs/multipleChoiceListFieldJSONSchema"},
+                        {"$ref": "#/$defs/numericFieldJSONSchema"},
+                        {"$ref": "#/$defs/singleChoiceListFieldJSONSchema"},
+                        {"$ref": "#/$defs/textFieldJSONSchema"},
                     ]
                 }
             },
+            "additionalProperties": False,
         },
-        "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": True},
+        "required": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": FIELD_NAME_PATTERN,
+            },
+            "uniqueItems": True,
+        },
         "type": {"const": "object"},
         "unevaluatedProperties": {"const": False},
     },
-    "required": ["$schema", "properties", "required", "type"],
-    "oneOf": [
-        {"required": ["additionalProperties"]},
-        {"required": ["unevaluatedProperties"]},
-    ],
+    "required": ["$schema", "properties", "required", "type", "unevaluatedProperties"],
+    "additionalProperties": False,
 }
 
+
+# Main
 
 main_event_type_schema = {
     "$id": "https://earthranger.com/event_type_schema.json",
     "$schema": "http://json-schema.org/draft/2020-12/schema",
-    "additionalProperties": False,
     "type": "object",
-    "title": "Event Type V2 schema for EventType Builder",
+    "title": "Event Type V2 schema",
     "properties": {
         "json": json_field_schema,
         "ui": ui_schema,
@@ -1336,32 +1557,27 @@ main_event_type_schema = {
     },
     "required": ["json", "ui"],
     "$defs": {
-        "textField": text_field_schema,
-        "numericField": numeric_field_schema,
-        "booleanField": boolean_field_schema,
-        "attachmentField": attachment_field_schema,
-        "collectionField": collection_field_schema,
-        "dateTimeField": date_time_field_schema,
-        "locationField": location_field_schema,
-        "choiceField": choice_field_schema,
-        "choiceListField": choice_list_field_schema,
-        "renderedChoiceField": rendered_choice_field_schema,
-        "renderedChoiceListField": rendered_choice_list_field_schema,
-        "uiTextSchema": ui_text_schema,
-        "uiAttachmentSchema": ui_attachment_schema,
-        "uiCollectionSchema": ui_collection_schema,
-        "uiChoiceSchema": ui_choice_schema,
-        "uiDateTimeSchema": ui_date_time_schema,
-        "uiLocationSchema": ui_location_schema,
-        "uiNumericSchema": ui_numeric_schema,
-        "uiBooleanSchema": ui_boolean_schema,
-        "uiHeadersSchema": ui_headers_schema,
-        "uiSectionsSchema": ui_sections_schema,
-        "containsCondition": contains_condition_schema,
-        "isExactlyCondition": is_exactly_condition_schema,
-        "isEmptyCondition": is_empty_condition_schema,
-        "isNotEmptyCondition": is_not_empty_condition_schema,
-        "isContainedByCondition": is_contained_by_condition_schema,
-        "isNotContainedByCondition": is_not_contained_by_condition_schema,
+        # Form element JSON subschemas
+        "attachmentFieldJSONSchema": attachment_field_json_schema,
+        "booleanFieldJSONSchema": boolean_field_json_schema,
+        "collectionFieldJSONSchema": collection_field_json_schema,
+        "dateTimeFieldJSONSchema": date_time_field_json_schema,
+        "locationFieldJSONSchema": location_field_json_schema,
+        "multipleChoiceListFieldJSONSchema": multiple_choice_list_field_json_schema,
+        "numericFieldJSONSchema": numeric_field_json_schema,
+        "singleChoiceListFieldJSONSchema": single_choice_list_field_json_schema,
+        "textFieldJSONSchema": text_field_json_schema,
+        # Form element UI subschemas
+        "attachmentFieldUISchema": attachment_field_ui_schema,
+        "booleanFieldUISchema": boolean_field_ui_schema,
+        "choiceListFieldUISchema": choice_list_field_ui_schema,
+        "collectionFieldUISchema": collection_field_ui_schema,
+        "dateTimeFieldUISchema": date_time_field_ui_schema,
+        "headerUISchema": header_ui_schema,
+        "locationFieldUISchema": location_field_ui_schema,
+        "numericFieldUISchema": numeric_field_ui_schema,
+        "sectionUISchema": section_ui_schema,
+        "textFieldUISchema": text_field_ui_schema,
     },
+    "additionalProperties": False,
 }

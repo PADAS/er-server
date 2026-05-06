@@ -1,12 +1,10 @@
+from __future__ import annotations
+
 import logging
 
 from django_filters import rest_framework as filters
-from drf_spectacular.utils import (
-    OpenApiParameter,
-    OpenApiTypes,
-    extend_schema,
-    extend_schema_view,
-)
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 
 from django.db import models
 from django.urls import reverse
@@ -80,7 +78,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         )
         return queryset
 
-    def get_queryset(self) -> models.QuerySet:
+    def get_queryset(self) -> models.QuerySet:  # type: ignore[override]
         """Normal queryset for viewset"""
         return self.get_base_queryset().filter(version=EventType.VersionChoices.VERSION_2)
 
@@ -88,9 +86,9 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         """Queryset used for our dynamic schemas"""
         return self.get_base_queryset()
 
-    def get_object(self) -> EventType:
+    def get_object(self) -> EventType:  # type: ignore[override]
         # Temporary implementation to allow to retrieve by uuid.
-        if is_uuid(self.kwargs.get("eventtype_value")):
+        if is_uuid(self.kwargs.get("eventtype_value", "")):
             self.lookup_field = "id"
             obj = super().get_object()
             self.lookup_field = "value"
@@ -247,23 +245,24 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         Response:
         - data: array of migration results, one per event type
         """
-        serializer = MigrationRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        request_serializer = self.get_serializer(data=request.data)
+        request_serializer.is_valid(raise_exception=True)
 
-        dry_run = serializer.validated_data["dry_run"]
-        event_types = serializer.validated_data["event_types"]
-        logger = MigrationLogger.from_request(request, dry_run=dry_run)
+        dry_run = request_serializer.validated_data["dry_run"]
+        event_types = request_serializer.validated_data["event_types"]
+        migration_logger = MigrationLogger.from_request(request, dry_run=dry_run)
 
         migration_service = MigrationService(
             request=request,
             dry_run=dry_run,
-            logger=logger,
+            queryset=self.get_base_queryset(),
+            logger=migration_logger,
         )
 
         try:
             results = migration_service.migrate(event_types)
         except Exception as exc:
-            logger.exception(
+            migration_logger.exception(
                 exc,
                 ErrorCode.EXCEPTION,
                 f"Unhandled exception in migration batch: {exc}",
@@ -272,5 +271,5 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
 
         response_data = MigrationResultSerializer(results, many=True).data
         response = Response(response_data, status=status.HTTP_200_OK)
-        response["X-Migration-Request-Id"] = logger.context.migration_request_id
+        response["X-Migration-Request-Id"] = migration_logger.context.migration_request_id
         return response

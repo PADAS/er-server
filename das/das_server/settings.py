@@ -38,6 +38,7 @@ SECRET_KEY = "j(h&tc(u_#z-tf)u(9+3n39gmk92#6-v-he_p0ae+1rs*+2j@b"
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 ENABLE_SILK = env.bool("ENABLE_SILK", False)
+MEMORY_PROFILING_ENABLED = env.bool("MEMORY_PROFILING_ENABLED", False)
 DEV = False
 
 # Application definition
@@ -304,6 +305,10 @@ CSRF_TRUSTED_ORIGINS = []
 # Set to False by default, but can be enabled via env var if cookie issues persist
 CSRF_USE_SESSIONS = env.bool("CSRF_USE_SESSIONS", False)
 
+# tile.openstreetmap.org rejects requests with no Referer (403). SecurityMiddleware
+# sends Referrer-Policy only when the response does not already define one.
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
 AUTH0_CUSTOM_DOMAIN = env.str("AUTH0_CUSTOM_DOMAIN", "auth-dev.pamdas.org")
 AUTH0_TENANT_DOMAIN = env.str("AUTH0_TENANT_DOMAIN", "")
 AUTH0_RESOURCE_SERVER = env.str("AUTH0_RESOURCE_SERVER", "https://pamdas.org/api")
@@ -315,6 +320,10 @@ AUTH0_CLIENT_SECRET_FOR_MANAGEMENT_API = env.str("AUTH0_CLIENT_SECRET_FOR_MANAGE
 # Auth0 settings for admin login OAuth flow
 AUTH0_CLIENT_ID_FOR_DJANGO_ADMIN = env.str("AUTH0_CLIENT_ID_FOR_DJANGO_ADMIN", "")
 AUTH0_CLIENT_SECRET_FOR_DJANGO_ADMIN = env.str("AUTH0_CLIENT_SECRET_FOR_DJANGO_ADMIN", "")
+
+# Auth0 settings for Account Linker (public PKCE client, no secret)
+AUTH0_CLIENT_ID_FOR_ACCOUNT_LINKER = env.str("AUTH0_CLIENT_ID_FOR_ACCOUNT_LINKER", "")
+ACCOUNT_LINKER_MAGIC_LINK_MAX_AGE_SECONDS = env.int("ACCOUNT_LINKER_MAGIC_LINK_MAX_AGE_SECONDS", 86400)
 
 # When require_idp=True (Auth0 enforced), allow these legacy DOT OAuth2 applications
 # (identified by OAuth2 application client_id) to continue using OAuth2 access tokens.
@@ -376,6 +385,13 @@ ASYNC_MODE = "eventlet"
 GEOS_LIBRARY_PATH = env.str("GEOS_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu/libgeos_c.so.1")
 GDAL_LIBRARY_PATH = env.str("GDAL_LIBRARY_PATH", "/usr/lib/libgdal.so")
 
+# Explicitly enable GDAL/OGR/OSR exceptions to suppress FutureWarning about
+# GDAL 4.0 changing the default behavior.
+from osgeo import gdal, ogr, osr  # noqa: E402
+
+gdal.UseExceptions()
+ogr.UseExceptions()
+osr.UseExceptions()
 
 RASTER_WORKDIR = "/tmp/raster"
 
@@ -437,6 +453,15 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600, "fanout_prefix": 
 
 # task:
 CELERY_TASK_TRACK_STARTED = True
+
+# Max observation UUIDs per post-save segment Celery message (create/update batches).
+OBSERVATION_SEGMENT_POST_SAVE_BATCH_SIZE = env.int("OBSERVATION_SEGMENT_POST_SAVE_BATCH_SIZE", 200)
+# Lag (seconds) at which a segment task increments observation_segment.backlog_threshold_breach.
+OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS = env.int("OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS", 300)
+# Daily reconciliation looks back this many hours per tenant to verify segment coverage.
+# Wider than 24h gives overlap when the daily run is delayed or skipped, so observations
+# don't fall between cracks.
+OBSERVATION_SEGMENT_RECONCILE_HOURS = env.int("OBSERVATION_SEGMENT_RECONCILE_HOURS", 30)
 
 DEFAULT_CACHE_ALIAS = "default"
 SHARED_CACHE_ALIAS = "shared"

@@ -256,9 +256,15 @@ So: **newer deployment wins** (previous gearset is fully closed); **older deploy
 - Updates `location` to the retrieval coordinates
 - Creates an Observation record at the retrieval location
 
+**Haul of a never-before-seen device (deploy-and-haul in one request):**
+A haul payload may legitimately introduce a device that has no prior `SubjectSource` — for example, when an extra device is discovered on a trawl during retrieval and reported for the first time alongside the haul event. In this case the service creates the `SubjectSource` atomically with:
+  - Lower bound: `device.last_deployed` from the payload (falling back to `recorded_at` if absent)
+  - Upper bound: `recorded_at` of the haul event
+This produces a meaningful deployment window for the newly-discovered device rather than defaulting the lower bound to the min timestamp.
+
 **Validation:**
-- Device must currently be deployed (SubjectSource must exist with active assigned_range)
-- Cannot haul a device that's already hauled
+- If the device already has a `SubjectSource`, it must currently be deployed; hauling an already-hauled device is rejected.
+- A device with no prior `SubjectSource` is permitted in a haul payload (see deploy-and-haul above).
 - Checked in serializer: `GearCreateSerializer.validate()`
 
 #### 6. Auto-Haul Behavior
@@ -367,7 +373,8 @@ POST /api/v1.0/gears/
         │   │   ├─> Set location = device location
         │   │   └─> Set assigned_range based on device_status:
         │   │       ├─> deployed: [recorded_at, datetime.max)
-        │   │       └─> hauled: [existing_lower, recorded_at)
+        │   │       ├─> hauled (existing SubjectSource): [existing_lower, recorded_at)
+        │   │       └─> hauled (new SubjectSource):     [last_deployed, recorded_at)
         │   │
         │   └─> Create Observation
         │       ├─> location = device location
@@ -603,6 +610,47 @@ If only ONE device from the trawl above is included in the haul notification, th
 
 **Note:** The auto-haul uses the `recorded_at` timestamp from the first hauled device in the request. This ensures all devices in the gearset have consistent haul timestamps.
 
+### Scenario 5: Haul Payload Adds a New Device
+
+A trawl gearset was originally created with one device. When the gear is hauled, the integration reports **two** devices — the original one plus a newly-discovered device that was never previously announced to the API. Both are marked `hauled` in the same payload.
+
+**Initial state:**
+- `SET_527E` exists with one deployed device `DEV_50F8` (`assigned_range` = `[2026-04-11T19:59:04Z, ∞)`).
+
+**Request:**
+```json
+{
+  "deployment_type": "trawl",
+  "manufacturer_name": "RMWHub",
+  "set_id": "527e5aed-36fe-4ea4-80d0-4b1153d274bb",
+  "devices_in_set": 2,
+  "devices": [
+    {
+      "device_id": "50f811ee-1728-47c5-aa7b-66641555ee0b",
+      "last_deployed": "2026-04-11T19:59:04Z",
+      "last_updated": "2026-04-17T16:54:17Z",
+      "device_status": "hauled",
+      "location": {"latitude": 44.6157302, "longitude": -67.50190767}
+    },
+    {
+      "device_id": "5b1ea16b-c8be-47f5-9ace-93109f422ed0",
+      "last_deployed": "2026-04-11T20:00:02Z",
+      "last_updated": "2026-04-17T16:54:17Z",
+      "device_status": "hauled",
+      "location": {"latitude": 44.61586943, "longitude": -67.5012982}
+    }
+  ]
+}
+```
+
+**Result:**
+- **SubjectSource for `DEV_50F8`:** `assigned_range` closed to `[2026-04-11T19:59:04Z, 2026-04-17T16:54:18Z)` (preserving the original lower bound).
+- **SubjectSource for `DEV_5B1E`:** **created** with `assigned_range` `[2026-04-11T20:00:02Z, 2026-04-17T16:54:18Z)` — the lower bound is taken from the payload's `last_deployed` so the device has a meaningful deployment window.
+- **Subject `SET_527E`:** `is_active` set to `False` (every `SubjectSource` is now hauled).
+- **Observations:** Two Observations are written — one per device in the payload — at the haul location.
+
+This avoids requiring clients to send a separate deploy payload for devices that are only discovered at retrieval time.
+
 ## Permission Requirements
 
 1. **Authentication**: User must be authenticated (`IsAuthenticated`)
@@ -648,7 +696,7 @@ If the device is already deployed on SET_B (newer) and a request is sent for SET
 
 The serializer validates and raises `ValidationError` for:
 - Missing required fields
-- Invalid state transitions (e.g., hauling a device that's not deployed)
+- Hauling a device whose existing `SubjectSource` is already closed (already hauled). Hauling a device with no prior `SubjectSource` is accepted and processed as deploy-and-haul in one step.
 - User permission violations
 - Missing SubjectGroup
 - Future dates for deployment/updated timestamps

@@ -1,13 +1,13 @@
 {
     "json": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "additionalProperties": false,
+        "unevaluatedProperties": false,
         "properties": {
             "a_collection": {
                 "deprecated": false,
                 "description": "The description",
                 "items": {
-                    "additionalProperties": false,
+                    "unevaluatedProperties": false,
                     "properties": {
                         "data": {
                             "default": "",

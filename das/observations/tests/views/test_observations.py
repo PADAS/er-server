@@ -300,6 +300,32 @@ class ObservationViewTestCase(BaseAPITest):
         self.assertIn("error", response.data)
         self.assertIn("Can only specify one of", response.data["error"])
 
+    def test_filter_observations_defaults_until_to_now(self):
+        """When no 'until' param is provided, observations up to now are returned."""
+        # The observation was created at self.observation_time (~now), so querying
+        # with since in the past and no explicit until should still find it.
+        filter_params = {"since": self.observation_time - timedelta(days=1)}
+        response = self.make_observations_filter_request(filter_params)
+
+        self.assertEqual(response.data.get("count"), 1)
+
+    def test_filter_observations_default_until_excludes_future(self):
+        """The default until=now() should exclude observations recorded in the future."""
+        future_observation_data = {
+            "recorded_at": self.observation_time + timedelta(days=1),
+            "location": Point(x=self.fixed_longitude, y=self.fixed_latitude),
+            "source": self.collar,
+            "additional": self.additional,
+        }
+        Observation.objects.create(**future_observation_data)
+
+        # Without explicit until, future observations should be excluded
+        filter_params = {"since": self.observation_time - timedelta(days=1)}
+        response = self.make_observations_filter_request(filter_params)
+
+        # Only the original observation (at ~now) should be returned, not the future one
+        self.assertEqual(response.data.get("count"), 1)
+
     def test_filter_observations_by_recorded_until(self):
         filter_params = {"until": self.observation_time + timedelta(days=1)}
         response = self.make_observations_filter_request(filter_params)

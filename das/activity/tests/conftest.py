@@ -89,7 +89,7 @@ def cat1_fire_v2_event_type(cat1_cat2_categories):
     schema = {
         "json": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "additionalProperties": False,
+            "unevaluatedProperties": False,
             "properties": {
                 "comments": {
                     "default": "",
@@ -103,18 +103,14 @@ def cat1_fire_v2_event_type(cat1_cat2_categories):
                     "description": "",
                     "title": "Status",
                     "type": "string",
-                    "anyOf": [
-                        {"$ref": "https://root.dev.pamdas.org/api/v2.0/schemas/choices.json?field=firerep_status"}
-                    ],
+                    "anyOf": [{"$ref": "/api/v2.0/schemas/choices.json?field=firerep_status"}],
                 },
                 "direction": {
                     "deprecated": False,
                     "description": "Where is the fire moving to?",
                     "title": "Direction",
                     "type": "string",
-                    "anyOf": [
-                        {"$ref": "https://root.dev.pamdas.org/api/v2.0/schemas/choices.json?field=firerep_direction"}
-                    ],
+                    "anyOf": [{"$ref": "/api/v2.0/schemas/choices.json?field=firerep_direction"}],
                 },
                 "cause": {
                     "deprecated": False,
@@ -124,9 +120,7 @@ def cat1_fire_v2_event_type(cat1_cat2_categories):
                     "uniqueItems": True,
                     "items": {
                         "type": "string",
-                        "anyOf": [
-                            {"$ref": "https://root.dev.pamdas.org/api/v2.0/schemas/choices.json?field=firerep_cause"}
-                        ],
+                        "anyOf": [{"$ref": "/api/v2.0/schemas/choices.json?field=firerep_cause"}],
                     },
                 },
                 "time_fire_went_off": {
@@ -139,7 +133,7 @@ def cat1_fire_v2_event_type(cat1_cat2_categories):
                 "spot_fires": {
                     "deprecated": False,
                     "items": {
-                        "additionalProperties": False,
+                        "unevaluatedProperties": False,
                         "properties": {
                             "spot_fire_location": {
                                 "deprecated": False,

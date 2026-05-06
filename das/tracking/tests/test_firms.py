@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import pytest
 import pytz
 
+from django.contrib.gis.geos import GEOSGeometry, Polygon
 from django.test import TestCase
 
 from tracking.models.firms import FirmsClient, FirmsPlugin
@@ -87,5 +88,25 @@ class TestFirmsPluginHelpers(TestCase):
         self.assertEqual(actual, expected)
 
 
-def test_polyunion(firms_polygons):
-    assert FirmsPlugin.union_geofilterfeatures(firms_polygons) is not None
+class TestUnionGeofilterFeatures:
+    def test_multiple_valid_geometries_returns_union(self, firms_polygons):
+        result = FirmsPlugin.union_geofilterfeatures(firms_polygons)
+        assert result is not None
+        assert result.valid
+
+    def test_single_geometry_returns_that_geometry(self):
+        poly = Polygon(((0, 0), (0, 1), (1, 1), (1, 0), (0, 0)))
+        result = FirmsPlugin.union_geofilterfeatures([(poly, "Sector A")])
+        assert result.equals(poly)
+
+    def test_invalid_geometry_is_repaired_with_buffer(self):
+        # Self-intersecting (bowtie) polygon — .valid is False
+        bowtie = GEOSGeometry("POLYGON((0 0, 2 2, 2 0, 0 2, 0 0))")
+        assert not bowtie.valid
+        result = FirmsPlugin.union_geofilterfeatures([(bowtie, "Bad Sector")])
+        assert result is not None
+        assert result.valid
+
+    def test_empty_input_raises_stop_iteration(self):
+        with pytest.raises(StopIteration):
+            FirmsPlugin.union_geofilterfeatures([])

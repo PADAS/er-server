@@ -52,6 +52,10 @@ TEMPLATE_DEBUG = env.bool("ENABLE_DEBUG", False)
 DEV = env.bool("ENABLE_DEV", False)
 ENABLE_SILK = env.bool("ENABLE_SILK", False)
 
+# Kill switch for observation segment signal handlers (post_save → Celery, pre_delete).
+# Set to False during incidents to disable segment maintenance without a code deploy.
+OBSERVATION_SEGMENT_SIGNALS_ENABLED = env.bool("OBSERVATION_SEGMENT_SIGNALS_ENABLED", True)
+
 SHOW_TRACK_DAYS = env.int("SHOW_TRACK_DAYS", 14)
 DEFAULT_EVENT_FILTER_FROM_DAYS = env.int("DEFAULT_EVENT_FILTER_FROM_DAYS", -1)
 DEFAULT_PATROL_FILTER_FROM_DAYS = env.int("DEFAULT_PATROL_FILTER_FROM_DAYS", -1)

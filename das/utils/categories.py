@@ -157,7 +157,9 @@ class EventCategoryRelatedPermissionSetActions:
         Permission.objects.filter(id__in=permissions_ids_to_delete).delete()
         related_permissions_set.delete()
 
-    def update_permission_sets_and_permissions_related(self, new_value: str, display: str):
+    def update_permission_sets_and_permissions_related(
+        self, new_value: str, display: str, update_permissions: bool = True
+    ) -> None:
         permission_set = self._get_permission_set_by_name(name=self.event_category.auto_permissionset_name)
         geo_permission_set = self._get_permission_set_by_name(
             name=self.event_category.auto_geographic_permission_set_name
@@ -169,6 +171,7 @@ class EventCategoryRelatedPermissionSetActions:
                 actions=ACTIONS,
                 new_value=new_value,
                 display=display,
+                update_permissions=update_permissions,
             )
             self._update_permission_set_and_permissions(
                 permission_set=geo_permission_set,
@@ -176,6 +179,7 @@ class EventCategoryRelatedPermissionSetActions:
                 new_value=new_value,
                 display=display,
                 is_geographic=True,
+                update_permissions=update_permissions,
             )
 
     def _get_permission_set_by_name(self, name: str) -> Optional[PermissionSet]:
@@ -191,36 +195,38 @@ class EventCategoryRelatedPermissionSetActions:
         new_value: str,
         display: str,
         is_geographic: bool = False,
+        update_permissions: bool = True,
     ) -> None:
 
         if permission_set:
-            tenant_settings = get_tenant_settings()
+            if update_permissions:
+                tenant_settings = get_tenant_settings()
 
-            for action in actions:
-                codename = make_eventcategory_permission_codename_with_tenant(
-                    eventcategory_value=self.event_category.value,
-                    action=action,
-                    tenant_id=tenant_settings.id,
-                    is_geographic=is_geographic,
-                )
-                new_codename = make_eventcategory_permission_codename_with_tenant(
-                    eventcategory_value=new_value,
-                    action=action,
-                    tenant_id=tenant_settings.id,
-                    is_geographic=is_geographic,
-                )
+                for action in actions:
+                    codename = make_eventcategory_permission_codename_with_tenant(
+                        eventcategory_value=self.event_category.value,
+                        action=action,
+                        tenant_id=tenant_settings.id,
+                        is_geographic=is_geographic,
+                    )
+                    new_codename = make_eventcategory_permission_codename_with_tenant(
+                        eventcategory_value=new_value,
+                        action=action,
+                        tenant_id=tenant_settings.id,
+                        is_geographic=is_geographic,
+                    )
 
-                name = f"Can {action} {new_value} events"
-                if is_geographic:
-                    name = f"{name} in a certain distance"
+                    name = f"Can {action} {new_value} events"
+                    if is_geographic:
+                        name = f"{name} in a certain distance"
 
-                try:
-                    permission = permission_set.permissions.get(codename=codename)
-                    permission.name = name
-                    permission.codename = new_codename
-                    permission.save(update_fields=["codename", "name"])
-                except Permission.DoesNotExist:
-                    pass
+                    try:
+                        permission = permission_set.permissions.get(codename=codename)
+                        permission.name = name
+                        permission.codename = new_codename
+                        permission.save(update_fields=["codename", "name"])
+                    except Permission.DoesNotExist:
+                        pass
 
             if display and self.event_category.display != display:
                 if is_geographic:

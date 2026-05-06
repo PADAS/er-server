@@ -1,39 +1,112 @@
+from __future__ import annotations
+
+import csv
+import io
 import json
 import logging
 import random
 import tempfile
+import time
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from typing import Any
+from uuid import UUID
 
 import xmltodict
 from celery_once import QueueOnce
+from django_multitenant.utils import get_current_tenant
 from google.api_core import exceptions
 from google.cloud import storage
 
+from django.conf import settings as django_settings
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
-from django.db.models import F
+from django.db.models import F, Max, Min
 from django.utils.translation import gettext as _
 
 import utils.db.task_helpers as utils_db_task_helpers
+import utils.stats as stats
 from das_server import celery, pubsub
+from observations.csv_import_jobs import set_job_status
 from observations.materialized_views import patrols_view
 from observations.message_adapters import SendError, _handle_outbox_message
 from observations.models import (
+    DEFAULT_ASSIGNED_RANGE,
     Announcement,
     GPXTrackFile,
     Observation,
+    ObservationSegment,
     Source,
     SourceProvider,
     Subject,
+    SubjectSource,
     SubjectStatus,
 )
 from observations.serializers import ObservationSerializer
 from observations.utils import dateparse
-from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask
+from utils.cache import bump_observation_segment_tile_version
+from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask, TenantTask
+
+# NOTE: ``observations.signals`` imports from this module at load time, so anything we need
+# from there has to be imported inside the function bodies below — top-level imports here
+# would deadlock the module load.
 
 logger = logging.getLogger(__name__)
 
 MAX_MAINTAIN_SUBJECTSTATUS_DELAY_SECONDS = 600
+
+
+def _emit_segment_task_metrics(
+    metric_prefix: str,
+    domain: str | None,
+    batch_size: int,
+    oldest_recorded_at: datetime | None,
+    duration_ms: float,
+) -> None:
+    """Emit lag/throughput metrics for a segment maintenance task.
+
+    - ``observation_segment.<prefix>.batch_size``: per-task batch cardinality.
+    - ``observation_segment.<prefix>.lag_seconds``: now - oldest obs.recorded_at; proxy for end-to-end
+      freshness (observation insert → segment row).
+    - ``observation_segment.<prefix>.duration_ms``: wall-clock processing time.
+    - ``observation_segment.<prefix>.backlog_threshold_breach``: incremented when lag exceeds
+      ``OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS`` so log-based alerts can fire.
+    """
+    tags = [f"domain:{domain}"] if domain else []
+    stats.histogram(f"observation_segment.{metric_prefix}.batch_size", batch_size, tags=tags)
+    stats.histogram(f"observation_segment.{metric_prefix}.duration_ms", duration_ms, tags=tags)
+
+    if oldest_recorded_at is None:
+        return
+    lag_seconds = (datetime.now(tz=timezone.utc) - oldest_recorded_at).total_seconds()
+    stats.histogram(f"observation_segment.{metric_prefix}.lag_seconds", lag_seconds, tags=tags)
+    threshold = int(getattr(django_settings, "OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS", 300))
+    if lag_seconds > threshold:
+        stats.increment(f"observation_segment.{metric_prefix}.backlog_threshold_breach", tags=tags)
+        logger.warning(
+            "observation_segment.%s lag %.1fs exceeds threshold %ds (batch=%d, domain=%s)",
+            metric_prefix,
+            lag_seconds,
+            threshold,
+            batch_size,
+            domain,
+        )
+
+
+def _coerce_task_datetime(value: Any) -> datetime | None:
+    """Parse Celery-serialized datetimes; return None if value is missing or unparsable."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        from django.utils.dateparse import parse_datetime
+
+        parsed = parse_datetime(value)
+        if parsed is None:
+            logger.warning("Could not parse datetime string for segment recompute task: %r", value)
+        return parsed
+    return None
 
 
 @celery.app.task(
@@ -41,33 +114,324 @@ MAX_MAINTAIN_SUBJECTSTATUS_DELAY_SECONDS = 600
     once={"graceful": True},
 )
 def recompute_observation_segments_task(source_id=None, lower=None, upper=None, observation_ids=None, **kwargs):
-    """
-    Single async entry point for recomputing ObservationSegments.
+    """Single async entry point for recomputing ObservationSegments.
 
     Invoke with either:
-      - source_id, lower, upper: recompute segments for all observations of that source in [lower, upper]
-      - observation_ids: recompute segments for those observation IDs
+      - source_id, lower, upper: recompute segments for all observations of that
+        source in [lower, upper].  Bounds are clamped to the 3-year partition
+        retention window and enable partition pruning on the observation table.
+      - observation_ids: recompute segments for those observation IDs.  The task
+        loads ``MIN``/``MAX`` ``recorded_at`` for those IDs (one aggregate query),
+        merges optional ``lower``/``upper`` kwargs so the window always covers
+        every listed row, clamps to the 3-year retention window, then runs the
+        main fetch with ``recorded_at`` bounds so PostgreSQL can prune
+        partitions.  Optional ``lower``/``upper`` hint a wider window when the
+        caller already knows it (e.g. ingest batch time range).
 
-    Used by SubjectSource signals (source_id + range) and by the backfill command (same).
+    Used by SubjectSource signals (source_id + range) and by the backfill command.
+
+    The per-tenant segment tile version is bumped **after** the full recompute
+    completes; during a long-running job, tiles may be stale until it finishes.
     """
     from observations.signals import (
+        _clamp_recompute_bounds,
         recompute_observation_segments,
         recompute_observation_segments_for_source_range,
     )
 
     if source_id is not None and lower is not None and upper is not None:
-        # Ensure timezone-aware datetimes (Celery may pass serialized form)
-        from django.utils.dateparse import parse_datetime
-
-        if isinstance(lower, str):
-            lower = parse_datetime(lower) or lower
-        if isinstance(upper, str):
-            upper = parse_datetime(upper) or upper
-        recompute_observation_segments_for_source_range(source_id, lower, upper)
+        lower_dt = _coerce_task_datetime(lower)
+        upper_dt = _coerce_task_datetime(upper)
+        if lower_dt is None or upper_dt is None:
+            logger.warning(
+                "recompute_observation_segments_task: invalid lower/upper for source_id path: %r, %r",
+                lower,
+                upper,
+            )
+            return
+        recompute_observation_segments_for_source_range(source_id, lower_dt, upper_dt)
     elif observation_ids:
-        recompute_observation_segments(observation_ids)
+        uuids: list[UUID] = []
+        for oid in observation_ids:
+            try:
+                uuids.append(UUID(str(oid)))
+            except ValueError:
+                logger.warning("Invalid observation_id for recompute task: %s", oid)
+        if not uuids:
+            return
+
+        # Don't shadow the imported ``utils.stats`` module — name this aggregate result distinctly.
+        range_stats = Observation.objects.filter(pk__in=uuids).aggregate(
+            mn=Min("recorded_at"),
+            mx=Max("recorded_at"),
+        )
+        mn, mx = range_stats["mn"], range_stats["mx"]
+        if mn is None or mx is None:
+            logger.warning("recompute_observation_segments_task: no rows for observation_ids")
+            return
+
+        lo, hi = mn, mx
+        lower_dt = _coerce_task_datetime(lower)
+        upper_dt = _coerce_task_datetime(upper)
+        if lower_dt is not None:
+            lo = min(lo, lower_dt)
+        if upper_dt is not None:
+            hi = max(hi, upper_dt)
+
+        lo, hi = _clamp_recompute_bounds(lo, hi)
+        recompute_observation_segments(uuids, lower=lo, upper=hi)
     else:
         logger.warning("recompute_observation_segments_task called with no source_id+range or observation_ids")
+        return
+
+    tenant = get_current_tenant()
+    if tenant:
+        bump_observation_segment_tile_version(str(tenant.id))
+
+
+@celery.app.task(base=TenantTask)
+def update_observation_segments_for_observation_task(observation_id: str | UUID, created: bool, **kwargs: Any) -> None:
+    """Maintain ObservationSegments for one observation after save.
+
+    Kept for in-flight Celery messages; new post-save work uses
+    ``update_observation_segments_batch_task``.
+
+    TODO(ERA-12969): remove after the release that ships this PR has been deployed
+    long enough for the realtime_p3 queue to drain its old single-id messages
+    (typically one full deploy cycle).  No producer in this codebase still enqueues
+    this task — the only callers are pre-deploy messages still in flight.
+
+    Runs in tenant context (domain in kwargs).  Loads the observation by id and
+    calls update_segments_for_observation; if the row was deleted before the task
+    runs, exits quietly.
+
+    Enqueued from observation_segment_post_save with queue=realtime_p3 for creates
+    and updates (legacy single-id path).
+
+    For updates (``created=False``), bumps the per-tenant segment tile version so
+    cached tiles become stale.  Creates rely on natural TTL expiry.
+    """
+    # observations.signals imports from observations.tasks at module load — cycle.
+    from observations.signals import (
+        RECOMPUTE_OBSERVATION_ONLY_FIELDS,
+        update_segments_for_observation,
+    )
+
+    try:
+        obs_uuid = UUID(str(observation_id))
+    except ValueError:
+        logger.warning("Invalid observation_id for segment task: %s", observation_id)
+        return
+
+    started = time.monotonic()
+    obs = Observation.objects.filter(pk=obs_uuid).only(*RECOMPUTE_OBSERVATION_ONLY_FIELDS).first()
+    if obs is None:
+        logger.debug("Observation %s not found; skipping segment update", observation_id)
+        return
+    update_segments_for_observation(obs, created=created)
+
+    if not created:
+        bump_observation_segment_tile_version(str(obs.das_tenant_id))
+
+    _emit_segment_task_metrics(
+        metric_prefix="single",
+        domain=kwargs.get("domain"),
+        batch_size=1,
+        oldest_recorded_at=obs.recorded_at,
+        duration_ms=(time.monotonic() - started) * 1000.0,
+    )
+
+
+@celery.app.task(base=TenantTask)
+def update_observation_segments_batch_task(observation_ids: list[str], created: bool, **kwargs: Any) -> None:
+    """Maintain ObservationSegments for many observations after save (batched post-save path).
+
+    Loads all rows in one query, sorts by ``(subject_id, recorded_at, pk)`` in Python so
+    neighbor work runs in chronological order per subject. For ``created=False``, bumps
+    the segment tile version at most once for the whole batch (same net effect as N
+    single-id tasks without multiplying bumps).
+
+    Emits ``observation_segment.batch.*`` metrics — see ``_emit_segment_task_metrics``.
+
+    ``domain`` must be passed in kwargs for :class:`TenantTask`.
+    """
+    # observations.signals imports from observations.tasks at module load — cycle.
+    from observations.signals import (
+        RECOMPUTE_OBSERVATION_ONLY_FIELDS,
+        get_subject_for_observation,
+        update_segments_for_observation,
+    )
+
+    if not observation_ids:
+        return
+
+    uuids: list[UUID] = []
+    for oid in observation_ids:
+        try:
+            uuids.append(UUID(str(oid)))
+        except ValueError:
+            logger.warning("Invalid observation_id in batch segment task: %s", oid)
+
+    if not uuids:
+        return
+
+    started = time.monotonic()
+    observations = list(Observation.objects.filter(pk__in=uuids).only(*RECOMPUTE_OBSERVATION_ONLY_FIELDS))
+
+    def sort_key(obs: Observation) -> tuple[str, datetime, UUID]:
+        subj = get_subject_for_observation(obs)
+        sid = str(subj.pk) if subj else ""
+        return (sid, obs.recorded_at, obs.pk)
+
+    observations.sort(key=sort_key)
+
+    for obs in observations:
+        update_segments_for_observation(obs, created=created)
+
+    if not created:
+        tenant = get_current_tenant()
+        if tenant:
+            bump_observation_segment_tile_version(str(tenant.id))
+        elif observations:
+            bump_observation_segment_tile_version(str(observations[0].das_tenant_id))
+
+    duration_ms = (time.monotonic() - started) * 1000.0
+    oldest = min((o.recorded_at for o in observations), default=None)
+    _emit_segment_task_metrics(
+        metric_prefix="batch",
+        domain=kwargs.get("domain"),
+        batch_size=len(observations),
+        oldest_recorded_at=oldest,
+        duration_ms=duration_ms,
+    )
+
+
+@celery.app.task(base=TenantTask)
+def bump_observation_segment_tile_cache_for_tenant_task(**kwargs: Any) -> None:
+    """Increment per-tenant segment tile version (O(1) Redis INCR).
+
+    Invalidates observation segment MVT keys (they embed the version) without SCAN.
+    Used when operators run ``manage.py bust_observation_tile_cache --enqueue``.
+    """
+    tenant = get_current_tenant()
+    if not tenant:
+        logger.warning("bump_observation_segment_tile_cache_for_tenant_task: no current tenant in context")
+        return
+    bump_observation_segment_tile_version(str(tenant.id))
+
+
+@celery.app.task(base=OverAllTenantTask, once={"graceful": True})
+def reconcile_observation_segments_task(**kwargs: Any) -> None:
+    """Daily safety net: detect and rebuild segment gaps in the recent window.
+
+    For each tenant the OverAllTenantTask runs as, walks every source that had
+    activity in the last ``OBSERVATION_SEGMENT_RECONCILE_HOURS`` hours.  Quick gap
+    check first: ``count(valid_obs) - 1`` should equal ``count(segments)`` for the
+    window.  When the counts diverge we run ``recompute_observation_segments_for_source_range``,
+    which is idempotent (``select_for_update`` + ``IntegrityError`` fallback).
+
+    Closes the gap left by paths that bypass post_save (bulk update on
+    ``exclusion_flags`` is the known case; this catches the unknowns).
+
+    Logging:
+        - Per-source gap: ``WARNING`` (one line per affected source) so log-based
+          alerts can fire without metrics access.
+        - End-of-run summary: ``WARNING`` if any gaps were found, ``INFO`` otherwise.
+
+    Emits:
+        - ``observation_segment.reconcile.sources_checked``
+        - ``observation_segment.reconcile.gaps_detected``
+        - ``observation_segment.reconcile.duration_ms``
+        - ``observation_segment.reconcile.gap_detected`` (counter, only on gap)
+    """
+    # observations.signals imports from observations.tasks at module load — cycle.
+    from observations.signals import recompute_observation_segments_for_source_range
+
+    tenant = get_current_tenant()
+    if not tenant:
+        logger.warning("reconcile_observation_segments_task: no current tenant; skipping")
+        return
+
+    domain = getattr(tenant, "domain", None)
+    tags = [f"domain:{domain}"] if domain else []
+
+    started = time.monotonic()
+    hours = int(getattr(django_settings, "OBSERVATION_SEGMENT_RECONCILE_HOURS", 6))
+    upper = datetime.now(tz=timezone.utc)
+    lower = upper - timedelta(hours=hours)
+
+    # Clear Meta.ordering so DISTINCT operates on source_id only (otherwise the
+    # implicit ORDER BY recorded_at sneaks into the SELECT list and dedupes on
+    # (source_id, recorded_at), defeating the point).
+    source_ids = list(
+        Observation.objects.filter(recorded_at__gte=lower, recorded_at__lte=upper)
+        .order_by()
+        .values_list("source_id", flat=True)
+        .distinct()
+    )
+
+    sources_checked = 0
+    gaps_detected = 0
+    for source_id in source_ids:
+        sources_checked += 1
+        valid_obs_count = (
+            Observation.objects.filter(
+                source_id=source_id,
+                recorded_at__gte=lower,
+                recorded_at__lte=upper,
+                location__isnull=False,
+            )
+            .by_exclusion_flags(filter_flag=0, include_empty_location=False)
+            .count()
+        )
+        if valid_obs_count < 2:
+            continue
+
+        segment_count = ObservationSegment.objects.filter(
+            start_observation__source_id=source_id,
+            start_recorded_at__gte=lower,
+            end_recorded_at__lte=upper,
+        ).count()
+
+        if segment_count >= valid_obs_count - 1:
+            continue
+
+        gaps_detected += 1
+        logger.warning(
+            "reconcile: gap detected domain=%s source=%s window=%dh valid_obs=%d segments=%d (rebuilding)",
+            domain,
+            source_id,
+            hours,
+            valid_obs_count,
+            segment_count,
+        )
+        try:
+            recompute_observation_segments_for_source_range(str(source_id), lower, upper)
+        except Exception:
+            logger.exception("reconcile_observation_segments_task: recompute failed for source %s", source_id)
+
+    duration_ms = (time.monotonic() - started) * 1000.0
+    stats.histogram("observation_segment.reconcile.sources_checked", sources_checked, tags=tags)
+    stats.histogram("observation_segment.reconcile.gaps_detected", gaps_detected, tags=tags)
+    stats.histogram("observation_segment.reconcile.duration_ms", duration_ms, tags=tags)
+    if gaps_detected:
+        stats.increment("observation_segment.reconcile.gap_detected", value=gaps_detected, tags=tags)
+        logger.warning(
+            "reconcile complete domain=%s sources_checked=%d gaps=%d duration_ms=%.0f window=%dh",
+            domain,
+            sources_checked,
+            gaps_detected,
+            duration_ms,
+            hours,
+        )
+    else:
+        logger.info(
+            "reconcile complete domain=%s sources_checked=%d gaps=0 duration_ms=%.0f window=%dh",
+            domain,
+            sources_checked,
+            duration_ms,
+            hours,
+        )
 
 
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
@@ -110,7 +474,9 @@ def maintain_observation_data():
             days_data_retain = int(days_data_retain)
         except ValueError:
             logger.warning(
-                f"Mis-configured field days_data_retain {days_data_retain} not an integer for source_provider: {ssprovider.display_name}"
+                "Mis-configured field days_data_retain %s not an integer for source_provider: %s",
+                days_data_retain,
+                ssprovider.display_name,
             )
             continue
 
@@ -140,7 +506,10 @@ def maintain_observation_data_for_source_provider(
     """
     if search_back_days < days_data_retain:
         logger.warning(
-            f"search_back_days {search_back_days} is less than days_data_retain {days_data_retain} for source_provider_id: {source_provider_id}"
+            "search_back_days %s is less than days_data_retain %s for source_provider_id: %s",
+            search_back_days,
+            days_data_retain,
+            source_provider_id,
         )
         return
 
@@ -333,6 +702,210 @@ def process_gpxtrack_file(gpx_id, **kwargs):
             failed_process_gpxtrack(gpx_id, obs_errors)
         else:
             failed_process_gpxtrack(gpx_id)
+
+
+def _coerce(v):
+    """Convert a CSV string value to int or float if it looks numeric, else return as-is."""
+    if v is None:
+        return v
+    try:
+        int_v = int(v)
+        return int_v if str(int_v) == str(v).strip() else float(v)
+    except (ValueError, TypeError):
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return v
+
+
+def _process_rows_for_source(source_id, rows, mappings, col_for):
+    """
+    Validate and bulk-create Observation records for a single source.
+    Returns (ok, message) from process_observation.
+    """
+    recorded_ats = []
+    for row in rows:
+        raw = row.get(col_for.get("recorded_at", ""), "")
+        try:
+            recorded_ats.append(dateparse(raw))
+        except Exception:
+            pass
+
+    existing_times = set(
+        Observation.objects.filter(source_id=source_id, recorded_at__in=recorded_ats).values_list(
+            "recorded_at", flat=True
+        )
+    )
+
+    obs_records = []
+    obs_errors = []
+
+    for row in rows:
+        try:
+            recorded_at = dateparse(row[col_for["recorded_at"]])
+            lat = float(row[col_for["latitude"]])
+            lon = float(row[col_for["longitude"]])
+        except (KeyError, TypeError, ValueError) as exc:
+            obs_errors.append(str(exc))
+            continue
+
+        if recorded_at in existing_times:
+            continue
+
+        additional = {col: _coerce(row.get(col)) for col, target in mappings.items() if target == "additional"}
+
+        validate_observation(
+            {"latitude": lat, "longitude": lon},
+            recorded_at,
+            source_id,
+            additional,
+            obs_records,
+            obs_errors,
+        )
+        existing_times.add(recorded_at)
+
+    return process_observation(observation_records=obs_records, observation_errors=obs_errors)
+
+
+def _delete_storage_file(storage_path):
+    """Best-effort delete of an uploaded CSV after a successful import."""
+    if not storage_path:
+        return
+    try:
+        default_storage.delete(storage_path)
+    except Exception:
+        logger.warning("Failed to delete CSV from storage: %s", storage_path, exc_info=True)
+
+
+@celery.app.task(base=TenantTask, bind=True)
+def process_csv_observations(
+    self,
+    storage_path,
+    mappings,
+    header_row=1,
+    data_start_row=2,
+    source_id=None,
+    subject_id=None,
+    subject_name_col=False,
+    **kwargs,
+):
+    """
+    Read a stored CSV from default_storage, apply column mappings, and bulk-create
+    Observation records. The file is deleted on success and left in storage on
+    failure for debugging.
+
+    storage_path: path returned by default_storage.save(...) at upload time.
+    mappings: {csv_column: target_field}
+    target_field: recorded_at | latitude | longitude | additional | subject_name
+
+    Modes (mutually exclusive):
+      source_id       — legacy: write all rows to an existing Source
+      subject_id      — create a new Source for the given Subject, write all rows
+      subject_name_col=True — group rows by subject_name column; find-or-create
+                              Source+Subject+SubjectSource per unique name
+    """
+    logger.info(
+        "process_csv_observations received: task_id=%s storage_path=%s source_id=%s subject_id=%s subject_name_col=%s",
+        self.request.id,
+        storage_path,
+        source_id,
+        subject_id,
+        subject_name_col,
+    )
+    task_id = self.request.id
+    try:
+        if task_id:
+            set_job_status(task_id, "STARTED")
+
+        with default_storage.open(storage_path, "rb") as f:
+            csv_content = f.read().decode("utf-8-sig")
+
+        lines = csv_content.splitlines()
+        header_row = max(1, int(header_row))
+        data_start_row = max(1, int(data_start_row))
+        if header_row > len(lines):
+            message = "No header found at the specified row."
+            if task_id:
+                set_job_status(task_id, "FAILURE", error=message)
+            return message
+
+        header_line = lines[header_row - 1]
+        data_lines = lines[data_start_row - 1 :] if data_start_row <= len(lines) else []
+        rows = list(csv.DictReader(io.StringIO(header_line + "\n" + "\n".join(data_lines))))
+
+        col_for = {target: col for col, target in mappings.items()}
+
+        if subject_name_col:
+            # Group rows by unique subject name and process each group separately
+            rows_by_subject = defaultdict(list)
+            subject_col = col_for.get("subject_name", "")
+            for row in rows:
+                name = row.get(subject_col, "").strip()
+                if name:
+                    rows_by_subject[name].append(row)
+
+            messages = []
+            for sname, srows in rows_by_subject.items():
+                subject, _ = Subject.objects.get_or_create(name=sname)
+                source, _ = Source.objects.get_or_create(
+                    manufacturer_id=sname,
+                    provider_id=SourceProvider.objects.get_or_create(
+                        provider_key="file-upload",
+                        defaults={"display_name": "File Upload"},
+                    )[0].id,
+                )
+                SubjectSource.objects.get_or_create(
+                    source=source,
+                    subject=subject,
+                    defaults={"assigned_range": DEFAULT_ASSIGNED_RANGE},
+                )
+                ok, msg = _process_rows_for_source(source.id, srows, mappings, col_for)
+                messages.append(f"{sname}: {msg}")
+
+            message = "; ".join(messages) if messages else "No valid subject names found in CSV."
+            if task_id:
+                set_job_status(task_id, "SUCCESS", result=message)
+            _delete_storage_file(storage_path)
+            return message
+
+        elif subject_id:
+            # Create a new Source tied to the selected Subject
+            subject = Subject.objects.get(id=subject_id)
+            ts = datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S")
+            provider, _ = SourceProvider.objects.get_or_create(
+                provider_key="file-upload",
+                defaults={"display_name": "CSV Import"},
+            )
+            source = Source.objects.create(
+                manufacturer_id=f"{subject.name}_{ts}",
+                provider=provider,
+            )
+            SubjectSource.objects.create(
+                source=source,
+                subject=subject,
+                assigned_range=DEFAULT_ASSIGNED_RANGE,
+            )
+            ok, message = _process_rows_for_source(source.id, rows, mappings, col_for)
+
+        else:
+            # Legacy mode: write to existing source
+            source = Source.objects.get(id=source_id)
+            ok, message = _process_rows_for_source(source.id, rows, mappings, col_for)
+
+        if ok:
+            if task_id:
+                set_job_status(task_id, "SUCCESS", result=message)
+            _delete_storage_file(storage_path)
+            return message
+        else:
+            if task_id:
+                set_job_status(task_id, "FAILURE", error=message)
+            raise ValidationError(message)
+
+    except Exception as exc:
+        if task_id:
+            set_job_status(task_id, "FAILURE", error=str(exc))
+        raise
 
 
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True}, bind=True, track_started=True, ignore_result=False)

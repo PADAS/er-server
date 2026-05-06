@@ -99,7 +99,7 @@ class TestMigrationLogger:
         assert "exception_traceback" in extra
 
     def test_info_returns_none(self, migration_logger):
-        result = migration_logger.info(ErrorCode.PERSIST_SUCCESS, "done")
+        result = migration_logger.info(ErrorCode.UNKNOWN, "done")
         assert result is None
 
     def test_sink_error_is_best_effort(self, migration_logger, sink):

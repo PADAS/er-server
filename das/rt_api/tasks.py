@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import json
 import logging
@@ -8,8 +10,7 @@ from uuid import UUID
 from celery_once.tasks import QueueOnce
 from django_multitenant.utils import get_current_tenant
 
-from django.db import close_old_connections
-from django.urls import reverse
+from django.db import InterfaceError, OperationalError, close_old_connections
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request
 
@@ -19,10 +20,27 @@ from activity.serializers import EventSerializer, PatrolSerializer
 from activity.views import EventView, PatrolView
 from das_server import celery, pubsub
 from observations import servicesutils
-from observations.models import Announcement, Message, SocketClient, Subject
-from observations.serializers import AnnouncementSerializer, MessageSerializer
-from observations.utils import LOCATION, get_position, get_user_key
-from observations.views import FlattenObservationsView, SubjectStatusView
+from observations.models import (
+    Announcement,
+    Message,
+    Observation,
+    SocketClient,
+    Subject,
+)
+from observations.serializers import (
+    AnnouncementSerializer,
+    FlattenObservationSerializer,
+    MessageSerializer,
+)
+from observations.utils import (
+    LOCATION,
+    VIEW_SUBJECT_PERMS,
+    dateparse,
+    get_minimum_allowed_age,
+    get_position,
+    get_user_key,
+)
+from observations.views import SubjectStatusView
 from rt_api import client
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from utils.stats import update_gauge
@@ -210,12 +228,7 @@ def get_filtered_patrols(patrol_filter, queryset):
     return queryset
 
 
-@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True, "timeout": 600})
-def _broadcast_service_status(service_status_data=None, **kwargs):
-    service_status_data = service_status_data or servicesutils.get_source_provider_statuses()
-    if not service_status_data:
-        return
-
+def _emit_service_status(service_status_data):
     try:
         for username, sids in get_username_sids_map().items():
             for sid in sids:
@@ -230,21 +243,40 @@ def _broadcast_service_status(service_status_data=None, **kwargs):
         close_old_connections()
 
 
-@celery.app.task(base=OverAllTenantTask, once={"graceful": True, "timeout": 600})
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True, "timeout": 15})
+def broadcast_service_status_tenant(service_status_data=None, **kwargs):
+    service_status_data = service_status_data or servicesutils.get_source_provider_statuses()
+    if not service_status_data:
+        return
+    _emit_service_status(service_status_data)
+
+
+@celery.app.task(base=OverAllTenantTask, once={"graceful": True, "timeout": 15})
 def broadcast_service_status():
-    _broadcast_service_status.apply_async()
+    # OverAllTenantTask runs this in tenant context directly, so call the
+    # implementation inline instead of dispatching another task.
+    service_status_data = servicesutils.get_source_provider_statuses()
+    if not service_status_data:
+        return
+    _emit_service_status(service_status_data)
 
 
-def _subjectstatus_update_handler(subject_id):
+def _subjectstatus_update_handler(subject_id, user_sids_map=None):
     try:
         logger.debug("Processing subjectstatus update for subject_id=%s", subject_id)
+
+        if user_sids_map is None:
+            user_sids_map = get_username_sids_map()
+
+        if not user_sids_map:
+            logger.debug("No connected clients, skipping subjectstatus update for subject_id=%s", subject_id)
+            return
 
         # Curry this getter to re-use the view in the for-loop below.
         get_subjectstatus_payload = partial(get_subjectstatus_view, SubjectStatusView.as_view())
 
-        get_observations_payload = partial(get_observations_view, FlattenObservationsView.as_view())
+        get_observations_payload = get_observations_for_subject
 
-        user_sids_map = get_username_sids_map()
         logger.debug("user_sids_map: %s", user_sids_map)
 
         for username, user_sids in user_sids_map.items():
@@ -271,33 +303,43 @@ def _subjectstatus_update_handler(subject_id):
                         "SubjectStatus payload is empty.", extra=dict(username=username, subject_id=subject_id)
                     )
 
-                # emit batch observations
+                # emit batch observations — group SIDs by created_after to
+                # avoid running the same expensive observation query multiple
+                # times for the same user.
+                sids_by_created_after: dict[str, list[str]] = {}
                 for sid in user_sids:
                     created_after = client.get_sid_subject_timestamp(sid, subject_id)
+                    sids_by_created_after.setdefault(created_after, []).append(sid)
 
+                for created_after, sids in sids_by_created_after.items():
                     payload = get_observations_payload(user, subject_id, created_after=created_after)
 
                     if payload:
-                        emit_data = get_emit_data(
+                        # Pre-serialize with a placeholder SID so we can stamp
+                        # each SID without re-serializing the full payload.
+                        emit_template = get_emit_data(
                             type="subject_track_merge",
-                            sid=sid,
+                            sid="<<sid>>",
                             object_id=subject_id,
                             data={"points": payload, "subject_id": subject_id},
                         )
+                        emit_json = json.dumps(emit_template, default=dumps_helper)
 
-                        emit_message = json.dumps(emit_data, default=dumps_helper)
-
-                        logger.debug("Emitting: %s", emit_message)
-                        pubsub.publish(emit_message, routing_key="das.realtime.emit")
-
+                        for sid in sids:
+                            emit_message = emit_json.replace("<<sid>>", sid)
+                            logger.debug("Emitting: %s", emit_message)
+                            pubsub.publish(emit_message, routing_key="das.realtime.emit")
                     else:
                         logger.debug(
                             "Observation payload is empty.", extra=dict(username=username, subject_id=subject_id)
                         )
 
-                    client.save_session_timestamp(sid, subject_id)
+                    for sid in sids:
+                        client.save_session_timestamp(sid, subject_id)
 
-            except:
+            except (InterfaceError, OperationalError):
+                raise
+            except Exception:
                 logger.exception("Error creating subject-status payload. username=%s", username)
             finally:
                 close_old_connections()
@@ -305,10 +347,10 @@ def _subjectstatus_update_handler(subject_id):
         close_old_connections()
 
 
-def _observation_handler(subject_id):
+def _observation_handler(subject_id, user_sids_map=None):
     # subject_position_update is no longer used. So delegate to subjectstatus
     # handler.
-    _subjectstatus_update_handler(subject_id)
+    _subjectstatus_update_handler(subject_id, user_sids_map=user_sids_map)
 
 
 def get_subjectstatus_view(view, user, subject_id):
@@ -329,15 +371,45 @@ def get_subjectstatus_view(view, user, subject_id):
     return result.data
 
 
-def get_observations_view(view, user, subject_id, created_after):
-    url = reverse("flatten-observations")
-    query_parameter = {"subject_id": subject_id, "created_after": created_after}
-    request = DummyRequest(uri=url, http_method="GET", user=user, query_parameters=query_parameter)
+def get_observations_for_subject(user, subject_id, created_after):
+    """Fetch new observations for a subject, respecting user permissions.
 
-    result = view(request, subject_id=subject_id)
-    if result.status_code != 200 or not result.data:
-        return
-    return result.data
+    Applies the user's delay permission (access_ends_*) so users with
+    delayed access only see observations older than their delay window.
+
+    Unlike the previous DummyRequest approach, exceptions (e.g.
+    InterfaceError from stale DB connections) propagate to the caller so
+    TenantTaskMixin can retry the Celery task.
+    """
+    try:
+        subject = Subject.objects.get(pk=subject_id)
+    except Subject.DoesNotExist:
+        return None
+
+    if not user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
+        return None
+
+    if not created_after:
+        return None
+
+    if isinstance(created_after, str):
+        created_after = dateparse(created_after)
+
+    min_age_days = get_minimum_allowed_age(user) or 0
+    delay_hours = min_age_days * 24
+
+    queryset = Observation.objects.get_subject_newly_created_observations(subject, created_after)
+
+    if delay_hours:
+        cutoff = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(hours=delay_hours)
+        queryset = queryset.filter(recorded_at__lt=cutoff)
+
+    observations = list(queryset)
+    if not observations:
+        return None
+
+    serializer = FlattenObservationSerializer(observations, many=True)
+    return serializer.data
 
 
 @celery.app.task(base=TenantTask)
@@ -359,19 +431,30 @@ def handle_delete_event(event_id, **kwargs):
     _event_handler(event_id, "delete_event")
 
 
-@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True, "timeout": 600}, soft_time_limit=60, time_limit=65)
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True, "timeout": 60}, soft_time_limit=60, time_limit=65)
 def handle_new_source_observation(source_id, **kwargs):
 
     logger.debug("Handling new observation for source_id=%s", source_id)
 
-    # Typically this will be only one subject.  But it could be more.
-    for subject in Subject.objects.filter(subjectsource__source__id=source_id, is_active=True):
+    # Fetch the connected-clients map once and reuse it for every subject
+    # linked to this source, avoiding redundant Redis HGETALL calls.
+    user_sids_map = get_username_sids_map()
+    if not user_sids_map:
+        logger.debug("No connected clients, skipping observation handling for source_id=%s", source_id)
+        return
+
+    # Only fetch subject IDs — we don't need full model instances.
+    subject_ids = Subject.objects.filter(subjectsource__source__id=source_id, is_active=True).values_list(
+        "id", flat=True
+    )
+
+    for subject_id in subject_ids:
         logger.info(
             "Handling new observation for source_id=%s.",
             source_id,
-            extra={"source_id": source_id, "subject_id": str(subject.id), "rt.event": "new_subject_obs"},
+            extra={"source_id": source_id, "subject_id": str(subject_id), "rt.event": "new_subject_obs"},
         )
-        _observation_handler(str(subject.id))
+        _observation_handler(str(subject_id), user_sids_map=user_sids_map)
 
 
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
@@ -586,6 +669,94 @@ def handle_new_announcement(announcement_id, **kwargs):
 @celery.app.task(base=TenantTask)
 def handle_emit_data(event_id, **kwargs):
     logger.info("event mailer event_id: %s", event_id)
+
+
+# Both prefixes have been used for the per-consumer Kombu queue name in the
+# python-socketio history: "flask-socketio." prior to release 5.12.0
+# (2024-12-18) and "python-socketio." since. Both versions bind to the same
+# fanout exchange "socketio", so old orphan queues keep receiving every
+# publish from the current cluster forever and accumulate unbounded.
+SOCKETIO_QUEUE_KEY_PREFIXES = ("python-socketio.", "flask-socketio.")
+# Kombu's fanout-exchange binding registry key. The exchange name is the
+# python-socketio `channel` default of "socketio"; DASKombuManager does not
+# override it.
+SOCKETIO_BINDING_KEY = "_kombu.binding.socketio"
+# kombu.transport.redis.Channel.sep — separator in binding-set members
+# (routing_key, pattern, queue_name).
+SOCKETIO_BINDING_SEP = b"\x06\x16"
+
+
+def _queue_name_from_key(key: bytes) -> bytes:
+    # Kombu may suffix priority keys as "<queue>\x06\x16<step>"; strip it.
+    idx = key.find(SOCKETIO_BINDING_SEP)
+    return key if idx == -1 else key[:idx]
+
+
+@celery.app.task(base=QueueOnce, once={"graceful": True})
+def sweep_orphan_socketio_queues():
+    """Delete python-socketio.* / flask-socketio.* queues with no live consumer.
+
+    Liveness comes from per-pod heartbeat keys written by DASKombuManager:
+    any queue whose name lacks a matching heartbeat is considered dead and
+    its queue key plus binding-registry entry are removed.
+
+    Kombu's Redis transport documents "Supports TTL: No" — queue keys leak
+    when a socketio consumer terminates abnormally (SIGKILL, OOM, node loss).
+    The fanout exchange continues LPUSHing every cluster-wide emit into the
+    orphan queue forever, so OBJECT IDLETIME never grows past the publish
+    interval and is not a usable liveness signal.
+    """
+    rc = client.redis_client
+
+    prefix_bytes = client.LIVE_SOCKETIO_QUEUE_HEARTBEAT_PREFIX.encode()
+    live_queue_names: set[bytes] = set()
+    for hb_key in rc.scan_iter(match=f"{client.LIVE_SOCKETIO_QUEUE_HEARTBEAT_PREFIX}*", count=500):
+        if isinstance(hb_key, str):
+            hb_key = hb_key.encode()
+        if hb_key.startswith(prefix_bytes):
+            live_queue_names.add(hb_key[len(prefix_bytes) :])
+
+    if not live_queue_names:
+        # Defense in depth: if every pod failed to publish a heartbeat we'd
+        # delete every queue, including live ones. Bail out and let the next
+        # sweep retry once heartbeats land.
+        logger.warning(
+            "sweep_orphan_socketio_queues: no live heartbeat keys; skipping "
+            "to avoid mass deletion of socketio queues"
+        )
+        update_gauge(metric="rt_api_orphan_socketio_queues_deleted", value=0)
+        return
+
+    members = rc.smembers(SOCKETIO_BINDING_KEY) or set()
+    queue_name_to_member: dict[bytes, bytes] = {}
+    for member in members:
+        parts = member.split(SOCKETIO_BINDING_SEP)
+        if len(parts) >= 3 and parts[2]:
+            queue_name_to_member[parts[2]] = member
+
+    deleted_keys = 0
+    deleted_bindings = 0
+    for prefix in SOCKETIO_QUEUE_KEY_PREFIXES:
+        for key in rc.scan_iter(match=f"{prefix}*", count=500):
+            queue_name = _queue_name_from_key(key)
+            if queue_name in live_queue_names:
+                continue
+
+            rc.delete(key)
+            deleted_keys += 1
+
+            member = queue_name_to_member.pop(queue_name, None)
+            if member is not None:
+                rc.srem(SOCKETIO_BINDING_KEY, member)
+                deleted_bindings += 1
+
+    if deleted_keys or deleted_bindings:
+        logger.info(
+            "sweep_orphan_socketio_queues deleted %d queue keys and %d binding entries",
+            deleted_keys,
+            deleted_bindings,
+        )
+    update_gauge(metric="rt_api_orphan_socketio_queues_deleted", value=deleted_keys)
 
 
 @celery.app.task(base=QueueOnce, once={"graceful": True})

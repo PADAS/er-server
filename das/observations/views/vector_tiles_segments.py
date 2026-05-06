@@ -11,7 +11,7 @@ from observations.utils import VIEW_OBSERVATION_PERMS
 from observations.vector_layers import ObservationSegmentVectorLayer, SubjectVectorLayer
 from utils.cache import (
     build_tile_cache_key,
-    get_effective_cache_version,
+    get_observation_segment_cache_version,
     get_vector_tile_cache,
 )
 from utils.tenant.providers import get_tenant_data_by_host
@@ -82,9 +82,10 @@ class ObservationSegmentTileView(DRFMVTView):
     - Ordered by start_recorded_at
 
     Cache strategy:
-    - Server-side TTL ~ 15 minutes (segments update when observations change)
-    - Client: 5 minutes fresh (max-age), then 5 minutes stale-while-revalidate window
-    - Client: stale-if-error for same 5 minute window to mask transient origin faults
+    - Server-side Redis TTL of 15 min; cache key includes a per-tenant segment version
+      counter so deletes/edits bust immediately (creates rely on TTL expiry)
+    - Client: 5 min fresh (max-age), then 5 min stale-while-revalidate window
+    - Client: stale-if-error for same 5 min to mask transient origin faults
     - Authorization: private + Vary so shared caches do not serve one user's tile to another
     """
 
@@ -134,13 +135,14 @@ class ObservationSegmentTileView(DRFMVTView):
 
         layer_ids = [lc.id for lc in self.layer_classes]
         try:
+            tenant_id = str(request.user.das_tenant_id)
             cache_key = build_tile_cache_key(
                 request,
                 z,
                 x,
                 y,
                 layer_ids,
-                cache_version=get_effective_cache_version(),
+                cache_version=get_observation_segment_cache_version(tenant_id),
             )
         except ValueError as e:
             logger.warning(f"Cache key build error: {e}")
@@ -159,9 +161,6 @@ class ObservationSegmentTileView(DRFMVTView):
             f"stale-if-error={self.client_stale_if_error_seconds}"
         )
 
-        # Check server cache FIRST.  Signal handlers delete entries on data
-        # change, so a miss means the tile may be stale — skip the ETag
-        # shortcut and regenerate.  Only return 304 when the entry still exists.
         cached_payload = vt_cache.get(cache_key)
         if cached_payload is not None:
             client_etag = request.META.get("HTTP_IF_NONE_MATCH")

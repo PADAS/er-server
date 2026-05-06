@@ -518,10 +518,13 @@ class EventSerializerMixin:
     def render_updates(self, event: Event) -> List[Dict]:
         result = []
 
-        if hasattr(event, "revision"):
-            revisions = event.revision.all()
+        revisions_cache = self.context.get("revisions_cache")
+        if revisions_cache is not None:
+            revisions = revisions_cache.get(event.pk, [])
+        elif hasattr(event, "revision"):
+            revisions = list(event.revision.all())
         else:
-            revisions = event.revision.all_user().order_by("sequence")
+            revisions = list(event.revision.all_user().order_by("sequence"))
 
         revision_message = RevisionMessage(revisions)
         for revision in reversed(revisions):
@@ -755,6 +758,24 @@ class EventFilterSpecificationSerializer(Serializer):
         if "lower" in value and "upper" in value and value["lower"] > value["upper"]:
             raise ValidationError("Invalid date range.")
         return value
+
+
+class EventBulkDeleteSerializer(Serializer):
+    """Request payload for bulk-deleting events.
+
+    Body shape: ``{"ids": ["<uuid>", "<uuid>", ...]}``. An empty list is allowed
+    and is a no-op (returns ``{"deleted": 0}``).
+    """
+
+    ids = ListField(
+        child=UUIDField(help_text="UUID of an event to delete."),
+        allow_empty=True,
+        help_text=(
+            "List of event UUIDs to delete. All-or-nothing: if any id is unknown "
+            "or the caller lacks `{category}_delete` for any event's category, "
+            "nothing is deleted and the request returns 403."
+        ),
+    )
 
 
 class EventFilterSerializer(ModelSerializer):
@@ -1279,7 +1300,7 @@ class EventPhotoSerializer(ModelSerializer):
     def render_updates(self, photo):
         if not self.context.get("include_updates", True):
             return []
-            
+
         def get_action(revision):
             return revision.get_action_display()
 

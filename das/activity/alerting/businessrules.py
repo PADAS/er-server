@@ -2,17 +2,23 @@ import logging
 from typing import Any, Dict, NamedTuple
 
 from business_rules import actions, export_rule_data, fields, variables
+from business_rules.operators import (
+    BooleanType,
+    NumericType,
+    SelectMultipleType,
+    StringType,
+)
 
 from django.utils.translation import gettext as _
 
 from activity.alerting.schema_properties import AlertingSchemaPropertiesAdapter
-from activity.alerting.variables import case_insensitive_string_rule_variable
-from activity.models import Event, EventDetails
-from activity.permissions import EventCategoryPermissions
-from activity.serializers import EventSerializer
-from core.utils import NonHttpRequest
+from activity.alerting.variables import (
+    MultiSelectChoiceType,
+    case_insensitive_string_rule_variable,
+    multi_select_choice_rule_variable,
+)
+from activity.models import Event
 from observations.models import Subject, SubjectGroup
-from revision.manager import ACTION_ADDED
 
 VIEW_SUBJECTGROUP_PERMS = ("observations.view_subjectgroup",)
 
@@ -80,11 +86,14 @@ class RuleVariableSpec(NamedTuple):
     attrname: str
     return_type: Any
     label: str
-    optionsdict: dict = dict
+    optionsdict: dict | None = None
 
 
+# Keyed by type name (BaseType.name) — the same keys that export_rule_data
+# puts into variable_type_operators. Do NOT confuse with fields.FIELD_*
+# constants, which are operator *input widget* identifiers.
 _WHITELISTED_OPERATORS = {
-    fields.FIELD_NUMERIC: {
+    NumericType.name: {
         "equal_to": "=",
         "greater_than": ">",
         "less_than": "<",
@@ -95,11 +104,26 @@ _WHITELISTED_OPERATORS = {
         "greater_than_or_equal_to": "≥",
         "less_than_or_equal_to": "≤",
     },
-    fields.FIELD_SELECT_MULTIPLE: {
+    # Single-select fields (V1 and V2) wrap their value in a list so the
+    # library's set-comparison operators work as "is one of".
+    SelectMultipleType.name: {
         "shares_at_least_one_element_with": "Is One Of",
         "shares_no_elements_with": "Is Not One Of",
     },
-    "string": {
+    # V2 multi-select choice fields that store native lists.
+    MultiSelectChoiceType.name: {
+        "contains": "Contains",
+        "is_exactly": "Is Exactly",
+        "is_empty": "Is Empty",
+        "is_not_empty": "Is Not Empty",
+        "is_one_of": "Is One Of",
+        "is_not_one_of": "Is Not One Of",
+    },
+    BooleanType.name: {
+        "is_true": "Is True",
+        "is_false": "Is False",
+    },
+    StringType.name: {
         "contains": "Includes",
         "non_empty": "Is Not Empty",
     },
@@ -124,7 +148,7 @@ def create_subject_group_func(user=None):
         return [
             str(subj_group.id)
             for subject in self.event.get("related_subjects")
-            for subj_group in Subject.objects.get(id=subject.get("id")).groups.all()
+            for subj_group in Subject.objects.get(id=subject.get("id")).get_ancestor_subject_groups()
         ]
 
     options_list = []
@@ -155,21 +179,32 @@ def create_new_func(key, return_type, label=None, options_dict=None):
         # For a multi-select option we return the Event's value as a member of
         # a list.
         def f(self):
-            try:
-                # there are still some dynamic choices where the value stored
-                # in event_details is the UUID
-                value = self.event["event_details"].get(key, {})
-                if isinstance(value, dict):
-                    value = value.get("value")
-                return [
-                    value,
-                ]
-            except KeyError:
-                return []
+            event_details = self.event.get("event_details") or {}
+            value = event_details.get(key, {})
+            if isinstance(value, dict):
+                value = value.get("value")
+            return [value]
 
         options_list = list({"name": k, "label": v} for k, v in options_dict.items())
         options_list = sorted(options_list, key=lambda x: x["label"])
         return variables.select_multiple_rule_variable(label, options=options_list)(f)
+
+    if return_type == "multiselect":
+
+        def multi_f(self):
+            event_details = self.event.get("event_details") or {}
+            value = event_details.get(key, [])
+            if isinstance(value, dict):
+                value = value.get("value", [])
+            if isinstance(value, str):
+                return [value]
+            if isinstance(value, list):
+                return value
+            return []
+
+        options_list = list({"name": k, "label": v} for k, v in options_dict.items())
+        options_list = sorted(options_list, key=lambda x: x["label"])
+        return multi_select_choice_rule_variable(label, options=options_list)(multi_f)
 
     def string_f(self):
         event_details = self.event.get("event_details") or {}
@@ -188,6 +223,14 @@ def create_new_func(key, return_type, label=None, options_dict=None):
         else:
             return saved_value
 
+    if return_type == bool:
+
+        def bool_f(self):
+            event_details = self.event.get("event_details") or {}
+            return bool(event_details.get(key, False))
+
+        return variables.boolean_rule_variable(label)(bool_f)
+
     if return_type == str:
         return case_insensitive_string_rule_variable(label)(string_f)
     elif return_type in (int, float):
@@ -196,33 +239,48 @@ def create_new_func(key, return_type, label=None, options_dict=None):
         raise NotImplementedError(f"Return-type {return_type} is not yet supported.")
 
 
-def translate_schema_type_to_type(option):
-    if any(key in option for key in ["enumNames", "anyOf", "oneOf"]):
-        return "select"
+_CHOICE_MARKERS = ("enumNames", "anyOf", "oneOf")
 
-    if "type" not in option:
-        logger.warning("No 'type' present in option, so using str. option=%s", option)
-        return str
-
-    if option["type"] == "string":
-        return str
-
-    elif option["type"] == "number":
-        return int
-
-    else:
-        raise NotImplementedError(f'I don\'t support type \'{option["type"]}\' yet.')
+_SCHEMA_TYPE_TO_RULE_TYPE = {
+    "select": "select",
+    "multiselect": "multiselect",
+    "string": str,
+    "number": int,
+    "integer": int,
+    "boolean": bool,
+}
 
 
 def get_schema_type(option: Dict[str, str]) -> str:
-    if any(key in option for key in ["enumNames", "anyOf", "oneOf"]):
+    """Canonical schema-type detection for a single field property dict.
+
+    Returns a string type identifier: 'select', 'multiselect', 'string', 'number', etc.
+    """
+    if any(key in option for key in _CHOICE_MARKERS):
         return "select"
 
+    if option.get("type") == "array":
+        items = option.get("items", {})
+        if any(key in items for key in _CHOICE_MARKERS):
+            return "multiselect"
+
     if "type" not in option:
-        logger.warning("No 'type' present in option, so using str. option=%s", option)
         return "string"
 
     return option["type"]
+
+
+def translate_schema_type_to_type(option):
+    """Map a schema field to a business-rules return type.
+
+    Delegates to get_schema_type for detection, then maps the string result
+    to the Python type or string expected by create_new_func.
+    """
+    schema_type = get_schema_type(option)
+    rule_type = _SCHEMA_TYPE_TO_RULE_TYPE.get(schema_type)
+    if rule_type is not None:
+        return rule_type
+    raise NotImplementedError(f"I don't support type '{schema_type}' yet.")
 
 
 def remove_field_suffix(input_string: str) -> str:
@@ -299,7 +357,9 @@ def _generate_aggregate_event_variables_class(
                 logger.debug("%s.%s options = %s", event_type_value, composite_key, list(field_choice_options.keys()))
                 if existing_attr.return_type == rule_return_type:
                     # Merge choice options into existing attribute
-                    existing_attr.optionsdict.update(field_choice_options)
+                    merged = dict(existing_attr.optionsdict or {})
+                    merged.update(field_choice_options)
+                    attributes_accumulator[composite_key] = existing_attr._replace(optionsdict=merged)
                 else:
                     logger.warning(
                         "Collision on %s with different return types. Adding a new object with different return type",
@@ -322,19 +382,6 @@ def _generate_aggregate_event_variables_class(
                 attributes_accumulator[composite_key] = newattr
 
             applies_to_map.setdefault(composite_key, []).append(event_type_value)
-
-    attrs = dict(
-        (
-            composite_field_name,
-            create_new_func(
-                field_properties.attrname,
-                field_properties.return_type,
-                label=field_properties.label,
-                options_dict=field_properties.optionsdict,
-            ),
-        )
-        for composite_field_name, field_properties in attributes_accumulator.items()
-    )
 
     attrs = {
         (
@@ -359,10 +406,12 @@ def _generate_aggregate_event_variables_class(
     return type(classname, (EventVariables,), attrs), applies_to_map
 
 
+# Type names whose variables should not carry options to the UI.
+# Compared against item["field_type"], which is BaseType.name.
 PRUNE_OPTIONS_FROM = (
-    fields.FIELD_TEXT,
-    fields.FIELD_NO_INPUT,
-    fields.FIELD_NUMERIC,
+    StringType.name,
+    NumericType.name,
+    BooleanType.name,
 )
 
 
@@ -394,77 +443,3 @@ def render_aggregate_event_variables(event_types, request, only_common_factors=F
         if item["field_type"] in PRUNE_OPTIONS_FROM:
             del item["options"]
     return rules
-
-
-def render_event(event, user, method="GET"):
-    # This is a covenience function to render an Event
-    request = NonHttpRequest()
-    request.method = method
-    request.user = user
-
-    if EventCategoryPermissions().has_object_permission(request, None, event):
-        event_data = EventSerializer(
-            event,
-            context={
-                "request": request,
-            },
-        ).data
-        event_data["inferred_state"] = infer_event_state(event)
-        return event_data
-    else:
-        logger.info("Permission denied when rendering event %s for user %s.", event.serial_number, user)
-        return None
-
-
-def infer_event_state(event):
-    """
-    When state is not 'resolved', it can be coerced to 'active' if its latest revision is 'updated'.
-    :return: an inferred state (one of 'new', 'active', 'resolved')
-    """
-
-    if event.state in (Event.SC_RESOLVED, Event.SC_ACTIVE):
-        return event.state
-
-    event_revision, details_revision = resolve_event_revisions(event)
-    inferred_state = Event.SC_NEW if event_revision and event_revision.action == "added" else Event.SC_ACTIVE
-    return inferred_state
-
-
-def resolve_event_revisions(event):
-    """
-    We end up in this code path in a few ways. Some data associated with the
-    event has changed, but it could be the event itself or the event_details
-    which contains the schema data. Or it could be both. It all depends on
-    what fields were changed in the event update.
-
-    To figure out what change(s) brought us here, we need to look at the
-    timestamps on the latest revisions to both the event and eventdetails
-    objects and see which one is newer.
-
-    :param event_id:
-    :return:
-    """
-    revision = event.revision.all_user().latest("revision_at")
-    try:
-        details_revision = event.event_details.latest("updated_at").revision.all_user().latest("revision_at")
-    except (AttributeError, EventDetails.DoesNotExist):
-        return revision, None
-
-    # If the revision and details revision are both added, return the revisions.
-    # because of the db transaction and contention in the save, have seen the
-    # the difference between the revision.revision_at and details_revision.revision_at
-    # be greater than 1 second.
-    if revision.action == ACTION_ADDED and details_revision.action == ACTION_ADDED:
-        return revision, details_revision
-
-    diff = (revision.revision_at - details_revision.revision_at).total_seconds()
-
-    # If the timestamps are < 1 second apart, they were very likely made
-    # together
-    if abs(diff) < 1:
-        return revision, details_revision
-    # If the changes are farther apart, take the later one only
-    elif diff < 0:
-        return None, details_revision
-    else:
-        return revision, None

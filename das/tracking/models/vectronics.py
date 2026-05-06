@@ -74,7 +74,7 @@ class VectronicsPlugin(TrackingPlugin):
             + "&afterScts={0}".format(latest_timestamp)
         )
         try:
-            response = requests.get(url, timeout=self.DEFAULT_TIMEOUT, verify=False)
+            response = requests.get(url, timeout=self.DEFAULT_TIMEOUT)
             if response.status_code != 200:
                 raise DasPluginFetchError(f"Non 200 response status {response.status_code}, for collar: {collar_id}.")
             return json.loads(response.text)

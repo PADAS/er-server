@@ -14,6 +14,13 @@ This document outlines the scheduled tasks in the DAS system organized by hour o
   - Task: `mapping.tasks.automate_download_features_from_wfs`
   - Schedule: Daily at 2:00 AM
 
+### 3:00 AM
+- **reconcile-observation-segments** - Daily safety net that detects and rebuilds `ObservationSegment` gaps in the recent window for each tenant. Walks every source with activity in the last `OBSERVATION_SEGMENT_RECONCILE_HOURS` hours; runs `recompute_observation_segments_for_source_range` (idempotent via `select_for_update` + `IntegrityError` fallback) when the segment count diverges from `count(valid_obs) - 1`. Closes the gap left by paths that bypass `post_save` (notably bulk updates on `exclusion_flags`).
+  - Task: `observations.tasks.reconcile_observation_segments_task`
+  - Schedule: Daily at 3:00 AM (tenant-local, ahead of the 4:00 AM cleanup run)
+  - Queue: `maintenance`
+  - Options: `expires=20h` so stale per-tenant messages drop before the next run if workers fall behind.
+
 ### 4:00 AM
 - **routine-delete-observational-data** - Maintains observation data (cleanup)
   - Task: `observations.tasks.maintain_observation_data`
@@ -41,6 +48,12 @@ This document outlines the scheduled tasks in the DAS system organized by hour o
 - **poll_news_gcs_bucket** - Polls news GCS bucket
   - Task: `observations.tasks.poll_news_gcs_bucket`
   - Schedule: Every 15 minutes
+
+### Every 10 Minutes
+- **sweep-orphan-socketio-queues** - Deletes orphan `python-socketio.*` queue keys left in the realtime broker Redis when a socketio consumer terminates abnormally. Removes keys idle for more than 24h and the matching entry in the `_kombu.binding.socketio` registry.
+  - Task: `rt_api.tasks.sweep_orphan_socketio_queues`
+  - Schedule: Every 10 minutes
+  - Queue: `maintenance`
 
 ### Every 5 Minutes
 - **plugins** - Runs tracking plugins
@@ -109,3 +122,5 @@ The system uses different queues to manage task priorities:
 - The `PLUGINS_INTERVAL` is set to 5 minutes (300 seconds) for plugin execution
 - High-frequency tasks like service status and Redis checks ensure system health monitoring
 - **Partition maintenance:** For `observations_observationsegment`, `partman.run_maintenance_proc()` (e.g. via management command or pg_partman BGW) should run at least weekly (e.g. Monday 02:00 UTC) so that future monthly partitions are created and partitions older than 3 years are dropped per retention config. See `docs/development/observation-segment-partitioning-plan.md`.
+- **Signal-driven (not scheduled):** `observations.tasks.update_observation_segments_batch_task` is enqueued from the `Observation` `post_save` signal — buffered per (thread, db_alias) and flushed on commit, chunked by `OBSERVATION_SEGMENT_POST_SAVE_BATCH_SIZE` so many saves in one `atomic()` produce one task per chunk per tenant. Routed to `realtime_p3` for both creates and updates (see `OBSERVATION_SEGMENT_ASYNC_*_QUEUE` in `observations/signals.py`). The legacy single-id `observations.tasks.update_observation_segments_for_observation_task` is retained only for in-flight messages from prior deploys (no producer in this codebase still enqueues it). The `reconcile-observation-segments` job above is the daily safety net that catches anything missed by this path.
+- **Operator-triggered (not scheduled):** `observations.tasks.bump_observation_segment_tile_cache_for_tenant_task` is enqueued by `manage.py bust_observation_tile_cache --enqueue` to bump the per-tenant segment tile version (O(1) Redis INCR) so cached MVT keys miss without a SCAN. Routed to the `maintenance` queue.

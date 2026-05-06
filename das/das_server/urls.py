@@ -23,6 +23,12 @@ from django.conf.urls import include
 from django.contrib import admin
 from django.urls import path, re_path
 
+from accounts.account_linker import (
+    ACCOUNT_LINKER_CALLBACK_URL_NAME,
+    ACCOUNT_LINKER_LANDING_URL_NAME,
+    account_linker_callback,
+    account_linker_landing,
+)
 from accounts.auth0_admin import (
     INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME,
     admin_login_entrypoint,
@@ -65,6 +71,9 @@ urlpatterns = [
     # Auth0 admin authentication URLs
     path("auth/admin-login/", initiate_auth0_admin_login, name=INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME),
     path("auth/callback/", auth0_callback, name="auth0_callback"),
+    # Account Linker: PKCE flow to bind ER user to Auth0 identity
+    path("auth/account-linker/", account_linker_landing, name=ACCOUNT_LINKER_LANDING_URL_NAME),
+    path("auth/account-linker/callback/", account_linker_callback, name=ACCOUNT_LINKER_CALLBACK_URL_NAME),
     # Override admin login with conditional Auth0 integration
     path("admin/login/", admin_login_entrypoint, name="admin_login"),
     # Override admin logout with conditional Auth0 integration
@@ -94,6 +103,10 @@ django.conf.urls.handler404 = "utils.drf.error404View"
 
 if settings.ENABLE_SILK:
     urlpatterns += [path("silk/", include("silk.urls", namespace="silk"))]
+if settings.MEMORY_PROFILING_ENABLED:
+    from das_server.debug_views import MemoryDebugView
+
+    urlpatterns += [re_path("api/v1.0/debug/memory/?$", MemoryDebugView.as_view(), name="debug-memory")]
 if settings.DEV:
     urlpatterns += [
         re_path(r"^(?:index.html)?$", django.contrib.staticfiles.views.serve, kwargs={"path": "index.html"}),

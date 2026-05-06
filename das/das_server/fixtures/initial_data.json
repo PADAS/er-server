@@ -2561,6 +2561,253 @@
     }
   },
   {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "sheep",
+      "display": "Sheep",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "mule",
+      "display": "Mule",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "wild_boar",
+      "display": "Wild Boar",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "hirola",
+      "display": "Hirola",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "duiker",
+      "display": "Duiker",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "frog",
+      "display": "Frog",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "gorilla",
+      "display": "Gorilla",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "mantaray",
+      "display": "Manta ray",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "sloth",
+      "display": "Sloth",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "moose",
+      "display": "Moose",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "pronghorn",
+      "display": "Pronghorn",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "bighorn_sheep_rocky_mountain",
+      "display": "Rocky Mountain Bighorn Sheep",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "bighorn_sheep_desert",
+      "display": "Desert Bighorn Sheep",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "mule_deer",
+      "display": "Mule Deer",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "jaguar",
+      "display": "Jaguar",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "jaguar_black",
+      "display": "Black Jaguar",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "macaw",
+      "display": "Macaw",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "tortoise",
+      "display": "Tortoise",
+      "subject_type": [
+        "wildlife"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-02-23T00:00:00Z",
+      "updated_at": "2026-02-23T00:00:00Z",
+      "value": "drone_quadcopter",
+      "display": "Drone Quad-copter",
+      "subject_type": [
+        "aircraft"
+      ],
+      "ordernum": null
+    }
+  },
+  {
     "model": "observations.subjectgroup",
     "fields": {
       "created_at": "2016-07-07T01:00:00Z",

@@ -836,7 +836,9 @@ def test_gear_create_devices_in_set_and_haul_validation():
     assert not s.is_valid()
     assert "devices_in_set" in json.dumps(s.errors)
 
-    # Hauling a device that's not deployed should error
+    # Hauling a device with no prior SubjectSource is now allowed: the device may legitimately
+    # appear for the first time in a haul payload (e.g. a newly-discovered device on an existing
+    # trawl). BuoyService.process_gearset handles the deploy-then-haul transition atomically.
     payload = {
         "manufacturer_name": "TestManufacturerValidation",
         "owner_id": "owner123",
@@ -855,8 +857,7 @@ def test_gear_create_devices_in_set_and_haul_validation():
         ],
     }
     s = GearCreateSerializer(data=payload, context={"request": _create_mock_request(user)})
-    assert not s.is_valid()
-    assert "not deployed" in json.dumps(s.errors)
+    assert s.is_valid(), s.errors
 
 
 @pytest.mark.django_db
@@ -1925,3 +1926,183 @@ class TestDeviceWithNullLocation:
         assert ss_with_loc.location.x == -70.5142263
         assert ss_with_loc.location.y == 40.6014382
         assert ss_null_lat_lon.location is None
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_add_device_to_existing_gearset(superuser):
+    """Test that re-submitting a gearset with an additional device succeeds.
+
+    When a device is added to an existing gearset, the integration re-sends
+    the full set (including the original device at its original recorded_at).
+    The Observation for the original device must be upserted, not duplicated,
+    so the unique constraint on (das_tenant, source_id, recorded_at) is not
+    violated.
+    """
+    subject_group = SubjectGroup.objects.create(name="TestAddDevice")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    now = timezone.now()
+    deploy_time = now - timedelta(hours=1)
+    device_id_1 = str(uuid4())
+    device_id_2 = str(uuid4())
+    set_id = str(uuid4())
+
+    # First POST: single device
+    data_1 = {
+        "manufacturer_name": "TestAddDevice",
+        "set_id": set_id,
+        "deployment_type": "single",
+        "initial_deployment_date": deploy_time,
+        "devices_in_set": 1,
+        "devices": [
+            {
+                "device_id": device_id_1,
+                "last_deployed": deploy_time,
+                "last_updated": deploy_time,
+                "device_status": "deployed",
+                "location": {"latitude": 43.63, "longitude": -69.74},
+                "recorded_at": deploy_time,
+            }
+        ],
+    }
+    serializer = GearCreateSerializer(data=data_1, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, obs1 = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+    assert len(obs1) == 1
+    assert SubjectSource.objects.filter(subject=subject).count() == 1
+
+    # Second POST: same set_id, now with two devices (original + new)
+    deploy_time_2 = deploy_time + timedelta(minutes=1)
+    data_2 = {
+        "manufacturer_name": "TestAddDevice",
+        "set_id": set_id,
+        "deployment_type": "trawl",
+        "devices_in_set": 2,
+        "devices": [
+            {
+                "device_id": device_id_1,
+                "last_deployed": deploy_time,
+                "last_updated": now,
+                "device_status": "deployed",
+                "location": {"latitude": 43.63, "longitude": -69.74},
+                "recorded_at": deploy_time,  # Same recorded_at as first POST
+            },
+            {
+                "device_id": device_id_2,
+                "last_deployed": deploy_time_2,
+                "last_updated": now,
+                "device_status": "deployed",
+                "location": {"latitude": 43.64, "longitude": -69.73},
+                "recorded_at": deploy_time_2,
+            },
+        ],
+    }
+    serializer = GearCreateSerializer(data=data_2, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, obs2 = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Both devices processed successfully
+    assert len(obs2) == 2
+    assert SubjectSource.objects.filter(subject=subject).count() == 2
+    assert subject.is_active is True
+
+    # Original device observation was updated, not duplicated
+    assert Observation.objects.filter(source_id=device_id_1, recorded_at=deploy_time).count() == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_process_gearset_haul_with_new_device(superuser):
+    """A haul payload may introduce a device that was never deployed in a prior request.
+
+    Scenario: a trawl is created with one device. When it is hauled the integration sends a payload
+    listing two devices (both hauled), because a second device was discovered on the gear during
+    retrieval. The API must deploy-and-haul the new device atomically and close the gearset.
+    """
+    subject_group = SubjectGroup.objects.create(name="TestHaulWithNewDevice")
+    permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+    subject_group.permission_sets.add(permission_set)
+    superuser.permission_sets.add(permission_set)
+
+    deploy_time_1 = timezone.now() - timedelta(days=1)
+    deploy_time_2 = deploy_time_1 + timedelta(minutes=1)
+    haul_time = timezone.now()
+    set_id = str(uuid4())
+    device_id_1 = str(uuid4())
+    device_id_2 = str(uuid4())
+
+    # First POST: one deployed device
+    deploy_payload = {
+        "manufacturer_name": "TestHaulWithNewDevice",
+        "set_id": set_id,
+        "deployment_type": "trawl",
+        "initial_deployment_date": deploy_time_1,
+        "devices_in_set": 1,
+        "devices": [
+            {
+                "device_id": device_id_1,
+                "last_deployed": deploy_time_1,
+                "last_updated": deploy_time_1,
+                "device_status": "deployed",
+                "location": {"latitude": 44.61, "longitude": -67.50},
+                "recorded_at": deploy_time_1,
+            }
+        ],
+    }
+    serializer = GearCreateSerializer(data=deploy_payload, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, _ = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+    assert subject.is_active is True
+    assert SubjectSource.objects.filter(subject=subject).count() == 1
+
+    # Second POST: both devices hauled, second device is new
+    haul_payload = {
+        "manufacturer_name": "TestHaulWithNewDevice",
+        "set_id": set_id,
+        "deployment_type": "trawl",
+        "devices_in_set": 2,
+        "devices": [
+            {
+                "device_id": device_id_1,
+                "last_deployed": deploy_time_1,
+                "last_updated": haul_time,
+                "device_status": "hauled",
+                "location": {"latitude": 44.6157302, "longitude": -67.50190767},
+                "recorded_at": haul_time,
+            },
+            {
+                "device_id": device_id_2,
+                "last_deployed": deploy_time_2,
+                "last_updated": haul_time,
+                "device_status": "hauled",
+                "location": {"latitude": 44.61586943, "longitude": -67.5012982},
+                "recorded_at": haul_time,
+            },
+        ],
+    }
+    serializer = GearCreateSerializer(data=haul_payload, context={"request": _create_mock_request(superuser)})
+    assert serializer.is_valid(), serializer.errors
+    subject, _ = BuoyService.process_gearset(serializer.validated_data, user=superuser)
+
+    # Both devices now tracked on the gearset
+    subject_sources = {str(ss.source_id): ss for ss in SubjectSource.objects.filter(subject=subject)}
+    assert set(subject_sources.keys()) == {device_id_1, device_id_2}
+
+    max_upper = DEFAULT_ASSIGNED_RANGE[1]
+
+    # Original device: lower preserved from initial deploy, upper closed at haul
+    ss1 = subject_sources[device_id_1]
+    assert ss1.assigned_range.lower == deploy_time_1
+    assert ss1.assigned_range.upper != max_upper
+
+    # New device: lower taken from last_deployed, upper closed at haul
+    ss2 = subject_sources[device_id_2]
+    assert ss2.assigned_range.lower == deploy_time_2
+    assert ss2.assigned_range.upper != max_upper
+
+    # Gearset is closed because every SubjectSource is hauled
+    subject.refresh_from_db()
+    assert subject.is_active is False

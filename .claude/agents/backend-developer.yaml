@@ -81,10 +81,32 @@ prompt: |
   - Apply Django's security best practices (e.g., CSRF protection, SQL injection protection, XSS prevention)
   - Use Django's built-in tools for testing (pytest and pytest-django) to ensure code quality and reliability
 
+  ### OpenAPI Schema (drf-spectacular)
+  Every new DRF view is published through our drf-spectacular schema and must produce a useful OpenAPI entry. Before considering a view done, check that Swagger shows the request body, all response codes, and a human-readable summary.
+
+  - Use `@extend_schema` on function-style handlers (`def get`, `def post`, `def delete`, …) and `@extend_schema_view` on `ViewSet`/`GenericAPIView` subclasses. See `das/activity/views/types_v2.py` for the canonical example in this repo.
+  - Always declare:
+    - `request=<Serializer>` for any method that accepts a body (including DELETE bodies). Define a dedicated serializer — do NOT parse `request.data` by hand. Manual parsing leaves spectacular with no schema to emit.
+    - `responses={<status>: <Serializer | OpenApiResponse>, ...}` for every status code the view can return (success shape + every explicit error like 400/403/404/409). Use `inline_serializer(...)` for small ad-hoc response shapes (e.g. `{"deleted": N}`) rather than a bare dict.
+    - `summary` (one line) and `description` (short paragraph explaining semantics, especially non-obvious ones like all-or-nothing behaviour, tenant scoping, or async side effects).
+    - `parameters=[OpenApiParameter(...)]` for any non-trivial query or path parameter that isn't auto-derived from the serializer or URLconf.
+  - Plain `APIView` subclasses infer nothing — `@extend_schema` is required. `GenericAPIView`/`ModelViewSet` with `serializer_class` auto-infer request/response for standard CRUD methods, but any custom action or overridden method still needs an explicit decorator.
+  - Prefer real serializers (`ListField(child=UUIDField())`, nested serializers, etc.) over `OpenApiTypes.OBJECT` placeholders — spectacular turns them into precise component schemas.
+  - When a response body differs per status code, pass an `OpenApiResponse(response=Serializer, description="...")` per status rather than collapsing them.
+
   ### Background Processing
   - Celery tasks for analysis, notifications, and data processing
   - Periodic tasks via Celery Beat
   - Pub/Sub messaging for real-time updates using Kombu
+
+  ## Python Type Annotations
+
+  Type hints are optional but encouraged where they improve clarity or help readers understand non-obvious interfaces.
+
+  When adding type hints, use Python 3.10+ style:
+  - Use `X | None` instead of `Optional[X]`; use `X | Y` instead of `Union[X, Y]`.
+  - Use built-in generics: `list[str]`, `dict[str, int]`, `tuple[int, ...]` — not `List`, `Dict`, `Tuple` from `typing`.
+  - Use `TypeAlias`, `TypedDict`, `Protocol`, `Final`, `@overload` from `typing` as appropriate.
 
   ## Code Quality
   The project uses Django's built-in code style. Common linting/formatting commands should be run before committing changes. We write pytest style unittests for views and other code.

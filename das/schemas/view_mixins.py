@@ -259,6 +259,10 @@ class DynamicSchemaFromSourceView(APIView):
                     value = get_nested_value(item, attr_name)
                 schema_item[key] = value
 
+            # Omit description when unresolved so clients do not see JSON null in oneOf entries.
+            if schema_item.get("description") is None:
+                schema_item.pop("description", None)
+
             schema_items.append(schema_item)
 
         return schema_items
@@ -268,13 +272,13 @@ class DynamicSchemaFromSourceView(APIView):
         Returns the schema id, based on the url and the query parameters of the request, in order to help the
         caching of the schema, we will sort the query parameters and append them to the url.
         """
-        base_url = request.build_absolute_uri()
         query_params = self.get_query_params(request)
         query_string = sorted_query_parameters_to_string(query_params)
 
         if not query_params:
-            return base_url
+            return request.build_absolute_uri()
 
+        base_url = request.build_absolute_uri(request.path)
         return f"{base_url}?{query_string}"
 
     def generate_dynamic_schema(self, request: Request) -> Dict[str, Any]:

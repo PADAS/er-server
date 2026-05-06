@@ -351,3 +351,4 @@ application_default_credentials.json
 
 # ln -s AGENTS.md CLAUDE.md to use it in your claude prompt
 CLAUDE.md
+.claude

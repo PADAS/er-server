@@ -189,6 +189,7 @@ dev = [
     "coverage",
     "django-fakeredis",
     "django-silk",
+    "django-stubs>=6.0.2",
     "factory-boy",
     "faker",
     "flake8",
@@ -210,8 +211,17 @@ dev = [
     "pytest-xdist",
     "requests-mock",
     "sort-requirements",
+    "types-jsonschema>=4.26.0.20260408",
     "xmlunittest",
 ]
+
+[tool.pyright]
+extraPaths = ["das"]
+reportFunctionMemberAccess = false
+reportAttributeAccessIssue = false
+
+[tool.pyrefly]
+search_path = ["das"]
 
 [tool.uv]
 no-build-isolation-package = ["rasterio"]

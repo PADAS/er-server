@@ -195,7 +195,11 @@ class SourcePlugin(TenantModelMixin, TimestampedModel):
         return observation
 
     def __str__(self):
-        return "%s: source: %s, manufacturer_id: %s" % (self.id, self.source_id, self.source.manufacturer_id)
+        try:
+            manufacturer_id = self.source.manufacturer_id
+        except Source.DoesNotExist:
+            manufacturer_id = "<missing source>"
+        return f"{self.id}: source: {self.source_id}, manufacturer_id: {manufacturer_id}"
 
 
 class TrackingPlugin(TenantModelMixin, TimestampedModel):

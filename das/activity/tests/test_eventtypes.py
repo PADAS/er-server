@@ -630,3 +630,63 @@ def test_list_icons_view_error_handling(mock_storage, superuser_client):
     assert response.status_code == 500
     assert response.json()["status"]["detail"] == "Filesystem error"
     assert "icon_ids" not in response.data
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestV1EndpointsRejectV2EventTypes:
+    """V1 endpoints must not expose or mutate V2 event types.
+
+    A V2 event type accessed via V1 serializer can silently corrupt its schema
+    because the V1 serializer has no knowledge of the V2 schema structure.
+    All write operations — and lookups that enable them — must return 404.
+    """
+
+    def _make_v2(self):
+        return EventTypeFactory.create(version=EventType.VersionChoices.VERSION_2)
+
+    def test_get_v2_event_type_via_v1_detail_returns_404(self, superuser_client):
+        v2_et = self._make_v2()
+        url = reverse("eventtype", kwargs={"eventtype_id": v2_et.id})
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_patch_v2_event_type_via_v1_returns_404(self, superuser_client):
+        v2_et = self._make_v2()
+        url = reverse("eventtype", kwargs={"eventtype_id": v2_et.id})
+        response = superuser_client.patch(
+            url, data=json.dumps({"display": "Tampered"}), content_type="application/json"
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_put_v2_event_type_via_v1_returns_404(self, superuser_client):
+        v2_et = self._make_v2()
+        url = reverse("eventtype", kwargs={"eventtype_id": v2_et.id})
+        response = superuser_client.put(
+            url,
+            data=json.dumps({"display": "Tampered", "value": v2_et.value, "category": v2_et.category.value}),
+            content_type="application/json",
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_v2_event_type_via_v1_returns_404_and_leaves_it_active(self, superuser_client):
+        v2_et = self._make_v2()
+        url = reverse("eventtype", kwargs={"eventtype_id": v2_et.id})
+        response = superuser_client.delete(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        v2_et.refresh_from_db()
+        assert v2_et.is_active is True
+
+    def test_rank_v2_event_type_via_v1_is_allowed(self, superuser_client):
+        v2_et = self._make_v2()
+        url = reverse("eventtype-ranking", kwargs={"eventtype_id": v2_et.id})
+        response = superuser_client.post(url, {"before_key": None})
+        assert response.status_code not in (status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN)
+
+    def test_patch_does_not_corrupt_v2_schema(self, superuser_client):
+        v2_et = self._make_v2()
+        original_schema = v2_et.schema
+        url = reverse("eventtype", kwargs={"eventtype_id": v2_et.id})
+        superuser_client.patch(url, data=json.dumps({"display": "Tampered"}), content_type="application/json")
+        v2_et.refresh_from_db()
+        assert v2_et.schema == original_schema

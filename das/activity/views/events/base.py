@@ -1,10 +1,12 @@
 import json
 import logging
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from datetime import datetime
 from typing import Dict, List, Type, Union
 
 import pytz
+from django_multitenant.utils import get_current_tenant
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from psycopg2.errors import InvalidTextRepresentation
 from rest_framework_extensions.etag.decorators import etag
 
@@ -27,7 +29,7 @@ from rest_framework.generics import (
 )
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.serializers import Serializer
+from rest_framework.serializers import IntegerField, Serializer
 from rest_framework.views import APIView
 
 from accounts.serializers import UserDisplaySerializer
@@ -43,6 +45,7 @@ from activity.models import (
     EventFile,
     EventFilter,
     EventGeometry,
+    EventNote,
     EventProvider,
     EventRelationship,
 )
@@ -53,6 +56,7 @@ from activity.permissions import (
 )
 from activity.schemas.schema_adapter import SchemaAdapterFactory
 from activity.serializers import (
+    EventBulkDeleteSerializer,
     EventFactorSerializer,
     EventFilterSerializer,
     EventGeoJsonSerializer,
@@ -353,12 +357,64 @@ class EventsExportView(APIView):
             )
             return None
 
-    def _get_annotated_queryset(self):
-        """Get the queryset with all necessary annotations for export."""
-        queryset = self.get_queryset()
-        user_subjects = list(Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True))
-        queryset = queryset.filter(Q(related_subjects__isnull=True) | Q(related_subjects__in=user_subjects))
+    def _preload_file_url_cache(self, events_qs: QuerySet) -> None:
+        """Batch-fetch all file URLs for events in the queryset to avoid N+1 queries.
 
+        Groups EventFile records by content type and fetches all file objects for
+        each type in a single query, reducing attachment resolution from O(N) DB
+        queries to O(content_type_count) queries.
+        """
+        by_content_type: dict[int, list[str]] = defaultdict(list)
+
+        for usercontent_type_id, usercontent_id in (
+            EventFile.objects.filter(event__in=events_qs)
+            .values_list("usercontent_type_id", "usercontent_id")
+            .iterator()
+        ):
+            by_content_type[usercontent_type_id].append(str(usercontent_id))
+
+        if not by_content_type:
+            return
+
+        for ct_id, file_ids in by_content_type.items():
+            content_type = self._get_content_type_cached(ct_id)
+            file_model = content_type.model_class()
+            if file_model is None:
+                logger.warning("ContentType %s has no model_class; caching nulls for %d files", ct_id, len(file_ids))
+                for file_id in file_ids:
+                    self._file_model_cache[(ct_id, file_id)] = None
+                continue
+
+            try:
+                file_objs = list(file_model.objects.filter(id__in=file_ids).iterator(chunk_size=2000))
+            except Exception:
+                logger.exception("Error preloading file urls for contenttype %s", ct_id)
+                for file_id in file_ids:
+                    self._file_model_cache[(ct_id, file_id)] = None
+                continue
+
+            found_ids: set[str] = set()
+            for file_obj in file_objs:
+                cache_key = (ct_id, str(file_obj.id))
+                found_ids.add(str(file_obj.id))
+                # Storage backends may raise varied exceptions (S3, filesystem, etc.);
+                # degrade to None so the export continues instead of 500-ing.
+                try:
+                    self._file_model_cache[cache_key] = file_obj.file.url
+                except Exception:
+                    logger.exception("Error getting URL for file %s", file_obj.id)
+                    self._file_model_cache[cache_key] = None
+
+            for file_id in file_ids:
+                if file_id not in found_ids:
+                    self._file_model_cache[(ct_id, file_id)] = None
+
+    def _get_annotated_queryset(self, queryset: QuerySet) -> QuerySet:
+        """Annotate the given queryset with the fields needed for CSV export.
+
+        The caller is responsible for applying permission filters (e.g., related
+        subjects) before passing the queryset in.
+        """
         file_subquery = EventFile.objects.filter(event=OuterRef("id")).values(
             data=JSONObject(usercontent_type="usercontent_type", usercontent_id="usercontent_id", id="id")
         )
@@ -512,11 +568,16 @@ class EventsExportView(APIView):
         reported_by_map = generate_reported_by_lookup()
         event_type_map = generate_event_type_cache()
 
-        # Lightweight query for event type IDs (same filters, no heavy annotations).
-        event_type_ids_in_export = set(self.get_queryset().values_list("event_type_id", flat=True).distinct())
+        # Apply the related-subjects permission filter once and reuse for header
+        # generation, attachment preloading, and row annotation — so we only
+        # process events the user is allowed to see and only query user_subjects once.
+        user_subjects = list(Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True))
+        filtered_queryset = self.get_queryset().filter(
+            Q(related_subjects__isnull=True) | Q(related_subjects__in=user_subjects)
+        )
 
-        # Build annotated queryset once for row generation only.
-        queryset = self._get_annotated_queryset()
+        event_type_ids_in_export = set(filtered_queryset.values_list("event_type_id", flat=True).distinct())
+        queryset = self._get_annotated_queryset(filtered_queryset)
 
         default_headers = self._get_default_headers(f"Reported At ({tz_offset})")
         custom_headers = self._build_custom_headers(event_type_map, event_type_ids_in_export)
@@ -527,6 +588,9 @@ class EventsExportView(APIView):
         local_tz = pytz.timezone(timezone.get_current_timezone_name())
         timestamp = local_tz.localize(datetime.utcnow())
         download_filename = f'Event Export {timestamp.strftime("%Y-%m-%d")}.csv'
+
+        # Pre-populate file URL cache to avoid N+1 queries during row generation.
+        self._preload_file_url_cache(filtered_queryset)
 
         # Create streaming response
         row_generator = self._generate_event_rows(
@@ -542,7 +606,7 @@ class EventsExportView(APIView):
     def get_queryset(self):
         # TODO: Update to allow passing last_days constraint.
 
-        queryset = Event.objects.all().prefetch_related("event_type")
+        queryset = Event.objects.all()
 
         permitted_event_categories = get_permitted_event_categories(self.request)
 
@@ -574,14 +638,17 @@ class EventsExportView(APIView):
         if state:
             queryset = queryset.by_state(state)
 
-        contained_event_ids = (
-            queryset.filter(event_type__is_collection=True)
-            .aggregate(child_event_ids=ArrayAgg("out_relationship__to_event"))
-            .get("child_event_ids")
-        )
-
-        if contained_event_ids:
-            child_events = Event.objects.filter(id__in=contained_event_ids)
+        # Only union in child events when collection events are actually present.
+        # The unconditional union form is simpler but adds an extra subquery to every
+        # export query — revisit if exports of large non-collection result sets ever
+        # show measurable regression here.
+        collection_qs = queryset.filter(event_type__is_collection=True)
+        if collection_qs.exists():
+            child_events = Event.objects.filter(
+                id__in=EventRelationship.objects.filter(from_event__in=collection_qs).values_list(
+                    "to_event_id", flat=True
+                )
+            )
             queryset = queryset.distinct() | child_events.distinct()
 
         return queryset.order_by("event_type_id")
@@ -630,17 +697,40 @@ class EventsView(ListCreateAPIView):
 
     schema = EventsViewSchema()
 
+    def _build_revisions_cache(self, events: list) -> dict:
+        """Bulk-fetch all EventRevision rows for a page of events in one query."""
+        event_ids = [e.pk for e in events]
+        if not event_ids:
+            return {}
+        revision_model = Event.revision.model
+        revisions = (
+            revision_model.objects.filter(object_id__in=event_ids, das_tenant=get_current_tenant())
+            .select_related("user")
+            .order_by("sequence")
+        )
+        cache: dict = {}
+        for rev in revisions:
+            cache.setdefault(rev.object_id, []).append(rev)
+        return cache
+
     def list(self, request: Request, *args, **kwargs) -> Response:
         queryset = self.filter_queryset(self.get_queryset())
         queryset = self.optimize_queryset(queryset)
 
         try:
             if self.paginator:
-                queryset = self.paginate_queryset(queryset)
-                serializer = self.get_serializer(queryset, many=True)
+                page = self.paginate_queryset(queryset)
+                context = self.get_serializer_context()
+                if context.get("include_updates"):
+                    context["revisions_cache"] = self._build_revisions_cache(page)
+                serializer = self.get_serializer(page, many=True, context=context)
                 return self.get_paginated_response(serializer.data)
 
-            serializer = self.get_serializer(queryset, many=True)
+            events = list(queryset)
+            context = self.get_serializer_context()
+            if context.get("include_updates"):
+                context["revisions_cache"] = self._build_revisions_cache(events)
+            serializer = self.get_serializer(events, many=True, context=context)
             return Response(serializer.data)
 
         except InvalidTextRepresentation as error:
@@ -708,7 +798,11 @@ class EventsView(ListCreateAPIView):
         serializer_context = self.get_serializer_context()
         permitted_categories = get_permitted_event_categories(self.request)
 
-        queryset = queryset.select_related("event_type__category", "created_by_user")
+        queryset = queryset.select_related("event_type__category", "created_by_user", "reported_by_content_type")
+
+        _rel_qs = EventRelationship.objects.select_related(
+            "type", "to_event__event_type__category", "from_event__event_type__category"
+        )
 
         prefetches = [
             Prefetch("eventsource_event_refs__eventsource__eventprovider"),
@@ -719,36 +813,30 @@ class EventsView(ListCreateAPIView):
             Prefetch(
                 "in_relationships",
                 to_attr="relationship_in_contains",
-                queryset=EventRelationship.objects.filter(type__value="contains")
-                .order_by("ordernum", "to_event__created_at")
-                .all(),
+                queryset=_rel_qs.filter(type__value="contains").order_by("ordernum", "to_event__created_at"),
             ),
             Prefetch(
                 "out_relationships",
                 to_attr="relationship_out_contains",
-                queryset=EventRelationship.objects.filter(
+                queryset=_rel_qs.filter(
                     to_event__event_type__category__in=permitted_categories, type__value="contains"
-                )
-                .order_by("ordernum", "to_event__created_at")
-                .all(),
+                ).order_by("ordernum", "to_event__created_at"),
             ),
             Prefetch(
                 "out_relationships",
                 to_attr="relationship_out_is_linked_to",
-                queryset=EventRelationship.objects.filter(
+                queryset=_rel_qs.filter(
                     to_event__event_type__category__in=permitted_categories, type__value="is_linked_to"
-                )
-                .order_by("ordernum", "to_event__created_at")
-                .all(),
+                ).order_by("ordernum", "to_event__created_at"),
             ),
         ]
 
         if serializer_context.get("include_details"):
             prefetches.append(Prefetch("event_details", to_attr="event_details_set"))
         if serializer_context.get("include_notes"):
-            prefetches.append(Prefetch("notes"))
+            prefetches.append(Prefetch("notes", queryset=EventNote.objects.select_related("created_by_user")))
         if serializer_context.get("include_files"):
-            prefetches.append(Prefetch("files"))
+            prefetches.append(Prefetch("files", queryset=EventFile.objects.select_related("created_by")))
 
         queryset = queryset.prefetch_related(*prefetches)
         queryset = queryset.annotate(patrol_ids=ArrayAgg("patrol_segments__patrol_id"))
@@ -763,6 +851,61 @@ class EventsView(ListCreateAPIView):
             else:
                 record["patrol_segments"].append(patrol_segment_id)
         return new_record
+
+
+class EventBulkDeleteView(APIView):
+    http_method_names = ["delete", "options"]
+    permission_classes = (EventCategoryPermissions,)
+
+    @extend_schema(
+        request=EventBulkDeleteSerializer,
+        responses={
+            200: inline_serializer("EventBulkDeleteResponse", {"deleted": IntegerField()}),
+            400: OpenApiResponse(description="Invalid payload (ids missing, not a list, or not valid UUIDs)."),
+            403: OpenApiResponse(
+                description="Caller lacks delete permission for one or more events, or an id was not found."
+            ),
+        },
+        summary="Bulk-delete events",
+        description=(
+            "Delete multiple events atomically. All-or-nothing: if any id is unknown or the caller lacks "
+            "`{category}_delete` for any event's category, nothing is deleted."
+        ),
+    )
+    def delete(self, request, *args, **kwargs):
+        serializer = EventBulkDeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ids = serializer.validated_data["ids"]
+
+        if not ids:
+            return Response({"deleted": 0})
+
+        with transaction.atomic():
+            events_qs = (
+                Event.objects.select_for_update(of=("self",))
+                .filter(id__in=ids)
+                .select_related("event_type__category")
+                .prefetch_related("related_subjects")
+            )
+            events = list(events_qs)
+
+            found_ids = {event.id for event in events}
+            requested_ids = set(ids)
+
+            if found_ids != requested_ids:
+                # 403 (not 404) on missing IDs so we don't leak the existence
+                # of events the caller can't otherwise see.
+                return Response(
+                    {"detail": "You do not have permission to delete one or more of the requested events."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            for event in events:
+                self.check_object_permissions(request, event)
+
+            events_qs.delete()
+
+        return Response({"deleted": len(found_ids)})
 
 
 class EventsGeoJsonView(EventsView):

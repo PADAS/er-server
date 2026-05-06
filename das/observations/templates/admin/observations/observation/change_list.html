@@ -16,3 +16,12 @@
 {% block content_title %}
     <h1>Subject Observations</h1>
 {% endblock %}
+
+{% block object-tools-items %}
+    {% if csv_import_url %}
+    <li>
+        <a href="{{ csv_import_url }}" class="historylink">Import Observations…</a>
+    </li>
+    {% endif %}
+    {{ block.super }}
+{% endblock %}
