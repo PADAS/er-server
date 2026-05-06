@@ -129,6 +129,7 @@ def account_linker_landing(request):
         request,
         callback_url,
         state=link_attempt,
+        connection=get_tenant_settings().slug_name,
     )
 
 
