@@ -317,6 +317,10 @@ AUTH0_CLIENT_SECRET_FOR_MANAGEMENT_API = env.str("AUTH0_CLIENT_SECRET_FOR_MANAGE
 AUTH0_CLIENT_ID_FOR_DJANGO_ADMIN = env.str("AUTH0_CLIENT_ID_FOR_DJANGO_ADMIN", "")
 AUTH0_CLIENT_SECRET_FOR_DJANGO_ADMIN = env.str("AUTH0_CLIENT_SECRET_FOR_DJANGO_ADMIN", "")
 
+# Auth0 settings for Account Linker (public PKCE client, no secret)
+AUTH0_CLIENT_ID_FOR_ACCOUNT_LINKER = env.str("AUTH0_CLIENT_ID_FOR_ACCOUNT_LINKER", "")
+ACCOUNT_LINKER_MAGIC_LINK_MAX_AGE_SECONDS = env.int("ACCOUNT_LINKER_MAGIC_LINK_MAX_AGE_SECONDS", 86400)
+
 # When require_idp=True (Auth0 enforced), allow these legacy DOT OAuth2 applications
 # (identified by OAuth2 application client_id) to continue using OAuth2 access tokens.
 # This is a global allowlist across tenants.
