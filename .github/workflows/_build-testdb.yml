@@ -1,0 +1,117 @@
+name: Build pre-seeded testdb image
+
+on:
+  workflow_call:
+    inputs:
+      das-image:
+        required: true
+        type: string
+        description: "das-server image whose migrations to bake in"
+      testdb-tag:
+        required: true
+        type: string
+        description: "tag for the resulting image (e.g. testdb-develop-latest)"
+
+  workflow_dispatch:
+    inputs:
+      das-image:
+        required: true
+        type: string
+        description: "das-server image whose migrations to bake in"
+      testdb-tag:
+        required: true
+        type: string
+        description: "tag for the resulting image (e.g. testdb-develop-latest)"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: GCP Auth
+        uses: google-github-actions/auth@v2
+        with:
+          token_format: access_token
+          workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.SERVICE_ACCOUNT }}
+
+      - name: Configure Docker for AR
+        run: gcloud auth configure-docker europe-west3-docker.pkg.dev --quiet
+
+      - name: Start postgres
+        run: |
+          docker network create testnet
+          docker run -d --name postgis --network testnet \
+            -e POSTGRES_USER=testuser \
+            -e POSTGRES_PASSWORD=fancypassword \
+            -e POSTGRES_DB=testdb \
+            postgis/postgis:14-3.5
+          until docker exec postgis pg_isready -U testuser 2>/dev/null; do sleep 2; done
+          echo "Postgres ready"
+
+      - name: Apply migrations
+        run: |
+          docker run --rm --network testnet \
+            -e DB_HOST=postgis \
+            -e DB_NAME=testdb \
+            -e DB_USER=testuser \
+            -e DB_PASSWORD=fancypassword \
+            -e DB_PORT=5432 \
+            -e DJANGO_SETTINGS_MODULE=unittest_settings \
+            -e PYTHONPATH=/das/test_scripts \
+            -e FQDN=testing.pamdas.org \
+            ${{ inputs.das-image }} \
+            sh -c "
+              set -e
+              cd /das
+              uv sync --group dev --no-install-project --find-links /das/dependencies/wheelhouse
+              pip install --upgrade keyrings.alt
+              IS_OAUTH2_PROVIDER_MIGRATION=true pytest --create-db -q --tb=no core/tests/test_utils.py
+            "
+
+      - name: Verify and dump test database
+        run: |
+          MIGRATION_COUNT=$(docker exec postgis psql -U testuser -d test_testdb -At \
+            -c "SELECT COUNT(*) FROM django_migrations;" 2>/dev/null || echo 0)
+          echo "Migrations applied: $MIGRATION_COUNT"
+          if [ "$MIGRATION_COUNT" -lt 100 ]; then
+            echo "ERROR: Expected 100+ migrations, found $MIGRATION_COUNT — bailing out"
+            exit 1
+          fi
+          docker exec postgis pg_dump -U testuser test_testdb > /tmp/test_testdb.sql
+          echo "Dump size: $(du -h /tmp/test_testdb.sql | cut -f1)"
+
+      - name: Validate testdb-tag prefix
+        run: |
+          if echo "${{ inputs.testdb-tag }}" | grep -qv '^testdb-'; then
+            echo "ERROR: testdb-tag must start with 'testdb-', got: ${{ inputs.testdb-tag }}"
+            exit 1
+          fi
+
+      - name: Build and push testdb image
+        run: |
+          mkdir -p /tmp/testdb-build
+          cp /tmp/test_testdb.sql /tmp/testdb-build/
+
+          {
+            echo '#!/bin/sh'
+            echo 'set -e'
+            echo 'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -c "CREATE DATABASE test_testdb;"'
+            echo 'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -c "GRANT ALL PRIVILEGES ON DATABASE test_testdb TO $POSTGRES_USER;"'
+            echo 'psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "test_testdb" -f /docker-entrypoint-initdb.d/test_testdb.sql'
+          } > /tmp/testdb-build/init.sh
+          chmod +x /tmp/testdb-build/init.sh
+
+          {
+            echo 'FROM postgis/postgis:14-3.5-alpine'
+            echo 'COPY test_testdb.sql /docker-entrypoint-initdb.d/test_testdb.sql'
+            echo 'COPY init.sh /docker-entrypoint-initdb.d/00-init.sh'
+            echo 'RUN chmod +x /docker-entrypoint-initdb.d/00-init.sh'
+          } > /tmp/testdb-build/Dockerfile
+
+          FULL_TAG="europe-west3-docker.pkg.dev/serca-artifact-registry/earthranger/das-server:${{ inputs.testdb-tag }}"
+          docker build -t "$FULL_TAG" /tmp/testdb-build
+          docker push "$FULL_TAG"
+          echo "Pushed: $FULL_TAG"
