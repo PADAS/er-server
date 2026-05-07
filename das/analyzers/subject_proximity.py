@@ -269,6 +269,7 @@ SUBJECT_PROXIMITY_SCHEMA = {
         "title": "Subject Proximity Schema",
         "type": "object",
         "properties": {
+            "analyzer_name": {"type": "string", "title": "Analyzer Name"},
             "subject_1_name": {"type": "string", "title": "Subject 1 Name"},
             "subject_1_speed_kmhr": {"type": "number", "title": "Subject 1 Speed Kmhr"},
             "subject_1_heading": {"type": "number", "title": "Subject 1 Heading"},
@@ -282,7 +283,7 @@ SUBJECT_PROXIMITY_SCHEMA = {
         },
     },
     "definition": [
-        {"type": "fieldset", "title": "Analyzer Details", "htmlClass": "col-lg-12", "items": []},
+        {"type": "fieldset", "title": "Analyzer Details", "htmlClass": "col-lg-12", "items": ["analyzer_name"]},
         {
             "type": "fieldset",
             "htmlClass": "col-lg-6",

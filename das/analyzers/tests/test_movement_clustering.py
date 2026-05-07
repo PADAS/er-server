@@ -272,6 +272,26 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
             assert abs(pt["location"]["latitude"] - BASE_LAT) < 0.01
             assert abs(pt["location"]["longitude"] - BASE_LON) < 0.01
 
+    def test_cluster_event_details_include_analyzer_name(self):
+        sg = models.SubjectGroup.objects.create(name="cluster_analyzer_name_group")
+        sg.subjects.add(self.subject)
+        sg.save()
+        config = MovementClusterAnalyzerConfig.objects.create(
+            name="Mara Movement Cluster Analyzer",
+            subject_group=sg,
+            spatial_threshold_meters=200,
+            temporal_threshold_seconds=3600,
+            min_cluster_points=3,
+            min_cluster_duration_seconds=3600,
+        )
+        obs = _clustered_obs(BASE_LAT, BASE_LON, count=8, start=self.now, interval_s=1800)
+        ia = MovementClusterAnalyzer(subject=self.subject, config=config)
+        results = ia.analyze(observations=obs)
+        assert len(results) == 1
+        _, event = results[0]
+        ed = event.event_details.all().first().data["event_details"]
+        assert ed["analyzer_name"] == config.name
+
     # ------------------------------------------------------------------
     # Duration threshold
     # ------------------------------------------------------------------

@@ -34,7 +34,8 @@ class TestEnvironmentAnalyzer(TestCase):
         sg.subjects.add(sub)
         sg.save()
 
-        EnvironmentalSubjectAnalyzerConfig.objects.create(
+        config = EnvironmentalSubjectAnalyzerConfig.objects.create(
+            name="Random Walk Elevation Analyzer",
             subject_group=sg,
             search_time_hours=5.0,
             threshold_value=10.0,  # use a low elevation
@@ -55,6 +56,8 @@ class TestEnvironmentAnalyzer(TestCase):
 
         for e in Event.objects.all():
             self.assertTrue(e.event_details.all().exists())
+            ed = e.event_details.all().first().data["event_details"]
+            assert ed["analyzer_name"] == config.name
 
         for e in Event.objects.all():
             for ed in e.event_details.all():

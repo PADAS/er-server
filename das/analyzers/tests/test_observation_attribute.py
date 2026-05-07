@@ -66,6 +66,7 @@ class TestObservationAttributeAnalyzer:
         assert event.priority == PRI_IMPORTANT
         ed = event.event_details.latest("updated_at").data["event_details"]
         assert ed["evaluated_value"] == 3.2
+        assert ed["analyzer_name"] == "Test OAA Config"
 
         oaa_setup.oaa.config.warning_value = "4.1"
         results = oaa_setup.oaa.analyze(observations=oaa_setup.test_observations)
