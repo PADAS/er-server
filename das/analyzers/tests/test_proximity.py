@@ -147,7 +147,10 @@ class TestProximityAnalyzer(TestCase):
 
         # Create the Proximity Analyzer Config object
         config = FeatureProximityAnalyzerConfig.objects.create(
-            subject_group=sg, threshold_dist_meters=200, proximal_features=sf_grp
+            name="Ol Donyo Farm Proximity Analyzer",
+            subject_group=sg,
+            threshold_dist_meters=200,
+            proximal_features=sf_grp,
         )
 
         # Create the analyzer
@@ -171,6 +174,7 @@ class TestProximityAnalyzer(TestCase):
             self.assertTrue(event.event_details.all().exists())
             ed = event.event_details.all().first().data["event_details"]
             assert ed["feature_group_name"] == sf_grp.name
+            assert ed["analyzer_name"] == config.name
 
         for event in Event.objects.all():
             for event_details in event.event_details.all():
@@ -215,7 +219,10 @@ class TestProximityAnalyzer(TestCase):
             models.Observation.objects.create(recorded_at=recorded_at, location=location, source=source2, additional={})
         # Create the Proximty Analyzer Config object
         config = SubjectProximityAnalyzerConfig.objects.create(
-            subject_group=sg, second_subject_group=sg2, threshold_dist_meters=200
+            name="Elephants vs Rhinos Subject Proximity Analyzer",
+            subject_group=sg,
+            second_subject_group=sg2,
+            threshold_dist_meters=200,
         )
         analyzer = SubjectProximityAnalyzer(config=config, subject=sub)
 
@@ -232,6 +239,8 @@ class TestProximityAnalyzer(TestCase):
 
         for event in Event.objects.all():
             self.assertTrue(event.event_details.all().exists())
+            ed = event.event_details.all().first().data["event_details"]
+            assert ed["analyzer_name"] == config.name
 
         for event in Event.objects.all():
             for event_details in event.event_details.all():

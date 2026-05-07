@@ -348,7 +348,7 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
         self._ensure_event_type()
 
         centroid = this_result.geometry_collection[0]
-        event_details = {"subject_name": self.subject.name}
+        event_details = {"analyzer_name": self.config.name, "subject_name": self.subject.name}
         event_details.update(this_result.values)
 
         event_data = dict(
@@ -368,6 +368,13 @@ MOVEMENT_CLUSTER_SCHEMA = {
     "json": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
+            "analyzer_name": {
+                "deprecated": False,
+                "title": "Analyzer Name",
+                "default": "",
+                "description": "",
+                "type": "string",
+            },
             "subject_name": {
                 "deprecated": False,
                 "title": "Subject Name",
@@ -450,6 +457,13 @@ MOVEMENT_CLUSTER_SCHEMA = {
     },
     "ui": {
         "fields": {
+            "analyzer_name": {
+                "conditionalDependents": [],
+                "parent": "section-2",
+                "type": "TEXT",
+                "inputType": "SHORT_TEXT",
+                "placeholder": "",
+            },
             "subject_name": {
                 "conditionalDependents": [],
                 "parent": "section-2",
@@ -499,7 +513,10 @@ MOVEMENT_CLUSTER_SCHEMA = {
                 "conditions": [],
                 "isActive": True,
                 "label": "",
-                "leftColumn": [{"name": "subject_name", "type": "field"}],
+                "leftColumn": [
+                    {"name": "analyzer_name", "type": "field"},
+                    {"name": "subject_name", "type": "field"},
+                ],
                 "rightColumn": [],
             },
             "section-1": {
