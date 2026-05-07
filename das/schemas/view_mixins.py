@@ -80,14 +80,14 @@ class DynamicSchemaFromSourceView(APIView):
 
     The fields to describe/build in the schema can be customized by setting the following attributes:
 
-    - `default_const_field`: The default field to use as each entry in ``enum`` (formerly ``const``).
+    - `default_enum_field`: The default source field path for each entry in ``enum``.
     - `default_title_field`: The default field to use as ``title`` inside ``x-enumExtra``.
     - `default_description_field`: The default field to use as ``description`` inside ``x-enumExtra``.
     - `default_enum_extra_fields`: Optional dict mapping extra keys (e.g. ``icon``) to source field paths.
 
     And those attributes can be overridden by query parameters in the request:
 
-    - `s_const`: The field to use for ``enum`` values.
+    - `s_enum`: The source field path whose values populate ``enum`` (and keys ``x-enumExtra``).
     - `s_title`: The field to use as ``title`` in ``x-enumExtra``.
     - `s_description`: The field to use as ``description`` in ``x-enumExtra``.
     - `enum_extra`: JSON object mapping extra keys to source field paths (same shape as ``default_enum_extra_fields``).
@@ -123,7 +123,7 @@ class DynamicSchemaFromSourceView(APIView):
     schema_description: Optional[str] = None
 
     # Default fields to build the list of items
-    default_const_field: str = "id"  # Default value for each ``enum`` entry
+    default_enum_field: str = "id"  # Default source field for each ``enum`` entry
     default_title_field: str  # Default value for ``title`` in ``x-enumExtra``
     default_description_field: Optional[str] = None  # Default value for ``description`` in ``x-enumExtra``
     # Map output key -> source field path (dotted), merged into each ``x-enumExtra`` value (e.g. {"icon": "icon_url"}).
@@ -162,10 +162,10 @@ class DynamicSchemaFromSourceView(APIView):
         return query_params
 
     def get_value_field_map(self, request: Request) -> Dict[str, str]:
-        """Maps logical roles (const, title, description) to source field paths."""
+        """Map enum value / title / description roles to dotted source field paths."""
         query_params = self.get_query_params(request)
         fields_map: Dict[str, str] = {
-            "const": query_params.get("s_const", self.default_const_field),
+            "const": query_params.get("s_enum", self.default_enum_field),
             "title": query_params.get("s_title", self.default_title_field),
         }
         if description_field := query_params.get("s_description", self.default_description_field):

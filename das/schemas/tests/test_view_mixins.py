@@ -15,7 +15,7 @@ class TestDynamicSchemaFromSourceView:
     def test_default_fields(self, superuser_client, add_view_to_urls):
         """
         When no override query params are passed,
-        default_const_field and default_title_field should be used.
+        default_enum_field and default_title_field should be used.
         """
         url_name = add_view_to_urls(MockDynamicSchemaView)
         url = reverse(url_name)
@@ -38,12 +38,12 @@ class TestDynamicSchemaFromSourceView:
 
     def test_overridden_fields(self, superuser_client, add_view_to_urls):
         """
-        Test passing s_const, s_title, s_description, and enum_extra to override defaults.
+        Test passing s_enum, s_title, s_description, and enum_extra to override defaults.
         """
         url_name = add_view_to_urls(MockDynamicSchemaView)
         url = reverse(url_name)
         query_params = {
-            "s_const": "custom_id",
+            "s_enum": "custom_id",
             "s_title": "age",
             "s_description": "country",
             "enum_extra": json.dumps({"icon": "extra_info", "lang": "language"}),
@@ -122,7 +122,7 @@ class TestDynamicSchemaFromSourceView:
 
         class DupSchemaView(MockDynamicSchemaView):
             source_view = DupSourceView
-            default_const_field = "id"
+            default_enum_field = "id"
             default_title_field = "name"
             default_description_field = "bio"
 
@@ -183,7 +183,7 @@ class NestedDynamicSchemaView(MockDynamicSchemaView):
     data_path = "data.inner.items"
 
     # For fields, we’ll reference nested paths like "profile.id", "profile.name", etc.
-    default_const_field = "profile.id"
+    default_enum_field = "profile.id"
     default_title_field = "profile.name"
     default_description_field = "details.bio"
 

@@ -30,7 +30,7 @@ class SourcesDynamicSchemaView(DynamicSchemaFromSourceView):
     source_view = SourcesView
     schema_title = "Sources"
     schema_description = "All data sources list"
-    default_const_field = "id"
+    default_enum_field = "id"
     default_title_field = "source_schema_title"
     default_description_field = "source_schema_description"
 
@@ -75,7 +75,7 @@ class ChoicesDynamicSchemaView(DynamicSchemaFromSourceView):
     source_view = ChoicesView
     schema_title = "Choices"
     schema_description = "All choices schema list"
-    default_const_field = "value"
+    default_enum_field = "value"
     default_title_field = "display"
     default_description_field = "field"
 
@@ -98,7 +98,7 @@ class EventTypesDynamicSchemaView(DynamicSchemaFromSourceView):
     source_view = EventTypesViewSet
     schema_title = "Event Types"
     schema_description = "All event types list"
-    default_const_field = "id"
+    default_enum_field = "id"
     default_title_field = "event_type_schema_title"
     default_description_field = "event_type_schema_description"
 
