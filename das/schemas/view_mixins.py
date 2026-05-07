@@ -1,5 +1,6 @@
 import json
-from typing import Any, Dict, List, Optional, Type
+from collections import OrderedDict
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from django.db.models import QuerySet
 from django.http import QueryDict
@@ -10,6 +11,9 @@ from rest_framework.views import APIView
 from utils.dict_utils import get_nested_value
 from utils.drf import sorted_query_parameters_to_string
 from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer
+
+# JSON Schema extension: per-value metadata for ``enum`` (title, description, and optional extras).
+ENUM_EXTRA_KEY = "x-enumExtra"
 
 
 class DynamicSchemaDataMixin:
@@ -43,7 +47,7 @@ class DynamicSchemaDataMixin:
             serializer = self.get_serializer(queryset, many=True)
             return serializer.data
 
-        return queryset.values()
+        return list(queryset.values())
 
 
 class DynamicSchemaFromSourceView(APIView):
@@ -61,16 +65,11 @@ class DynamicSchemaFromSourceView(APIView):
         "title": "FeatureCategories",
         "description": "A list of all feature categories available to the client",
         "type": "string",
-        "oneOf": [
-            {
-                "const": "uuid1",
-                "title": "Feature category 1"
-            },
-            {
-                "const": "uuid2",
-                "title": "Feature category 2"
-            }
-        ]
+        "enum": ["uuid1", "uuid2"],
+        "x-enumExtra": {
+            "uuid1": {"title": "Feature category 1"},
+            "uuid2": {"title": "Feature category 2"}
+        }
     }
     ```
 
@@ -81,31 +80,24 @@ class DynamicSchemaFromSourceView(APIView):
 
     The fields to describe/build in the schema can be customized by setting the following attributes:
 
-    - `default_const_field`: The default field to use as `const` in the schema.
-    - `default_title_field`: The default field to use as `title` in the schema.
-    - `default_description_field`: The default field to use as `description` in the schema.
-    - `default_x_fields`: The default fields to use as `x-` in the schema, the expected value is a dictionary.
+    - `default_const_field`: The default field to use as each entry in ``enum`` (formerly ``const``).
+    - `default_title_field`: The default field to use as ``title`` inside ``x-enumExtra``.
+    - `default_description_field`: The default field to use as ``description`` inside ``x-enumExtra``.
+    - `default_enum_extra_fields`: Optional dict mapping extra keys (e.g. ``icon``) to source field paths.
 
     And those attributes can be overridden by query parameters in the request:
 
-    - `s_const`: The field to use as `const` in the schema.
-    - `s_title`: The field to use as `title` in the schema.
-    - `s_description`: The field to use as `description` in the schema.
-    - `s_x`: The fields to use as `x-` in the schema, the expected value is a JSON string. (not sure about this one)
+    - `s_const`: The field to use for ``enum`` values.
+    - `s_title`: The field to use as ``title`` in ``x-enumExtra``.
+    - `s_description`: The field to use as ``description`` in ``x-enumExtra``.
+    - `enum_extra`: JSON object mapping extra keys to source field paths (same shape as ``default_enum_extra_fields``).
 
-    Additionally, the mode and type of the schema can be customized by setting the following attributes:
+    Additionally, the value type can be customized:
 
-    - `default_mode`: The schema can be generated in `oneOf`, `anyOf`, `array` or `object` mode.
-        - `oneOf`: The field can only have one of the specified values.
-        - `anyOf`: The field can have any of the specified values.
-        - `array`: The field can have an array of values, where each value must be one of the specified values.
-        - `object`: The field can have an object with the specified fields, where each field must be one of the
-        specified values.
     - `default_type`: The default type of value to use in the schema, `string` by default.
 
-    Those attributes can be overridden by query parameters in the request:
+    Overridable via query parameter:
 
-    - `s_mode`: The mode to use in the schema.
     - `s_type`: The type of value to use in the schema.
     """
 
@@ -131,14 +123,12 @@ class DynamicSchemaFromSourceView(APIView):
     schema_description: Optional[str] = None
 
     # Default fields to build the list of items
-    default_const_field: str = "id"  # Default value for the `const` field
-    default_title_field: str  # Default value for the `title` field
-    default_description_field: Optional[str] = None  # Default value for the `description` field
-    # To define x- attributes, use a dictionary with the key as the x- attribute and the value as the field name.
-    # For example: {"icon": "item_icon_field"} will add {"x-icon": "item_icon_field"}
-    default_x_fields: Optional[Dict[str, str]] = None
+    default_const_field: str = "id"  # Default value for each ``enum`` entry
+    default_title_field: str  # Default value for ``title`` in ``x-enumExtra``
+    default_description_field: Optional[str] = None  # Default value for ``description`` in ``x-enumExtra``
+    # Map output key -> source field path (dotted), merged into each ``x-enumExtra`` value (e.g. {"icon": "icon_url"}).
+    default_enum_extra_fields: Optional[Dict[str, str]] = None
 
-    default_mode = "oneOf"
     default_type = "string"
 
     def get_source_view(self, request: Request) -> Type[APIView]:
@@ -171,30 +161,49 @@ class DynamicSchemaFromSourceView(APIView):
                 query_params.pop(key)
         return query_params
 
-    def get_fields_map(self, request: Request) -> Dict[str, str]:
-        """
-        Builds a map of the fields to render in the schema, based on default fields and query parameters.
-        """
+    def get_value_field_map(self, request: Request) -> Dict[str, str]:
+        """Maps logical roles (const, title, description) to source field paths."""
         query_params = self.get_query_params(request)
-        fields_map = {
+        fields_map: Dict[str, str] = {
             "const": query_params.get("s_const", self.default_const_field),
             "title": query_params.get("s_title", self.default_title_field),
         }
         if description_field := query_params.get("s_description", self.default_description_field):
             fields_map["description"] = description_field
-
-        if x_fields := query_params.get("s_x", self.default_x_fields):
-            if isinstance(x_fields, str):
-                try:
-                    x_fields = json.loads(x_fields)
-                except json.JSONDecodeError:
-                    raise ValueError(f"Unable to parse x-fields: {x_fields}")
-            if not isinstance(x_fields, dict):
-                raise ValueError(f"Invalid x-fields: {x_fields}")
-            for key, value in x_fields.items():
-                fields_map[f"x-{key}"] = value
-
         return fields_map
+
+    def get_enum_extra_field_map(self, request: Request) -> Dict[str, str]:
+        """
+        Maps keys to include under ``x-enumExtra`` entries (beyond title/description) to source field paths.
+
+        Query parameter ``enum_extra`` is a JSON object, same shape as ``default_enum_extra_fields``.
+        """
+        query_params = self.get_query_params(request)
+        raw = query_params.get("enum_extra", self.default_enum_extra_fields)
+        if raw is None:
+            return {}
+        if isinstance(raw, str):
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Unable to parse enum_extra: {raw}") from e
+            if not isinstance(parsed, dict):
+                raise ValueError(f"Invalid enum_extra: {raw}")
+            return {str(k): str(v) for k, v in parsed.items()}
+        if not isinstance(raw, dict):
+            raise ValueError(f"Invalid enum_extra: {raw}")
+        return {str(k): str(v) for k, v in raw.items()}
+
+    def resolve_mapped_value(self, item: Dict[str, Any], attr_name: str) -> Any:
+        """Resolve a single field path (with optional custom ``get_<first>_from_item``) from a source row."""
+        attr_path = attr_name.split(".")
+        if field_method := getattr(self, f"get_{attr_path[0]}_from_item", None):
+            value = field_method(item)
+            if sub_attr_path := ".".join(attr_path[1:]):
+                value = get_nested_value(value, sub_attr_path)
+        else:
+            value = get_nested_value(item, attr_name)
+        return value
 
     def get_data_from_source_view(self, request: Request) -> List[Dict[str, Any]]:
         """
@@ -234,38 +243,52 @@ class DynamicSchemaFromSourceView(APIView):
             data = get_nested_value(data, self.data_path)
             if data is None:
                 raise ValueError(f"Unable to find data at path: {self.data_path or 'root'}")
+        if not isinstance(data, list):
+            data = [data]
         return data
 
-    def get_schema_items(self, request: Request, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def get_schema_rows(self, request: Request, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Returns the items for the schema, based on the data from the source view. Also, it will use the fields map
-        to map the fields from the source view to the schema fields.
-        It's possible to define custom methods to get the values from the source view, by defining a method
-        `get_{field_name}_from_item` in this view.
+        Returns one dict per source row: ``const``, ``title``, optional ``description``, and ``extras`` (dict).
         """
-        schema_items = []
-        fields_map = self.get_fields_map(request)
+        rows: List[Dict[str, Any]] = []
+        value_field_map = self.get_value_field_map(request)
+        extra_field_map = self.get_enum_extra_field_map(request)
 
         for item in data:
-            schema_item = {}
-            for key, attr_name in fields_map.items():
-                attr_path = attr_name.split(".")
+            const_val = self.resolve_mapped_value(item, value_field_map["const"])
+            title_val = self.resolve_mapped_value(item, value_field_map["title"])
+            row: Dict[str, Any] = {"const": const_val, "title": title_val}
+            if "description" in value_field_map:
+                row["description"] = self.resolve_mapped_value(item, value_field_map["description"])
+                if row["description"] is None:
+                    row.pop("description")
 
-                if field_method := getattr(self, f"get_{attr_path[0]}_from_item", None):
-                    value = field_method(item)
-                    if sub_attr_path := ".".join(attr_path[1:]):
-                        value = get_nested_value(value, sub_attr_path)
-                else:
-                    value = get_nested_value(item, attr_name)
-                schema_item[key] = value
+            extras: Dict[str, Any] = {}
+            for out_key, attr_name in extra_field_map.items():
+                extras[out_key] = self.resolve_mapped_value(item, attr_name)
+            row["extras"] = extras
+            rows.append(row)
 
-            # Omit description when unresolved so clients do not see JSON null in oneOf entries.
-            if schema_item.get("description") is None:
-                schema_item.pop("description", None)
+        return rows
 
-            schema_items.append(schema_item)
-
-        return schema_items
+    def build_enum_and_extra(self, rows: List[Dict[str, Any]]) -> Tuple[List[Any], Dict[str, Any]]:
+        """
+        Collapse rows into ``enum`` and ``x-enumExtra``. Duplicate ``const`` values keep the last row's metadata.
+        ``enum`` order follows last occurrence (each value appears once, last position wins).
+        """
+        ordered = OrderedDict()
+        for row in rows:
+            const_val = row["const"]
+            entry: Dict[str, Any] = {"title": row["title"]}
+            if "description" in row:
+                entry["description"] = row["description"]
+            for k, v in row.get("extras", {}).items():
+                entry[k] = v
+            if const_val in ordered:
+                del ordered[const_val]
+            ordered[const_val] = entry
+        return list(ordered.keys()), dict(ordered)
 
     def get_schema_id(self, request: Request) -> str:
         """
@@ -286,9 +309,8 @@ class DynamicSchemaFromSourceView(APIView):
         Generates a dict with a JSON schema format, using the specified source view.
         """
         query_params = self.get_query_params(request)
-        schema_mode = query_params.get("s_mode", self.default_mode)
         schema_type = query_params.get("s_type", self.default_type)
-        schema = {
+        schema: Dict[str, Any] = {
             "$id": self.get_schema_id(request),
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "type": schema_type,
@@ -297,16 +319,10 @@ class DynamicSchemaFromSourceView(APIView):
         }
 
         data = self.get_data_from_source_view(request)
-        if not isinstance(data, list):
-            data = [data]
-
-        schema_items = self.get_schema_items(request, data)
-
-        if schema_mode == "anyOf":
-            schema["anyOf"] = schema_items
-        elif schema_mode in ["oneOf", "array", "object"]:
-            # NOTE: "array" and "object" are types, not sure yet of the implementation
-            schema["oneOf"] = schema_items
+        rows = self.get_schema_rows(request, data)
+        enum_values, enum_extra = self.build_enum_and_extra(rows)
+        schema["enum"] = enum_values
+        schema[ENUM_EXTRA_KEY] = enum_extra
 
         return schema
 

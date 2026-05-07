@@ -6,7 +6,7 @@ from django.urls import reverse
 from rest_framework.generics import ListAPIView
 
 from schemas.tests.fixtures import MockDynamicSchemaView
-from schemas.view_mixins import DynamicSchemaDataMixin
+from schemas.view_mixins import DynamicSchemaDataMixin, ENUM_EXTRA_KEY
 
 
 @pytest.mark.django_db
@@ -23,25 +23,22 @@ class TestDynamicSchemaFromSourceView:
 
         assert response.status_code == 200
 
-        items = response.data["oneOf"]
-        # Expected:
-        # const = "uuid1" or "uuid2"
-        # title = "John Doe" / "Brigitte Bardot"
-        # description = "A person" / "Actress and singer"
-        assert items[0]["const"] == "uuid1"
-        assert items[0]["title"] == "John Doe"
-        assert items[0]["description"] == "A person"
-        assert items[1]["const"] == "uuid2"
-        assert items[1]["title"] == "Brigitte Bardot"
-        assert items[1]["description"] == "Actress and singer"
-        # extra_info should appear as x-info by default
-        assert items[0]["x-info"] == "foobar"
+        data = response.data
+        extra = data[ENUM_EXTRA_KEY]
+        assert data["enum"][0] == "uuid1"
+        assert extra["uuid1"]["title"] == "John Doe"
+        assert extra["uuid1"]["description"] == "A person"
+        assert data["enum"][1] == "uuid2"
+        assert extra["uuid2"]["title"] == "Brigitte Bardot"
+        assert extra["uuid2"]["description"] == "Actress and singer"
+        # extra_info should appear as info by default
+        assert extra["uuid1"]["info"] == "foobar"
         # second item has no extra_info, so None is expected
-        assert items[1]["x-info"] is None
+        assert extra["uuid2"]["info"] is None
 
     def test_overridden_fields(self, superuser_client, add_view_to_urls):
         """
-        Test passing s_const, s_title, s_description, and s_x to override defaults.
+        Test passing s_const, s_title, s_description, and enum_extra to override defaults.
         """
         url_name = add_view_to_urls(MockDynamicSchemaView)
         url = reverse(url_name)
@@ -49,29 +46,24 @@ class TestDynamicSchemaFromSourceView:
             "s_const": "custom_id",
             "s_title": "age",
             "s_description": "country",
-            "s_x": json.dumps({"icon": "extra_info", "lang": "language"}),
+            "enum_extra": json.dumps({"icon": "extra_info", "lang": "language"}),
         }
         response = superuser_client.get(url, query_params)
 
         assert response.status_code == 200
 
-        items = response.data["oneOf"]
-        # Expected:
-        # const = "custom_uuid1" or "custom_uuid2"
-        # title = 30 / 25
-        # description = "USA" / "France"
-        assert items[0]["const"] == "custom_uuid1"
-        assert items[0]["title"] == 30
-        assert items[0]["description"] == "USA"
-        assert items[1]["const"] == "custom_uuid2"
-        assert items[1]["title"] == 25
-        assert items[1]["description"] == "France"
-        # extra_info should appear as x-lang and x-icon
-        assert items[0]["x-lang"] == "en"
-        assert items[0]["x-icon"] == "foobar"
-        # second item has no extra_info, so None is expected
-        assert items[1]["x-lang"] == "fr"
-        assert items[1]["x-icon"] is None
+        data = response.data
+        extra = data[ENUM_EXTRA_KEY]
+        assert data["enum"][0] == "custom_uuid1"
+        assert extra["custom_uuid1"]["title"] == 30
+        assert extra["custom_uuid1"]["description"] == "USA"
+        assert data["enum"][1] == "custom_uuid2"
+        assert extra["custom_uuid2"]["title"] == 25
+        assert extra["custom_uuid2"]["description"] == "France"
+        assert extra["custom_uuid1"]["lang"] == "en"
+        assert extra["custom_uuid1"]["icon"] == "foobar"
+        assert extra["custom_uuid2"]["lang"] == "fr"
+        assert extra["custom_uuid2"]["icon"] is None
 
     def test_custom_getter_method(self, superuser_client, add_view_to_urls):
         """
@@ -90,11 +82,9 @@ class TestDynamicSchemaFromSourceView:
 
         assert response.status_code == 200
 
-        items = response.data["oneOf"]
-        # Expected:
-        # description = "A person, 30 years old" / "Actress and singer, 25 years old"
-        assert items[0]["description"] == "A person, 30 years old"
-        assert items[1]["description"] == "Actress and singer, 25 years old"
+        extra = response.data[ENUM_EXTRA_KEY]
+        assert extra["uuid1"]["description"] == "A person, 30 years old"
+        assert extra["uuid2"]["description"] == "Actress and singer, 25 years old"
 
     def test_custom_getter_method_has_precedence(self, superuser_client, add_view_to_urls):
         """
@@ -111,11 +101,37 @@ class TestDynamicSchemaFromSourceView:
 
         assert response.status_code == 200
 
-        items = response.data["oneOf"]
-        # Expected:
-        # description = "A person, 30 years old" / "Actress and singer, 25 years old"
-        assert items[0]["description"] == "A person, 30 years old"
-        assert items[1]["description"] == "Actress and singer, 25 years old"
+        extra = response.data[ENUM_EXTRA_KEY]
+        assert extra["uuid1"]["description"] == "A person, 30 years old"
+        assert extra["uuid2"]["description"] == "Actress and singer, 25 years old"
+
+    def test_duplicate_const_last_row_wins(self, superuser_client, add_view_to_urls):
+        """Duplicate enum values keep metadata from the last source row."""
+
+        class DupSourceView(ListAPIView, DynamicSchemaDataMixin):
+            permission_classes = ()
+
+            def get_schema_queryset(self):
+                raise NotImplementedError
+
+            def get_schema_data(self):
+                return [
+                    {"id": "same", "name": "First", "bio": "b1"},
+                    {"id": "same", "name": "Second", "bio": "b2"},
+                ]
+
+        class DupSchemaView(MockDynamicSchemaView):
+            source_view = DupSourceView
+            default_const_field = "id"
+            default_title_field = "name"
+            default_description_field = "bio"
+
+        url_name = add_view_to_urls(DupSchemaView, route="dup-schema", name="dup-schema")
+        response = superuser_client.get(reverse(url_name))
+        assert response.status_code == 200
+        assert response.data["enum"] == ["same"]
+        assert response.data[ENUM_EXTRA_KEY]["same"]["title"] == "Second"
+        assert response.data[ENUM_EXTRA_KEY]["same"]["description"] == "b2"
 
 
 class NestedMockSourceView(ListAPIView, DynamicSchemaDataMixin):
@@ -171,8 +187,7 @@ class NestedDynamicSchemaView(MockDynamicSchemaView):
     default_title_field = "profile.name"
     default_description_field = "details.bio"
 
-    # Optionally define x-fields
-    default_x_fields = {"lang": "details.language"}
+    default_enum_extra_fields = {"lang": "details.language"}
 
 
 @pytest.mark.django_db
@@ -191,19 +206,16 @@ class TestDynamicSchemaFromNestedSourceView:
 
         assert response.status_code == 200, response.content
 
-        # By default, the view uses schema_mode = "oneOf", so the items should be in `oneOf`.
-        items = response.data["oneOf"]
-        assert len(items) == 2
+        data = response.data
+        assert len(data["enum"]) == 2
 
-        # Check the first item
-        assert items[0]["const"] == "p-uuid1"
-        assert items[0]["title"] == "Nested John"
-        assert items[0]["description"] == "Nested Person 1"
-        # We mapped default_x_fields = {"lang": "details.language"}
-        assert items[0]["x-lang"] == "en"
+        extra = data[ENUM_EXTRA_KEY]
+        assert data["enum"][0] == "p-uuid1"
+        assert extra["p-uuid1"]["title"] == "Nested John"
+        assert extra["p-uuid1"]["description"] == "Nested Person 1"
+        assert extra["p-uuid1"]["lang"] == "en"
 
-        # Check the second item
-        assert items[1]["const"] == "p-uuid2"
-        assert items[1]["title"] == "Nested Brigitte"
-        assert items[1]["description"] == "Nested Person 2"
-        assert items[1]["x-lang"] == "fr"
+        assert data["enum"][1] == "p-uuid2"
+        assert extra["p-uuid2"]["title"] == "Nested Brigitte"
+        assert extra["p-uuid2"]["description"] == "Nested Person 2"
+        assert extra["p-uuid2"]["lang"] == "fr"

@@ -16,6 +16,7 @@ from activity.models import EventType
 from activity.schemas.errors import SchemaError
 from activity.schemas.eventtype_service import EventTypeSchemaService
 from core.utils import NonHttpRequest
+from schemas.view_mixins import ENUM_EXTRA_KEY
 from utils import schema_utils
 
 logger = logging.getLogger(__name__)
@@ -147,21 +148,28 @@ class AlertingSchemaPropertiesAdapter:
     def _extract_v2_choice_options(self, field_properties: dict) -> dict:
         """Extract choice options from V2 field properties with $ref resolution.
 
-        Handles both single-select (anyOf at top level) and multi-select
-        (type=array with anyOf inside items).
+        Handles single-select and multi-select (``type=array``), including ``enum`` + ``x-enumExtra``
+        and legacy ``anyOf`` / ``oneOf`` shapes.
         """
         try:
-            # Multi-select: type=array with anyOf/oneOf inside items
+            # Multi-select: type=array with choices inside items
             if field_properties.get("type") == "array":
                 source = field_properties.get("items", {})
             else:
                 source = field_properties
 
+            choice_options = self._choice_options_from_enum_extra(source)
+            if choice_options:
+                return choice_options
+
             any_of = source.get("anyOf", [])
             choice_options = {}
 
             for option in any_of:
-                if "oneOf" in option:
+                nested = self._choice_options_from_enum_extra(option)
+                if nested:
+                    choice_options.update(nested)
+                elif "oneOf" in option:
                     choice_options.update({o.get("const"): o.get("title") for o in option["oneOf"]})
                 elif "const" in option:
                     choice_options.update({option.get("const"): option.get("title")})
@@ -171,6 +179,23 @@ class AlertingSchemaPropertiesAdapter:
         except Exception as e:  # pylint: disable=broad-except
             logger.warning("Failed to extract V2 choice options: %s", e)
             return {}
+
+    @staticmethod
+    def _choice_options_from_enum_extra(source: dict) -> dict:
+        """Build const -> title map from ``enum`` + ``x-enumExtra``."""
+        extra = source.get(ENUM_EXTRA_KEY)
+        if "enum" not in source or not isinstance(extra, dict):
+            return {}
+        out = {}
+        for val in source["enum"]:
+            meta = extra.get(val)
+            if meta is None:
+                meta = extra.get(str(val))
+            if isinstance(meta, dict) and meta.get("title") is not None:
+                out[val] = meta["title"]
+            else:
+                out[val] = str(val)
+        return out
 
     def resolve_choice_options(self, field_properties: dict, event_type_version: str) -> dict:
         """Version-aware choice field resolution."""

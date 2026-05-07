@@ -12,7 +12,20 @@ from factories import (
     SubjectFactory,
 )
 from observations.models import SubjectGroup
+from schemas.view_mixins import ENUM_EXTRA_KEY
 from utils.tenant.managers import TenantContextManager
+
+
+def _dynamic_schema_rows(data: dict) -> list[dict]:
+    """Expand ``enum`` + ``x-enumExtra`` into row dicts with a ``const`` key for assertions."""
+    extra_root = data.get(ENUM_EXTRA_KEY) or {}
+    rows: list[dict] = []
+    for const in data.get("enum", []):
+        part = extra_root.get(const)
+        if part is None:
+            part = extra_root.get(str(const)) or {}
+        rows.append({"const": const, **part})
+    return rows
 
 
 @pytest.mark.django_db
@@ -25,7 +38,9 @@ def test_get_dynamic_schemas(superuser_client, view):
 
     assert response.status_code == 200
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    for item in data["oneOf"]:
+    assert "enum" in data
+    assert ENUM_EXTRA_KEY in data
+    for item in _dynamic_schema_rows(data):
         assert item["const"]
         assert item["title"]
 
@@ -42,7 +57,7 @@ def test_get_choices_dynamic_schemas(superuser_client):
 
     assert response.status_code == 200
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    for item in data["oneOf"]:
+    for item in _dynamic_schema_rows(data):
         triple = (str(item["const"]), item["title"], item["description"])
         assert triple in choice_triples, f"schema item {triple!r} does not match any Choice row"
 
@@ -54,11 +69,11 @@ def test_users_schema_includes_username_as_description(superuser_client):
     assert response.status_code == 200
     data = response.json()
     user_model = get_user_model()
-    ids = [item["const"] for item in data["oneOf"]]
+    ids = [str(item["const"]) for item in _dynamic_schema_rows(data)]
     id_to_username = {
         str(pk): username for pk, username in user_model.objects.filter(pk__in=ids).values_list("pk", "username")
     }
-    for item in data["oneOf"]:
+    for item in _dynamic_schema_rows(data):
         assert item["description"] == id_to_username[str(item["const"])]
 
 
@@ -75,16 +90,16 @@ def test_choices_dynamic_schema_accessible_without_choice_permissions(user_clien
 
     data = response.json()
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert "oneOf" in data
-    assert len(data["oneOf"]) >= len(five_choices)
+    assert "enum" in data
+    assert len(data["enum"]) >= len(five_choices)
 
-    for item in data["oneOf"]:
+    for item in _dynamic_schema_rows(data):
         assert "const" in item
         assert "title" in item
         assert "description" in item
 
     # Every fixture choice must appear in the schema; match on (value, display, field) so values are not ambiguous.
-    items_by_triple = {(str(i["const"]), i["title"], i["description"]) for i in data["oneOf"]}
+    items_by_triple = {(str(i["const"]), i["title"], i["description"]) for i in _dynamic_schema_rows(data)}
     for choice in five_choices:
         triple = (str(choice.value), choice.display, choice.field)
         assert triple in items_by_triple, f"expected schema item for fixture choice {triple!r}"
@@ -108,7 +123,7 @@ def test_get_dynamic_schema_choices_filtered(superuser_client):
     ]
 
     assert response.status_code == 200
-    for item in response.json()["oneOf"]:
+    for item in _dynamic_schema_rows(response.json()):
         assert item["const"] in filtered_choices
         assert item["const"] not in not_in_filter_choices
         assert Choice.objects.filter(value=item["const"], field=item["description"]).exists()
@@ -122,7 +137,7 @@ def test_choices_display_as_title(superuser_client):
     data = response.json()
 
     assert response.status_code == 200
-    for item in data["oneOf"]:
+    for item in _dynamic_schema_rows(data):
         assert item["description"] == item["title"]
 
 
@@ -144,8 +159,8 @@ def test_dynamic_subjects_filtered_by_subtypes(superuser_client):
 
     assert response.status_code == 200
     response_json = response.json()
-    assert len(response_json["oneOf"])
-    for item in response_json["oneOf"]:
+    assert len(response_json["enum"])
+    for item in _dynamic_schema_rows(response_json):
         # assert attached first subject filtered by first group
         assert item["const"] == str(last_subject.id)
         assert item["title"] == str(last_subject.name)
@@ -172,8 +187,8 @@ def test_dynamic_subjects_filtered_by_group_id(superuser_client):
     assert response.status_code == 200
 
     response_json = response.json()
-    assert len(response_json["oneOf"]) == 1
-    for item in response_json["oneOf"]:
+    assert len(response_json["enum"]) == 1
+    for item in _dynamic_schema_rows(response_json):
         # assert attached first subject filtered by first group
         assert item["const"] == str(two_subjects[0].id)
         assert item["title"] == two_subjects[0].name
@@ -192,11 +207,11 @@ def test_get_sources_dynamic_schemas(superuser_client, source):
 
     assert response.status_code == 200
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert "oneOf" in data
-    assert len(data["oneOf"]) >= 1
+    assert "enum" in data
+    assert len(data["enum"]) >= 1
 
     # Find our test source in the response
-    source_items = [item for item in data["oneOf"] if item["const"] == str(source.id)]
+    source_items = [item for item in _dynamic_schema_rows(data) if item["const"] == str(source.id)]
     assert len(source_items) == 1
 
     source_item = source_items[0]
@@ -240,7 +255,7 @@ def test_sources_display_name_logic(superuser_client):
     data = response.json()
 
     # Find each source and verify title / description rules
-    items_by_id = {item["const"]: item for item in data["oneOf"]}
+    items_by_id = {item["const"]: item for item in _dynamic_schema_rows(data)}
 
     # Source 1: model_name as title, manufacturer_id as description
     source1_item = items_by_id[str(source1.id)]
@@ -277,10 +292,10 @@ def test_sources_schema_accessible_to_authenticated_users(user_client):
     assert response.status_code == 200
     data = response.json()
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert "oneOf" in data
+    assert "enum" in data
 
     # Verify structure is correct
-    for item in data["oneOf"]:
+    for item in _dynamic_schema_rows(data):
         assert "const" in item
         assert "title" in item
 
@@ -295,11 +310,11 @@ def test_get_event_types_dynamic_schemas(superuser_client, event_type):
 
     assert response.status_code == 200
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert "oneOf" in data
-    assert len(data["oneOf"]) >= 1
+    assert "enum" in data
+    assert len(data["enum"]) >= 1
 
     # Find our test event type in the response
-    event_type_items = [item for item in data["oneOf"] if item["const"] == str(event_type.id)]
+    event_type_items = [item for item in _dynamic_schema_rows(data) if item["const"] == str(event_type.id)]
     assert len(event_type_items) == 1
 
     event_type_item = event_type_items[0]
@@ -324,7 +339,7 @@ def test_event_types_schema_structure(superuser_client):
     data = response.json()
 
     # Find each event type and verify field mappings
-    items_by_id = {item["const"]: item for item in data["oneOf"]}
+    items_by_id = {item["const"]: item for item in _dynamic_schema_rows(data)}
 
     # Event type 1: const=id, title=display, description=value
     event_type1_item = items_by_id[str(event_type1.id)]
@@ -348,7 +363,7 @@ def test_event_types_schema_blank_display_uses_value_as_title(superuser_client):
     url = reverse("schemas:event_types")
     response = superuser_client.get(url)
     assert response.status_code == 200
-    items_by_id = {item["const"]: item for item in response.json()["oneOf"]}
+    items_by_id = {item["const"]: item for item in _dynamic_schema_rows(response.json())}
 
     empty_display_item = items_by_id[str(event_type.id)]
     assert empty_display_item["title"] == "only_value_slug"
@@ -384,7 +399,7 @@ def test_event_types_permissions_and_categories(superuser_client):
     data = response.json()
 
     # Get all const values (event type IDs) from response
-    response_ids = [item["const"] for item in data["oneOf"]]
+    response_ids = [item["const"] for item in _dynamic_schema_rows(data)]
 
     # Active category event types should be present (for superuser)
     assert str(event_type1.id) in response_ids
@@ -412,13 +427,13 @@ def test_event_types_schema_accessible_to_authenticated_users(user_client, tenan
     assert response.status_code == 200
     data = response.json()
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert "oneOf" in data
+    assert "enum" in data
 
     # Verify structure is correct
-    for item in data["oneOf"]:
+    for item in _dynamic_schema_rows(data):
         assert "const" in item
         assert "title" in item
 
-    created_item = next(item for item in data["oneOf"] if item["const"] == str(event_type.id))
+    created_item = next(item for item in _dynamic_schema_rows(data) if item["const"] == str(event_type.id))
     assert created_item["title"] == event_type.display
     assert created_item["description"] == event_type.value

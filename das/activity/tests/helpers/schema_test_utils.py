@@ -7,6 +7,8 @@ from typing import Optional
 
 from django.urls import reverse
 
+from schemas.view_mixins import ENUM_EXTRA_KEY
+
 from activity.alerting.businessrules import (
     EventActions,
     _generate_aggregate_event_variables_class,
@@ -174,6 +176,14 @@ class V2SchemaBuilder:
     """Builder for V2 EventType schemas with fluent interface."""
 
     @staticmethod
+    def _enum_choice_payload(choices: dict) -> dict:
+        """Inline choice shape: ``enum`` + ``x-enumExtra`` (matches dynamic schema endpoints)."""
+        return {
+            "enum": list(choices.keys()),
+            ENUM_EXTRA_KEY: {key: {"title": label} for key, label in choices.items()},
+        }
+
+    @staticmethod
     def simple_field(field_name: str, field_type: str = "string", **kwargs) -> dict:
         """Create V2 schema with a single field."""
         field_config = {
@@ -198,14 +208,13 @@ class V2SchemaBuilder:
 
     @staticmethod
     def choice_field(field_name: str, choices: dict, **kwargs) -> dict:
-        """Create V2 schema with oneOf choice structure."""
-        one_of_choices = [{"const": key, "title": value} for key, value in choices.items()]
+        """Create V2 schema with ``enum`` + ``x-enumExtra`` choice structure."""
         field_config = {
             "deprecated": False,
             "description": "",
             "title": field_name.replace("_", " ").title(),
             "type": "string",
-            "anyOf": [{"oneOf": one_of_choices}],
+            **V2SchemaBuilder._enum_choice_payload(choices),
             **kwargs,
         }
         return {
@@ -224,7 +233,6 @@ class V2SchemaBuilder:
     @staticmethod
     def choice_list_field(field_name: str, choices: dict, **kwargs) -> dict:
         """Create V2 schema with a multi-select choice list field (type=array, uniqueItems=true)."""
-        one_of_choices = [{"const": key, "title": value} for key, value in choices.items()]
         field_config = {
             "deprecated": False,
             "description": "",
@@ -233,7 +241,7 @@ class V2SchemaBuilder:
             "uniqueItems": True,
             "items": {
                 "type": "string",
-                "anyOf": [{"oneOf": one_of_choices}],
+                **V2SchemaBuilder._enum_choice_payload(choices),
             },
             **kwargs,
         }
@@ -271,9 +279,7 @@ class V2SchemaBuilder:
                 **V2SchemaBuilder._clear_field_config(field_config),
             }
             if "choices" in field_config:
-                properties[field_name]["anyOf"] = [
-                    {"oneOf": [{"const": k, "title": v} for k, v in field_config["choices"].items()]}
-                ]
+                properties[field_name].update(V2SchemaBuilder._enum_choice_payload(field_config["choices"]))
             if "existing_choices" in field_config:
                 existing_choices = field_config["existing_choices"]
                 if isinstance(existing_choices, list):

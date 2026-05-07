@@ -90,6 +90,7 @@ adapter = SchemaAdapterFactory.create_from_event_type(event_type, request)
 - Extracts properties from `schema["json"]["properties"]`
 - Gets order from `schema["ui"]["order"]`
 - Falls back to V1 logic for display values after rendering
+- After rendering, choice fields resolved from dynamic schema URLs use **`enum`** plus **`x-enumExtra`** (per-value `title` / `description` / extras); the adapter reads those in addition to legacy `anyOf` / `oneOf` shapes where they still appear
 
 ### SchemaAdapterFactory
 - Automatically detects V1 vs V2 schema structure

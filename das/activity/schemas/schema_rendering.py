@@ -177,7 +177,8 @@ class SchemaRenderer:
             "type": "string",
             "description": "Data not available",
             "title": "Empty schema",
-            "oneOf": [],
+            "enum": [],
+            "x-enumExtra": {},
         }
 
     def process_anchors(self, node: dict, current_uri: str) -> dict:
