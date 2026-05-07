@@ -160,7 +160,7 @@ class ObservationAttributeAnalyzer(SubjectAnalyzer):
                 "longitude": this_result.geometry_collection[0].x,
                 "latitude": this_result.geometry_collection[0].y,
             },
-            event_details=this_result.values,
+            event_details={"analyzer_name": self.config.name, **this_result.values},
             related_subjects=[{"id": self.subject.id}],
         )
         return save_analyzer_event(event_data)
@@ -297,6 +297,7 @@ OBSERVATION_ATTRIBUTE_ANALYZER_SCHEMA = {
         "title": "Observation Attribute Analyzer Schema",
         "type": "object",
         "properties": {
+            "analyzer_name": {"type": "string", "title": "Analyzer Name"},
             "subject_name": {"type": "string", "title": "Subject Name"},
             "attribute": {"type": "string", "title": "Attribute"},
             "comparator": {"type": "string", "title": "Comparator"},
@@ -307,7 +308,7 @@ OBSERVATION_ATTRIBUTE_ANALYZER_SCHEMA = {
         },
     },
     "definition": [
-        {"type": "fieldset", "title": "Analyzer Details", "htmlClass": "col-lg-12", "items": []},
+        {"type": "fieldset", "title": "Analyzer Details", "htmlClass": "col-lg-12", "items": ["analyzer_name"]},
         {
             "type": "fieldset",
             "htmlClass": "col-lg-6",

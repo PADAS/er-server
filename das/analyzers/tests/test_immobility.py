@@ -82,7 +82,7 @@ class TestImmobilityAnalyzer(BaseAPITest):
         sg.subjects.add(sub)
         sg.save()
 
-        ImmobilityAnalyzerConfig.objects.create(subject_group=sg)
+        config = ImmobilityAnalyzerConfig.objects.create(name="Ishango Immobility Analyzer", subject_group=sg)
 
         # Create observations in database, so the Analyzer will find them.
         test_observations = [parse_recorded_at(x) for x in test_observations]
@@ -94,6 +94,8 @@ class TestImmobilityAnalyzer(BaseAPITest):
 
         for e in Event.objects.all():
             self.assertTrue(e.event_details.all().exists())
+            ed = e.event_details.all().first().data["event_details"]
+            assert ed["analyzer_name"] == config.name
 
         for e in Event.objects.all():
             for ed in e.event_details.all():

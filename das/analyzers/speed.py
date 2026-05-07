@@ -139,7 +139,7 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
 
         event_data = None
 
-        event_details = {"name": self.subject.name}
+        event_details = {"analyzer_name": self.config.name, "name": self.subject.name}
         event_details.update(this_result.values)
 
         # Create a dict() location to satisfy our EventSerializer.
@@ -322,7 +322,7 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
 
         event_data = None
 
-        event_details = {"name": self.subject.name}
+        event_details = {"analyzer_name": self.config.name, "name": self.subject.name}
         event_details.update(this_result.values)
 
         # Create a dict() location to satisfy our EventSerializer.

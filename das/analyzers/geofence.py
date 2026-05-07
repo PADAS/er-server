@@ -198,7 +198,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
 
             event_priority = EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_URGENT)
 
-            event_details = {"name": self.subject.name}
+            event_details = {"analyzer_name": self.config.name, "name": self.subject.name}
             event_details.update(this_result.values)
 
             # Create a dict() location to satisfy our EventSerializer.

@@ -266,7 +266,10 @@ class TestGeofenceAnalyzer(TestCase):
 
         # Create the Geofence Analyzer Config object
         config = GeofenceAnalyzerConfig.objects.create(
-            subject_group=sg, critical_geofence_group=gf_grp, containment_regions=cr_grp
+            name="Mara Geofence Analyzer",
+            subject_group=sg,
+            critical_geofence_group=gf_grp,
+            containment_regions=cr_grp,
         )
 
         # Iterate through the observations adding another point to the
@@ -286,7 +289,9 @@ class TestGeofenceAnalyzer(TestCase):
 
         for e in Event.objects.all():
             self.assertTrue(e.event_details.all().exists())
-            assert e.event_details.all().first().data["event_details"]["contain_regions"] == "Pardamat Conservancy"
+            ed = e.event_details.all().first().data["event_details"]
+            assert ed["contain_regions"] == "Pardamat Conservancy"
+            assert ed["analyzer_name"] == config.name
 
         for e in Event.objects.all():
             for ed in e.event_details.all():
