@@ -180,7 +180,7 @@ class V2SchemaBuilder:
         """Inline choice shape: ``enum`` + ``x-enumExtra`` (matches dynamic schema endpoints)."""
         return {
             "enum": list(choices.keys()),
-            ENUM_EXTRA_KEY: {key: {"title": label} for key, label in choices.items()},
+            ENUM_EXTRA_KEY: {key: {"display": label} for key, label in choices.items()},
         }
 
     @staticmethod

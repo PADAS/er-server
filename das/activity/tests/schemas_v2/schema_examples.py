@@ -136,10 +136,10 @@ SAMPLE_SCHEMAS = {
         "type": "string",
         "enum": ["draft", "active", "inactive", "archived"],
         "x-enumExtra": {
-            "draft": {"title": "Draft"},
-            "active": {"title": "Active"},
-            "inactive": {"title": "Inactive"},
-            "archived": {"title": "Archived"},
+            "draft": {"display": "Draft"},
+            "active": {"display": "Active"},
+            "inactive": {"display": "Inactive"},
+            "archived": {"display": "Archived"},
         },
     },
     "health_status_options.json": {
@@ -149,10 +149,10 @@ SAMPLE_SCHEMAS = {
         "type": "string",
         "enum": ["healthy", "sick", "injured", "dead"],
         "x-enumExtra": {
-            "healthy": {"title": "Healthy"},
-            "sick": {"title": "Sick"},
-            "injured": {"title": "Injured"},
-            "dead": {"title": "Dead"},
+            "healthy": {"display": "Healthy"},
+            "sick": {"display": "Sick"},
+            "injured": {"display": "Injured"},
+            "dead": {"display": "Dead"},
         },
     },
     "dead_reason_options.json": {
@@ -162,11 +162,11 @@ SAMPLE_SCHEMAS = {
         "type": "string",
         "enum": ["natural", "disease", "accident", "euthanized", "human_action"],
         "x-enumExtra": {
-            "natural": {"title": "Natural Causes"},
-            "disease": {"title": "Disease"},
-            "accident": {"title": "Accident"},
-            "euthanized": {"title": "Euthanized"},
-            "human_action": {"title": "Human Action"},
+            "natural": {"display": "Natural Causes"},
+            "disease": {"display": "Disease"},
+            "accident": {"display": "Accident"},
+            "euthanized": {"display": "Euthanized"},
+            "human_action": {"display": "Human Action"},
         },
     },
 }

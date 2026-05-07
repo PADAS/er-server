@@ -149,7 +149,7 @@ class AlertingSchemaPropertiesAdapter:
         """Extract choice options from V2 field properties with $ref resolution.
 
         Handles single-select and multi-select (``type=array``), including ``enum`` + ``x-enumExtra``
-        and legacy ``anyOf`` / ``oneOf`` shapes.
+        (``display`` / ``description``) and legacy ``anyOf`` / ``oneOf`` shapes.
         """
         try:
             # Multi-select: type=array with choices inside items
@@ -182,7 +182,7 @@ class AlertingSchemaPropertiesAdapter:
 
     @staticmethod
     def _choice_options_from_enum_extra(source: dict) -> dict:
-        """Build const -> title map from ``enum`` + ``x-enumExtra``."""
+        """Build enum value -> display label map from ``enum`` + ``x-enumExtra``."""
         extra = source.get(ENUM_EXTRA_KEY)
         if "enum" not in source or not isinstance(extra, dict):
             return {}
@@ -191,8 +191,8 @@ class AlertingSchemaPropertiesAdapter:
             meta = extra.get(val)
             if meta is None:
                 meta = extra.get(str(val))
-            if isinstance(meta, dict) and meta.get("title") is not None:
-                out[val] = meta["title"]
+            if isinstance(meta, dict) and meta.get("display") is not None:
+                out[val] = meta["display"]
             else:
                 out[val] = str(val)
         return out

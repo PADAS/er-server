@@ -39,11 +39,11 @@ class TestDynamicSchemaRetriever:
         assert len(enum_vals) >= 2
 
         assert enum_vals[0] == "uuid1"
-        assert extra["uuid1"]["title"] == "John Doe"
+        assert extra["uuid1"]["display"] == "John Doe"
         assert extra["uuid1"]["description"] == "A person"
 
         assert enum_vals[1] == "uuid2"
-        assert extra["uuid2"]["title"] == "Brigitte Bardot"
+        assert extra["uuid2"]["display"] == "Brigitte Bardot"
         assert extra["uuid2"]["description"] == "Actress and singer"
 
     def test_unresolvable_uri(self, api_request):

@@ -18,7 +18,7 @@ class UsersDynamicSchemaView(DynamicSchemaFromSourceView):
     source_view = UsersView
     schema_title = "Users"
     schema_description = "All users list"
-    default_title_field = "display_name"
+    default_display_field = "display_name"
     default_description_field = "username"
 
     def get_display_name_from_item(self, item: dict[str, Any]) -> str:
@@ -31,7 +31,7 @@ class SourcesDynamicSchemaView(DynamicSchemaFromSourceView):
     schema_title = "Sources"
     schema_description = "All data sources list"
     default_enum_field = "id"
-    default_title_field = "source_schema_title"
+    default_display_field = "source_schema_title"
     default_description_field = "source_schema_description"
 
     def get_source_view(self, request: Request) -> Type[APIView]:
@@ -67,7 +67,7 @@ class SubjectsDynamicSchemaView(DynamicSchemaFromSourceView):
     source_view = SubjectsView
     schema_title = "Subjects"
     schema_description = "Subjects list"
-    default_title_field = "name"
+    default_display_field = "name"
     default_description_field = "subject_subtype"
 
 
@@ -76,7 +76,7 @@ class ChoicesDynamicSchemaView(DynamicSchemaFromSourceView):
     schema_title = "Choices"
     schema_description = "All choices schema list"
     default_enum_field = "value"
-    default_title_field = "display"
+    default_display_field = "display"
     default_description_field = "field"
 
     def get_source_view(self, request: Request) -> Type[APIView]:
@@ -90,7 +90,7 @@ class SpatialFeaturesDynamicSchemaView(DynamicSchemaFromSourceView):
     source_view = SpatialFeatureListView
     schema_title = "Spatial Features"
     schema_description = "All spatial features list"
-    default_title_field = "name"
+    default_display_field = "name"
     default_description_field = "feature_class_name"
 
 
@@ -99,7 +99,7 @@ class EventTypesDynamicSchemaView(DynamicSchemaFromSourceView):
     schema_title = "Event Types"
     schema_description = "All event types list"
     default_enum_field = "id"
-    default_title_field = "event_type_schema_title"
+    default_display_field = "event_type_schema_title"
     default_description_field = "event_type_schema_description"
 
     @staticmethod

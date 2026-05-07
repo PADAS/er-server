@@ -31,7 +31,7 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
     Custom OpenAPI extension for DynamicSchemaFromSourceView subclasses.
 
     Generates comprehensive documentation for dynamic query parameters including:
-    - Schema control parameters (s_enum, s_title, etc.)
+    - Schema control parameters (s_enum, s_display, etc.)
     - Source view parameters
     - Available field paths for nested property access
     """
@@ -81,7 +81,7 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
                             ),
                             ENUM_EXTRA_KEY: serializers.JSONField(
                                 help_text=(
-                                    "Map of enum value -> metadata (title, optional description, "
+                                    "Map of enum value -> metadata (display, optional description, "
                                     "and keys from enum_extra / default_enum_extra_fields)"
                                 ),
                                 required=False,
@@ -110,7 +110,7 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
         return parameters
 
     def get_schema_control_parameters(self) -> List[OpenApiParameter]:
-        """Generate parameters for schema control (s_enum, s_title, etc.)."""
+        """Generate parameters for schema control (s_enum, s_display, etc.)."""
         return [
             OpenApiParameter(
                 name="s_enum",
@@ -128,18 +128,18 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
                 ],
             ),
             OpenApiParameter(
-                name="s_title",
+                name="s_display",
                 location=OpenApiParameter.QUERY,
                 required=False,
                 description=(
-                    "Source field path for the ``title`` key inside each ``x-enumExtra`` entry. "
-                    f"Defaults to '{getattr(self.target, 'default_title_field', 'name')}'. "
+                    "Source field path for the ``display`` string inside each ``x-enumExtra`` entry. "
+                    f"Defaults to '{getattr(self.target, 'default_display_field', 'name')}'. "
                     "Supports dotted paths for nested properties."
                 ),
                 type=OpenApiTypes.STR,
                 examples=[
                     OpenApiExample(name="name_field", summary="Name field", value="name"),
-                    OpenApiExample(name="nested_title", summary="Nested title access", value="metadata.title"),
+                    OpenApiExample(name="nested_display", summary="Nested display access", value="metadata.label"),
                 ],
             ),
             OpenApiParameter(
@@ -409,7 +409,7 @@ This endpoint dynamically generates JSON schemas based on data from {source_name
 
 1. **Schema Control Parameters** (s_* and related): Control how the schema is generated
    - `s_enum`: Source field path for each ``enum`` value (supports dotted paths)
-   - `s_title`: Field to use for ``title`` inside ``x-enumExtra`` (supports dotted paths)
+   - `s_display`: Source field for the ``display`` string inside ``x-enumExtra`` (supports dotted paths)
    - `s_description`: Field to use for ``description`` inside ``x-enumExtra`` (supports dotted paths)
    - `enum_extra`: JSON object mapping extra keys to source field paths (merged into ``x-enumExtra`` entries)
    - `s_type`: JSON Schema ``type`` for the field
@@ -418,6 +418,6 @@ This endpoint dynamically generates JSON schemas based on data from {source_name
 {nested_fields_section}
 
 **Example Usage:**
-- Basic: `?s_title=name&s_enum=id`
-- Nested: `?s_title=properties.display_name&s_description=metadata.summary`
+- Basic: `?s_display=name&s_enum=id`
+- Nested: `?s_display=properties.display_name&s_description=metadata.summary`
 - Extra metadata: `?enum_extra={{"icon": "properties.icon_url", "priority": "metadata.level"}}`"""

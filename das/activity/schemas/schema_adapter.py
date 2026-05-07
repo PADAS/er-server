@@ -227,7 +227,7 @@ class V2SchemaAdapter:
         return title, ";".join(str(v) for v in values), ";".join(str(v) for v in values)
 
     def _display_from_inline_enum(self, schema_dict: Dict[str, Any], value: Any) -> Optional[str]:
-        """Resolve display title from ``enum`` + ``x-enumExtra`` when present."""
+        """Resolve human-readable label from ``enum`` + ``x-enumExtra`` (``display`` key) when present."""
         extra = schema_dict.get(ENUM_EXTRA_KEY)
         if "enum" not in schema_dict or not isinstance(extra, dict):
             return None
@@ -236,8 +236,8 @@ class V2SchemaAdapter:
             entry = extra.get(str(value))
         if not isinstance(entry, dict):
             return None
-        if "title" in entry and entry["title"] is not None:
-            return str(entry["title"])
+        if "display" in entry and entry["display"] is not None:
+            return str(entry["display"])
         return None
 
     def _find_choice_display(self, any_of_array: List[Dict[str, Any]], value: Any) -> Optional[str]:

@@ -12,7 +12,7 @@ from utils.dict_utils import get_nested_value
 from utils.drf import sorted_query_parameters_to_string
 from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer
 
-# JSON Schema extension: per-value metadata for ``enum`` (title, description, and optional extras).
+# JSON Schema extension: per-value metadata for ``enum`` (display, description, and optional extras).
 ENUM_EXTRA_KEY = "x-enumExtra"
 
 
@@ -67,8 +67,8 @@ class DynamicSchemaFromSourceView(APIView):
         "type": "string",
         "enum": ["uuid1", "uuid2"],
         "x-enumExtra": {
-            "uuid1": {"title": "Feature category 1"},
-            "uuid2": {"title": "Feature category 2"}
+            "uuid1": {"display": "Feature category 1"},
+            "uuid2": {"display": "Feature category 2"}
         }
     }
     ```
@@ -81,14 +81,14 @@ class DynamicSchemaFromSourceView(APIView):
     The fields to describe/build in the schema can be customized by setting the following attributes:
 
     - `default_enum_field`: The default source field path for each entry in ``enum``.
-    - `default_title_field`: The default field to use as ``title`` inside ``x-enumExtra``.
+    - `default_display_field`: The default source field path for the ``display`` string inside each ``x-enumExtra`` entry.
     - `default_description_field`: The default field to use as ``description`` inside ``x-enumExtra``.
     - `default_enum_extra_fields`: Optional dict mapping extra keys (e.g. ``icon``) to source field paths.
 
     And those attributes can be overridden by query parameters in the request:
 
     - `s_enum`: The source field path whose values populate ``enum`` (and keys ``x-enumExtra``).
-    - `s_title`: The field to use as ``title`` in ``x-enumExtra``.
+    - `s_display`: The source field path for the ``display`` string in each ``x-enumExtra`` entry.
     - `s_description`: The field to use as ``description`` in ``x-enumExtra``.
     - `enum_extra`: JSON object mapping extra keys to source field paths (same shape as ``default_enum_extra_fields``).
 
@@ -124,7 +124,7 @@ class DynamicSchemaFromSourceView(APIView):
 
     # Default fields to build the list of items
     default_enum_field: str = "id"  # Default source field for each ``enum`` entry
-    default_title_field: str  # Default value for ``title`` in ``x-enumExtra``
+    default_display_field: str  # Default source field for ``display`` in ``x-enumExtra``
     default_description_field: Optional[str] = None  # Default value for ``description`` in ``x-enumExtra``
     # Map output key -> source field path (dotted), merged into each ``x-enumExtra`` value (e.g. {"icon": "icon_url"}).
     default_enum_extra_fields: Optional[Dict[str, str]] = None
@@ -162,11 +162,11 @@ class DynamicSchemaFromSourceView(APIView):
         return query_params
 
     def get_value_field_map(self, request: Request) -> Dict[str, str]:
-        """Map enum value / title / description roles to dotted source field paths."""
+        """Map enum value / display / description roles to dotted source field paths."""
         query_params = self.get_query_params(request)
         fields_map: Dict[str, str] = {
             "const": query_params.get("s_enum", self.default_enum_field),
-            "title": query_params.get("s_title", self.default_title_field),
+            "display": query_params.get("s_display", self.default_display_field),
         }
         if description_field := query_params.get("s_description", self.default_description_field):
             fields_map["description"] = description_field
@@ -174,7 +174,7 @@ class DynamicSchemaFromSourceView(APIView):
 
     def get_enum_extra_field_map(self, request: Request) -> Dict[str, str]:
         """
-        Maps keys to include under ``x-enumExtra`` entries (beyond title/description) to source field paths.
+        Maps keys to include under ``x-enumExtra`` entries (beyond display/description) to source field paths.
 
         Query parameter ``enum_extra`` is a JSON object, same shape as ``default_enum_extra_fields``.
         """
@@ -249,7 +249,7 @@ class DynamicSchemaFromSourceView(APIView):
 
     def get_schema_rows(self, request: Request, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Returns one dict per source row: ``const``, ``title``, optional ``description``, and ``extras`` (dict).
+        Returns one dict per source row: ``const``, ``display``, optional ``description``, and ``extras`` (dict).
         """
         rows: List[Dict[str, Any]] = []
         value_field_map = self.get_value_field_map(request)
@@ -257,8 +257,8 @@ class DynamicSchemaFromSourceView(APIView):
 
         for item in data:
             const_val = self.resolve_mapped_value(item, value_field_map["const"])
-            title_val = self.resolve_mapped_value(item, value_field_map["title"])
-            row: Dict[str, Any] = {"const": const_val, "title": title_val}
+            display_val = self.resolve_mapped_value(item, value_field_map["display"])
+            row: Dict[str, Any] = {"const": const_val, "display": display_val}
             if "description" in value_field_map:
                 row["description"] = self.resolve_mapped_value(item, value_field_map["description"])
                 if row["description"] is None:
@@ -280,7 +280,7 @@ class DynamicSchemaFromSourceView(APIView):
         ordered = OrderedDict()
         for row in rows:
             const_val = row["const"]
-            entry: Dict[str, Any] = {"title": row["title"]}
+            entry: Dict[str, Any] = {"display": row["display"]}
             if "description" in row:
                 entry["description"] = row["description"]
             for k, v in row.get("extras", {}).items():

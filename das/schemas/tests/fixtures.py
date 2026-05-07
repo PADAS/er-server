@@ -43,6 +43,6 @@ class MockDynamicSchemaView(DynamicSchemaFromSourceView):
     schema_title = "TestSchema"
     schema_description = "Tests data list"
     default_enum_field = "id"
-    default_title_field = "name"
+    default_display_field = "name"
     default_description_field = "bio"
     default_enum_extra_fields = {"info": "extra_info"}
