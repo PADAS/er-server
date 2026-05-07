@@ -58,10 +58,10 @@ jobs:
           POSTGRES_PASSWORD: fancypassword
           POSTGRES_DB: testdb
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -h 127.0.0.1 -p 5432 -U testuser -d test_testdb"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 20
       redis:
         image: redis:7.2
         options: >-
