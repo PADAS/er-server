@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
-import pytz
 from dateutil.parser import parse
 
 from django import forms
@@ -78,7 +78,7 @@ class JSONFieldFormMixin(object):
         for field in self.Meta.json_fields:
             json_data[field] = self.cleaned_data[field]
             if isinstance(self.cleaned_data[field], datetime):
-                utc_date = self.cleaned_data[field].astimezone(pytz.timezone("UTC"))
+                utc_date = self.cleaned_data[field].astimezone(ZoneInfo("UTC"))
                 json_data[field] = utc_date.isoformat()
         setattr(self.instance, self.json_field, json_data)
         return super(JSONFieldFormMixin, self).save(*args, **kwargs)
@@ -129,9 +129,9 @@ class AssignedDateTimeRangeField(MultiValueField):
 
     def compress(self, data_list):
         (d1, d2) = data_list
-        if d1 is None or d1.replace(microsecond=0) == datetime.min.replace(tzinfo=pytz.utc):
+        if d1 is None or d1.replace(microsecond=0) == datetime.min.replace(tzinfo=timezone.utc):
             d1 = DEFAULT_ASSIGNED_RANGE[0]
-        if d2 is None or d2.replace(microsecond=0) == datetime.max.replace(microsecond=0, tzinfo=pytz.utc):
+        if d2 is None or d2.replace(microsecond=0) == datetime.max.replace(microsecond=0, tzinfo=timezone.utc):
             d2 = DEFAULT_ASSIGNED_RANGE[1]
         return (d1, d2)
 

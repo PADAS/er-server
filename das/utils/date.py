@@ -2,11 +2,10 @@
 Helper functions to deal with dates and timezones.
 """
 
-from datetime import datetime, tzinfo
+from datetime import datetime, timezone, tzinfo
+from zoneinfo import ZoneInfo
 
-import pytz
-
-from django.utils import timezone
+from django.utils import timezone as django_timezone
 from django.utils.timezone import is_naive
 
 
@@ -25,8 +24,8 @@ def get_current_time_zone() -> tzinfo:
     """
     Return the current timezone used by the django server.
     """
-    current_tz_name = timezone.get_current_timezone_name()
-    current_tz = pytz.timezone(zone=current_tz_name)
+    current_tz_name = django_timezone.get_current_timezone_name()
+    current_tz = ZoneInfo(current_tz_name)
     return current_tz
 
 

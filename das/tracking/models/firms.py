@@ -1,7 +1,6 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-import pytz
 import requests
 from dateutil.parser import parse as parse_date
 from django_multitenant.fields import TenantForeignKey
@@ -32,7 +31,7 @@ class FirmsParsingError(ValueError):
     pass
 
 
-def __str2date(d, replace_tzinfo=pytz.utc):
+def __str2date(d, replace_tzinfo=timezone.utc):
     """Helper function to parse a naive date and assume it's in replace_tzinfo."""
     return parse_date(d).replace(tzinfo=replace_tzinfo)
 
@@ -79,7 +78,6 @@ additional_fields = (
 # 'satellite', 'confidence', 'version', 'bright_ti5', 'frp', 'daynight')
 # 29.07484,19.06227,338.1,0.43,0.46,2019-01-11,00:00,N,nominal,1.0NRT,281.5,1.9,N
 
-
 FIRMS_FTP_REGIONS = (
     "Alaska",
     "Australia_NewZealand",
@@ -115,7 +113,7 @@ class FirmsClient:
         return headers
 
     def calculate_date_index(self, from_date=None):
-        d = (from_date or datetime.now(tz=pytz.utc)).timetuple()
+        d = (from_date or datetime.now(tz=timezone.utc)).timetuple()
         return (d.tm_year * 1000) + d.tm_yday
 
     def extract_date_index(self, from_headers=None):
@@ -135,7 +133,7 @@ class FirmsClient:
     def calculate_valid_date_indexes(self, stored_headers=None):
         # Resolve one or more date-index values to process
         todays_index = self.calculate_date_index()
-        yesterdays_index = self.calculate_date_index(from_date=(datetime.now(tz=pytz.utc) - timedelta(days=1)))
+        yesterdays_index = self.calculate_date_index(from_date=(datetime.now(tz=timezone.utc) - timedelta(days=1)))
         stored_dateindex = self.extract_date_index(stored_headers) if stored_headers else 0
 
         # Start fresh, on today's file.
@@ -256,7 +254,7 @@ class FirmsClient:
 
                 # FIRMS ftp data times are UTC.
                 rec["recorded_at"] = parse_date("{} {}".format(rec["acq_date"], rec["acq_time"])).replace(
-                    tzinfo=pytz.UTC
+                    tzinfo=timezone.utc
                 )
                 yield rec
 
@@ -377,9 +375,9 @@ class FirmsPlugin(TrackingPlugin):
 
         try:
             alert_window = dateparse.parse_duration(self.additional.get("alert_window"))
-            alert_window_start_time = datetime.now(tz=pytz.utc) - alert_window
+            alert_window_start_time = datetime.now(tz=timezone.utc) - alert_window
         except:
-            alert_window_start_time = datetime.now(tz=pytz.utc) - self.DEFAULT_ALERT_WINDOW
+            alert_window_start_time = datetime.now(tz=timezone.utc) - self.DEFAULT_ALERT_WINDOW
 
         self.client = FirmsClient(region=self.firms_region_name, auth_token=self.app_key)
 

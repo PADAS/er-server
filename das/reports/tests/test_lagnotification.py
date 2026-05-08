@@ -1,16 +1,13 @@
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytz
-from django_multitenant.utils import set_current_tenant
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
 from django.core.management import call_command
 from django.test import TestCase
-from django.utils import timezone
 
 from accounts.models import PermissionSet
 from activity.models import Event
@@ -47,7 +44,7 @@ def generate_random_positions(
 
     while cur < intervals:
         while True:
-            recorded_at = datetime.now(tz=pytz.utc) - timedelta(
+            recorded_at = datetime.now(tz=timezone.utc) - timedelta(
                 seconds=random.randint(min_lag_mins * 60, max_lag_mins * 60)
             )
             if not any((recorded_at == era for era in existing_recorded_at)):
@@ -134,17 +131,15 @@ class TestSubjectSourceReport(TestCase):
         )
         source = Source.objects.create(manufacturer_id="001", provider=provider)
         source2 = Source.objects.create(manufacturer_id="002", provider=provider)
-        ASSIGNED_RANGE = list(
-            (pytz.utc.localize(datetime.now()), pytz.utc.localize(datetime.now() + timedelta(days=20)))
-        )
+        ASSIGNED_RANGE = list((datetime.now(tz=timezone.utc), datetime.now(tz=timezone.utc) + timedelta(days=20)))
         ss = SubjectSource.objects.create(subject=subject, source=source, assigned_range=ASSIGNED_RANGE)
 
         ss2 = SubjectSource.objects.create(subject=subject2, source=source2)
-        recorded_at = datetime.now(tz=pytz.utc)
+        recorded_at = datetime.now(tz=timezone.utc)
         x = float(random.randint(3000, 3000)) / 100
         y = float(random.randint(2800, 4000)) / 100
 
-        recorded_late = datetime.now(tz=pytz.utc) - timedelta(days=3)
+        recorded_late = datetime.now(tz=timezone.utc) - timedelta(days=3)
         location = Point(x, y)
 
         return source, source2, recorded_at, recorded_late, location
@@ -207,7 +202,6 @@ class TestSubjectSourceReport(TestCase):
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestReportByTask:
     def test_two_sources_with_same_provider_reach_the_provider_threshold(self, five_subject_sources):
-        set_current_tenant(self.das_tenant)
         provider = five_subject_sources[0].source.provider
         provider.additional = {"silence_notification_threshold": "00:30:00"}
         provider.save()
@@ -219,12 +213,12 @@ class TestReportByTask:
         source_b.save()
 
         Observation.objects.create(
-            recorded_at=timezone.now() - timedelta(hours=4),
+            recorded_at=datetime.now(tz=timezone.utc) - timedelta(hours=4),
             source=source_a,
             location=Point(0, 0),
         )
         Observation.objects.create(
-            recorded_at=timezone.now() - timedelta(hours=3),
+            recorded_at=datetime.now(tz=timezone.utc) - timedelta(hours=3),
             source=source_b,
             location=Point(0, 0),
         )
@@ -250,12 +244,12 @@ class TestReportByTask:
         source_b.save()
 
         Observation.objects.create(
-            recorded_at=timezone.now() - timedelta(hours=4),
+            recorded_at=datetime.now(tz=timezone.utc) - timedelta(hours=4),
             source=source_a,
             location=Point(0, 0),
         )
         Observation.objects.create(
-            recorded_at=timezone.now() - timedelta(minutes=10),
+            recorded_at=datetime.now(tz=timezone.utc) - timedelta(minutes=10),
             source=source_b,
             location=Point(0, 0),
         )
@@ -276,12 +270,12 @@ class TestReportByTask:
         source_b.save()
 
         Observation.objects.create(
-            recorded_at=timezone.now() - timedelta(minutes=10),
+            recorded_at=datetime.now(tz=timezone.utc) - timedelta(minutes=10),
             source=source_a,
             location=Point(0, 0),
         )
         Observation.objects.create(
-            recorded_at=timezone.now() - timedelta(minutes=15),
+            recorded_at=datetime.now(tz=timezone.utc) - timedelta(minutes=15),
             source=source_b,
             location=Point(0, 0),
         )
@@ -302,12 +296,12 @@ class TestReportByTask:
         source_b.save()
 
         Observation.objects.create(
-            recorded_at=timezone.now() - timedelta(hours=4),
+            recorded_at=datetime.now(tz=timezone.utc) - timedelta(hours=4),
             source=source_a,
             location=Point(0, 0),
         )
         Observation.objects.create(
-            recorded_at=timezone.now() - timedelta(hours=3),
+            recorded_at=datetime.now(tz=timezone.utc) - timedelta(hours=3),
             source=source_b,
             location=Point(0, 0),
         )
@@ -332,7 +326,7 @@ class TestReportByTask:
         subject_source.subject.save()
 
         Observation.objects.create(
-            recorded_at=timezone.now() - timedelta(hours=4),
+            recorded_at=datetime.now(tz=timezone.utc) - timedelta(hours=4),
             source=source_a,
             location=Point(0, 0),
         )
@@ -352,12 +346,12 @@ class TestReportByTask:
         provider_b.save()
 
         Observation.objects.create(
-            recorded_at=timezone.now() - timedelta(hours=4),
+            recorded_at=datetime.now(tz=timezone.utc) - timedelta(hours=4),
             source=source_a,
             location=Point(0, 0),
         )
         Observation.objects.create(
-            recorded_at=timezone.now() - timedelta(hours=3),
+            recorded_at=datetime.now(tz=timezone.utc) - timedelta(hours=3),
             source=source_b,
             location=Point(0, 0),
         )
@@ -378,7 +372,7 @@ class TestSourcesReport:
         subject.is_active = False
         subject.save(update_fields=["is_active"])
 
-        now = datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
         range_one = (now - timedelta(days=1), now + timedelta(days=1))
         SubjectSource.objects.create(subject=subject, source=source, assigned_range=range_one)
 
@@ -387,7 +381,7 @@ class TestSourcesReport:
     def test_get_source_subject_returns_currently_assigned_active_subject(self, source, five_subjects):
         subject_one = five_subjects[0]
         subject_two = five_subjects[1]
-        now = datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
         range_one = (now - timedelta(days=1), now + timedelta(days=1))
         range_two = (now - timedelta(days=5), now - timedelta(days=4))
 

@@ -1,6 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
-import pytz
 from oauth2_provider.models import get_access_token_model
 
 from django.contrib.auth.models import Permission
@@ -21,7 +20,7 @@ TENANT_CODENAME_OVERRIDES = [dict(app_label="activity", model="event")]
 @receiver(post_save, sender=AccessToken, dispatch_uid="record_last_login")
 def record_login(sender, instance, created, **kwargs):
     if created:
-        instance.user.last_login = datetime.now(tz=pytz.utc)
+        instance.user.last_login = datetime.now(tz=timezone.utc)
         instance.user.save()
 
 

@@ -1,14 +1,13 @@
-import datetime
 import json
 import logging
 import re
 import uuid
+from datetime import datetime, time, timedelta, timezone
 from enum import Enum
 from itertools import chain
 from operator import attrgetter, itemgetter
 
 import phonenumbers
-import pytz
 from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from versatileimagefield.fields import VersatileImageField
@@ -44,7 +43,7 @@ from django.db.models import (
     When,
 )
 from django.db.models.functions import Cast, Lower
-from django.utils import dateparse, timezone
+from django.utils import dateparse
 from django.utils.encoding import force_str
 from django.utils.translation import gettext_lazy as _
 
@@ -71,6 +70,7 @@ from utils.models import CommonTenantManager
 from utils.rank import RankModelMixin
 from utils.tenant import get_tenant_settings
 from utils.tenant.models import TenantThroughModel
+from utils.user import make_random_password
 
 from .constants import (
     PRI_BLACK,
@@ -87,7 +87,6 @@ from .constants import (
 
 logger = logging.getLogger(__name__)
 
-
 DEFAULT_EVENT_PATROL_ICON_ID = "generic_rep"
 
 
@@ -103,8 +102,8 @@ def get_sentinel_user():
             last_name="account",
             first_name="deleted",
             is_active=False,
+            password=make_random_password(),
             is_system=True,
-            password=User.objects.make_random_password(),
         ),
     )
     return user
@@ -412,6 +411,9 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel, RevisionMixi
     def save(self, *args, **kwargs):
         self.full_clean()
         self.value = self.value.lower()
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = set(update_fields) | {"value"}
         return super().save(*args, **kwargs)
 
     def set_to_inactive(self):
@@ -449,19 +451,23 @@ class RefreshRecreateEventDetailViewQuery(models.QuerySet):
     def recreate(self, activity, task_mode):
         return self.create(
             task_mode=task_mode,
-            started_at=datetime.datetime.now(tz=pytz.utc),
+            started_at=datetime.now(tz=timezone.utc),
             performed_by=activity,
             maintenance_status="running",
         )
 
     def refresh(self, activity, task_mode):
-        return self.create(task_mode=task_mode, started_at=datetime.datetime.now(tz=pytz.utc), performed_by=activity)
+        return self.create(task_mode=task_mode, started_at=datetime.now(tz=timezone.utc), performed_by=activity)
 
     def update_status(self, status):
         self.update(maintenance_status=status)
 
     def update_status_and_ended_at(self, status, error_details):
-        self.update(maintenance_status=status, ended_at=datetime.datetime.now(tz=pytz.utc), error_details=error_details)
+        self.update(
+            maintenance_status=status,
+            ended_at=datetime.now(tz=timezone.utc),
+            error_details=error_details,
+        )
 
 
 class RefreshRecreateEventDetailViewManager(
@@ -507,7 +513,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             "-created_at"
         )
         if last_days:
-            lt = timezone.now()
+            lt = datetime.now(tz=timezone.utc)
             gt = lt - last_days
             events = events.filter(created_at__range=(gt, lt))
 
@@ -612,7 +618,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
     def by_duration(self, duration):
         if duration:
-            return self.filter(event_time__gt=(timezone.now() - duration))
+            return self.filter(event_time__gt=(datetime.now(tz=timezone.utc) - duration))
         return self
 
     def by_date_range(self, lower=None, upper=None):
@@ -1109,8 +1115,8 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
 
     def dependent_table_updated(self):
         # if difference is less than 1, probably means the event and other object were created together
-        if abs((self.created_at - timezone.now()).total_seconds()) > 1:
-            self.updated_at = timezone.now()
+        if abs((self.created_at - datetime.now(tz=timezone.utc)).total_seconds()) > 1:
+            self.updated_at = datetime.now(tz=timezone.utc)
             self.state = "active" if self.state == "new" else self.state
             self.sort_at = self.updated_at
             self.save()
@@ -1161,7 +1167,7 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
         ):
             pass
         else:
-            self.sort_at = timezone.now()
+            self.sort_at = datetime.now(tz=timezone.utc)
             save_fields.add("sort_at")
 
         # move the state to Active if we are stuck on New.
@@ -1406,7 +1412,7 @@ def upload_to(instance, filename):
     :return: relative path for storing uploaded image
     """
     name, extension = filename.rsplit(".", 1) if "." in filename else (filename, "")
-    d = datetime.datetime.now().replace(tzinfo=pytz.UTC)
+    d = datetime.now(tz=timezone.utc)
     tenant = get_tenant_settings()
     file_path = f"{tenant.slug_name}/eventphotos/{d.year}/{d.month}/{d.day}/{instance.id}/{name}.{extension}"
 
@@ -1989,8 +1995,8 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         queryset = self
         lower, upper = parse_date_range(filter_param)
 
-        lower = lower or pytz.utc.localize(datetime.datetime.min)
-        upper = upper or pytz.utc.localize(datetime.datetime.max)
+        lower = lower or datetime.min.replace(tzinfo=timezone.utc)
+        upper = upper or datetime.max.replace(tzinfo=timezone.utc)
 
         if patrols_overlap_daterange:
             # Patrols whose start to end date range overlaps with date range
@@ -2018,8 +2024,8 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         else:
             # Patrols starting within date range
             upper = (
-                (upper - datetime.timedelta(minutes=1)).replace(second=59, microsecond=999999)
-                if upper.time() == datetime.time(0, 0)
+                (upper - timedelta(minutes=1)).replace(second=59, microsecond=999999)
+                if upper.time() == time(0, 0)
                 else upper
             )
             start_filter = Q(patrol_segment__time_range__startswith__range=(lower, upper)) | Q(
@@ -2037,7 +2043,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self.filter_field("patrol_segment__patrol_type__value", patrol_type)
 
     def by_state(self, states):
-        now = datetime.datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
         q1 = q2 = q3 = q4 = q5 = self.none()
 
         for state in states:
@@ -2054,7 +2060,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                 q3 = self.filter(state=PC_DONE)
 
             if state == StateFilters.overdue.value:
-                supposed_start = now - datetime.timedelta(minutes=30)
+                supposed_start = now - timedelta(minutes=30)
                 st_filter = Q(patrol_segment__time_range__startswith__isnull=True) & Q(
                     patrol_segment__scheduled_start__lte=supposed_start
                 )
@@ -2069,7 +2075,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self.filter_field("patrol_segment__leader_id", subject)
 
     def sort_patrols(self):
-        set_time = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=30)
+        set_time = datetime.now(tz=timezone.utc) - timedelta(minutes=30)
         subject = Subject.objects.filter(id=OuterRef("patrol_segment__leader_id"))
 
         overdue_q = (
@@ -2179,10 +2185,12 @@ class Patrol(TenantModelMixin, SerialNumberModelMixin, TimestampedModel, Revisio
 
     def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
         self._update_patrol_state()
+        if update_fields is not None:
+            update_fields = set(update_fields) | {"state"}
         super().save(force_insert, force_update, using, update_fields)
 
     def _update_patrol_state(self):
-        now = datetime.datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
         for segment in self.patrol_segments.all():
             if (
                 segment.time_range

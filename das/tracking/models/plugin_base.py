@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
-import pytz
 from dateutil.parser import parse as parse_date
 from django_multitenant.fields import TenantForeignKey
 from django_multitenant.mixins import TenantModelMixin
@@ -119,7 +118,7 @@ class SourcePlugin(TenantModelMixin, TimestampedModel):
 
     # last_run: datetime.min implies it hasn't ever been executed.
     last_run = models.DateTimeField(
-        default=pytz.utc.localize(datetime(2000, 1, 1)), verbose_name="Timestamp for when this plugin last executed."
+        default=datetime(2000, 1, 1, tzinfo=timezone.utc), verbose_name="Timestamp for when this plugin last executed."
     )
     plugins_to_validate_location = ["awtplugin", "skygisticssatelliteplugin"]
 
@@ -244,13 +243,15 @@ class TrackingPlugin(TenantModelMixin, TimestampedModel):
         return True
 
     def should_run(self, source_plugin):
-        now = pytz.utc.localize(datetime.utcnow())
+        now = datetime.now(tz=timezone.utc)
 
         # Don't bother running now if less than one hour has passed since the
         # latest fix.
         try:
             latest_timestamp = source_plugin.cursor_data.get("latest_timestamp")
-            latest_timestamp = parse_date(latest_timestamp) if latest_timestamp else pytz.utc.localize(datetime.min)
+            latest_timestamp = (
+                parse_date(latest_timestamp) if latest_timestamp else datetime.min.replace(tzinfo=timezone.utc)
+            )
 
             # If we haven't seen data from over 30 days, then use 24 hours as
             # polling interval.

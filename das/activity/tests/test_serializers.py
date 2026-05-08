@@ -1,6 +1,6 @@
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import jsonschema
@@ -241,7 +241,7 @@ class TestEventSerializer:
 
     # TODO Pending some fields like files, updates, as they are part of nested serializers or other methods.
     def test_serialized_event(self, event_with_detail, five_event_notes):
-        now = datetime.now()
+        now = datetime.now(tz=timezone.utc)
         event = event_with_detail.event
         event.message = "Houston, we have had a problem here"
         event.comment = "It is a trap"
@@ -632,7 +632,7 @@ class TestEventGeometrySerializer:
 @pytest.mark.usefixtures("tenant_settings")
 class TestEventHeaderSerializer:
     def test_serialized_event_format(self, event):
-        event.end_time = datetime.now()
+        event.end_time = datetime.now(tz=timezone.utc)
 
         request = NonHttpRequest()
         serialized_event = EventHeaderSerializer(event, context={"request": request}).data

@@ -6,7 +6,6 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Optional
 
-import pytz
 from dataclasses_json import config, dataclass_json
 from django_multitenant.utils import get_current_tenant
 from psycopg2.extras import DateTimeTZRange
@@ -22,7 +21,6 @@ from utils.tenant.managers import TenantContextManager
 
 logger = logging.getLogger(__name__)
 redis_client = get_resilient_redis_client_from_url(url=settings.REALTIME_BROKER_URL)
-
 
 EXPIRED_CLIENT_TRACES_LIST = "rt_api.expired_traces"
 REALTIME_SERVICES_KEY = "rt_api.services"
@@ -101,8 +99,8 @@ def init_redis_storage():
     redis_client.sadd(REALTIME_SERVICES_KEY, get_client_list_key())
 
 
-def now(tz=pytz.utc):
-    return tz.localize(datetime.datetime.utcnow())
+def now(tz=datetime.timezone.utc):
+    return datetime.datetime.now(tz=tz)
 
 
 def update_client(sid, bbox=None, event_filter=None, patrol_filter=None, profile_id=None):
@@ -155,7 +153,7 @@ def update_client(sid, bbox=None, event_filter=None, patrol_filter=None, profile
 
 
 def create_update_user_session_by_sid(sid):
-    defaults = {"time_range": DateTimeTZRange(lower=datetime.datetime.now(tz=pytz.utc))}
+    defaults = {"time_range": DateTimeTZRange(lower=datetime.datetime.now(tz=datetime.timezone.utc))}
     user_session, created = UserSession.objects.update_or_create(
         sid=sid, das_tenant=get_current_tenant(), defaults=defaults
     )
@@ -297,7 +295,7 @@ def remove_clients(sids: set):
 
 
 def cleanup_usersessions():
-    older_than_one_week = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=7)
+    older_than_one_week = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=7)
     UserSession.objects.filter(time_range__startswith__lte=older_than_one_week).delete()
 
 
@@ -317,10 +315,10 @@ def update_user_session_by_sid(sid):
     else:
         if not user_session.time_range:
             logger.warning(f"UserSession missing time_range: {user_session}")
-            user_session.time_range = DateTimeTZRange(lower=datetime.datetime.now(tz=pytz.utc))
+            user_session.time_range = DateTimeTZRange(lower=datetime.datetime.now(tz=datetime.timezone.utc))
         else:
             user_session.time_range = DateTimeTZRange(
-                upper=datetime.datetime.now(pytz.utc), lower=user_session.time_range.lower
+                upper=datetime.datetime.now(datetime.timezone.utc), lower=user_session.time_range.lower
             )
         user_session.save()
 
@@ -449,7 +447,7 @@ def message_index(sid, message_type):
 
 
 def save_session_timestamp(sid, subject_id=None):
-    timestamp = datetime.datetime.now(tz=pytz.utc).isoformat()
+    timestamp = datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
 
     if subject_id:
         subject_key = SID_SUBJECTS_TIMESTAMPS_KEY.format(sid)
@@ -472,4 +470,4 @@ def get_sid_subject_timestamp(sid, subject_id):
     # Fall back to a short trailing window so the first observation after a
     # cursor miss isn't dropped by FlattenObservationsView's
     # created_at >= created_after filter.
-    return (datetime.datetime.now(tz=pytz.utc) - SESSION_CURSOR_GRACE_WINDOW).isoformat()
+    return (datetime.datetime.now(tz=datetime.timezone.utc) - SESSION_CURSOR_GRACE_WINDOW).isoformat()

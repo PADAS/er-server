@@ -6,7 +6,6 @@ from unittest.mock import MagicMock
 
 import pytest
 from django_multitenant.utils import set_current_tenant
-from pytz import UTC
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -56,7 +55,7 @@ class RTTasksTestCase(TestCase):
         source_id = "43d22e4d-debf-402d-b49b-efdc67dddb93"
 
         # Generate some random data for the observation.
-        observation_time = UTC.localize(datetime.datetime.now())
+        observation_time = datetime.datetime.now(tz=datetime.timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 

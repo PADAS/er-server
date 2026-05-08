@@ -1,5 +1,6 @@
+from zoneinfo import ZoneInfo
+
 import jsonschema
-import pytz
 
 from django.urls import reverse
 from django.utils import timezone
@@ -75,7 +76,7 @@ class AlertRuleSerializer(ModelSerializer):
             if not "timezone" in value:
                 value["timezone"] = timezone.get_current_timezone_name()
             else:
-                pytz.timezone(value["timezone"])
+                ZoneInfo(value["timezone"])
 
             return value
         except jsonschema.ValidationError as ve:

@@ -79,25 +79,12 @@ class TestAdminCSRFBehavior:
 
     def test_csrf_cookie_settings(self):
         """Verify CSRF cookie settings are properly configured."""
-        import django
-
-        # Check that CSRF_TRUSTED_ORIGINS is properly formatted for the Django version
+        # Check that CSRF_TRUSTED_ORIGINS is properly formatted (Django 4.0+ requires scheme)
         if hasattr(settings, "CSRF_TRUSTED_ORIGINS") and settings.CSRF_TRUSTED_ORIGINS:
-            # Django 3.2 and earlier: domains without schemes
-            # Django 4.0+: full URLs with schemes
-            if django.VERSION[0] >= 4:
-                # Django 4.0+: require schemes
-                for origin in settings.CSRF_TRUSTED_ORIGINS:
-                    assert origin.startswith("http://") or origin.startswith(
-                        "https://"
-                    ), f"Django 4.0+ requires CSRF_TRUSTED_ORIGINS entry '{origin}' to include scheme (http:// or https://)"
-            else:
-                # Django 3.2 and earlier: should NOT have schemes
-                for origin in settings.CSRF_TRUSTED_ORIGINS:
-                    assert not (origin.startswith("http://") or origin.startswith("https://")), (
-                        f"Django 3.2 requires CSRF_TRUSTED_ORIGINS entry '{origin}' WITHOUT scheme. "
-                        f"Got: '{origin}', expected: '{origin.replace('https://', '').replace('http://', '')}'"
-                    )
+            for origin in settings.CSRF_TRUSTED_ORIGINS:
+                assert origin.startswith("http://") or origin.startswith(
+                    "https://"
+                ), f"CSRF_TRUSTED_ORIGINS entry '{origin}' must include scheme (http:// or https://)"
 
         # Verify SameSite settings are configured (even if defaults)
         assert hasattr(settings, "SESSION_COOKIE_SAMESITE")

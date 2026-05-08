@@ -1,10 +1,9 @@
-import datetime
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from oauth2_provider.models import get_access_token_model, get_application_model
 
 import django.contrib.auth
-from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from conftest import TENANT_RESPONSE
@@ -43,7 +42,7 @@ class HTTPClient:
             token=str(uuid.uuid4()),
             application=application,
             scope="read write",
-            expires=timezone.now() + datetime.timedelta(days=1),
+            expires=datetime.now(tz=timezone.utc) + timedelta(days=1),
         )
 
     def force_authenticate(self, request, user, token=None):

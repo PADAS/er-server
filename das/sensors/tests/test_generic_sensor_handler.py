@@ -5,7 +5,6 @@ import random
 from unittest import mock
 from uuid import uuid4
 
-import pytz
 from dateutil import parser as dateparser
 
 import django.contrib.auth
@@ -563,7 +562,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         for i in range(n):
             obs = dict(self.one_observation)
             if distinct:
-                timestamp = pytz.utc.localize(datetime.datetime.utcnow()) - datetime.timedelta(days=i)
+                timestamp = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=i)
                 obs.update(recorded_at=timestamp.isoformat())
 
             yield obs
@@ -1030,8 +1029,8 @@ class GenericSensorHandlerTest(BaseAPITest):
             subject=first_subject,
             source=source1,
             assigned_range=DateTimeTZRange(
-                lower=datetime.datetime(2023, 1, 1, tzinfo=pytz.utc),
-                upper=datetime.datetime(2023, 6, 1, tzinfo=pytz.utc),
+                lower=datetime.datetime(2023, 1, 1, tzinfo=datetime.timezone.utc),
+                upper=datetime.datetime(2023, 6, 1, tzinfo=datetime.timezone.utc),
             ),
         )
 
@@ -1039,8 +1038,8 @@ class GenericSensorHandlerTest(BaseAPITest):
             subject=second_subject,
             source=source2,
             assigned_range=DateTimeTZRange(
-                lower=datetime.datetime(2023, 2, 1, tzinfo=pytz.utc),
-                upper=datetime.datetime(2023, 7, 1, tzinfo=pytz.utc),
+                lower=datetime.datetime(2023, 2, 1, tzinfo=datetime.timezone.utc),
+                upper=datetime.datetime(2023, 7, 1, tzinfo=datetime.timezone.utc),
             ),
         )
 
@@ -1048,7 +1047,8 @@ class GenericSensorHandlerTest(BaseAPITest):
             subject=third_subject,
             source=source1,  # Same source as first assignment but different time range
             assigned_range=DateTimeTZRange(
-                lower=datetime.datetime(2023, 8, 1, tzinfo=pytz.utc), upper=DEFAULT_ASSIGNED_RANGE[1]  # Open-ended
+                lower=datetime.datetime(2023, 8, 1, tzinfo=datetime.timezone.utc),
+                upper=DEFAULT_ASSIGNED_RANGE[1],  # Open-ended
             ),
         )
 
@@ -1100,16 +1100,16 @@ class GenericSensorHandlerTest(BaseAPITest):
             subject=first_subject,
             source=source,
             assigned_range=DateTimeTZRange(
-                lower=datetime.datetime(2023, 3, 1, tzinfo=pytz.utc),
-                upper=datetime.datetime(2023, 8, 1, tzinfo=pytz.utc),
+                lower=datetime.datetime(2023, 3, 1, tzinfo=datetime.timezone.utc),
+                upper=datetime.datetime(2023, 8, 1, tzinfo=datetime.timezone.utc),
             ),
         )
         SubjectSource.objects.create(
             subject=second_subject,
             source=source,
             assigned_range=DateTimeTZRange(
-                lower=datetime.datetime(2023, 1, 1, tzinfo=pytz.utc),  # Earlier start
-                upper=datetime.datetime(2023, 6, 1, tzinfo=pytz.utc),
+                lower=datetime.datetime(2023, 1, 1, tzinfo=datetime.timezone.utc),  # Earlier start
+                upper=datetime.datetime(2023, 6, 1, tzinfo=datetime.timezone.utc),
             ),
         )
         # Call find_subject_by_name
@@ -1124,9 +1124,13 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         # The assignment should have the earlier start time from ss2
         merged_assignment = assignments.first()
-        self.assertEqual(merged_assignment.assigned_range.lower, datetime.datetime(2023, 1, 1, tzinfo=pytz.utc))
+        self.assertEqual(
+            merged_assignment.assigned_range.lower, datetime.datetime(2023, 1, 1, tzinfo=datetime.timezone.utc)
+        )
         # And the later end time from ss1
-        self.assertEqual(merged_assignment.assigned_range.upper, datetime.datetime(2023, 8, 1, tzinfo=pytz.utc))
+        self.assertEqual(
+            merged_assignment.assigned_range.upper, datetime.datetime(2023, 8, 1, tzinfo=datetime.timezone.utc)
+        )
 
         # Second subject should have no assignments
         self.assertEqual(SubjectSource.objects.filter(subject=second_subject).count(), 0)

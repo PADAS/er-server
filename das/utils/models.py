@@ -2,23 +2,16 @@ from typing import overload
 
 from django_multitenant.mixins import TenantManagerMixin
 
-import django
 from django.apps import apps
 from django.contrib.auth.management import create_permissions
 from django.db.models import Manager, Max
 
 
 def migrate_permissions(apps):
-    version = django.VERSION
-    if version[0] > 1 or (version[0] == 1 and django.VERSION[1] > 9):
-        for app_config in apps.get_app_configs():
-            app_config.models_module = True
-            create_permissions(app_config, apps=apps, verbosity=0)
-            app_config.models_module = None
-    else:
-        apps.models_module = True
-        create_permissions(apps, verbosity=0)
-        apps.models_module = None
+    for app_config in apps.get_app_configs():
+        app_config.models_module = True
+        create_permissions(app_config, apps=apps, verbosity=0)
+        app_config.models_module = None
 
 
 def update_all_contenttypes(**kwargs):

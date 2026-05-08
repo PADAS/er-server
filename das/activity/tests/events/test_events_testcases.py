@@ -8,13 +8,12 @@ import random
 import shutil
 import string
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 from unittest.mock import MagicMock, patch
 from urllib.parse import urlencode
 
 import pytest
-import pytz
 from django_multitenant.utils import set_current_tenant
 from drf_extra_fields.geo_fields import PointField
 from kombu import Connection
@@ -28,7 +27,7 @@ from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
-from django.utils import dateparse, lorem_ipsum, timezone
+from django.utils import dateparse, lorem_ipsum
 from rest_framework.fields import DateTimeField
 
 from accounts.models import PermissionSet
@@ -141,7 +140,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.event_data = dict(
             title="Test Event",
             message=lorem_ipsum.paragraph(),
-            time=DateTimeField().to_representation(timezone.now()),
+            time=DateTimeField().to_representation(datetime.now(tz=timezone.utc)),
             provenance=Event.PC_SYSTEM,
             event_type=ET_OTHER,
             priority=Event.PRI_REFERENCE,
@@ -202,7 +201,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.user_rep = UserDisplaySerializer().to_representation(self.guest_user)
 
         self.temporary_folder = tempfile.mkdtemp()
-        self.now = datetime.now(tz=pytz.utc)
+        self.now = datetime.now(tz=timezone.utc)
         self.start_of_today = self.now.replace(hour=0, minute=0, second=0, microsecond=0)
         self.end_of_today = self.start_of_today + timedelta(hours=23, minutes=59, seconds=59)
         self.api_path = f"activity/event/{self.sample_event.pk}/"
@@ -2076,7 +2075,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
             "external_event_id": external_event_id,
             "eventsource": esid_no1,
             "location": {"latitude": 38.4, "longitude": -116.5},
-            "time": datetime.now(tz=pytz.utc).isoformat(),
+            "time": datetime.now(tz=timezone.utc).isoformat(),
         }
 
         request = self.factory.post(f"{self.api_base}/events", event_data)
@@ -2099,7 +2098,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
             "external_event_id": external_event_id,
             "eventsource": esid_no2,
             "location": {"latitude": 38.4, "longitude": -116.5},
-            "time": datetime.now(tz=pytz.utc).isoformat(),
+            "time": datetime.now(tz=timezone.utc).isoformat(),
         }
 
         request = self.factory.post(f"{self.api_base}/events", event_data)
@@ -3248,7 +3247,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
-        created_at = datetime.now(tz=pytz.utc) - timedelta(hours=2)
+        created_at = datetime.now(tz=timezone.utc) - timedelta(hours=2)
         Event.objects.filter(id=response.data.get("id")).update(created_at=created_at)
         self.assertEqual(response.data.get("state"), "new")
         automatically_update_event_state_task = automatically_update_event_state.__wrapped__
@@ -3521,7 +3520,7 @@ class TestEventView2(BaseTestToolMixin):
         patrol = Patrol.objects.order_by("created_at").last()
         segment = patrol.patrol_segments.first()
         subject = patrol.patrol_segments.first().leader
-        segment.time_range = DateTimeTZRange(lower=datetime.now(tz=pytz.utc) + timedelta(hours=1))
+        segment.time_range = DateTimeTZRange(lower=datetime.now(tz=timezone.utc) + timedelta(hours=1))
         segment.save()
 
         event_data = {
@@ -3551,7 +3550,7 @@ class TestEventView2(BaseTestToolMixin):
         patrol = Patrol.objects.order_by("created_at").last()
         segment = patrol.patrol_segments.first()
         subject = patrol.patrol_segments.first().leader
-        segment.time_range = DateTimeTZRange(lower=datetime.now(tz=pytz.utc) - timedelta(hours=1))
+        segment.time_range = DateTimeTZRange(lower=datetime.now(tz=timezone.utc) - timedelta(hours=1))
         segment.save()
 
         event_data = {

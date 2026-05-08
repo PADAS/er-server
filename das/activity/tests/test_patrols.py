@@ -1,14 +1,13 @@
-import datetime
 import json
 import os
 import shutil
 import tempfile
 import uuid
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 from urllib.parse import urlencode
 
 import pytest
-import pytz
 from drf_extra_fields.geo_fields import PointField
 from psycopg2.extras import DateTimeTZRange
 
@@ -17,7 +16,7 @@ from django.core.management import call_command
 from django.db import connection
 from django.http import HttpResponseNotModified
 from django.urls import reverse
-from django.utils import lorem_ipsum, timezone
+from django.utils import lorem_ipsum
 from rest_framework import status
 from rest_framework.test import APIClient as Client
 
@@ -61,8 +60,6 @@ def send_task(name, args=(), kwargs={}, **opts):
     return task(*args, **kwargs)
 
 
-@pytest.mark.usefixtures("tenant_settings")
-@pytest.mark.django_db
 class TestPatrol(BaseAPITest):
     def setUp(self):
         super().setUp()
@@ -115,9 +112,9 @@ class TestPatrol(BaseAPITest):
         self.patrol_type = PatrolType.objects.first()
         PatrolSegment.objects.create(patrol_type=self.patrol_type, patrol_id=self.default_test_patrol.id)
 
-        self.now = datetime.datetime.now(tz=pytz.utc)
+        self.now = datetime.now(tz=timezone.utc)
         self.start_of_today = self.now.replace(hour=0, minute=0, second=0, microsecond=0)
-        self.end_of_today = self.start_of_today + datetime.timedelta(hours=23, minutes=59, seconds=59)
+        self.end_of_today = self.start_of_today + timedelta(hours=23, minutes=59, seconds=59)
 
         self.sample_patrol_filter = {
             "filter": json.dumps(
@@ -858,8 +855,8 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_patrol_filter(self):
-        start = self.start_of_today + datetime.timedelta(hours=8)  # 8am
-        end = self.start_of_today + datetime.timedelta(hours=9)  # 9 am
+        start = self.start_of_today + timedelta(hours=8)  # 8am
+        end = self.start_of_today + timedelta(hours=9)  # 9 am
         patrol_data = dict(
             title="Test Patrol",
             patrol_segments=[{"time_range": {"start_time": start.isoformat(), "end_time": end.isoformat()}}],
@@ -886,8 +883,8 @@ class TestPatrol(BaseAPITest):
         date_range = {"lower": self.start_of_today.isoformat(), "upper": self.end_of_today.isoformat()}
         date_range_filter = {"filter": json.dumps({"date_range": date_range, "patrols_overlap_daterange": False})}
 
-        start = self.start_of_today + datetime.timedelta(hours=8)  # 8am
-        end = self.start_of_today + datetime.timedelta(hours=11)  # 9 am
+        start = self.start_of_today + timedelta(hours=8)  # 8am
+        end = self.start_of_today + timedelta(hours=11)  # 9 am
         patrol_data = dict(
             title="New Patrol",
             patrol_segments=[{"time_range": {"start_time": start.isoformat(), "end_time": end.isoformat()}}],
@@ -899,7 +896,7 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.data.get("count"), 1)
         self.assertEqual(response.data.get("results")[0].get("title"), patrol_data.get("title"))
 
-        date_range["lower"] = (self.start_of_today + datetime.timedelta(hours=10)).isoformat()
+        date_range["lower"] = (self.start_of_today + timedelta(hours=10)).isoformat()
         new_filter = {"filter": json.dumps({"date_range": date_range, "patrols_overlap_daterange": False})}
         response = self._filter_patrol(new_filter)  # today's filter
 
@@ -913,7 +910,7 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.data.get("count"), 1)
 
         # Filter with midnight time in upper bound
-        date_range["lower"] = (self.start_of_today - datetime.timedelta(hours=10)).isoformat()
+        date_range["lower"] = (self.start_of_today - timedelta(hours=10)).isoformat()
         date_range["upper"] = (self.start_of_today).isoformat()
 
         patrol = response.data.get("results")[0]
@@ -936,21 +933,21 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.data.get("count"), 0)
 
     def test_patrol_filter_only_scheduled_start_given(self):
-        start = self.start_of_today + datetime.timedelta(days=5)  # 5 days later
+        start = self.start_of_today + timedelta(days=5)  # 5 days later
         patrol_data = dict(title="Scheduled Patrol", patrol_segments=[{"scheduled_start": start.isoformat()}])
         self._create_patrol(patrol_data)
         response = self._filter_patrol(self.sample_patrol_filter)  # today's filter
         self.assertEqual(response.data.get("count"), 0)
 
-        lower = self.start_of_today + datetime.timedelta(days=3)  # 3 days from now
-        upper = self.start_of_today + datetime.timedelta(days=7)  # 7 days from now
+        lower = self.start_of_today + timedelta(days=3)  # 3 days from now
+        upper = self.start_of_today + timedelta(days=7)  # 7 days from now
 
         patrol_filter = {"filter": json.dumps({"date_range": {"lower": lower.isoformat(), "upper": upper.isoformat()}})}
         response = self._filter_patrol(patrol_filter)
         self.assertEqual(response.data.get("count"), 1)
 
     def test_patrol_filter_by_state(self):
-        start = self.start_of_today + datetime.timedelta(days=5)  # 5 days later
+        start = self.start_of_today + timedelta(days=5)  # 5 days later
         scheduled_patrol = dict(title="Scheduled Patrol", patrol_segments=[{"scheduled_start": start.isoformat()}])
         active_patrol = dict(
             title="Active Patrol", patrol_segments=[{"time_range": {"start_time": self.start_of_today.isoformat()}}]
@@ -958,7 +955,7 @@ class TestPatrol(BaseAPITest):
         done_patrol = dict(title="Overdue Patrol", state="done")
         overdue_patrol = dict(
             title="Overdue Patrol",
-            patrol_segments=[{"scheduled_start": (self.now - datetime.timedelta(minutes=45)).isoformat()}],
+            patrol_segments=[{"scheduled_start": (self.now - timedelta(minutes=45)).isoformat()}],
         )
         cancelled_patrol = dict(title="Cancelled Patrol", state="cancelled")
         Patrol.objects.all().delete()
@@ -978,7 +975,7 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.data.get("count"), 4)
 
     def test_patrol_filter_with_null_end_time(self):
-        start = self.start_of_today - datetime.timedelta(days=3)  # 3 days ago
+        start = self.start_of_today - timedelta(days=3)  # 3 days ago
         patrol_data = dict(title="Test Patrol", patrol_segments=[{"time_range": {"start_time": start.isoformat()}}])
         self._create_patrol(patrol_data)
         response = self._filter_patrol(self.sample_patrol_filter)
@@ -988,8 +985,8 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.data.get("results")[0].get("title"), patrol_data.get("title"))
 
     def test_patrol_filter_with_past_end_time_but_patrol_not_completed(self):
-        start = self.start_of_today - datetime.timedelta(days=2, hours=10)
-        scheduled_end = self.start_of_today - datetime.timedelta(days=2, hours=5)
+        start = self.start_of_today - timedelta(days=2, hours=10)
+        scheduled_end = self.start_of_today - timedelta(days=2, hours=5)
         patrol_data = dict(
             title="Test Patrol",
             patrol_segments=[
@@ -1023,7 +1020,7 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.data.get("count"), 0)
 
     def test_patrol_filter_cancelled_current_patrols(self):
-        start = self.start_of_today + datetime.timedelta(hours=8)  # 8am
+        start = self.start_of_today + timedelta(hours=8)  # 8am
         patrol_data = dict(
             title="Patrol To be cancelled", patrol_segments=[{"time_range": {"start_time": start.isoformat()}}]
         )
@@ -1063,13 +1060,13 @@ class TestPatrol(BaseAPITest):
     def test_sort_patrols(self):
         PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
-        now = datetime.datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
 
         active_patrol = dict(title="patrol_active", patrol_segments=[{"time_range": {"start_time": now.isoformat()}}])
 
         overdue_patrol = dict(
             title="patrol_overdue",
-            patrol_segments=[{"scheduled_start": (now - datetime.timedelta(hours=2)).isoformat()}],
+            patrol_segments=[{"scheduled_start": (now - timedelta(hours=2)).isoformat()}],
         )
 
         cancelled_patrol = dict(title="patrol_cancelled", state="cancelled")
@@ -1115,8 +1112,8 @@ class TestPatrol(BaseAPITest):
         PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
 
-        ahead = datetime.datetime.now(tz=pytz.utc) + datetime.timedelta(minutes=28)
-        lookback = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=28)
+        ahead = datetime.now(tz=timezone.utc) + timedelta(minutes=28)
+        lookback = datetime.now(tz=timezone.utc) - timedelta(minutes=28)
 
         overdue_patrol = dict(title="overdue", patrol_segments=[{"scheduled_start": lookback.isoformat()}])
 
@@ -1139,9 +1136,9 @@ class TestPatrol(BaseAPITest):
         PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
 
-        now = datetime.datetime.now(tz=pytz.utc)
-        ahead = now + datetime.timedelta(minutes=28)
-        lookback = now - datetime.timedelta(minutes=28)
+        now = datetime.now(tz=timezone.utc)
+        ahead = now + timedelta(minutes=28)
+        lookback = now - timedelta(minutes=28)
 
         overdue_patrol = dict(title="overdue", patrol_segments=[{"scheduled_start": lookback.isoformat()}])
 
@@ -1166,18 +1163,18 @@ class TestPatrol(BaseAPITest):
         PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
 
-        now = datetime.datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
 
-        lookback = now - datetime.timedelta(minutes=48)
-        lookback2 = now - datetime.timedelta(minutes=35)
+        lookback = now - timedelta(minutes=48)
+        lookback2 = now - timedelta(minutes=35)
 
-        future_scheduled = lookback + datetime.timedelta(days=20)
+        future_scheduled = lookback + timedelta(days=20)
 
-        now = datetime.datetime.now(tz=pytz.utc)
-        active_control = now - datetime.timedelta(days=2)
+        now = datetime.now(tz=timezone.utc)
+        active_control = now - timedelta(days=2)
 
-        ahead = now + datetime.timedelta(minutes=28)
-        ahead_control = ahead - datetime.timedelta(minutes=20)
+        ahead = now + timedelta(minutes=28)
+        ahead_control = ahead - timedelta(minutes=20)
 
         overdue_patrol = dict(title="overdue patrol", patrol_segments=[{"scheduled_start": lookback.isoformat()}])
         overdue_patrol2 = dict(title="my overdue patrol", patrol_segments=[{"scheduled_start": lookback2.isoformat()}])
@@ -1263,15 +1260,15 @@ class TestPatrol(BaseAPITest):
         Patrol.objects.all().delete()
         subj = Subject.objects.create(name="Heritage", subject_subtype_id="elephant")
 
-        now = datetime.datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
 
-        lookback = now - datetime.timedelta(minutes=35)
-        second_lookback = now - datetime.timedelta(minutes=40)
-        third_lookback = now - datetime.timedelta(minutes=50)
+        lookback = now - timedelta(minutes=35)
+        second_lookback = now - timedelta(minutes=40)
+        third_lookback = now - timedelta(minutes=50)
 
-        first_scheduled = now + datetime.timedelta(minutes=10)
-        second_scheduled = now + datetime.timedelta(hours=6)
-        third_scheduled = now + datetime.timedelta(days=1)
+        first_scheduled = now + timedelta(minutes=10)
+        second_scheduled = now + timedelta(hours=6)
+        third_scheduled = now + timedelta(days=1)
 
         overdue_patrol = dict(title="C overdue", patrol_segments=[{"scheduled_start": lookback.isoformat()}])
         overdue_patrol2 = dict(title="B overdue", patrol_segments=[{"scheduled_start": second_lookback.isoformat()}])
@@ -1471,7 +1468,7 @@ class TestPatrol(BaseAPITest):
     def test_patrolsegment_history_update_endtime(self):
         PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
-        now = datetime.datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
 
         patrol_patrolsegment = dict(
             priority=0,
@@ -1523,7 +1520,7 @@ class TestPatrol(BaseAPITest):
     def test_patrolsegment_history_autoendtime(self):
         PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
-        now = datetime.datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
 
         patrol_patrolsegment = dict(
             priority=0,
@@ -1579,7 +1576,7 @@ class TestPatrol(BaseAPITest):
 
         PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
-        set_time = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=1)
+        set_time = datetime.now(tz=timezone.utc) - timedelta(minutes=1)
 
         patrol = dict(title="alpha", patrol_segments=[{"time_range": {"end_time": set_time.isoformat()}}])
         self._create_patrol(patrol)
@@ -1609,7 +1606,7 @@ class TestPatrol(BaseAPITest):
         # server should transition from done to open if the end_time is cleared
         PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
-        set_time = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=1)
+        set_time = datetime.now(tz=timezone.utc) - timedelta(minutes=1)
 
         patrol_data = dict(
             title="Sierra-09", state="done", patrol_segments=[{"time_range": {"end_time": set_time.isoformat()}}]
@@ -1639,7 +1636,7 @@ class TestPatrol(BaseAPITest):
     def test_dont_update_cancelled_status(self):
         PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
-        set_time = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=1)
+        set_time = datetime.now(tz=timezone.utc) - timedelta(minutes=1)
 
         patrol_data = dict(
             title="Sierra-09", state="cancelled", patrol_segments=[{"time_range": {"end_time": set_time.isoformat()}}]
@@ -1824,8 +1821,8 @@ def test_patrols_materialized_view(django_assert_max_num_queries, client):
 
     leader = Subject.objects.create(name="Aname", subject_subtype_id="ranger")
 
-    patrol_start_at = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=30)
-    patrol_end_at = patrol_start_at + datetime.timedelta(days=14)
+    patrol_start_at = datetime.now(tz=timezone.utc) - timedelta(days=30)
+    patrol_end_at = patrol_start_at + timedelta(days=14)
 
     patrol = Patrol.objects.create(title="Standard patrol")
 
@@ -1849,8 +1846,8 @@ def test_patrols_materialized_view(django_assert_max_num_queries, client):
 
     # Arbitrary ranges that will overlap with the patrol range.
     range_overlaps = [
-        ((patrol_start_at - datetime.timedelta(days=5), patrol_start_at + datetime.timedelta(days=4))),
-        ((patrol_start_at + datetime.timedelta(days=4), patrol_start_at + datetime.timedelta(days=21))),
+        ((patrol_start_at - timedelta(days=5), patrol_start_at + timedelta(days=4))),
+        ((patrol_start_at + timedelta(days=4), patrol_start_at + timedelta(days=21))),
     ]
 
     for i, s in enumerate(sources):
@@ -2332,7 +2329,7 @@ class TestPatrolFilter:
     @pytest.mark.parametrize("statuses", [["active"], ["cancelled"]])
     def test_filter_by_patrol_status_list_with_one_value(self, five_patrol_segment, statuses):
         active_patrol = Patrol.objects.first()
-        tzr = DateTimeTZRange(timezone.now())
+        tzr = DateTimeTZRange(datetime.now(tz=timezone.utc))
         active_patrol_segment = active_patrol.patrol_segments.first()
         active_patrol_segment.time_range = tzr
         active_patrol_segment.save()
@@ -2363,14 +2360,14 @@ class TestPatrolFilter:
         done_patrol.save()
 
         active_patrol = Patrol.objects.all()[2]
-        tzr = DateTimeTZRange(timezone.now())
+        tzr = DateTimeTZRange(datetime.now(tz=timezone.utc))
         active_patrol_segment = active_patrol.patrol_segments.first()
         active_patrol_segment.time_range = tzr
         active_patrol_segment.save()
 
         scheduled_patrol = Patrol.objects.all()[3]
-        start_date = timezone.now() + timezone.timedelta(days=2)
-        end_date = timezone.now() + timezone.timedelta(days=4)
+        start_date = datetime.now(tz=timezone.utc) + timedelta(days=2)
+        end_date = datetime.now(tz=timezone.utc) + timedelta(days=4)
         scheduled_patro_segment = scheduled_patrol.patrol_segments.first()
         scheduled_patro_segment.scheduled_start = start_date
         scheduled_patro_segment.scheduled_end = end_date
@@ -2401,9 +2398,9 @@ class TestPatrolFilter:
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestPatrolView:
     def test_create_patrol_with_past_end_date(self):
-        now = datetime.datetime.now(tz=pytz.utc)
-        past_start_date = now - datetime.timedelta(days=6)
-        past_end_date = now - datetime.timedelta(days=3)
+        now = datetime.now(tz=timezone.utc)
+        past_start_date = now - timedelta(days=6)
+        past_end_date = now - timedelta(days=3)
         patrol_data = {
             "patrol_segments": [
                 {
@@ -2426,9 +2423,9 @@ class TestPatrolView:
         assert data["state"] == PC_DONE
 
     def test_update_patrol_with_past_end_date(self, five_patrol_segment):
-        now = datetime.datetime.now(tz=pytz.utc)
-        past_start_date = now - datetime.timedelta(days=6)
-        past_end_date = now - datetime.timedelta(days=3)
+        now = datetime.now(tz=timezone.utc)
+        past_start_date = now - timedelta(days=6)
+        past_end_date = now - timedelta(days=3)
 
         patrol = Patrol.objects.order_by("created_at").last()
         assert patrol.state == PC_OPEN
@@ -2470,8 +2467,8 @@ class TestPatrolView:
         assert Patrol.objects.count() == current_patrol_count
 
     def test_accept_mispelled_canceled_state(self):
-        now = datetime.datetime.now(tz=pytz.utc)
-        start_date = now - datetime.timedelta(hours=1)
+        now = datetime.now(tz=timezone.utc)
+        start_date = now - timedelta(hours=1)
         patrol_data = {
             "patrol_segments": [
                 {
@@ -2547,9 +2544,9 @@ class TestPatrolModel:
         patrol = Patrol(title="Created Patrol through model")
         assert patrol.state == PC_OPEN
 
-        now = datetime.datetime.now(tz=pytz.utc)
-        past_start_date = now - datetime.timedelta(days=6)
-        past_end_date = now - datetime.timedelta(days=3)
+        now = datetime.now(tz=timezone.utc)
+        past_start_date = now - timedelta(days=6)
+        past_end_date = now - timedelta(days=3)
 
         time_range = DateTimeTZRange(lower=past_start_date, upper=past_end_date)
         segment = PatrolSegment.objects.create(patrol=patrol, patrol_type_id=patrol_type, time_range=time_range)
@@ -2564,7 +2561,7 @@ class TestPatrolModel:
         patrol.title = "test"
 
         segment = patrol.patrol_segments.first()
-        start_date = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=2)
+        start_date = datetime.now(tz=timezone.utc) - timedelta(days=2)
         segment.time_range = DateTimeTZRange(lower=start_date)
 
         segment.save()
@@ -2585,7 +2582,7 @@ class TestPatrolModel:
         patrol = Patrol.objects.order_by("created_at").last()
         segment = patrol.patrol_segments.first()
 
-        start_date = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=2)
+        start_date = datetime.now(tz=timezone.utc) - timedelta(days=2)
         segment.time_range = DateTimeTZRange(lower=start_date)
         segment.save()
 

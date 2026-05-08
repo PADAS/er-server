@@ -1,13 +1,13 @@
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlencode
+from zoneinfo import ZoneInfo
 
-import pytz
 from dateutil import parser, tz
 
 from django.core.management import call_command
 from django.db.models import F
-from django.utils import timezone
+from django.utils.timezone import get_current_timezone_name
 
 from accounts.models import PermissionSet, User
 from core.tests import API_BASE, BaseAPITest
@@ -16,9 +16,9 @@ from observations.serializers import ObservationSerializer
 from observations.views import TrackingDataCsvView, TrackingMetaDataExportView
 from utils.csv_streaming import read_streaming_response_content
 
-current_tz_name = timezone.get_current_timezone_name()
-current_tz = pytz.timezone(current_tz_name)
-current_date = datetime.utcnow().astimezone(current_tz)
+current_tz_name = get_current_timezone_name()
+current_tz = ZoneInfo(current_tz_name)
+current_date = datetime.now(tz=timezone.utc).astimezone(current_tz)
 tz_difference = current_date.utcoffset().total_seconds() / 60 / 60
 tz_offset = (
     "GMT"
@@ -225,9 +225,9 @@ class TrackingDataCsvViewTest(BaseAPITest):
 
         # Get list of fixtime(recorded_at from observations.Observation model)
         recorded_at_timestamps = [observation[fixtime_key] for observation in observations]
-        recorded_time = sample_observation.recorded_at.astimezone(
-            tz.gettz(timezone.get_current_timezone_name())
-        ).strftime("%m/%d/%Y %H:%M:%S")
+        recorded_time = sample_observation.recorded_at.astimezone(tz.gettz(get_current_timezone_name())).strftime(
+            "%m/%d/%Y %H:%M:%S"
+        )
         self.assertIn(recorded_time, recorded_at_timestamps)
 
     def exportrecords(self, url):
@@ -350,7 +350,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
         csv_observation_ids.extend([observation[fixtime_key] for observation in observations])
         unique_csv_observation_ids = list(set(csv_observation_ids))
         unique_csv_observation_ids = [
-            current_tz.localize(parser.parse(obs_time)) for obs_time in unique_csv_observation_ids
+            parser.parse(obs_time).replace(tzinfo=current_tz) for obs_time in unique_csv_observation_ids
         ]
         self.assertTrue(
             any(

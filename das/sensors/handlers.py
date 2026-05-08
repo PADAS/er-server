@@ -2,7 +2,6 @@ import logging
 from datetime import datetime, timezone
 from typing import Literal, Optional, Union
 
-import pytz
 from dateutil.parser import parse as parse_date
 from psycopg2.errors import UniqueViolation
 
@@ -501,7 +500,7 @@ class GenericSensorHandler:
 
                 # Ensure timezone awareness
                 if not parsed_time.tzinfo:
-                    parsed_time = pytz.utc.localize(parsed_time)
+                    parsed_time = parsed_time.replace(tzinfo=timezone.utc)
 
                 # Check if the timestamp is in the future
                 current_offset_time = datetime.now(timezone.utc) + Observation.EXCLUDED_AUTOMATICALLY_TIME_DELTA
@@ -715,7 +714,7 @@ class FollowltTrackerHandler:
         try:
             recorded_at = parse_date(data.get("date"))
             if not recorded_at.tzinfo:
-                recorded_at = pytz.utc.localize(recorded_at)
+                recorded_at = recorded_at.replace(tzinfo=timezone.utc)
         except Exception as e:
             logger.error(e)
             raise e
@@ -855,9 +854,9 @@ class GsatHandler:
     @staticmethod
     def _parse_gsat_timestamp(obj):
         try:
-            return datetime.fromtimestamp(int(obj.get("time")), tz=pytz.UTC)
+            return datetime.fromtimestamp(int(obj.get("time")), tz=timezone.utc)
         except:
-            return datetime.now(tz=pytz.UTC)
+            return datetime.now(tz=timezone.utc)
 
     REQUIRED_PARAMS = (
         "uniqueid",

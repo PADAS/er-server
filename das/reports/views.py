@@ -1,12 +1,11 @@
-import datetime
 import json
 import logging
+from datetime import datetime, timezone
 
 import requests
 
 from django.conf import settings
 from django.template.response import TemplateResponse
-from django.utils import timezone
 from django.views.generic.base import ContextMixin, TemplateResponseMixin
 from rest_framework import generics, permissions, serializers, status, views
 from rest_framework.response import Response
@@ -84,7 +83,7 @@ class SituationReportView(
             return Response(data=qs.errors, status=status.HTTP_400_BAD_REQUEST)
 
         qs = qs.validated_data
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         since = qs.get("since") or (now - datetime.timedelta(hours=24))
         before = qs.get("before") or now
 

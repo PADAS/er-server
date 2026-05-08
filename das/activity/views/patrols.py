@@ -304,6 +304,6 @@ class PatrolSegmentsView(ListCreateAPIView):
     permission_classes = (PatrolObjectPermissions,)
 
     def get_queryset(self):
-        queryset = PatrolSegment.objects.select_related("patrol_type", "patrol").all()
-        queryset.prefetch_related(Prefetch("events"), Prefetch("eventrelatedsegments_set"))
+        queryset = PatrolSegment.objects.select_related("patrol_type", "patrol").all().order_by("time_range")
+        queryset = queryset.prefetch_related(Prefetch("events"), Prefetch("eventrelatedsegments_set"))
         return get_segments(self.kwargs, queryset)

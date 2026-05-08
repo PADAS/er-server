@@ -1,5 +1,6 @@
 import copy
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -7,7 +8,6 @@ import pytest
 
 from django.contrib.auth.models import Permission
 from django.urls import reverse
-from django.utils import timezone
 from rest_framework import status
 
 from accounts.models import PermissionSet
@@ -181,13 +181,13 @@ class TestEventTypesV2:
         # Let's set one record to be older than a cutoff time.
         et = cat1_cat2_event_types[0]
         # Bypass auto_now behavior by using .update() to set a past update time
-        past_time = timezone.now() - timezone.timedelta(days=1)
+        past_time = datetime.now(tz=timezone.utc) - timedelta(days=1)
         EventType.objects.filter(id=et.id).update(updated_at=past_time)
         et.refresh_from_db()
         assert et.updated_at == past_time
 
         # Cutoff time 12 hours ago
-        cutoff = timezone.now() - timezone.timedelta(hours=12)
+        cutoff = datetime.now(tz=timezone.utc) - timedelta(hours=12)
 
         url = reverse("v2-eventtype-list")
         response = superuser_client.get(url, {"updated_since": cutoff.isoformat()})

@@ -6,7 +6,6 @@ from typing import NamedTuple
 
 import pytest
 from psycopg2.extras import DateTimeTZRange
-from pytz import UTC
 
 from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
@@ -57,7 +56,7 @@ class ObservationTestCase(BaseAPITest):
         )
 
     def test_observation_get_source_range_observations_in_range(self):
-        until = datetime(2015, 11, 10, tzinfo=UTC)
+        until = datetime(2015, 11, 10, tzinfo=timezone.utc)
         since = until - timedelta(days=2)
 
         subject_source = SubjectSource.objects.get(source="2e47839d-0277-4398-904d-91da8b0698f4")
@@ -69,7 +68,7 @@ class ObservationTestCase(BaseAPITest):
 
     def test_observation_get_source_range_observations_outside_range(self):
         subject_sources = SubjectSource.objects.all()
-        until = datetime(3030, 11, 10, tzinfo=UTC)
+        until = datetime(3030, 11, 10, tzinfo=timezone.utc)
         since = until - timedelta(days=2)
 
         observations = Observation.objects.get_subject_observations(
@@ -85,7 +84,7 @@ class ObservationTestCase(BaseAPITest):
         source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
 
         # Generate some random data for the observation.
-        observation_time = UTC.localize(datetime.now())
+        observation_time = datetime.now(tz=timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 
@@ -110,7 +109,7 @@ class ObservationTestCase(BaseAPITest):
         source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
 
         # Generate some random data for the observation.
-        observation_time = UTC.localize(datetime.now())
+        observation_time = datetime.now(tz=timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 
@@ -133,7 +132,7 @@ class ObservationTestCase(BaseAPITest):
         source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
 
         # Generate some random data for the observation.
-        observation_time = UTC.localize(datetime.now())
+        observation_time = datetime.now(tz=timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 
@@ -206,7 +205,7 @@ class ObservationTestCase(BaseAPITest):
         source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
 
         # Generate some random data for the observation.
-        observation_time = UTC.localize(datetime.now())
+        observation_time = datetime.now(tz=timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 
@@ -232,7 +231,7 @@ class ObservationTestCase(BaseAPITest):
         subject_status = subject_statuses.first()
         self.assertEqual(subject_status.recorded_at, observation_time)
         self.assertEqual((subject_status.location.x, subject_status.location.y), (fixed_longitude, fixed_latitude))
-        observation_time2 = UTC.localize(datetime.now())
+        observation_time2 = datetime.now(tz=timezone.utc)
         observation = {
             "location": fixed_location,
             "recorded_at": observation_time2,
@@ -438,7 +437,7 @@ class ObservationTestCase(BaseAPITest):
         )
 
         # Generate some random data for the observation.
-        observation_time = UTC.localize(datetime.now())
+        observation_time = datetime.now(tz=timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 

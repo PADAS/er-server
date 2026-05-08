@@ -7,7 +7,6 @@ import re
 import ssl
 from datetime import timedelta
 
-import pytz
 from dateutil.parser import parse as parse_date
 from fastkml import kml
 
@@ -54,8 +53,8 @@ class InreachKMLClient(object):
             "cache-control": "no-cache",
         }
 
-        d1 = d1 or datetime.datetime.utcnow() - self.DEFAULT_START_OFFSET
-        d2 = d2 or datetime.datetime.utcnow()
+        d1 = d1 or datetime.datetime.now(tz=datetime.timezone.utc) - self.DEFAULT_START_OFFSET
+        d2 = d2 or datetime.datetime.now(tz=datetime.timezone.utc)
 
         d1 = d1.strftime("%Y-%m-%dT%H:%M:%S")
         d2 = d2.strftime("%Y-%m-%dT%H:%M:%S")
@@ -92,7 +91,7 @@ class InreachKMLClient(object):
                     yield dict(safe_map(p1.name, p1.value) for p1 in pm.extended_data.elements)
 
 
-def __str2date(d, replace_tzinfo=pytz.utc):
+def __str2date(d, replace_tzinfo=datetime.timezone.utc):
     """Helper function to parse a naive date and assume it's in replace_tzinfo."""
     return parse_date(d).replace(tzinfo=replace_tzinfo)
 
@@ -181,7 +180,7 @@ class InreachKMLPlugin(TrackingPlugin):
                 return True
             latest_timestamp = parse_date(latest_timestamp)
 
-            if (datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
+            if (datetime.datetime.now(tz=datetime.timezone.utc) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
                 return True
 
         except Exception:
@@ -200,7 +199,7 @@ class InreachKMLPlugin(TrackingPlugin):
         )
 
         try:
-            default_starttime = datetime.datetime.now(tz=pytz.utc) - InreachKMLClient.DEFAULT_START_OFFSET
+            default_starttime = datetime.datetime.now(tz=datetime.timezone.utc) - InreachKMLClient.DEFAULT_START_OFFSET
             _ = self.cursor_data["latest_timestamp"]
             latest_ts = parse_date(_)
             latest_ts = max(default_starttime, latest_ts)

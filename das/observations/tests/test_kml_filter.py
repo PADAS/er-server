@@ -1,13 +1,12 @@
 import io
 import random
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
+from zoneinfo import ZoneInfo
 
 import pytest
-import pytz
 from fastkml import kml
-from pytz import timezone, utc
 
 from django.core.management import call_command
 
@@ -38,7 +37,7 @@ class KmlSubjectViewTest(BaseAPITest):
         self.user.permission_sets.add(PermissionSet.objects.get(name="View Tracks Last 7 Days"))
 
         for i in range(50, 1, -1):
-            recorded_at = utc.localize(datetime.now()) - timedelta(hours=i)
+            recorded_at = datetime.now(tz=timezone.utc) - timedelta(hours=i)
             fields = {
                 "location": "SRID=4326;POINT(37.7991526330116 -12.28439367309)",
                 "created_at": recorded_at,
@@ -78,8 +77,8 @@ class KmlSubjectViewTest(BaseAPITest):
         response = views.KmlSubjectView.as_view()(self.request, **kwargs)
         self.assertEqual(response.status_code, 200)
         timestamps = self.get_observations_timestamp(response)
-        lower = utc.localize(datetime.now() - timedelta(days=60))
-        upper = utc.localize(datetime.now())
+        lower = datetime.now(tz=timezone.utc) - timedelta(days=60)
+        upper = datetime.now(tz=timezone.utc)
         self.assertTrue(any(upper >= timestamp >= lower for timestamp in timestamps))
 
     def test_start_end_filter_with_admin_user(self):
@@ -96,13 +95,13 @@ class KmlSubjectViewTest(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         timestamps = self.get_observations_timestamp(response)
         if timestamps:
-            lower = utc.localize(datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%S.%fZ"))
-            upper = utc.localize(datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%S.%fZ"))
+            lower = datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+            upper = datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
             self.assertTrue(any(upper >= timestamp >= lower for timestamp in timestamps))
 
     def test_seven_day_permission_with_filter_for_normal_user(self):
         # Generate some random data for the observation.
-        observation_time = utc.localize(datetime.now())
+        observation_time = datetime.now(tz=timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
         fixed_location = dict(longitude=fixed_longitude, latitude=fixed_latitude)
@@ -135,12 +134,12 @@ class KmlSubjectViewTest(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         timestamps = self.get_observations_timestamp(response)
         if timestamps:
-            start_date = utc.localize(start_date)
-            end_date = utc.localize(end_date)
+            start_date = start_date.replace(tzinfo=timezone.utc)
+            end_date = end_date.replace(tzinfo=timezone.utc)
             self.assertTrue(any(end_date >= timestamp >= start_date for timestamp in timestamps))
             self.assertTrue(
                 observation.recorded_at in timestamps
-                or observation.recorded_at.astimezone(timezone("America/Los_Angeles"))
+                or observation.recorded_at.astimezone(ZoneInfo("America/Los_Angeles"))
             )
 
     def test_filter_subject_kml_with_timezone_aware_datetimes(self):
@@ -152,8 +151,8 @@ class KmlSubjectViewTest(BaseAPITest):
             additional={"region": "Region 1", "country": "USA"},
         )
 
-        start_date = pytz.utc.localize(datetime.now() - timedelta(weeks=60))
-        end_date = pytz.utc.localize(datetime.now() - timedelta(weeks=50))
+        start_date = datetime.now(tz=timezone.utc) - timedelta(weeks=60)
+        end_date = datetime.now(tz=timezone.utc) - timedelta(weeks=50)
         kml_filters = {
             "start": start_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "end": end_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),

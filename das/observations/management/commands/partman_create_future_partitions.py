@@ -20,11 +20,10 @@ There are two modes of operation:
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from logging import Logger
 from typing import Any, Dict, List, Set, Tuple
 
-import pytz
 from dateutil.relativedelta import relativedelta
 from psycopg2 import sql as psycopg2_sql
 
@@ -276,7 +275,7 @@ class Command(BaseCommand):
         number_partitions = options["number"]
         offset = options["offset"]
         is_dry_run = options["dry_run"]
-        now = datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
 
         # Validate year/month arguments
         if (year is None) != (month is None):

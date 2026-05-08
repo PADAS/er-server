@@ -1,8 +1,7 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 import dateutil.parser
-import pytz
 from psycopg2.extras import DateTimeTZRange
 
 from django.contrib.postgres.fields import DateTimeRangeField
@@ -53,7 +52,7 @@ def update_source_assignment(subject, source, recorded_at, terminate_existing_as
     return SubjectSource.objects.create(
         source=source,
         subject=subject,
-        assigned_range=DateTimeTZRange(lower=recorded_at, upper=pytz.utc.localize(datetime.max)),
+        assigned_range=DateTimeTZRange(lower=recorded_at, upper=datetime.max.replace(tzinfo=timezone.utc)),
     )
 
 

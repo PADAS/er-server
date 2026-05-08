@@ -13,7 +13,14 @@ TIME_ZONE = "America/Los_Angeles"
 PATROL_ENABLED = True
 
 MEDIA_ROOT = "/tmp/"
-DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 
 # django testrunner already uses this backend
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"

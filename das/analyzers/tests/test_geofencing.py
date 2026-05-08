@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import urllib
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 import yaml
@@ -12,7 +12,6 @@ from django.contrib.gis.geos import LineString, Point, Polygon
 from django.core.files import File
 from django.core.serializers import serialize
 from django.test import TestCase, override_settings
-from django.utils import timezone
 
 from activity.models import Event, EventCategory, EventType
 from analyzers.exceptions import InsufficientDataAnalyzerException
@@ -62,7 +61,7 @@ FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fixture
 das_tenant_management = DASTenantManagement(domain="domain.com")
 
 
-@override_settings(DEFAULT_FILE_STORAGE="django.core.files.storage.FileSystemStorage")
+@override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}})
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestGeofenceAnalyzer(TestCase):
     @classmethod
@@ -616,7 +615,7 @@ class TestGeofenceAnalyzerQuietPeriod:
             source=subject_source.source,
         )
         for minutes, observation in enumerate(Observation.objects.all(), 1):
-            observation.recorded_at = timezone.now() - timedelta(hours=6, minutes=minutes * 15)
+            observation.recorded_at = datetime.now(tz=timezone.utc) - timedelta(hours=6, minutes=minutes * 15)
             observation.save()
 
         analyze_subject_(subject.id)

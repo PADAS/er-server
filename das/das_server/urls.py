@@ -19,9 +19,8 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
 
 import django.contrib.staticfiles.views
 from django.conf import settings
-from django.conf.urls import include
 from django.contrib import admin
-from django.urls import path, re_path
+from django.urls import include, path, re_path
 
 from accounts.account_linker import (
     ACCOUNT_LINKER_CALLBACK_URL_NAME,
@@ -99,7 +98,7 @@ urlpatterns = [
 
 
 # give the api a chance to override and return json
-django.conf.urls.handler404 = "utils.drf.error404View"
+handler404 = "utils.drf.error404View"
 
 if settings.ENABLE_SILK:
     urlpatterns += [path("silk/", include("silk.urls", namespace="silk"))]

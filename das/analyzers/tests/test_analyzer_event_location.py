@@ -1,10 +1,10 @@
+from datetime import datetime, timedelta, timezone
 from typing import List
 
 import pytest
 from django_multitenant.utils import set_current_tenant
 
 from django.contrib.gis.geos import MultiPoint, Point
-from django.utils import timezone
 
 from analyzers.models import (
     FeatureProximityAnalyzerConfig,
@@ -54,7 +54,7 @@ class TestAnalyzerEventLocation:
         )
 
         locations = ["-103, 20.001155774646055", "-103, 20.001798483879462"]
-        self._create_observations(locations, source, timezone.now())
+        self._create_observations(locations, source, datetime.now(tz=timezone.utc))
 
         for analyzer in FeatureProximityAnalyzer.get_subject_analyzers(subject):
             result, event = analyzer.analyze()[0]
@@ -76,7 +76,7 @@ class TestAnalyzerEventLocation:
         source_1 = subject_source.source
         source_2 = subject_source_2.source
 
-        date_sub_1 = timezone.now()
+        date_sub_1 = datetime.now(tz=timezone.utc)
         date_sub_2 = date_sub_1
 
         locations_sub_1 = [
@@ -104,13 +104,13 @@ class TestAnalyzerEventLocation:
             result, event = analyzer.analyze()[0]
             assert event.location == convert_to_point(locations_sub_1[0])
 
-    def _create_observations(self, locations: List[str], source: SubjectSource, date: timezone.datetime):
+    def _create_observations(self, locations: List[str], source: SubjectSource, date: datetime):
         # Locations list should be ordered from the newest to the oldest
         for count, location in enumerate(locations, 1):
             Observation.objects.create(
                 location=convert_to_point(location),
                 source=source,
-                recorded_at=date - timezone.timedelta(minutes=count * 5),
+                recorded_at=date - timedelta(minutes=count * 5),
             )
 
     # new comments

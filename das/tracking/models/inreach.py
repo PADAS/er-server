@@ -8,7 +8,6 @@ import re
 import urllib.parse
 from datetime import timedelta
 
-import pytz
 import requests
 from dateutil.parser import parse as parse_date
 
@@ -18,7 +17,7 @@ from django.contrib.gis.db import models
 from tracking.models.plugin_base import Obs, SourcePlugin, TrackingPlugin
 
 
-def __str2date(d, replace_tzinfo=pytz.utc):
+def __str2date(d, replace_tzinfo=datetime.timezone.utc):
     """Helper function to parse a naive date and assume it's in replace_tzinfo."""
     return parse_date(d).replace(tzinfo=replace_tzinfo)
 
@@ -92,7 +91,7 @@ class InreachClient(BasicAuthClient):
         (ts, offset) = re.match(r"/Date\((\d{13})-?(\d{4})?\)/", s.pop("Timestamp")).groups()
         ts = float(ts) / 1000
 
-        s["recorded_at"] = datetime.datetime.fromtimestamp(ts, tz=pytz.utc)
+        s["recorded_at"] = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
         coordinate = s.pop("Coordinate", {"Latitude": 0.0, "Longitude": 0.0})
         if coordinate:
             s["latitude"] = coordinate["Latitude"]
@@ -142,7 +141,7 @@ class InreachPlugin(TrackingPlugin):
                 return True
             latest_timestamp = parse_date(latest_timestamp)
 
-            if (datetime.now(tz=pytz.UTC) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
+            if (datetime.now(tz=datetime.timezone.utc) - self.DEFAULT_REPORT_INTERVAL) > latest_timestamp:
                 return True
 
         except Exception:
@@ -161,7 +160,7 @@ class InreachPlugin(TrackingPlugin):
         )
 
         try:
-            default_starttime = datetime.datetime.now(tz=pytz.utc) - self.DEFAULT_START_OFFSET
+            default_starttime = datetime.datetime.now(tz=datetime.timezone.utc) - self.DEFAULT_START_OFFSET
             _ = self.cursor_data["latest_timestamp"]
             latest_ts = parse_date(_)
             latest_ts = max(default_starttime, latest_ts)
@@ -232,7 +231,7 @@ from observations.models import Source, Subject, SubjectSource
 from tracking.models import SourcePlugin
 
 
-def str2date(d, default_tzinfo=pytz.UTC):
+def str2date(d, default_tzinfo=datetime.timezone.utc):
     """Parse a date and if it's naive, replace tzinfo with default_tzinfo."""
     dt = parse_date(d)
     if not dt.tzinfo:
@@ -293,8 +292,8 @@ def ensure_subject_source(source, event_time, subject_name=None):
             ),
         )
 
-        d1 = pytz.utc.localize(datetime.datetime.min)
-        d2 = pytz.utc.localize(datetime.datetime.max)
+        d1 = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+        d2 = datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
         if sub:
             subject_source, created = SubjectSource.objects.get_or_create(
                 source=source,

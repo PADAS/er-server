@@ -3,7 +3,7 @@
 # Ubuntu 24.04 LTS
 # python 3.10.18
 
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.1
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3
 ARG PYTHON_VERSION_ID="3.10"
 ARG PYTHON_VERSION="3.10.18"
 ARG WORKSPACE_FOLDERNAME="das"

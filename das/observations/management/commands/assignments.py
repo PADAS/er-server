@@ -1,8 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import dateutil.parser as date_parser
 import psycopg2.extras
-import pytz
 
 from django.core.management.base import BaseCommand
 from django.db.models import Q
@@ -26,8 +25,8 @@ def find_assignments(subject=None, source=None, start_date=None, end_date=None):
         raise ValueError("You must provide at least one of subject and source.")
 
     # Construct a datetimetzrange from the given dates.
-    start_date = start_date or datetime.now(tz=pytz.utc)
-    end_date = end_date or datetime.max.replace(tzinfo=pytz.utc)
+    start_date = start_date or datetime.now(tz=timezone.utc)
+    end_date = end_date or datetime.max.replace(tzinfo=timezone.utc)
     assignment_range = psycopg2.extras.DateTimeTZRange(lower=start_date, upper=end_date)
 
     qs = SubjectSource.objects.all()
@@ -64,8 +63,8 @@ def add_assignment(subject, source, start_date=None, end_date=None):
     Raise exception if a conflicting assignment exists.
     """
     # Construct a datetimetzrange from the given dates.
-    start_date = start_date or datetime.now(tz=pytz.utc)
-    end_date = end_date or datetime.max.replace(tzinfo=pytz.utc)
+    start_date = start_date or datetime.now(tz=timezone.utc)
+    end_date = end_date or datetime.max.replace(tzinfo=timezone.utc)
     assignment_range = psycopg2.extras.DateTimeTZRange(lower=start_date, upper=end_date)
 
     conflicting_assignments = SubjectSource.objects.filter(
@@ -207,7 +206,7 @@ class Command(TenantCommandMixin, BaseCommand):
     def handle(self, *args, **options):
         try:
             start_date = (
-                date_parser.parse(options["start_date"]) if options.get("start_date") else datetime.now(tz=pytz.utc)
+                date_parser.parse(options["start_date"]) if options.get("start_date") else datetime.now(tz=timezone.utc)
             )
         except ValueError:
             print(f"-start_date={options['start_date']} is not valid. Please provide a valid date string.")

@@ -1,16 +1,15 @@
 import csv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import reduce
 from io import StringIO
 from itertools import chain
+from zoneinfo import ZoneInfo
 
 import pytest
-import pytz
 
 from django.conf import settings
 from django.contrib.gis.geos import MultiPoint, Point, Polygon
 from django.urls import reverse
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -427,7 +426,7 @@ class TestEventsExportView:
 
         for detail in five_events_with_details:
             date_time = datetime(2024, 1, 1, 12, 0, 0) + delta
-            aware_datetime = timezone.make_aware(date_time, timezone=pytz.UTC)
+            aware_datetime = date_time.replace(tzinfo=timezone.utc)
             detail.event.event_time = aware_datetime
             detail.event.save()
             event_time = detail.event.event_time
@@ -449,7 +448,7 @@ class TestEventsExportView:
             assert reported_at == date_time
 
     def get_gmt_offset_string(self, timezone_str):
-        tz = pytz.timezone(timezone_str)
+        tz = ZoneInfo(timezone_str)
         now = datetime.now(tz)
         offset_seconds = now.utcoffset().total_seconds()
         offset_hours = int(offset_seconds // 3600)
@@ -458,9 +457,9 @@ class TestEventsExportView:
 
     def _setup_observations(self, source, observations):
         locations = Point(-103, 20.001155774646055), Point(-103, 20.001798483879462)
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         for count, location, observation in zip((1, 2), locations, observations):
-            recorded_at = now - timezone.timedelta(minutes=count * 5)
+            recorded_at = now - timedelta(minutes=count * 5)
             observation.location = location
             observation.source = source
             observation.recorded_at = recorded_at

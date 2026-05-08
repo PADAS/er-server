@@ -1,10 +1,9 @@
 """Tests for the MovementClusterAnalyzer (ST-DBSCAN based)."""
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytz
 from django_multitenant.utils import set_current_tenant
 
 from django.contrib.gis.geos import Point
@@ -202,7 +201,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
             min_cluster_points=3,
             min_cluster_duration_seconds=3600,
         )
-        self.now = pytz.utc.localize(datetime.utcnow())
+        self.now = datetime.now(tz=timezone.utc)
 
     def _analyzer(self):
         return MovementClusterAnalyzer(subject=self.subject, config=self.config)
@@ -535,7 +534,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
 
     def test_find_open_clusters_returns_result_when_all_points_subset(self):
         config = self._make_saved_config("find_open_subset_group")
-        recent_end = timezone.now() - timedelta(minutes=30)
+        recent_end = datetime.now(tz=timezone.utc) - timedelta(minutes=30)
         existing_points = self._make_cluster_points(BASE_LAT, BASE_LON, count=3)
         self._save_cluster_result(config, existing_points, recent_end)
 
@@ -554,7 +553,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
 
     def test_find_open_clusters_returns_empty_when_not_all_points_subset(self):
         config = self._make_saved_config("find_open_not_subset_group")
-        recent_end = timezone.now() - timedelta(minutes=30)
+        recent_end = datetime.now(tz=timezone.utc) - timedelta(minutes=30)
         existing_points = self._make_cluster_points(BASE_LAT, BASE_LON, count=5)
         self._save_cluster_result(config, existing_points, recent_end)
 
@@ -569,7 +568,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
     def test_find_open_clusters_returns_empty_when_result_has_expired(self):
         config = self._make_saved_config("find_open_expired_group")
         # Result is 2 hours old — beyond the 1-hour temporal threshold
-        old_end = timezone.now() - timedelta(hours=2)
+        old_end = datetime.now(tz=timezone.utc) - timedelta(hours=2)
         existing_points = self._make_cluster_points(BASE_LAT, BASE_LON, count=3)
         self._save_cluster_result(config, existing_points, old_end)
 
@@ -591,7 +590,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
 
     def test_find_open_clusters_returns_empty_when_no_cluster_points_stored(self):
         config = self._make_saved_config("find_open_no_points_group")
-        recent_end = timezone.now() - timedelta(minutes=30)
+        recent_end = datetime.now(tz=timezone.utc) - timedelta(minutes=30)
         # Old-style result without cluster_points key
         from django.contrib.gis.geos import GeometryCollection, Point
 
@@ -676,7 +675,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
 
     def test_analyze_creates_new_result_for_distinct_cluster(self):
         config = self._make_saved_config("distinct_cluster_group")
-        recent_end = timezone.now() - timedelta(minutes=30)
+        recent_end = datetime.now(tz=timezone.utc) - timedelta(minutes=30)
         # Existing open cluster has points at a different location with different times
         existing_points = self._make_cluster_points(BASE_LAT + 5.0, BASE_LON, count=3)
         self._save_cluster_result(config, existing_points, recent_end)

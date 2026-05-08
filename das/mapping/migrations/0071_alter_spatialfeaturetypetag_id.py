@@ -27,7 +27,21 @@ class Migration(migrations.Migration):
                     END IF;
                 END $$;
 
-                ALTER SEQUENCE mapping_spatialfeaturetypetag_id_seq OWNED BY mapping_spatialfeaturetypetag.id;
+                -- OWNED BY is not allowed on identity sequences (PostgreSQL 10+); only run for SERIAL-style columns
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_attribute a
+                        JOIN pg_class t ON t.oid = a.attrelid
+                        WHERE t.relname = 'mapping_spatialfeaturetypetag'
+                          AND a.attname = 'id'
+                          AND a.attnum > 0
+                          AND NOT a.attisdropped
+                          AND a.attidentity != ''
+                    ) THEN
+                        ALTER SEQUENCE mapping_spatialfeaturetypetag_id_seq OWNED BY mapping_spatialfeaturetypetag.id;
+                    END IF;
+                END $$;
 
                 ALTER TABLE mapping_spatialfeaturetypetag ADD CONSTRAINT mapping_spatialfeaturetypetag_pkey PRIMARY KEY (das_tenant_id, id);
             """,

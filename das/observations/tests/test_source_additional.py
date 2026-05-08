@@ -2,7 +2,6 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytz
 
 from django.contrib.gis.geos import Point
 from django.test import TestCase
@@ -147,7 +146,7 @@ def test_generate_sample_data(subject_source, additional):
     Observation.objects.create(
         source=subject_source.source,
         location=Point(-103.5, 20.5),
-        recorded_at=datetime.now(tz=pytz.utc),
+        recorded_at=datetime.now(tz=timezone.utc),
         additional=additional,
     )
 

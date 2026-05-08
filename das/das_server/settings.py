@@ -254,7 +254,6 @@ SERVICE_NAME = env.str("SERVICE_NAME", "das-api")
 LANGUAGE_CODE = "en-us"
 
 USE_I18N = True
-USE_L10N = True
 
 USE_TZ = True
 TIME_ZONE = "UTC"
@@ -264,6 +263,17 @@ TIME_ZONE = "UTC"
 
 STATIC_URL = env.str("STATIC_URL", "/static/")
 STATIC_ROOT = env.str("STATIC_ROOT", os.path.join(BASE_DIR, "www", "static"))
+
+# Django 4.2+ requires STORAGES to include "default" and "staticfiles" (see ref/files/storage).
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
 # Only include static subdirectories, not entire app directories
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, "activity", "static"),

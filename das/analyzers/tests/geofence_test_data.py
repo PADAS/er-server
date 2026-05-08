@@ -1,6 +1,4 @@
-from datetime import datetime, timedelta
-
-import pytz
+from datetime import datetime, timedelta, timezone
 
 EQUATOR_CRISS_CROSS_TRACK = [
     {"longitude": 37.50, "recorded_at": "2016-01-01 00:00:00", "latitude": 0.1},
@@ -301,7 +299,7 @@ subject_track_for_double_fence_hop = {
 SUBJECT_TRACK_FOR_DOUBLE_FENCE_HOP = subject_track_for_double_fence_hop["features"][0]["geometry"]["coordinates"]
 
 ts_series = generate_timestamp_series(
-    datetime.now(tz=pytz.utc) - timedelta(minutes=60) * len(SUBJECT_TRACK_FOR_DOUBLE_FENCE_HOP), timedelta(hours=1)
+    datetime.now(tz=timezone.utc) - timedelta(minutes=60) * len(SUBJECT_TRACK_FOR_DOUBLE_FENCE_HOP), timedelta(hours=1)
 )
 
 

@@ -1,8 +1,6 @@
 import copy
-import datetime
 import json
-
-import pytz
+from datetime import datetime, timezone
 
 from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
@@ -65,7 +63,7 @@ state_choices_serializer = choicefield_serializer(
 
 
 def update_patrol_state(validated_data):
-    now = datetime.datetime.now(tz=pytz.utc)
+    now = datetime.now(tz=timezone.utc)
     state = validated_data.get("state")
     patrol_segments = validated_data.get("patrol_segments")
 

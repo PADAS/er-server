@@ -1,15 +1,14 @@
 import json
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
+from zoneinfo import ZoneInfo
 
 import dateutil.parser
-import pytz
 from dateutil.parser import parse
 from django_multitenant.utils import get_current_tenant
 from geopy.distance import geodesic
-from pytz import timezone
 
 from django.conf import settings
 from django.contrib.gis.geos import Point
@@ -110,7 +109,7 @@ def calculate_track_range(user, since, until, limit):
     if oldest_age_allowed < 0 or newest_age_allowed > oldest_age_allowed:
         raise PermissionDenied
 
-    now = datetime.now(tz=pytz.utc)
+    now = datetime.now(tz=timezone.utc)
 
     # Calculate the oldest allowed timestamp based on permissions
     oldest_allowed = now - timedelta(days=oldest_age_allowed)
@@ -140,7 +139,7 @@ def calculate_track_range(user, since, until, limit):
     if mou_expiry_date is not None:
         mou_expiry_date = dateutil.parser.parse(mou_expiry_date)
         if not mou_expiry_date.tzinfo:
-            mou_expiry_date = pytz.utc.localize(mou_expiry_date)
+            mou_expiry_date = mou_expiry_date.replace(tzinfo=timezone.utc)
         end = min(end, mou_expiry_date)
 
     # If end is not after begin, return an empty time range
@@ -158,7 +157,7 @@ def calculate_subject_view_window(user, maximum_history_days=60):
     :return: 2-tuple with (lower, upper) timestamps.
     """
 
-    current_timestamp = datetime.now(tz=pytz.utc)
+    current_timestamp = datetime.now(tz=timezone.utc)
 
     # Ratchet down the 'begin days ago' according to available
     # view-window-permissions.
@@ -228,16 +227,16 @@ def assigned_range_dates(o):
 def convert_date_string(date_str):
     # Get timezone from settings and convert date_string into datetime object
     # with settings's timezone
-    time_zone = timezone(settings.TIME_ZONE)
+    time_zone = ZoneInfo(settings.TIME_ZONE)
     datetime_object = parse(date_str)
-    localize_date = time_zone.localize(datetime_object)
+    localize_date = ensure_timezone_aware(datetime_object, time_zone)
 
     # Convert datetime's timezone with UTC
-    utc_date = localize_date.astimezone(timezone("UTC"))
+    utc_date = localize_date.astimezone(ZoneInfo("UTC"))
     return utc_date.isoformat()
 
 
-def dateparse(date_str: str, default_tz=pytz.utc):
+def dateparse(date_str: str, default_tz=timezone.utc):
     dt = dateutil.parser.parse(date_str)
     if not dt.tzinfo:
         dt = dt.replace(tzinfo=default_tz)
@@ -253,7 +252,7 @@ def get_chunk_file(file, chunksize=5120):
     return iter(lambda: file.read(chunksize), b"")
 
 
-def ensure_timezone_aware(dt: datetime, default_timezone: timezone = pytz.utc):
+def ensure_timezone_aware(dt: datetime, default_timezone: timezone = timezone.utc):
     if dt is None:
         return dt
 

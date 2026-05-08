@@ -86,7 +86,7 @@ class Command(TenantCommandMixin, BaseCommand):
 
     @transaction.atomic
     def _handle(self, auth0_org_id: str, site_name: str) -> List[_DasUserToAuth0ProvisioningResult]:
-        users = User.objects.filter(is_active=True).exclude(username__in=self.DISALLOWED_USERNAMES)
+        users = User.objects.filter(is_active=True).exclude(username__in=self.DISALLOWED_USERNAMES).order_by("username")
 
         results: List[_DasUserToAuth0ProvisioningResult] = []
         for user in users:

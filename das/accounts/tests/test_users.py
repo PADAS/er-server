@@ -301,7 +301,7 @@ class TestUserAuth0Integration:
 
     def test_auth0_id_same_id_same_tenant_failure(self, das_tenant):
         """Same Auth0 ID cannot exist twice in same tenant"""
-        from django.db import IntegrityError
+        from django.core.exceptions import ValidationError
 
         auth0_id = "the-same-auth0-id"
 
@@ -311,7 +311,8 @@ class TestUserAuth0Integration:
         )
 
         # Try to create second user with same auth0_id in same tenant - should fail
-        with pytest.raises(IntegrityError) as exc_info:
+        # User.save() calls full_clean(), so the unique constraint is raised as ValidationError
+        with pytest.raises(ValidationError) as exc_info:
             User.objects.create_user(
                 username="testuser6", email="test6@example.com", password="password", auth0_id=auth0_id
             )

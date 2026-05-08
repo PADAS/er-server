@@ -3,26 +3,28 @@
 from __future__ import unicode_literals
 
 import datetime
-import django.contrib.postgres.fields.jsonb
+
+import django.db.models
 from django.db import migrations, models
-from django.utils.timezone import utc
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('activity', '0005_event_time_default'),
+        ("activity", "0005_event_time_default"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='event',
-            name='attributes',
-            field=django.contrib.postgres.fields.jsonb.JSONField(default={}),
+            model_name="event",
+            name="attributes",
+            field=django.db.models.JSONField(default={}),
         ),
         migrations.AlterField(
-            model_name='event',
-            name='event_time',
-            field=models.DateTimeField(default=datetime.datetime(2016, 2, 9, 0, 29, 18, 934173, tzinfo=utc)),
+            model_name="event",
+            name="event_time",
+            field=models.DateTimeField(
+                default=datetime.datetime(2016, 2, 9, 0, 29, 18, 934173, tzinfo=datetime.timezone.utc)
+            ),
         ),
     ]

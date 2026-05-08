@@ -15,6 +15,7 @@ from authlib.integrations.django_client import OAuth
 
 from django.conf import settings
 from django.core import signing
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse
 from django.shortcuts import redirect
@@ -226,7 +227,7 @@ def account_linker_callback(request):
             org_id = get_tenant_settings().feature_flags.idp_org_id
             _add_user_to_auth0_org(user.auth0_id, org_id)
             logger.info("Added user %s to Auth0 org %s", user.username, org_id)
-    except IntegrityError:
+    except (IntegrityError, ValidationError):
         logger.warning(
             "Auth0 sub %s is already linked to another user; cannot link to user %s",
             auth0_sub,

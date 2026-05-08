@@ -1,6 +1,5 @@
 import json
-import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from geopy.distance import distance
@@ -9,7 +8,6 @@ from psycopg2.extras import DateTimeTZRange
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
 from django.urls import reverse
-from django.utils import timezone
 from rest_framework import status
 
 from accounts.models import PermissionSet
@@ -225,7 +223,7 @@ class TestGearsView:
         user_client, gear_subjectsource = buoy_client
         subject = gear_subjectsource.subject
         provider = gear_subjectsource.source.provider
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
 
         # Add a second device (Source + SubjectSource) to the same gearset Subject
         source2 = Source.objects.create(manufacturer_id="trawl_device_002", provider=provider)
@@ -275,7 +273,7 @@ class TestGearsView:
         subject1 = gear_subjectsource.subject
         subject_subtype = subject1.subject_subtype
         provider = gear_subjectsource.source.provider
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
 
         # Create a second independent gearset with its own subject and source
         source2 = Source.objects.create(manufacturer_id="second_gear_device", provider=provider)
@@ -318,7 +316,7 @@ class TestGearsView:
 
         # Gear is not included when is_active=True but gear is hauled
         gear_subjectsource.location = Point(0, 0)
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         source = gear_subjectsource.source
         additional = generate_devices(2, Point(0, 0))
         additional["event_type"] = "gear_retrieved"
@@ -344,7 +342,7 @@ class TestGearsView:
 
         # Gear is included when is_active=True and gear is deployed
         gear_subjectsource.location = Point(0, 0)
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         source = gear_subjectsource.source
         additional = generate_devices(2, Point(0, 0))
         additional["event_type"] = "gear_deployed"
@@ -393,7 +391,7 @@ class TestGearsView:
         gear_subjectsource2 = SubjectSource.objects.get(pk=gear_subjectsource.pk)
         gear_subjectsource2.pk = None
         source = gear_subjectsource2.source
-        dt = datetime(2019, 1, 31).replace(tzinfo=timezone.utc)
+        dt = datetime(2019, 1, 31, tzinfo=timezone.utc)
         additional = generate_devices(2, Point(0, 0))
         location_dict = json.loads(additional["devices"][0])["location"]
         point = Point(location_dict["longitude"], location_dict["latitude"])
@@ -529,7 +527,7 @@ class TestGearsView:
 
         # Arrange - add a gear_subjectsource with is_active=False
         gear_subjectsource.location = Point(0, 0)
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         source = gear_subjectsource.source
         additional = generate_devices(2, Point(0, 0))
         additional["event_type"] = "gear_retrieved"
@@ -580,11 +578,13 @@ class TestGearsView:
         # Get the SubjectGroup that the user has access to
         subject_group = SubjectGroup.objects.get(name="UserTestManufacturer")
 
-        # Arrange - Create a set of gears
+        # Arrange - Create a set of gears at 4, 40, 400, 999 statute miles from origin.
+        # Use fixed bearings (0, 90, 180, 270) so the 400/999 mi gears are outside the 250 nm
+        # axis-aligned bbox (half-side 250 nm), giving deterministic counts.
         origin = Point(10, 10)
+        bearings = [0, 90, 180, 270]  # N, E, S, W
 
-        for miles in [4, 40, 400, 999]:
-            bearing = random.uniform(0, 360)
+        for miles, bearing in zip([4, 40, 400, 999], bearings):
             new_point = distance(miles=miles).destination(origin, bearing)
             gear_subjectsource_new = get_custom_location_gear_subjectsource(
                 Point(new_point.longitude, new_point.latitude)
@@ -696,7 +696,7 @@ class TestGearsViewPostWithNullLocation:
         subject_group.permission_sets.add(permission_set)
         superuser_client.user.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         payload = {
             "set_id": "04a9431f-e4a0-414d-ae5f-b36cb4dc1a27",
             "owner_id": "652e7174c0884e7f02ec97d1",
@@ -775,7 +775,7 @@ class TestGearsViewIncludeEmptyLocation:
         subject_group.permission_sets.add(permission_set)
         superuser_client.user.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         payload = {
             "set_id": "14a9431f-e4a0-414d-ae5f-b36cb4dc1a28",
             "owner_id": "test_owner",
@@ -919,7 +919,7 @@ class TestGearsViewOlderGearsetRejection:
         source = Source.objects.create(id=device_uuid, manufacturer_id="view_shared_device", provider=provider)
 
         # Existing (newer) gearset deployed at t_newer
-        t_newer = timezone.now() - timedelta(hours=1)
+        t_newer = datetime.now(tz=timezone.utc) - timedelta(hours=1)
         subject_newer = Subject.objects.create(name="NewerGearset", subject_subtype=subject_subtype, is_active=True)
         subject_newer.groups.add(subject_group)
         SubjectSource.objects.create(

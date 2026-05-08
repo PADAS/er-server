@@ -1,9 +1,9 @@
 import datetime
 import logging
+from zoneinfo import ZoneInfo
 
 import dateutil.parser
 import piexif
-import pytz
 
 from django.conf import settings
 from django.db import transaction
@@ -16,8 +16,7 @@ from usercontent.models import ImageFileContent
 
 logger = logging.getLogger(__name__)
 
-default_time_zone = pytz.timezone(settings.SENSORS.get("camera_trap", {}).get("default_time_zone", "UTC"))
-
+default_time_zone = ZoneInfo(settings.SENSORS.get("camera_trap", {}).get("default_time_zone", "UTC"))
 
 EXIF_FIELD_TO_REPORT = {
     "Model": "cameratraprep_camera-name",
@@ -37,7 +36,7 @@ def get_priority():
     return settings.SENSORS.get("camera_trap", {}).get("priority", Event.PRI_URGENT)
 
 
-def exif_dateparse(date_str, default_tz=pytz.utc):
+def exif_dateparse(date_str, default_tz=datetime.timezone.utc):
     """Exif date format is YYYY:MM:DD HH:MM:SS"""
     dt = datetime.datetime.strptime(date_str, "%Y:%m:%d %H:%M:%S")
     if not dt.tzinfo:
@@ -53,10 +52,10 @@ def exif_time_zone(timezone_str):
     mins = hrs * 60 + mins
     if timezone_str.startswith("-"):
         mins = mins * -1
-    return pytz.FixedOffset(mins)
+    return datetime.timezone(datetime.timedelta(minutes=mins))
 
 
-def dateparse(date_str, default_tz=pytz.utc):
+def dateparse(date_str, default_tz=datetime.timezone.utc):
     dt = dateutil.parser.parse(date_str)
     if not dt.tzinfo:
         dt = dt.replace(tzinfo=default_tz)

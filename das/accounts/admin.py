@@ -14,7 +14,6 @@ from oauth2_provider.models import (
 
 import django.contrib.auth.models
 from django.conf import settings
-from django.conf.urls import re_path
 from django.contrib import admin
 from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
@@ -25,7 +24,7 @@ from django.db import transaction
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
-from django.urls import reverse
+from django.urls import re_path, reverse
 from django.utils.crypto import get_random_string
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _

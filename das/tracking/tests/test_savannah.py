@@ -1,8 +1,7 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytz
 import requests_mock
 from django_multitenant.utils import set_current_tenant
 
@@ -188,7 +187,7 @@ class SavannahPluginTest(TestCase):
     def setUp(self):
         set_current_tenant(self.das_tenant)
 
-        latest_timestamp = datetime.now(tz=pytz.utc) - timedelta(days=20)
+        latest_timestamp = datetime.now(tz=timezone.utc) - timedelta(days=20)
         latest_timestamp = latest_timestamp.isoformat()
         cursor_data = {"latest_timestamp": latest_timestamp}
 

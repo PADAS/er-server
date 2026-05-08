@@ -1,6 +1,6 @@
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import factory
 from factory import fuzzy
@@ -11,7 +11,6 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point, Polygon
-from django.utils import timezone
 
 from accounts.models.permissionset import PermissionSet
 from activity.models import (
@@ -226,6 +225,10 @@ class SubjectGroupFactory(factory.django.DjangoModelFactory):
 
 
 class TwoWayMessageSubjectFactory(SubjectFactory):
+    class Meta:
+        model = Subject
+        skip_postgeneration_save = True
+
     @factory.post_generation
     def subjectsources(self, create, extracted, **kwargs):
         if extracted:
@@ -360,7 +363,7 @@ class EventTypeFactory(factory.django.DjangoModelFactory):
     is_active = True
     is_collection = False
     ordernum = factory.Sequence(lambda n: n)
-    updated_at = factory.LazyFunction(timezone.now)
+    updated_at = factory.LazyFunction(lambda: datetime.now(tz=timezone.utc))
     version = EventType.VersionChoices.VERSION_1
 
     schema = json.dumps(
@@ -440,7 +443,7 @@ class AccessTokenFactory(factory.django.DjangoModelFactory):
 
     @factory.lazy_attribute
     def expires(self):
-        return timezone.now() + timedelta(days=1)
+        return datetime.now(tz=timezone.utc) + timedelta(days=1)
 
 
 class ChoiceFactory(factory.django.DjangoModelFactory):

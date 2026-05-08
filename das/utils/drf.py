@@ -316,6 +316,18 @@ class AllowAnyGet(BasePermission):
         return request.method in SAFE_METHODS or (request.user and request.user.is_authenticated)
 
 
+def is_constraint_violation(exc: ValidationError) -> bool:
+    """Return True only for UniqueConstraint violations raised by validate_constraints().
+
+    Django 4.1+ wires validate_constraints() into full_clean(), so models that call
+    full_clean() in save() raise ValidationError (not IntegrityError) for UniqueConstraint
+    violations. Those errors carry code='constraint_violation' on the inner error objects,
+    distinguishing them from field-level ValidationErrors raised by clean().
+    """
+    error_dict = getattr(exc, "error_dict", {})
+    return any(getattr(e, "code", None) == "constraint_violation" for e in error_dict.get("__all__", []))
+
+
 def return_409_response(message=None):
     status_msg = {
         "error_message": f"The request could not be completed due to conflict with existing data. ({message})"

@@ -7,7 +7,6 @@ after making changes to a model run migrations to record changes:
 To re-sync your database with changes from others
 * python manage.py migrate
 
-
 GIS
 * default geodjango spatial reference system is WGS84 (SRID 4326)
 """
@@ -26,7 +25,6 @@ from typing import List, NamedTuple, Set, Union
 from uuid import UUID
 
 import pymet
-import pytz
 from bitfield import BitField
 from dateutil.parser import parse as parse_date
 from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
@@ -746,8 +744,8 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         if avoid_unions:
             # Use a single query approach that's compatible with cursor pagination
             time_range = DateTimeTZRange(
-                lower=since or datetime.min.replace(tzinfo=pytz.UTC),
-                upper=until or datetime.max.replace(tzinfo=pytz.UTC),
+                lower=since or datetime.min.replace(tzinfo=timezone.utc),
+                upper=until or datetime.max.replace(tzinfo=timezone.utc),
             )
 
             # Get all source assignments that overlap with our time range
@@ -807,7 +805,8 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
         # Original UNION-based implementation
         time_range = DateTimeTZRange(
-            lower=since or datetime.min.replace(tzinfo=pytz.UTC), upper=until or datetime.max.replace(tzinfo=pytz.UTC)
+            lower=since or datetime.min.replace(tzinfo=timezone.utc),
+            upper=until or datetime.max.replace(tzinfo=timezone.utc),
         )
 
         batch_size = 200
@@ -1181,7 +1180,7 @@ class Observation(TenantModelMixin, models.Model):
         ordering = ["-recorded_at"]
 
 
-DEFAULT_ASSIGNED_RANGE = list((pytz.utc.localize(datetime.min), pytz.utc.localize(datetime.max)))
+DEFAULT_ASSIGNED_RANGE = list((datetime.min.replace(tzinfo=timezone.utc), datetime.max.replace(tzinfo=timezone.utc)))
 
 
 class ObservationSegmentQuerySet(models.QuerySet, FilterMixin):
@@ -1444,7 +1443,7 @@ class ObservationSegment(TenantModelMixin, models.Model):
         bearing = (math.degrees(theta) + 360.0) % 360.0
         return round(bearing, 2)
 
-    def save(self, *args, **kwargs):
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
         """Override save to calculate accurate distance and bearing using PostGIS/geometry when missing.
         Prefer create_segment for bulk; direct save() may run per-row queries if distance/bearing not set.
         """
@@ -1481,7 +1480,16 @@ class ObservationSegment(TenantModelMixin, models.Model):
             end_loc = self.end_observation.location
             self.bearing_deg = self.compute_bearing_deg(start_loc.y, start_loc.x, end_loc.y, end_loc.x)  # lat, lon
 
-        super().save(*args, **kwargs)
+        if update_fields is not None:
+            computed = set()
+            if should_compute_distance:
+                computed |= {"distance_meters", "speed_kmh"}
+            if should_compute_bearing:
+                computed.add("bearing_deg")
+            if computed:
+                update_fields = set(update_fields) | computed
+
+        super().save(force_insert=force_insert, force_update=force_update, using=using, update_fields=update_fields)
 
 
 class SubjectSourceQuerySet(models.QuerySet, FilterMixin):
@@ -1640,7 +1648,7 @@ class SubjectSource(TenantModelMixin, models.Model):
         ]
 
     def __str__(self):
-        ind = " (expired)" if datetime.now(tz=pytz.utc) not in self.assigned_range else ""
+        ind = " (expired)" if datetime.now(tz=timezone.utc) not in self.assigned_range else ""
         return f"{self.subject.name} <-> {self.source.manufacturer_id}{ind}"
 
     @property
@@ -1670,7 +1678,9 @@ class SubjectSource(TenantModelMixin, models.Model):
         # The app should never assign 'empty' to assigned_range, but add these guards in case
         # data enters the database through other means.
         if self.assigned_range.isempty:
-            return AssignedRangeBounds(lower=pytz.utc.localize(datetime.min), upper=pytz.utc.localize(datetime.min))
+            return AssignedRangeBounds(
+                lower=datetime.min.replace(tzinfo=timezone.utc), upper=datetime.min.replace(tzinfo=timezone.utc)
+            )
         return AssignedRangeBounds(lower=self.assigned_range.lower, upper=self.assigned_range.upper)
 
     @safe_assigned_range.setter
@@ -1689,11 +1699,14 @@ class SubjectSource(TenantModelMixin, models.Model):
             lower = ensure_timezone_aware(self.assigned_range.lower)
             upper = ensure_timezone_aware(self.assigned_range.upper)
 
-        lower = lower or pytz.utc.localize(datetime.min)
-        upper = upper or pytz.utc.localize(datetime.max)
+        lower = lower or datetime.min.replace(tzinfo=timezone.utc)
+        upper = upper or datetime.max.replace(tzinfo=timezone.utc)
 
         self.assigned_range = DateTimeTZRange(lower=lower, upper=upper)
 
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = set(update_fields) | {"assigned_range"}
         super(SubjectSource, self).save(*args, **kwargs)
 
 
@@ -1812,6 +1825,9 @@ class SubjectSubType(TenantModelMixin, TimestampedModel):
     def save(self, *args, **kwargs):
         if not self.subject_type_id:
             self.subject_type_id = get_default_subject_type()
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"subject_type_id"}
         return super().save(*args, **kwargs)
 
     def __str__(self):
@@ -2161,7 +2177,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             sources = sources.filter(recorded_at__lte=lt)
             date_range = DateTimeTZRange(upper=updated_until)
         elif last_days:
-            lt = datetime.now(tz=pytz.UTC)
+            lt = datetime.now(tz=timezone.utc)
             gt = lt - last_days
             # clock skew, server could be behind
             lt = lt + timedelta(minutes=10)
@@ -2219,7 +2235,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         elif updated_until:
             queryset = queryset.filter(status_recorded_at__lte=updated_until)
         elif last_days:
-            now = datetime.now(tz=pytz.UTC)
+            now = datetime.now(tz=timezone.utc)
             since = now - last_days
             until = now + timedelta(minutes=10)
             queryset = queryset.filter(status_recorded_at__range=(since, until))
@@ -2342,7 +2358,7 @@ class SubjectManager(TenantManagerMixin, models.Manager.from_queryset(SubjectQue
         :return: a queryset (or values) for assigned Subjects.
         """
 
-        dt = dt or datetime.now(tz=pytz.utc)
+        dt = dt or datetime.now(tz=timezone.utc)
 
         subjects = Subject.objects.filter(
             subjectsource__source__id=source_id,
@@ -2488,7 +2504,7 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
 
         if last_hours:
             if not until:
-                until = datetime.now(tz=pytz.UTC)
+                until = datetime.now(tz=timezone.utc)
             since = until - timedelta(hours=last_hours)
 
         return Observation.objects.get_subject_observations_partitioned(self, since=since, until=until)
@@ -2555,6 +2571,8 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
         """return the preferred key first"""
         key = self.subject_subtype.value.lower()
         sex = self.additional.get("sex", SEX_MALE)
+        if not sex or (isinstance(sex, str) and not sex.strip()) or sex not in (SEX_MALE, "female"):
+            sex = SEX_MALE
         for sex in (sex, SEX_MALE):
             yield "-".join((key, "black", sex.lower()))
             yield "-".join((key, sex.lower()))
@@ -2601,6 +2619,9 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
     def save(self, *args, **kwargs):
         if not self.subject_subtype_id:
             self.subject_subtype_id = get_default_subject_subtype()
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"subject_subtype_id"}
         return super().save(*args, **kwargs)
 
     def __str__(self):
@@ -2787,7 +2808,7 @@ class SubjectStatusQuerySet(models.QuerySet):
         return range_start, range_end
 
 
-DEFAULT_STATUS_VALUE_DATE = datetime(1970, 1, 1, tzinfo=pytz.utc)
+DEFAULT_STATUS_VALUE_DATE = datetime(1970, 1, 1, tzinfo=timezone.utc)
 DEFAULT_STATUS_VALUE_LOCATION = EMPTY_POINT
 
 
@@ -2867,7 +2888,7 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
                 return
 
             delay_hours = delay_days * 24
-            until = datetime.now(tz=pytz.utc) - timedelta(hours=delay_hours)
+            until = datetime.now(tz=timezone.utc) - timedelta(hours=delay_hours)
 
             if observation.recorded_at <= until:
                 # Update using the current observation until it's no longer
@@ -3207,6 +3228,9 @@ class CommonName(TenantModelMixin, TimestampedModel):
     def save(self, *args, **kwargs):
         if not self.subject_subtype:
             self.subject_subtype = get_default_subject_subtype()
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"subject_subtype_id"}
         super().save(*args, **kwargs)
 
 
@@ -3312,6 +3336,9 @@ class Region(TenantModelMixin, models.Model):
 
     def save(self, *args, **kwargs):
         self.slug = slugify(self.region + " " + self.country)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = set(update_fields) | {"slug"}
         super(Region, self).save(*args, **kwargs)
 
 
@@ -3464,7 +3491,7 @@ class GPXManager(TenantManagerMixin, models.Manager):
 
 def upload_to(instance, filename):
     filename = filename.split("/")[-1]
-    timestamp = "{:%Y%m%d%H%M}".format(datetime.now(tz=pytz.utc))
+    timestamp = "{:%Y%m%d%H%M}".format(datetime.now(tz=timezone.utc))
     tenant = get_tenant_settings()
     file_path = f"{tenant.slug_name}/{GPX_FILES_FOLDER}/{timestamp}-{filename}"
     return file_path
@@ -3567,10 +3594,8 @@ class Message(TenantModelMixin, TimestampedModel):
         indexes = [
             Index(fields=["das_tenant", "-message_time"]),
             Index(fields=["das_tenant", "read"]),
-        ]
-        index_together = [
-            ("das_tenant", "sender_id", "message_time"),
-            ("das_tenant", "receiver_id", "message_time"),
+            models.Index(fields=["das_tenant", "sender_id", "message_time"]),
+            models.Index(fields=["das_tenant", "receiver_id", "message_time"]),
         ]
         ordering = ("-message_time",)
 

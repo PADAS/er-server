@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
 from datetime import timezone as tz
 from unittest.mock import MagicMock, Mock, patch
+from zoneinfo import ZoneInfo
 
 import pytest
-import pytz
 
 from django.utils import timezone
 
@@ -42,7 +42,7 @@ def test_get_timezone_offset_negative_offset():
 
 
 def test_get_current_time_zone_non_utc():
-    current_tz = pytz.timezone(zone=timezone.get_current_timezone_name())
+    current_tz = ZoneInfo(timezone.get_current_timezone_name())
 
     assert current_tz == get_current_time_zone()
 

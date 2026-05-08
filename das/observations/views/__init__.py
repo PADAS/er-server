@@ -1,12 +1,12 @@
-import datetime
 import json
 import logging
 import re
 import urllib
 import uuid
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import dateutil.parser
-import pytz
 from kombu import exceptions
 
 from django.contrib.postgres.aggregates import StringAgg
@@ -19,8 +19,8 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.utils.timezone import get_current_timezone_name
 from rest_framework import generics, status
 from rest_framework.exceptions import (
     APIException,
@@ -112,10 +112,9 @@ from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
-
-current_tz_name = timezone.get_current_timezone_name()
-current_tz = pytz.timezone(current_tz_name)
-current_date = datetime.datetime.utcnow().astimezone(current_tz)
+current_tz_name = get_current_timezone_name()
+current_tz = ZoneInfo(current_tz_name)
+current_date = datetime.now(tz=timezone.utc).astimezone(current_tz)
 tz_difference = current_date.utcoffset().total_seconds() / 60 / 60
 tz_offset = (
     "GMT"
@@ -307,7 +306,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
             raise Http404
 
         if since is None:
-            since = datetime.datetime.now(tz=pytz.UTC) - get_track_days()
+            since = datetime.now(tz=timezone.utc) - get_track_days()
 
         coordinates = []
         times = []
@@ -669,7 +668,7 @@ class SourcesView(
         if filter:
             queryset = queryset.filter(**filter)
 
-        return queryset
+        return queryset.order_by("id")
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -747,7 +746,7 @@ class KmlRootView(APIView):
 
         # TODO: Have a configuration for naming the KML feed.
         filename = "DAS-KML_{}_{}".format(
-            self.request.user.username, datetime.datetime.now(tz=pytz.utc).strftime("%Y%M%d%H%M")
+            self.request.user.username, datetime.now(tz=timezone.utc).strftime("%Y%M%d%H%M")
         )
 
         context = {
@@ -846,7 +845,7 @@ class KmlSubjectsView(APIView):
         context = {"title": "DAS Tracking Data", "visibility": 1, "subject_list": subject_list}
 
         filename = "DAS-KML-Subjects_{}_{}".format(
-            self.request.user.username, datetime.datetime.now(tz=pytz.utc).strftime("%Y%M%d%H%M")
+            self.request.user.username, datetime.now(tz=timezone.utc).strftime("%Y%M%d%H%M")
         )
 
         result = render_to_string("kml/subject_list.xml", context)
@@ -893,7 +892,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
 
         maximum_history_days = 60
         if start_timestamp:
-            delta = datetime.datetime.now(pytz.utc) - start_timestamp
+            delta = datetime.now(timezone.utc) - start_timestamp
             if delta.days > maximum_history_days:
                 maximum_history_days = delta.days
         (lower, upper) = calculate_subject_view_window(self.request.user, maximum_history_days)
@@ -948,7 +947,8 @@ class KmlSubjectView(generics.RetrieveAPIView):
         observations = list(self.get_allowed_subject_observations(subject, filter_parameters))
 
         filename = "DAS-KML_{}-{}".format(
-            re.sub("[^a-zA-Z0-9]", "_", subject.name), datetime.datetime.now(tz=pytz.utc).strftime("%Y%M%d%H%M")
+            re.sub("[^a-zA-Z0-9]", "_", subject.name),
+            datetime.now(tz=timezone.utc).strftime("%Y%M%d%H%M"),
         )
 
         kml_overlay_image = get_tenant_settings().env_settings.kml_overlay_image
@@ -1223,7 +1223,7 @@ class TrackingDataCsvView(APIView):
         lower = request_date_after if request_date_after is not None and request_date_after > lower else lower
 
         # Compute timezone offset for CSV column labels (explicit param for testability).
-        _now = datetime.datetime.utcnow().astimezone(current_tz)
+        _now = datetime.now(tz=timezone.utc).astimezone(current_tz)
         _tz_diff = _now.utcoffset().total_seconds() / 60 / 60
         request_tz_offset = (
             "GMT"
@@ -1271,7 +1271,7 @@ class TrackingDataCsvView(APIView):
             return Response(csv_data)
 
         # CSV format - use streaming response
-        timestamp = current_tz.localize(datetime.datetime.utcnow())
+        timestamp = datetime.now(tz=timezone.utc).astimezone(current_tz)
         download_filename = f'Tracking Data {timestamp.strftime("%Y-%m-%d")}.csv'
 
         if get_current:
@@ -1382,7 +1382,7 @@ class TrackingDataCsvView(APIView):
         return qs
 
     def get_subject_status_queryset(self, max_records, subject_id=None, chronofile=None, source_provider=None):
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        now = datetime.now(tz=timezone.utc)
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
         qs = SubjectStatus.objects.filter(delay_hours=min_age_days * 24).filter(
@@ -1515,9 +1515,9 @@ class TrackingMetaDataExportView(APIView):
             upper = subject.subjectsource_assigned_range.upper
             try:
                 if output_format != "json":
-                    if lower != datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=pytz.utc):
+                    if lower != datetime(datetime.MINYEAR, 1, 1, tzinfo=timezone.utc):
                         lower = lower.astimezone(current_tz)
-                    if upper != datetime.datetime(datetime.MAXYEAR, 12, 31, tzinfo=pytz.utc):
+                    if upper != datetime(datetime.MAXYEAR, 12, 31, tzinfo=timezone.utc):
                         upper = upper.astimezone(current_tz)
             except Exception as exc:
                 logger.debug(
@@ -1609,8 +1609,9 @@ class TrackingMetaDataExportView(APIView):
         return tracking_metadata, headers
 
     def get(self, request, *args, **kwargs):
-        local_tz = pytz.timezone(timezone.get_current_timezone_name())
-        timestamp = local_tz.localize(datetime.datetime.utcnow())
+
+        current_tz = ZoneInfo(get_current_timezone_name())
+        timestamp = datetime.now(tz=timezone.utc).astimezone(current_tz)
         output_format = self.request.GET.get("format", "").lower()
 
         # JSON format cannot be streamed - return full response
@@ -1812,7 +1813,7 @@ class MessagesView(generics.ListCreateAPIView):
 
         if not number_recent_msg and not since and not until:
             # Default to last 30 days until UI is updated to handle pagination
-            since = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=30)
+            since = datetime.now(tz=timezone.utc) - timedelta(days=30)
 
         queryset = queryset.by_date_range(since, until).select_related("device")
 
@@ -1833,7 +1834,7 @@ class MessagesView(generics.ListCreateAPIView):
             ids = list(set(ids).intersection({str(k.id) for k in queryset}))
 
             msgs = queryset.filter(id__in=ids)
-            msgs.update(read=read, updated_at=timezone.now())
+            msgs.update(read=read, updated_at=datetime.now(tz=timezone.utc))
 
             read_state = "read" if read else "unread"
             return Response(f"{len(ids)} messages successfully updated to {read_state}", status=status.HTTP_200_OK)
@@ -1854,7 +1855,7 @@ class MessagesView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         data = request.data
         message_type = data.get("message_type", "outbox")
-        data["message_time"] = data.get("message_time", datetime.datetime.now(tz=pytz.utc).isoformat())
+        data["message_time"] = data.get("message_time", datetime.now(tz=timezone.utc).isoformat())
 
         qparams = self.request.query_params
         if message_type == "inbox":
