@@ -35,7 +35,7 @@ TMS_API = {
 
 TENANT_DOCUMENT_CACHE = {
     "CLIENT": "utils.persistent.RedisStorage",
-    "HOST": "redis",
+    "HOST": REDIS_HOST,
     "PORT": "6379",
     "DATABASE": "10",
     "API_KEY": "",
