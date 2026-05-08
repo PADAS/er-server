@@ -50,6 +50,7 @@ def mock_tenant_settings():
         mock = Mock()
         mock.feature_flags.require_idp = True
         mock.feature_flags.idp_org_id = "org_test456"
+        mock.slug_name = "testsite"
         mock.url = "https://testsite.pamdas.org"
         mock_ts.return_value = mock
         with patch("utils.tenant.decorators.get_tenant_settings", return_value=mock):
@@ -117,12 +118,32 @@ class TestAccountLinkerLanding:
             assert len(session_entries) == 1
             link_attempt = list(session_entries.keys())[0].removeprefix(SESSION_KEY_PREFIX)
             assert session_entries[f"{SESSION_KEY_PREFIX}{link_attempt}"] == str(active_user.id)
-            # Verify state= passed to authorize_redirect
             mock_redirect.assert_called_once_with(
                 request,
                 "https://example.com/auth/account-linker/callback/",
                 state=link_attempt,
+                connection="testsite",
             )
+
+    def test_magic_link_reuse_after_linking_returns_400(self, request_factory, active_user, caplog):
+        token = create_magic_link_token(active_user.id)
+
+        # Simulate the user having already completed the Account Linker flow
+        active_user.auth0_id = "auth0|already_linked"
+        active_user.save(update_fields=["auth0_id"])
+
+        request = request_factory.get(f"/auth/account-linker/?token={token}")
+        request.session = {}
+
+        with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
+            result = account_linker_landing(request)
+
+        assert result.status_code == 400
+        assert b"Invalid link" in result.content
+        assert (
+            f"Account linker landing for user {active_user.username} who is already linked (auth0_id=auth0|already_linked)"
+            in caplog.text
+        )
 
     def test_magic_link_expired_token_returns_400(self, request_factory, active_user):
         creation_time = 1_000_000
@@ -172,7 +193,26 @@ class TestAccountLinkerLanding:
                 request,
                 "https://example.com/auth/account-linker/callback/",
                 state=link_attempt,
+                connection="testsite",
             )
+
+    def test_session_flow_already_linked_user_returns_400(self, request_factory, active_user, caplog):
+        active_user.auth0_id = "auth0|already_linked"
+        active_user.save(update_fields=["auth0_id"])
+
+        session_ref = "caller-provided-ref"
+        request = request_factory.get(f"/auth/account-linker/?session_ref={session_ref}")
+        request.session = {f"{SESSION_KEY_PREFIX}{session_ref}": str(active_user.id)}
+
+        with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
+            result = account_linker_landing(request)
+
+        assert result.status_code == 400
+        assert b"Invalid link" in result.content
+        assert (
+            f"Account linker landing for user {active_user.username} who is already linked (auth0_id=auth0|already_linked)"
+            in caplog.text
+        )
 
     def test_missing_token_and_no_session_returns_400(self, request_factory, caplog):
         request = request_factory.get("/auth/account-linker/")

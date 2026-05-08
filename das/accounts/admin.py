@@ -20,12 +20,20 @@ from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import PasswordResetForm
 from django.core.exceptions import PermissionDenied
+from django.core.mail import send_mail
+from django.db import transaction
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
+from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils.crypto import get_random_string
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
+from accounts.account_linker import (
+    ACCOUNT_LINKER_LANDING_URL_NAME,
+    create_magic_link_token,
+)
 from accounts.models import PermissionSet, User
 from accounts.utils import patrol_mgmt_permissions
 from activity.models import AlertRule
@@ -308,7 +316,7 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
         user = get_object_or_404(self.model, pk=user_id)
 
         if user.email:
-            self.send_reset_email(request, user)
+            self._send_reset_email(request, user)
         return HttpResponseRedirect("..")
 
     def get_kml_master_link(self, request, user_id):
@@ -320,13 +328,20 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
         return HttpResponseRedirect("..")
 
     def save_model(self, request, obj, form, change):
-        if not change and (not form.cleaned_data["password1"] or not obj.has_usable_password()):
-            # Django's PasswordResetForm won't let us reset an unusable
-            # password. We set it above super() so we don't have to save twice.
-            obj.set_password(get_random_string(length=12))
-            should_reset_password = True
+        tenant_settings = get_tenant_settings()
+        should_notify_of_password_reset = False
+        should_send_idp_email = False
+
+        if tenant_settings.feature_flags.require_idp:
+            should_send_idp_email = not change and bool(obj.email)
+            if not change:
+                obj.set_unusable_password()
         else:
-            should_reset_password = False
+            if not change and (not form.cleaned_data["password1"] or not obj.has_usable_password()):
+                # Django's PasswordResetForm won't let us reset an unusable
+                # password. We set it above super() so we don't have to save twice.
+                obj.set_password(get_random_string(length=12))
+                should_notify_of_password_reset = bool(obj.email)
 
         if form.cleaned_data.get("linked_subject"):
             subject = form.cleaned_data["linked_subject"]
@@ -336,10 +351,27 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
 
         super(UserAdmin, self).save_model(request, obj, form, change)
 
-        if should_reset_password and obj.email:
-            self.send_reset_email(request, obj)
+        if should_send_idp_email:
+            transaction.on_commit(lambda: self._send_idp_invitation_email(request, obj))
+        if should_notify_of_password_reset:
+            transaction.on_commit(lambda: self._send_reset_email(request, obj))
 
-    def send_reset_email(self, request, user):
+    @staticmethod
+    def _send_idp_invitation_email(request, user):
+        token = create_magic_link_token(user.id)
+        landing_path = reverse(ACCOUNT_LINKER_LANDING_URL_NAME) + f"?token={token}"
+        invitation_url = request.build_absolute_uri(landing_path)
+
+        context = {
+            "site_name": get_current_tenant().domain,
+            "invitation_url": invitation_url,
+        }
+        subject = render_to_string("registration/idp_invitation_subject.txt", context).strip()
+        body = render_to_string("registration/idp_invitation_email.html", context)
+        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [user.email])
+
+    @staticmethod
+    def _send_reset_email(request, user):
         form = PasswordResetForm(data={"email": user.email})
         assert form.is_valid()
 
