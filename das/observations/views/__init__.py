@@ -236,6 +236,7 @@ class SubjectSourcesView(generics.ListCreateAPIView):
 
 class SourceSubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
     serializer_class = SubjectSerializer
+    schema = InactiveSubjectsViewSchema()
 
     def get_queryset(self):
         source = generics.get_object_or_404(Source.objects.all(), pk=self.kwargs["id"])
