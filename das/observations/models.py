@@ -1288,7 +1288,7 @@ class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset
 
         return segment
 
-    def get_or_create_segment(self, start_obs, end_obs, subject):
+    def get_or_create_segment(self, start_obs, end_obs, subject) -> tuple["ObservationSegment", bool]:
         """
         Get or create a segment between two observations.
 

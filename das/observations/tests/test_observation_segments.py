@@ -376,6 +376,63 @@ class TestObservationSegmentSignals:
         assert bridge_segment.start_observation == obs1
         assert bridge_segment.end_observation == obs3
 
+    def test_bridge_segment_creation_is_idempotent_when_segment_already_exists(self, setup_data):
+        """Regression: _create_bridge_segment uses a bare INSERT with no duplicate guard.
+
+        Race that a source deletion enables:
+          1. delete_source_cascade() removes middle observation Z via _raw_delete(),
+             bypassing pre_delete signals so no bridge is created.
+          2. An in-flight Celery task (enqueued before deletion) processes observation A
+             or B while they are still alive, finds Z gone, and creates segment A→B via
+             get_or_create_segment.
+          3. A concurrent deletion path (Django admin, or a request deleting an individual
+             observation) fires observation_segment_pre_delete for Z, which calls
+             _create_bridge_segment(A, B) — a bare INSERT with no duplicate check.
+          4. Since A→B already exists, the INSERT raises IntegrityError → HTTP 500.
+
+        After the fix (_create_bridge_segment must use get_or_create_segment),
+        step 3 must succeed and leave exactly one A→B segment.
+        """
+        source = setup_data["source"]
+        subject = setup_data["subject"]
+        base_time = datetime.now(tz=timezone.utc) - timedelta(days=30)
+
+        obs_a = Observation.objects.create(
+            source=source, recorded_at=base_time, location=Point(0.001, 0.001), das_tenant=setup_data["tenant"]
+        )
+        obs_z = Observation.objects.create(
+            source=source,
+            recorded_at=base_time + timedelta(hours=1),
+            location=Point(1.0, 0.0),
+            das_tenant=setup_data["tenant"],
+        )
+        obs_b = Observation.objects.create(
+            source=source,
+            recorded_at=base_time + timedelta(hours=2),
+            location=Point(2.0, 0.0),
+            das_tenant=setup_data["tenant"],
+        )
+
+        update_segments_for_observation(obs_a, created=True)
+        update_segments_for_observation(obs_z, created=True)
+        update_segments_for_observation(obs_b, created=True)
+        assert ObservationSegment.objects.count() == 2  # A→Z, Z→B
+
+        # Simulate the concurrent recompute worker that creates A→B ahead of the
+        # deletion signal (the in-flight Celery task from step 2 above).
+        ObservationSegment.objects.get_or_create_segment(obs_a, obs_b, subject)
+        assert ObservationSegment.objects.count() == 3  # A→Z, Z→B, A→B
+
+        # Deleting Z triggers _create_bridge_segment(A, B).  Without the fix this
+        # raises IntegrityError because A→B already exists.
+        update_segments_for_observation(obs_z, deleted=True)
+
+        segments = ObservationSegment.objects.all()
+        assert segments.count() == 1
+        bridge = segments.get()
+        assert bridge.start_observation == obs_a
+        assert bridge.end_observation == obs_b
+
     # NOTE: test_no_segment_created_for_observation_without_location removed
     # because observations.location has a NOT NULL constraint in the database,
     # so observations without location cannot be created
