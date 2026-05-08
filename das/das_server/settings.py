@@ -209,6 +209,10 @@ REST_FRAMEWORK = {
     "MAX_PAGE_SIZE": 4000,
     "COUNT_TIMEOUT": 60 * 5,
     "ORDERING_PARAM": "sort_by",
+    "DEFAULT_THROTTLE_RATES": {
+        "chunked_upload_init": "60/min",
+        "chunked_upload_chunk": "200/min",
+    },
 }
 
 AUTHENTICATION_BACKENDS = (
@@ -462,6 +466,7 @@ OBSERVATION_SEGMENT_RECONCILE_HOURS = env.int("OBSERVATION_SEGMENT_RECONCILE_HOU
 DEFAULT_CACHE_ALIAS = "default"
 SHARED_CACHE_ALIAS = "shared"
 VECTOR_TILE_CACHE_ALIAS = "vector_tiles"
+UPLOAD_SESSION_CACHE_ALIAS = "upload_sessions"
 
 
 # Vector tiles cache Redis location (dedicated in deployed contexts)
@@ -485,6 +490,16 @@ CACHES = {
         "LOCATION": _vt_redis_server,
         "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
         "KEY_PREFIX": "vector-tiles",
+    },
+    # Chunked upload sessions (ERA-9210): must be shared across Gunicorn/uwsgi workers and pods.
+    # LocMem here is for dev/tests only; production images override this alias to Redis in
+    # local_settings_docker.py (see UPLOAD_SESSION_CACHE_ALIAS).
+    # NOTE: Adding KEY_FUNCTION changes the stored key shape. On first deploy, any in-flight
+    # upload sessions will be invalidated (clients will receive 404 and must restart the upload).
+    UPLOAD_SESSION_CACHE_ALIAS: {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "upload-sessions",
+        "KEY_FUNCTION": "utils.tenant.cache.make_cache_key",
     },
 }
 
@@ -573,41 +588,82 @@ VERSATILEIMAGEFIELD_SETTINGS = {
 }
 
 USERCONTENT_SETTINGS = {
-    # For a file with one of these extensions, we'll attempt to save it as an
-    # ImageFile.
-    "imagefile_extensions": ("jpg", "jpeg", "png", "gif", "tif", "tiff"),
-    # Prohibit uploading files with these extensions.
-    "prohibited_extensions": (
-        "bin",
-        "exe",
-        "dll",
-        "deb",
-        "sh",
+    # ---------------------------------------------------------------------------
+    # UPLOAD ALLOWLIST
+    # Only files whose extension appears here are accepted by the chunked upload
+    # API.  Add extensions freely; remove with care (existing stored files are
+    # unaffected, but clients will no longer be able to upload that type).
+    # Extensions must be lowercase and without the leading dot.
+    # ---------------------------------------------------------------------------
+    "allowed_extensions": (
+        # Images
+        "jpg",
+        "jpeg",
+        "png",
+        "gif",
+        "tif",
+        "tiff",
+        "webp",
+        "heic",
+        "bmp",
+        "svg",
+        # Documents
+        "pdf",
+        "doc",
+        "docx",
+        "xls",
+        "xlsx",
+        "csv",
+        "ppt",
+        "pptx",
+        "odt",
+        "ods",
+        "txt",
+        "rtf",
+        # Audio
+        "mp3",
+        "wav",
+        "aac",
+        "ogg",
+        "flac",
+        "m4a",
+        "opus",
+        # Video
+        "mp4",
+        "mov",
+        "avi",
+        "mkv",
+        "wmv",
+        "webm",
+        "m4v",
+        "3gp",
     ),
-    # Always serve files with these mime-types as application/octet-stream.
+    # ---------------------------------------------------------------------------
+    # IMAGE ROUTING
+    # Files with these extensions are stored as ImageFileContent (with thumbnail
+    # generation) rather than plain FileContent.  Must be a subset of
+    # allowed_extensions above.
+    # ---------------------------------------------------------------------------
+    "imagefile_extensions": ("jpg", "jpeg", "png", "gif", "tif", "tiff"),
+    # ---------------------------------------------------------------------------
+    # SERVE BEHAVIOUR
+    # Force these MIME types to download as application/octet-stream so browsers
+    # never render or execute them inline.
+    # ---------------------------------------------------------------------------
     "force_download_mimetypes": (
         "text/html",
         "text/javascript",
-    ),
-    # Edit these extensions by appending a .txt
-    "edit_extensions": (
-        "html",
-        "htm",
-        "js",
-        "css",
-        "exe",
-        "sh",
-        "bin",
-        "dll",
-        "deb",
-        "dmg",
-        "iso",
-        "img",
-        "msi",
-        "msp",
-        "msm",
+        "image/svg+xml",
     ),
 }
+
+# Chunked, resumable file upload (ERA-9210)
+# Default 2 MiB: each chunk PUT must stay below Django's DATA_UPLOAD_MAX_MEMORY_SIZE (2621440 bytes by default).
+# See usercontent.chunked_upload._effective_max_chunk_bytes() which also clamps env overrides to that ceiling.
+CHUNKED_UPLOAD_CHUNK_SIZE = env.int("CHUNKED_UPLOAD_CHUNK_SIZE", 2 * 1024 * 1024)  # 2 MiB
+CHUNKED_UPLOAD_MAX_FILE_SIZE = env.int("CHUNKED_UPLOAD_MAX_FILE_SIZE", 500 * 1024 * 1024)  # 500 MiB
+CHUNKED_UPLOAD_SESSION_TTL_SECONDS = env.int("CHUNKED_UPLOAD_SESSION_TTL_SECONDS", 86400)  # 24 hours
+CHUNKED_UPLOAD_GCS_TIMEOUT_SECONDS = env.int("CHUNKED_UPLOAD_GCS_TIMEOUT_SECONDS", 120)
 
 SHOW_TRACK_DAYS = 16
 DEFAULT_EVENT_FILTER_FROM_DAYS = -1

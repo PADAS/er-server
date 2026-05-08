@@ -1,8 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 
-import pytz
 from django_multitenant.fields import TenantForeignKey
 from django_multitenant.mixins import TenantModelMixin
 from versatileimagefield.fields import VersatileImageField
@@ -18,36 +17,6 @@ from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager
 from utils.tenant.thread import get_tenant_settings
 
-# Load UserContent settings once from settings.
-USERCONTENT_SETTINGS = getattr(settings, "USERCONTENT_SETTINGS", {})
-EDIT_EXTENSIONS = USERCONTENT_SETTINGS.get(
-    "edit_extensions",
-    ("html", "htm", "js", "css", "exe", "sh", "bin", "dll", "deb", "dmg", "iso", "img", "msi", "msp", "msm"),
-)
-
-"""
-NOTE: Be sure th configure Nginx to set content-type='application/octet-stream files with executable extension or
- web-content extensions (ex. .exe, .bin, .js, .html)
-
-  For example, if nginx will serve the uploaded content from /var/das/content, set the default_type and types like so:
-
-       location /dascontent/ {
-                alias /var/dascontent/;
-                default_type application/octet-stream;
-                types {
-                    image/gif gif;
-                    image/jpeg jpg jpeg;
-                    image/png png;
-                    image/tiff tif tiff;
-                    application/vnd.openxmlformats-officedocument.wordprocessingml.document    docx;
-                    application/vnd.openxmlformats-officedocument.spreadsheetml.sheet          xlsx;
-                    application/vnd.openxmlformats-officedocument.presentationml.presentation  pptx;
-                }
-       }
-
-
-"""
-
 
 def _upload_to(root, instance, filename):
     """
@@ -60,11 +29,7 @@ def _upload_to(root, instance, filename):
 
     name, extension = filename.rsplit(".", 1) if "." in filename else (filename, "")
 
-    # Add a .txt extension to anything that a web-server might serve as an executable (ex. js, htm, bin
-    if extension in EDIT_EXTENSIONS:
-        extension = extension + ".txt"
-
-    d = pytz.utc.localize(datetime.utcnow())
+    d = datetime.now(tz=timezone.utc)
     tenant = get_tenant_settings()
     file_path = f"{tenant.slug_name}/{root}/{d.year}/{d.month}/{d.day}/{instance.id}/{name}.{extension}"
     return file_path
@@ -84,7 +49,7 @@ class FileContent(TenantModelMixin, TimestampedModel, RevisionMixin):
         related_name="file_contents",
         related_query_name="file_content",
     )
-    file = models.FileField(upload_to=file_content_upload_to)
+    file = models.FileField(upload_to=file_content_upload_to, max_length=512)
     filename = models.TextField(verbose_name="Name of uploaded file.", default="noname")
     revision = Revision()
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)

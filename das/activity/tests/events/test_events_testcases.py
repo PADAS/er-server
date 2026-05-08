@@ -692,6 +692,44 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         response = views.EventFileView.as_view()(request, event_id=my_event_id, filecontent_id=event_file_id)
         self.assertEqual(response.status_code, 401)
 
+    def test_attach_prechunked_file_to_event(self):
+        """EventFile can be created from a pre-existing FileContent via usercontent_id.
+
+        This is the server-side half of the chunked upload integration: after a client
+        completes a chunked upload (which creates a FileContent), it attaches the result
+        to an event by posting usercontent_id instead of file bytes.
+        """
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from activity.models import EventFile
+        from usercontent.models import FileContent
+
+        uploaded = SimpleUploadedFile("field-notes.txt", b"lion spotted at grid B4", content_type="text/plain")
+        fc = FileContent.objects.create(created_by=self.all_perms_user, file=uploaded)
+
+        event_id = str(self.sample_event.id)
+        path = "/".join((self.api_base, "activity", "event", event_id, "files"))
+        request = self.factory.post(path, {"usercontent_id": str(fc.id)}, format="json")
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventFilesView.as_view()(request, id=event_id)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["file_type"], "file")
+        self.assertTrue(EventFile.objects.filter(event=self.sample_event, usercontent_id=fc.id).exists())
+
+    def test_attach_unknown_usercontent_id_to_event_returns_400(self):
+        """Posting a usercontent_id that matches no FileContent or ImageFileContent returns 400."""
+        import uuid as _uuid
+
+        event_id = str(self.sample_event.id)
+        path = "/".join((self.api_base, "activity", "event", event_id, "files"))
+        request = self.factory.post(path, {"usercontent_id": str(_uuid.uuid4())}, format="json")
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventFilesView.as_view()(request, id=event_id)
+
+        self.assertEqual(response.status_code, 400)
+
     def test_validate_serializer_schema(self):
         request = self.factory.get(self.api_base + "/events/schema")
         self.force_authenticate(request, self.all_perms_user)

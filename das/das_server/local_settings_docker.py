@@ -4,13 +4,15 @@ Used in our production docker images
 
 import os
 
-from .settings import *
+# Pull base Django settings (INSTALLED_APPS, MIDDLEWARE, KML_FEED_TITLE, etc.); then override below.
+from .settings import *  # noqa: F403
 from .settings import (
     BASE_DIR,
     CACHES,
     DEFAULT_CACHE_ALIAS,
     REDIS_SERVER,
     SHARED_CACHE_ALIAS,
+    UPLOAD_SESSION_CACHE_ALIAS,
     env,
 )
 
@@ -26,6 +28,15 @@ CACHES[SHARED_CACHE_ALIAS] = {
     "LOCATION": REDIS_SERVER,
     "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
     "KEY_PREFIX": "shared",
+}
+
+CACHES[UPLOAD_SESSION_CACHE_ALIAS] = {
+    "BACKEND": "django_redis.cache.RedisCache",
+    "LOCATION": REDIS_SERVER,
+    "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+    # NOTE: Adding KEY_FUNCTION changes the stored key shape. On first deploy, any in-flight
+    # upload sessions will be invalidated (clients will receive 404 and must restart the upload).
+    "KEY_FUNCTION": "utils.tenant.cache.make_cache_key",
 }
 
 

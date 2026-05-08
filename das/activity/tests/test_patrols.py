@@ -16,7 +16,6 @@ import django.contrib.auth
 from django.core.management import call_command
 from django.db import connection
 from django.http import HttpResponseNotModified
-
 from django.urls import reverse
 from django.utils import lorem_ipsum, timezone
 from rest_framework import status
@@ -496,6 +495,41 @@ class TestPatrol(BaseAPITest):
 
         response = views.PatrolFileView.as_view()(request, id=my_patrol_id, filecontent_id=file_id, filename=file_name)
         self.assertEqual(response.status_code, 200)
+
+    def test_attach_prechunked_file_to_patrol(self):
+        """PatrolFile can be created from a pre-existing FileContent via usercontent_id.
+
+        This is the server-side half of the chunked upload integration: after a client
+        completes a chunked upload (which creates a FileContent), it attaches the result
+        to a patrol by posting usercontent_id instead of file bytes.
+        """
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from activity.models import PatrolFile
+        from usercontent.models import FileContent
+
+        uploaded = SimpleUploadedFile("patrol-report.txt", b"all clear at north boundary", content_type="text/plain")
+        fc = FileContent.objects.create(created_by=self.app_user, file=uploaded)
+
+        patrol_id = str(self.default_test_patrol.id)
+        path = "/".join((self.api_base, "activity", "patrols", patrol_id, "files"))
+        request = self.factory.post(path, {"usercontent_id": str(fc.id)}, format="json")
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolFilesView.as_view()(request, id=patrol_id)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["file_type"], "file")
+        self.assertTrue(PatrolFile.objects.filter(patrol=self.default_test_patrol, usercontent_id=fc.id).exists())
+
+    def test_attach_unknown_usercontent_id_to_patrol_returns_400(self):
+        """Posting a usercontent_id that matches no FileContent or ImageFileContent returns 400."""
+        patrol_id = str(self.default_test_patrol.id)
+        path = "/".join((self.api_base, "activity", "patrols", patrol_id, "files"))
+        request = self.factory.post(path, {"usercontent_id": str(uuid.uuid4())}, format="json")
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolFilesView.as_view()(request, id=patrol_id)
+
+        self.assertEqual(response.status_code, 400)
 
     def test_history_updates_patrol_notes(self):
         patrol = dict(title="T-Patrol", notes=[{"text": "New Note ..."}])

@@ -1,4 +1,6 @@
 import datetime
+import logging
+import mimetypes
 import re
 import unicodedata
 from pathlib import Path
@@ -11,7 +13,11 @@ from google.auth.transport import requests
 from google.cloud.exceptions import NotFound
 from storages.backends.gcloud import GoogleCloudStorage
 
+from django.conf import settings
+
 from utils.tenant.thread import get_tenant_settings
+
+logger = logging.getLogger(__name__)
 
 
 class TenantGoogleCloudStorage(GoogleCloudStorage):
@@ -133,6 +139,28 @@ class TenantGoogleCloudStorage(GoogleCloudStorage):
             return filename
         # Otherwise, add tenant prefix
         return str(tenant_path / filename_path)
+
+    def _force_download_mimetypes(self) -> set[str]:
+        return set(getattr(settings, "USERCONTENT_SETTINGS", {}).get("force_download_mimetypes", ()))
+
+    def _save(self, name, content):
+        """Stamp safe Content-Type and Content-Disposition on uploads whose mime type is in
+        USERCONTENT_SETTINGS["force_download_mimetypes"] (e.g. image/svg+xml, text/html,
+        text/javascript). This prevents browsers from rendering active content inline when
+        the object is fetched directly from GCS via a signed URL.
+        """
+        mt, _ = mimetypes.guess_type(name)
+        if mt and mt in self._force_download_mimetypes():
+            content.content_type = "application/octet-stream"
+            saved_name = super()._save(name, content)
+            try:
+                blob = self.bucket.blob(self._encode_name(self._normalize_name(saved_name)))
+                blob.content_disposition = "attachment"
+                blob.patch()
+            except Exception:
+                logger.exception("Failed to set Content-Disposition=attachment on force-download blob %s", saved_name)
+            return saved_name
+        return super()._save(name, content)
 
     def _open(self, name, mode="rb"):
         # Use the new Unicode-aware search paths
