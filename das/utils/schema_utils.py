@@ -536,9 +536,7 @@ def property_keys_order_as_dict(schema):
     return OrderedDict()
 
 
-def detail_resolver(schema, key, value, event=None):
-    properties = get_resolved_v1v2_properties(schema)
-
+def detail_resolver(properties, schema, key, value, event=None):
     if key in properties:
         schema_item = properties[key]
         return extractor(schema_item, schema.get("definition", []), key, value, event=event)
@@ -556,10 +554,11 @@ def generate_details(event, schema):
 
     event_details = event_details.data.get("event_details", {})
 
+    properties = get_resolved_v1v2_properties(schema)
     definition_order = dict(definition_keys(schema.get("definition", [])))
 
     for k, v in event_details.items():
-        resolved_details = detail_resolver(schema, k, v, event=event)
+        resolved_details = detail_resolver(properties, schema, k, v, event=event)
         if resolved_details:
             value = resolved_details[1]
             yield {
@@ -570,9 +569,10 @@ def generate_details(event, schema):
 
 
 def get_display_values_for_event_details(event_details, schema, event=None):
+    properties = get_resolved_v1v2_properties(schema)
     ret = {}
     for k, v in event_details.items():
-        resolved_details = detail_resolver(schema, k, v, event=event)
+        resolved_details = detail_resolver(properties, schema, k, v, event=event)
 
         logger.debug(f"Resolved details for {k} {v} = {resolved_details}")
         if resolved_details:
@@ -832,7 +832,8 @@ def get_resolved_v1v2_properties(schema):
     Resolve schema properties from either legacy or new schema structure.
 
     Legacy format: schema["schema"]["properties"]
-    New format: schema["json"]["properties"]
+    New format: schema["json"]["properties"], merged with any schema["json"]["allOf"][*]["then"]["properties"]
+              so that fields in conditional sections are included alongside top-level fields.
 
     Args:
         schema (dict): The schema dictionary
@@ -844,7 +845,15 @@ def get_resolved_v1v2_properties(schema):
     if "schema" in schema and "properties" in schema["schema"]:
         return schema["schema"]["properties"]
     elif "json" in schema and "properties" in schema["json"]:
-        return schema["json"]["properties"]
+        all_of = schema["json"].get("allOf", [])
+        if not all_of:
+            return schema["json"]["properties"]
+        properties = dict(schema["json"]["properties"])
+        for condition in all_of:
+            then_props = condition.get("then", {}).get("properties", {})
+            if then_props:
+                properties.update(then_props)
+        return properties
     else:
         logger.warning("Schema properties not found in expected structure.")
         return {}
