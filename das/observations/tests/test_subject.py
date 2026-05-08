@@ -10,6 +10,7 @@ from unittest.mock import patch
 import dateutil.parser as dateparser
 import pytest
 from faker import Faker
+from oauth2_provider.models import get_application_model
 
 import django.contrib.auth
 from django.contrib.admin.sites import AdminSite
@@ -42,6 +43,7 @@ from observations.models import (
     SubjectSource,
     SubjectStatus,
     SubjectSubType,
+    SubjectType,
 )
 from observations.tasks import process_trackpoints
 from observations.utils import calculate_track_range
@@ -64,6 +66,35 @@ def random_date(start_date, end_date):
     return start_date + timedelta(
         seconds=random.randint(0, int((end_date - start_date).total_seconds())),
     )
+
+
+@pytest.fixture(autouse=True)
+def _ensure_reference_subject_types(db):
+    """Tests in this module reference fixed-name SubjectType / SubjectSubType /
+    SubjectGroup records that ordinarily come from
+    das_server/fixtures/initial_data.json (loaded outside this module's setup).
+    Make the file self-contained so the same tests pass with --create-db, in
+    isolation, or in any test order.
+    """
+    wildlife, _ = SubjectType.objects.get_or_create(value="wildlife", defaults={"display": "Wildlife"})
+    stationary, _ = SubjectType.objects.get_or_create(
+        value="stationary-object", defaults={"display": "Stationary Object"}
+    )
+    vehicle, _ = SubjectType.objects.get_or_create(value="vehicle", defaults={"display": "Vehicle"})
+    SubjectSubType.objects.get_or_create(value="elephant", defaults={"display": "Elephant", "subject_type": wildlife})
+    SubjectSubType.objects.get_or_create(value="cheetah", defaults={"display": "Cheetah", "subject_type": wildlife})
+    SubjectSubType.objects.get_or_create(
+        value="camera_trap", defaults={"display": "Camera Trap", "subject_type": stationary}
+    )
+    SubjectSubType.objects.get_or_create(
+        value="security_vehicle", defaults={"display": "Security Vehicle", "subject_type": vehicle}
+    )
+    SubjectGroup.objects.get_or_create(name="Subjects", defaults={"is_visible": True, "is_default": True})
+    # The query-count test in TestSubjectsView assumes the "cybertracker"
+    # DASApplication is already cached. With --reuse-db this typically holds;
+    # ensure it explicitly so the count is stable in any test order.
+    Application = get_application_model()
+    Application.objects.get_or_create(client_id="cybertracker")
 
 
 class SubjectTestCase(BaseAPITest):

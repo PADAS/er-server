@@ -6,7 +6,7 @@ from activity.models import Event
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEvent:
     def test_delete_geometries_updates_event(self, event_geometry_with_polygon):
         with patch.object(Event, "dependent_table_updated") as event_updated_mock:

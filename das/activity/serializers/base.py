@@ -57,10 +57,15 @@ class FileSerializerMixin:
             data=dict(
                 file=self.context["request"].data["filecontent.file"],
             ),
-            context={"request": self.context["request"]},
+            context={
+                "request": self.context["request"],
+                "skip_extension_check": self.context.get("skip_extension_check", False),
+            },
         )
 
         ser.is_valid(raise_exception=True)
+        if self.context["request"].user.is_anonymous:
+            ser.validated_data["created_by"] = None
         filecontent = ser.create(ser.validated_data)
 
         validated_data.pop("filecontent.file", None)

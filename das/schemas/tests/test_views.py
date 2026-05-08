@@ -2,8 +2,10 @@ import pytest
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from rest_framework import status
 
 from accounts.models import PermissionSet
+from activity.models import CommunityInput
 from choices.models import Choice
 from factories import (
     EventCategoryFactory,
@@ -418,7 +420,62 @@ def test_event_types_schema_accessible_to_authenticated_users(user_client, tenan
     for item in data["oneOf"]:
         assert "const" in item
         assert "title" in item
+        # description is optional but should be present if display field exists
 
     created_item = next(item for item in data["oneOf"] if item["const"] == str(event_type.id))
     assert created_item["title"] == event_type.display
     assert created_item["description"] == event_type.value
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestEventTypesDynamicSchemaViewCommunityInput:
+    schema_url = "schemas:event_types"
+
+    @pytest.fixture
+    def event_type(self):
+        return EventTypeFactory.create(value="survey_type_1", display="Survey Type 1")
+
+    @pytest.fixture
+    def other_event_type(self):
+        return EventTypeFactory.create(value="survey_type_2", display="Survey Type 2")
+
+    @pytest.fixture
+    def active_community_input(self, event_type):
+        ci = CommunityInput.objects.create(name="Public Survey", value="public_survey", is_active=True)
+        ci.event_types.add(event_type)
+        return ci
+
+    @pytest.fixture
+    def inactive_community_input(self, event_type):
+        ci = CommunityInput.objects.create(name="Old Survey", value="old_survey", is_active=False)
+        ci.event_types.add(event_type)
+        return ci
+
+    def test_unauthenticated_with_active_community_input_returns_200(self, client, active_community_input):
+        url = reverse("community-event-types-schema", kwargs={"community_input_value": active_community_input.value})
+        response = client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_returns_only_associated_event_types(self, client, active_community_input, event_type, other_event_type):
+        url = reverse("community-event-types-schema", kwargs={"community_input_value": active_community_input.value})
+        response = client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        returned_ids = {item["const"] for item in response.json()["oneOf"]}
+        assert str(event_type.id) in returned_ids
+        assert str(other_event_type.id) not in returned_ids
+
+    def test_unauthenticated_without_community_input_returns_401(self, client):
+        url = reverse(self.schema_url)
+        response = client.get(url)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_unknown_community_input_returns_401(self, client):
+        url = reverse(self.schema_url)
+        response = client.get(url, {"community_input": "does_not_exist"})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_inactive_community_input_returns_401(self, client, inactive_community_input):
+        url = reverse(self.schema_url)
+        response = client.get(url, {"community_input": inactive_community_input.value})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED

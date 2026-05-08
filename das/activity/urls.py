@@ -1,7 +1,7 @@
 from django.urls import path, re_path
 
 from activity import alerts_views, views
-from activity.views.events.types import IconsListView
+from activity.views.events.types import IconDownloadView, IconsListView
 from utils.constants import regex
 
 urlpatterns = [
@@ -9,7 +9,7 @@ urlpatterns = [
     re_path(r"^events/bulk-delete/?$", views.EventBulkDeleteView.as_view(), name="events-bulk-delete"),
     re_path(r"^events/geojson/?$", views.EventsGeoJsonView.as_view()),
     re_path(r"^events/export/?$", views.EventsExportView.as_view(), name="events-export"),
-    re_path(r"^events/schema/?$", views.EventSchemaView.as_view()),
+    re_path(r"^events/schema/?$", views.EventSchemaView.as_view(), name="events-schema"),
     re_path(
         rf"^events/schema/eventtype/(?P<eventtype>{regex.SLUG})/?$",
         views.EventTypeSchemaView.as_view(),
@@ -20,6 +20,9 @@ urlpatterns = [
     re_path(r"^events/factors/?$", views.EventFactorsView.as_view()),
     re_path(r"^events/eventtypes/?$", views.EventTypesView.as_view(), name="eventtypes"),
     re_path(r"^events/eventtypes/icons/?$", IconsListView.as_view(), name="eventtypes-list-icons"),
+    re_path(
+        r"^events/eventtypes/icons/(?P<icon_id>[^/]+)/?$", IconDownloadView.as_view(), name="eventtype-icon-download"
+    ),
     re_path(
         rf"^events/eventtypes/(?P<eventtype_id>{regex.UUID})/?$",
         views.EventTypeView.as_view(),

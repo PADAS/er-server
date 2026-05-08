@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 
 import utils.schema_utils as schema_utils
 from activity.models import Event, EventType, PatrolSegmentManager
-from activity.permissions import EventCategoryPermissions
+from activity.permissions import EventCategoryPermissions, EventTypePermissions
 from activity.search import get_event_search_schema
 from activity.serializers import EventJSONSchema, EventSerializer, TrackedBySerializer
 from choices.models import Choice
@@ -166,7 +166,7 @@ class EventsViewSchema(CustomSchema):
                 {
                     "name": "state",
                     "in": "query",
-                    "description": "only include events in this state(s). ex: new, active, resolved",
+                    "description": "only include events in this state(s). ex: new, active, resolved, review",
                 },
                 {
                     "name": "filter",
@@ -215,7 +215,7 @@ class EventsViewSchema(CustomSchema):
                                         "type": "array",
                                         "items": {
                                             "type": "string",
-                                            "enum": ["new", "active", "resolved"],
+                                            "enum": ["new", "active", "resolved", "review"],
                                         },
                                         "description": "Filter on the state of the event",
                                     },
@@ -359,7 +359,7 @@ class EventFilterSchemaView(APIView):
 
 
 class EventSchemaView(ListCreateAPIView):
-    permission_classes = (EventCategoryPermissions,)
+    permission_classes = (EventTypePermissions,)
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema

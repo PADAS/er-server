@@ -383,6 +383,95 @@ class EventTypeFactory(factory.django.DjangoModelFactory):
     )
 
 
+class EventTypeV2Factory(EventTypeFactory):
+    version = EventType.VersionChoices.VERSION_2
+    schema = json.dumps(
+        {
+            "json": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "species": {
+                        "deprecated": False,
+                        "description": "Species observed.",
+                        "title": "Species",
+                        "type": "string",
+                    },
+                    "count": {
+                        "deprecated": False,
+                        "description": "Number of individuals observed.",
+                        "title": "Count",
+                        "type": "number",
+                        "minimum": 1,
+                    },
+                    "behavior": {
+                        "deprecated": False,
+                        "description": "Observed animal behavior.",
+                        "title": "Behavior",
+                        "type": "string",
+                    },
+                    "observation_time": {
+                        "deprecated": False,
+                        "description": "When the sighting occurred.",
+                        "format": "date-time",
+                        "title": "Observation Time",
+                        "type": "string",
+                    },
+                    "notes": {
+                        "default": "",
+                        "deprecated": False,
+                        "description": "Additional field notes.",
+                        "title": "Notes",
+                        "type": "string",
+                    },
+                },
+                "required": ["species"],
+            },
+            "ui": {
+                "fields": {
+                    "species": {
+                        "inputType": "SHORT_TEXT",
+                        "placeholder": "e.g. African Elephant",
+                        "type": "TEXT",
+                        "parent": "section-1",
+                    },
+                    "count": {"placeholder": "", "type": "NUMERIC", "parent": "section-1"},
+                    "behavior": {
+                        "inputType": "SHORT_TEXT",
+                        "placeholder": "e.g. Feeding, Moving",
+                        "type": "TEXT",
+                        "parent": "section-1",
+                    },
+                    "observation_time": {"type": "DATE_TIME", "parent": "section-2"},
+                    "notes": {"inputType": "LONG_TEXT", "placeholder": "", "type": "TEXT", "parent": "section-2"},
+                },
+                "headers": {},
+                "order": ["section-1", "section-2"],
+                "sections": {
+                    "section-1": {
+                        "columns": 2,
+                        "isActive": True,
+                        "label": "Sighting",
+                        "leftColumn": [{"name": "species", "type": "field"}, {"name": "behavior", "type": "field"}],
+                        "rightColumn": [{"name": "count", "type": "field"}],
+                    },
+                    "section-2": {
+                        "columns": 1,
+                        "isActive": True,
+                        "label": "Details",
+                        "leftColumn": [
+                            {"name": "observation_time", "type": "field"},
+                            {"name": "notes", "type": "field"},
+                        ],
+                        "rightColumn": [],
+                    },
+                },
+            },
+        }
+    )
+
+
 class EventFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Event

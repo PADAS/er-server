@@ -58,7 +58,7 @@ Every alert rule can filter on these core event fields:
 
 - **Title** (string) — the event title.
 - **Priority** (select) — Red, Amber, or Green.
-- **State** (select) — new, active, or resolved.
+- **State** (select) — new, active, resolved, or review.
 - **Subject Group** (select) — groups associated with the event's related subjects.
 
 Additional variables are dynamically generated from the event type's schema (e.g., custom fields defined in event type properties).
@@ -89,7 +89,7 @@ Alerts include the following information:
 
 - **Event title** and **serial number** (Report ID).
 - **Priority** with color indicator (Red, Amber, Green).
-- **State** (New, Active, or Resolved) with inferred state logic.
+- **State** (New, Active, Resolved, or Review) with inferred state logic.
 - **Event time** and **alert time**.
 - **Location** — longitude and latitude with a deep link to the map view (if the event has a location).
 - **Reported by** — the user or entity that created the event.

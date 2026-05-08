@@ -732,6 +732,9 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         if created_after and not (since and until):
             raise ValueError("If using created_after, since and until must be provided and set to a limited time range")
 
+        # Evaluate before entering any UNION queryset context; TenantForeignKey deferred
+        # loading fails once hints from a combinator queryset are in play.
+        is_stationary = subject.is_stationary_subject
         if since is None or until is None:
             logger.warning(
                 "get_subject_observations_partitioned called without %s for "
@@ -789,7 +792,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                 queryset = queryset.filter(location__within=geometry)
 
             queryset = queryset.by_exclusion_flags(
-                filter_flag, include_empty_location=include_empty_location or subject.is_stationary_subject
+                filter_flag, include_empty_location=include_empty_location or is_stationary
             )
 
             # Apply ordering and limit
@@ -857,7 +860,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                     source_qs = source_qs.filter(location__within=geometry)
 
                 source_qs = source_qs.by_exclusion_flags(
-                    filter_flag, include_empty_location=include_empty_location or subject.is_stationary_subject
+                    filter_flag, include_empty_location=include_empty_location or is_stationary
                 )
 
                 # Add to batch query
@@ -2330,7 +2333,10 @@ class SubjectManager(TenantManagerMixin, models.Manager.from_queryset(SubjectQue
                     group, created = SubjectGroup.objects.get_or_create(name=group)
                 subject.groups.add(group)
         else:
-            subject.groups.set((SubjectGroup.objects.get_default(),))
+            try:
+                subject.groups.set((SubjectGroup.objects.get_default(),))
+            except SubjectGroup.DoesNotExist:
+                pass
 
         return subject
 

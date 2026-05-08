@@ -7,6 +7,11 @@ from rest_framework.request import Request
 from rest_framework.views import APIView
 
 from accounts.views import UsersView
+from activity.permissions import EventTypePermissions
+from activity.views.community_input_public import (
+    CommunityInputEventTypesViewSet,
+    CommunityInputScopedThrottle,
+)
 from activity.views.types_v2 import EventTypesViewSet
 from choices.views import ChoicesView
 from mapping.spatialviews import SpatialFeatureListView
@@ -94,13 +99,40 @@ class SpatialFeaturesDynamicSchemaView(DynamicSchemaFromSourceView):
     default_description_field = "feature_class_name"
 
 
+class CommunityInputEventTypesDynamicSchemaView(DynamicSchemaFromSourceView):
+    permission_classes = []
+    authentication_classes = []
+    throttle_classes = [CommunityInputScopedThrottle]
+    throttle_scope = "community_input_read"
+    schema_title = "Event Types"
+    schema_description = "Event types for a community input"
+    default_const_field = "id"
+    default_title_field = "value"
+    default_description_field = "display"
+
+    def get_source_view(self, request: Request) -> Type[APIView]:
+        return CommunityInputEventTypesViewSet
+
+    def get_source_view_initkwargs(self, request: Request) -> dict:
+        return {"community_input_value": self.kwargs["community_input_value"]}
+
+
 class EventTypesDynamicSchemaView(DynamicSchemaFromSourceView):
     source_view = EventTypesViewSet
+    permission_classes = (EventTypePermissions,)
     schema_title = "Event Types"
     schema_description = "All event types list"
     default_const_field = "id"
     default_title_field = "event_type_schema_title"
     default_description_field = "event_type_schema_description"
+
+    def get_source_view(self, request: Request) -> Type[APIView]:
+        class EventTypesSchemaSourceView(EventTypesViewSet):
+            # The outer EventTypesDynamicSchemaView already validated permissions
+            # (including community_input bypass), so no additional check is needed here.
+            permission_classes = []
+
+        return EventTypesSchemaSourceView
 
     @staticmethod
     def _stripped_display_and_value(item: dict[str, Any]) -> tuple[str, str]:

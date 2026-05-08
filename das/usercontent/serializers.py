@@ -104,7 +104,7 @@ class UserContentSerializer(rest_framework.serializers.Serializer):
 
     def create(self, validated_data):
         ext = validated_data["file"].name.rsplit(".", 1)[-1].lower() if "." in validated_data["file"].name else ""
-        if ALLOWED_EXTENSIONS and ext not in ALLOWED_EXTENSIONS:
+        if ALLOWED_EXTENSIONS and ext not in ALLOWED_EXTENSIONS and not self.context.get("skip_extension_check"):
             raise rest_framework.serializers.ValidationError({"file": f"File type '.{ext}' is not permitted."})
         if ext in IMAGEFILE_EXTENSIONS:
             ser = ImageFileContentSerializer()

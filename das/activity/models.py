@@ -63,7 +63,7 @@ from revision.manager import (
     relation_deleted,
 )
 from utils.gis import convert_to_point, get_circle_polygon_from_point
-from utils.html import clean_user_text
+from utils.html import clean_user_data, clean_user_text
 from utils.json import parse_bool
 from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager
@@ -82,6 +82,7 @@ from .constants import (
     SC_ACTIVE,
     SC_NEW,
     SC_RESOLVED,
+    SC_REVIEW,
     STATE_CHOICES,
 )
 
@@ -950,6 +951,7 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
     SC_NEW = SC_NEW
     SC_ACTIVE = SC_ACTIVE
     SC_RESOLVED = SC_RESOLVED
+    SC_REVIEW = SC_REVIEW
 
     STATE_CHOICES = STATE_CHOICES
 
@@ -994,7 +996,7 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
     message = models.TextField(blank=True)
     comment = models.TextField(blank=True, null=True, verbose_name="Additional message text")
 
-    title = models.TextField(blank=True, null=True, verbose_name="Event Title.")
+    title = models.TextField(blank=True, null=True, verbose_name="Event Title")
 
     created_by_user = TenantForeignKey(
         settings.AUTH_USER_MODEL,
@@ -1340,7 +1342,7 @@ class EventNoteManager(TenantManagerMixin, models.Manager):
 class EventNote(TenantModelMixin, RevisionMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     text = models.TextField()
-    created_by_user = TenantForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True)
+    created_by_user = TenantForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True)
     event = TenantForeignKey(Event, on_delete=models.CASCADE, related_name="notes", related_query_name="note")
     revision = Revision()
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
@@ -1398,6 +1400,8 @@ class EventDetails(TenantModelMixin, RevisionMixin, TimestampedModel):
         default_manager_name = "objects"
 
     def save(self, *args, update_parent_event=True, **kwargs):
+        if self.data is not None:
+            self.data = clean_user_data(self.data, "EventDetails.data")
         result = super().save(*args, **kwargs)
         if update_parent_event:
             self.event.dependent_table_updated()
@@ -2360,7 +2364,7 @@ class PatrolSegmentManager(TenantManagerMixin, models.Manager):
             .all()
             .by_is_active()
         )
-        subject_groups = PatrolConfiguration.objects.first().effective_subject_groups
+        subject_groups = PatrolConfiguration.get_instance().effective_subject_groups
         subjects_available = active_subjects.by_subjectgroups(subject_groups, user=user)
 
         return subjects_available
@@ -2498,3 +2502,88 @@ class EventGeometry(TenantModelMixin, RevisionMixin, TimestampedModel):
         result = super().save(*args, **kwargs)
         self.event.dependent_table_updated()
         return result
+
+
+class CommunityInput(TenantModelMixin, TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=255)
+    value = models.CharField(
+        max_length=255,
+        validators=[
+            RegexValidator(
+                regex=r"^[A-Za-z0-9_]+$",
+                message="Value must contain only alphanumeric characters or underscores.",
+            )
+        ],
+    )
+    is_active = models.BooleanField(default=True)
+    event_types = models.ManyToManyField(
+        EventType,
+        related_name="community_inputs",
+        through="CommunityInputEventType",
+        blank=True,
+    )
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    objects = CommonTenantManager()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        verbose_name = _("Community Input")
+        verbose_name_plural = _("Community Inputs")
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        constraints = [
+            UniqueConstraint(
+                fields=["value", "das_tenant"],
+                name="unique_community_input_value_per_tenant",
+            )
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class CommunityInputEventType(TenantThroughModel):
+    community_input = TenantForeignKey(CommunityInput, on_delete=models.CASCADE, db_constraint=False)
+    event_type = TenantForeignKey(EventType, on_delete=models.CASCADE, db_constraint=False)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta(TenantThroughModel.Meta):
+        ordering = ["order"]
+        constraints = [
+            UniqueConstraint(
+                fields=["community_input", "event_type", "das_tenant"],
+                name="unique_community_input_event_type_per_tenant",
+            )
+        ]
+
+
+class CommunityInputEvent(TenantThroughModel):
+    """Associates an event created via a community input survey with that survey.
+
+    Deleting or disabling the CommunityInput sets community_input to NULL here,
+    leaving the Event untouched.
+    """
+
+    community_input = TenantForeignKey(
+        CommunityInput,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_constraint=False,
+        related_name="submitted_events",
+    )
+    event = TenantForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        db_constraint=False,
+        related_name="community_input_submission",
+    )
+
+    class Meta(TenantThroughModel.Meta):
+        constraints = [
+            UniqueConstraint(
+                fields=["event", "das_tenant"],
+                name="unique_community_input_event_per_tenant",
+            )
+        ]

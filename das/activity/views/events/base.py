@@ -52,6 +52,7 @@ from activity.models import (
 from activity.permissions import (
     EventCategoryGeographicPermission,
     EventCategoryPermissions,
+    EventsPermissions,
     IsOwner,
 )
 from activity.schemas.schema_adapter import SchemaAdapterFactory
@@ -508,7 +509,11 @@ class EventsExportView(APIView):
                 "Title": self.escape_string(event.get("title", "")),
                 "Priority": Event.PRIORITY_LABELS_MAP.get(event.get("priority", ""), ""),
                 "Priority_Internal_Value": event.get("priority", ""),
-                "Report_Status": "Resolved" if event["state"] == Event.SC_RESOLVED else "Active",
+                "Report_Status": (
+                    "Resolved"
+                    if event["state"] == Event.SC_RESOLVED
+                    else "Review" if event["state"] == Event.SC_REVIEW else "Active"
+                ),
                 reported_at_label: convert_to_timezone(event["event_time"], current_tz).strftime("%Y-%m-%d %H:%M"),
                 "Latitude": event["location"].y if event["location"] is not None else "",
                 "Longitude": event["location"].x if event["location"] is not None else "",
@@ -672,7 +677,7 @@ class EventsView(ListCreateAPIView):
 
     page_size
     """
-    permission_classes = (EventCategoryGeographicPermission,)
+    permission_classes = (EventsPermissions,)
     filter_backends = (
         EventPermissionsFilter,
         EventListFilter,
@@ -760,6 +765,7 @@ class EventsView(ListCreateAPIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             serializer.save()
+
             data = serializer.data
             data = data if len(new_record) > 1 else data[0]
             return Response(data, status=status.HTTP_201_CREATED)

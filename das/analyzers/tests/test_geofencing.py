@@ -579,8 +579,10 @@ class TestGeofenceAnalyzerQuietPeriod:
         monkeypatch,
     ):
 
-        wildlife_subject_type = SubjectType.objects.get(value="wildlife")
-        elephant_subject_subtype = SubjectSubType.objects.get(value="elephant")
+        wildlife_subject_type, _ = SubjectType.objects.get_or_create(value="wildlife", defaults={"display": "Wildlife"})
+        elephant_subject_subtype, _ = SubjectSubType.objects.get_or_create(
+            value="elephant", defaults={"display": "Elephant", "subject_type": wildlife_subject_type}
+        )
         elephant_subject_subtype.subject_type = wildlife_subject_type
         elephant_subject_subtype.save()
 

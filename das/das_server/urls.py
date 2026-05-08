@@ -89,6 +89,7 @@ urlpatterns = [
     path("api/v1.0/core/", include("core.urls")),
     path("api/v2.0/schemas/", include("schemas.urls", namespace="schemas")),
     path("api/v2.0/activity/", include("activity.urls_v2")),
+    path("api/v2.0/community/", include("activity.community_urls")),
     path(
         "api/v2.0/subject/<uuid:subject_id>/tracks/",
         SubjectTrackSegmentsV2View.as_view(),
