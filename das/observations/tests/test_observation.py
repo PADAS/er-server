@@ -583,7 +583,6 @@ class TwoSubjectsOneSource(NamedTuple):
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def two_subjects_one_source(db):
     bobo = Subject.objects.create_subject(name="Bobo", subject_subtype_id="elephant")
     ivy = Subject.objects.create_subject(name="Ivy", subject_subtype_id="elephant")

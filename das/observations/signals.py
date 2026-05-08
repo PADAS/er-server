@@ -424,13 +424,18 @@ def _union_assigned_range_bounds(assigned_range_a, assigned_range_b):
     return lower, upper
 
 
-def _create_bridge_segment(prev_obs, next_obs, subject):
+def _create_bridge_segment(prev_obs: Observation, next_obs: Observation, subject: Subject) -> None:
     """
     Create a bridge segment between two observations.
-    Caller relies on idempotent segment design; real errors propagate.
+
+    Uses get_or_create_segment so concurrent callers (e.g. an in-flight recompute
+    task that already created this segment) do not raise IntegrityError.
     """
-    ObservationSegment.objects.create_segment(prev_obs, next_obs, subject)
-    logger.debug("Created bridge segment %s -> %s", prev_obs.id, next_obs.id)
+    _segment, created = ObservationSegment.objects.get_or_create_segment(prev_obs, next_obs, subject)
+    if created:
+        logger.debug("Created bridge segment %s -> %s", prev_obs.id, next_obs.id)
+    else:
+        logger.debug("Bridge segment already existed %s -> %s", prev_obs.id, next_obs.id)
 
 
 def _delete_bridge_segment(prev_obs, next_obs, tenant_id):

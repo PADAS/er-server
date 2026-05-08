@@ -22,8 +22,7 @@ class ChoiceDetails(NamedTuple):
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("db")
-def choices_fixture(das_tenant_monkeypatch, django_user_model):
+def choices_fixture(db, das_tenant_monkeypatch, django_user_model):
     """Create four choices in the current tenant with unique values (parallel-safe)."""
     Choice.objects.all().delete()
     suffix = uuid.uuid4().hex[:8]
